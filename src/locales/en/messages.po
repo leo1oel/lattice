@@ -13,24 +13,24 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
 msgstr " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid " ends it for everyone."
 msgstr " ends it for everyone."
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " et al."
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid " if Build fails on a blank machine."
 msgstr " if Build fails on a blank machine."
 
 #. placeholder {0}: target.folder
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files in it and isn’t linked to Overleaf.\n"
 "\n"
 "OK — link that folder to this Overleaf project. Files that differ are kept both ways: Overleaf’s version takes the filename and yours is saved beside it as “name (local conflict …)”. Nothing is overwritten or thrown away.\n"
@@ -43,19 +43,19 @@ msgstr "“{0}” already has files in it and isn’t linked to Overleaf.\n"
 "Cancel — download a separate copy into a new folder and leave that one alone."
 
 #. placeholder {0}: link.projectName
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” stays linked"
 msgstr "“{0}” stays linked"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "(empty span)"
 msgstr "(empty span)"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "(no comment text)"
 msgstr "(no comment text)"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "(you)"
 msgstr "(you)"
 
@@ -66,23 +66,23 @@ msgid "{0} · {1} — click to follow"
 msgstr "{0} · {1} — click to follow"
 
 #. placeholder {0}: work.citedByCount
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
 msgstr "{0} cites"
 
 #. placeholder {0}: entry.files.length
 #. placeholder {0}: update.paths.length
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "{0} file"
 msgstr "{0} file"
 
 #. placeholder {0}: entry.files.length
 #. placeholder {0}: props.fileCount
 #. placeholder {0}: update.paths.length
-#: src/collab-dialog.tsx
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/collab/collab-dialog.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "{0} files"
 msgstr "{0} files"
 
@@ -92,7 +92,7 @@ msgid "{0} markers"
 msgstr "{0} markers"
 
 #. placeholder {0}: props.peerCount
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "{0} others"
 msgstr "{0} others"
 
@@ -101,54 +101,54 @@ msgstr "{0} others"
 msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} connected · {0}"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "{count} comments"
 msgstr "{count} comments"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "{detail} Find in project will stay lexical."
 msgstr "{detail} Find in project will stay lexical."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
 msgstr "{installedProduct} finished installing, but Lattice could not run the final verification."
 
 #. placeholder {0}: issues.join("\n")
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 msgstr "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — no local reading available"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "{title} paper reader"
 msgstr "{title} paper reader"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
 
@@ -160,433 +160,435 @@ msgstr "⌘⇧F · source files and papers"
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · all .tex files"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 file"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "1 other"
 msgstr "1 other"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "1 paper"
 msgstr "1 paper"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
 msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "a over b"
 msgstr "a over b"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you."
 msgstr "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "A sync that finds a file missing here offers to remove it from Overleaf too."
 msgstr "A sync that finds a file missing here offers to remove it from Overleaf too."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Abstract"
 msgstr "Abstract"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Abstract environment"
 msgstr "Abstract environment"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Accents"
 msgstr "Accents"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Activity log"
 msgstr "Activity log"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Ada"
 msgstr "Ada"
 
-#: src/literature-discovery-panel.tsx
-#: src/settings-dialog.tsx
+#: src/papers/literature-discovery-panel.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "Add"
 
 #: src/App.tsx
-#: src/bib-entry-dialog.tsx
+#: src/app/app-workspace-sidebar.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Add bibliography entry"
 msgstr "Add bibliography entry"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
-#: src/document-canvas.tsx
-#: src/visual-markdown-editor.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "Add comment"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "Add project term"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "added"
 msgstr "added"
 
-#: src/App.tsx
-#: src/history-drawer.tsx
-#: src/settings-dialog.tsx
+#: src/app/app-workspace-sidebar.tsx
+#: src/history/history-drawer.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Agent"
 msgstr "Agent"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
 msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
 
 #. placeholder {0}: item.threadTitle
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Agent task: {0}"
 msgstr "Agent task: {0}"
 
-#: src/App.tsx
+#: src/app/app-history-drawers.tsx
 msgid "Agent turn"
 msgstr "Agent turn"
 
-#: src/App.tsx
+#: src/app/app-history-drawers.tsx
 msgid "Agent turn review"
 msgstr "Agent turn review"
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "Agent unavailable"
 msgstr "Agent unavailable"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Aleph"
 msgstr "Aleph"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Algorithm"
 msgstr "Algorithm"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Algorithm block (requires algorithm and algpseudocode)"
 msgstr "Algorithm block (requires algorithm and algpseudocode)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Align"
 msgstr "Align"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Align*"
 msgstr "Align*"
 
-#: src/history-drawer.tsx
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
+#: src/history/history-drawer.tsx
 msgid "All"
 msgstr "All"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "All Functions…"
 msgstr "All Functions…"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "All levels"
 msgstr "All levels"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "All of your projects are archived or trashed. Tick “Show archived” to see them."
 msgstr "All of your projects are archived or trashed. Tick “Show archived” to see them."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Almost done."
 msgstr "Almost done."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Alpha"
 msgstr "Alpha"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Already in Papers"
 msgstr "Already in Papers"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Amalgamation"
 msgstr "Amalgamation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Ampersand"
 msgstr "Ampersand"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "An agent that works across your project"
 msgstr "An agent that works across your project"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
 msgstr "Analyze results in a live spreadsheet"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Angle"
 msgstr "Angle"
 
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
-#: src/visual-markdown-editor.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Anonymous"
 msgstr "Anonymous"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "App updates"
 msgstr "App updates"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Applies to the LaTeX source editor only."
 msgstr "Applies to the LaTeX source editor only."
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue."
 msgstr "Approve the macOS prompt to continue."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Approximately equal"
 msgstr "Approximately equal"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Archived"
 msgstr "Archived"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Arrows"
 msgstr "Arrows"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Article"
 msgstr "Article"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "Ask before deleting"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Asterisk operator"
 msgstr "Asterisk operator"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Attention paper"
 msgstr "Attention paper"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "Author"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Automatic"
 msgstr "Automatic"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Automatic build"
 msgstr "Automatic build"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Automatic updates"
 msgstr "Automatic updates"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Back"
 msgstr "Back"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Back prime"
 msgstr "Back prime"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Back to {view}"
 msgstr "Back to {view}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bar accent"
 msgstr "Bar accent"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bar accent example"
 msgstr "Bar accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
 msgstr "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installation progress"
 msgstr "BasicTeX installation progress"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX installed"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Beta"
 msgstr "Beta"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Beth"
 msgstr "Beth"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Bib"
 msgstr "Bib"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "Bibliographic citation (requires natbib or compatible package)"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Big triangle down"
 msgstr "Big triangle down"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Big triangle up"
 msgstr "Big triangle up"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "binary"
 msgstr "binary"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Binary file changed."
 msgstr "Binary file changed."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Binomial"
 msgstr "Binomial"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Binomial coefficient"
 msgstr "Binomial coefficient"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Blackboard bold"
 msgstr "Blackboard bold"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Block quotation"
 msgstr "Block quotation"
 
-#: src/canvas-toolbar.tsx
-#: src/document-canvas.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Blog"
 msgstr "Blog"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Blog view gives you an illustrated overview before you read the full paper."
 msgstr "Blog view gives you an illustrated overview before you read the full paper."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bmatrix"
 msgstr "Bmatrix"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
 msgstr "Body {body} · raw {raw} · {chars} chars"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Body word count unavailable"
 msgstr "Body word count unavailable"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 msgstr "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bold"
 msgstr "Bold"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bold text command"
 msgstr "Bold text command"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Book"
 msgstr "Book"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bottom / false"
 msgstr "Bottom / false"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Brace-delimited matrix"
 msgstr "Brace-delimited matrix"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bracketed matrix"
 msgstr "Bracketed matrix"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Breve accent example"
 msgstr "Breve accent example"
 
 #. placeholder {0}: file.pathname
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Bring back {0}"
 msgstr "Bring back {0}"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Browse your bibliography"
 msgstr "Browse your bibliography"
 
 #: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Build"
 msgstr "Build"
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild."
 msgstr "Build automatically · Command-S builds now. Shift-click for clean rebuild."
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
 msgstr "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
 
@@ -594,178 +596,178 @@ msgstr "Build only when requested · Command-S builds now. Shift-click for clean
 msgid "Build project"
 msgstr "Build project"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper."
 msgstr "Build the project to preview the paper."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "Builds"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bullet"
 msgstr "Bullet"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Bulleted list"
 msgstr "Bulleted list"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "cached"
 msgstr "cached"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
-#: src/bib-entry-dialog.tsx
-#: src/collab-dialog.tsx
-#: src/confirm-action-dialog.tsx
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
-#: src/overleaf-connect.tsx
-#: src/overleaf-history.tsx
-#: src/project-dialogs.tsx
-#: src/spreadsheet-editor.tsx
-#: src/versions-timeline.tsx
-#: src/visual-markdown-editor.tsx
+#: src/canvas/document-canvas.tsx
+#: src/collab/collab-dialog.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-history.tsx
+#: src/papers/bib-entry-dialog.tsx
+#: src/project/project-dialogs.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
 msgstr "Capital delta"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital gamma"
 msgstr "Capital gamma"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital lambda"
 msgstr "Capital lambda"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital omega"
 msgstr "Capital omega"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital phi"
 msgstr "Capital phi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital pi"
 msgstr "Capital pi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital psi"
 msgstr "Capital psi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital sigma"
 msgstr "Capital sigma"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital theta"
 msgstr "Capital theta"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital upsilon"
 msgstr "Capital upsilon"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Capital xi"
 msgstr "Capital xi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Cases"
 msgstr "Cases"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Center"
 msgstr "Center"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Centered block"
 msgstr "Centered block"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Centered display equation"
 msgstr "Centered display equation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Centered dot"
 msgstr "Centered dot"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Centered multi-line equations"
 msgstr "Centered multi-line equations"
 
-#: src/App.tsx
-#: src/history-drawer.tsx
+#: src/app/app-history-drawers.tsx
+#: src/history/history-drawer.tsx
 msgid "Changes"
 msgstr "Changes"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "chat"
 msgstr "chat"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Check accent example"
 msgstr "Check accent example"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Check for updates"
 msgstr "Check for updates"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Check spelling in prose"
 msgstr "Check spelling in prose"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "checked"
 msgstr "checked"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "Checking…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper."
 msgstr "Checks English spelling and grammar as you type with Harper."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Checks the tools Lattice needs to compile LaTeX."
 msgstr "Checks the tools Lattice needs to compile LaTeX."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Chi"
 msgstr "Chi"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Choose location"
 msgstr "Choose location"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text."
 msgstr "Choose the language used for menus, settings, and help text."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Choose the theme for Lattice on this device."
 msgstr "Choose the theme for Lattice on this device."
 
@@ -773,47 +775,47 @@ msgstr "Choose the theme for Lattice on this device."
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Circled dot"
 msgstr "Circled dot"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Circled minus"
 msgstr "Circled minus"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Circled plus"
 msgstr "Circled plus"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Circled slash"
 msgstr "Circled slash"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Circled times / tensor"
 msgstr "Circled times / tensor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Citation"
 msgstr "Citation"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Citation key"
 msgstr "Citation key"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
 msgstr "Citation resolve query"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Citation tool"
 msgstr "Citation tool"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Citations"
 msgstr "Citations"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Clean"
 msgstr "Clean"
 
@@ -825,95 +827,95 @@ msgstr "Clean aux files"
 msgid "Clean rebuild"
 msgstr "Clean rebuild"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Cleaning…"
 msgstr "Cleaning…"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "Clear"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Clear PDF search"
 msgstr "Clear PDF search"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Click “An Image is Worth 16×16 Words”"
 msgstr "Click “An Image is Worth 16×16 Words”"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Click Agent"
 msgstr "Click Agent"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Click Paper to read the full text"
 msgstr "Click Paper to read the full text"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Click Papers"
 msgstr "Click Papers"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "click to sync"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Close for everyone"
 msgstr "Close for everyone"
 
-#: src/App.tsx
+#: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "Close Git workspace"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Close insert palette"
 msgstr "Close insert palette"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Close settings"
 msgstr "Close settings"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Close split"
 msgstr "Close split"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Closed-path integral"
 msgstr "Closed-path integral"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Club suit"
 msgstr "Club suit"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "Code listing"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Collab display name"
 msgstr "Collab display name"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Collab invite"
 msgstr "Collab invite"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Collab room name"
 msgstr "Collab room name"
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "Collaboration failed"
 msgstr "Collaboration failed"
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "Collaboration is read-only"
 msgstr "Collaboration is read-only"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Collaboration, Overleaf, and history"
 msgstr "Collaboration, Overleaf, and history"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "Color theme"
 
@@ -921,27 +923,27 @@ msgstr "Color theme"
 msgid "Command palette"
 msgstr "Command palette"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "comment"
 msgstr "comment"
 
-#: src/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Comment"
 msgstr "Comment"
 
-#: src/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Comment by {author}"
 msgstr "Comment by {author}"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Comments"
 msgstr "Comments"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Compile engine"
 msgstr "Compile engine"
 
@@ -949,397 +951,402 @@ msgstr "Compile engine"
 msgid "Compile LaTeX"
 msgstr "Compile LaTeX"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "Compile/PDF stays on each Mac. "
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Composition / ring"
 msgstr "Composition / ring"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "conference"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Conference font verification is missing."
 msgstr "Conference font verification is missing."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Congruent"
 msgstr "Congruent"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
 
 #. placeholder {0}: status.email ?? status.name ?? fallbackAccountName
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "Connected as {0}"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Connected live · click to sync everything"
 msgstr "Connected live · click to sync everything"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Connecting live editing…"
 msgstr "Connecting live editing…"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Connecting to the live session…"
 msgstr "Connecting to the live session…"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Connecting…"
 msgstr "Connecting…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Connection"
 msgstr "Connection"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Connection failed"
 msgstr "Connection failed"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above."
 msgstr "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Contains as member"
 msgstr "Contains as member"
 
-#: src/confirm-action-dialog.tsx
-#: src/onboarding-tour.tsx
-#: src/spreadsheet-editor.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Continue"
 msgstr "Continue"
 
-#: src/confirm-action-dialog.tsx
-#: src/spreadsheet-editor.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Continue?"
 msgstr "Continue?"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Contour integral"
 msgstr "Contour integral"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Copied"
 msgstr "Copied"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Copy"
 msgstr "Copy"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Copy all"
 msgstr "Copy all"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Copy invite"
 msgstr "Copy invite"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Copy notification command"
 msgstr "Copy notification command"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Copy path"
 msgstr "Copy path"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
 msgstr "Copyright"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Correction/update"
 msgstr "Correction/update"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
 msgstr "Could not change Overleaf sync"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Could not open PDF link"
 msgstr "Could not open PDF link"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Could not render page {pageNumber}. {pageError}"
 msgstr "Could not render page {pageNumber}. {pageError}"
 
 #. placeholder {0}: resources.error.message
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Could not render these changes: {0}"
 msgstr "Could not render these changes: {0}"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Couldn’t check for updates"
 msgstr "Couldn’t check for updates"
 
-#: src/project-dialogs.tsx
+#: src/settings/settings-dialog.tsx
+msgid "Couldn’t install the update"
+msgstr "Couldn’t install the update"
+
+#: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "Create a research project"
 
-#: src/history-drawer.tsx
-#: src/versions-timeline.tsx
+#: src/history/history-drawer.tsx
+#: src/history/versions-timeline.tsx
 msgid "created"
 msgstr "created"
 
 #. placeholder {0}: venue.label
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Creates a {0} preprint template with bibliography and project brief."
 msgstr "Creates a {0} preprint template with bibliography and project brief."
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Creating an invite…"
 msgstr "Creating an invite…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Cross-reference label"
 msgstr "Cross-reference label"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref citation-health metadata is currently unavailable"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Crossref reports update type"
 msgstr "Crossref reports update type"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Crossref type"
 msgstr "Crossref type"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Curly matrix"
 msgstr "Curly matrix"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dagger"
 msgstr "Dagger"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dagger text symbol"
 msgstr "Dagger text symbol"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Daleth"
 msgstr "Daleth"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Dark"
 msgstr "Dark"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
 msgstr "Decrement year"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "Default"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Degree"
 msgstr "Degree"
 
-#: src/confirm-action-dialog.tsx
-#: src/editor-comments-panel.tsx
-#: src/navigator.tsx
-#: src/spreadsheet-editor.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/project/navigator.tsx
 msgid "Delete"
 msgstr "Delete"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
 
-#: src/App.tsx
+#: src/app/app-editor-panels.tsx
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
 msgstr "Delete this comment? Its replies will be removed too. This cannot be undone."
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Delete this history entry"
 msgstr "Delete this history entry"
 
-#: src/confirm-action-dialog.tsx
+#: src/components/ui/confirm-action-dialog.tsx
 msgid "Delete this item?"
 msgstr "Delete this item?"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
-#: src/history-drawer.tsx
-#: src/versions-timeline.tsx
+#: src/history/history-drawer.tsx
+#: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "deleted"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Delimiters"
 msgstr "Delimiters"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Delta"
 msgstr "Delta"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Description"
 msgstr "Description"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Diagnostics"
 msgstr "Diagnostics"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Diamond operator"
 msgstr "Diamond operator"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Diamond suit"
 msgstr "Diamond suit"
 
 #. placeholder {0}: props.change.path
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
 
 #: src/App.tsx
-#: src/literature-discovery-panel.tsx
+#: src/app/app-workspace-sidebar.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Discover literature"
 msgstr "Discover literature"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Dismiss notification"
 msgstr "Dismiss notification"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Display"
 msgstr "Display"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Display fraction"
 msgstr "Display fraction"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Display math"
 msgstr "Display math"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Divides / conditioned on"
 msgstr "Divides / conditioned on"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Division"
 msgstr "Division"
 
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "Document outline"
 msgstr "Document outline"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Document view"
 msgstr "Document view"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Does not exist"
 msgstr "Does not exist"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dot accent"
 msgstr "Dot accent"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dot accent example"
 msgstr "Dot accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dotless i"
 msgstr "Dotless i"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Dotless j"
 msgstr "Dotless j"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Double dagger"
 msgstr "Double dagger"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Double dagger text symbol"
 msgstr "Double dagger text symbol"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Double integral"
 msgstr "Double integral"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Double-dot accent example"
 msgstr "Double-dot accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Down arrow"
 msgstr "Down arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Download {url}"
 msgstr "Download {url}"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Download time depends on your connection."
 msgstr "Download time depends on your connection."
 
 #. placeholder {0}: cloning.name
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Downloading {0} from Overleaf… this can take a minute for large projects."
 msgstr "Downloading {0} from Overleaf… this can take a minute for large projects."
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Downloading BasicTeX…"
 msgstr "Downloading BasicTeX…"
 
-#: src/paper-import-progress.ts
+#: src/papers/paper-import-progress.ts
 msgid "Downloading full text and figures…"
 msgstr "Downloading full text and figures…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
 msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
 
@@ -1347,220 +1354,220 @@ msgstr "Drop project files here to open them, or drag this into a TeX or Markdow
 msgid "Dual source view"
 msgstr "Dual source view"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
 msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
 
 #: src/App.tsx
-#: src/canvas-toolbar.tsx
-#: src/editor-comments-panel.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Edit"
 msgstr "Edit"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
-#: src/bib-entry-dialog.tsx
-#: src/navigator.tsx
+#: src/papers/bib-entry-dialog.tsx
+#: src/project/navigator.tsx
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Edit main.tex on the left. The PDF on the right updates automatically."
 msgstr "Edit main.tex on the left. The PDF on the right updates automatically."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Edit notes.md on the left and see the formatted result update live on the right."
 msgstr "Edit notes.md on the left and see the formatted result update live on the right."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit source"
 msgstr "Edit source"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "Edit source and preview PDF"
 
-#: src/history-drawer.tsx
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/history-drawer.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "edited"
 msgstr "edited"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editing"
 msgstr "Editing"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Editing live with Overleaf · click to sync everything else"
 msgstr "Editing live with Overleaf · click to sync everything else"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editor & builds"
 msgstr "Editor & builds"
 
-#: src/canvas-toolbar.tsx
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Editor comments"
 msgstr "Editor comments"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editor font size"
 msgstr "Editor font size"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editor keymap"
 msgstr "Editor keymap"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Editor shortcuts"
 msgstr "Editor shortcuts"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Editor status"
 msgstr "Editor status"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Edits sync live with Overleaf."
 msgstr "Edits sync live with Overleaf."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Element of"
 msgstr "Element of"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Emphasis"
 msgstr "Emphasis"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Emphasized text command"
 msgstr "Emphasized text command"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Empty secondary editor"
 msgstr "Empty secondary editor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Empty set"
 msgstr "Empty set"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Empty set (variant)"
 msgstr "Empty set (variant)"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
 msgstr "Enable version tracking"
 
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "End “{0}” for everyone and remove it from this Mac"
 msgstr "End “{0}” for everyone and remove it from this Mac"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "English"
 msgstr "English"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Enter a page number"
 msgstr "Enter a page number"
 
-#: src/document-canvas.tsx
-#: src/pdf-viewer.tsx
+#: src/canvas/document-canvas.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "Enter a zoom percentage or scroll to zoom"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Enter your name so others can see who is editing."
 msgstr "Enter your name so others can see who is editing."
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Entry type"
 msgstr "Entry type"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Enumerate"
 msgstr "Enumerate"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Environment"
 msgstr "Environment"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Epsilon"
 msgstr "Epsilon"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Equation"
 msgstr "Equation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Equation reference"
 msgstr "Equation reference"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Equation*"
 msgstr "Equation*"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Equilibrium arrows"
 msgstr "Equilibrium arrows"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Equivalent / congruent"
 msgstr "Equivalent / congruent"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Error"
 msgstr "Error"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "estimate"
 msgstr "estimate"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Estimator / unit vector mark"
 msgstr "Estimator / unit vector mark"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Eta"
 msgstr "Eta"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "Everything for the paper lives in one folder"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Excel workbook"
 msgstr "Excel workbook"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Export Excel"
 msgstr "Export Excel"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
@@ -1568,23 +1575,23 @@ msgstr "Export Excel workbook"
 msgid "Export project ZIP"
 msgstr "Export project ZIP"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "Export ZIP"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Expression of concern"
 msgstr "Expression of concern"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Feedback"
 msgstr "Feedback"
 
-#: src/paper-import-progress.ts
+#: src/papers/paper-import-progress.ts
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Figure"
 msgstr "Figure"
 
@@ -1592,96 +1599,97 @@ msgstr "Figure"
 msgid "Figures"
 msgstr "Figures"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "file restore"
 msgstr "file restore"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "file upload"
 msgstr "file upload"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Files in this change"
 msgstr "Files in this change"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Filled square"
 msgstr "Filled square"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter comments…"
 msgstr "Filter comments…"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter editor comments"
 msgstr "Filter editor comments"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Filter project changes"
 msgstr "Filter project changes"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Filter snippets"
 msgstr "Filter snippets"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Final sigma"
 msgstr "Final sigma"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "find"
 msgstr "find"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Find in PDF"
 msgstr "Find in PDF"
 
 #: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "Find in project"
 msgstr "Find in project"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Finish"
 msgstr "Finish"
 
-#: src/App.tsx
-#: src/tex-setup-wizard.tsx
+#: src/app/use-collab-v2-session.ts
+#: src/build/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
 msgstr "Fit page to height"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "Fit page to width"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Flat"
 msgstr "Flat"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Floating figure with image, caption, and label (requires graphicx)"
 msgstr "Floating figure with image, caption, and label (requires graphicx)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "Floating table with ruled rows (requires booktabs)"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Footnote"
 msgstr "Footnote"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Footnote at the cursor"
 msgstr "Footnote at the cursor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "For all"
 
@@ -1689,71 +1697,71 @@ msgstr "For all"
 msgid "Format document"
 msgstr "Format document"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Formulas"
 msgstr "Formulas"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Formulas and Excel export"
 msgstr "Formulas and Excel export"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
 msgstr "Fraction"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
 msgstr "Frown relation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Gamma"
 msgstr "Gamma"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Gather"
 msgstr "Gather"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Gather*"
 msgstr "Gather*"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "General"
 msgstr "General"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Get the gist before you dive in"
 msgstr "Get the gist before you dive in"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Gets (short left arrow)"
 msgstr "Gets (short left arrow)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Gimel"
 msgstr "Gimel"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git bridge"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
 
-#: src/App.tsx
+#: src/app/app-history-drawers.tsx
 msgid "Git workspace"
 msgstr "Git workspace"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Go back (⌘[)"
 msgstr "Go back (⌘[)"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Go forward (⌘])"
 msgstr "Go forward (⌘])"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Go to {title}"
 msgstr "Go to {title}"
 
@@ -1761,36 +1769,37 @@ msgstr "Go to {title}"
 msgid "Go to line"
 msgstr "Go to line"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Go to line (⌘G)"
 msgstr "Go to line (⌘G)"
 
 #. placeholder {0}: node.line
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "Go to line {0}"
 msgstr "Go to line {0}"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Go to linked PDF location"
 msgstr "Go to linked PDF location"
 
-#: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Go to section or label…"
 msgstr "Go to section or label…"
 
 #: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "Go to symbol"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Grave accent example"
 msgstr "Grave accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Greater than or equal"
 msgstr "Greater than or equal"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Greek"
 msgstr "Greek"
 
@@ -1798,75 +1807,75 @@ msgstr "Greek"
 msgid "Grid generator"
 msgstr "Grid generator"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Grouped numbered equations"
 msgstr "Grouped numbered equations"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Guided tutorial"
 msgstr "Guided tutorial"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "H-bar / reduced Planck"
 msgstr "H-bar / reduced Planck"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Hat accent"
 msgstr "Hat accent"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Hat accent example"
 msgstr "Hat accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "Heart suit"
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "History views"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Hook left arrow"
 msgstr "Hook left arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Hook right arrow"
 msgstr "Hook right arrow"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "host"
 msgstr "host"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "HTML files render live here, so you can build interactive demos and figures."
 msgstr "HTML files render live here, so you can build interactive demos and figures."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "HTML preview for {path}"
 msgstr "HTML preview for {path}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
 msgstr "If and only if"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Image zoom percentage"
 msgstr "Image zoom percentage"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Imaginary part"
 msgstr "Imaginary part"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Implies"
 msgstr "Implies"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Import failed — retry Start sharing"
 msgstr "Import failed — retry Start sharing"
 
@@ -1874,7 +1883,7 @@ msgstr "Import failed — retry Start sharing"
 msgid "Import figures"
 msgstr "Import figures"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Import images here"
 msgstr "Import images here"
 
@@ -1882,24 +1891,24 @@ msgstr "Import images here"
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Import paper"
 msgstr "Import paper"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "Import ZIP"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Imported"
 msgstr "Imported"
 
 #. placeholder {0}: work.arxivId
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Imported arXiv:{0}"
 msgstr "Imported arXiv:{0}"
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "Importing all project files…"
 msgstr "Importing all project files…"
 
@@ -1907,108 +1916,110 @@ msgstr "Importing all project files…"
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "In proceedings"
 msgstr "In proceedings"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "In this room"
 msgstr "In this room"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Include file"
 msgstr "Include file"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Include graphics"
 msgstr "Include graphics"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Include resolved"
 msgstr "Include resolved"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
 msgstr "Increment year"
 
 #. placeholder {0}: status.totalChunks
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
 msgstr "Indexing {0} prose blocks. {semanticSearchPrivacy}"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Indexing…"
 msgstr "Indexing…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Infinity"
 msgstr "Infinity"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Info"
 msgstr "Info"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Inline math"
 msgstr "Inline math"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Input file"
 msgstr "Input file"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "insert"
 msgstr "insert"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Insert"
 msgstr "Insert"
 
-#: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Insert \\cite{…}"
 msgstr "Insert \\cite{…}"
 
-#: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Insert \\ref{…}"
 msgstr "Insert \\ref{…}"
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Insert a formula"
 msgstr "Insert a formula"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Insert above line {line}"
 msgstr "Insert above line {line}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Insert an image path (requires graphicx)"
 msgstr "Insert an image path (requires graphicx)"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Insert categories"
 msgstr "Insert categories"
 
 #: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Insert citation"
 msgstr "Insert citation"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Insert cite at cursor after saving"
 msgstr "Insert cite at cursor after saving"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Insert LaTeX snippets"
 msgstr "Insert LaTeX snippets"
 
 #: src/App.tsx
+#: src/app/app-search-dialogs.tsx
 msgid "Insert reference"
 msgstr "Insert reference"
 
@@ -2016,7 +2027,7 @@ msgstr "Insert reference"
 msgid "Insert snippet"
 msgstr "Insert snippet"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Insert snippet or symbol (⌘⇧I)"
 msgstr "Insert snippet or symbol (⌘⇧I)"
 
@@ -2024,114 +2035,114 @@ msgstr "Insert snippet or symbol (⌘⇧I)"
 msgid "Insert table"
 msgstr "Insert table"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "Install automatically"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Install Basic TeX"
 msgstr "Install Basic TeX"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
-#: src/collab-dialog.tsx
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "Install LaTeX tools (needed to compile PDFs)"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
-#: src/settings-dialog.tsx
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Installing BasicTeX…"
 msgstr "Installing BasicTeX…"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Installing LaTeX packages…"
 msgstr "Installing LaTeX packages…"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Installing required tools…"
 msgstr "Installing required tools…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Installing update…"
 msgstr "Installing update…"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Installing uv for paper imports and bibliography tools."
 msgstr "Installing uv for paper imports and bibliography tools."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Integral"
 msgstr "Integral"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Integral with limits"
 msgstr "Integral with limits"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Integrations"
 msgstr "Integrations"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Interface language"
 msgstr "Interface language"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Interface sounds"
 msgstr "Interface sounds"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Intersection"
 msgstr "Intersection"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Invite link"
 msgstr "Invite link"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Iota"
 msgstr "Iota"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Itemize"
 msgstr "Itemize"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Join"
 msgstr "Join"
 
-#: src/collab-dialog.tsx
-#: src/project-dialogs.tsx
+#: src/collab/collab-dialog.tsx
+#: src/project/project-dialogs.tsx
 msgid "Join share"
 msgstr "Join share"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "joined"
 msgstr "joined"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Joined"
 msgstr "Joined"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "journal"
 
@@ -2139,64 +2150,64 @@ msgstr "journal"
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "just you"
 msgstr "just you"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Kappa"
 msgstr "Kappa"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake."
 msgstr "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Label"
 msgstr "Label"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Label removed."
 msgstr "Label removed."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Label this version (optional)"
 msgstr "Label this version (optional)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Labeled description list"
 msgstr "Labeled description list"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Lambda"
 msgstr "Lambda"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Language"
 msgstr "Language"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Larger fraction"
 msgstr "Larger fraction"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Last stop: your writing agent"
 msgstr "Last stop: your writing agent"
 
 #. placeholder {0}: relativeTime(link.lastSync)
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Last synced {0}"
 msgstr "Last synced {0}"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "last update unknown"
 msgstr "last update unknown"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
 
@@ -2204,27 +2215,27 @@ msgstr "Last, First and Last, First"
 msgid "latexmk -c then -g"
 msgstr "latexmk -c then -g"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Lattice checks in the background and installs updates on its own."
 msgstr "Lattice checks in the background and installs updates on its own."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Lattice checks in the background; you decide when to install."
 msgstr "Lattice checks in the background; you decide when to install."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Lattice closes the least recently used tab past this count."
 msgstr "Lattice closes the least recently used tab past this count."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
 msgstr "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
 msgstr "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
 msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
 
@@ -2232,137 +2243,137 @@ msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
-#: src/document-canvas.tsx
-#: src/visual-markdown-editor.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Leave share"
 msgstr "Leave share"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left angle bracket"
 msgstr "Left angle bracket"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left arrow"
 msgstr "Left arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left brace"
 msgstr "Left brace"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left ceiling"
 msgstr "Left ceiling"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left double arrow"
 msgstr "Left double arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left double vertical bar"
 msgstr "Left double vertical bar"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left floor"
 msgstr "Left floor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left harpoon up"
 msgstr "Left harpoon up"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left normal subgroup"
 msgstr "Left normal subgroup"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left normal subgroup eq"
 msgstr "Left normal subgroup eq"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left vertical bar"
 msgstr "Left vertical bar"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left-right arrow"
 msgstr "Left-right arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Left-right double arrow / iff"
 msgstr "Left-right double arrow / iff"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Less than or equal"
 msgstr "Less than or equal"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Let's download one of them"
 msgstr "Let's download one of them"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Lets trusted projects run external tools during builds."
 msgstr "Lets trusted projects run external tools during builds."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Light"
 msgstr "Light"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Limit"
 msgstr "Limit"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Limit expression"
 msgstr "Limit expression"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Line under an expression"
 msgstr "Line under an expression"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
 msgstr "Literal code / text block"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Live · {count} other"
 msgstr "Live · {count} other"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Live · {count} others"
 msgstr "Live · {count} others"
 
-#: src/canvas-toolbar.tsx
-#: src/collab-dialog.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Live collaboration"
 msgstr "Live collaboration"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Live collaboration · just you"
 msgstr "Live collaboration · just you"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
 msgstr "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Live collaboration view"
 msgstr "Live collaboration view"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is connected."
 msgstr "Live editing is connected."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is unavailable; regular syncing continues."
 msgstr "Live editing is unavailable; regular syncing continues."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Live editing unavailable · syncing instead"
 msgstr "Live editing unavailable · syncing instead"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Live editing unavailable ({detail}) · syncing instead"
 msgstr "Live editing unavailable ({detail}) · syncing instead"
 
@@ -2370,201 +2381,201 @@ msgstr "Live editing unavailable ({detail}) · syncing instead"
 msgid "Live sharing…"
 msgstr "Live sharing…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
 msgstr "Live sync"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "Ln {line}, Col {column}"
 
-#: src/literature-discovery-panel.tsx
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Load more"
 msgstr "Load more"
 
-#: src/history-drawer.tsx
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/history-drawer.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Loading diff…"
 msgstr "Loading diff…"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Loading files…"
 msgstr "Loading files…"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Loading versions…"
 msgstr "Loading versions…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Loading your Overleaf projects…"
 msgstr "Loading your Overleaf projects…"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Local semantic search"
 msgstr "Local semantic search"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Log level filter"
 msgstr "Log level filter"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Logical and"
 msgstr "Logical and"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Logical or"
 msgstr "Logical or"
 
-#: src/app-log.tsx
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
+#: src/telemetry/app-log.tsx
 msgid "Logs"
 msgstr "Logs"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Long equation broken across lines"
 msgstr "Long equation broken across lines"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Manage cited papers"
 msgstr "Manage cited papers"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Manual"
 msgstr "Manual"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Manual only"
 msgstr "Manual only"
 
 #: src/App.tsx
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Manuscript TODOs"
 msgstr "Manuscript TODOs"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Maps to"
 msgstr "Maps to"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Math"
 msgstr "Math"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Math inside a sentence"
 msgstr "Math inside a sentence"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Matrix"
 msgstr "Matrix"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Max"
 msgstr "Max"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Max open tabs"
 msgstr "Max open tabs"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Maximum operator"
 msgstr "Maximum operator"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "MCP"
 msgstr "MCP"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Minimum operator"
 msgstr "Minimum operator"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Minipage"
 msgstr "Minipage"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Minus-plus"
 msgstr "Minus-plus"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Misc"
 msgstr "Misc"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Missing required tools"
 msgstr "Missing required tools"
 
 #. placeholder {0}: missingTools.join(", ")
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Missing tools: {0}"
 msgstr "Missing tools: {0}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Models / entails"
 msgstr "Models / entails"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "modified"
 msgstr "modified"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "Mu"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Multi-line aligned equations"
 msgstr "Multi-line aligned equations"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Multiset union"
 msgstr "Multiset union"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Multline"
 msgstr "Multline"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Nabla / del"
 msgstr "Nabla / del"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Name"
 msgstr "Name"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Name this version"
 msgstr "Name this version"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Name this version…"
 msgstr "Name this version…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Natural"
 msgstr "Natural"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Natural join / bowtie"
 msgstr "Natural join / bowtie"
 
@@ -2572,55 +2583,55 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Negation / not"
 msgstr "Negation / not"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
-#: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "New board"
 msgstr "New board"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "New changes on Overleaf — click to bring them in"
 msgstr "New changes on Overleaf — click to bring them in"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "New file"
 msgstr "New file"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "New folder"
 msgstr "New folder"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "New name"
 msgstr "New name"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
 
-#: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "New versions install automatically"
 msgstr "New versions install automatically"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "next"
 msgstr "next"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Next page"
 msgstr "Next page"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "Next search result"
 
@@ -2628,200 +2639,200 @@ msgstr "Next search result"
 msgid "No"
 msgstr "No"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "No changes match this filter."
 msgstr "No changes match this filter."
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "No changes recorded yet."
 msgstr "No changes recorded yet."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment."
 msgstr "No comments yet. Select text in the editor and click Comment."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "No Crossref update metadata found"
 msgstr "No Crossref update metadata found"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update."
 msgstr "No file changes recorded for this update."
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "No history yet."
 msgstr "No history yet."
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "No logs at this level."
 msgstr "No logs at this level."
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "No logs yet."
 msgstr "No logs yet."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "No matching snippets. Try fraction, implies, align*, or eqref."
 msgstr "No matching snippets. Try fraction, implies, align*, or eqref."
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "No other recent projects yet."
 msgstr "No other recent projects yet."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "No project terms added."
 msgstr "No project terms added."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "No projects in this account yet. Create one on Overleaf and it will appear here."
 msgstr "No projects in this account yet. Create one on Overleaf and it will appear here."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "No projects match your search."
 msgstr "No projects match your search."
 
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline."
 msgstr "No sections yet. Add a \\section{…} to start the outline."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version."
 msgstr "No versions yet. Versions are saved automatically as you work, or press Save version."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "North-east arrow"
 msgstr "North-east arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "North-west arrow"
 msgstr "North-west arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Not an element of"
 msgstr "Not an element of"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Not equal"
 msgstr "Not equal"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
 msgstr "Notes and drafts in Markdown"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is ever removed from the shared project from here. The two sides stay different."
 msgstr "Nothing is ever removed from the shared project from here. The two sides stay different."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume."
 msgstr "Nothing is sent or fetched until you resume."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Notify me (manual)"
 msgstr "Notify me (manual)"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Now tracking versions of this project."
 msgstr "Now tracking versions of this project."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Nth root"
 msgstr "Nth root"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Nu"
 msgstr "Nu"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Number sets like R, N"
 msgstr "Number sets like R, N"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Numbered list"
 msgstr "Numbered list"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded."
 msgstr "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded."
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Official 2026 conference style"
 msgstr "Official 2026 conference style"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Official 2026 style, preprint option"
 msgstr "Official 2026 style, preprint option"
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "Offline"
 msgstr "Offline"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "Omega"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "Open"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Open a project from Overleaf"
 msgstr "Open a project from Overleaf"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Open a project to add its names, acronyms, and technical terms."
 msgstr "Open a project to add its names, acronyms, and technical terms."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Open a project to manage Agent settings."
 msgstr "Open a project to manage Agent settings."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Open and sync Overleaf projects in Lattice."
 msgstr "Open and sync Overleaf projects in Lattice."
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "Open another folder"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Open another Overleaf project"
 msgstr "Open another Overleaf project"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Open article in browser"
 msgstr "Open article in browser"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Open comments"
 msgstr "Open comments"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
 
-#: src/overleaf-connect.tsx
-#: src/project-dialogs.tsx
+#: src/overleaf/overleaf-connect.tsx
+#: src/project/project-dialogs.tsx
 msgid "Open from Overleaf"
 msgstr "Open from Overleaf"
 
@@ -2829,39 +2840,39 @@ msgstr "Open from Overleaf"
 msgid "Open guided tutorial"
 msgstr "Open guided tutorial"
 
-#: src/editor-tabs.tsx
+#: src/canvas/editor-tabs.tsx
 msgid "Open here"
 msgstr "Open here"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Open landing page"
 msgstr "Open landing page"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"
 
-#: src/editor-tabs.tsx
+#: src/canvas/editor-tabs.tsx
 msgid "Open on left"
 msgstr "Open on left"
 
-#: src/editor-tabs.tsx
+#: src/canvas/editor-tabs.tsx
 msgid "Open on right"
 msgstr "Open on right"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Open or drag a file here."
 msgstr "Open or drag a file here."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Open Papers to see the sources cited by this manuscript."
 msgstr "Open Papers to see the sources cited by this manuscript."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Open PDF in browser"
 msgstr "Open PDF in browser"
 
@@ -2873,27 +2884,27 @@ msgstr "Open project history"
 msgid "Open settings"
 msgstr "Open settings"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider."
 msgstr "Open the Agent tab to use Codex, Claude, or another provider."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Open the PDF in Lattice or your browser"
 msgstr "Open the PDF in Lattice or your browser"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
 
@@ -2906,19 +2917,19 @@ msgstr "OpenAlex search"
 msgid "Opening {0}…"
 msgstr "Opening {0}…"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Opening the shared document…"
 msgstr "Opening the shared document…"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Operators"
 msgstr "Operators"
 
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "Outline"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Overleaf"
 msgstr "Overleaf"
 
@@ -2926,70 +2937,70 @@ msgstr "Overleaf"
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv source pack"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf comments and chat"
 msgstr "Overleaf comments and chat"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf comments and chat · {count} waiting"
 msgstr "Overleaf comments and chat · {count} waiting"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app."
 msgstr "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Overline"
 msgstr "Overline"
 
-#: src/canvas-toolbar.tsx
-#: src/document-canvas.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Paper"
 msgstr "Paper"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Paper actions"
 msgstr "Paper actions"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "Paper content"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
 msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
 
-#: src/App.tsx
-#: src/document-canvas.tsx
-#: src/navigator.tsx
+#: src/app/app-workspace-sidebar.tsx
+#: src/canvas/document-canvas.tsx
+#: src/project/navigator.tsx
 msgid "Papers"
 msgstr "Papers"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Paragraph"
 msgstr "Paragraph"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Parallel"
 msgstr "Parallel"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Parenthesized matrix"
 msgstr "Parenthesized matrix"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Partial derivative"
 msgstr "Partial derivative"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
 msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
 
@@ -2997,15 +3008,15 @@ msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in proje
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Paste the full invite from Copy invite"
 msgstr "Paste the full invite from Copy invite"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Pause syncing"
 msgstr "Pause syncing"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Pause syncing with Overleaf?\n"
 "\n"
 "Nothing is sent or fetched until you resume, and live editing, chat and collaborators stop. Every file stays where it is on both sides.\n"
@@ -3017,31 +3028,31 @@ msgstr "Pause syncing with Overleaf?\n"
 "\n"
 "Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "PDF"
 msgstr "PDF"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF document"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF links"
 msgstr "PDF links"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF page {pageNumber}"
 msgstr "PDF page {pageNumber}"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF page number"
 msgstr "PDF page number"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
 
@@ -3049,65 +3060,65 @@ msgstr "PDF zoom percentage"
 msgid "People in this session"
 msgstr "People in this session"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Percent"
 msgstr "Percent"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Perpendicular"
 msgstr "Perpendicular"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Phi"
 msgstr "Phi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Pi"
 msgstr "Pi"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand."
 msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Piecewise definition"
 msgstr "Piecewise definition"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes."
 msgstr "Plays quiet cues when a requested build or collaboration setup finishes."
 
-#: src/confirm-action-dialog.tsx
-#: src/spreadsheet-editor.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Plus-minus"
 msgstr "Plus-minus"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Precedes"
 msgstr "Precedes"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Precedes or equal"
 msgstr "Precedes or equal"
 
 #. placeholder {0}: inventory.length
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Preparing {0} project files…"
 msgstr "Preparing {0} project files…"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "Preparing board editor"
 
@@ -3115,150 +3126,151 @@ msgstr "Preparing board editor"
 msgid "Preparing editor"
 msgstr "Preparing editor"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing HTML preview…"
 msgstr "Preparing HTML preview…"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing Markdown editor"
 msgstr "Preparing Markdown editor"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing PDF preview…"
 msgstr "Preparing PDF preview…"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Preparing project files… {completed}/{total}"
 msgstr "Preparing project files… {completed}/{total}"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
 msgstr "Preparing spreadsheet editor"
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "Preparing this workspace"
 msgstr "Preparing this workspace"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Preview"
 msgstr "Preview"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Preview interactive HTML"
 msgstr "Preview interactive HTML"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Preview of {path}"
 msgstr "Preview of {path}"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Preview PDF"
 msgstr "Preview PDF"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "previous"
 msgstr "previous"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Previous page"
 msgstr "Previous page"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
 msgstr "Previous search result"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "Prime"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Product"
 msgstr "Product"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Product with limits"
 msgstr "Product with limits"
 
 #: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "Project"
 msgstr "Project"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Project dictionary"
 msgstr "Project dictionary"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Project dictionary terms"
 msgstr "Project dictionary terms"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Project files"
 msgstr "Project files"
 
-#: src/canvas-toolbar.tsx
-#: src/history-drawer.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/history/history-drawer.tsx
 msgid "Project history"
 msgstr "Project history"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Project history content"
 msgstr "Project history content"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Project name"
 msgstr "Project name"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "project restore"
 msgstr "project restore"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Project restored."
 msgstr "Project restored."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Proof"
 msgstr "Proof"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Proof environment (requires amsthm)"
 msgstr "Proof environment (requires amsthm)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Proportional to"
 msgstr "Proportional to"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Providers"
 msgstr "Providers"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Psi"
 msgstr "Psi"
 
-#: src/bib-entry-dialog.tsx
-#: src/navigator.tsx
+#: src/papers/bib-entry-dialog.tsx
+#: src/project/navigator.tsx
 msgid "Publisher"
 msgstr "Publisher"
 
-#: src/App.tsx
+#: src/app/app-history-drawers.tsx
 msgid "Pull requests"
 msgstr "Pull requests"
 
@@ -3266,87 +3278,87 @@ msgstr "Pull requests"
 msgid "Quick open file"
 msgstr "Quick open file"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Quote"
 msgstr "Quote"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Radical"
 msgstr "Radical"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
 msgstr "Read the full paper here"
 
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
 msgstr "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
 
 #. placeholder {0}: status.indexedChunks
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
 msgstr "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Ready to compile"
 msgstr "Ready to compile"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Real part"
 msgstr "Real part"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Recent projects"
 msgstr "Recent projects"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "Reference"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Reference an equation label"
 msgstr "Reference an equation label"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Reference an existing label"
 msgstr "Reference an existing label"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Refresh versions"
 msgstr "Refresh versions"
 
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Rejoin {0}"
 msgstr "Rejoin {0}"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Relations"
 msgstr "Relations"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
 
-#: src/collab-dialog.tsx
-#: src/confirm-action-dialog.tsx
+#: src/collab/collab-dialog.tsx
+#: src/components/ui/confirm-action-dialog.tsx
 msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: record.projectInstanceId
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Remove {0} from recent shares"
 msgstr "Remove {0} from recent shares"
 
 #. placeholder {0}: peer.name
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Remove {0} from this share"
 msgstr "Remove {0} from this share"
 
 #. placeholder {0}: peer.name
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Remove {0}?\n"
 "\n"
 "They will lose access immediately. Anyone who joined with the same invite will also lose access."
@@ -3354,86 +3366,86 @@ msgstr "Remove {0}?\n"
 "\n"
 "They will lose access immediately. Anyone who joined with the same invite will also lose access."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Remove {title}"
 msgstr "Remove {title}"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "Remove {word} from project dictionary"
 
 #. placeholder {0}: label.comment
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Remove the \"{0}\" label"
 msgstr "Remove the \"{0}\" label"
 
 #. placeholder {0}: label.comment
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Remove the “{0}” label from this Overleaf version?"
 msgstr "Remove the “{0}” label from this Overleaf version?"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "removed"
 msgstr "removed"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Removes .aux, .log, and other build leftovers from this project."
 msgstr "Removes .aux, .log, and other build leftovers from this project."
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Removing…"
 msgstr "Removing…"
 
-#: src/collab-dialog.tsx
-#: src/navigator.tsx
-#: src/project-dialogs.tsx
+#: src/collab/collab-dialog.tsx
+#: src/project/navigator.tsx
+#: src/project/project-dialogs.tsx
 msgid "Rename"
 msgstr "Rename"
 
 #. placeholder {0}: record.title
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Rename {0}"
 msgstr "Rename {0}"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Rename citation key"
 msgstr "Rename citation key"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Rename environment"
 msgstr "Rename environment"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Rename label"
 msgstr "Rename label"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "renamed"
 msgstr "renamed"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Renames the matching \\begin and \\end pair under the cursor."
 msgstr "Renames the matching \\begin and \\end pair under the cursor."
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Renaming…"
 msgstr "Renaming…"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Rendering changes…"
 msgstr "Rendering changes…"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Rendering PDF…"
 msgstr "Rendering PDF…"
 
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen"
 msgstr "Reopen"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "Reopen comment"
 
@@ -3441,24 +3453,24 @@ msgstr "Reopen comment"
 msgid "Replace in project"
 msgstr "Replace in project"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Replacement/new version"
 msgstr "Replacement/new version"
 
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply"
 msgstr "Reply"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {displayedCommentAuthor}"
 msgstr "Reply to {displayedCommentAuthor}"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
 msgstr "Required paper tools installed"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Required tools installation progress"
 msgstr "Required tools installation progress"
 
@@ -3466,226 +3478,226 @@ msgstr "Required tools installation progress"
 msgid "Research"
 msgstr "Research"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Research, written with evidence."
 msgstr "Research, written with evidence."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize dual source panes"
 msgstr "Resize dual source panes"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "Resize editor and asset preview"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize editor and HTML preview"
 msgstr "Resize editor and HTML preview"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize editor and Markdown preview"
 msgstr "Resize editor and Markdown preview"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "Resize editor and PDF preview"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Resize PDF pane"
 msgstr "Resize PDF pane"
 
-#: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
 msgstr "Resize workspace sidebar"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
 msgstr "Resolve"
 
-#: src/document-canvas.tsx
-#: src/editor-comments-panel.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Resolve from DOI / arXiv / title"
 msgstr "Resolve from DOI / arXiv / title"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Resolve into bibliography entry"
 msgstr "Resolve into bibliography entry"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Resolved"
 msgstr "Resolved"
 
-#: src/paper-import-progress.ts
+#: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
 msgstr "Resolving citation metadata…"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "Resolving…"
 
-#: src/confirm-action-dialog.tsx
-#: src/overleaf-history.tsx
+#: src/components/ui/confirm-action-dialog.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restore"
 msgstr "Restore"
 
 #. placeholder {0}: file.pathname
 #. placeholder {0}: target.path
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restore {0} to this version"
 msgstr "Restore {0} to this version"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "Restore {path} to this version? Your current file will be overwritten."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restore file"
 msgstr "Restore file"
 
 #. placeholder {0}: activeChange.path
 #. placeholder {0}: change.path
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Restore only {0}"
 msgstr "Restore only {0}"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restore project"
 msgstr "Restore project"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restore project to this version"
 msgstr "Restore project to this version"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version."
 msgstr "Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version."
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
 msgstr "Restore the state before this change"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
 msgstr "Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
 
-#: src/history-drawer.tsx
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/history-drawer.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restore this file"
 msgstr "Restore this file"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restore whole project to this version"
 msgstr "Restore whole project to this version"
 
 #. placeholder {0}: file.pathname
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Restored {0}."
 msgstr "Restored {0}."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Restored {path}."
 msgstr "Restored {path}."
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "Restoring the conversation surface…"
 msgstr "Restoring the conversation surface…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
 msgstr "Resume syncing"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Retracted"
 msgstr "Retracted"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Retraction Watch"
 msgstr "Retraction Watch"
 
-#: src/overleaf-connect.tsx
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Retry"
 msgstr "Retry"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "Reveal cursor in PDF (⌘⇧J)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Rho"
 msgstr "Rho"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right angle bracket"
 msgstr "Right angle bracket"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right arrow"
 msgstr "Right arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right brace"
 msgstr "Right brace"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right ceiling"
 msgstr "Right ceiling"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right double arrow / implies"
 msgstr "Right double arrow / implies"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right double vertical bar"
 msgstr "Right double vertical bar"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right floor"
 msgstr "Right floor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right harpoon up"
 msgstr "Right harpoon up"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right normal subgroup"
 msgstr "Right normal subgroup"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right normal subgroup eq"
 msgstr "Right normal subgroup eq"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Right vertical bar"
 msgstr "Right vertical bar"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Roman math"
 msgstr "Roman math"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Room name"
 msgstr "Room name"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Rooms you host"
 msgstr "Rooms you host"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Rooms you joined"
 msgstr "Rooms you joined"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Root with index"
 msgstr "Root with index"
 
@@ -3694,169 +3706,169 @@ msgid "Run a command…"
 msgstr "Run a command…"
 
 #: src/App.tsx
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Run the doctor to inspect this Mac’s TeX toolchain."
 msgstr "Run the doctor to inspect this Mac’s TeX toolchain."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Runs on-device; no text leaves this Mac."
 msgstr "Runs on-device; no text leaves this Mac."
 
-#: src/collab-dialog.tsx
-#: src/editor-comments-panel.tsx
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/collab/collab-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Save"
 msgstr "Save"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Save changes"
 msgstr "Save changes"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Save compiled PDF"
 msgstr "Save compiled PDF"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Save entry"
 msgstr "Save entry"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Save PDF"
 msgstr "Save PDF"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Save PDF as…"
 msgstr "Save PDF as…"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "Save version"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Saved version"
 msgstr "Saved version"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "Saving…"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Scanning project files…"
 msgstr "Scanning project files…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Script l"
 msgstr "Script l"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Script letters"
 msgstr "Script letters"
 
-#: src/literature-discovery-panel.tsx
-#: src/settings-dialog.tsx
+#: src/papers/literature-discovery-panel.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Search"
 msgstr "Search"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Search alphaXiv and OpenAlex to find related work before importing evidence."
 msgstr "Search alphaXiv and OpenAlex to find related work before importing evidence."
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Search by name, meaning, or command (alpha, implies, fraction…)"
 msgstr "Search by name, meaning, or command (alpha, implies, fraction…)"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "Search or add by title, arXiv ID, DOI, or URL"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Search or import papers"
 msgstr "Search or import papers"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "Search PDF"
 
 #. placeholder {0}: message(firstFailure.reason)
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Search unavailable: {0}"
 msgstr "Search unavailable: {0}"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Search unavailable: {detail}"
 msgstr "Search unavailable: {detail}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Second-level heading"
 msgstr "Second-level heading"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Section"
 msgstr "Section"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Section sign"
 msgstr "Section sign"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
 msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
 msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Set minus"
 msgstr "Set minus"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Set the editor keymap and build behavior."
 msgstr "Set the editor keymap and build behavior."
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Sets"
 msgstr "Sets"
 
-#: src/project-dialogs.tsx
-#: src/settings-dialog.tsx
+#: src/project/project-dialogs.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Settings"
 msgstr "Settings"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "Settings sections"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Setup is complete."
 msgstr "Setup is complete."
 
@@ -3864,67 +3876,67 @@ msgstr "Setup is complete."
 msgid "Share invite with a collaborator"
 msgstr "Share invite with a collaborator"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Share mode"
 msgstr "Share mode"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Sharing"
 msgstr "Sharing"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Sharp"
 msgstr "Sharp"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Show archived"
 msgstr "Show archived"
 
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
-#: src/document-outline.tsx
+#: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "Show outline"
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Show sidebar"
 msgstr "Show sidebar"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate."
 msgstr "Shows 300 recent entries; disk logs rotate."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Side-by-side column block"
 msgstr "Side-by-side column block"
 
-#: src/App.tsx
+#: src/app/app-workspace-sidebar.tsx
 msgid "Sidebar mode"
 msgstr "Sidebar mode"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Sigma"
 msgstr "Sigma"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac."
 msgstr "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac."
 msgstr "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sign out"
 msgstr "Sign out"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sign out of Overleaf?\n"
 "\n"
 "Lattice will no longer be able to list your Overleaf projects, sync linked projects, or use live editing until you sign in again. Files already downloaded to this Mac will not be deleted."
@@ -3932,31 +3944,31 @@ msgstr "Sign out of Overleaf?\n"
 "\n"
 "Lattice will no longer be able to list your Overleaf projects, sync linked projects, or use live editing until you sign in again. Files already downloaded to this Mac will not be deleted."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Similar or equal"
 msgstr "Similar or equal"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Similar to"
 msgstr "Similar to"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
 msgstr "Smile relation"
 
@@ -3964,23 +3976,23 @@ msgstr "Smile relation"
 msgid "Source + PDF"
 msgstr "Source + PDF"
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "South-east arrow"
 msgstr "South-east arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "South-west arrow"
 msgstr "South-west arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Spade suit"
 msgstr "Spade suit"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Spelling"
 msgstr "Spelling"
 
@@ -3988,47 +4000,47 @@ msgstr "Spelling"
 msgid "split"
 msgstr "split"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Split"
 msgstr "Split"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Split editor right"
 msgstr "Split editor right"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square"
 msgstr "Square"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square cap"
 msgstr "Square cap"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square cup"
 msgstr "Square cup"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square root"
 msgstr "Square root"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square subset"
 msgstr "Square subset"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square subset eq"
 msgstr "Square subset eq"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square superset"
 msgstr "Square superset"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Square superset eq"
 msgstr "Square superset eq"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Star operator"
 msgstr "Star operator"
 
@@ -4036,36 +4048,36 @@ msgstr "Star operator"
 msgid "Start / join live sharing"
 msgstr "Start / join live sharing"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Start sharing"
 msgstr "Start sharing"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
 msgstr "Start tracking versions"
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
 msgstr "Starting Agent"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
 msgstr "Starting the index. {semanticSearchPrivacy}"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "status"
 msgstr "status"
 
 #. placeholder {0}: result.detail
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Still not connected: {0}"
 msgstr "Still not connected: {0}"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again."
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again."
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Stop"
 msgstr "Stop"
 
@@ -4073,11 +4085,11 @@ msgstr "Stop"
 msgid "Stop build"
 msgstr "Stop build"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Stop sharing"
 msgstr "Stop sharing"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Stop sharing for everyone?\n"
 "\n"
 "Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
@@ -4085,15 +4097,15 @@ msgstr "Stop sharing for everyone?\n"
 "\n"
 "Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Stop the current LaTeX build"
 msgstr "Stop the current LaTeX build"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Structure"
 msgstr "Structure"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Subequations"
 msgstr "Subequations"
 
@@ -4101,51 +4113,51 @@ msgstr "Subequations"
 msgid "Submission checklist"
 msgstr "Submission checklist"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Subsection"
 msgstr "Subsection"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Subset"
 msgstr "Subset"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Subset or equal"
 msgstr "Subset or equal"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Subsubsection"
 msgstr "Subsubsection"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Succeeds"
 msgstr "Succeeds"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Succeeds or equal"
 msgstr "Succeeds or equal"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Success"
 msgstr "Success"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Sum with limits"
 msgstr "Sum with limits"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Summation"
 msgstr "Summation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Superset"
 msgstr "Superset"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Surface / area integral"
 msgstr "Surface / area integral"
 
@@ -4153,265 +4165,265 @@ msgstr "Surface / area integral"
 msgid "Swap editor panes"
 msgstr "Swap editor panes"
 
-#: src/App.tsx
+#: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/insert-palette.tsx
+#: src/editor/insert/insert-palette.tsx
 msgid "Symbols"
 msgstr "Symbols"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Synara {synaraSettingsLabel} settings"
 msgstr "Synara {synaraSettingsLabel} settings"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sync behavior"
 msgstr "Sync behavior"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sync mode"
 msgstr "Sync mode"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Sync only when you click the sync button."
 msgstr "Sync only when you click the sync button."
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "Syncing changes…"
 msgstr "Syncing changes…"
 
 #. placeholder {0}: link.projectName
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Syncing with “{0}” is paused"
 msgstr "Syncing with “{0}” is paused"
 
-#: src/canvas-toolbar.tsx
+#: src/canvas/canvas-toolbar.tsx
 msgid "Syncing with Overleaf…"
 msgstr "Syncing with Overleaf…"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Table"
 msgstr "Table"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Tau"
 msgstr "Tau"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Terms Harper should accept in this project."
 msgstr "Terms Harper should accept in this project."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX doctor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Text in math"
 msgstr "Text in math"
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start."
 msgstr "The bundled Agent service could not start."
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
 msgstr "The host ended this share. Your own project is open again."
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "The host removed you from this share. Your own project is open again."
 msgstr "The host removed you from this share. Your own project is open again."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "the linked Overleaf host"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "The local model is unavailable."
 msgstr "The local model is unavailable."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "The preview is editable too"
 msgstr "The preview is editable too"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "The required tools"
 
-#: src/document-canvas.tsx
-#: src/visual-markdown-editor.tsx
+#: src/canvas/document-canvas.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
 msgstr "The worksheet and all of its contents will be removed and cannot be recovered."
 
-#: src/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "The worksheet and all of its contents will be removed."
 msgstr "The worksheet and all of its contents will be removed."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Theme"
 msgstr "Theme"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Theorem"
 msgstr "Theorem"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "There exists"
 msgstr "There exists"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "These preferences apply across every project on this Mac."
 msgstr "These preferences apply across every project on this Mac."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Theta"
 msgstr "Theta"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Think visually on a board"
 msgstr "Think visually on a board"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Third-level heading"
 msgstr "Third-level heading"
 
-#: src/confirm-action-dialog.tsx
+#: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
 msgstr "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "This format cannot be rendered in the preview."
 msgstr "This format cannot be rendered in the preview."
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes."
 msgstr "This is the longest step and can take up to 15 minutes."
 
 #. placeholder {0}: link.projectName
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "This project syncs with “{0}”"
 msgstr "This project syncs with “{0}”"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac."
 msgstr "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac."
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
 msgstr "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
 
-#: src/collab-status.ts
+#: src/collab/collab-status.ts
 msgid "This shared project is closed"
 msgstr "This shared project is closed"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "This step may take a minute."
 msgstr "This step may take a minute."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Three ways to look at a document"
 msgstr "Three ways to look at a document"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Tilde accent example"
 msgstr "Tilde accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Time derivative mark"
 msgstr "Time derivative mark"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Times / cross product"
 msgstr "Times / cross product"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Title"
 msgstr "Title"
 
-#: src/literature-discovery-panel.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Title/abstract only"
 msgstr "Title/abstract only"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Today"
 msgstr "Today"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "TODOs"
 msgstr "TODOs"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Toolchain status"
 msgstr "Toolchain status"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Top / true"
 msgstr "Top / true"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Track versions of this project to see who changed what and roll back safely."
 msgstr "Track versions of this project to see who changed what and roll back safely."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
 msgstr "Trashed"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Triangle"
 msgstr "Triangle"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Triangle left"
 msgstr "Triangle left"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Triangle right"
 msgstr "Triangle right"
 
 #: src/App.tsx
-#: src/overleaf-connect.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "Try again"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Try typing / in the visual editor"
 msgstr "Try typing / in the visual editor"
 
 #. placeholder {0}: index + 1
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Tutorial progress: step {0} of {size}"
 msgstr "Tutorial progress: step {0} of {size}"
 
@@ -4419,204 +4431,204 @@ msgstr "Tutorial progress: step {0} of {size}"
 msgid "Two files side by side"
 msgstr "Two files side by side"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "Type"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
 msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
 
-#: src/pdf-viewer.tsx
-#: src/settings-dialog.tsx
+#: src/pdf/pdf-viewer.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Underline"
 msgstr "Underline"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Underscore"
 msgstr "Underscore"
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Undo this Agent turn's file changes"
 msgstr "Undo this Agent turn's file changes"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Union"
 msgstr "Union"
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Unknown"
 msgstr "Unknown"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Unknown owner"
 msgstr "Unknown owner"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered aligned equations"
 msgstr "Unnumbered aligned equations"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered centered equations"
 msgstr "Unnumbered centered equations"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Up arrow"
 msgstr "Up arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Up double arrow"
 msgstr "Up double arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Up-down arrow"
 msgstr "Up-down arrow"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
-#: src/editor-comments-panel.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "Update comment…"
 msgstr "Update comment…"
 
 #. placeholder {0}: relativeTime(project.lastUpdated)
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "updated {0}"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project."
 msgstr "Updates every \\label and \\ref/\\cref occurrence across the project."
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Updates the bibliography entry and every \\cite occurrence across the project."
 msgstr "Updates the bibliography entry and every \\cite occurrence across the project."
 
-#: src/pdf-viewer.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Updating…"
 msgstr "Updating…"
 
-#: src/App.tsx
+#: src/app/use-collab-v2-session.ts
 msgid "Uploading project files… {completed}/{total}"
 msgstr "Uploading project files… {completed}/{total}"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Upright text in math"
 msgstr "Upright text in math"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Upsilon"
 msgstr "Upsilon"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Use Edit for the source, Split for both, and Preview for the finished result."
 msgstr "Use Edit for the source, Split for both, and Preview for the finished result."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
 msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
 
-#: src/navigator.tsx
+#: src/project/navigator.tsx
 msgid "Use the + button to import this query if it isn't in your library yet."
 msgstr "Use the + button to import this query if it isn't in your library yet."
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Use the Build button or Command-S. Source changes are still saved automatically."
 msgstr "Use the Build button or Command-S. Source changes are still saved automatically."
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
 msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"
 msgstr "Variant epsilon"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Variant phi"
 msgstr "Variant phi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Variant pi"
 msgstr "Variant pi"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Variant rho"
 msgstr "Variant rho"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Variant theta"
 msgstr "Variant theta"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Vector accent"
 msgstr "Vector accent"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Vector accent example"
 msgstr "Vector accent example"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Vector arrow over a symbol"
 msgstr "Vector arrow over a symbol"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Venue"
 msgstr "Venue"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Venue template"
 msgstr "Venue template"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Verbatim"
 msgstr "Verbatim"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Version"
 msgstr "Version"
 
 #. placeholder {0}: updater.version ?? ""
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Version {0} is ready to install"
 msgstr "Version {0} is ready to install"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Version history is unavailable: {error}"
 msgstr "Version history is unavailable: {error}"
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Version history needs Git, which isn’t available on this Mac."
 msgstr "Version history needs Git, which isn’t available on this Mac."
 
-#: src/overleaf-history.tsx
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Version label"
 msgstr "Version label"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Version named."
 msgstr "Version named."
 
-#: src/versions-timeline.tsx
+#: src/history/versions-timeline.tsx
 msgid "Version saved."
 msgstr "Version saved."
 
-#: src/history-drawer.tsx
+#: src/history/history-drawer.tsx
 msgid "Versions"
 msgstr "Versions"
 
@@ -4624,55 +4636,55 @@ msgstr "Versions"
 msgid "View"
 msgstr "View"
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "View original PDF"
 msgstr "View original PDF"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Vim and Emacs keep their modal bindings inside the editor only."
 msgstr "Vim and Emacs keep their modal bindings inside the editor only."
 
-#: src/document-canvas.tsx
+#: src/canvas/document-canvas.tsx
 msgid "Vim mode"
 msgstr "Vim mode"
 
-#: src/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Vmatrix"
 msgstr "Vmatrix"
 
-#: src/tex-setup-wizard.tsx
+#: src/build/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
 
-#: src/synara-loading-surface.tsx
+#: src/agent/synara-loading-surface.tsx
 msgid "Warming the local service…"
 msgstr "Warming the local service…"
 
-#: src/app-log.tsx
+#: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
 msgstr "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Weierstrass p"
 msgstr "Weierstrass p"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
 
@@ -4680,84 +4692,84 @@ msgstr "When you delete a file here"
 msgid "Words / pages / TODOs"
 msgstr "Words / pages / TODOs"
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Words inside math mode"
 msgstr "Words inside math mode"
 
-#: src/paper-import-progress.ts
+#: src/papers/paper-import-progress.ts
 msgid "Working…"
 msgstr "Working…"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "Wrap in environment"
 
-#: src/project-dialogs.tsx
+#: src/project/project-dialogs.tsx
 msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
 msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Wreath product"
 msgstr "Wreath product"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
 msgstr "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Xi"
 msgstr "Xi"
 
-#: src/bib-entry-dialog.tsx
+#: src/papers/bib-entry-dialog.tsx
 msgid "Year"
 msgstr "Year"
 
-#: src/overleaf-history.tsx
+#: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
 msgstr "Yesterday"
 
-#: src/collab-dialog.tsx
-#: src/history-drawer.tsx
+#: src/collab/collab-dialog.tsx
+#: src/history/history-drawer.tsx
 msgid "You"
 msgstr "You"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
 msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the download finishes"
 msgstr "You can close this once the download finishes"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "You started this share. "
 msgstr "You started this share. "
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "You’ll be notified when a new version is ready"
 msgstr "You’ll be notified when a new version is ready"
 
-#: src/settings-dialog.tsx
+#: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
-#: src/onboarding-tour.tsx
+#: src/onboarding/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "Your LaTeX and your PDF, side by side"
 
-#: src/collab-dialog.tsx
+#: src/collab/collab-dialog.tsx
 msgid "Your name"
 msgstr "Your name"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "your Overleaf account"
 
-#: src/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 msgstr "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 
-#: src/insert-snippets.ts
+#: src/editor/insert/insert-snippets.ts
 msgid "Zeta"
 msgstr "Zeta"
 
@@ -4765,12 +4777,12 @@ msgstr "Zeta"
 msgid "ZIP archive"
 msgstr "ZIP archive"
 
-#: src/document-canvas.tsx
-#: src/pdf-viewer.tsx
+#: src/canvas/document-canvas.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "Zoom in"
 
-#: src/document-canvas.tsx
-#: src/pdf-viewer.tsx
+#: src/canvas/document-canvas.tsx
+#: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"

@@ -8,7 +8,7 @@
  * (selection slice → doc JSON → serialized Markdown, trimmed) against it.
  */
 import type { Editor } from "@tiptap/react";
-import { getMarkdownManager } from "../../visual-markdown-schema";
+import { getMarkdownManager } from "../../editor/markdown/visual-markdown-schema";
 
 export function serializeWysiwygSelection(editor: Editor): string {
   const { state } = editor;

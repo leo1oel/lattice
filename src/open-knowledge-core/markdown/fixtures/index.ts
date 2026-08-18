@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateDocument, generateLargeRealistic, SEED } from './perf/generate.ts';
 
 const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -92,13 +93,27 @@ export function loadNgPinnedCases(): NgPinnedCase[] {
   ) as NgPinnedCase[];
 }
 
+/**
+ * The perf corpus is generated, not committed: `perf/generate.ts` reproduces
+ * every document byte-for-byte from a fixed seed, and the largest one is
+ * ~3.8 MB of lorem ipsum. Committing that costs 7.5 MB and 140k lines of diff
+ * noise for data a pure function can rebuild in milliseconds, so these loaders
+ * generate on first use and memoise. `perf/generate.ts` can still write the
+ * files to disk when an external profiler needs real paths.
+ */
+const perfCache = new Map<PerfBlockCount, string>();
+
 export function loadLargeRealistic(): string {
-  return readFileSync(fixturePath('perf', 'large-realistic.md'), 'utf8');
+  return generateLargeRealistic();
 }
 
 export const PERF_BLOCK_COUNTS = [100, 1000, 5000, 10000, 20000] as const;
 export type PerfBlockCount = (typeof PERF_BLOCK_COUNTS)[number];
 
 export function loadPerfFixture(blockCount: PerfBlockCount): string {
-  return readFileSync(fixturePath('perf', `${blockCount}.md`), 'utf8');
+  const cached = perfCache.get(blockCount);
+  if (cached !== undefined) return cached;
+  const generated = generateDocument(blockCount, SEED);
+  perfCache.set(blockCount, generated);
+  return generated;
 }

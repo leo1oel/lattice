@@ -8,8 +8,8 @@ import context from "./context-menu.tsx?raw"
 import select from "./select.tsx?raw"
 import popover from "./popover.tsx?raw"
 import app from "../../App.tsx?raw"
-import bibEntryDialog from "../../bib-entry-dialog.tsx?raw"
-import latexToolbar from "../../latex-selection-toolbar.tsx?raw"
+import bibEntryDialog from "../../papers/bib-entry-dialog.tsx?raw"
+import latexToolbar from "../../editor/latex/latex-selection-toolbar.tsx?raw"
 
 /**
  * Every stylesheet under `src/`, named relative to it. The list comes from a

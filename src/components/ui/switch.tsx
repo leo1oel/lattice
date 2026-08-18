@@ -5,7 +5,7 @@ import {
   useMotionValue,
   useReducedMotion,
 } from "motion/react";
-import { PRESS_SPRING, SETTLE_SPRING } from "@/motion-values";
+import { PRESS_SPRING, SETTLE_SPRING } from "@/components/ui/motion-values";
 import { cn } from "@/lib/utils";
 import "./chrome.css";
 

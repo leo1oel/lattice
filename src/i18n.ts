@@ -1,6 +1,6 @@
 import { setupI18n } from "@lingui/core";
 import type { Messages } from "@lingui/core";
-import type { AppLocale } from "./app-settings";
+import type { AppLocale } from "./settings/app-settings";
 
 export const i18n = setupI18n();
 

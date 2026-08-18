@@ -10,9 +10,8 @@ import { deriveFragmentPosition, escapedValueOffsets } from './promoter-position
  * LaTeX-delimited math: `\[ … \]` display blocks and `\( … \)` inline spans.
  *
  * remark-math only tokenizes dollar delimiters, but AI assistants emit the
- * LaTeX forms constantly and the chat renderer already accepts them
- * (`backslashMath` in chat-markdown-renderer.ts); a document surface that
- * shows the same bytes as prose reads as broken.
+ * LaTeX forms constantly and every chat surface accepts them; a document
+ * surface that shows the same bytes as prose reads as broken.
  *
  * Display blocks cannot be promoted from the parsed tree: their content
  * lines re-tokenize as arbitrary Markdown first (a lone `=` line turns the

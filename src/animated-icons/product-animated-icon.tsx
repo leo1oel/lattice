@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { BakaiAnimatedIcon, type BakaiIconKind } from "./bakai-icons";
-import { ProvidedAnimatedIcon, type ProvidedIconKind } from "../icon-lab/provided-icons";
+import { ProvidedAnimatedIcon, type ProvidedIconKind } from "./provided-icons";
 
 type AnimatedProductIconProps = {
   kind: BakaiIconKind | ProvidedIconKind;

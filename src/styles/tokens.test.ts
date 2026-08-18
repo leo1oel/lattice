@@ -8,7 +8,7 @@ const foundations = read("src/styles/foundations.css")
 const dialogs = read("src/styles/dialogs.css")
 const chrome = read("src/components/ui/chrome.css")
 const workspacePanels = read("src/styles/workspace-panels.css")
-const settingsDialog = read("src/settings-dialog.tsx")
+const settingsDialog = read("src/settings/settings-dialog.tsx")
 const APP_CSS_FILES = new Set([
   "src/App.css",
   "src/styles/theme.css",
@@ -43,6 +43,20 @@ function collectSources(dir: string, files: string[] = []): string[] {
 
 /** Comments describe the contract; only declarations are evidence of it. */
 const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "")
+
+/**
+ * The animated product icons are hand-rebuilt from author-provided sources (see
+ * THIRD_PARTY_NOTICES.md) and their keyframes are the artwork: ~200 per-glyph
+ * easing curves and durations that reproduce the original motion frame for
+ * frame, not interface motion timed off the UI scale. The same sheet also holds
+ * the clamp that stops every one of those animations when the user asks for
+ * reduced motion, which is the one place `!important` is the answer — it must
+ * beat animations declared on the elements themselves. Only those two rules are
+ * waived; spacing and type in this file are held to the contract like anywhere
+ * else. It used to be exempt from all four as `src/icon-lab/bakai-icons.css`,
+ * back when it sat next to the dev playground.
+ */
+const VENDOR_ICON_CSS = "src/animated-icons/bakai-icons.css"
 
 const sources = collectSources("src").map((file) => ({
   file,
@@ -174,18 +188,18 @@ describe("design token contract", () => {
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
 
     for (const file of [
-      "src/insert-palette.tsx",
-      "src/editor-comments-panel.tsx",
-      "src/history-drawer.tsx",
-      "src/overleaf-comments.tsx",
+      "src/editor/insert/insert-palette.tsx",
+      "src/editor/comments/editor-comments-panel.tsx",
+      "src/history/history-drawer.tsx",
+      "src/overleaf/overleaf-comments.tsx",
     ]) {
       expect(read(file), file).toContain("ui-compact-selectable")
     }
   })
 
   it("shares flat drawer-view tabs between Project history and Git workspace", () => {
-    expect(read("src/App.tsx")).toContain('tabClassName="drawer-view-tab"')
-    expect(read("src/history-drawer.tsx")).toContain('tabClassName="drawer-view-tab"')
+    expect(read("src/app/app-history-drawers.tsx")).toContain('tabClassName="drawer-view-tab"')
+    expect(read("src/history/history-drawer.tsx")).toContain('tabClassName="drawer-view-tab"')
     expect(workspacePanels).toMatch(
       /\.drawer-view-tab \{[^}]*border: 0;[^}]*background: transparent;/,
     )
@@ -230,8 +244,8 @@ describe("design token contract", () => {
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {
-      // The scale itself, and the dev-only icon playground, own raw values.
-      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      // The scale itself owns raw values.
+      if (file.endsWith("foundations.css")) continue
       for (const match of rules.matchAll(SPACING)) {
         const value = match[1]
         // Negative values are optical nudges rather than scale steps.
@@ -250,7 +264,7 @@ describe("design token contract", () => {
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {
-      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      if (file.endsWith("foundations.css") || file === VENDOR_ICON_CSS) continue
       for (const match of rules.matchAll(MOTION)) {
         const value = match[1]
         for (const time of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
@@ -270,7 +284,7 @@ describe("design token contract", () => {
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {
-      if (file.endsWith("foundations.css") || file.includes("icon-lab")) continue
+      if (file.endsWith("foundations.css")) continue
       for (const match of rules.matchAll(RAW_SIZE)) {
         offenders.push(`${file}: ${match[0]}`)
       }
@@ -317,7 +331,7 @@ describe("design token contract", () => {
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {
-      if (file.includes("icon-lab")) continue
+      if (file === VENDOR_ICON_CSS) continue
       for (const block of rules.split("}")) {
         if (!block.includes("!important")) continue
         if (FOREIGN.test(block)) continue

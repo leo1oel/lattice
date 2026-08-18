@@ -1,6 +1,6 @@
 import { type AnyOrama, count, create, insertMultiple, removeMultiple, search } from '@orama/orama';
 import { tokenizer as oramaTokenizer } from '@orama/orama/components';
-import { isHiddenDocName } from '../util/doc-name.ts';
+import { isHiddenDocName } from '../utils/doc-name.ts';
 
 export type WorkspaceSearchKind = 'page' | 'folder' | 'file';
 export type WorkspaceSearchIntent = 'omnibar' | 'autocomplete' | 'full_text';

@@ -6,7 +6,7 @@
  * The host surfaces notifications through its app-log store instead of a
  * sonner Toaster, so the vendored `toast.*` calls route there.
  */
-import { addAppLog } from "../../app-log-store";
+import { addAppLog } from "../../telemetry/app-log-store";
 
 function log(level: "error" | "success" | "info" | "warning", message: unknown): void {
   addAppLog({ level, source: "Editor", title: String(message), toast: true });

@@ -11,18 +11,18 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./app-log-store";
-import { persistWorkspaceLayout } from "./app-settings";
-import { mapCollabProjectStatusV2 } from "./collab-status";
-import { formatCollabInvitationV2 } from "./collab-invitation-v2";
-import { loadTextLanguageExtensions } from "./editor-languages";
+import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
+import { persistWorkspaceLayout } from "./settings/app-settings";
+import { mapCollabProjectStatusV2 } from "./collab/collab-status";
+import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
+import { loadTextLanguageExtensions } from "./editor/editor-languages";
 import { activateAppLocale } from "./i18n";
-import { referenceAssetPreviewDataUrl } from "./reference-preview";
-import { usePanelLayout } from "./use-panel-layout";
-import { parseVisualMarkdown } from "./visual-markdown-schema";
-import type { SynaraRuntimeInfo } from "./synara-runtime";
-import { ConfirmActionProvider } from "./confirm-action-dialog";
-import type { CollabProjectStatusV2 } from "./collab-project-v2";
+import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
+import { usePanelLayout } from "./app/use-panel-layout";
+import { parseVisualMarkdown } from "./editor/markdown/visual-markdown-schema";
+import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
+import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
+import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -78,15 +78,15 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 // The board creation flow opens the .tldr in the canvas; mounting the real
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
-vi.mock("./board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
-vi.mock("./spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
-vi.mock("./use-synara-runtime", () => ({
+vi.mock("./editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
+vi.mock("./editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
+vi.mock("./agent/use-synara-runtime", () => ({
   useSynaraRuntime: (enabled: boolean) => {
     synaraHook.enabledCalls.push(enabled);
     return synaraHook;
   },
 }));
-vi.mock("./interface-sounds", () => ({
+vi.mock("./telemetry/interface-sounds", () => ({
   configureInterfaceSounds: interfaceSounds.configure,
   playInterfaceSound: interfaceSounds.play,
 }));

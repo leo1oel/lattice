@@ -27,15 +27,15 @@ afterEach(() => {
 
 describe("absoluteProjectPath", () => {
   it("joins project-relative paths using the root's platform separator", () => {
-    expect(absoluteProjectPath("/Users/leo/paper", "figures/result.png"))
-      .toBe("/Users/leo/paper/figures/result.png");
-    expect(absoluteProjectPath("C:\\Users\\leo\\paper", "figures/result.png"))
-      .toBe("C:\\Users\\leo\\paper\\figures\\result.png");
+    expect(absoluteProjectPath("/Users/example/paper", "figures/result.png"))
+      .toBe("/Users/example/paper/figures/result.png");
+    expect(absoluteProjectPath("C:\\Users\\example\\paper", "figures/result.png"))
+      .toBe("C:\\Users\\example\\paper\\figures\\result.png");
   });
 
   it("does not duplicate a trailing root separator", () => {
-    expect(absoluteProjectPath("/Users/leo/paper/", "main.tex"))
-      .toBe("/Users/leo/paper/main.tex");
+    expect(absoluteProjectPath("/Users/example/paper/", "main.tex"))
+      .toBe("/Users/example/paper/main.tex");
   });
 });
 

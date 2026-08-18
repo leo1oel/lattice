@@ -4,8 +4,8 @@ import {
 import { cn } from "@/lib/utils";
 import "./chrome.css";
 
-export type BadgeTone = "neutral" | "accent" | "success" | "warning" | "danger";
-export type BadgeSize = "compact" | "default";
+type BadgeTone = "neutral" | "accent" | "success" | "warning" | "danger";
+type BadgeSize = "compact" | "default";
 
 export type BadgeProps = ComponentPropsWithoutRef<"span"> & {
   tone?: BadgeTone;
