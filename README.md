@@ -164,6 +164,14 @@ passage, or make reviewable changes across the project.
 You choose the provider, model, tools, and permission mode from the Agent
 settings in Lattice.
 
+The agent runs on [Synara](https://github.com/Emanuele-web04/synara), an
+open-source agent runtime by T3 Tools Inc. and Emanuele Di Pietro (MIT), which
+Lattice bundles as a sidecar and extends with research-specific tools —
+literature search, the paper library, the whiteboard and the spreadsheet.
+Lattice tracks a [fork](https://github.com/leo1oel/synara) pinned in
+`scripts/synara-runtime.json`; [`docs/synara-runtime.md`](docs/synara-runtime.md)
+explains the boundary and how to work on it.
+
 ### 📚 Manage citations and papers together
 
 Keep references and reading material in one library instead of separating the
