@@ -1284,8 +1284,8 @@ mod tests {
     #[test]
     fn shell_paths_are_quoted_before_being_written_to_the_installer() {
         assert_eq!(
-            shell_quote("/Users/Leo's TeX/tlmgr"),
-            "'/Users/Leo'\"'\"'s TeX/tlmgr'"
+            shell_quote("/Users/Ada's TeX/tlmgr"),
+            "'/Users/Ada'\"'\"'s TeX/tlmgr'"
         );
     }
 }

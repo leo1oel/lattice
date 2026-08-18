@@ -6,8 +6,9 @@ The old `partykit deploy` path hits a shared `partykit.dev` domain quota and fai
 
 ## One-time setup
 
+From the repository root:
+
 ```bash
-cd /Users/leonardo/CascadeProjects/research-writer
 pnpm collab:login    # opens Cloudflare in the browser (once)
 pnpm collab:deploy
 ```
@@ -35,10 +36,28 @@ VITE_LATTICE_COLLAB_HOST=lattice-collab.<your-subdomain>.workers.dev
 ## Local test
 
 ```bash
-pnpm --dir collab-server dev
+pnpm collab:dev          # or: pnpm --dir collab-server dev
 ```
 
 Default local host is usually `localhost:8787` (Wrangler). Put that under Advanced if needed.
+
+## Checks
+
+This is a separate pnpm project with its own lockfile, so the root `pnpm install`
+does not cover it:
+
+```bash
+pnpm --dir collab-server install --frozen-lockfile
+pnpm --dir collab-server typecheck
+pnpm --dir collab-server test
+```
+
+`pnpm check` at the repository root already runs the last two as its
+`collab-server` stage, so you only need them by hand when iterating. The tests
+run on `@cloudflare/vitest-pool-workers`, which starts a local `workerd` and
+simulates the Durable Object and R2 bindings declared in `wrangler.jsonc` — no
+Cloudflare account or `wrangler login` is involved. Only `deploy` needs
+credentials.
 
 ## Everyday app flow
 
