@@ -1,4 +1,4 @@
-// Generate src/venues.ts — a snapshot of bibcite's canonical venue list used by
+// Generate src/papers/venues.ts — a snapshot of bibcite's canonical venue list used by
 // the bibliography-entry editor's venue autocomplete. The venue's category
 // decides the BibTeX entry type (journal -> @article, conference/workshop ->
 // @inproceedings), so picking a venue can set the type automatically.
@@ -78,4 +78,4 @@ export const VENUES: Venue[] = ${JSON.stringify(venues, null, 2)};
 `;
 
 writeFileSync(resolve(root, "src", "venues.ts"), out);
-console.log(`wrote src/venues.ts — ${venues.length} venues from ${stringsPath}`);
+console.log(`wrote src/papers/venues.ts — ${venues.length} venues from ${stringsPath}`);

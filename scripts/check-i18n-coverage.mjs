@@ -26,11 +26,16 @@ function diagnosticFingerprint(result, message) {
   return `${relativePath}\0${source.slice(start, end)}`;
 }
 
+// Scoped to shipping code. Development-only pages under `tools/` (the
+// animated-icon playground) are never a build input and their labels are never
+// translated, so holding them to this inventory would only add noise. Note the
+// fingerprint below includes the file path: moving a file that has findings
+// changes the digest even when no string changed.
 const eslint = new ESLint({
   cwd: root,
   overrideConfig: [{
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts"],
+    ignores: ["src/**/*.test.{ts,tsx}", "src/platform/test-setup.ts"],
     rules: {
       [ruleId]: ["warn", {
         ignore: [

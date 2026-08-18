@@ -64,17 +64,31 @@ await assert.rejects(createAppSizeReport(workspace), /escapes dist/);
 await unlink(path.join(workspace, "dist/assets/escape.js"));
 await writeFile(path.join(workspace, "dist/assets/app-hash.js"), "app");
 await writeFile(path.join(workspace, "dist/assets/ui-hash.js"), "ui");
-await writeFile(path.join(workspace, "dist/assets/provided-icons-hash.js"), "icons");
 await writeFile(path.join(workspace, "dist/assets/rolldown-runtime-hash.js"), "runtime");
 await writeFile(path.join(workspace, "dist/polyfills.js"), "polyfill");
-await writeFile(path.join(workspace, "dist/index.html"), `<html><head>
+const startupHtml = `<html><head>
   <script src="/assets/app-hash.js"></script>
   <link rel="modulepreload" href="/assets/ui-hash.js">
-  <link rel="modulepreload" href="/assets/provided-icons-hash.js">
   <link rel="modulepreload" href="/assets/rolldown-runtime-hash.js">
-</head><body><script src="/polyfills.js"></script></body></html>`);
+</head><body><script src="/polyfills.js"></script></body></html>`;
+await writeFile(path.join(workspace, "dist/index.html"), startupHtml);
 const guard = await checkAppSizeBudgets(workspace);
 assert.equal(guard.rolldownRuntimeBytes, 7);
+
+// The startup graph is an allowlist: a chunk nobody decided on fails, and so
+// does losing one of the two application-owned chunks.
+await writeFile(path.join(workspace, "dist/assets/surprise-hash.js"), "surprise");
+await writeFile(
+  path.join(workspace, "dist/index.html"),
+  startupHtml.replace("</head>", '<link rel="modulepreload" href="/assets/surprise-hash.js"></head>'),
+);
+await assert.rejects(checkAppSizeBudgets(workspace), /Unexpected eager JavaScript asset/);
+await writeFile(
+  path.join(workspace, "dist/index.html"),
+  startupHtml.replace('<link rel="modulepreload" href="/assets/ui-hash.js">\n', ""),
+);
+await assert.rejects(checkAppSizeBudgets(workspace), /Expected exactly one eager ui chunk, found 0/);
+await writeFile(path.join(workspace, "dist/index.html"), startupHtml);
 
 await writeFile(path.join(workspace, "dist/assets/rolldown-runtime-hash.js"), Buffer.alloc(4_097));
 await assert.rejects(checkAppSizeBudgets(workspace), /rolldown-runtime.*budget/);

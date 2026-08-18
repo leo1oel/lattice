@@ -176,8 +176,12 @@ export async function checkAppSizeBudgets(
       throw new Error(`External eager JavaScript is not allowed: ${url}`);
     }
     if (pathname === "polyfills.js") continue;
+    // The eager startup graph is an allowlist, not a budget line: `app` and
+    // `ui` are the two application-owned chunks vite.config.ts names, and
+    // `rolldown-runtime` is Vite's own preload shim. A new name here means the
+    // startup graph grew a chunk nobody decided on.
     const match = pathname.match(
-      /^assets\/(app|ui|provided-icons|rolldown-runtime)-[^/]+\.js$/,
+      /^assets\/(app|ui|rolldown-runtime)-[^/]+\.js$/,
     );
     if (!match) throw new Error(`Unexpected eager JavaScript asset: ${url}`);
     const urls = chunkUrls.get(match[1]) ?? [];
@@ -185,7 +189,7 @@ export async function checkAppSizeBudgets(
     chunkUrls.set(match[1], urls);
   }
 
-  for (const name of ["app", "ui", "provided-icons"]) {
+  for (const name of ["app", "ui"]) {
     const count = chunkUrls.get(name)?.length ?? 0;
     if (count !== 1) {
       throw new Error(`Expected exactly one eager ${name} chunk, found ${count}`);

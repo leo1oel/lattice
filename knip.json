@@ -1,12 +1,52 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // `src/main.tsx` is not listed: knip's vite plugin already derives it from the
+  // `<script type="module">` in index.html. `tools/icon-lab/main.tsx` is listed
+  // because it is the entry of the dev-only playground shell (icon-lab.html),
+  // which is deliberately not a build input, so nothing knip reads points at it.
   "entry": [
-    "src/main.tsx",
-    "src/icon-lab/main.tsx",
+    "tools/icon-lab/main.tsx",
     "scripts/*.mjs",
-    "vite.dev-isolated.config.ts"
+    "lingui.config.ts"
   ],
-  "project": ["src/**", "scripts/**", "protocol/**"],
-  "ignore": ["collab-server/**", "public/polyfills.js"],
-  "ignoreDependencies": ["bun", "mdast-util-mdx-expression", "mdast-util-mdx-jsx"]
+  "project": ["src/**", "scripts/**", "protocol/**", "tools/**"],
+  // collab-server/ is a separate workspace with its own package.json and is not
+  // in `project`, so knip cannot see it. The cost of skipping it: it is the only
+  // consumer of most of `protocol/**`, so anything exported there and used only
+  // by the worker looks unused here. Verify protocol/ hits by hand against
+  // collab-server/ before deleting them.
+  //
+  // The two open-knowledge trees are vendored upstream code. Their export
+  // surface is upstream's public API, not our dead code, so knip flags ~330
+  // symbols there that are neither bugs nor safe to delete: re-vendoring
+  // restores anything removed. The lever that actually works is the file list
+  // in scripts/vendor-open-knowledge.mjs, not this config.
+  "ignore": [
+    "collab-server/**",
+    "src/open-knowledge-app/**",
+    "src/open-knowledge-core/**"
+  ],
+  "ignoreDependencies": ["mdast-util-mdx-expression", "mdast-util-mdx-jsx"],
+  // `pnpm check` shells out to mise, which is a system tool installed outside
+  // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`
+  // is knip misreading `pnpm --dir collab-server typecheck` in ci.yml as a
+  // binary; it is a package script in that workspace.
+  "ignoreBinaries": ["mise", "typecheck"],
+  // Scoped to the findings that are actionable and currently near zero, so a
+  // red `pnpm knip` means something. Export-level analysis is excluded on
+  // purpose: it reports first-party symbols that are exported but used only
+  // inside their own file. Those are worth cleaning up — dropping the `export`
+  // hands them to tsc's `noUnusedLocals`, which polices them forever — but they
+  // are not defects. Audit them deliberately with:
+  //   pnpm knip --include exports,types,duplicates
+  // That audit is down to 41 findings, and the survivors are deliberate:
+  // 28 shadcn barrel re-exports in src/components/ui/ (re-exporting a
+  // primitive's full surface keeps us aligned with upstream), 10 in
+  // protocol/collab-v2.ts (the wire contract; 9 are imported by
+  // collab-server/, which knip cannot see), and 3 genuinely dead symbols
+  // (emptyEditorCommentsFile, PAPER_READING_WIDTH_KEY, PaperReadingWidth).
+  // Folding `exports`/`types` into the default scope needs those 3 resolved
+  // and the other 38 marked — knip's `tags` option plus a JSDoc marker is the
+  // mechanism — otherwise the default run goes permanently red.
+  "exclude": ["exports", "types", "nsExports", "nsTypes"]
 }

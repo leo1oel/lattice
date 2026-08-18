@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Deterministically generate a performance-fixture project for the probes in
- * src/perf-probe.ts (see docs/performance.md for the measurement playbook).
+ * src/platform/perf-probe.ts (see docs/performance.md for the measurement playbook).
  *
  * Layout (all content derived from fixed seeds — two runs produce identical
  * bytes, so before/after measurements compare the same document):

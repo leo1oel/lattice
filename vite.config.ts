@@ -10,41 +10,36 @@ import tailwindcss from "@tailwindcss/vite";
 const host = process.env.TAURI_DEV_HOST;
 
 /**
- * `@pierre/diffs` and `comark` both import the full `shiki` bundle, whose
- * bundledLanguages/bundledThemes maps dynamically import every grammar and
- * theme shiki ships — ~450 chunks, ~13 MB of the built app. At runtime only a
- * closed set is ever loadable: the diff surfaces clamp to tex/bibtex/markdown
- * (see pierreLanguageForPath in src/file-diff-view.tsx) and comark's highlight
- * plugin registers a fixed nine-language set. Everything outside that set is
- * replaced with an inert stub grammar/theme so the chunks shrink to ~100 bytes.
+ * `@pierre/diffs` imports the full `shiki` bundle, whose bundledLanguages and
+ * bundledThemes maps dynamically import every grammar and theme shiki ships —
+ * ~450 chunks, ~13 MB of the built app. At runtime only a closed set is ever
+ * loadable: src/history/file-diff-view.tsx is the only module that calls
+ * registerCustomLanguage/registerCustomTheme, and its pierreLanguageForPath
+ * clamps every filetype outside tex/bibtex/markdown to "text". Everything
+ * outside that set is replaced with an inert stub grammar/theme so the chunks
+ * shrink to ~100 bytes.
+ *
+ * If new code can highlight more languages at runtime, extend keepLangs below —
+ * a missing grammar degrades silently to unhighlighted text rather than
+ * throwing, so this will not fail a test.
  */
 function shikiTrimPlugin(): {
   plugin: Plugin;
   isStubbed: (id: string) => boolean;
 } {
   const keepLangs = new Set([
-    // Registered for Pierre diff views in src/file-diff-view.tsx.
+    // The only grammars any runtime path can reach. src/history/file-diff-view.tsx is
+    // the sole caller of registerCustomLanguage, and pierreLanguageForPath
+    // clamps every other filetype to "text", which needs no grammar.
     "tex",
     "bibtex",
     "markdown",
-    // comark/dist/plugins/highlight.js registerDefaults().
-    "vue",
-    "tsx",
-    "svelte",
-    "typescript",
-    "javascript",
-    "bash",
-    "json",
-    "yaml",
-    "astro",
   ]);
   const keepThemes = new Set([
-    // Pierre themes (src/file-diff-view.tsx).
+    // Pierre themes (src/history/file-diff-view.tsx), the sole caller of
+    // registerCustomTheme.
     "github-light",
     "github-dark",
-    // comark defaults.
-    "material-theme-lighter",
-    "material-theme-palenight",
   ]);
   // The package only exports grammar subpaths, so locate dist/ via one of them.
   const langsDist = path.dirname(
@@ -172,38 +167,30 @@ export default defineConfig(() => ({
   clearScreen: false,
   build: {
     rolldownOptions: {
+      // One entry, on purpose. The animated-icon playground (icon-lab.html →
+      // tools/icon-lab) is development-only: the dev server serves any html at
+      // the project root, so `pnpm dev` still reaches /icon-lab.html, while the
+      // production build never sees it and emits no icon-lab artifact.
       input: {
         app: path.resolve("index.html"),
-        "icon-lab": path.resolve("icon-lab.html"),
       },
       output: {
         codeSplitting: {
           groups: [
             {
-              name(id, context) {
+              name(id) {
                 const explicitName = manualChunkName(id);
                 if (explicitName) return explicitName;
 
                 // Rolldown's automatic common chunks are split by every lazy
-                // entry signature. Recover Rollup's coarser startup boundary
-                // while keeping the icon lab and its shared modules separate.
-                const entries = new Set<string>();
-                const pending = [id];
-                const visited = new Set<string>();
-                while (pending.length > 0) {
-                  const moduleId = pending.pop()!;
-                  if (visited.has(moduleId)) continue;
-                  visited.add(moduleId);
-                  const info = context.getModuleInfo(moduleId);
-                  if (!info) continue;
-                  if (info.isEntry) {
-                    entries.add(info.id.includes("icon-lab.html") ? "icon-lab" : "app");
-                  } else {
-                    pending.push(...info.importers);
-                  }
-                }
-                if (entries.size > 1) return "provided-icons";
-                return entries.has("icon-lab") ? "icon-lab" : "app";
+                // entry signature, which shatters startup into many small
+                // requests. There is exactly one html entry, so every remaining
+                // `$initial` module is reachable from it: naming them all `app`
+                // recovers Rollup's coarser startup boundary. (While the icon
+                // lab was a second build input, modules shared with it were
+                // pulled out into a `provided-icons` chunk; with a single entry
+                // that split cannot arise.)
+                return "app";
               },
               tags: ["$initial"],
               includeDependenciesRecursively: false,
