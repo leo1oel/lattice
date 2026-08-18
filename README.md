@@ -38,29 +38,31 @@ literature management, realtime collaboration (Lattice's own, or Overleaf's),
 project history, and an AI agent that can see the project you are working on.
 Everything is a real file in a real folder on your Mac.
 
+<div align="center">
+
+<img src="docs/images/lattice-hero.png" alt="Lattice editing a LaTeX paper with the compiled PDF beside it" width="900" />
+
+<em>LaTeX source and the compiled PDF, side by side — with the whiteboard,
+spreadsheet and notes for the same paper one tab away.</em>
+
+</div>
+
 <!--
 ================================ SCREENSHOTS ================================
-Not captured yet. This whole block is commented out on purpose — a broken image
-in a README looks worse than no image at all.
+The hero shot above is live. The three below are not captured yet and stay
+commented out: a broken image in a README looks worse than no image at all.
 
-TO PUBLISH: create `docs/images/`, add the files named below, then delete this
-whole instruction block plus the two comment-delimiter lines that wrap it (the
-opening one above these instructions and the closing one after the markup at the
-bottom). Nothing else needs to change.
+TO PUBLISH one of them: capture it, drop it in `docs/images/`, and move its
+markup out of this comment block.
 
-WHAT TO CAPTURE — four shots, in this priority order:
+STILL WANTED:
 
-  1. lattice-hero.png        THE one that matters. Editor + live PDF side by
-                             side on a real-looking paper: two-column article,
-                             a numbered equation, a figure, a \cite in the
-                             visible text. Outline panel open on the left. This
-                             is what a visitor judges the project on.
-  2. lattice-agent.png       Agent panel open beside the editor, mid-answer,
+  1. lattice-agent.png       Agent panel open beside the editor, mid-answer,
                              with a passage selected in the source so the
                              "it can see my document" point lands visually.
-  3. lattice-papers.png      Library view: several imported papers, a cached
+  2. lattice-papers.png      Library view: several imported papers, a cached
                              paper open, the citation picker visible.
-  4. lattice-collab.gif      6-10s loop: two cursors editing the same .tex,
+  3. lattice-collab.gif      6-10s loop: two cursors editing the same .tex,
                              remote cursor labelled, PDF recompiling. A GIF
                              earns its bytes here and nowhere else.
 
@@ -94,18 +96,16 @@ that render is 175 MB and is gitignored for a reason. If you want the full promo
 video in the README, upload it as a release asset or drag it into a GitHub issue
 and link the resulting URL.
 
-========================== BLOCK TO UNCOMMENT ==============================
+========================== MARKUP FOR THE THREE ABOVE ======================
 
-<div align="center">
+A dark-mode hero would slot in without touching anything else: capture the same
+frame in dark mode as `docs/images/lattice-hero-dark.png` and wrap the live
+<img> above in this, which GitHub honours via prefers-color-scheme.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/lattice-hero-dark.png" />
   <img src="docs/images/lattice-hero.png" alt="Lattice editing a LaTeX paper with the compiled PDF beside it" width="900" />
 </picture>
-
-<em>LaTeX source and the compiled PDF, side by side, with the document outline.</em>
-
-</div>
 
 |  |  |
 | --- | --- |
