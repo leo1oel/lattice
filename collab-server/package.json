@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "lib0": "^0.2.117",
-    "partyserver": "^0.5.8",
+    "partyserver": "^0.5.10",
     "y-partyserver": "^2.2.0",
     "y-protocols": "^1.0.7",
-    "yjs": "^13.6.31"
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
