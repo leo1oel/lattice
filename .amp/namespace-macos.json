@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "repository": "leo1oel/lattice",
-  "compute": {
-    "machineType": "macos/arm64:6x14",
-    "selectors": "macos.version=26.x",
-    "region": "us"
-  }
-}

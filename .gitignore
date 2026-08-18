@@ -20,6 +20,11 @@ src-tauri/synara-runtime/
 .tmp/
 skills-lock.json
 
+# Local AI-assistant state. Never commit: these hold machine-specific paths,
+# private compute specs, and session transcripts.
+.claude/
+.amp/
+
 # Editor directories and files
 .vscode/
 .idea
