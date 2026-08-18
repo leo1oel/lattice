@@ -798,7 +798,7 @@ export class CollabProjectControllerV2 {
    */
   async create(path: string, kind: "text" | "binary" | "board" | "spreadsheet", options: { seedText?: string; timeoutMs?: number; adoptExisting?: boolean } = {}): Promise<boolean> {
     this.assertCatalogOnline();
-    if (isPaperLibraryPath(path)) throw new Error("Paper library files stay local; collaborators fetch them on demand");
+    if (isPaperLibraryPath(path)) throw new Error("paper_library_not_shared");
     if ((this.options.permission ?? "write") === "read") throw new Error("Read-only collaborators cannot create files");
     const lease = this.requireLease();
     // Mirror the server's ensurePathFree: only states that still occupy the

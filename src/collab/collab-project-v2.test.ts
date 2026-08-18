@@ -1216,7 +1216,7 @@ describe("v2 mid-share file creation", () => {
   it("refuses to share paper library bundles mid-session", async () => {
     const { controller, calls } = await setupCreateTest({ permission: "host" });
     await expect(controller.create(".research/papers/1706.03762/paper.md", "text", { seedText: "# Paper\n" }))
-      .rejects.toThrow(/stay local/);
+      .rejects.toThrow("paper_library_not_shared");
     expect(calls.create).toBe(0);
     controller.destroy();
   });
