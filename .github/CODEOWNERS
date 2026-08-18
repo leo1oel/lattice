@@ -1,0 +1,69 @@
+# Code owners for Lattice.
+#
+# GitHub requests a review from the owner of every matched path. Later rules
+# win, so the catch-all comes first and the paths that must never change
+# quietly come after it.
+#
+# This file is not access control — it is a tripwire. Each entry below marks a
+# place where a change that looks local is not: it either breaks a contract
+# across repositories, moves a license obligation, or alters what a signed
+# release contains.
+
+# Everything, by default.
+*                                   @leo1oel
+
+# --- Vendored GPL-3.0-or-later code -----------------------------------------
+# `src/open-knowledge-app/` is regenerated verbatim from upstream by
+# scripts/vendor-open-knowledge.mjs; `open-knowledge-app.lock.json` is its
+# manifest and hand edits are overwritten on the next re-vendor.
+# `src/open-knowledge-core/` is a vendored subset that is NOT auto-synced, so
+# every intentional deviation has to stay marked. These two trees are why the
+# whole project is GPL — their LICENSE copies and attribution headers are a
+# legal obligation, not housekeeping.
+/src/open-knowledge-app/            @leo1oel
+/src/open-knowledge-core/           @leo1oel
+/open-knowledge-app.lock.json       @leo1oel
+/scripts/vendor-open-knowledge.mjs  @leo1oel
+
+# --- Licensing and attribution ----------------------------------------------
+/LICENSE                            @leo1oel
+/THIRD_PARTY_NOTICES.md             @leo1oel
+/CODE_OF_CONDUCT.md                 @leo1oel
+/.github/SECURITY.md                @leo1oel
+
+# --- Cross-surface contracts ------------------------------------------------
+# `protocol/` is shared by the desktop app, the collaboration server, and every
+# already-deployed client. A change here breaks three surfaces at once, and old
+# clients keep running against the new Worker.
+/protocol/                          @leo1oel
+/collab-server/                     @leo1oel
+
+# --- Credentials and the security surface -----------------------------------
+# Overleaf session cookies are equivalent to an active browser login; the
+# collab vault owns the macOS Keychain item; capabilities and the CSP are the
+# WebView's entire authority.
+/src-tauri/src/overleaf.rs          @leo1oel
+/src-tauri/src/overleaf_rt.rs       @leo1oel
+/src-tauri/src/collab_credentials.rs @leo1oel
+/src-tauri/capabilities/            @leo1oel
+/src-tauri/tauri.conf.json          @leo1oel
+/src-tauri/Entitlements.plist       @leo1oel
+
+# --- What ends up inside a signed release -----------------------------------
+# The sidecar pin decides which agent runtime is bundled and signed; the
+# prepare script verifies the pinned revision and the bundled Node download.
+/scripts/synara-runtime.json        @leo1oel
+/scripts/prepare-synara-sidecar.mjs @leo1oel
+/scripts/bump-version.mjs           @leo1oel
+
+# --- CI, release, and the local gate ----------------------------------------
+/.github/workflows/                 @leo1oel
+/.github/dependabot.yml             @leo1oel
+/mise.toml                          @leo1oel
+
+# --- Dependency pins that carry patches -------------------------------------
+# patches/ + pnpm.patchedDependencies + pnpm.overrides in package.json are a
+# single unit; bumping one side without the other fails at install time.
+/patches/                           @leo1oel
+/package.json                       @leo1oel
+/pnpm-lock.yaml                     @leo1oel

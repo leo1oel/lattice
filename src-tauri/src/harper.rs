@@ -8,7 +8,7 @@
 //! `spawn_blocking` command instead: the webview thread never pays for
 //! linting, and the WKWebView Worker limitation stops mattering.
 //!
-//! Contract with `src/harper-spellcheck.ts`:
+//! Contract with `src/editor/harper-spellcheck.ts`:
 //! - input text is the already-masked prose (masking stays in the frontend
 //!   so offsets keep matching the CodeMirror document);
 //! - spans come back in UTF-16 code units (what CodeMirror and JS strings

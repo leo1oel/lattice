@@ -64,15 +64,15 @@ export default tseslint.config(
     // catalog compilation catches missing Chinese entries; this rule catches
     // visible strings that were never added to a catalog in the first place.
     files: [
-      "src/settings-dialog.tsx",
-      "src/project-dialogs.tsx",
-      "src/navigator.tsx",
-      "src/canvas-toolbar.tsx",
-      "src/document-canvas.tsx",
-      "src/onboarding-tour.tsx",
-      "src/collab-dialog.tsx",
-      "src/tex-setup-wizard.tsx",
-      "src/pdf-viewer.tsx",
+      "src/settings/settings-dialog.tsx",
+      "src/project/project-dialogs.tsx",
+      "src/project/navigator.tsx",
+      "src/canvas/canvas-toolbar.tsx",
+      "src/canvas/document-canvas.tsx",
+      "src/onboarding/onboarding-tour.tsx",
+      "src/collab/collab-dialog.tsx",
+      "src/build/tex-setup-wizard.tsx",
+      "src/pdf/pdf-viewer.tsx",
     ],
     rules: {
       "lingui/no-unlocalized-strings": [

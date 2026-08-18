@@ -11,7 +11,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import type {
   PaperSummary,
-  CiteCommand,
   FileNode,
   ProjectSnapshot,
   EditorPaneId,
@@ -32,8 +31,6 @@ export function paperSubtitle(paper: PaperSummary, snippet?: string): string {
 export function paperKey(paper: PaperSummary): string {
   return paper.arxivId || `cite:${paper.citationKey ?? paper.title}`;
 }
-
-export const CITE_COMMANDS: CiteCommand[] = ["cite", "citep", "citet"];
 
 export const PROJECT_FIGURE_DRAG_TYPE = "application/x-lattice-project-figure";
 
@@ -114,8 +111,8 @@ export function classifyExternalProjectDrop(
 
 // Papers ride in the same `openTabs` string[] as files. A paper's tab key is
 // its full-text path — unambiguous, since only papers live under this prefix.
-export const PAPER_TAB_PREFIX = ".research/papers/";
-export const PAPER_TAB_SUFFIX = "/paper.md";
+const PAPER_TAB_PREFIX = ".research/papers/";
+const PAPER_TAB_SUFFIX = "/paper.md";
 export function isPaperTabKey(key: string): boolean {
   return key.startsWith(PAPER_TAB_PREFIX) && key.endsWith(PAPER_TAB_SUFFIX);
 }

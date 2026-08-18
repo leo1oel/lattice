@@ -1,0 +1,103 @@
+name: Feature request
+description: Suggest something that would improve a research workflow
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lattice is built around research workflows, so the most useful requests
+        start from the work you are trying to do — not from a proposed
+        implementation.
+
+        **Describe the workflow you want to improve and the problem you hit
+        today.** Explaining the use case is more useful than prescribing a
+        particular design; a clear problem often has a better solution than the
+        one either of us thought of first.
+
+        For a large feature, a protocol change, or anything that spans the
+        editor, the collaboration server, and the Rust backend, expect a design
+        conversation on this issue before code — see
+        [CONTRIBUTING.md](https://github.com/leo1oel/lattice/blob/main/CONTRIBUTING.md).
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the [existing issues](https://github.com/leo1oel/lattice/issues?q=is%3Aissue) and this has not been requested.
+          required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: The research workflow you want to improve
+      description: >-
+        What are you actually doing? Writing a paper with a co-author, reading
+        through a stack of arXiv PDFs, keeping reading notes next to a
+        derivation, preparing a submission, reviewing an agent's edits…
+        Concrete beats general.
+      placeholder: >-
+        I keep reading notes for a survey in one Markdown file per paper, and
+        when I start drafting I need to pull quotes and citations from about
+        forty of them at once.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you run into today
+      description: >-
+        What happens right now, and why does it get in the way? Include the
+        workaround you use, if you have one, and how often this comes up.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What a good outcome looks like
+      description: >-
+        Describe the result, not the widget. "I can get from a highlighted
+        passage to the citation in my draft without leaving the editor" tells us
+        more than "add a button to the toolbar." If you *do* have an
+        implementation in mind, it is welcome — just put it in the next box.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Lattice would this touch?
+      description: Your best guess is fine.
+      options:
+        - LaTeX editor, compile, or PDF preview
+        - Markdown notes, diagrams, or whiteboard
+        - Papers, citations, or arXiv import
+        - Lattice live collaboration (Shares)
+        - Overleaf connection or sync
+        - AI research agent
+        - Git, history, or checkpoints
+        - App shell, windows, settings, or updates
+        - Something else / not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives, prior art, and implementation notes
+      description: >-
+        Other tools that solve this well, approaches you have already ruled out,
+        or a sketch of how you would build it.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: participation
+    attributes:
+      label: Would you like to work on this?
+      options:
+        - label: I would be interested in opening a pull request for this (no obligation — say yes only if you mean it).
+          required: false

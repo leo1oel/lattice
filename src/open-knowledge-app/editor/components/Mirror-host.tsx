@@ -14,6 +14,7 @@
 import { Link2 } from "lucide-react";
 import {
   createContext,
+  useCallback,
   useContext,
   useSyncExternalStore,
   type ReactNode,
@@ -21,7 +22,7 @@ import {
 import { Trans } from "@ok-app/shims/lingui-react-macro";
 import { getSharedMarkdownManager } from "@ok-app/editor/utils/md-singleton";
 import { mdastToHtml } from "../../../open-knowledge-core/markdown/mdast-to-html";
-import type { MarkdownWorkspaceIndex } from "../../../markdown-workspace-index";
+import type { MarkdownWorkspaceIndex } from "../../../editor/markdown/markdown-workspace-index";
 
 interface MirrorProps {
   src?: string;
@@ -36,8 +37,7 @@ type MdastNode = {
 };
 
 const MirrorWorkspaceContext = createContext<MarkdownWorkspaceIndex | null>(null);
-const subscribeToNothing = () => () => undefined;
-const getZeroRevision = () => 0;
+const unsubscribeFromNothing = () => undefined;
 
 export function MirrorHostProvider(props: {
   workspaceIndex?: MarkdownWorkspaceIndex | null;
@@ -64,8 +64,7 @@ function findMirrorSource(node: MdastNode, anchor: string): MdastNode | null {
   return null;
 }
 
-function resolveMirror(index: MarkdownWorkspaceIndex, src: string, anchor: string) {
-  const markdown = index.contentFor(src);
+function resolveMirror(markdown: string | undefined, anchor: string) {
   if (markdown === undefined) return { kind: "missing-source" } as const;
   let tree: MdastNode;
   try {
@@ -99,17 +98,23 @@ export function Mirror(props: MirrorProps) {
   const anchor = props.anchor ?? "";
   const mirrorRef = src && anchor ? `${src}#${anchor}` : "";
   const workspaceIndex = useContext(MirrorWorkspaceContext);
-  const revision = useSyncExternalStore(
-    workspaceIndex ? (listener) => workspaceIndex.subscribe(listener) : subscribeToNothing,
-    workspaceIndex ? () => workspaceIndex.revision : getZeroRevision,
-    getZeroRevision,
+  // Subscribe to the source *text*, not to the index or to a revision counter.
+  // MarkdownWorkspaceIndex is mutated in place and never changes identity, so a
+  // memo keyed on it can never invalidate; and a revision read next to the
+  // resolve call — which is what this used to do — is not an input to that call,
+  // so any memoization of it (the React Compiler's included) drops the revision
+  // from the dependency set and the mirror freezes on the text it first saw.
+  // The snapshot has to be the thing the render actually consumes.
+  const subscribe = useCallback(
+    (listener: () => void) => workspaceIndex?.subscribe(listener) ?? unsubscribeFromNothing,
+    [workspaceIndex],
   );
-  // Reading the revision is what subscribes this render to index updates;
-  // resolution itself is cheap and keeps no stale cross-document cache.
-  void revision;
-  const resolved = workspaceIndex && mirrorRef
-    ? resolveMirror(workspaceIndex, src, anchor)
-    : null;
+  const getMarkdown = useCallback(
+    () => (workspaceIndex && src ? workspaceIndex.contentFor(src) : undefined),
+    [workspaceIndex, src],
+  );
+  const markdown = useSyncExternalStore(subscribe, getMarkdown, getMarkdown);
+  const resolved = workspaceIndex && mirrorRef ? resolveMirror(markdown, anchor) : null;
 
   if (!mirrorRef) {
     return (

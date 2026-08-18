@@ -1,0 +1,145 @@
+name: Bug report
+description: Something in Lattice does not work the way it should
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        > [!CAUTION]
+        > **Do not report a security vulnerability here.** Use
+        > [private vulnerability reporting](https://github.com/leo1oel/lattice/security/advisories/new)
+        > instead — see [SECURITY.md](https://github.com/leo1oel/lattice/blob/main/.github/SECURITY.md).
+
+        > [!WARNING]
+        > **Everything you paste below is public.** Before you attach logs,
+        > screenshots, or a project snippet, remove:
+        > * **Overleaf session cookies** (`overleaf_session2`, `sharelatex.sid`)
+        >   and anything from `overleaf-session.json`;
+        > * **Lattice share invites, join links, and room secrets** — a share
+        >   secret in a public issue lets anyone into that project;
+        > * **AI provider API keys** and MCP server credentials;
+        > * **absolute file paths** (`/Users/yourname/…`) and the names of
+        >   unpublished papers, collaborators, or private projects.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the [existing issues](https://github.com/leo1oel/lattice/issues?q=is%3Aissue) and this is not a duplicate.
+          required: true
+        - label: I am on the [latest release](https://github.com/leo1oel/lattice/releases/latest) and the problem still happens.
+          required: true
+
+  - type: input
+    id: lattice-version
+    attributes:
+      label: Lattice version
+      description: >-
+        Find it in Settings → App updates, or right-click `Lattice.app` in
+        Applications → Get Info. If you built from source, give the commit SHA.
+      placeholder: "0.1.229"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: "Apple menu → About This Mac. Include the chip if you know it."
+      placeholder: "macOS 15.3 (Apple M2 Pro)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-source
+    attributes:
+      label: How did you install Lattice?
+      options:
+        - DMG from the GitHub Releases page
+        - Built from source (pnpm tauri build)
+        - Running the dev build (pnpm tauri dev)
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Lattice?
+      description: Your best guess is fine — it only helps with triage.
+      options:
+        - LaTeX editor, compile, or PDF preview
+        - Markdown notes, diagrams, or whiteboard
+        - Papers, citations, or arXiv import
+        - Lattice live collaboration (Shares)
+        - Overleaf connection or sync
+        - AI research agent
+        - Git, history, or checkpoints
+        - App shell, windows, settings, or updates
+        - Something else / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Numbered steps someone else can follow from a fresh launch. If it needs
+        a particular project or file, describe the smallest version that still
+        reproduces it.
+      placeholder: |
+        1. Open a project containing a `.tex` file with …
+        2. Press Cmd+S
+        3. Open the PDF preview and scroll to page 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Include any error text or toast message word for word.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        Settings → Logs → **Copy all** (or **Open log folder** for the rotated
+        files on disk). Paste the relevant part only. **Redact it first** — see
+        the warning at the top of this form.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: >-
+        Screenshots or a screen recording, how often it happens, whether it
+        started after an update, workarounds you found.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction check
+      options:
+        - label: I have removed Overleaf cookies, share invites and secrets, API keys, and identifying file paths from everything I pasted above.
+          required: true

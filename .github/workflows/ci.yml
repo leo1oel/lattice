@@ -25,6 +25,28 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  # The collaboration server is its own pnpm project with its own lockfile and
+  # is not part of the root install, so nothing above sees it. Its tests run on
+  # `@cloudflare/vitest-pool-workers`, which starts a local workerd and
+  # simulates the Durable Object and R2 bindings from `wrangler.jsonc` — no
+  # Cloudflare account, API token, or `wrangler login` is involved. Only
+  # `pnpm collab:deploy` needs credentials, and that is not run here.
+  collab-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: collab-server/pnpm-lock.yaml
+      - run: pnpm --dir collab-server install --frozen-lockfile
+      - run: pnpm --dir collab-server typecheck
+      - run: pnpm --dir collab-server test
+
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
@@ -39,6 +61,27 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm build
+      # Locally this is the `i18n-check` mise stage; it was the one stage of
+      # `pnpm check` that CI never ran, so catalog drift passed here and only
+      # failed on a contributor's machine.
+      #
+      # `pnpm i18n:check` re-extracts the catalogs and then asserts `git diff
+      # --exit-code -- src/locales`, so it is only meaningful on a clean
+      # checkout — which is exactly what actions/checkout gives us, and why this
+      # step must come after `pnpm build` rather than before: extraction and
+      # `lingui compile` rewrite files under `src/locales/`, and nothing may run
+      # against that rewritten tree.
+      - name: Check the i18n catalogs are in sync
+        run: pnpm i18n:check
+
+      # Same reasoning: `pnpm check` gained a `notices` stage that CI did not
+      # run, so a dependency added without regenerating THIRD_PARTY_NOTICES.md
+      # would only fail locally. Reads the installed trees plus `cargo
+      # metadata`; it does not build. The Synara sidecar is absent here, so its
+      # section is carried over rather than regenerated — the npm and crates
+      # closures are what this gate protects.
+      - name: Check the third-party notices are in sync
+        run: pnpm notices:check
 
   rust:
     runs-on: macos-latest

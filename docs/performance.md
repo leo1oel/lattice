@@ -59,8 +59,8 @@ Slow file switching:
 | `read_file` read every file twice (classification pass + content pass) | `project.rs` |
 
 Ruled out: agent streaming (cross-origin iframe + postMessage, zero React
-cost), Tauri `listen()` handlers (8 total, all cleaned up), file tree
-(already virtualized).
+cost), Tauri `listen()` handlers (9 non-test call sites today, all cleaned
+up), file tree (already virtualized).
 
 A constraint to respect: **editable surfaces deliberately do not use
 `content-visibility: auto`** — deferred materialization destabilizes WebKit
@@ -97,36 +97,65 @@ experiment behind a flag, measured before adoption.
 
 ## Results log
 
+**Nothing has been recorded here yet.** The table below is an empty template,
+kept so there is an agreed shape to fill in — it is not a record of any
+measurement, and the fixes described in this document shipped without one. If
+you run the playbook, add a row; do not infer anything from the current
+contents.
+
 | Date | Change | Keystroke p95 (md source / split / tex dual) | Switch p50 | Notes |
 | --- | --- | --- | --- | --- |
-| _baseline_ | — | _fill in_ | _fill in_ | before optimization stages |
+| _(template — no measurements recorded)_ | — | — | — | — |
 
 ## React Compiler status
 
 `scripts/react-compiler-report.mjs` prints every compiler bailout in the hot
-files; `src/react-compiler-guard.test.ts` pins per-file ceilings so new
-bailouts fail CI. As of August 2026: `editor-tabs.tsx` compiles fully; the
-syntax-level blockers (try/finally bodies, `??=`, inline `import()`,
-default-parameter `??`) were cleared from `pdf-viewer.tsx`,
-`visual-markdown-editor.tsx`, and `document-canvas.tsx`'s hooks. Remaining,
+files; `src/platform/react-compiler-guard.test.ts` pins per-file ceilings so new
+bailouts fail CI. As of August 2026: `editor-tabs.tsx` compiles fully, and
+several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
+were cleared from `pdf-viewer.tsx`, `visual-markdown-editor.tsx`, and
+`document-canvas.tsx`'s hooks.
+
+Run the report before planning any of this — a bailout's *cause* decides the
+recipe, and guessing from the file name has been wrong before. Remaining,
 in order of value:
 
-1. `App.tsx` — ~35 `try/finally` callback bodies plus a handful of throws
+1. `App.tsx` — ~32 `try/finally` callback bodies plus a handful of throws
    inside try. Recipe: hoist each body to a module-level function taking a
    deps object, leave the `useCallback` as a thin arrow; per-file commits so
    regressions bisect. This is the single biggest render-cost win left.
-2. Render-phase ref writes (`xRef.current = x` during render) in
-   `pdf-viewer.tsx` and `visual-markdown-editor.tsx` — convert to
-   every-commit effects, auditing each ref's consumers for ordering.
-3. `DocumentCanvas` is skipped wholesale because its extension memos carry
+2. Render-phase ref access in `visual-markdown-editor.tsx` — all 3 of its
+   bailouts, in the L2302 editor core, on the typing hot path. They are the
+   ref-passed-as-argument shape, so the fix is to wrap in a closure
+   (`() => ref.current`) rather than to move a write. Cheaper wins of the same
+   kind, each the *sole* bailout of its function: `app/use-panel-layout.ts`,
+   `project/project-find-dialog.tsx`, `telemetry/app-updater.tsx`.
+   Working model in the repo: `editor/codemirror-host.tsx:116-124` writes its
+   refs in an every-commit `useLayoutEffect` and compiles with 0 bailouts.
+   Note a wrong fix cannot land silently: moving the write to an effect while
+   leaving a `useMemo` that reads `.current` is still rejected, so the bailout
+   guard catches it.
+3. `pdf-viewer.tsx` — 5 bailouts, all `tagged template with interpolations`
+   (L673, L695, L1295, L1306, L1591), *not* ref writes. Its three ref sites are
+   invisible to the compiler until these clear, so fixing them first unlocks
+   nothing.
+4. `DocumentCanvas` is skipped wholesale because its extension memos carry
    intentional `react-hooks/exhaustive-deps` disables (identity stability the
    compiler cannot express yet). Resolving this needs a design, not an edit.
+
+Note that items 1 and 2 do not gate each other, and neither is load-bearing for
+correctness: a render-phase ref access makes the compiler skip the *enclosing
+function*, so these are lost optimisations, not latent bugs. The patterns that
+do cause stale-render bugs are the ones the compiler cannot see — module-level
+mutable state read during render, and objects mutated in place whose identity
+never changes. Two such bugs shipped and were fixed in August 2026; see the
+comment in `vitest.config.ts` for how the test suite now catches them.
 
 ## Library replacements (second round, August 2026)
 
 Four dependency-level replacements landed after the fix rounds above:
 
-- **`@uiw/react-codemirror` → `src/codemirror-host.tsx`** (dependency
+- **`@uiw/react-codemirror` → `src/editor/codemirror-host.tsx`** (dependency
   removed). The wrapper serialized the whole document twice per keystroke
   (onChange + controlled-value comparison). The host reconciles the
   controlled value by reference — the string App stores is the one the host
@@ -159,15 +188,26 @@ library — see Future directions).
 
 - Editable-doc `content-visibility` experiment behind a dev flag, with
   selection/scroll behavior measured on WKWebView before any default flip.
-- `App.tsx` state extraction (162 `useState` in one 8.6k-line component) and
-  `DocumentCanvas` memoization (109 props, 26 inline lambdas at the call
-  site).
+- `App.tsx` state extraction — in progress rather than unscheduled. The file is
+  ~9.8k lines with roughly 151 `useState`, and `src/app/use-collab-v2-session.ts`
+  and `src/app/use-overleaf-workspace.ts` have already lifted ~1,800 lines of
+  collab and Overleaf state out of it. Still open: `DocumentCanvas` memoization
+  — 126 props and 26 inline lambdas at the call site in `App.tsx`, up from 109
+  props when this was first measured.
 - Split-mode publication: replace whole-document `setContent` with
   block-level splices; measure after the mdast-cache fix, which removed the
   worst multiplier.
 - Long term: Obsidian-style single-editor live preview instead of two
   simultaneously mounted editors.
-- Incremental BM25 workspace index (`updateWorkspaceSearchCorpus` exists but
-  is unused); a filesystem watcher to replace the 2-second poll; CodeMirror
-  remount-on-switch (`key={collabEditorKey}`) if switching still feels slow
-  after the IPC fixes.
+- CodeMirror remount-on-switch (`key={collabEditorKey}`) if switching still
+  feels slow after the IPC fixes.
+
+Two items that used to sit in this list have **shipped** and are described under
+"Library replacements" above — do not re-plan them:
+
+- The `notify` filesystem watcher replacing the 2-second poll
+  (`src-tauri/src/fs_watch.rs`, the `watch_project` command, the
+  `project-fs-changed` event).
+- The incremental BM25 workspace index. `updateWorkspaceSearchCorpus` is no
+  longer unused: `src/editor/markdown/markdown-workspace-index.ts:338` calls it on every
+  corpus update.

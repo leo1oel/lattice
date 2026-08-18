@@ -17,10 +17,22 @@
       <path d="M250 512H774"/>
       <path d="M250 688H774"/>
     </g>
-    <g fill="none" stroke="url(#cyan)" stroke-width="68" stroke-linecap="round">
-      <path d="M336 250V774"/>
-      <path d="M512 250V774"/>
-      <path d="M688 250V774"/>
+    <g fill="none" stroke="url(#cyan)" stroke-width="68" stroke-linecap="butt">
+      <path d="M336 250V478"/>
+      <path d="M336 546V774"/>
+      <path d="M512 250V302"/>
+      <path d="M512 370V654"/>
+      <path d="M512 722V774"/>
+      <path d="M688 250V478"/>
+      <path d="M688 546V774"/>
+    </g>
+    <g fill="url(#cyan)">
+      <circle cx="336" cy="250" r="34"/>
+      <circle cx="336" cy="774" r="34"/>
+      <circle cx="512" cy="250" r="34"/>
+      <circle cx="512" cy="774" r="34"/>
+      <circle cx="688" cy="250" r="34"/>
+      <circle cx="688" cy="774" r="34"/>
     </g>
   </g>
 </svg>

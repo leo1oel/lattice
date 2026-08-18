@@ -38,10 +38,10 @@ import type { ImgHTMLAttributes } from 'react';
 import { useEffect, useRef } from 'react';
 import Zoom from 'react-medium-image-zoom';
 import { LoadingImage } from '@ok-app/components/ui/loading-image';
-import { useProjectImageSrc } from '../../../project-image-host';
+import { useProjectImageSrc } from '../../../editor/markdown/project-image-host';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
 import { ResizeHandles } from './ResizeHandles.tsx';
-import { useNearViewport } from '../../../use-near-viewport';
+import { useNearViewport } from '../../../editor/markdown/use-near-viewport';
 
 interface ImageProps {
   src?: string;

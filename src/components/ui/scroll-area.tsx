@@ -211,4 +211,3 @@ const ScrollBar = forwardRef<
 });
 
 export { ScrollArea, ScrollBar };
-export type { ScrollAreaProps };

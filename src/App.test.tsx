@@ -11,17 +11,18 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { clearAppLogs, formatAppLogs } from "./app-log-store";
-import { persistWorkspaceLayout } from "./app-settings";
-import { mapCollabProjectStatusV2 } from "./collab-status";
-import { formatCollabInvitationV2 } from "./collab-invitation-v2";
-import { loadTextLanguageExtensions } from "./editor-languages";
-import { referenceAssetPreviewDataUrl } from "./reference-preview";
-import { usePanelLayout } from "./use-panel-layout";
-import { parseVisualMarkdown } from "./visual-markdown-schema";
-import type { SynaraRuntimeInfo } from "./synara-runtime";
-import { ConfirmActionProvider } from "./confirm-action-dialog";
-import type { CollabProjectStatusV2 } from "./collab-project-v2";
+import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
+import { persistWorkspaceLayout } from "./settings/app-settings";
+import { mapCollabProjectStatusV2 } from "./collab/collab-status";
+import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
+import { loadTextLanguageExtensions } from "./editor/editor-languages";
+import { activateAppLocale } from "./i18n";
+import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
+import { usePanelLayout } from "./app/use-panel-layout";
+import { parseVisualMarkdown } from "./editor/markdown/visual-markdown-schema";
+import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
+import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
+import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -77,15 +78,15 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 // The board creation flow opens the .tldr in the canvas; mounting the real
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
-vi.mock("./board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
-vi.mock("./spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
-vi.mock("./use-synara-runtime", () => ({
+vi.mock("./editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
+vi.mock("./editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
+vi.mock("./agent/use-synara-runtime", () => ({
   useSynaraRuntime: (enabled: boolean) => {
     synaraHook.enabledCalls.push(enabled);
     return synaraHook;
   },
 }));
-vi.mock("./interface-sounds", () => ({
+vi.mock("./telemetry/interface-sounds", () => ({
   configureInterfaceSounds: interfaceSounds.configure,
   playInterfaceSound: interfaceSounds.play,
 }));
@@ -6599,7 +6600,7 @@ describe("project workspace", () => {
     expect(document.querySelector(".source-editor")).toBeInTheDocument();
   });
 
-  it("lists compile diagnostics and jumps to the reported source line", async () => {
+  it("lists successful-build diagnostics and jumps to the reported source line", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -6633,15 +6634,15 @@ describe("project workspace", () => {
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "build_project") {
         return {
-          success: false,
+          success: true,
           pdfBase64: null,
-          log: "chapters/intro.tex:4: Undefined control sequence.\n",
+          log: "chapters/intro.tex:4: Overfull hbox.\n",
           durationMs: 80,
           diagnostics: [{
             file: "/tmp/lattice-paper/./chapters/intro.tex",
             line: 4,
-            level: "error",
-            message: "Undefined control sequence.",
+            level: "warning",
+            message: "Overfull hbox.",
           }],
         };
       }
@@ -6650,21 +6651,27 @@ describe("project workspace", () => {
 
     renderApp();
     const diagnosticsPanel = await screen.findByLabelText("Compile diagnostics");
-    // Initial and autosave builds are intentionally silent, even on failure.
+    const visibleBuildToasts = () => getVisibleAppToastIds()
+      .map((id) => getAppLogEntry(id))
+      .filter((entry) => entry?.source === "Build");
+    expect(visibleBuildToasts()).toEqual([]);
+    // Initial and autosave builds are intentionally silent.
     expect(interfaceSounds.play).not.toHaveBeenCalled();
     const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
       .filter(([command]) => command === "build_project").length;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(vi.mocked(invoke).mock.calls
       .filter(([command]) => command === "build_project")).toHaveLength(buildsBeforeManualRequest + 1));
-    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-failed"));
+    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
+    expect(visibleBuildToasts()).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
-    expect(screen.getByText("1 error")).toBeInTheDocument();
+    expect(screen.getByText("1 warning")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /1 warning/i }));
     fireEvent.click(screen.getByRole("button", { name: "Copy error message" }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("chapters/intro.tex:4 Undefined control sequence."));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("chapters/intro.tex:4 Overfull hbox."));
     fireEvent.click(screen.getByRole("tab", { name: /Log/i }));
-    expect(screen.getByLabelText("Raw build log")).toHaveTextContent("Undefined control sequence.");
+    expect(screen.getByLabelText("Raw build log")).toHaveTextContent("Overfull hbox.");
     fireEvent.click(screen.getByRole("tab", { name: /Messages/i }));
     fireEvent.click(screen.getByRole("button", { name: /chapters\/intro\.tex:4/i }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
@@ -6677,6 +6684,50 @@ describe("project workspace", () => {
       expect(view?.state.doc.toString()).toContain("\\section{Intro}");
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
     });
+  });
+
+  it("shows a failed build only as a global error toast", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") {
+        return {
+          success: false,
+          pdfBase64: null,
+          log: "Undefined control sequence.\n",
+          durationMs: 80,
+          diagnostics: [{ level: "error", message: "Undefined control sequence." }],
+        };
+      }
+      return mockAppCommand(command);
+    });
+
+    renderApp();
+    await waitFor(() => {
+      const toasts = getVisibleAppToastIds()
+        .map((id) => getAppLogEntry(id))
+        .filter((entry) => entry?.source === "Build");
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0]).toMatchObject({
+        level: "error",
+        title: "Build failed",
+      });
+    });
+    expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();
+    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
   });
 
   it("saves dirty buffers before switching project files", async () => {
@@ -6904,6 +6955,45 @@ describe("project workspace", () => {
       path: sharedSnapshot.root,
     }));
     expect(invoke).not.toHaveBeenCalledWith("open_project_window", expect.anything());
+  });
+
+  it("shows share-start progress in the selected interface language", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    localStorage.setItem("lattice.collab.name", "Ada");
+    const snapshot = {
+      root: "/tmp/notes",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+    };
+    const inventoryFailure: { reject: ((reason: Error) => void) | null } = { reject: null };
+    const inventory = new Promise<never>((_resolve, reject) => {
+      inventoryFailure.reject = reject;
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "harper_lint") return [];
+      if (command === "collab_project_inventory_v2") return inventory;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("正在扫描项目文件…");
+    await act(async () => inventoryFailure.reject?.(new Error("stop after localized status")));
+    expect(await screen.findByRole("status")).toHaveTextContent("导入失败——请重新点击“开始共享”");
   });
 
   it("gives a newly created project its own window when one is already open", async () => {

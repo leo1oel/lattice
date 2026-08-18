@@ -189,7 +189,6 @@ the research workspace and those embedded surfaces.
 | Panel or drawer title bar | `PanelHeader` | title, leading icon, feature actions |
 | Panel close action | `PanelHeader onClose` or `CloseButton` | callback and specific label |
 | Settings page heading | `SettingsSectionHeader` | title, description, optional actions |
-| Labelled form control | `Field` | control, label copy, optional hint or error |
 | No-content message | `EmptyState` | copy, optional icon and actions, density |
 | Menu-like floating surface | primitives using `menu-surface.ts` | Radix semantics and feature content |
 | Ordinary scrolling | `ScrollArea` | orientation and exceptional layout classes |
@@ -216,9 +215,10 @@ the primitive standardizes density without changing those semantics.
   persistent setting that takes effect independently. CodeMirror controls,
   embedded content, and vendored Agent Elements may retain their native
   implementation when integration requires it.
-- Pair ordinary text controls with `Field` when they need a visible label, hint,
-  or error. Pass the invalid state to `Input` or `Textarea` so visual state and
-  `aria-invalid` stay aligned. Use `SearchField` for search and filtering; its
+- There is no generic labelled-field wrapper. `SwitchField` and `CheckboxField`
+  cover those two controls; ordinary text controls are labelled by the feature
+  that owns them. Pass the invalid state to `Input` or `Textarea` so visual state
+  and `aria-invalid` stay aligned. Use `SearchField` for search and filtering; its
   trailing slot keeps result navigation or clear actions inside the same visual
   contract. Range controls, color pickers, and editor inputs remain feature-owned
   when their interaction model is specialized.

@@ -1,4 +1,9 @@
 <!doctype html>
+<!--
+  Development-only playground for the animated product icons. The dev server
+  serves any html at the project root, so `pnpm dev` reaches /icon-lab.html,
+  but this page is not a build input (see vite.config.ts) and never ships.
+-->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,6 +13,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/icon-lab/main.tsx"></script>
+    <script type="module" src="/tools/icon-lab/main.tsx"></script>
   </body>
 </html>

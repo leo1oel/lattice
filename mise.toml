@@ -35,11 +35,12 @@ sources = [
 ]
 
 [tasks.lint]
-description = "ESLint over src (the warning cap is a debt ratchet — lower it, never raise it)"
+description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it)"
 run = "pnpm lint"
 sources = [
   "src/**",
   "!src/locales/**/*.js",
+  "tools/**",
   "eslint.config.js",
   "tsconfig.json",
   "package.json",
@@ -52,6 +53,8 @@ run = "pnpm test"
 sources = [
   "src/**",
   "!src/locales/**/*.js",
+  # src/styles/surfaces.test.ts reads the dev playground's stylesheet off disk.
+  "tools/**",
   "protocol/**",
   "vitest.config.ts",
   "tsconfig.json",
@@ -67,7 +70,9 @@ sources = [
   "!src/locales/**/*.js",
   "protocol/**",
   "index.html",
-  "icon-lab.html",
+  # `tools/` is not a build input, but tsc typechecks it (tsconfig.json
+  # `include`), and this stage runs tsc before vite.
+  "tools/**",
   "vite.config.ts",
   "tsconfig.json",
   "tsconfig.node.json",
@@ -80,6 +85,36 @@ sources = [
   "!public/pdfjs/**",
 ]
 outputs = ["dist"]
+
+# The Lattice Shares Worker is a separate pnpm project with its own lockfile, so
+# the root install never sees it and none of the stages above cover it. Unlike
+# every other stage these two commands are not root package.json scripts —
+# `collab:dev`/`collab:deploy`/`collab:login` exist, but typecheck and test do
+# not — so they are spelled out here rather than wrapped.
+#
+# The tests run on @cloudflare/vitest-pool-workers, which starts a local workerd
+# and simulates the Durable Object and R2 bindings declared in wrangler.jsonc.
+# No Cloudflare account or `wrangler login` is needed; only `pnpm collab:deploy`
+# talks to Cloudflare.
+[tasks.collab-server]
+description = "Typecheck and test the collaboration Worker (its own pnpm project)"
+run = [
+  "pnpm --dir collab-server typecheck",
+  "pnpm --dir collab-server test",
+]
+# `protocol/` is an input because the Worker imports it across the directory
+# boundary (`../../protocol/collab-v2`), so a protocol edit alone must re-run
+# this stage.
+sources = [
+  "collab-server/src/**",
+  "collab-server/test/**",
+  "protocol/**",
+  "collab-server/tsconfig.json",
+  "collab-server/vitest.config.ts",
+  "collab-server/wrangler.jsonc",
+  "collab-server/package.json",
+  "collab-server/pnpm-lock.yaml",
+]
 
 [tasks.cargo-fmt]
 description = "rustfmt check (CI enforces this; it used to be missing from the local gate)"
@@ -110,6 +145,53 @@ sources = [
   "src-tauri/capabilities/**",
 ]
 
+# Aggregated third-party notices. ~2 s, which is why it belongs here rather than
+# in the "run it by hand and hope" category: THIRD_PARTY_NOTICES.md is a legal
+# artifact, and the way it rots is that someone adds a dependency and nobody
+# regenerates.
+#
+# `--allow-unresolved` is deliberate. The generator exits 2 when a package
+# declares a license but ships no text — 139 of them today, nearly all crates
+# whose published archive omits the LICENSE file in their Git repo. That is a
+# standing condition recorded in the file itself, not drift, and a gate that is
+# red on every run is a gate people learn to ignore. This stage checks only that
+# the generated section matches the installed trees; run `pnpm notices` to see
+# the gaps, which it still prints in full.
+#
+# The sidecar closure is skipped unless `src-tauri/synara-runtime/` happens to be
+# staged, since `pnpm check` normally runs against the placeholder stub. When it
+# is absent the previously generated section is carried over untouched and only
+# the npm and crates closures are verified — the generator says so on stderr.
+#
+# NOTE: unlike every other stage, this one has no counterpart in
+# `.github/workflows/ci.yml` yet, so notices drift is currently caught locally
+# and not in CI.
+[tasks.notices]
+description = "Check THIRD_PARTY_NOTICES.md against the installed npm and crates trees"
+run = "pnpm notices:check"
+# The closures are read from node_modules and the cargo registry, so the
+# lockfiles are the freshness signal; the generated output and the vendored
+# license texts are inputs too, because editing either is drift.
+sources = [
+  "package.json",
+  "pnpm-lock.yaml",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+  "scripts/generate-notices.mjs",
+  "public/licenses/**",
+  "THIRD_PARTY_NOTICES.md",
+]
+
 [tasks.check]
 description = "THE gate: everything CI runs, in parallel, skipping unchanged stages"
-depends = ["i18n-check", "lint", "test", "build", "cargo-fmt", "cargo-test", "clippy"]
+depends = [
+  "i18n-check",
+  "lint",
+  "test",
+  "build",
+  "collab-server",
+  "cargo-fmt",
+  "cargo-test",
+  "clippy",
+  "notices",
+]

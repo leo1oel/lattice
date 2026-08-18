@@ -28,7 +28,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  // `tools/` holds development-only pages (the animated-icon playground) that
+  // are never a build input. They still import app modules, so they are
+  // typechecked here — otherwise a rename in src/ could silently break them.
+  "include": ["src", "tools"],
   // Vendored Open Knowledge core tests are written against upstream's looser
   // tsconfig and @tiptap 3.22 types; they run under vitest but are excluded
   // from app typechecking to avoid hand-editing vendored code.
@@ -39,7 +42,7 @@
     // Runs the compiler-report script through node:child_process; needs node
     // types the browser-targeted app tsconfig does not load. Vitest still
     // runs and typechecks it through its own transform.
-    "src/react-compiler-guard.test.ts"
+    "src/platform/react-compiler-guard.test.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

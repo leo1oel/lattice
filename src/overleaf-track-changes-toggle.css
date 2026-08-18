@@ -1,8 +1,0 @@
-/* Only what the toolbar does not already say. Size, shape, hover and the
-   pressed background come from `.canvas-actions .canvas-text-button` and
-   `.canvas-actions button.active` in App.css, so that this button narrows and
-   drops its label in step with the others rather than fighting them. */
-
-/* Not "the button is busy" but "this account cannot suggest at all", which is
-   a property of the project rather than of the moment. */
-.overleaf-track-changes-toggle:disabled { opacity: .45; }

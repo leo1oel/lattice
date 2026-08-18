@@ -6,5 +6,12 @@ dist
 # Ignore the output video from Git but not videos you import into src/.
 out
 
-# Screen recordings are symlinked in from outside the repo.
-public/*.mp4
+# Media assets. `public/` is ~700 MB of screen captures plus generated audio and
+# the Inter woff2, none of which is distributed with Lattice — see README.md.
+# The whole directory is ignored rather than a list of extensions, so a
+# `git add -A` cannot sweep a new capture or sound effect into a commit.
+#
+# The captures must be real files here, not symlinks out of the repository: the
+# bundler does not follow symlinks out of `public/`, so a link renders in the
+# Studio but 404s during `remotion render`.
+public/

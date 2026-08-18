@@ -17,7 +17,7 @@ import "./chrome.css";
  * coloured `<p>` at a different size with no icon. Same icons and same status
  * colours as the toast, so the two read as one system.
  *
- * `Field`'s `error`/`hint` slots stay as they are — a caption under a single
+ * A form control's own caption stays as it is — a caption under a single
  * control is a label, not a message, and does not want an icon beside it.
  */
 const INLINE_MESSAGE_ICON = {

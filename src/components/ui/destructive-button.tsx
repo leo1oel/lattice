@@ -9,7 +9,7 @@ import {
   useReducedMotion,
   type HTMLMotionProps,
 } from "motion/react";
-import { PRESS_SPRING } from "../../motion-values";
+import { PRESS_SPRING } from "./motion-values";
 
 export type DestructiveButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
   children?: ReactNode;

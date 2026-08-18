@@ -13,7 +13,7 @@
  */
 
 import { z } from 'zod';
-import { validateDocName } from '../../util/doc-name.ts';
+import { validateDocName } from '../../utils/doc-name.ts';
 
 /**
  * `docName` shape shared by every mutating handler. When present, the value

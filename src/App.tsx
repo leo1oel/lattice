@@ -1,34 +1,13 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { Image } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
-import {
-  BookMarked,
-  BookOpen,
-  Bot,
-  Check,
-  ChevronDown,
-  FolderTree,
-  Image,
-  Library,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Play,
-  Search,
-  Shapes,
-  Shield,
-  ShieldCheck,
-  Table2,
-  Hand,
-  Square,
-  X,
-} from "lucide-react";
 import {
   bibliographyEntryLine,
   mergeReferences,
@@ -39,50 +18,63 @@ import {
   type DefinitionTarget,
   type ReferenceInfo,
   type SymbolTarget,
-} from "./latex-text";
-import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./bib-entry";
-import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
-import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./clipboard-image";
-import { GotoLineDialog } from "./goto-line-dialog";
-import { QuickOpenDialog } from "./quick-open-dialog";
-import { SearchPickerDialog, type SearchPickerItem } from "./search-picker-dialog";
-import { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
-import { parsePaperLinkPath } from "./paper-link";
-import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./paper-import-progress";
-import type { CollabDialogMode } from "./collab-dialog";
-import { TexSetupWizard } from "./tex-setup-wizard";
+} from "./editor/latex/latex-text";
+import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./papers/bib-entry";
+import { type ResolvedCitationDraft } from "./papers/bib-entry-dialog";
+import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
+import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
+import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
+import { parsePaperLinkPath } from "./papers/paper-link";
+import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
+import { TexSetupWizard } from "./build/tex-setup-wizard";
 import {
   isMissingTexBuildError,
   isRequiredSetupMissing,
-} from "./tex-setup";
+} from "./build/tex-setup";
 import {
   assertCollabWorkspaceLease,
   CollabDiskWriteQueue,
   type CollabWorkspaceLease,
-} from "./collab-workspace-lease";
+} from "./collab/collab-workspace-lease";
 import {
   createEditorCommentReply,
   EDITOR_COMMENTS_PATH,
   loadEditorCommentAuthorId,
   mergeEditorComments,
-} from "./editor-comment-data";
-import { useAppearance } from "./use-appearance";
-import { configureInterfaceSounds, playInterfaceSound } from "./interface-sounds";
-import { usePanelLayout } from "./use-panel-layout";
-import { resolveSidebarModeTier, type SidebarModeTier } from "./sidebar-mode-layout";
-import { useOverleafRealtime } from "./use-overleaf-realtime";
-import { useOverleafChat } from "./use-overleaf-chat";
-import { useCollabChat } from "./use-collab-chat";
-import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
-import { useOverleafTrackChanges } from "./use-overleaf-track-changes";
-import { type PresenceCursor } from "./overleaf-cursors";
-import { OverleafPresenceAvatars } from "./overleaf-presence";
-import { AvatarGroup } from "./avatar-group";
-import { InfinityLoader } from "./components/ui/activity-icons";
-import { useOverleafComments, type OverleafComments } from "./use-overleaf-comments";
-import type { OverleafCollabTab } from "./overleaf-collab";
+} from "./editor/comments/editor-comment-data";
+import { useAppearance } from "./settings/use-appearance";
+import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
+import { usePanelLayout } from "./app/use-panel-layout";
+import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
+import { useCollabChat } from "./collab/use-collab-chat";
 import {
-  type AppLocale,
+  OVERLEAF_COMMENT_PREFIX,
+  useOverleafWorkspace,
+} from "./app/use-overleaf-workspace";
+import {
+  bytesToBase64,
+  SHARE_SOURCE,
+  useCollabV2Session,
+} from "./app/use-collab-v2-session";
+import { AppCollabDialog, AppOverleafCollabDrawer, CollabDialog } from "./app/app-collab-surfaces";
+import { AppEditorPanels } from "./app/app-editor-panels";
+import { AppHistoryDrawers } from "./app/app-history-drawers";
+import { AppOnboardingTour } from "./app/app-onboarding-tour";
+import { AppProjectDialogs } from "./app/app-project-dialogs";
+import { AppProjectSearchDialogs, AppSearchDialogs } from "./app/app-search-dialogs";
+import { AppTitlebar } from "./app/app-titlebar";
+import { AppWorkspaceSidebar } from "./app/app-workspace-sidebar";
+import { CanvasToolbar } from "./canvas/canvas-toolbar";
+import { AvatarGroup } from "./components/ui/avatar-group";
+import { InfinityLoader } from "./components/ui/activity-icons";
+import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
+import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
+import {
+  isSynaraPermissionMode,
+  type AgentTurnReview,
+  type SynaraPermissionMode,
+} from "./app/app-synara-embed";
+import {
   type RecentProject,
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
@@ -96,11 +88,7 @@ import {
   persistFileViewStates,
   loadWorkspaceLayout,
   persistWorkspaceLayout,
-  type OverleafRemoteDelete,
-  type OverleafSyncMode,
-  loadOverleafRemoteDelete,
   persistOverleafRemoteDelete,
-  loadOverleafSyncMode,
   persistOverleafSyncMode,
   LOCAL_SEMANTIC_SEARCH_KEY,
   loadLocalSemanticSearchEnabled,
@@ -108,141 +96,94 @@ import {
   hasSeenTutorial,
   markTutorialSeen,
   resolveAppLocale,
-} from "./app-settings";
+} from "./settings/app-settings";
 import {
   type EditorComment,
-} from "./editor-comment-data";
+} from "./editor/comments/editor-comment-data";
 import {
   executeAgentCanvasToolRequest,
   parseAgentCanvasToolRequest,
-} from "./agent-canvas-tools";
+} from "./agent/agent-canvas-tools";
 import {
   executeAgentSpreadsheetToolRequest,
   parseAgentSpreadsheetToolRequest,
   registerAgentSpreadsheetDocumentResolver,
-} from "./agent-spreadsheet-tools";
-import { isSpreadsheetPath } from "./spreadsheet-types";
-import { seedSpreadsheetDoc, spreadsheetDocContent } from "./spreadsheet-yjs";
-const EditorCommentsPanel = lazy(() =>
-  import("./editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
-);
-import { SlidingTabs } from "./motion";
+} from "./agent/agent-spreadsheet-tools";
+import { isSpreadsheetPath } from "./editor/spreadsheet/spreadsheet-types";
+import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
 import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
-  resolvePreCollabProjectRoot,
-} from "./collab-return";
-import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
-import { rewriteMovedDocumentAssetPaths } from "./figure-insertion";
+} from "./collab/collab-return";
+import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf/pdf-bytes";
+import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion";
 import {
-  loadCollabDisplayName,
-  loadCollabHost,
-  mergeTextIntoYText,
-  resolveCollabHost,
-  saveCollabDisplayName,
-  saveCollabHost,
-  peerCursorLocationV2,
   peerInitials,
+  saveCollabDisplayName,
+  peerCursorLocationV2,
   waitForPeerCursorLocationV2,
   type CollabPeer,
   type EditorCollabSession,
-  type CollabStatus,
-} from "./collab-session";
-import { collabDeploymentOrigin } from "./collab-config";
-import { collabCredentialStore } from "./collab-credentials";
-import { loadCollabFeaturePolicy } from "./collab-feature-policy";
-import { createProjectV2 } from "./collab-import-v2";
-import { CollabControlErrorV2, CollabControlV2Client } from "./collab-control-v2";
-import { acceptCollabInvitationV2 } from "./collab-join-v2";
-import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2, type CollabProjectStatusV2 } from "./collab-project-v2";
-import { mapCollabProjectStatusV2 } from "./collab-status";
-import { isClientDestroyedErrorV2, TextClientPermanentErrorV2 } from "./collab-text-v2";
-import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab-comments";
-import type { CatalogV2 } from "../protocol/collab-v2";
+} from "./collab/collab-session";
+import { collabCredentialStore } from "./collab/collab-credentials";
+import { loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
+import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
+import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
+import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2 } from "./collab/collab-project-v2";
+import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
+import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
   mayApplyProjectRefreshV2,
   parsePreferredCollabInvitation,
   planRemoteCollabDeleteUiV2,
-  readRememberedV2Credential,
   requireRememberedV2Credential,
-} from "./collab-app-v2";
+} from "./collab/collab-app-v2";
 import {
   forgetCollabProjectV2,
   loadCollabProjectsV2,
   rememberCollabProjectV2,
   type CollabProjectRecordV2,
-} from "./collab-rooms";
-const CompileDiagnosticsPanel = lazy(() =>
-  import("./compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
-);
+} from "./collab/collab-rooms";
 import {
   diagnosticsFingerprint,
+  EMPTY_DIAGNOSTICS,
   flattenProjectPaths,
   missingTexDependencyFile,
   resolveDiagnosticPath,
   type CompileDiagnostic,
-} from "./compile-diagnostics";
-import { CanvasToolbar } from "./canvas-toolbar";
-import { Welcome, CreateProjectDialog, RenameDialog, ProjectMenu } from "./project-dialogs";
-import { TUTORIAL_STEPS } from "./onboarding-steps";
+} from "./build/compile-diagnostics";
+import { Welcome } from "./project/project-dialogs";
+import { TUTORIAL_STEPS } from "./onboarding/onboarding-steps";
 import {
   activeOutlineNode,
   flattenOutline,
   includedPathsIn,
   parseProjectOutline,
-} from "./latex-outline";
-import { ReferencesPanel, type SymbolOccurrence } from "./references-panel";
-const HistoryDrawer = lazy(() =>
-  import("./history-drawer").then((module) => ({ default: module.HistoryDrawer })),
-);
-import { type HistoryItem } from "./history-drawer";
-import { katexMacrosFromSources } from "./katex-macros";
-// Lazy: the navigator pulls @pierre/trees (~270 KB) and never renders on the
-// Welcome screen, so it must not weigh down first paint.
-const Navigator = lazy(() =>
-  import("./navigator").then((module) => ({ default: module.Navigator })),
-);
+} from "./editor/latex/latex-outline";
+import { type HistoryItem } from "./history/history-drawer";
+import { katexMacrosFromSources } from "./editor/latex/katex-macros";
 import {
-  EditorDropPreviewPortal,
-  EditorTabs,
   editorDropPreviewAt,
+  EditorDropPreviewPortal,
   type EditorDropPreview,
   type EditorDropZone,
-} from "./editor-tabs";
-import { Tip } from "./components/icon-tip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "./components/ui/dropdown-menu";
-import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
+} from "./canvas/editor-tabs";
+import { type ProjectFindHit } from "./project/project-find-dialog";
 import {
   DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-  fuseProjectSearchHits,
-  semanticQueryEligible,
-  type LocalSemanticSearchResponse,
   type LocalSemanticSearchStatus,
-} from "./project-semantic-search";
-import { ResizableDrawer } from "./resizable-drawer";
-import { ProjectReplaceDialog, type ReplacePreviewResult } from "./project-replace-dialog";
-const LiteratureDiscoveryPanel = lazy(() =>
-  import("./literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
-);
-import { baseArxivId } from "./arxiv-id";
-import { type PdfSyncTarget } from "./pdf-viewer";
-import { findAppendixMarker } from "./appendix-pages";
-import { ManuscriptChecklistPanel } from "./manuscript-checklist";
-import { mergeTodosWithBuffer, type TodoHit } from "./todo-scavenger";
-import { TodoScavengerPanel } from "./todo-scavenger-panel";
-import { referenceAssetPreviewDataUrl } from "./reference-preview";
+} from "./project/project-semantic-search";
+import { type ReplacePreviewResult } from "./project/project-replace-dialog";
+import { baseArxivId } from "./papers/arxiv-id";
+import { type PdfSyncTarget } from "./pdf/pdf-viewer";
+import { findAppendixMarker } from "./editor/latex/appendix-pages";
+import { mergeTodosWithBuffer, type TodoHit } from "./project/todo-scavenger";
+import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import type {
   ProjectVenue,
   ProjectManifest,
   WordCount,
   UnusedSymbols,
-  ReplaceResult,
   FileViewState,
   NavigationEntry,
   ProjectSnapshot,
@@ -266,15 +207,10 @@ import type {
   SettingsTab,
   InsertSymbolCommand,
   DoctorReport,
-  OverleafLink,
-  OverleafStatus,
-  OverleafProbe,
-  OverleafSyncResult,
 } from "./app-types";
 import {
   applyProjectPathChanges,
   arxivIdFromTabKey,
-  beginWindowDrag,
   chooseAction,
   confirmAction,
   classifyExternalProjectDrop,
@@ -289,28 +225,23 @@ import {
   isProjectSourceFilePath,
   isPaperTabKey,
   markdownFrontmatterEnd,
-  overleafLinkMatchesSession,
   paperKey,
   paperTabKey,
   projectItemPath,
   remapProjectPath,
   stripFrontmatter,
   toMessage,
-  toggleWindowFullscreen,
   type ProjectPathChange,
 } from "./app-utils";
 import {
-  agentGitWorkspacePath,
   LATTICE_AGENT_COMPILE_RESULT,
-  LATTICE_RESTORE_AGENT_CHECKPOINT,
   parseAgentCompileResultMessage,
   parseAgentProjectHistorySnapshot,
-  synaraFrameUrl,
   synaraProjectRelativeFilePath,
   type AgentGitWorkspaceView,
   type AgentCheckpointHistoryEntry,
   type AgentCompileResultMessage,
-} from "./synara-runtime";
+} from "./agent/synara-runtime";
 import {
   buildAgentHostContext,
   LATTICE_HOST_CONTEXT_REQUEST,
@@ -319,26 +250,28 @@ import {
   type AgentHostContextSnapshot,
   type AgentHostSelectionImage,
   type AgentHostSurface,
-} from "./agent-host-context";
+} from "./agent/agent-host-context";
 import {
   buildAgentPaperLibrary,
   LATTICE_PAPER_LIBRARY_REQUEST,
   type AgentPaperLibrarySnapshot,
-} from "./agent-paper-library";
+} from "./agent/agent-paper-library";
 import {
   buildAgentComposerFilesMessage,
   type AgentComposerFilePayload,
-} from "./agent-composer-files";
-import { useSynaraRuntime } from "./use-synara-runtime";
-import { SynaraLoadingSurface } from "./synara-loading-surface";
-import { useSynaraNotificationBridge } from "./synara-notifications";
-import { useSynaraConfirmationBridge } from "./synara-confirmations";
-import { logAction, notifyError, notifySuccess, notifyWarning } from "./app-notify";
-import { addAppLog } from "./app-log-store";
+} from "./agent/agent-composer-files";
+import { useSynaraRuntime } from "./agent/use-synara-runtime";
+import { useSynaraNotificationBridge } from "./agent/synara-notifications";
+import { useSynaraConfirmationBridge } from "./agent/synara-confirmations";
+import { logAction, notifyError } from "./telemetry/app-notify";
+// setError / setWarning / setNotice are the ~170-call-site toast shims; they
+// live beside the hooks extracted out of this file so both can use them.
+import { setError, setNotice, setWarning } from "./app/notify";
+import { addAppLog } from "./telemetry/app-log-store";
 import {
   APP_WINDOW_MIN_HEIGHT,
   minimumWindowWidth,
-} from "./window-layout";
+} from "./app/window-layout";
 import "./App.css";
 
 type RemoveReferenceResult = {
@@ -381,55 +314,34 @@ function trimReferencePreviewCache(
 }
 
 const SettingsDialog = lazy(() =>
-  import("./settings-dialog").then((module) => ({ default: module.SettingsDialog })),
+  import("./settings/settings-dialog").then((module) => ({ default: module.SettingsDialog })),
 );
-const CollabDialog = lazy(() =>
-  import("./collab-dialog").then((module) => ({ default: module.CollabDialog })),
-);
-
-async function mutateRememberedRoomV2(
-  control: CollabControlV2Client,
-  endpoint: "project-rename" | "close-begin",
-  body: Record<string, unknown> = {},
-): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const catalog = await control.catalog();
-    if (endpoint === "close-begin" && (catalog.lifecycle === "closing" || catalog.lifecycle === "closed")) return;
-    try {
-      await control.operation(endpoint, { ...body, operationId: crypto.randomUUID(), expectedCatalogRevision: catalog.catalogRevision });
-      return;
-    } catch (error) {
-      if (error instanceof CollabControlErrorV2 && error.status === 409 && error.body.error === "catalog_revision_conflict" && attempt === 0) continue;
-      if (endpoint === "close-begin" && error instanceof CollabControlErrorV2 && error.status === 409) {
-        const refreshed = await control.catalog();
-        if (refreshed.lifecycle === "closing" || refreshed.lifecycle === "closed") return;
-      }
-      throw error;
-    }
-  }
-}
 const OverleafPickerDialog = lazy(() =>
-  import("./overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
+  import("./overleaf/overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
 );
 const OverleafReviewDialog = lazy(() =>
-  import("./overleaf-review").then((module) => ({ default: module.OverleafReviewDialog })),
+  import("./overleaf/overleaf-review").then((module) => ({ default: module.OverleafReviewDialog })),
 );
 const ConflictResolverDialog = lazy(() =>
-  import("./conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
+  import("./history/conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
 );
-const OverleafCollabDrawer = lazy(() =>
-  import("./overleaf-collab").then((module) => ({ default: module.OverleafCollabDrawer })),
+// Lazy: the navigator pulls @pierre/trees (~270 KB) and never renders on the
+// Welcome screen, so it must not weigh down first paint.
+const Navigator = lazy(() =>
+  import("./project/navigator").then((module) => ({ default: module.Navigator })),
 );
-const loadDocumentCanvas = () => import("./document-canvas");
-const loadCanvasPrewarm = () => import("./canvas-prewarm");
+const CompileDiagnosticsPanel = lazy(() =>
+  import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
+);
+const loadDocumentCanvas = () => import("./canvas/document-canvas");
 const DocumentCanvas = lazy(() =>
   loadDocumentCanvas().then((module) => ({ default: module.DocumentCanvas })),
 );
-const OnboardingTour = lazy(() =>
-  import("./onboarding-tour").then((module) => ({ default: module.OnboardingTour })),
-);
 
-const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
+/** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
+const EMPTY_SPELLING_WORDS: string[] = [];
+const loadCanvasPrewarm = () => import("./canvas/canvas-prewarm");
+
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
 
@@ -445,34 +357,7 @@ type PendingWindowAction = {
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
-/** Notification source label for the live-collaboration surface. */
-const SHARE_SOURCE = "Live collaboration";
 
-/*
- * These three used to render their own fixed banners beside — and in a
- * different style from — the toast stack. They now raise ordinary toasts, so
- * every message the app produces has one appearance and one log line.
- *
- * The setter names are kept because they read correctly at ~170 call sites, and
- * passing `null` (the old "clear the banner" call) is simply a no-op: a toast
- * owns its own lifetime. Pass a `source` wherever the area is known — a log is
- * only searchable if its entries say where they came from.
- *
- * Module scope, not `useCallback`: they close over nothing, and a hook-created
- * identity would have to be listed as a dependency by every one of those call
- * sites' enclosing hooks.
- */
-function setError(message: string | null, source = "App") {
-  if (message) notifyError(source, message);
-}
-function setWarning(message: string | null, source = "App") {
-  if (message) notifyWarning(source, message);
-}
-function setNotice(message: string | null, source = "App") {
-  if (message) notifySuccess(source, message);
-}
-/** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
-const EMPTY_SPELLING_WORDS: string[] = [];
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
 const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
@@ -487,148 +372,8 @@ const SYNARA_SIDEBAR_MINIMUM = 310;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
-type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
-
 function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
-}
-
-const SYNARA_PERMISSION_PRESENTATION: Record<
-  SynaraPermissionMode,
-  { label: string; description: string }
-> = {
-  "full-access": {
-    label: "Full access",
-    description: "Run without asking for approval",
-  },
-  auto: {
-    label: "Approve for me",
-    description: "Ask only for potentially unsafe actions",
-  },
-  "approval-required": {
-    label: "Ask for approval",
-    description: "Ask before external edits and network access",
-  },
-};
-
-function isSynaraPermissionMode(value: unknown): value is SynaraPermissionMode {
-  return value === "approval-required" || value === "auto" || value === "full-access";
-}
-
-function SynaraPermissionIcon({ mode }: { mode: SynaraPermissionMode }) {
-  if (mode === "full-access") return <ShieldCheck size={14} />;
-  if (mode === "auto") return <Shield size={14} />;
-  return <Hand size={14} />;
-}
-
-function SynaraPermissionPicker(props: {
-  value: SynaraPermissionMode;
-  autoModeAvailable: boolean;
-  onChange: (value: SynaraPermissionMode) => void;
-}) {
-  const presentation = SYNARA_PERMISSION_PRESENTATION[props.value];
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="agent-permission-trigger"
-          aria-label={`Agent permissions: ${presentation.label}`}
-          title={`Agent permissions: ${presentation.label}`}
-        >
-          <SynaraPermissionIcon mode={props.value} />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="agent-permission-menu">
-        <DropdownMenuRadioGroup value={props.value} onValueChange={(value) => {
-          if (isSynaraPermissionMode(value)) props.onChange(value);
-        }}>
-          {(["full-access", "auto", "approval-required"] as const).map((mode) => {
-            const option = SYNARA_PERMISSION_PRESENTATION[mode];
-            return (
-              <DropdownMenuRadioItem
-                key={mode}
-                value={mode}
-                disabled={mode === "auto" && !props.autoModeAvailable}
-                className="ui-radio-choice"
-              >
-                <span className="ui-radio-dot" aria-hidden="true" />
-                <span className="agent-permission-copy">
-                  <strong>{option.label}</strong>
-                  <small>{option.description}</small>
-                </span>
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function synaraEmbedUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-): string {
-  return synaraFrameUrl({
-    origin,
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "chrome",
-    hostOrigin: window.location.origin,
-    authToken,
-  });
-}
-
-function synaraSourceControlUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-  view: AgentGitWorkspaceView,
-): string {
-  return synaraFrameUrl({
-    origin,
-    path: agentGitWorkspacePath(view),
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "drawer",
-    hostOrigin: window.location.origin,
-    authToken,
-  });
-}
-
-/** A turn's checkpoint diff, reviewable even after the working tree moved on. */
-type AgentTurnReview = { threadId: string; turnId: string; filePath: string | null };
-
-function synaraTurnReviewUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-  review: AgentTurnReview,
-): string {
-  const url = new URL(synaraFrameUrl({
-    origin,
-    path: "/review",
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "drawer",
-    hostOrigin: window.location.origin,
-    authToken,
-  }));
-  url.searchParams.set("threadId", review.threadId);
-  url.searchParams.set("turnId", review.turnId);
-  if (review.filePath) url.searchParams.set("filePath", review.filePath);
-  return url.toString();
 }
 
 function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
@@ -1453,17 +1198,6 @@ function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- capability loss invalidates this transient UI state
     if (!canInsert && insertOpen) setInsertOpen(false);
   }, [canInsert, insertOpen]);
-  const [collabOpen, setCollabOpen] = useState(false);
-  const [collabMode, setCollabMode] = useState<CollabDialogMode>("start");
-  const [collabHost, setCollabHost] = useState(loadCollabHost);
-  const [collabRoom, setCollabRoom] = useState("");
-  const [collabInvite, setCollabInvite] = useState("");
-  const [collabName, setCollabName] = useState(loadCollabDisplayName);
-  const [collabProjectName, setCollabProjectName] = useState("Shared project");
-  const [recentProjectsV2, setRecentProjectsV2] = useState<CollabProjectRecordV2[]>(loadCollabProjectsV2);
-  const refreshRecentRooms = useCallback(() => { setRecentProjectsV2(loadCollabProjectsV2()); }, []);
-  const [collabStatus, setCollabStatus] = useState<CollabStatus>("disconnected");
-  const [collabStatusDetail, setCollabStatusDetail] = useState<string | null>(null);
   const [collabSession, setCollabSession] = useState<EditorCollabSession | null>(null);
   const [collabCanWrite, setCollabCanWrite] = useState(true);
   const [activeCollabVersion, setActiveCollabVersion] = useState<2 | null>(null);
@@ -1472,92 +1206,15 @@ function App() {
   // create a competing main.tex Y.Text that loses the map key to the host's copy,
   // orphaning the editor on the "Waiting for shared project files" placeholder.
   const [collabReady, setCollabReady] = useState(false);
-  const [collabPeerList, setCollabPeerList] = useState<CollabPeer[]>([]);
-  const collabPeers = collabPeerList.length;
-  const [collabFileCount, setCollabFileCount] = useState(0);
-  const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
-  // The link is stored with the root it was fetched for, and only counts while
-  // that root is still the open project. During a project switch there is one
-  // render where `project` already holds the new root but this state still
-  // holds the previous project's link; trusting the raw state in that window
-  // sent auto-sync at the new, unlinked project ("Sync failed: This project is
-  // not linked to an Overleaf project.").
-  const [overleafLinkFor, setOverleafLinkFor] = useState<{ root: string; link: OverleafLink } | null>(null);
-  const overleafLinkLoadGenerationRef = useRef(0);
-  const overleafLink = overleafLinkFor && overleafLinkFor.root === project?.root
-    ? overleafLinkFor.link
-    : null;
-  const [overleafSyncing, setOverleafSyncing] = useState(false);
-  const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
-  const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(
-    loadOverleafRemoteDelete,
-  );
-  const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
-  const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
-  const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
-  const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
-  const [conflictPath, setConflictPath] = useState<string | null>(null);
-  const overleafAutoSyncedRoot = useRef<string | null>(null);
-  const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
-  /** Marks a comment that lives on Overleaf rather than in this project. */
-  const OVERLEAF_COMMENT_PREFIX = "overleaf:";
-  const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
-  /** Files the realtime channel owns; syncing must not touch them. */
-  const overleafLivePathsRef = useRef<string[]>([]);
-  /** Whether the realtime channel is up, for the poll loop to read. */
-  const overleafChannelLiveRef = useRef(false);
-  /** Path → Overleaf's id and kind, which is what its endpoints take. */
-  const overleafEntitiesRef = useRef<Map<string, { id: string; kind: string }>>(new Map());
-  const overleafRemoteDeleteRef = useRef<OverleafRemoteDelete>("ask");
-  /** How often live mode asks Overleaf whether anything changed. */
-  const OVERLEAF_LIVE_POLL_MS = 3_000;
-  /** Quiet time after a save before local work is pushed up. */
-  const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
-  /** Cadence when Overleaf gives us no cheap way to detect a change. */
-  const OVERLEAF_BLIND_POLL_MS = 120_000;
-  /**
-   * Cadence once the realtime channel is up. Documents arrive as operations
-   * then, so polling only has figures and newly added files left to catch —
-   * and every "yes" costs a full project download, which is what earned a 429.
-   */
-  const OVERLEAF_CHANNEL_POLL_MS = 45_000;
-  /**
-   * Floor between full syncs. Overleaf allows ten project downloads a minute
-   * and answers 429 past that; a collaborator typing steadily moves the
-   * project version on every poll, so without a floor live mode would ask for
-   * the whole project every three seconds and get itself locked out.
-   */
-  const OVERLEAF_MIN_SYNC_GAP_MS = 12_000;
-  /**
-   * The same floor once the channel is up. Documents already travel as
-   * operations then, so this sweep is only carrying figures and files added
-   * outside the editor, and it can afford to be leisurely.
-   */
-  const OVERLEAF_CHANNEL_SYNC_GAP_MS = 30_000;
-  const lastAutoSyncRef = useRef(0);
-  const lastAutoVersionRef = useRef(0);
-  const [collabRole, setCollabRole] = useState<"host" | "guest">("host");
-  const collabRoleRef = useRef<"host" | "guest">("host");
   const collabSessionRef = useRef<EditorCollabSession | null>(null);
   const collabV2ControllerRef = useRef<CollabProjectControllerV2 | null>(null);
-  const collabV2InvitationRef = useRef("");
-  const collabV2TreeSignatureRef = useRef<string | null>(null);
-  const collabWorkspaceGenerationRef = useRef(0);
   const collabWorkspaceLeaseRef = useRef<CollabWorkspaceLease | null>(null);
   const collabDiskWriteQueueRef = useRef(new CollabDiskWriteQueue());
   const collabPathMutationGenerationRef = useRef(new Map<string, number>());
   const collabPathMutationGeneration = useCallback((path: string) => collabPathMutationGenerationRef.current.get(path) ?? 0, []);
   const collabDetachRef = useRef<(() => void) | null>(null);
-  const collabStartingRef = useRef(false);
-  const collabStartGenerationRef = useRef(0);
-  // The provider re-fires "sync" on every reconnect. Guard the one-time
-  // seed/materialize so a network blip does not re-materialize the whole doc
-  // over local disk and yank the open tab back to the root document.
-  const collabInitializedRef = useRef(false);
-  const collabLeavingRef = useRef(false);
-  const preCollabProjectRootRef = useRef<string | null>(null);
   const projectRootRef = useRef<string | null>(null);
   const enterProjectRef = useRef<((
     snapshot: ProjectSnapshot,
@@ -2805,36 +2462,6 @@ function App() {
     }
   }, [activeCollabVersion, collabPathMutationGeneration, markDiskMtime]);
 
-  const clearCollabLocalState = useCallback(async (options: { flush?: boolean } = {}) => {
-    collabStartGenerationRef.current += 1;
-    collabStartingRef.current = false;
-    const session = collabSessionRef.current;
-    try {
-      if (options.flush !== false) await session?.flush?.();
-    } finally {
-      if (collabSessionRef.current !== session) {
-        session?.destroy();
-      } else {
-        collabWorkspaceGenerationRef.current += 1;
-        collabWorkspaceLeaseRef.current = null;
-        collabInitializedRef.current = false;
-        setCollabReady(false);
-        collabDetachRef.current?.();
-        collabDetachRef.current = null;
-        if (session) session.destroy();
-        collabV2ControllerRef.current = null;
-        collabSessionRef.current = null;
-        collabV2TreeSignatureRef.current = null;
-        setCollabSession(null);
-        setActiveCollabVersion(null);
-        setCollabStatus("disconnected");
-        setCollabStatusDetail(null);
-        setCollabPeerList([]);
-        setCollabFileCount(0);
-      }
-    }
-  }, []);
-
   useEffect(() => {
     const appWindow = getCurrentWindowSafely();
     if (!appWindow || typeof appWindow.onCloseRequested !== "function" || typeof appWindow.destroy !== "function") return;
@@ -2868,218 +2495,6 @@ function App() {
       unlisten?.();
     };
   }, []);
-
-  const restorePreCollabProject = useCallback(async () => {
-    const prior = resolvePreCollabProjectRoot(
-      preCollabProjectRootRef.current,
-      recentProjects.map((item) => item.path),
-    );
-    preCollabProjectRootRef.current = null;
-    clearPreCollabProjectRoot();
-    if (!prior) {
-      setNotice("Share ended. Open one of your projects from the menu.", SHARE_SOURCE);
-      return;
-    }
-    setBusyLabel("Returning to your project…");
-    try {
-      // Skip lifecycle so we do not re-enter leave/end while restoring.
-      if (!await startProjectTransition()) return;
-      await enterProjectRef.current?.(
-        await invoke<ProjectSnapshot>("open_project", { path: prior }),
-        { skipCollabLifecycle: true },
-      );
-      setNotice("Returned to your previous project", SHARE_SOURCE);
-    } catch {
-      cancelProjectTransition();
-      setNotice("Share ended. Open one of your projects from the menu.", SHARE_SOURCE);
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, recentProjects, startProjectTransition]);
-
-  const endHostShareSession = useCallback(async (noticeText: string) => {
-    if (collabLeavingRef.current) return;
-    collabLeavingRef.current = true;
-    const controller = activeCollabVersion === 2 && collabRoleRef.current === "host"
-      ? collabV2ControllerRef.current
-      : null;
-    const expectedRoot = projectRef.current?.root;
-    const projectGeneration = projectOperationGenerationRef.current;
-    // Closing the drawer and changing the visible state must not wait for a
-    // network round trip. Start the remote close now, then finish flushing and
-    // teardown in the background.
-    const remoteClose = controller?.close().then(() => true, () => false) ?? Promise.resolve(true);
-    setCollabOpen(false);
-    setCollabStatus("disconnected");
-    setCollabStatusDetail(null);
-    setCollabPeerList([]);
-    setNotice(noticeText);
-    try {
-      await controller?.flush().catch(() => undefined);
-      await clearCollabLocalState({ flush: false }).catch(() => undefined);
-      if (!await remoteClose) setNotice("Stopped sharing locally; the remote share may still be available", SHARE_SOURCE);
-      // Peers edited these files during the session; re-read from disk so the
-      // navigator, papers and citations reflect what is actually there now.
-      try {
-        if (expectedRoot) await refreshProject({ expectedRoot, generation: projectGeneration });
-      } catch {
-        // A refresh failure must not block ending the share.
-      }
-    } finally {
-      collabLeavingRef.current = false;
-    }
-  }, [activeCollabVersion, clearCollabLocalState, refreshProject]);
-
-  const leaveGuestShareSession = useCallback(async (noticeText: string, restorePrior: boolean) => {
-    if (collabLeavingRef.current) return;
-    collabLeavingRef.current = true;
-    try {
-      await clearCollabLocalState();
-      setCollabOpen(false);
-      if (restorePrior) {
-        setNotice(noticeText);
-        await restorePreCollabProject();
-      } else {
-        preCollabProjectRootRef.current = null;
-        clearPreCollabProjectRoot();
-        setNotice(noticeText);
-      }
-    } finally {
-      collabLeavingRef.current = false;
-    }
-  }, [clearCollabLocalState, restorePreCollabProject]);
-
-
-  /** Dialog button: host stops for everyone; guest leaves without affecting the host. */
-  /**
-   * Open the joined project's first document and make sure the share is
-   * actually bound to it.
-   *
-   * `loadFile` activates the shared document only if its load is still the
-   * newest one when the file's room finishes syncing — a guard that exists so a
-   * slow open cannot steal the editor back from whatever the user asked for
-   * next. Joining runs that load behind materialization, a project switch, and
-   * a refresh, so the generation it captured is easy to lose; when it does, the
-   * guest ends up connected to the room with no active document at all: no
-   * announced identity, no caret for anyone to follow, and a null presence path
-   * that made every collaborator read as "not in a file right now". Nothing
-   * retried it, because from `loadFile`'s point of view being superseded is
-   * normal. One retry re-captures the generations after everything has settled.
-   */
-  const bindJoinedDocument = useCallback(async (controller: CollabProjectControllerV2, path: string) => {
-    const opened = await loadFile(path, { collabController: controller });
-    if (opened && controller.activePath === path) return;
-    if (collabV2ControllerRef.current !== controller) return;
-    await loadFile(path, { collabController: controller });
-  }, [loadFile]);
-
-  /**
-   * The session ended from the other side: the host removed this collaborator,
-   * or ended the room for everyone. Both revoke the credential, so nothing
-   * about the share works afterwards — but nothing was listening for it, and
-   * the removed person was left sitting in a workspace that had quietly stopped
-   * syncing with no idea why. Say what happened, hand them back their own
-   * project, and retire a room they can no longer enter.
-   */
-  const handleV2PermanentError = useCallback((error: Error) => {
-    // File-scoped codes (a deleted file, a stale epoch) are recovered per file
-    // and must not tear the session down.
-    const code = error instanceof TextClientPermanentErrorV2 ? error.code : null;
-    if (code !== "revoked" && code !== "project_closed") return;
-    if (collabRoleRef.current === "host") return;
-    const controller = collabV2ControllerRef.current;
-    if (controller) {
-      forgetCollabProjectV2(controller.host, controller.room);
-      refreshRecentRooms();
-    }
-    void leaveGuestShareSession(
-      code === "revoked"
-        ? "The host removed you from this share. Your own project is open again."
-        : "The host ended this share. Your own project is open again.",
-      true,
-    );
-  }, [leaveGuestShareSession, refreshRecentRooms]);
-
-  /**
-   * The host steps out without ending the room: collaborators keep editing, the
-   * entry stays under Your shared rooms, and rejoining — or Close for everyone —
-   * is still available there. Shared by the Leave share button and by switching
-   * projects, which is the same decision made a different way.
-   */
-  const leaveHostShareSession = useCallback(async () => {
-    await clearCollabLocalState();
-    setCollabOpen(false);
-    refreshRecentRooms();
-    setNotice("Left the share — it keeps running; rejoin it from Live collaboration", SHARE_SOURCE);
-  }, [clearCollabLocalState, refreshRecentRooms]);
-
-  const disconnectCollab = useCallback(() => {
-    if (collabRoleRef.current === "host") {
-      void endHostShareSession("Stopped sharing");
-      return;
-    }
-    void leaveGuestShareSession("Left the shared session", true);
-  }, [endHostShareSession, leaveGuestShareSession]);
-
-  const settleCollabBeforeProjectSwitch = useCallback(async (nextRoot: string) => {
-    const session = collabSessionRef.current;
-    if (!session) return;
-    const currentRoot = projectRootRef.current;
-    if (currentRoot && currentRoot === nextRoot) return;
-    if (collabRoleRef.current === "host") {
-      // Switching projects only detaches the host locally — like closing the
-      // app — instead of ending the room for everyone. The others keep editing,
-      // the room stays in the recent-shares list, and the host can rejoin it.
-      // Only "Stop sharing" ends the session for all.
-      await leaveHostShareSession();
-      return;
-    }
-    // Guest opened a different project: leave quietly; host keeps sharing.
-    await leaveGuestShareSession("Left the shared session", false);
-  }, [leaveGuestShareSession, leaveHostShareSession]);
-
-
-  const mapV2Status = useCallback((status: CollabProjectStatusV2) => {
-    // Start sharing owns the more useful phase-by-phase progress copy. Provider
-    // status changes during openPath must not erase it or expose the live card
-    // before setup has actually finished.
-    if (collabStartingRef.current) return;
-    const mapped = mapCollabProjectStatusV2(status);
-    setCollabStatus(mapped.status);
-    setCollabStatusDetail(mapped.detail);
-  }, []);
-
-  /**
-   * v2 catalog push (peer create/rename/delete, grants, lifecycle): keep the
-   * file count live and schedule a general tree refresh when paths change.
-   * Catalog notification precedes disk reconciliation, so remote deletion has
-   * a separate post-delete refresh that also fences stale editor buffers.
-   * The first callback after join only records the baseline; materialization
-   * refreshes the tree itself.
-   */
-  const handleV2Catalog = useCallback((catalog: CatalogV2) => {
-    // A closed room is gone for good: the coordinator revokes every grant with
-    // it, so nobody can rejoin and the entry is only there to be clicked and
-    // fail. Drop it the moment the catalog says so, on whichever side sees it.
-    if (catalog.lifecycle === "closing" || catalog.lifecycle === "closed") {
-      const deployment = collabV2ControllerRef.current?.host;
-      if (deployment) {
-        forgetCollabProjectV2(deployment, catalog.projectInstanceId);
-        refreshRecentRooms();
-      }
-    }
-    const livePaths = catalog.files.filter((file) => file.state === "live").map((file) => file.path).sort();
-    setCollabFileCount(livePaths.length);
-    const signature = livePaths.join("\n");
-    if (collabV2TreeSignatureRef.current === null) {
-      collabV2TreeSignatureRef.current = signature;
-      return;
-    }
-    if (collabV2TreeSignatureRef.current !== signature) {
-      collabV2TreeSignatureRef.current = signature;
-      void refreshProject().catch(() => undefined);
-    }
-  }, [refreshProject, refreshRecentRooms]);
 
   const handleRemoteCollabDeleteV2 = useCallback(async (
     path: string,
@@ -3191,250 +2606,84 @@ function App() {
     }),
   }), [collabPathMutationGeneration, handleRemoteCollabDeleteV2]);
 
-  /**
-   * Push a non-active text buffer into the v2 session and onto disk. Sideload:
-   * publishing must not steal the session's active file (editor binding,
-   * awareness path) from whatever the user is editing. Returns false when the
-   * file is not live in the share (no session, or a path outside the catalog),
-   * so the caller can fall back to a plain local write.
-   */
-  const publishTextToCollabV2 = useCallback(async (path: string, content: string, expectedMutationGeneration = collabPathMutationGeneration(path)): Promise<boolean> => {
-    const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path)) return false;
-    if (!controller.hasTextPath(path)) return false;
-    const ytext = await controller.openPath(path, "secondary", { sideload: true });
-    // Minimal-span merge, not delete-all + insert-all: a peer's concurrent
-    // edits outside the changed span survive, and the local origin keeps disk
-    // observers from rewriting the file we are about to write ourselves.
-    mergeTextIntoYText(ytext, content);
-    const lease = collabWorkspaceLeaseRef.current;
-    const projectRoot = lease?.projectRoot ?? projectRootRef.current;
-    if (!projectRoot) throw new Error("The project closed before the file could be written.");
-    if (expectedMutationGeneration !== collabPathMutationGeneration(path)) return true;
-    if (lease) {
-      await collabDiskWriteQueueRef.current.run(lease, path, () => expectedMutationGeneration === collabPathMutationGeneration(path)
-        ? invoke("write_project_file", { path, content: ytext.toString(), projectRoot })
-        : Promise.resolve());
-    } else {
-      await invoke("write_project_file", { path, content: ytext.toString(), projectRoot });
-    }
-    return true;
-  }, [activeCollabVersion, collabPathMutationGeneration]);
-
-  /**
-   * Register a locally created file with the live v2 share so collaborators
-   * receive it: catalog create (the host then marks it live), then content —
-   * a text seed for text/board files, a binary upload for figures. No-ops
-   * outside a share; on failure the file stays local-only (the pre-existing
-   * behavior) and the user gets a warning naming the file.
-   */
-  const shareCreatedFileWithCollabV2 = useCallback(async (path: string, kind: "text" | "binary" | "board" | "spreadsheet") => {
-    const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !controller) return;
-    try {
-      if (kind === "binary") {
-        const asset = await invoke<AssetPreview>("read_project_asset", { path });
-        const bytes = Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
-        const conflictWriter = {
-          rename: async () => { throw new Error("Unexpected rename during binary publish"); },
-          delete: async () => { throw new Error("Unexpected delete during binary publish"); },
-          writeBinaryConflict: async (conflictPath: string, conflictBytes: Uint8Array, projectRoot: string) => {
-            await collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, conflictPath, () => invoke("write_project_bytes", { path: conflictPath, base64Data: bytesToBase64(conflictBytes), projectRoot }));
-          },
-        };
-        // Importing over an already-shared path is a content update, not a create.
-        if (!controller.catalogFiles().some((entry) => entry.path === path && entry.state === "live")) {
-          await controller.create(path, "binary");
-        }
-        await controller.replaceBinary(path, bytes, asset.mimeType, conflictWriter);
-      } else {
-        const seed = await invoke<string>("read_project_file", { path });
-        // Structured editors keep live state beside the content text, so an
-        // import over an existing live document leaves its shared doc as-is.
-        if (controller.hasTextPath(path)) {
-          if (kind === "text") await publishTextToCollabV2(path, seed);
-        } else {
-          await controller.create(path, kind, { seedText: seed });
-        }
-      }
-    } catch (reason) {
-      setError(`${path} was created locally but could not be shared: ${toMessage(reason)}. Restart the share to include it.`);
-    }
-  }, [activeCollabVersion, publishTextToCollabV2]);
-
-  const startCollabShare = useCallback(() => {
-    if (collabStartingRef.current) return;
-    if (!collabName.trim()) {
-      setError("Enter your name before starting a share.", SHARE_SOURCE);
-      setCollabOpen(true);
-      return;
-    }
-    if (!collabProjectName.trim()) {
-      setError("Enter a room name before starting a share.", SHARE_SOURCE);
-      setCollabOpen(true);
-      return;
-    }
-    if (!project) {
-      setError("Open a project before starting live collaboration.", SHARE_SOURCE);
-      return;
-    }
-    collabStartingRef.current = true;
-    const startGeneration = ++collabStartGenerationRef.current;
-    void (async () => {
-        let controller: CollabProjectControllerV2 | null = null;
-        const assertCurrentStart = () => {
-          if (collabStartGenerationRef.current !== startGeneration) throw new Error("Share start was canceled");
-        };
-        setCollabStatus("connecting");
-        setCollabStatusDetail("Scanning project files…");
-        try {
-          const resolved = resolveCollabHost(collabHost);
-          saveCollabHost(resolved);
-          saveCollabDisplayName(collabName.trim());
-          const deployment = collabDeploymentOrigin(resolved);
-          const nativeInventory = await invoke<{ files: Array<{ path: string; contentKind: "text" | "binary"; size: number }>; excluded: Array<{ pathOrPattern: string; reason: string }> }>("collab_project_inventory_v2");
-          assertCurrentStart();
-          if (nativeInventory.excluded.length) {
-            const details = nativeInventory.excluded.map(item => `• ${item.pathOrPattern} — ${item.reason}`).join("\n");
-            if (!await confirmAction(`Some project items won't be included in this share:\n\n${details}\n\nContinue with the listed regular files?`)) {
-              setCollabStatus("disconnected");
-              setCollabStatusDetail(null);
-              return;
-            }
-            assertCurrentStart();
-          }
-          const inventory = nativeInventory.files.map(item => ({ path: item.path, kind: item.contentKind }));
-          const kinds = new Map(inventory.map((item) => [item.path, item.kind]));
-          const store = collabCredentialStore();
-          setCollabStatusDetail(`Preparing ${inventory.length} project files…`);
-          const record = await createProjectV2({
-            deployment,
-            projectName: collabProjectName.trim(),
-            credentialStore: store,
-            source: {
-              inventory: async () => inventory,
-              read: async (path) => {
-                if (kinds.get(path) === "text") return new TextEncoder().encode(await invoke<string>("read_project_file", { path }));
-                const asset = await invoke<AssetPreview>("read_project_asset", { path });
-                return Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
-              },
-            },
-            onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Preparing project files… ${completed}/${total}`); },
-            onProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(`Uploading project files… ${completed}/${total}`); },
-            onRecord: async (created) => { const now = Date.now(); assertCurrentStart(); rememberCollabProjectV2({ version: 2, projectInstanceId: created.projectInstanceId, host: created.deployment, credentialRef: created.credentialRef, permission: "host", title: collabProjectName.trim(), projectRoot: project.root, createdAt: now, lastUsed: now }); },
-          });
-          assertCurrentStart();
-          setCollabStatusDetail("Connecting to the live session…");
-          controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
-          assertCurrentStart();
-          const path = controller.hasTextPath(activeFile || "") ? activeFile : controller.catalogTextPaths()[0];
-          if (!path) throw new Error("The shared project has no text files");
-          setCollabStatusDetail("Opening the shared document…");
-          await controller.openPath(path);
-          assertCurrentStart();
-          setCollabStatusDetail("Creating an invite…");
-          const invitation = await controller.createInvitation("write");
-          assertCurrentStart();
-          collabV2InvitationRef.current = invitation;
-          const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
-          collabWorkspaceGenerationRef.current = workspaceGeneration;
-          collabWorkspaceLeaseRef.current = {
-            projectRoot: project.root,
-            generation: workspaceGeneration,
-            isCurrent: () => collabWorkspaceGenerationRef.current === workspaceGeneration && projectRootRef.current === project.root,
-          };
-          controller.bindWorkspace(collabWorkspaceLeaseRef.current, v2WorkspaceCallbacks(collabWorkspaceLeaseRef.current));
-          collabV2ControllerRef.current = controller;
-          collabSessionRef.current = controller;
-          collabRoleRef.current = "host";
-          setCollabRole("host");
-          setActiveCollabVersion(2);
-          setCollabRoom(controller.room);
-          setCollabSession(controller);
-          setCollabFileCount(controller.fileCount());
-          setCollabReady(true);
-          setCollabStatusDetail("Finishing setup…");
-          await loadFile(path);
-          assertCurrentStart();
-          const inviteCopied = await writeText(invitation).then(() => true, () => false);
-          setCollabStatus("synced");
-          setNotice(inviteCopied ? "Started v2 project share · invite copied" : "Started v2 project share · use Copy invite to share it", SHARE_SOURCE);
-          playInterfaceSound("collaboration-ready");
-        } catch (reason) {
-          const canceled = collabStartGenerationRef.current !== startGeneration;
-          if (controller) {
-            if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
-            else controller.destroy();
-          }
-          if (canceled) {
-            if (!collabStartingRef.current && collabSessionRef.current === null) {
-              setCollabStatus("disconnected");
-              setCollabStatusDetail(null);
-            }
-            return;
-          }
-          setCollabStatus("error");
-          setCollabStatusDetail(t`Import failed — retry Start sharing`);
-          setError(toMessage(reason));
-        } finally {
-          if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
-        }
-      })();
-  }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, handleV2Catalog, loadFile, mapV2Status, project, v2WorkspaceCallbacks]);
-
-  const copyCollabInvite = useCallback(async () => {
-    // Minting the invitation is a network round trip; when it fails (offline,
-    // host unreachable) the click must say so instead of leaving the previous
-    // clipboard contents masquerading as a fresh invite.
-    try {
-      const controller = collabV2ControllerRef.current;
-      if (activeCollabVersion === 2 && collabRoleRef.current === "host" && controller) {
-        collabV2InvitationRef.current = await controller.createInvitation("write");
-      }
-      if (!collabV2InvitationRef.current) throw new Error("No collaboration invite is available");
-      await writeText(collabV2InvitationRef.current);
-      setNotice("Invite copied", SHARE_SOURCE);
-      return true;
-    } catch (reason) {
-      notifyError(SHARE_SOURCE, "Could not copy the invite", { detail: toMessage(reason) });
-      return false;
-    }
-  }, [activeCollabVersion]);
-
-  const removeCollabPeer = useCallback(async (peer: CollabPeer) => {
-    const controller = collabV2ControllerRef.current;
-    if (collabRoleRef.current !== "host" || !controller || !peer.grantId) return;
-    try {
-      await controller.revoke(peer.grantId);
-      setCollabPeerList((current) => current.filter((candidate) => candidate.grantId !== peer.grantId));
-      setNotice(`Removed ${peer.name} from the share`);
-    } catch (reason) {
-      setError(`Could not remove ${peer.name}: ${toMessage(reason)}`);
-    }
-  }, []);
-
-  const openCollabDialog = useCallback((mode: CollabDialogMode = "start") => {
-    // Only an explicit "join" opens Join; guard against a stray event object
-    // (e.g. an onClick handler) landing here and leaving neither tab selected.
-    setCollabMode(mode === "join" ? "join" : "start");
-    setCollabHost(resolveCollabHost(collabHost));
-    if (mode !== "join" && project) setCollabProjectName(project.manifest.name || project.root.split(/[/\\]/).filter(Boolean).pop() || "Shared project");
-    refreshRecentRooms();
-    setCollabOpen(true);
-  }, [collabHost, project, refreshRecentRooms]);
-
-  useEffect(() => {
-    if (!collabSession) return;
-    return () => {
-      if (collabSessionRef.current === collabSession) {
-        collabDetachRef.current?.();
-        collabDetachRef.current = null;
-      }
-      void (collabSession.flush?.() ?? Promise.resolve())
-        .catch(() => undefined)
-        .finally(() => collabSession.destroy());
-    };
-  }, [collabSession]);
+  // ---- Lattice Share (Yjs v2) ----------------------------------------------
+  // Room state and the whole start / join / leave / close lifecycle live in
+  // `src/app/use-collab-v2-session.ts`. The call sits here, below `loadFile`
+  // and `v2WorkspaceCallbacks`, because both of those bind the editor and its
+  // buffers to shared documents and therefore have to stay in App.
+  const {
+    collabOpen,
+    setCollabOpen,
+    collabMode,
+    setCollabMode,
+    collabHost,
+    collabRoom,
+    setCollabRoom,
+    collabInvite,
+    setCollabInvite,
+    collabName,
+    setCollabName,
+    collabProjectName,
+    setCollabProjectName,
+    recentProjectsV2,
+    refreshRecentRooms,
+    collabStatus,
+    setCollabStatus,
+    collabStatusDetail,
+    collabPeerList,
+    setCollabPeerList,
+    collabPeers,
+    collabFileCount,
+    setCollabFileCount,
+    collabRole,
+    setCollabRole,
+    collabRoleRef,
+    collabWorkspaceGenerationRef,
+    preCollabProjectRootRef,
+    clearCollabLocalState,
+    leaveHostShareSession,
+    bindJoinedDocument,
+    handleV2PermanentError,
+    disconnectCollab,
+    settleCollabBeforeProjectSwitch,
+    mapV2Status,
+    handleV2Catalog,
+    publishTextToCollabV2,
+    shareCreatedFileWithCollabV2,
+    startCollabShare,
+    copyCollabInvite,
+    removeCollabPeer,
+    openCollabDialog,
+    forgetRecentProjectV2,
+    renameRecentProjectV2,
+    closeRecentProjectV2,
+  } = useCollabV2Session({
+    project,
+    projectRef,
+    projectRootRef,
+    projectOperationGenerationRef,
+    activeFile,
+    recentProjects,
+    editorCommentAuthorId,
+    activeCollabVersion,
+    setActiveCollabVersion,
+    collabSession,
+    setCollabSession,
+    collabSessionRef,
+    setCollabReady,
+    collabV2ControllerRef,
+    collabWorkspaceLeaseRef,
+    collabDiskWriteQueueRef,
+    collabPathMutationGeneration,
+    collabDetachRef,
+    enterProjectRef,
+    setBusyLabel,
+    startProjectTransition,
+    cancelProjectTransition,
+    refreshProject,
+    loadFile,
+    v2WorkspaceCallbacks,
+  });
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!project) return true;
@@ -3916,6 +3165,10 @@ function App() {
     focusedPane,
     loadFile,
     project?.root,
+    // Harmless here today only because `activeCollabVersion` is listed above and
+    // is the sole value this callback's identity tracks — but that is a coincidence
+    // of two lists agreeing, not a guarantee. Listed so it stays true.
+    publishTextToCollabV2,
     pushNavigation,
     save,
     savedSource,
@@ -4335,553 +3588,15 @@ function App() {
   }, [project, runBuild]);
   compileRef.current = compile;
 
-  // ---- Overleaf bridge -----------------------------------------------------
-
-  /**
-   * A paused link reads as no link at all here, which is what everything
-   * downstream means by it: the toolbar cloud, auto-sync, the live channel,
-   * chat, collaborators and the comment threads should all be off. Settings
-   * reads the link itself, so it still sees the project and can resume it.
-   */
-  const activeLink = (link: OverleafLink | null | undefined) => (
-    link && !link.paused ? link : null
-  );
-
-  // Know whether the open project is linked to an Overleaf project (cloned via
-  // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
-  useEffect(() => {
-    let cancelled = false;
-    const generation = ++overleafLinkLoadGenerationRef.current;
-    setOverleafLinkFor(null);
-    if (!project?.root) return;
-    const root = project.root;
-    void Promise.all([
-      invoke<OverleafStatus>("overleaf_status"),
-      invoke<OverleafLink | null>("overleaf_link"),
-    ])
-      .then(([status, link]) => {
-        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
-          ? activeLink(link)
-          : null;
-        if (!cancelled && generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(active ? {
-            root,
-            link: { ...active, host: active.host.trim() || status.host.trim() },
-          } : null);
-        }
-      })
-      .catch(() => {
-        // A project without the state file is simply not linked.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [project?.root]);
-
-  /**
-   * Re-read the link after Settings changes it. Unlinking has to be felt
-   * everywhere — the toolbar cloud, the live channel, chat, collaborators and
-   * the comment threads all key off this, and they used to keep running
-   * against a project that had just been unlinked.
-   */
-  const refreshOverleafLink = useCallback(() => {
-    const root = projectRef.current?.root;
-    if (!root) return;
-    const generation = ++overleafLinkLoadGenerationRef.current;
-    void Promise.all([
-      invoke<OverleafStatus>("overleaf_status"),
-      invoke<OverleafLink | null>("overleaf_link"),
-    ])
-      .then(([status, link]) => {
-        if (
-          projectRef.current?.root !== root
-          || generation !== overleafLinkLoadGenerationRef.current
-        ) return;
-        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
-          ? activeLink(link)
-          : null;
-        setOverleafLinkFor(active ? {
-          root,
-          link: { ...active, host: active.host.trim() || status.host.trim() },
-        } : null);
-      })
-      .catch(() => {
-        if (generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(null);
-        }
-      });
-  }, []);
-
-  const openCurrentOverleafProject = useCallback(() => {
-    if (!overleafLink) return;
-    try {
-      const url = new URL(overleafLink.host);
-      url.pathname = `/project/${encodeURIComponent(overleafLink.projectId)}`;
-      url.search = "";
-      url.hash = "";
-      void openUrl(url.toString()).catch((reason) => {
-        setError(`Could not open the project on Overleaf: ${toMessage(reason)}`);
-      });
-    } catch {
-      setError("Could not open the project because its Overleaf host is invalid.");
-    }
-  }, [overleafLink]);
-
-  /**
-   * Deal with files that are gone here but still on Overleaf.
-   *
-   * Deleting an ordinary file from a shared project is not something to infer
-   * from its absence, so this obeys the setting: leave it, remove it, or ask.
-   * App-owned transient paths bypass that policy and are cleaned silently.
-   * Removing either kind needs the entity's Overleaf id, which only the
-   * realtime channel knows — without it there is nothing to name in the
-   * request, so the action waits for a later sync.
-   */
-  const settleRemoteDeletes = useCallback(async (
-    paths: string[],
-    projectRoot: string,
-    generation: number,
-    automatic = false,
-  ) => {
-    const stillCurrent = () => (
-      projectOperationGenerationRef.current === generation
-      && projectRef.current?.root === projectRoot
-    );
-    if (!stillCurrent()) return;
-    const policy = overleafRemoteDeleteRef.current;
-    if (!automatic && policy === "never") return;
-    const known = paths
-      .map((path) => ({ path, entity: overleafEntitiesRef.current.get(path) }))
-      .filter((entry): entry is { path: string; entity: { id: string; kind: string } } => (
-        entry.entity !== undefined
-      ));
-    if (!known.length) return;
-    if (!automatic && policy === "ask") {
-      const names = known.map((entry) => entry.path).join(", ");
-      const removeThem = await confirmAction(
-        `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
-        + "Remove them from the Overleaf project too? Overleaf's history keeps them either way.",
-      );
-      if (!removeThem || !stillCurrent()) return;
-    }
-    for (const entry of known) {
-      if (!stillCurrent()) return;
-      try {
-        await invoke("overleaf_delete_entity", {
-          projectRoot,
-          kind: entry.entity.kind,
-          entityId: entry.entity.id,
-        });
-      } catch (reason) {
-        if (stillCurrent()) {
-          setError(`Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}`);
-        }
-        return;
-      }
-    }
-    if (stillCurrent() && !automatic) {
-      setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
-    }
-  }, []);
-
-  const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
-    if (!project || overleafSyncingRef.current) return;
-    const syncRoot = project.root;
-    const syncGeneration = projectOperationGenerationRef.current;
-    const stillCurrent = () => (
-      projectOperationGenerationRef.current === syncGeneration
-      && projectRef.current?.root === syncRoot
-    );
-    overleafSyncingRef.current = true;
-    setOverleafSyncing(true);
-    // Handle a project switch can wait on, so a click that lands mid-sync
-    // queues behind it instead of being thrown away.
-    overleafSyncSettledRef.current = new Promise<void>((resolve) => { resolveOverleafSyncRef.current = resolve; });
-    const trace = logAction("Overleaf", "Sync", options?.auto ? "automatic" : "requested");
-    // Saving below clears the dirty flag, which cancels the pending autosave
-    // compile — that is how a sync landing mid-edit left the editor showing a
-    // change the PDF never caught up with. Remember it so we can rebuild.
-    const hadUnsavedEdits = sourceRef.current !== savedSourceRef.current;
-    let compiled = false;
-    try {
-      if (!(await save())) return;
-      if (!stillCurrent()) return;
-      const result = await invoke<OverleafSyncResult>("overleaf_sync", {
-        projectRoot: syncRoot,
-        live: overleafLivePathsRef.current,
-      });
-      if (!stillCurrent()) return;
-      // PDF inspection generates contact sheets and page renders under this
-      // app-owned folder. Old versions uploaded them as project files; remove
-      // that legacy folder silently and never mix it into the user's ordinary
-      // remote-delete preference.
-      if (result.automaticRemoteDeletes?.length && !result.readOnly) {
-        await settleRemoteDeletes(
-          result.automaticRemoteDeletes,
-          syncRoot,
-          syncGeneration,
-          true,
-        );
-        if (!stillCurrent()) return;
-      }
-      // A file gone from here is still on Overleaf, because syncing has never
-      // removed anything from a shared project on its own. What should happen
-      // instead is a decision only the user can make, so it is a setting.
-      if (result.skippedRemoteDeletes.length) {
-        await settleRemoteDeletes(
-          result.skippedRemoteDeletes,
-          syncRoot,
-          syncGeneration,
-        );
-        if (!stillCurrent()) return;
-      }
-      // A file too big for Overleaf to accept stays here and is named, because
-      // to the writer it otherwise looks synced like everything else and the
-      // absence is only discovered from the other side.
-      if (result.skippedLarge?.length) {
-        setWarning(
-          `Too large for Overleaf, so left on this machine: ${result.skippedLarge.join(", ")}.`,
-          "Overleaf",
-        );
-      }
-      // Merged and conflicted files were rewritten on disk just like pulled
-      // ones, so the editor has to reload them too or it would keep showing
-      // stale text and save over the incoming edits.
-      const changedOnDisk = new Set([
-        ...result.pulled,
-        ...result.merged,
-        ...result.conflicts.map((item) => item.path),
-      ]);
-      if (result.conflicts.length) {
-        // A file with markers in it has spots to work through; a figure or a
-        // PDF does not, and saying "resolve each spot" about one — then
-        // opening a marker resolver that finds nothing — is worse than saying
-        // plainly that both versions are sitting on disk.
-        const marked = result.conflicts.filter((item) => item.markers !== false);
-        const whole = result.conflicts.filter((item) => item.markers === false);
-        const parts: string[] = [];
-        if (marked.length) {
-          parts.push(
-            `Overleaf sync could not combine: ${marked.map((item) => item.path).join(", ")}. `
-            + "Both versions are kept — resolve each spot to finish. "
-            + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
-            + "and nothing uploads until the conflicts are settled.",
-          );
-        }
-        if (whole.length) {
-          parts.push(
-            `Changed in both places and impossible to combine: ${whole.map((item) => item.path).join(", ")}. `
-            + "Overleaf's version is now the one in the project, and yours is kept beside it "
-            + "in the “(local conflict …)” files — keep whichever you want and delete the other.",
-          );
-        }
-        setError(parts.join(" "));
-        // Only worth opening for a file that actually has markers in it.
-        const first = marked[0]?.path ?? null;
-        if (first) setConflictPath(first);
-      }
-      if (changedOnDisk.size || result.deletedLocal.length) {
-        await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
-        if (!stillCurrent()) return;
-        if (activeFile && changedOnDisk.has(activeFile)) {
-          await loadFile(activeFile, {
-            expectedProjectRoot: syncRoot,
-            projectGeneration: syncGeneration,
-          });
-          if (!stillCurrent()) return;
-        }
-        // Files arriving from Overleaf haven't touched the live share, so a
-        // Lattice collaborator would never see them without this push. Only
-        // paths already in the v2 catalog can update — brand-new files stay
-        // local until the share is restarted (no v2 create-entry API yet).
-        if (collabSession && changedOnDisk.size) {
-          for (const path of changedOnDisk) {
-            if (!stillCurrent()) return;
-            try {
-              const content = await invoke<string>("read_project_file", { path });
-              if (!stillCurrent()) return;
-              await publishTextToCollabV2(path, content);
-            } catch {
-              // Binary or unreadable files must not stop the rest.
-            }
-          }
-        }
-        if (!stillCurrent()) return;
-        await compile();
-        if (!stillCurrent()) return;
-        compiled = true;
-      }
-      // Nothing arrived, but we flushed the user's own unsaved edits — the
-      // autosave compile they were waiting on is gone, so run it here.
-      if (!compiled && hadUnsavedEdits) {
-        if (!stillCurrent()) return;
-        await compile();
-        if (!stillCurrent()) return;
-        compiled = true;
-      }
-      if (result.pulled.length || result.pushed.length || result.merged.length) {
-        const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
-        if (result.merged.length) parts.push(`merged ${result.merged.length}`);
-        trace.ok(`Overleaf: ${parts.join(", ")}.`);
-      } else if (!options?.auto) {
-        trace.ok("Overleaf: already up to date.");
-      } else {
-        // A background sync with nothing to do stays out of the user's way, but
-        // still leaves a line in the log so a gap in sync history is explained.
-        trace.note("Overleaf: already up to date.");
-      }
-      // Each sync point becomes a version, so the timeline shows what arrived.
-      if (!stillCurrent()) return;
-      void invoke<string | null>("git_auto_commit", {
-        message: "Overleaf sync",
-        author: collabName.trim() || null,
-        projectRoot: syncRoot,
-      }).catch(() => {});
-      if (stillCurrent()) refreshOverleafLink();
-    } catch (reason) {
-      if (stillCurrent()) trace.fail(reason);
-    } finally {
-      overleafSyncingRef.current = false;
-      setOverleafSyncing(false);
-      const settle = resolveOverleafSyncRef.current;
-      resolveOverleafSyncRef.current = null;
-      overleafSyncSettledRef.current = null;
-      settle?.();
-    }
-  }, [
-    activeFile,
-    collabName,
-    collabSession,
-    compile,
-    loadFile,
-    project,
-    refreshOverleafLink,
-    refreshProject,
-    save,
-    settleRemoteDeletes,
-  ]);
-
-  // First open after launch pulls collaborators' Overleaf edits automatically.
-  useEffect(() => {
-    if (!overleafLink || !project?.root) return;
-    if (overleafAutoSyncedRoot.current === project.root) return;
-    overleafAutoSyncedRoot.current = project.root;
-    lastAutoSyncRef.current = Date.now();
-    void runOverleafSync({ auto: true });
-  }, [overleafLink, project?.root, runOverleafSync]);
-
-  // Live mode keeps a linked project close to current without anyone pressing
-  // anything. Asking Overleaf "has your history moved?" is a small JSON call,
-  // so it can run every few seconds; the expensive full sync only follows when
-  // the answer is yes. That is what makes seconds-level latency affordable —
-  // polling the project itself would mean re-downloading it every time.
-  overleafSyncRef.current = runOverleafSync;
-  useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
-    const projectRoot = project.root;
-    let stopped = false;
-    let timer: number | null = null;
-    // Backs off when Overleaf pushes back, and stays slow when this instance
-    // cannot tell us a version — polling only earns its keep when a cheap
-    // check can rule a download out.
-    const baseWait = () =>
-      overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
-    let wait = baseWait();
-    const tick = async () => {
-      if (stopped) return;
-      try {
-        if (!overleafSyncingRef.current) {
-          const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
-          wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
-          if (!stopped && !probe.versionKnown) {
-            // No change signal: fall back to syncing on a slow clock rather
-            // than downloading the project over and over.
-            if (Date.now() - lastAutoSyncRef.current >= OVERLEAF_BLIND_POLL_MS) {
-              lastAutoSyncRef.current = Date.now();
-              await overleafSyncRef.current({ auto: true });
-            }
-          } else if (
-            !stopped
-            && probe.changed
-            && Date.now() - lastAutoSyncRef.current >= OVERLEAF_MIN_SYNC_GAP_MS
-          ) {
-            lastAutoSyncRef.current = Date.now();
-            await overleafSyncRef.current({ auto: true });
-          }
-        }
-      } catch (reason) {
-        // Rate limiting means we are asking too often; ease off sharply rather
-        // than hammering a server that has already said no.
-        const message = String(reason);
-        wait = /429|Too Many Requests/i.test(message)
-          ? Math.min(wait * 4, 5 * 60_000)
-          : Math.min(Math.max(wait * 2, baseWait()), 60_000);
-      }
-      if (!stopped) timer = window.setTimeout(() => void tick(), wait);
-    };
-    void tick();
-    // Coming back from the browser is the moment stale content is most
-    // obvious, so check immediately rather than waiting for the next tick.
-    const onFocus = () => void tick();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      stopped = true;
-      if (timer) window.clearTimeout(timer);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [overleafLink, overleafSyncMode, project?.root]);
-
-  // Editing through Overleaf's own channel, when the project is linked and
-  // live. It stays off during a Lattice share: two live channels writing the
-  // same buffer would fight over every keystroke, and the Yjs session already
-  // owns the editor then.
-  const overleafRealtime = useOverleafRealtime({
-    enabled: overleafLink !== null,
-    documents: overleafSyncMode === "live" && !collabSession,
-    projectRoot: project?.root ?? null,
-    activeFile,
-    readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
-    onRemoteText: (text, caret) => {
-      const path = activeFileRef.current;
-      if (!path) return;
-      setSource(text);
-      // Write it through so a rebuild and any later sync see the same bytes,
-      // and only call it saved once it is. Marking it saved first and dropping
-      // the failure meant a write that could not happen — a full disk, a
-      // read-only volume — left the editor showing their paragraph while the
-      // file still held the old one: the build compiled the old text, and the
-      // next sync read the old bytes back off disk, called them a local edit,
-      // and pushed them over the top of what they had written.
-      void invoke("write_project_file", {
-        path,
-        content: text,
-        projectRoot: project?.root ?? null,
-      })
-        .then(() => setSavedSource(text))
-        .catch((reason) => setError(toMessage(reason)));
-      setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
-    },
-    onNotice: (message) => setNotice(message),
-  });
-  // The poll loop and the sync both read these mid-flight, so keep them in
-  // refs rather than restarting either one every time the channel changes.
-  // "Carrying documents", not merely "connected": the channel also stays up in
-  // manual mode for chat, and slowing the sync down then would leave nothing
-  // watching the files.
-  overleafRemoteDeleteRef.current = overleafRemoteDelete;
-  overleafEntitiesRef.current = overleafRealtime.entities;
-  overleafChannelLiveRef.current = overleafRealtime.status === "live"
-    && overleafSyncMode === "live"
-    && !collabSession;
-  overleafLivePathsRef.current = overleafRealtime.livePaths;
-
-  // Who else is in the Overleaf project, and where. Two things the presence
-  // hook cannot get anywhere else ride the same channel: our own connection
-  // id, announced once, and which file each document id is — the second is
-  // what lets a tooltip name the file and a click jump to it.
-  const [overleafSelfId, setOverleafSelfId] = useState<string | null>(null);
-  const [overleafDocPaths, setOverleafDocPaths] = useState<Map<string, string>>(new Map());
-  useEffect(() => {
-    if (overleafLink === null) {
-      setOverleafSelfId(null);
-      setOverleafDocPaths(new Map());
-      return;
-    }
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void listen<{ type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
-      "overleaf-realtime",
-      (event) => {
-        const payload = event.payload;
-        if (payload.type === "connected" && payload.publicId) {
-          setOverleafSelfId(payload.publicId);
-        } else if ((payload.type === "projectJoined" || payload.type === "treeChanged")
-          && payload.docs) {
-          // Rebuilt on every tree change, not only at join: a file renamed or
-          // added in the browser mid-session would otherwise keep answering
-          // with the name it had when we connected, and this map is what names
-          // the file behind a collaborator's caret or a comment.
-          setOverleafDocPaths(new Map(payload.docs.map((doc) => [doc.id, doc.path])));
-        } else if (payload.type === "disconnected") {
-          setOverleafSelfId(null);
-        }
-      },
-    ).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [overleafLink]);
-
-  const overleafPresence = useOverleafPresence({
-    // A local project still has a root, but it has no Overleaf presence
-    // scope. Passing that root here kept the previous linked project's roster
-    // alive after switching projects.
-    projectRoot: overleafLink ? project?.root ?? null : null,
-    docId: overleafRealtime.docId,
-    selfId: overleafSelfId,
-    readCaret: () => {
-      const position = editorPositionRef.current;
-      return position?.path === activeFileRef.current
-        ? { row: position.line - 1, column: position.column }
-        : { row: 0, column: 0 };
-    },
-  });
-
-  // Publishing a position is the only thing that makes us visible to a browser
-  // that is already open, so every real caret move in the live file has to
-  // reach it.
-  useEffect(() => {
-    if (!editorPosition || editorPosition.path !== activeFile) return;
-    overleafPresence.publish(editorPosition.line - 1, editorPosition.column);
-  }, [editorPosition, activeFile, overleafPresence]);
-
-  const jumpToOverleafPeer = useCallback((peer: PresenceUser) => {
-    const path = peer.docId ? overleafDocPaths.get(peer.docId) : null;
-    if (!path) {
-      setNotice(`${peer.name || "This collaborator"} is not in a file right now.`);
-      return;
-    }
-    void openProjectFile(path, (peer.row ?? 0) + 1);
-  }, [overleafDocPaths, openProjectFile]);
-
-  /** Carets to draw, which is only ever the document being edited live. */
-  const overleafActiveCursors = useMemo<PresenceCursor[]>(() => {
-    const docId = overleafRealtime.docId;
-    if (
-      !docId
-      || activePaper
-      || activeAsset
-      || overleafDocPaths.get(docId) !== activeFile
-    ) return [];
-    return overleafPresence.peers
-      .filter((peer): peer is PresenceUser & { row: number; column: number } => (
-        peer.docId === docId && peer.row !== null && peer.column !== null
-      ))
-      .map((peer) => ({
-        name: peer.name || "Anonymous",
-        hue: peer.hue,
-        row: peer.row,
-        column: peer.column,
-      }));
-  }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafRealtime.docId]);
-
-  // Collaborators who stayed in the browser talk in Overleaf's chat, so it has
-  // to be readable here or half the conversation happens where we cannot see
-  // it. It listens on the same channel the editor uses.
-  const overleafChat = useOverleafChat({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
-  });
-
   // The same conversation, for a share that never goes near Overleaf. In a v2
   // share every file is its own doc, so chat rides a dedicated project-wide
   // document (COLLAB_CHAT_PATH) instead of whichever file happens to be
   // active — otherwise peers reading different files each saw a different
   // conversation, and switching files swapped the visible history.
+  //
+  // This sits above the Overleaf bridge on purpose: before the extraction these
+  // hooks ran between the two halves of the Overleaf code, and keeping them
+  // ahead of it preserves the original effect and teardown order.
   const [collabChatDoc, setCollabChatDoc] = useState<import("yjs").Doc | null>(null);
   useEffect(() => {
     const v2 = collabV2ControllerRef.current;
@@ -4906,79 +3621,77 @@ function App() {
     displayName: collabName,
   });
 
-  // Where each thread sits in the document being edited right now. Deliberately
-  // the realtime channel's copy and not the project-wide one the comments hook
-  // reads over REST: these positions become highlights in the editor, and the
-  // channel moves them as the text around them is typed, while a REST snapshot
-  // would keep pointing at where the words used to be until the next refresh.
-  const overleafAnchors = useMemo(
-    () => new Map(overleafRealtime.comments.map((range) => [range.threadId, range])),
-    [overleafRealtime.comments],
-  );
-  const overleafComments = useOverleafComments({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
-    docId: overleafRealtime.docId,
-    anchored: useMemo(
-      () => overleafRealtime.comments.map((range) => range.threadId),
-      [overleafRealtime.comments],
-    ),
-    anchor: overleafRealtime.anchorComment,
+  // ---- Overleaf bridge -----------------------------------------------------
+  // Link discovery, syncing, the realtime channel and everything that rides it
+  // (presence, chat, comment threads, tracked changes) live in
+  // `src/app/use-overleaf-workspace.ts`. It has to be called here rather than
+  // beside the rest of App's state: every sync path goes through save, compile,
+  // loadFile and refreshProject, all of which are declared above.
+  const {
+    overleafLink,
+    overleafSyncing,
+    overleafSyncMode,
+    setOverleafSyncMode,
+    overleafRemoteDelete,
+    setOverleafRemoteDelete,
+    overleafRemoteChanges,
+    setOverleafRemoteChanges,
+    overleafPickerOpen,
+    setOverleafPickerOpen,
+    overleafReviewOpen,
+    setOverleafReviewOpen,
+    overleafCollabOpen,
+    setOverleafCollabOpen,
+    overleafCollabTab,
+    setOverleafCollabTab,
+    conflictPath,
+    setConflictPath,
+    overleafSyncRef,
+    refreshOverleafLink,
+    runOverleafSync,
+    settleRemoteDeletes,
+    openCurrentOverleafProject,
+    jumpToOverleafPeer,
+    overleafRealtime,
+    overleafPresence,
+    overleafChat,
+    overleafComments,
+    overleafCommentsRef,
+    overleafTrackChanges,
+    overleafDocPaths,
+    overleafEditorComments,
+    overleafActiveCursors,
+  } = useOverleafWorkspace({
+    project,
+    projectRef,
+    projectOperationGenerationRef,
+    activeFile,
+    activeFileRef,
+    activePaper,
+    activeAsset,
+    source,
+    sourceRef,
+    savedSourceRef,
+    setSource,
+    setSavedSource,
+    setViewRestore,
+    viewStateRef,
+    editorPosition,
+    editorPositionRef,
+    build,
+    saveGeneration,
+    collabSession,
+    collabName,
+    publishTextToCollabV2,
+    save,
+    compile,
+    loadFile,
+    refreshProject,
+    openProjectFile,
+    overleafSyncingRef,
+    overleafSyncSettledRef,
+    resolveOverleafSyncRef,
   });
-
-  // Overleaf's threads, dressed as editor comments so they highlight in the
-  // text and answer in place like any other. Their ids are prefixed, which is
-  // how every handler below knows to send the reply to Overleaf rather than
-  // writing it into this project's own comments file.
-  const overleafEditorComments = useMemo<EditorComment[]>(() => {
-    const path = activeFile;
-    if (!path || !overleafAnchors.size) return [];
-    return overleafComments.threads.flatMap((thread) => {
-      const anchor = overleafAnchors.get(thread.id);
-      if (!anchor) return [];
-      const [first, ...rest] = thread.messages;
-      return [{
-        id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`,
-        path,
-        from: anchor.position,
-        to: anchor.position + anchor.quote.length,
-        quote: anchor.quote,
-        prefix: "",
-        suffix: "",
-        body: first?.content ?? "",
-        authorId: first?.authorEmail ?? "overleaf",
-        authorName: first ? `${first.authorName} · Overleaf` : "Overleaf",
-        resolved: thread.resolved,
-        replies: rest.map((message) => ({
-          id: message.id,
-          authorId: message.authorEmail ?? "overleaf",
-          authorName: message.authorName,
-          body: message.content,
-          createdAt: new Date(message.timestamp).toISOString(),
-        })),
-        createdAt: new Date(first?.timestamp ?? 0).toISOString(),
-        updatedAt: new Date(thread.messages[thread.messages.length - 1]?.timestamp ?? 0).toISOString(),
-      }];
-    });
-  }, [activeFile, overleafAnchors, overleafComments.threads]);
-
-  // Suggestions: reading them is the realtime hook's job, acting on them is
-  // this one's — accepting goes through an endpoint and reports no operation,
-  // so the document has to be re-read afterwards.
-  const overleafTrackChanges = useOverleafTrackChanges({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
-    docId: overleafRealtime.docId,
-    reserveOperation: overleafRealtime.reserveOperation,
-    noteReservedOperationUnknown: overleafRealtime.noteReservedOperationUnknown,
-    settledVersion: overleafRealtime.settledVersion,
-    changes: overleafRealtime.changes,
-    canAct: overleafRealtime.canWrite,
-    reload: overleafRealtime.reload,
-  });
-  // The comment handlers are declared before this hook runs, so they reach its
-  // actions through a ref rather than forcing the whole tree to be reordered.
-  overleafCommentsRef.current = overleafComments;
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const allEditorComments = useMemo(
@@ -4986,108 +3699,6 @@ function App() {
     [editorComments, overleafEditorComments],
   );
 
-  // Keep the badge quiet while someone is reading the conversation.
-  useEffect(() => {
-    if (overleafCollabOpen && overleafCollabTab === "chat") overleafChat.markRead();
-  }, [overleafCollabOpen, overleafCollabTab, overleafChat.messages, overleafChat.markRead]);
-
-  // Everything typed goes to the live channel; it ignores text it already has,
-  // so this is safe to call on every change including our own remote applies.
-  // Depend on the two stable members, not the hook's return object — that is
-  // rebuilt every render, which made this run on every render while live.
-  const { liveFile: overleafLiveFile, pushLocal: overleafPushLocal } = overleafRealtime;
-  useEffect(() => {
-    if (!overleafLiveFile) return;
-    overleafPushLocal(source);
-  }, [overleafLiveFile, overleafPushLocal, source]);
-
-  // A live channel that could not start is invisible otherwise: the dot simply
-  // never appears and everything quietly keeps syncing. Say what happened once.
-  const overleafRealtimeNotified = useRef<string | null>(null);
-  useEffect(() => {
-    if (overleafRealtime.status !== "error" || !overleafRealtime.detail) return;
-    if (overleafRealtimeNotified.current === overleafRealtime.detail) return;
-    overleafRealtimeNotified.current = overleafRealtime.detail;
-    setNotice(
-      `Live editing with Overleaf could not start (${overleafRealtime.detail}). `
-      + "Your project still syncs every few seconds.",
-    );
-  }, [overleafRealtime.detail, overleafRealtime.status]);
-
-  // Live mode also pushes. This keys off *saves* rather than unsaved edits:
-  // autosave clears the dirty flag about a second after typing stops, well
-  // before any sensible push delay, so watching for dirty text meant the push
-  // was almost always cancelled before it ran.
-  useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
-    let cancelled = false;
-    let timer: number | null = null;
-    const attempt = () => {
-      if (cancelled) return;
-      // If a sync ran moments ago, wait out the remainder instead of dropping
-      // the push — dropping meant the edit sat here until something else
-      // happened to sync, which is what made pushes feel like they never came.
-      // The gap is a floor, not a delay: autosave fires about a second after
-      // typing stops, and syncing on each of those meant asking Overleaf for
-      // the whole project every couple of seconds, which is over its limit.
-      const gap = overleafChannelLiveRef.current
-        ? OVERLEAF_CHANNEL_SYNC_GAP_MS
-        : OVERLEAF_MIN_SYNC_GAP_MS;
-      const wait = gap - (Date.now() - lastAutoSyncRef.current);
-      if (wait > 0) {
-        timer = window.setTimeout(attempt, wait);
-        return;
-      }
-      lastAutoSyncRef.current = Date.now();
-      void overleafSyncRef.current({ auto: true });
-    };
-    timer = window.setTimeout(attempt, OVERLEAF_PUSH_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [overleafLink, overleafSyncMode, saveGeneration]);
-
-  // Manual mode never syncs on its own; it just watches for incoming work so
-  // the toolbar can offer it, the way a repository shows commits to pull.
-  useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "manual" || !project?.root) {
-      setOverleafRemoteChanges(false);
-      return;
-    }
-    const projectRoot = project.root;
-    let stopped = false;
-    const check = async () => {
-      try {
-        const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
-        if (!stopped) setOverleafRemoteChanges(probe.changed);
-      } catch {
-        // Leave the badge as-is when the check cannot run.
-      }
-    };
-    void check();
-    const timer = window.setInterval(() => void check(), 30_000);
-    window.addEventListener("focus", check);
-    return () => {
-      stopped = true;
-      window.clearInterval(timer);
-      window.removeEventListener("focus", check);
-    };
-  }, [overleafLink, overleafSyncMode, project?.root]);
-
-  // Auto-save a version after successful builds of Overleaf-linked projects,
-  // at most every 2 minutes. Unlinked projects only version on explicit "Save
-  // version" — never surprise-commit into a repo the user manages by hand.
-  useEffect(() => {
-    if (!build?.success || !overleafLink) return;
-    const now = Date.now();
-    if (now - lastAutoVersionRef.current < 120_000) return;
-    lastAutoVersionRef.current = now;
-    void invoke<string | null>("git_auto_commit", {
-      message: "Auto-saved version",
-      author: collabName.trim() || null,
-    }).catch(() => {});
-  }, [build, collabName, overleafLink]);
 
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
@@ -5729,7 +4340,8 @@ function App() {
           const lease: CollabWorkspaceLease = { projectRoot: snapshot.root, generation: workspaceGeneration, isCurrent: () => collabWorkspaceGenerationRef.current === workspaceGeneration && projectRootRef.current === snapshot.root };
           collabWorkspaceLeaseRef.current = lease;
           setCollabProjectName(record.title);
-          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+          collabRoleRef.current = "guest";
+          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
           collabV2ControllerRef.current = controller;
           collabSessionRef.current = controller;
           const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
@@ -5774,7 +4386,7 @@ function App() {
       return;
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, preCollabProjectRootRef, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, setCollabFileCount, setCollabPeerList, setCollabProjectName, setCollabRole, setCollabRoom, setCollabStatus, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
   /// whose identity churns; the boot effect must run exactly once.
@@ -5802,10 +4414,13 @@ function App() {
         const generation = collabWorkspaceGenerationRef.current + 1; collabWorkspaceGenerationRef.current = generation;
         const lease: CollabWorkspaceLease = { projectRoot: root, generation, isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root };
         collabWorkspaceLeaseRef.current = lease;
-        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+        collabRoleRef.current = record.permission === "host" ? "host" : "guest";
+        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
+        collabV2ControllerRef.current = controller;
+        collabSessionRef.current = controller;
         setCollabProjectName(record.title);
         const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
-        await refreshProject(); collabV2ControllerRef.current = controller; collabSessionRef.current = controller;
+        await refreshProject();
         collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabFileCount(controller.fileCount()); await bindJoinedDocument(controller, materialized.openPath);
         rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() }); refreshRecentRooms(); setCollabStatus("synced");
         playInterfaceSound("collaboration-ready");
@@ -5831,97 +4446,12 @@ function App() {
       }
       finally { setBusyLabel(null); }
     })();
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, setCollabFileCount, setCollabPeerList, setCollabProjectName, setCollabRole, setCollabRoom, setCollabStatus, source, startProjectTransition, v2WorkspaceCallbacks]);
 
   useEffect(() => {
     pendingJoinRef.current = rejoinCollabProjectV2;
   }, [rejoinCollabProjectV2]);
 
-  const forgetRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
-    void (async () => {
-      // Host rows deliberately have no local-only removal: discarding the host
-      // credential would leave a live room that this device can no longer end.
-      if (record.permission === "host") return;
-      if (record.credentialRef) {
-        try {
-          await collabCredentialStore().delete(record.credentialRef, record.projectInstanceId, record.host);
-        } catch (reason) {
-          setError(toMessage(reason));
-          return;
-        }
-      }
-      forgetCollabProjectV2(record.host, record.projectInstanceId);
-      refreshRecentRooms();
-    })();
-  }, [refreshRecentRooms]);
-
-  const renameRecentProjectV2 = useCallback((record: CollabProjectRecordV2, name: string) => {
-    const next = name.trim();
-    if (!next || next === record.title) return;
-    if (next.length > 80) {
-      setError("Room names can be at most 80 characters.");
-      return;
-    }
-    void (async () => {
-      try {
-        const store = collabCredentialStore();
-        const credential = await readRememberedV2Credential(record, store);
-        const control = new CollabControlV2Client(record.host, record.projectInstanceId, credential);
-        await mutateRememberedRoomV2(control, "project-rename", { name: next });
-        rememberCollabProjectV2({ ...record, title: next, lastUsed: Date.now() });
-        if (collabV2ControllerRef.current?.room === record.projectInstanceId) setCollabProjectName(next);
-        refreshRecentRooms();
-        setNotice(`Renamed the room to “${next}”`);
-      } catch (reason) {
-        setError(`Could not rename the room: ${toMessage(reason)}`);
-      }
-    })();
-  }, [refreshRecentRooms]);
-
-  const closeRecentProjectV2 = useCallback((record: CollabProjectRecordV2) => {
-    void (async () => {
-      if (!await confirmAction(`Close “${record.title}” for everyone?\n\nExisting invitations will stop working and collaborators will be disconnected.`)) return;
-      let remoteClosed = false;
-      const store = collabCredentialStore();
-      try {
-        const activeController = collabV2ControllerRef.current;
-        // Prefer the live host session: it already holds the host token in memory,
-        // so Close does not need another Keychain round-trip.
-        if (
-          activeCollabVersion === 2
-          && collabRoleRef.current === "host"
-          && activeController?.room === record.projectInstanceId
-        ) {
-          await activeController.flush();
-          await activeController.close();
-          remoteClosed = true;
-          await clearCollabLocalState({ flush: false });
-          setCollabOpen(false);
-          setCollabStatus("disconnected");
-        } else {
-          const credential = await readRememberedV2Credential(record, store);
-          const control = new CollabControlV2Client(record.host, record.projectInstanceId, credential);
-          await mutateRememberedRoomV2(control, "close-begin");
-          remoteClosed = true;
-        }
-        if (record.credentialRef) {
-          await store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
-        }
-        forgetCollabProjectV2(record.host, record.projectInstanceId);
-        refreshRecentRooms();
-        setNotice(`Closed “${record.title}” for everyone`);
-      } catch (reason) {
-        const detail = toMessage(reason);
-        if (!remoteClosed) {
-          setError(`Could not close the room: ${detail}`);
-          return;
-        }
-        setError(remoteClosed
-          ? `The room was closed, but local cleanup did not finish: ${detail}. Keep this entry and retry Close to finish cleanup.`
-          : `Could not close the room: ${detail}`);
-      }
-    })();
-  }, [activeCollabVersion, clearCollabLocalState, refreshRecentRooms]);
 
 
   const chooseExisting = useCallback(async () => {
@@ -6432,7 +4962,12 @@ function App() {
       setImporting(false);
       setPaperImportStage(null);
     }
-  }, [collabSession, refreshHistory, refreshProject]);
+    // `collabSession` alone is not enough to keep the publish above alive: it can
+    // reach state a commit before `activeCollabVersion` does, and this memo would
+    // then pin the closure that answers `false` for the rest of the share (see
+    // `publishTextToCollabV2`). An imported reference would reach disk here and
+    // never reach the people sharing the project.
+  }, [collabSession, publishTextToCollabV2, refreshHistory, refreshProject]);
 
   const importPaper = useCallback(async () => {
     if (!importInput.trim()) return;
@@ -6639,7 +5174,10 @@ function App() {
       }
       setPaperImportStage(null);
     }
-  }, [changePaperView, collabSession, openPaper, refreshProject, tutorialActive, tutorialStep]);
+    // Same reason as importReferenceInput: `collabSession` does not fence
+    // `publishTextToCollabV2`'s identity, so it has to be listed itself or a
+    // fetched paper stays invisible to collaborators for the whole share.
+  }, [changePaperView, collabSession, openPaper, publishTextToCollabV2, refreshProject, tutorialActive, tutorialStep]);
 
   useEffect(() => () => {
     Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
@@ -7686,6 +6224,7 @@ function App() {
     openProjectFile,
     overleafLink,
     overleafSyncMode,
+    overleafSyncRef,
     project?.root,
     refreshHistory,
     refreshProject,
@@ -8853,7 +7392,7 @@ function App() {
     commentId.startsWith(OVERLEAF_COMMENT_PREFIX)
       ? commentId.slice(OVERLEAF_COMMENT_PREFIX.length)
       : null
-  ), [OVERLEAF_COMMENT_PREFIX]);
+  ), []);
 
   const toggleEditorCommentResolved = useCallback((id: string) => {
     const threadId = overleafThreadOf(id);
@@ -8869,7 +7408,9 @@ function App() {
         ? { ...item, resolved: !item.resolved, updatedAt: new Date().toISOString() }
         : item
     )));
-  }, [editorComments, overleafThreadOf, persistEditorComments]);
+    // `overleafCommentsRef` reaches this through the workspace hook's return
+    // value, so the lint rule cannot see it is a stable `useRef` identity.
+  }, [editorComments, overleafCommentsRef, overleafThreadOf, persistEditorComments]);
 
   const replyToEditorComment = useCallback((commentId: string, body: string) => {
     const threadId = overleafThreadOf(commentId);
@@ -8890,7 +7431,7 @@ function App() {
         ? { ...item, replies: [...item.replies, reply], updatedAt: new Date().toISOString() }
         : item
     )));
-  }, [collabName, editorCommentAuthorId, editorComments, overleafThreadOf, persistEditorComments]);
+  }, [collabName, editorCommentAuthorId, editorComments, overleafCommentsRef, overleafThreadOf, persistEditorComments]);
 
   const openEditorCommentReply = useCallback((commentId: string) => {
     setCommentPanelFocusId(commentId);
@@ -9532,222 +8073,167 @@ function App() {
 
   return (
     <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
-      <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-        <div className={`titlebar-sidebar ${sidebarOpen ? "" : "collapsed"}`} style={{ width: sidebarOpen ? sidebarWidth + 1 : undefined }}>
-          <div className="titlebar-navigator">
-            <div className="traffic-space" />
-            <div className="titlebar-sidebar-toggle">
-              <Tip label={sidebarOpen ? t`Hide sidebar` : t`Show sidebar`}>
-                <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
-                  <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
-                    {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-                  </span>
-                </button>
-              </Tip>
-            </div>
-          </div>
-          <div className="project-switcher">
-            <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="project-title"
-                  aria-label={t`Switch project`}
-                  disabled={building || importing}
-                >
-                  <span>{project.manifest.name}</span>
-                  <ChevronDown size={13} />
-                </button>
-              </DropdownMenuTrigger>
-              <ProjectMenu
-                currentPath={project.root}
-                recentProjects={recentProjects}
-                busyLabel={busyLabel}
-                onRecent={chooseRecentProject}
-                onOpen={() => void chooseExisting()}
-                onNew={() => {
-                  setCreateError(null);
-                  setCreateOpen(true);
-                }}
-                onOpenOverleaf={() => setOverleafPickerOpen(true)}
-                onOpenTutorial={() => void openTutorialProject()}
-                onExportZip={() => void exportProjectZip()}
-                onSettings={() => openSettings("appearance")}
-              />
-            </DropdownMenu>
-            <div className="titlebar-drag-area" aria-hidden="true" />
-          </div>
-        </div>
-        <div className="titlebar-main">
-          <EditorTabs
-            tabs={editorTabItems}
-            activePath={activeTabKey}
-            animateLayout={!sidebarResizing}
-            canCloseLast={canvasMode === "pdf"}
-            onDropTab={!activePaper ? dropProjectPath : undefined}
-            onSelect={selectEditorTab}
-            onClose={requestCloseEditorTab}
-            onReorder={setOpenTabs}
-          />
-          <CanvasToolbar
-            mode={canvasMode}
-            selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
-            setMode={openDocumentMode}
-            supportsDocumentViewModes={Boolean(activePaper)
-              || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
-            onSplit={
-              !activePaper
-              && (
-                (Boolean(activeAsset) && canvasMode === "asset")
-                || (
-                  !activeAsset
-                  && (
-                    canvasMode === "source"
-                    || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile))
-                  )
+      <AppTitlebar
+        abortBuild={abortBuild}
+        activePaper={activePaper}
+        activeTabKey={activeTabKey}
+        build={build}
+        building={building}
+        buildPreferences={buildPreferences}
+        busyLabel={busyLabel}
+        canvasMode={canvasMode}
+        canvasToolbar={(
+        <CanvasToolbar
+          mode={canvasMode}
+          selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
+          setMode={openDocumentMode}
+          supportsDocumentViewModes={Boolean(activePaper)
+            || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
+          onSplit={
+            !activePaper
+            && (
+              (Boolean(activeAsset) && canvasMode === "asset")
+              || (
+                !activeAsset
+                && (
+                  canvasMode === "source"
+                  || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile))
                 )
               )
-                ? splitDocumentView
-                : undefined
+            )
+              ? splitDocumentView
+              : undefined
+          }
+          onCloseSplit={canvasMode === "dual" || canvasMode === "columns"
+            ? closeSplitView
+            : undefined}
+          markdown={Boolean(activePaper)
+            || (!focusedAsset && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
+          html={!activePaper && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
+          paperView={activePaper ? paperView : undefined}
+          paperHasBlog={paperBlog !== null}
+          paperHasFullText={Boolean(paperMarkdown)}
+          onPaperView={activePaper ? (view) => {
+            changePaperView(view);
+            if (tutorialActive && tutorialStep === TUTORIAL_STEPS.paperBlog && view === "fulltext") {
+              setTutorialStep(TUTORIAL_STEPS.paperFullText);
             }
-            onCloseSplit={canvasMode === "dual" || canvasMode === "columns"
-              ? closeSplitView
-              : undefined}
-            markdown={Boolean(activePaper)
-              || (!focusedAsset && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
-            html={!activePaper && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
-            paperView={activePaper ? paperView : undefined}
-            paperHasBlog={paperBlog !== null}
-            paperHasFullText={Boolean(paperMarkdown)}
-            onPaperView={activePaper ? (view) => {
-              changePaperView(view);
-              if (tutorialActive && tutorialStep === TUTORIAL_STEPS.paperBlog && view === "fulltext") {
-                setTutorialStep(TUTORIAL_STEPS.paperFullText);
-              }
-            } : undefined}
-            activePath={activePaper?.title ?? activeTabKey}
-            activeKind={focusedAsset ? "asset" : activePaper ? "paper" : "document"}
-            canInsert={canInsert}
-            dirty={activePaper
-              ? activePaperDirty
-              : source !== savedSource
-                || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)}
-            canNavigateBack={navIndex > 0}
-            canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
-            onNavigateBack={() => void navigateHistory(-1)}
-            onNavigateForward={() => void navigateHistory(1)}
-            onInsert={() => setInsertOpen(true)}
-            onCollab={() => {
-              // The tour points this row out rather than opening it, so the
-              // panels stay shut while it runs.
-              if (tutorialActive) return;
-              openCollabDialog("start");
-            }}
-            collabLive={collabStatus === "synced" || collabStatus === "connecting"}
-            collabPeers={collabPeers}
-            collabPresence={collabPeerList.length > 0 ? (
-              <AvatarGroup className="collab-peer-avatars" ariaLabel={t`People in this session`}>
-                {collabPeerList.slice(0, 5).map((peer) => (
-                  <button
-                    key={peer.clientId}
-                    type="button"
-                    className="collab-peer-avatar"
-                    style={{ background: peer.color }}
-                    title={peer.path
-                      ? t({ message: `${peer.name} · ${peer.path} — click to follow` })
-                      : peer.name}
-                    onClick={() => void followCollabPeer(peer)}
-                  >
-                    {peerInitials(peer.name)}
-                  </button>
-                ))}
-                {collabPeerList.length > 5 && (
-                  <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
-                    +{collabPeerList.length - 5}
-                  </span>
-                )}
-              </AvatarGroup>
-            ) : null}
-            onHistory={() => setHistoryOpen(true)}
-            onGit={() => {
-              if (tutorialActive) return;
-              setSynaraRuntimeRequested(true);
-              setGitOpen(true);
-            }}
-            commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
-            onComments={() => setEditorCommentsOpen(true)}
-            overleafLinked={overleafLink !== null}
-            overleafSyncing={overleafSyncing}
-            overleafPending={overleafRemoteChanges}
-            overleafLiveEditing={overleafRealtime.liveFile}
-            overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
-            overleafChannelDetail={overleafRealtime.detail}
-            overleafProjectName={overleafLink?.projectName}
-            overleafPresence={overleafPresence.peers.length ? (
-              <OverleafPresenceAvatars
-                peers={overleafPresence.peers}
-                pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
-                onJump={jumpToOverleafPeer}
-              />
-            ) : null}
-            onOverleafSync={() => {
-              if (tutorialActive) return;
-              // Manual mode is a review step, not a button that quietly
-              // rewrites files: show what would change and let the user decide.
-              if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
-              else void runOverleafSync();
-            }}
-            onOverleafOpenCurrent={overleafLink ? () => {
-              if (tutorialActive) return;
-              openCurrentOverleafProject();
-            } : undefined}
-            onOverleafOpen={() => {
-              if (tutorialActive) return;
-              setOverleafPickerOpen(true);
-            }}
-            overleafUnreadChat={
-              overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
-            }
-            onOverleafChat={() => {
-              setOverleafCollabOpen(true);
-              void overleafChat.refresh();
-            }}
-          />
-          <div className="title-actions">
-            {building ? (
-              <Tip label={t`Stop the current LaTeX build`}>
+          } : undefined}
+          activePath={activePaper?.title ?? activeTabKey}
+          activeKind={focusedAsset ? "asset" : activePaper ? "paper" : "document"}
+          canInsert={canInsert}
+          dirty={activePaper
+            ? activePaperDirty
+            : source !== savedSource
+              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)}
+          canNavigateBack={navIndex > 0}
+          canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
+          onNavigateBack={() => void navigateHistory(-1)}
+          onNavigateForward={() => void navigateHistory(1)}
+          onInsert={() => setInsertOpen(true)}
+          onCollab={() => {
+            // The tour points this row out rather than opening it, so the
+            // panels stay shut while it runs.
+            if (tutorialActive) return;
+            openCollabDialog("start");
+          }}
+          collabLive={collabStatus === "synced" || collabStatus === "connecting"}
+          collabPeers={collabPeers}
+          collabPresence={collabPeerList.length > 0 ? (
+            <AvatarGroup className="collab-peer-avatars" ariaLabel={t`People in this session`}>
+              {collabPeerList.slice(0, 5).map((peer) => (
                 <button
-                  className="build-button stop"
-                  onClick={() => void abortBuild()}
-                  aria-live="polite"
+                  key={peer.clientId}
+                  type="button"
+                  className="collab-peer-avatar"
+                  style={{ background: peer.color }}
+                  title={peer.path
+                    ? t({ message: `${peer.name} · ${peer.path} — click to follow` })
+                    : peer.name}
+                  onClick={() => void followCollabPeer(peer)}
                 >
-                  <Square size={13} fill="currentColor" />
-                  {t`Stop`}
+                  {peerInitials(peer.name)}
                 </button>
-              </Tip>
-            ) : (
-              <Tip label={buildPreferences.autoBuildMode === "automatic"
-                ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild.`
-                : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild.`}
-              >
-                <button
-                  aria-label={t`Build`}
-                  data-tour="build"
-                  className={`build-button ${build?.success ? "success" : ""}`}
-                  onClick={(event) => {
-                    if (event.shiftKey) void cleanAndRebuild();
-                    else void compile(false, true);
-                  }}
-                  disabled={cleaning}
-                  aria-live="polite"
-                >
-                  {build?.success ? <Check size={15} /> : <Play size={15} />}
-                  {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
-                </button>
-              </Tip>
-            )}
-          </div>
-        </div>
-      </header>
+              ))}
+              {collabPeerList.length > 5 && (
+                <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
+                  +{collabPeerList.length - 5}
+                </span>
+              )}
+            </AvatarGroup>
+          ) : null}
+          onHistory={() => setHistoryOpen(true)}
+          onGit={() => {
+            if (tutorialActive) return;
+            setSynaraRuntimeRequested(true);
+            setGitOpen(true);
+          }}
+          commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
+          onComments={() => setEditorCommentsOpen(true)}
+          overleafLinked={overleafLink !== null}
+          overleafSyncing={overleafSyncing}
+          overleafPending={overleafRemoteChanges}
+          overleafLiveEditing={overleafRealtime.liveFile}
+          overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
+          overleafChannelDetail={overleafRealtime.detail}
+          overleafProjectName={overleafLink?.projectName}
+          overleafPresence={overleafPresence.peers.length ? (
+            <OverleafPresenceAvatars
+              peers={overleafPresence.peers}
+              pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
+              onJump={jumpToOverleafPeer}
+            />
+          ) : null}
+          onOverleafSync={() => {
+            if (tutorialActive) return;
+            // Manual mode is a review step, not a button that quietly
+            // rewrites files: show what would change and let the user decide.
+            if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
+            else void runOverleafSync();
+          }}
+          onOverleafOpenCurrent={overleafLink ? () => {
+            if (tutorialActive) return;
+            openCurrentOverleafProject();
+          } : undefined}
+          onOverleafOpen={() => {
+            if (tutorialActive) return;
+            setOverleafPickerOpen(true);
+          }}
+          overleafUnreadChat={
+            overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
+          }
+          onOverleafChat={() => {
+            setOverleafCollabOpen(true);
+            void overleafChat.refresh();
+          }}
+        />
+        )}
+        chooseExisting={chooseExisting}
+        chooseRecentProject={chooseRecentProject}
+        cleanAndRebuild={cleanAndRebuild}
+        cleaning={cleaning}
+        compile={compile}
+        dropProjectPath={dropProjectPath}
+        editorTabItems={editorTabItems}
+        exportProjectZip={exportProjectZip}
+        importing={importing}
+        openSettings={openSettings}
+        openTutorialProject={openTutorialProject}
+        project={project}
+        projectMenuOpen={projectMenuOpen}
+        recentProjects={recentProjects}
+        requestCloseEditorTab={requestCloseEditorTab}
+        selectEditorTab={selectEditorTab}
+        setCreateError={setCreateError}
+        setCreateOpen={setCreateOpen}
+        setOpenTabs={setOpenTabs}
+        setOverleafPickerOpen={setOverleafPickerOpen}
+        setProjectMenuOpen={setProjectMenuOpen}
+        setSidebarOpen={setSidebarOpen}
+        sidebarOpen={sidebarOpen}
+        sidebarResizing={sidebarResizing}
+        sidebarWidth={sidebarWidth}
+      />
 
       {referenceHits && (
         <ReferencesPanel
@@ -9772,173 +8258,93 @@ function App() {
         }}
       >
         {sidebarOpen && (
-          <>
-            <section className="shared-sidebar" data-tour="sidebar">
-              <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
-                <SlidingTabs
-                  value={sidebarMode}
-                  onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
-                  ariaLabel={t`Sidebar mode`}
-                  className="sidebar-mode-tabs"
-                  items={[
-                    { value: "project", title: t`Project`, label: <><FolderTree size={15} /><span>{t`Project`}</span></> },
-                    { value: "papers", title: t`Papers`, dataTour: "papers-tab", label: <><Library size={15} /><span>{t`Papers`}</span></> },
-                    { value: "agent", title: t`Agent`, dataTour: "agent-tab", label: <><Bot size={15} /><span>{t`Agent`}</span></> },
-                  ]}
-                />
-                <div ref={sidebarModeActionsRef} className="sidebar-mode-actions">
-                  {sidebarMode === "project" && (
-                    <>
-                      <Tip label={t`New spreadsheet`}>
-                        <button
-                          aria-label={t`New spreadsheet`}
-                          onClick={() => setSpreadsheetCreateRequest((request) => request + 1)}
-                        >
-                          <Table2 size={13} />
-                        </button>
-                      </Tip>
-                      <Tip label={t`New board`}>
-                        <button
-                          aria-label={t`New board`}
-                          onClick={() => setBoardCreateRequest((request) => request + 1)}
-                        >
-                          <Shapes size={13} />
-                        </button>
-                      </Tip>
-                      <Tip label={t`Find in project`}>
-                        <button
-                          aria-label={t`Find in project`}
-                          onClick={() => {
-                            setProjectSearchOpen(false);
-                            setProjectFindError(null);
-                            setProjectFindHits([]);
-                            setProjectFindOpen(true);
-                          }}
-                        >
-                          <Search size={13} />
-                        </button>
-                      </Tip>
-                    </>
-                  )}
-                  {sidebarMode === "papers" && (
-                    <>
-                      <Tip label={t`Discover literature`}>
-                        <button aria-label={t`Discover literature`} onClick={() => setLiteratureOpen(true)}>
-                          <BookOpen size={14} />
-                        </button>
-                      </Tip>
-                      <Tip label={t`Add bibliography entry`}>
-                        <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
-                      </Tip>
-                    </>
-                  )}
-                  {sidebarMode === "agent" && synaraOrigin && (
-                    <SynaraPermissionPicker
-                      value={synaraPermissionMode}
-                      autoModeAvailable={synaraAutoModeAvailable}
-                      onChange={changeSynaraPermissionMode}
-                    />
-                  )}
-                </div>
-              </div>
-              <div className="sidebar-pane" data-tour="project-panel" hidden={sidebarMode === "agent"}>
-                <Suspense fallback={null}>
-                <Navigator
-                  mode={sidebarMode === "papers" ? "papers" : "project"}
-                  projectKey={project.root}
-                  searchOpen={projectSearchOpen}
-                  boardCreateRequest={boardCreateRequest}
-                  spreadsheetCreateRequest={spreadsheetCreateRequest}
-                  onSearchOpenChange={setProjectSearchOpen}
-                  files={project.files}
-                  gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
-                  activeFile={activeAsset || activePaper ? "" : activeFile}
-                  activeAssetPath={activeAsset?.path ?? ""}
-                  protectedPaths={[
-                    ...(rootDocumentPath ? [rootDocumentPath] : []),
-                    project.manifest.primaryBibliography,
-                  ]}
-                  papers={papers}
-                  activePaper={activePaper}
-                  onFile={openProjectFileFromClick}
-                  onLikelyFile={prewarmLikelyProjectFile}
-                  onAsset={openProjectAssetFromClick}
-                  onBeginFigureDrag={beginProjectFigureDrag}
-                  onBeginFileDrag={beginProjectFileDrag}
-                  onCreateEntry={createProjectEntry}
-                  onDeleteEntry={deleteProjectEntry}
-                  onRenameEntry={renameProjectEntry}
-                  onMoveEntries={moveProjectEntries}
-                  onError={setError}
-                  onReveal={revealProjectItem}
-                  onImportAssets={chooseProjectAssets}
-                  assetDropTarget={assetDropTarget}
-                  assetImporting={assetImporting}
-                  onPaper={(paper) => void openPaper(paper).then((opened) => {
-                    if (
-                      tutorialActive
-                      && tutorialStep === TUTORIAL_STEPS.importVit
-                      && paper.arxivId === "2010.11929"
-                    ) {
-                      if (opened?.hasBlog) changePaperView("blog");
-                      setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
-                    }
-                  })}
-                  onLikelyPaper={prewarmLikelyPaper}
-                  onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
-                  paperFetchStates={paperFetchStates}
-                  onDeletePaper={deletePaper}
-                  onEditBibEntry={(paper) => void openEditBibEntry(paper)}
-                  importInput={importInput}
-                  importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
-                  setImportInput={setImportInput}
-                  onImport={importPaper}
-                  importing={importing}
-                />
-                </Suspense>
-              </div>
-              <div
-                className={`sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`}
-                aria-hidden={sidebarMode !== "agent"}
-              >
-                <div
-                  className={`synara-frame-shell ${agentPanelDropActive ? "agent-drop-active" : ""}`}
-                  data-tour="agent-panel"
-                  data-ready={synaraFrameReady || undefined}
-                >
-                  {synaraFrameMounted && synaraOrigin && (
-                    <iframe
-                      ref={synaraIframeRef}
-                      className="synara-poc-frame"
-                      src={synaraEmbedUrl(
-                        synaraOrigin,
-                        synaraRuntime.authToken,
-                        project.root,
-                        theme,
-                        appLocale,
-                      )}
-                      title={t`Agent`}
-                      allow="clipboard-read; clipboard-write; microphone"
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-                    />
-                  )}
-                  {!synaraFrameReady && (
-                    <SynaraLoadingSurface
-                      runtime={synaraRuntime}
-                      preparingWorkspace={Boolean(synaraOrigin)}
-                      onRetry={retrySynaraRuntime}
-                    />
-                  )}
-                </div>
-              </div>
-            </section>
-            <PanelResizer
-              label={t`Resize workspace sidebar`}
-              value={sidebarWidth}
-              onPointerDown={beginSidebarResize}
-              onNudge={nudgeSidebar}
+          <AppWorkspaceSidebar
+            agentPanelDropActive={agentPanelDropActive}
+            appLocale={appLocale}
+            beginSidebarResize={beginSidebarResize}
+            changeSynaraPermissionMode={changeSynaraPermissionMode}
+            chooseSidebarMode={chooseSidebarMode}
+            navigator={(
+            <Suspense fallback={null}>
+            <Navigator
+              mode={sidebarMode === "papers" ? "papers" : "project"}
+              projectKey={project.root}
+              searchOpen={projectSearchOpen}
+              boardCreateRequest={boardCreateRequest}
+              spreadsheetCreateRequest={spreadsheetCreateRequest}
+              onSearchOpenChange={setProjectSearchOpen}
+              files={project.files}
+              gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
+              activeFile={activeAsset || activePaper ? "" : activeFile}
+              activeAssetPath={activeAsset?.path ?? ""}
+              protectedPaths={[
+                ...(rootDocumentPath ? [rootDocumentPath] : []),
+                project.manifest.primaryBibliography,
+              ]}
+              papers={papers}
+              activePaper={activePaper}
+              onFile={openProjectFileFromClick}
+              onLikelyFile={prewarmLikelyProjectFile}
+              onAsset={openProjectAssetFromClick}
+              onBeginFigureDrag={beginProjectFigureDrag}
+              onBeginFileDrag={beginProjectFileDrag}
+              onCreateEntry={createProjectEntry}
+              onDeleteEntry={deleteProjectEntry}
+              onRenameEntry={renameProjectEntry}
+              onMoveEntries={moveProjectEntries}
+              onError={setError}
+              onReveal={revealProjectItem}
+              onImportAssets={chooseProjectAssets}
+              assetDropTarget={assetDropTarget}
+              assetImporting={assetImporting}
+              onPaper={(paper) => void openPaper(paper).then((opened) => {
+                if (
+                  tutorialActive
+                  && tutorialStep === TUTORIAL_STEPS.importVit
+                  && paper.arxivId === "2010.11929"
+                ) {
+                  if (opened?.hasBlog) changePaperView("blog");
+                  setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
+                }
+              })}
+              onLikelyPaper={prewarmLikelyPaper}
+              onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
+              paperFetchStates={paperFetchStates}
+              onDeletePaper={deletePaper}
+              onEditBibEntry={(paper) => void openEditBibEntry(paper)}
+              importInput={importInput}
+              importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
+              setImportInput={setImportInput}
+              onImport={importPaper}
+              importing={importing}
             />
-          </>
+            </Suspense>
+            )}
+            nudgeSidebar={nudgeSidebar}
+            openBibEntryDialog={openBibEntryDialog}
+            project={project}
+            retrySynaraRuntime={retrySynaraRuntime}
+            setBoardCreateRequest={setBoardCreateRequest}
+            setLiteratureOpen={setLiteratureOpen}
+            setProjectFindError={setProjectFindError}
+            setProjectFindHits={setProjectFindHits}
+            setProjectFindOpen={setProjectFindOpen}
+            setProjectSearchOpen={setProjectSearchOpen}
+            setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
+            sidebarMode={sidebarMode}
+            sidebarModeActionsRef={sidebarModeActionsRef}
+            sidebarModeHeaderRef={sidebarModeHeaderRef}
+            sidebarModeTier={sidebarModeTier}
+            sidebarWidth={sidebarWidth}
+            synaraAutoModeAvailable={synaraAutoModeAvailable}
+            synaraFrameMounted={synaraFrameMounted}
+            synaraFrameReady={synaraFrameReady}
+            synaraIframeRef={synaraIframeRef}
+            synaraOrigin={synaraOrigin}
+            synaraPermissionMode={synaraPermissionMode}
+            synaraRuntime={synaraRuntime}
+            theme={theme}
+          />
         )}
 
         <section className="canvas-panel" data-tour="canvas">
@@ -9986,7 +8392,7 @@ function App() {
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
-            pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
+            pdfTop={!diagnosticsDismissed && build?.success && build.diagnostics.length > 0 ? (
               <Suspense fallback={null}>
                 <CompileDiagnosticsPanel
                   diagnostics={build.diagnostics}
@@ -10175,59 +8581,43 @@ function App() {
 
       <EditorDropPreviewPortal preview={projectFileDropPreview} />
 
-      {collabOpen && (
-        <Suspense fallback={null}>
-          <CollabDialog
-            open
-            mode={collabMode}
-            role={collabRole}
-            joinOnly={false}
-            chatMessages={collabChat.messages}
-            chatSelfId={editorCommentAuthorId}
-            chatUnread={collabChat.unread}
-            onChatSend={(body) => {
-              // The server rejects every write frame from a read grant with a
-              // 4403 close that permanently stops the doc's client — a
-              // read-only guest's send must not reach the doc at all.
-              if (collabSession?.canWrite === false || !collabCanWrite) {
-                notifyWarning(SHARE_SOURCE, "Read-only guests cannot send chat messages");
-                return;
-              }
-              collabChat.send(body);
-            }}
-            onChatOpen={collabChat.markRead}
-            host={collabHost}
-            room={collabRoom}
-            displayName={collabName}
-            projectName={collabProjectName}
-            inviteText={collabInvite}
-            status={collabStatus}
-            statusDetail={collabStatusDetail}
-            peerCount={collabPeers}
-            peers={collabPeerList}
-            fileCount={collabFileCount}
-            connectedRoom={collabSession?.room ?? null}
-            onClose={() => setCollabOpen(false)}
-            onModeChange={setCollabMode}
-            onRoomChange={setCollabRoom}
-            onDisplayNameChange={setCollabName}
-            onProjectNameChange={setCollabProjectName}
-            onInviteChange={setCollabInvite}
-            onStartShare={startCollabShare}
-            onJoinShare={joinCollabShare}
-            recentProjectsV2={recentProjectsV2}
-            onRejoinProjectV2={rejoinCollabProjectV2}
-            onForgetProjectV2={forgetRecentProjectV2}
-            onRenameProjectV2={renameRecentProjectV2}
-            onCloseProjectV2={closeRecentProjectV2}
-            onDisconnect={disconnectCollab}
-            onLeaveShare={() => void leaveHostShareSession()}
-            onCopyInvite={copyCollabInvite}
-            onRemovePeer={removeCollabPeer}
-            onInstallTex={openTexSetupWizard}
-          />
-        </Suspense>
-      )}
+      <AppCollabDialog
+        closeRecentProjectV2={closeRecentProjectV2}
+        collabCanWrite={collabCanWrite}
+        collabChat={collabChat}
+        collabFileCount={collabFileCount}
+        collabHost={collabHost}
+        collabInvite={collabInvite}
+        collabMode={collabMode}
+        collabName={collabName}
+        collabOpen={collabOpen}
+        collabPeerList={collabPeerList}
+        collabPeers={collabPeers}
+        collabProjectName={collabProjectName}
+        collabRole={collabRole}
+        collabRoom={collabRoom}
+        collabSession={collabSession}
+        collabStatus={collabStatus}
+        collabStatusDetail={collabStatusDetail}
+        copyCollabInvite={copyCollabInvite}
+        disconnectCollab={disconnectCollab}
+        editorCommentAuthorId={editorCommentAuthorId}
+        forgetRecentProjectV2={forgetRecentProjectV2}
+        joinCollabShare={joinCollabShare}
+        leaveHostShareSession={leaveHostShareSession}
+        openTexSetupWizard={openTexSetupWizard}
+        recentProjectsV2={recentProjectsV2}
+        rejoinCollabProjectV2={rejoinCollabProjectV2}
+        removeCollabPeer={removeCollabPeer}
+        renameRecentProjectV2={renameRecentProjectV2}
+        setCollabInvite={setCollabInvite}
+        setCollabMode={setCollabMode}
+        setCollabName={setCollabName}
+        setCollabOpen={setCollabOpen}
+        setCollabProjectName={setCollabProjectName}
+        setCollabRoom={setCollabRoom}
+        startCollabShare={startCollabShare}
+      />
 
       <TexSetupWizard
         open={texSetupOpen}
@@ -10247,521 +8637,185 @@ function App() {
         </div>
       )}
 
-      <Suspense fallback={null}>
-      {historyOpen && (
-        <HistoryDrawer
-          history={projectHistory}
-          onClose={() => setHistoryOpen(false)}
-          onVersionsChanged={async () => {
-            await refreshProject();
-            if (activeFile) await loadFile(activeFile);
-            await refreshHistory();
-            await compile();
-          }}
-          onRevert={(item) => {
-            if (
-              item.kind === "agent-checkpoint"
-              && item.threadId
-              && typeof item.turnCount === "number"
-              && synaraOrigin
-            ) {
-              synaraIframeRef.current?.contentWindow?.postMessage(
-                {
-                  type: LATTICE_RESTORE_AGENT_CHECKPOINT,
-                  threadId: item.threadId,
-                  turnCount: item.turnCount,
-                },
-                synaraOrigin,
-              );
-              return;
-            }
-            void revert(item.id);
-          }}
-          onRevertFile={async (id, path) => {
-            if (!await confirmAction(
-              `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
-            )) return;
-            try {
-              await invoke("revert_history_file", { transactionId: id, path });
-              if (activeFile === path || activeFile) await loadFile(activeFile);
-              await refreshProject();
-              await refreshHistory();
-              await compile();
-            } catch (reason) {
-              setError(toMessage(reason));
-            }
-          }}
-          onDelete={deleteHistory}
-          onOpenFile={(path, line) => { void openProjectFile(path, line); }}
-          overleafLinked={overleafLink !== null}
-          overleafProjectRoot={project.root}
-          onOverleafRestored={async () => {
-            // The restore happened on Overleaf's server and left the local
-            // files alone, so pull it down the same way a manual sync does
-            // before anything on this side reloads.
-            await runOverleafSync();
-            await refreshProject();
-            if (activeFile) await loadFile(activeFile);
-            await refreshHistory();
-            await compile();
-          }}
-        />
-      )}
-      {gitOpen && project ? (
-        <ResizableDrawer
-          className="git-drawer synara-source-control-drawer"
-          dataTour="git-panel"
-          onClose={() => setGitOpen(false)}
-        >
-          <div className="agent-git-workspace-header">
-            <SlidingTabs
-              value={agentTurnReview ? "agent-turn" : gitWorkspaceView}
-              onChange={(value) => {
-                if (value === "agent-turn") return;
-                setAgentTurnReview(null);
-                setGitWorkspaceView(value as AgentGitWorkspaceView);
-              }}
-              ariaLabel={t`Git workspace`}
-              variant="none"
-              className="agent-git-workspace-tabs drawer-view-tabs"
-              tabClassName="drawer-view-tab"
-              items={[
-                ...(agentTurnReview ? [{ value: "agent-turn", label: t`Agent turn` }] : []),
-                { value: "changes", label: t`Changes` },
-                { value: "pull-requests", label: t`Pull requests` },
-              ]}
-            />
-            <button
-              type="button"
-              className="agent-git-workspace-close"
-              aria-label={t`Close Git workspace`}
-              onClick={() => setGitOpen(false)}
-            >
-              <X size={14} />
-            </button>
-          </div>
-            {synaraOrigin ? (
-              <iframe
-                ref={synaraSourceControlFrameRef}
-                className="synara-source-control-frame"
-                src={agentTurnReview
-                  ? synaraTurnReviewUrl(
-                    synaraOrigin,
-                    synaraRuntime.authToken,
-                    project.root,
-                    theme,
-                    appLocale,
-                    agentTurnReview,
-                  )
-                  : synaraSourceControlUrl(
-                    synaraOrigin,
-                    synaraRuntime.authToken,
-                    project.root,
-                    theme,
-                    appLocale,
-                    gitWorkspaceView,
-                  )}
-                title={agentTurnReview
-                  ? t`Agent turn review`
-                  : gitWorkspaceView === "changes" ? t`Changes` : t`Pull requests`}
-                allow="clipboard-read; clipboard-write"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-              />
-            ) : (
-              <SynaraLoadingSurface runtime={synaraRuntime} onRetry={retrySynaraRuntime} />
-            )}
-        </ResizableDrawer>
-      ) : null}
-      {overleafCollabOpen && overleafLink && (
-        <Suspense fallback={null}>
-          <OverleafCollabDrawer
-            tab={overleafCollabTab}
-            onTab={setOverleafCollabTab}
-            projectName={overleafLink.projectName}
-            onClose={() => setOverleafCollabOpen(false)}
-            threads={overleafComments.threads}
-            anchors={overleafComments.anchors}
-            activeDocId={overleafRealtime.docId}
-            pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
-            documentOpen={overleafRealtime.docId !== null}
-            commentsLoading={overleafComments.loading}
-            commentsError={overleafComments.error}
-            onReply={overleafComments.reply}
-            onResolve={overleafComments.setResolved}
-            onDeleteThread={overleafComments.remove}
-            onEditMessage={overleafComments.editMessage}
-            onDeleteMessage={overleafComments.deleteMessage}
-            onRevealComment={(path, position) => {
-            // The comment may be on a file that is not open, so open it first
-            // and place the caret after. A comment's anchor is a character
-            // offset rather than a line, which is what `viewRestore` takes.
-            void openProjectFile(path).then(() => {
-              setViewRestore({ path, cursor: position, scrollTop: 0, id: crypto.randomUUID() });
-              setOverleafCollabOpen(false);
-            });
-          }}
-          onReveal={(position) => {
-            const path = activeFileRef.current;
-            if (!path) return;
-            setViewRestore({ path, cursor: position, scrollTop: 0, id: crypto.randomUUID() });
-            setOverleafCollabOpen(false);
-          }}
-          messages={overleafChat.messages}
-          chatLoading={overleafChat.loading}
-          chatError={overleafChat.error}
-          onSend={overleafChat.send}
-          unreadChat={overleafChat.unread}
-          changes={overleafRealtime.changes}
-          source={source}
-          changeAuthorName={overleafTrackChanges.authorName}
-          canActOnChanges={overleafRealtime.canWrite}
-          changesBusy={overleafTrackChanges.busy}
-          changesError={overleafTrackChanges.error}
-          onAcceptChanges={overleafTrackChanges.accept}
-            onRejectChanges={overleafTrackChanges.reject}
-          />
-        </Suspense>
-      )}
-      {editorCommentsOpen && (
-        <EditorCommentsPanel
-          comments={allEditorComments}
-          activePath={activeFile}
-          currentAuthorId={editorCommentAuthorId}
-          focusCommentId={commentPanelFocusId}
-          onClose={() => {
-            setEditorCommentsOpen(false);
-            setCommentPanelFocusId(null);
-          }}
-          onOpen={(comment) => {
-            const generation = commentOpenGenerationRef.current + 1;
-            commentOpenGenerationRef.current = generation;
-            setActiveEditorCommentId(comment.id);
-            setEditorCommentsOpen(false);
-            setCommentPanelFocusId(null);
-            void openProjectFile(comment.path).then(() => {
-              if (
-                commentOpenGenerationRef.current !== generation
-                || activeFileRef.current !== comment.path
-              ) return;
-              setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
-            });
-          }}
-          onDelete={(id) => {
-            void (async () => {
-              if (!await confirmAction(
-                t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
-              )) {
-                return;
-              }
-              const threadId = overleafThreadOf(id);
-              if (threadId) {
-                await overleafComments.remove(threadId).catch((reason) => setError(toMessage(reason)));
-                return;
-              }
-              await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
-              setActiveEditorCommentId((current) => (current === id ? null : current));
-            })();
-          }}
-          onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
-          onUpdateBody={(comment, body) => {
-            const trimmed = body.trim();
-            if (!trimmed) return;
-            // Overleaf's threads are edited where they live; changing the text
-            // of someone else's first message is not ours to do from here.
-            if (overleafThreadOf(comment.id)) return;
-            void persistEditorComments(editorComments.map((item) => (
-              item.id === comment.id
-                ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
-                : item
-            )));
-          }}
-          onReply={(comment, body) => replyToEditorComment(comment.id, body)}
-        />
-      )}
-      </Suspense>
-      {todosOpen && (
-        <TodoScavengerPanel
-          hits={todoHits}
-          onClose={() => setTodosOpen(false)}
-          onOpen={(path, line) => {
-            void openProjectFile(path, line);
-            setTodosOpen(false);
-          }}
-        />
-      )}
-      {checklistOpen && project && (
-        <ManuscriptChecklistPanel
-          data={{
-            words: projectWordCount?.total ?? 0,
-            wordSource: projectWordCount?.source ?? "estimate",
-            wordBudget: project.manifest.wordBudget ?? null,
-            pages: pdfPageCount,
-            mainPages: mainBodyPages,
-            pageBudget: project.manifest.pageBudget ?? null,
-            todos: todoHits.length,
-            unusedLabels: unusedSymbols.labels.length,
-            unusedCitations: unusedSymbols.citations.length,
-            buildOk: build ? build.success : null,
-            buildMessage: build?.log?.split("\n").slice(-1)[0] ?? "",
-          }}
-          onClose={() => setChecklistOpen(false)}
-          onOpenTodos={() => {
-            setChecklistOpen(false);
-            void refreshTodos();
-            setTodosOpen(true);
-          }}
-          onSaveBudgets={(wordBudget, pageBudget) => {
-            void (async () => {
-              try {
-                const manifest = await invoke<ProjectManifest>("update_project_manifest", {
-                  wordBudget: wordBudget ?? undefined,
-                  pageBudget: pageBudget ?? undefined,
-                  clearWordBudget: wordBudget == null,
-                  clearPageBudget: pageBudget == null,
-                });
-                setProject((current) => current ? { ...current, manifest } : current);
-              } catch (reason) {
-                setError(toMessage(reason));
-              }
-            })();
-          }}
-        />
-      )}
-      <QuickOpenDialog
-        open={quickOpenOpen}
-        paths={quickOpenPaths}
-        onClose={() => setQuickOpenOpen(false)}
-        onIntent={prewarmLikelyProjectFile}
-        onOpen={(path) => {
-          setQuickOpenOpen(false);
-          if (isProjectAssetFilePath(path)) void openProjectAsset(path);
-          else void openProjectFile(path);
-        }}
+      <AppHistoryDrawers
+        activeFile={activeFile}
+        agentTurnReview={agentTurnReview}
+        appLocale={appLocale}
+        compile={compile}
+        deleteHistory={deleteHistory}
+        gitOpen={gitOpen}
+        gitWorkspaceView={gitWorkspaceView}
+        historyOpen={historyOpen}
+        loadFile={loadFile}
+        openProjectFile={openProjectFile}
+        overleafLink={overleafLink}
+        project={project}
+        projectHistory={projectHistory}
+        refreshHistory={refreshHistory}
+        refreshProject={refreshProject}
+        retrySynaraRuntime={retrySynaraRuntime}
+        revert={revert}
+        runOverleafSync={runOverleafSync}
+        setAgentTurnReview={setAgentTurnReview}
+        setGitOpen={setGitOpen}
+        setGitWorkspaceView={setGitWorkspaceView}
+        setHistoryOpen={setHistoryOpen}
+        synaraIframeRef={synaraIframeRef}
+        synaraOrigin={synaraOrigin}
+        synaraRuntime={synaraRuntime}
+        synaraSourceControlFrameRef={synaraSourceControlFrameRef}
+        theme={theme}
       />
-      <SearchPickerDialog
-        open={goToSymbolOpen}
-        title={t`Go to symbol`}
-        placeholder={t`Go to section or label…`}
-        items={goToSymbolItems}
-        onClose={() => setGoToSymbolOpen(false)}
-        onSelect={(item) => {
-          setGoToSymbolOpen(false);
-          if (item.id.startsWith("section:")) {
-            const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
-            if (node) void openProjectFile(node.path || activeFile, node.line);
-            return;
-          }
-          const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
-          if (reference) void openProjectFile(reference.path, reference.line);
-        }}
+
+      <AppOverleafCollabDrawer
+        activeFileRef={activeFileRef}
+        openProjectFile={openProjectFile}
+        overleafChat={overleafChat}
+        overleafCollabOpen={overleafCollabOpen}
+        overleafCollabTab={overleafCollabTab}
+        overleafComments={overleafComments}
+        overleafDocPaths={overleafDocPaths}
+        overleafLink={overleafLink}
+        overleafRealtime={overleafRealtime}
+        overleafTrackChanges={overleafTrackChanges}
+        setOverleafCollabOpen={setOverleafCollabOpen}
+        setOverleafCollabTab={setOverleafCollabTab}
+        setViewRestore={setViewRestore}
+        source={source}
       />
-      <SearchPickerDialog
-        open={refCitePicker === "cite"}
-        title={t`Insert citation`}
-        placeholder={t({ message: "Insert \\cite{…}" })}
-        items={citePickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "cite", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
+
+      <AppEditorPanels
+        activeFile={activeFile}
+        activeFileRef={activeFileRef}
+        allEditorComments={allEditorComments}
+        build={build}
+        checklistOpen={checklistOpen}
+        commentOpenGenerationRef={commentOpenGenerationRef}
+        commentPanelFocusId={commentPanelFocusId}
+        editorCommentAuthorId={editorCommentAuthorId}
+        editorComments={editorComments}
+        editorCommentsOpen={editorCommentsOpen}
+        mainBodyPages={mainBodyPages}
+        openProjectFile={openProjectFile}
+        overleafComments={overleafComments}
+        overleafThreadOf={overleafThreadOf}
+        pdfPageCount={pdfPageCount}
+        persistEditorComments={persistEditorComments}
+        project={project}
+        projectWordCount={projectWordCount}
+        refreshTodos={refreshTodos}
+        replyToEditorComment={replyToEditorComment}
+        setActiveEditorCommentId={setActiveEditorCommentId}
+        setChecklistOpen={setChecklistOpen}
+        setCommentFocusRequest={setCommentFocusRequest}
+        setCommentPanelFocusId={setCommentPanelFocusId}
+        setEditorCommentsOpen={setEditorCommentsOpen}
+        setProject={setProject}
+        setTodosOpen={setTodosOpen}
+        todoHits={todoHits}
+        todosOpen={todosOpen}
+        toggleEditorCommentResolved={toggleEditorCommentResolved}
+        unusedSymbols={unusedSymbols}
       />
-      <SearchPickerDialog
-        open={refCitePicker === "ref"}
-        title={t`Insert reference`}
-        placeholder={t({ message: "Insert \\ref{…}" })}
-        items={refPickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "ref", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
+
+      <AppSearchDialogs
+        activeFile={activeFile}
+        citePickerItems={citePickerItems}
+        editorPosition={editorPosition}
+        gotoLineOpen={gotoLineOpen}
+        goToSymbolItems={goToSymbolItems}
+        goToSymbolOpen={goToSymbolOpen}
+        liveReferences={liveReferences}
+        openProjectAsset={openProjectAsset}
+        openProjectFile={openProjectFile}
+        outlineNodes={outlineNodes}
+        prewarmLikelyProjectFile={prewarmLikelyProjectFile}
+        quickOpenOpen={quickOpenOpen}
+        quickOpenPaths={quickOpenPaths}
+        refCitePicker={refCitePicker}
+        refPickerItems={refPickerItems}
+        setCanvasMode={setCanvasMode}
+        setCiteInsertRequest={setCiteInsertRequest}
+        setEditorNavigation={setEditorNavigation}
+        setGotoLineOpen={setGotoLineOpen}
+        setGoToSymbolOpen={setGoToSymbolOpen}
+        setQuickOpenOpen={setQuickOpenOpen}
+        setRefCitePicker={setRefCitePicker}
+        source={source}
       />
-      <GotoLineDialog
-        open={gotoLineOpen}
-        line={editorPosition?.line ?? 1}
-        maxLine={Math.max(1, source.split("\n").length)}
-        onClose={() => setGotoLineOpen(false)}
-        onGoto={(line) => {
-          setGotoLineOpen(false);
-          if (activeFile) {
-            setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
-          }
-        }}
+
+      <AppProjectSearchDialogs
+        activeFile={activeFile}
+        loadFile={loadFile}
+        localSemanticSearchEnabled={localSemanticSearchEnabled}
+        localSemanticSearchStatus={localSemanticSearchStatus}
+        openMarkdownProjectPath={openMarkdownProjectPath}
+        openProjectFile={openProjectFile}
+        projectFindBusy={projectFindBusy}
+        projectFindError={projectFindError}
+        projectFindHits={projectFindHits}
+        projectFindOpen={projectFindOpen}
+        projectFindSearchGenerationRef={projectFindSearchGenerationRef}
+        projectOperationGenerationRef={projectOperationGenerationRef}
+        projectRef={projectRef}
+        projectReplaceBusy={projectReplaceBusy}
+        projectReplaceError={projectReplaceError}
+        projectReplaceOpen={projectReplaceOpen}
+        projectReplacePreview={projectReplacePreview}
+        refreshHistory={refreshHistory}
+        refreshProject={refreshProject}
+        save={save}
+        savedSource={savedSource}
+        setLocalSemanticSearchStatus={setLocalSemanticSearchStatus}
+        setProjectFindBusy={setProjectFindBusy}
+        setProjectFindError={setProjectFindError}
+        setProjectFindHits={setProjectFindHits}
+        setProjectFindOpen={setProjectFindOpen}
+        setProjectReplaceBusy={setProjectReplaceBusy}
+        setProjectReplaceError={setProjectReplaceError}
+        setProjectReplaceOpen={setProjectReplaceOpen}
+        setProjectReplacePreview={setProjectReplacePreview}
+        source={source}
       />
-      <ProjectFindDialog
-        open={projectFindOpen}
-        busy={projectFindBusy}
-        error={projectFindError}
-        hits={projectFindHits}
-        semanticEnabled={localSemanticSearchEnabled}
-        semanticStatus={localSemanticSearchStatus}
-        onClose={() => {
-          projectFindSearchGenerationRef.current += 1;
-          setProjectFindOpen(false);
-          setProjectFindBusy(false);
-          setProjectFindError(null);
-          setProjectFindHits([]);
-        }}
-        onSearch={(query) => {
-          const generation = ++projectFindSearchGenerationRef.current;
-          void (async () => {
-            if (!query.trim()) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
-              setProjectFindError(null);
-              return;
-            }
-            setProjectFindBusy(true);
-            setProjectFindError(null);
-            const projectRoot = projectRef.current?.root;
-            const projectGeneration = projectOperationGenerationRef.current;
-            if (!projectRoot) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
-              return;
-            }
-            try {
-              const semanticPromise = localSemanticSearchEnabled
-                && semanticQueryEligible(query)
-                ? invoke<LocalSemanticSearchResponse>("semantic_search_project", {
-                    projectRoot,
-                    query,
-                  }).catch(() => null)
-                : Promise.resolve(null);
-              const [results, semantic] = await Promise.all([
-                invoke<ProjectFindHit[]>("search_project", { query }),
-                semanticPromise,
-              ]);
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
-              if (semantic) setLocalSemanticSearchStatus(semantic.status);
-              setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
-            } catch (reason) {
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
-              setProjectFindHits([]);
-              setProjectFindError(toMessage(reason));
-            } finally {
-              if (generation === projectFindSearchGenerationRef.current) {
-                setProjectFindBusy(false);
-              }
-            }
-          })();
-        }}
-        onOpenHit={(path, line) => {
-          if (parsePaperLinkPath(path)) {
-            openMarkdownProjectPath(path);
-            return;
-          }
-          void openProjectFile(path, line);
-        }}
+
+      <AppProjectDialogs
+        bibEntryBusy={bibEntryBusy}
+        bibEntryError={bibEntryError}
+        bibEntryInitial={bibEntryInitial}
+        bibEntryKey={bibEntryKey}
+        bibEntryMode={bibEntryMode}
+        bibEntryOpen={bibEntryOpen}
+        bibEntryResolving={bibEntryResolving}
+        bibResolveSeed={bibResolveSeed}
+        createError={createError}
+        createOpen={createOpen}
+        createProject={createProject}
+        importedArxivIds={importedArxivIds}
+        importReferenceInput={importReferenceInput}
+        literatureOpen={literatureOpen}
+        openBibEntryDialog={openBibEntryDialog}
+        projectName={projectName}
+        projectVenue={projectVenue}
+        renameError={renameError}
+        renameTarget={renameTarget}
+        resolveBibQuery={resolveBibQuery}
+        saveBibEntry={saveBibEntry}
+        setBibEntryOpen={setBibEntryOpen}
+        setCreateError={setCreateError}
+        setCreateOpen={setCreateOpen}
+        setLiteratureOpen={setLiteratureOpen}
+        setProjectName={setProjectName}
+        setProjectVenue={setProjectVenue}
+        setRenameError={setRenameError}
+        setRenameTarget={setRenameTarget}
+        submitRename={submitRename}
       />
-      <ProjectReplaceDialog
-        open={projectReplaceOpen}
-        busy={projectReplaceBusy}
-        error={projectReplaceError}
-        preview={projectReplacePreview}
-        onClose={() => {
-          setProjectReplaceOpen(false);
-          setProjectReplacePreview(null);
-        }}
-        onOpenMatch={(path, line) => {
-          void openProjectFile(path, line);
-        }}
-        onPreview={(query, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const preview = await invoke<ReplacePreviewResult>("preview_replace_in_project", {
-                query,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              setProjectReplacePreview(preview);
-            } catch (reason) {
-              setProjectReplacePreview(null);
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
-        onReplace={(query, replacement, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const result = await invoke<ReplaceResult>("replace_in_project", {
-                query,
-                replacement,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              if (activeFile) await loadFile(activeFile);
-              await refreshProject();
-              await refreshHistory();
-              setProjectReplaceOpen(false);
-              setProjectReplacePreview(null);
-              setError(null);
-              setNotice(result.replacements
-                ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
-                : "No matches found.");
-            } catch (reason) {
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
-      />
-      <BibEntryDialog
-        key={bibEntryKey}
-        open={bibEntryOpen}
-        busy={bibEntryBusy}
-        resolving={bibEntryResolving}
-        error={bibEntryError}
-        mode={bibEntryMode}
-        initialResolveQuery={bibResolveSeed}
-        initialDraft={bibEntryInitial}
-        onClose={() => {
-          if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
-        }}
-        onResolve={resolveBibQuery}
-        onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
-      />
-      {literatureOpen && (
-        <Suspense fallback={null}>
-          <LiteratureDiscoveryPanel
-            onClose={() => setLiteratureOpen(false)}
-            importedIds={importedArxivIds}
-            onImportArxiv={(arxivId) => importReferenceInput(arxivId)}
-            onAddBib={(query) => {
-              setLiteratureOpen(false);
-              openBibEntryDialog(query);
-            }}
-          />
-        </Suspense>
-      )}
+
+      {/* The command palette stays here rather than in a component of its own.
+          It is a dispatch table over every action App owns — the same table the
+          global keydown handler above drives — so its interface is the whole
+          app: 49 of App's values, only 18 of which no other surface needs.
+          Behind a props interface that is 150 lines of plumbing for no seam. */}
       <SearchPickerDialog
         open={commandPaletteOpen}
         title={t`Command palette`}
@@ -10869,7 +8923,7 @@ function App() {
                 break;
               }
               const trace = logAction("Format", "Format document", path);
-              void import("./texlab-language")
+              void import("./build/texlab-language")
                 .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
                 .then((formatted) => {
                   if (formatted === text) {
@@ -10895,157 +8949,26 @@ function App() {
       {settingsDialog}
       {overleafPicker}
       {overleafReview}
-      {tutorialActive && (
-        <Suspense fallback={null}>
-          <OnboardingTour
-            // Only the canvas mode remounts the tour. Remounting per step made
-            // every advance re-resolve the step's target from cold, which is a
-            // race against the canvas that the step is pointing at; Joyride
-            // takes `stepIndex` as a controlled prop and moves itself.
-            key={`tutorial:${canvasMode}`}
-            active
-            stepIndex={tutorialStep}
-            onSelectTutorialFile={(path, nextStep) => {
-              const mode: CanvasMode = path.endsWith(".html")
-                ? "pdf"
-                : path.endsWith(".tldr") || path.endsWith(".lattice-sheet")
-                  ? "source"
-                  : "split";
-              void openProjectFile(path).then(() => {
-                setCanvasMode(mode);
-                setTutorialStep(nextStep);
-              });
-            }}
-            onStepIndexChange={(nextStep) => {
-              const openTutorialDocument = async (path: string, mode: CanvasMode) => {
-                // Re-opening the document a step already shows tears the canvas
-                // down and rebuilds it — including the element that step
-                // spotlights — while Joyride is measuring it, which parks the
-                // tour on a full-screen overlay with no cutout and no card.
-                // Going forward always arrives with the right document open;
-                // only Back returns from a different file.
-                if (!activePaperPath && activeFile === path && canvasMode === mode) {
-                  setTutorialStep(nextStep);
-                  return;
-                }
-                await openProjectFile(path);
-                setCanvasMode(mode);
-                setTutorialStep(nextStep);
-              };
-              if (nextStep === TUTORIAL_STEPS.latex) {
-                void openTutorialDocument("main.tex", "split");
-              } else if (nextStep === TUTORIAL_STEPS.markdown || nextStep === TUTORIAL_STEPS.markdownVisual) {
-                void openTutorialDocument("notes.md", "split");
-              } else if (nextStep === TUTORIAL_STEPS.html) {
-                void openTutorialDocument("attention-demo.html", "pdf");
-              } else if (nextStep === TUTORIAL_STEPS.board) {
-                void openTutorialDocument("attention-map.tldr", "source");
-              } else if (nextStep === TUTORIAL_STEPS.spreadsheet || nextStep === TUTORIAL_STEPS.spreadsheetTools) {
-                void openTutorialDocument("attention-results.lattice-sheet", "source");
-              } else if (nextStep === TUTORIAL_STEPS.workspaceActions) {
-                void openTutorialDocument("main.tex", "split");
-              } else if (nextStep === TUTORIAL_STEPS.paperBlog) {
-                changePaperView("blog");
-                setTutorialStep(nextStep);
-              } else if (nextStep === TUTORIAL_STEPS.paperFullText) {
-                changePaperView("fulltext");
-                setTutorialStep(nextStep);
-              } else {
-                setTutorialStep(nextStep);
-              }
-            }}
-            onSkip={() => {
-              markTutorialSeen();
-              setCollabOpen(false);
-              setOverleafPickerOpen(false);
-              setGitOpen(false);
-              setTutorialActive(false);
-            }}
-            onComplete={() => {
-              markTutorialSeen();
-              setCollabOpen(false);
-              setOverleafPickerOpen(false);
-              setGitOpen(false);
-              setTutorialActive(false);
-              setSidebarMode("project");
-              setSidebarOpen(true);
-              void openProjectFile("main.tex").then(() => {
-                setCanvasMode("split");
-                setNotice("Tutorial finished · keep poking around this project, or start one of your own.");
-              });
-            }}
-          />
-        </Suspense>
-      )}
-      {createOpen && (
-        <CreateProjectDialog
-          projectName={projectName}
-          setProjectName={(value) => {
-            setProjectName(value);
-            setCreateError(null);
-          }}
-          projectVenue={projectVenue}
-          setProjectVenue={(value) => {
-            setProjectVenue(value);
-            setCreateError(null);
-          }}
-          error={createError}
-          onCreate={createProject}
-          onClose={() => {
-            setCreateError(null);
-            setCreateOpen(false);
-          }}
-        />
-      )}
-      {renameTarget && (
-        <RenameDialog
-          target={renameTarget}
-          error={renameError}
-          onRename={submitRename}
-          onClose={() => {
-            setRenameError(null);
-            setRenameTarget(null);
-          }}
-        />
-      )}
+
+      <AppOnboardingTour
+        activeFile={activeFile}
+        activePaperPath={activePaperPath}
+        canvasMode={canvasMode}
+        changePaperView={changePaperView}
+        openProjectFile={openProjectFile}
+        setCanvasMode={setCanvasMode}
+        setCollabOpen={setCollabOpen}
+        setGitOpen={setGitOpen}
+        setOverleafPickerOpen={setOverleafPickerOpen}
+        setSidebarMode={setSidebarMode}
+        setSidebarOpen={setSidebarOpen}
+        setTutorialActive={setTutorialActive}
+        setTutorialStep={setTutorialStep}
+        tutorialActive={tutorialActive}
+        tutorialStep={tutorialStep}
+      />
     </div>
   );
-}
-
-function PanelResizer(props: {
-  label: string;
-  value: number;
-  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
-  onNudge: (delta: number) => void;
-}) {
-  return (
-    <div
-      className="panel-resizer sidebar-resizer"
-      role="separator"
-      aria-label={props.label}
-      aria-orientation="vertical"
-      aria-valuenow={Math.round(props.value)}
-      tabIndex={0}
-      onPointerDown={props.onPointerDown}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          props.onNudge(-16);
-        } else if (event.key === "ArrowRight") {
-          event.preventDefault();
-          props.onNudge(16);
-        }
-      }}
-    />
-  );
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  }
-  return btoa(binary);
 }
 
 export default App;

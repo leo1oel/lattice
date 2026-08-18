@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SlidingTabs } from "../../motion";
+import { SlidingTabs } from "./motion";
 import "./chrome.css";
 
 export type SegmentedControlItem<Value extends string> = {

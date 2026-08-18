@@ -3336,7 +3336,7 @@ mod tests {
                     "accessLevel": "owner",
                     "archived": false,
                     "trashed": false,
-                    "owner": { "email": "ymingliu@uw.edu", "firstName": "Leo", "lastName": "Liu" }
+                    "owner": { "email": "researcher@example.edu", "firstName": "Robin", "lastName": "Researcher" }
                 },
                 {
                     "id": "proj-new",
@@ -3345,7 +3345,7 @@ mod tests {
                     "accessLevel": "readAndWrite",
                     "archived": false,
                     "trashed": false,
-                    "owner": { "email": "advisor@uw.edu", "firstName": "Ada", "lastName": "Advisor" }
+                    "owner": { "email": "advisor@example.edu", "firstName": "Ada", "lastName": "Advisor" }
                 },
                 {
                     "id": "proj-archived",
@@ -3354,15 +3354,15 @@ mod tests {
                     "accessLevel": "owner",
                     "archived": true,
                     "trashed": false,
-                    "owner": { "email": "ymingliu@uw.edu", "firstName": "Leo", "lastName": "Liu" }
+                    "owner": { "email": "researcher@example.edu", "firstName": "Robin", "lastName": "Researcher" }
                 }
             ]
         });
         let user = serde_json::json!({
             "id": "u1",
-            "email": "ymingliu@uw.edu",
-            "first_name": "Leo",
-            "last_name": "Liu"
+            "email": "researcher@example.edu",
+            "first_name": "Robin",
+            "last_name": "Researcher"
         });
         format!(
             "<html><head>\
@@ -3543,8 +3543,8 @@ mod tests {
             &SessionFile {
                 host: host.to_string(),
                 cookie: "overleaf_session2=fixture-cookie".to_string(),
-                email: Some("ymingliu@uw.edu".to_string()),
-                name: Some("Leo Liu".to_string()),
+                email: Some("researcher@example.edu".to_string()),
+                name: Some("Robin Researcher".to_string()),
                 user_id: Some("user-1".to_string()),
             },
         )
@@ -3783,15 +3783,15 @@ mod tests {
         )
         .unwrap();
         assert!(status.connected);
-        assert_eq!(status.email.as_deref(), Some("ymingliu@uw.edu"));
-        assert_eq!(status.name.as_deref(), Some("Leo Liu"));
+        assert_eq!(status.email.as_deref(), Some("researcher@example.edu"));
+        assert_eq!(status.name.as_deref(), Some("Robin Researcher"));
         assert_eq!(status.host, server.base);
         assert!(session_path(&config).exists());
 
         // The stored session round-trips through session_status.
         let restored = session_status(&config).unwrap();
         assert!(restored.connected);
-        assert_eq!(restored.email.as_deref(), Some("ymingliu@uw.edu"));
+        assert_eq!(restored.email.as_deref(), Some("researcher@example.edu"));
 
         // The validation request carried the full cookie header.
         let recorded = server.recorded();
@@ -3831,7 +3831,10 @@ mod tests {
         assert_eq!(projects[2].id, "proj-old");
         assert_eq!(projects[0].name, "New Paper");
         assert_eq!(projects[0].access_level.as_deref(), Some("readAndWrite"));
-        assert_eq!(projects[0].owner_email.as_deref(), Some("advisor@uw.edu"));
+        assert_eq!(
+            projects[0].owner_email.as_deref(),
+            Some("advisor@example.edu")
+        );
         assert_eq!(projects[0].owner_name.as_deref(), Some("Ada Advisor"));
         assert!(projects[1].archived);
         assert!(!projects[1].trashed);
@@ -4684,18 +4687,18 @@ mod tests {
                 ],
                 "resolved": true,
                 "resolved_at": "2026-07-01T10:00:00Z",
-                "resolved_by_user": {"firstName": "Leo", "email": "leo@uw.edu"},
+                "resolved_by_user": {"firstName": "Robin", "email": "researcher@example.edu"},
             },
             "thread-new": {
                 "messages": [
                     {"_id": "c2", "content": "who owns this?", "timestamp": 2_000i64,
                      "user": {"email": "sam@example.edu"}},
                     {"_id": "c3", "content": "me", "timestamp": 3_000i64,
-                     "user": {"first_name": "Leo", "email": "LEO@uw.edu"}},
+                     "user": {"first_name": "Robin", "email": "RESEARCHER@example.edu"}},
                 ],
             },
         });
-        let threads = parse_threads(&body, Some("leo@uw.edu"));
+        let threads = parse_threads(&body, Some("researcher@example.edu"));
 
         // Most recently discussed first: that is what someone is waiting on.
         assert_eq!(threads.len(), 2);
@@ -4710,7 +4713,7 @@ mod tests {
 
         assert_eq!(threads[1].id, "thread-old");
         assert!(threads[1].resolved);
-        assert_eq!(threads[1].resolved_by.as_deref(), Some("Leo"));
+        assert_eq!(threads[1].resolved_by.as_deref(), Some("Robin"));
         assert_eq!(
             threads[1].resolved_at.as_deref(),
             Some("2026-07-01T10:00:00Z")

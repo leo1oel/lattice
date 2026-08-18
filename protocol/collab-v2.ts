@@ -73,13 +73,6 @@ export type SocketTicketClaimsV2 = {
   expiresAt: number;
 };
 
-export type ControlErrorV2 = {
-  error: string;
-  message: string;
-  catalogRevision?: number;
-  refetch?: boolean;
-};
-
 export const BINARY_OBJECT_VERSION = "lattice-binary-v1" as const;
 export const MAX_BINARY_OBJECT_BYTES = 32 * 1024 * 1024;
 export type BinaryReferenceV2 = { fileId: string; documentEpoch: number; contentRevision: number; hash: string; size: number; contentType: string };

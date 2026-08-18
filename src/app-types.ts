@@ -6,11 +6,11 @@
  * here so `App.tsx` and future modules can import them without pulling in the
  * whole component. Types are erased at runtime, so this file has no runtime cost.
  */
-import type { ReferenceAssetPreview } from "./reference-preview";
-import type { PdfSyncTarget } from "./pdf-viewer";
-import type { CompileDiagnostic } from "./compile-diagnostics";
+import type { ReferenceAssetPreview } from "./project/reference-preview";
+import type { PdfSyncTarget } from "./pdf/pdf-viewer";
+import type { CompileDiagnostic } from "./build/compile-diagnostics";
 
-export type RootDocument = {
+type RootDocument = {
   path: string;
   name: string;
   isDefault: boolean;
@@ -55,7 +55,7 @@ export type EditorViewState = {
   scrollTop: number;
 };
 
-export type SpreadsheetSheetViewState = {
+type SpreadsheetSheetViewState = {
   zoomRatio: number;
   scrollTop: number;
   scrollLeft: number;
@@ -203,7 +203,7 @@ export type PaperSummary = {
   citationHealth?: CitationHealth;
 };
 
-export type CitationHealth = {
+type CitationHealth = {
   kind: "retracted" | "expressionOfConcern" | "corrected" | "replaced" | "unknown" | "unavailable";
   updateType?: string;
   source?: string;
@@ -229,9 +229,9 @@ export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "asse
 export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "api" | "doctor" | "logs";
-export type CiteCommand = "cite" | "citep" | "citet";
+type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
-export type DoctorCheck = { name: string; detail: string; ok: boolean };
+type DoctorCheck = { name: string; detail: string; ok: boolean };
 export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 export type EditorKeymap = "default" | "vim" | "emacs";
 
@@ -280,7 +280,7 @@ export type OverleafLink = {
   /** Linked, but not syncing until it is resumed. */
   paused: boolean;
 };
-export type OverleafConflict = {
+type OverleafConflict = {
   path: string;
   localCopy: string;
   /**
@@ -298,7 +298,7 @@ export type OverleafChangeKind =
   | "conflict"
   | "deleteLocal"
   | "skippedRemoteDelete";
-export type OverleafChange = {
+type OverleafChange = {
   path: string;
   kind: OverleafChangeKind;
   /** The file as it stands locally; null when it does not exist here yet. */
@@ -369,7 +369,7 @@ export type OverleafSyncResult = {
 // Shapes mirror the Rust `git` module's serde camelCase output exactly.
 
 export type GitLogFileKind = "added" | "modified" | "deleted" | "renamed";
-export type GitLogFile = { path: string; kind: GitLogFileKind };
+type GitLogFile = { path: string; kind: GitLogFileKind };
 export type GitLogEntry = {
   hash: string;
   shortHash: string;

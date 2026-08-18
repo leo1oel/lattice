@@ -191,6 +191,61 @@ function generateDocument(blockCount: number, seed: number): string {
   return `${blocks.join('\n\n')}\n`;
 }
 
+/** Sections in the `large-realistic` corpus. */
+const LARGE_REALISTIC_SECTIONS = 100;
+
+/** Lines each `large-realistic` section occupies; the code-fence bodies
+ *  interpolate their own absolute line index, so this stride is load-bearing. */
+const LARGE_REALISTIC_SECTION_LINES = 20;
+
+/**
+ * The `large-realistic` corpus: a fixed section template repeated verbatim,
+ * unlike the seeded-random `generateDocument` mix. It exists to exercise the
+ * pipeline on prose-shaped input (headings, tight lists, fenced code, loose
+ * paragraphs) rather than on the block-kind lottery, so it is deliberately
+ * regular rather than random.
+ */
+function generateLargeRealistic(sections: number = LARGE_REALISTIC_SECTIONS): string {
+  const lines: string[] = [];
+  for (let section = 1; section <= sections; section++) {
+    const base = (section - 1) * LARGE_REALISTIC_SECTION_LINES;
+    lines.push(
+      `## Section ${section} — Lorem elit labore minim`,
+      'Ea reprehenderit pariatur sunt id amet tempor aliqua exercitation commodo.',
+      'Lorem elit labore minim nisi aute cillum cupidatat deserunt ipsum.',
+      'Ea reprehenderit pariatur sunt id amet tempor aliqua exercitation commodo.',
+      'Lorem elit labore minim nisi aute cillum cupidatat deserunt ipsum.',
+      '',
+      '- Lorem elit labore minim nisi aute',
+      '- Ea reprehenderit pariatur sunt id amet',
+      '- Lorem elit labore minim nisi aute',
+      '- Ea reprehenderit pariatur sunt id amet',
+      '',
+      '```typescript',
+      `const val_${base + 12} = "Lorem elit labore";`,
+      `const val_${base + 13} = "Ea reprehenderit pariatur";`,
+      `const val_${base + 14} = "Lorem elit labore";`,
+      `const val_${base + 15} = "Ea reprehenderit pariatur";`,
+      '```',
+      '',
+      'Lorem elit labore minim nisi aute cillum cupidatat.',
+      'Ea reprehenderit pariatur sunt id amet tempor aliqua.',
+    );
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Materialise the corpus next to this file. The generated Markdown is not
+ * committed — it is ~7.5 MB of lorem ipsum that every consumer can rebuild
+ * byte-for-byte from `SEED` — so run this only when you want the files on
+ * disk for an external profiler:
+ *
+ *     node --experimental-strip-types src/open-knowledge-core/markdown/fixtures/perf/generate.ts
+ *
+ * In-process consumers should call `generateDocument` / `generateLargeRealistic`
+ * (or the memoised loaders in `../index.ts`) instead of reading files.
+ */
 function main(): void {
   for (const count of [...BLOCK_COUNTS, ...BASELINE_ONLY_COUNTS]) {
     const doc = generateDocument(count, SEED);
@@ -198,8 +253,19 @@ function main(): void {
     writeFileSync(target, doc, 'utf8');
     console.log(`wrote ${target} (${doc.length.toLocaleString()} chars)`);
   }
+  const realistic = generateLargeRealistic();
+  const realisticTarget = resolve(OUT_DIR, 'large-realistic.md');
+  writeFileSync(realisticTarget, realistic, 'utf8');
+  console.log(`wrote ${realisticTarget} (${realistic.length.toLocaleString()} chars)`);
 }
 
 if (import.meta.main) main();
 
-export { BASELINE_ONLY_COUNTS, BLOCK_COUNTS, generateDocument, SEED };
+export {
+  BASELINE_ONLY_COUNTS,
+  BLOCK_COUNTS,
+  generateDocument,
+  generateLargeRealistic,
+  LARGE_REALISTIC_SECTIONS,
+  SEED,
+};

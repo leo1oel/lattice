@@ -803,8 +803,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .settings-project-dictionary-remove:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
 .settings-project-dictionary-empty { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .settings-section label:not(.ui-settings-row-label) { margin-top: 17px; display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--type-label-weight); }
-.settings-section .ui-field { margin-top: 17px; }
-.settings-section .ui-field > .ui-field-label { margin-top: 0; }
 .settings-section code {
   font-family: var(--editor-font);
   font-size: var(--type-micro-size);

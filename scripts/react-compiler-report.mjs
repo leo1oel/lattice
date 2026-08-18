@@ -30,10 +30,10 @@ const reactCompiler = require("babel-plugin-react-compiler");
 
 export const GUARDED_FILES = [
   "src/App.tsx",
-  "src/document-canvas.tsx",
-  "src/visual-markdown-editor.tsx",
-  "src/editor-tabs.tsx",
-  "src/pdf-viewer.tsx",
+  "src/canvas/document-canvas.tsx",
+  "src/editor/markdown/visual-markdown-editor.tsx",
+  "src/canvas/editor-tabs.tsx",
+  "src/pdf/pdf-viewer.tsx",
 ];
 
 /**

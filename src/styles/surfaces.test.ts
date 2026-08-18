@@ -12,12 +12,12 @@ const appCss = [
   "src/styles/dialogs.css",
   "src/styles/adaptive-feedback.css",
 ].map(read).join("\n")
-const iconLabCss = String(readFileSync("src/icon-lab/icon-lab.css", "utf8"))
+const iconLabCss = String(readFileSync("tools/icon-lab/icon-lab.css", "utf8"))
 const surfacesCss = String(readFileSync("src/styles/surfaces.css", "utf8"))
 const indexCss = String(readFileSync("src/index.css", "utf8"))
-const projectDialogs = String(readFileSync("src/project-dialogs.tsx", "utf8"))
+const projectDialogs = String(readFileSync("src/project/project-dialogs.tsx", "utf8"))
 const menuSurface = String(readFileSync("src/components/ui/menu-surface.ts", "utf8"))
-const spreadsheetEditor = String(readFileSync("src/spreadsheet-editor.tsx", "utf8"))
+const spreadsheetEditor = String(readFileSync("src/editor/spreadsheet/spreadsheet-editor.tsx", "utf8"))
 const scrollAreaCss = String(readFileSync("src/components/ui/scroll-area.css", "utf8"))
 
 describe("shared surface contracts", () => {
@@ -249,7 +249,7 @@ describe("shared surface contracts", () => {
     }
     // The updater keeps its own component — it owns a progress bar and an
     // Install button — but not its own shape.
-    const updaterCss = read("src/app-updater.css")
+    const updaterCss = read("src/telemetry/app-updater.css")
     expect(updaterCss).toMatch(/\.app-update-banner \{[^}]*width: 320px/)
     expect(updaterCss).toMatch(/\.app-update-banner \{[^}]*border-radius: 11px/)
     expect(appCss).toMatch(/\.app-toast \{[^}]*border-radius: 11px/)
@@ -280,13 +280,13 @@ describe("shared surface contracts", () => {
     // Feature stylesheets may add spacing and a plate; they may not restate the
     // colour, which is what made every panel's error look slightly different.
     const featureCss = [
-      "src/overleaf-connect.css",
-      "src/overleaf-chat.css",
-      "src/overleaf-changes.css",
-      "src/overleaf-review.css",
-      "src/overleaf-history.css",
-      "src/conflict-resolver.css",
-      "src/pdf-viewer.css",
+      "src/overleaf/overleaf-connect.css",
+      "src/overleaf/overleaf-chat.css",
+      "src/overleaf/overleaf-changes.css",
+      "src/overleaf/overleaf-review.css",
+      "src/overleaf/overleaf-history.css",
+      "src/history/conflict-resolver.css",
+      "src/pdf/pdf-viewer.css",
     ].map(read).join("\n")
     for (const retired of [
       ".overleaf-error",

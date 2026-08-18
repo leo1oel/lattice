@@ -806,7 +806,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .resizing-split { cursor: col-resize; user-select: none; }
 .markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
-.markdown-preview-content > .chat-markdown { max-width: 760px; margin: 0 auto; }
 .markdown-preview-content:has(> .markdown-preview-loading) { display: grid; place-items: center; }
 .markdown-preview-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); }
 /* The vendored .tiptap-editor grid owns content centering (1024px content
