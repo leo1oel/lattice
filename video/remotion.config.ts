@@ -12,6 +12,12 @@ Config.setRspack(true);
 Config.setVideoImageFormat("jpeg");
 Config.setOverwriteOutput(true);
 
+// Headroom for tabs that bog down decoding three 4K sources at once. Nothing in
+// the project calls delayRender() directly any more — the font is embedded in
+// the stylesheet precisely so it cannot — but Remotion uses it internally for
+// media, and the 30s default is tight on a loaded machine.
+Config.setDelayRenderTimeoutInMilliseconds(120000);
+
 // remocn components ship Tailwind classes, so the bundler needs the Tailwind
 // loader. enableTailwind() installs a `.css` rule using @tailwindcss/webpack;
 // rspack consumes webpack loaders, so this works with setRspack(true) above.

@@ -1,93 +1,57 @@
-import { fade } from "@remotion/transitions/fade";
+import { none } from "@remotion/transitions/none";
 import { SectionCard } from "./Cards";
 import { RECORDING_2_SRC } from "./constants";
 import { beatsToScenes } from "./FeatureScene";
-import { CUT_FRAMES, JUMP_FRAMES } from "./transitions";
+import { OVERLAP_FRAMES } from "./transitions";
 import type { Beat, Section } from "./types";
 
-/**
- * Part two — the paper library.
- *
- * Story: give it anything that points at a paper and everything else arrives —
- * the library entry, the alphaXiv write-up, the paper as Markdown, the PDF.
- *
- * Three segments, not six beats. Within a segment the recording runs unbroken;
- * the two joins are places where the edit genuinely skips ahead (past scrolling
- * back up, and past the return from the PDF), so a cut there shows new content
- * rather than replaying the last second.
- *
- * The Blog/Paper toggle flips at exactly 15.0s of the capture, so the write-up
- * caption has to be clear of that mark.
- */
+/** Part two — the paper library, one continuous run. The Blog/Paper toggle
+ *  flips at 15.0s of the capture, so the write-up caption clears before it. */
 const SEGMENTS: Beat[] = [
   {
-    // Papers panel -> paste -> import -> alphaXiv write-up -> paper as Markdown.
     from: 2.4,
-    to: 29.8,
+    to: 42.4,
+    rate: 1.3,
     captions: [
       {
-        at: 1.2,
-        hold: 3.2,
+        at: 4.5,
+        hold: 3.4,
         label: "Library",
         headline: "Add by arXiv link, title, or DOI",
       },
       {
-        // Over the list entry and the "cite it with" toast. The .bib file
-        // itself is never on screen, so it gets a mention and nothing more.
-        at: 6.0,
-        hold: 2.6,
-        label: "Library",
-        headline: "Imported — and added to your .bib",
+        at: 8.8,
+        hold: 3.0,
+        label: "BibTeX",
+        headline: "Imported, with its citekey",
       },
       {
-        // Source 11.8-14.7 — clear of the 15.0s switch to the paper view.
-        at: 9.4,
-        hold: 2.9,
+        at: 12.4,
+        hold: 1.9,
         label: "Blog",
-        headline: "The alphaXiv write-up comes with it",
+        headline: "The alphaXiv write-up too",
       },
       {
-        at: 13.6,
+        at: 16.6,
         hold: 3.4,
         label: "Paper",
-        headline: "The full paper, converted to Markdown",
+        headline: "The paper as Markdown, agent-ready",
       },
       {
-        at: 17.6,
-        hold: 3.4,
-        label: "Agent-ready",
-        headline: "Your agent can read it and edit it",
-      },
-      {
-        // Late on purpose: Table 3 only scrolls in at ~26.5s of the source.
-        at: 23.2,
+        at: 24.0,
         hold: 3.2,
         label: "Conversion",
         headline: "Figures, equations, and tables come through",
       },
-    ],
-  },
-  {
-    // The original PDF, one button away in the same tab.
-    from: 31.6,
-    to: 36.8,
-    captions: [
       {
-        at: 1.0,
-        hold: 3.2,
+        at: 33.0,
+        hold: 3.0,
         label: "Original PDF",
-        headline: "The source PDF stays one click away",
+        headline: "The source PDF, one click away",
       },
-    ],
-  },
-  {
-    // Split view: raw Markdown source beside the rendered paper, from 39.7.
-    from: 39.3,
-    to: 42.45,
-    captions: [
       {
-        at: 0.8,
-        hold: 2.2,
+        at: 40.2,
+        hold: 2.4,
         label: "Markdown",
         headline: "Source and render, side by side",
       },
@@ -95,7 +59,7 @@ const SEGMENTS: Beat[] = [
   },
 ];
 
-const SECTION_TITLE_FRAMES = 150;
+const SECTION_TITLE_FRAMES = 180;
 
 export const partTwo = (): Section => ({
   scenes: [
@@ -106,14 +70,19 @@ export const partTwo = (): Section => ({
         <SectionCard
           title="Papers"
           subtitle="A link, a title — whatever you have."
+          reveal="rise"
         />
       ),
+      motion: "rise",
+      enter: 28,
+      exit: 22,
     },
-    ...beatsToScenes(SEGMENTS, RECORDING_2_SRC, "p2"),
+    ...beatsToScenes(SEGMENTS, RECORDING_2_SRC, "p2", {
+      revealFrom: 8,
+      motions: ["recede"],
+      enters: [30],
+      exits: [26],
+    }),
   ],
-  transitions: [
-    { frames: CUT_FRAMES, presentation: fade() as never },
-    { frames: JUMP_FRAMES, presentation: fade() as never },
-    { frames: JUMP_FRAMES, presentation: fade() as never },
-  ],
+  transitions: [{ frames: OVERLAP_FRAMES, presentation: none() as never }],
 });

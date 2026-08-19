@@ -1,101 +1,165 @@
 import { Sequence } from "remotion";
-import { Drift } from "../components/remocn/drift";
-import { MicroScaleFade } from "../components/remocn/micro-scale-fade";
-import { SoftBlurIn } from "../components/remocn/soft-blur-in";
-import { ACCENT_TEXT, CTA_URL, FG, MUTED } from "./constants";
+import { ACCENT_TEXT, CTA_URL, FG, FONT_DISPLAY, MUTED, displayVars } from "./constants";
+import { KNIT_TITLE_AT, LatticeKnit } from "./KnitIcon";
 import { Stage } from "./Stage";
+import { TextReveal } from "./TextReveal";
 
-/** A barely-perceptible push over the whole card — enough that the type never
- *  sits dead still, small enough that you cannot point at it. */
-const GROW = 0.028;
-
+/**
+ * The text cards. Whole lines, arriving fast — no word-by-word building.
+ * Brand words and section titles are Fraunces; taglines stay Inter.
+ * The opening brand word uses `focus` (tracking collapse): remocn
+ * tracking-in without the bounce. SceneMotion moves the screen underneath.
+ */
 export const TitleCard: React.FC = () => (
   <Stage glowAt="44%">
-    <Drift grow={GROW}>
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 268,
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
       <div
-        style={{ position: "absolute", left: 0, right: 0, top: 262, height: 120 }}
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 24,
+        }}
       >
-        <SoftBlurIn text="Lattice" fontSize={104} color={FG} fontWeight={600} />
-      </div>
-      <Sequence from={16}>
-        <div
-          style={{ position: "absolute", left: 0, right: 0, top: 398, height: 40 }}
-        >
-          <MicroScaleFade
-            text="One project. Every kind of research file."
-            fontSize={26}
-            color={MUTED}
-            fontWeight={500}
-          />
+        <Sequence name="Icon" layout="none">
+          <LatticeKnit size={108} />
+        </Sequence>
+        <div style={{ willChange: "transform" }}>
+          <div
+            style={{
+              position: "relative",
+              width: 520,
+              height: 108,
+              overflow: "visible",
+            }}
+          >
+            <Sequence from={KNIT_TITLE_AT} name="Title" layout="none">
+              <TextReveal
+                text="Lattice"
+                style="focus"
+                fontSize={96}
+                color={FG}
+                fontWeight={600}
+                duration={48}
+                align="start"
+                startTracking={0.1}
+                tracking={-0.01}
+                startBlur={6}
+                fontFamily={FONT_DISPLAY}
+                fontVariationSettings={displayVars(96)}
+              />
+            </Sequence>
+          </div>
+          <div style={{ position: "relative", width: 560, height: 40, marginTop: 6 }}>
+            <Sequence from={KNIT_TITLE_AT + 22} name="Tagline" layout="none">
+              <TextReveal
+                text="Everything your paper needs, in one place."
+                style="rise"
+                fontSize={24}
+                color={MUTED}
+                fontWeight={500}
+                duration={16}
+                align="start"
+              />
+            </Sequence>
+          </div>
         </div>
-      </Sequence>
-    </Drift>
+      </div>
+    </div>
   </Stage>
 );
 
 /** Chapter marker between parts. Smaller than the opening title so it reads as
  *  a section break rather than a second beginning. */
-export const SectionCard: React.FC<{ title: string; subtitle: string }> = ({
-  title,
-  subtitle,
-}) => (
+export const SectionCard: React.FC<{
+  title: string;
+  subtitle: string;
+  reveal: "fade" | "rise" | "scale";
+}> = ({ title, subtitle, reveal }) => (
   <Stage glowAt="46%">
-    <Drift grow={GROW}>
+    <div style={{ position: "absolute", left: 0, right: 0, top: 288, height: 90 }}>
+      <TextReveal
+        text={title}
+        style={reveal}
+        fontSize={72}
+        color={FG}
+        fontWeight={600}
+        duration={10}
+        tracking={-0.01}
+        fontFamily={FONT_DISPLAY}
+        fontVariationSettings={displayVars(72)}
+      />
+    </div>
+    <Sequence from={7} name="Section subtitle">
       <div
-        style={{ position: "absolute", left: 0, right: 0, top: 282, height: 90 }}
+        style={{ position: "absolute", left: 0, right: 0, top: 392, height: 36 }}
       >
-        <SoftBlurIn text={title} fontSize={76} color={FG} fontWeight={600} />
+        <TextReveal
+          text={subtitle}
+          style="fade"
+          fontSize={24}
+          color={MUTED}
+          fontWeight={500}
+          duration={8}
+        />
       </div>
-      <Sequence from={14}>
-        <div
-          style={{ position: "absolute", left: 0, right: 0, top: 390, height: 36 }}
-        >
-          <MicroScaleFade
-            text={subtitle}
-            fontSize={25}
-            color={MUTED}
-            fontWeight={500}
-          />
-        </div>
-      </Sequence>
-    </Drift>
+    </Sequence>
   </Stage>
 );
 
 export const CtaCard: React.FC = () => (
   <Stage glowAt="42%">
-    <Drift grow={GROW}>
+    <div style={{ position: "absolute", left: 0, right: 0, top: 248, height: 100 }}>
+      <TextReveal
+        text="Lattice"
+        style="scale"
+        fontSize={88}
+        color={FG}
+        fontWeight={600}
+        duration={12}
+        tracking={-0.01}
+        fontFamily={FONT_DISPLAY}
+        fontVariationSettings={displayVars(88)}
+      />
+    </div>
+    <Sequence from={9} name="Outro line">
       <div
-        style={{ position: "absolute", left: 0, right: 0, top: 248, height: 100 }}
+        style={{ position: "absolute", left: 0, right: 0, top: 368, height: 40 }}
       >
-        <SoftBlurIn text="Lattice" fontSize={88} color={FG} fontWeight={600} />
+        <TextReveal
+          text="Write, compute, and draw — in one project."
+          style="rise"
+          fontSize={27}
+          color={MUTED}
+          fontWeight={500}
+          duration={9}
+        />
       </div>
-      <Sequence from={14}>
+    </Sequence>
+    {CTA_URL === null ? null : (
+      <Sequence from={20} name="Outro URL">
         <div
-          style={{ position: "absolute", left: 0, right: 0, top: 368, height: 40 }}
+          style={{ position: "absolute", left: 0, right: 0, top: 436, height: 34 }}
         >
-          <MicroScaleFade
-            text="Write, compute, and draw — in one project."
-            fontSize={27}
-            color={MUTED}
-            fontWeight={500}
+          <TextReveal
+            text={CTA_URL}
+            style="fade"
+            fontSize={22}
+            color={ACCENT_TEXT}
+            fontWeight={600}
+            duration={8}
           />
         </div>
       </Sequence>
-      {CTA_URL === null ? null : (
-        <Sequence from={32}>
-          <div
-            style={{ position: "absolute", left: 0, right: 0, top: 436, height: 34 }}
-          >
-            <MicroScaleFade
-              text={CTA_URL}
-              fontSize={22}
-              color={ACCENT_TEXT}
-              fontWeight={600}
-            />
-          </div>
-        </Sequence>
-      )}
-    </Drift>
+    )}
   </Stage>
 );

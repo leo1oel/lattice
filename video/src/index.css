@@ -1,11 +1,29 @@
 @import "tailwindcss";
+@import "./inter.css";
+@import "./fraunces.css";
 
 /* remocn components set `font-family: var(--font-geist-sans), -apple-system, …`.
    An undefined custom property makes the whole declaration invalid at
    computed-value time — the browser falls back to the inherited font (serif),
-   NOT to the rest of the stack. Defining it here is what keeps the type sans. */
+   NOT to the rest of the stack. Defining it here is what keeps the type sans.
+
+   Inter Variable comes from inter.css, embedded as a data URI, so pointing the
+   variable at it restyles every component at once. `font-optical-sizing` is
+   what makes the opsz axis actually do something: large display type gets
+   tighter, more open shapes than the caption sizes.
+
+   --font-display is Fraunces, used only for brand words and section titles.
+   Captions, taglines and UI-like labels stay on Inter. */
 :root {
   --font-geist-sans:
-    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Inter, sans-serif;
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    sans-serif;
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display:
+    "Fraunces Variable", "Iowan Old Style", "Palatino Linotype", Palatino,
+    serif;
+}
+
+* {
+  font-optical-sizing: auto;
 }

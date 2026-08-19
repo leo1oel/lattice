@@ -1,8 +1,9 @@
-import { AbsoluteFill, OffthreadVideo, staticFile } from "remotion";
+import { Video } from "@remotion/media";
+import { AbsoluteFill, staticFile } from "remotion";
 
 /**
  * A raw capture, dropped in as-is so it can be scrubbed frame by frame in the
- * Studio while cutting. This is the tool for finding beat boundaries — the
+ * Studio while cutting. This is the tool for finding segment boundaries — the
  * point where a view actually changes is a frame, not a guess off a contact
  * sheet.
  *
@@ -17,11 +18,12 @@ export type RecordingProps = {
 
 export const Recording: React.FC<RecordingProps> = ({ src }) => {
   return (
-    <AbsoluteFill className="bg-neutral-950">
-      <OffthreadVideo
+    <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
+      <Video
+        name="Raw capture"
         src={staticFile(src)}
-        className="h-full w-full"
-        style={{ objectFit: "contain" }}
+        style={{ width: "100%", height: "100%" }}
+        objectFit="contain"
       />
     </AbsoluteFill>
   );

@@ -1,25 +1,15 @@
 /**
- * Every cut in the film is a plain opacity crossfade.
+ * There is only one transition system in this film, and it is `SceneMotion`:
+ * every scene eases its own whole screen in and out, and drifts continuously in
+ * between so no frame is ever frozen.
  *
- * Earlier versions used remocn's focus-pull and push-through, which defocus and
- * lift exposure through the cut. Against two white app windows that reads as a
- * blur followed by a flash — distracting rather than premium. A straight
- * dissolve draws no attention to itself, which is the point: the cut should be
- * the least interesting thing in the frame.
+ * The `TransitionSeries` therefore uses `none()` — it is here purely to overlap
+ * neighbouring scenes so their envelopes cross, not to draw anything. Layering
+ * a real presentation (fade, focus-pull, whip-pan) on top would mean two
+ * transitions running at once, which is exactly what the brief rules out.
  *
- * Note what is NOT here: a transition between consecutive moments of the same
- * continuous take. Each recording plays as one unbroken run, because
- * cross-fading between overlapping slices of one shot shows the same action
- * twice, a beat apart. See partOne.tsx.
+ * The overlap has to be at least as long as the longest `enter`/`exit` either
+ * side of it, or a scene would still be fading when its neighbour unmounts and
+ * the bare stage would flash through.
  */
-
-/** Card to footage, and footage to card. */
-export const CUT_FRAMES = 24;
-
-/** Where the edit actually skips ahead within a recording. Short: the viewer
- *  should register a jump, not admire a dissolve. */
-export const JUMP_FRAMES = 16;
-
-/** Slightly longer where a card starts or ends a stretch, so the type has room
- *  to settle. Still the same plain dissolve — nothing special happens here. */
-export const CARD_CUT_FRAMES = 30;
+export const OVERLAP_FRAMES = 30;

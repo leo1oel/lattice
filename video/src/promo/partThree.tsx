@@ -1,85 +1,72 @@
-import { fade } from "@remotion/transitions/fade";
+import { none } from "@remotion/transitions/none";
 import { SectionCard } from "./Cards";
 import { RECORDING_3_SRC } from "./constants";
 import { beatsToScenes } from "./FeatureScene";
-import { CUT_FRAMES, JUMP_FRAMES } from "./transitions";
+import { OVERLAP_FRAMES } from "./transitions";
 import type { Beat, Section } from "./types";
 
 /**
- * Part three — the agent.
+ * Part three — the agent. The only cut is at 16.4s -> 29.2s, where the capture
+ * sits for thirteen seconds streaming an answer and nothing moves on screen.
+ * Everything either side of that plays continuously.
  *
- * Story: the agent reads a figure inside the paper and redraws it into a
- * different file in the same project, as real editable shapes.
- *
- * Two segments. The capture spends 16.3s to 29.2s streaming the answer, which
- * is the one stretch nothing happens in, so the edit jumps it. Everything else
- * runs unbroken.
+ * The copy stays general: the agent holds the whole project, reads and writes
+ * any file (.bib read-only), and the work on screen is one job among many.
  */
 const SEGMENTS: Beat[] = [
   {
-    // Reading the paper -> Agent panel -> prompt with the figure as context and
-    // @attention-map.tldr as the target -> submit at 16.3s.
     from: 2.0,
-    to: 16.3,
+    to: 16.4,
+    rate: 1.2,
     captions: [
       {
-        at: 1.2,
+        at: 3.6,
         hold: 3.0,
         label: "Agent",
-        headline: "An agent that works inside the project",
+        headline: "It has your whole project as context",
       },
       {
-        // A rule about the system rather than about this frame, so it stays a
-        // single passing line — the .bib file is never on screen here.
-        at: 4.8,
-        hold: 3.0,
+        at: 7.2,
+        hold: 3.1,
+        label: "Read and write",
+        headline: "It can open and edit any file in it",
+      },
+      {
+        at: 11.0,
+        hold: 2.8,
         label: "Guardrail",
-        headline: "It can edit any file except your .bib",
+        headline: "Except your .bib — it cites, never edits",
       },
       {
-        at: 8.4,
-        hold: 3.0,
-        label: "Context",
-        headline: "Point it at a figure in the paper",
-      },
-      {
-        // Source 13.6-16.0 — the "Files · attention-map.tldr" chip is up.
-        at: 11.4,
-        hold: 2.4,
-        label: "Target",
-        headline: "Name the file it should write to",
+        at: 13.9,
+        hold: 1.9,
+        label: "Any task",
+        headline: "Ask in plain language, name a target",
       },
     ],
   },
   {
-    // The answer, then the canvas: the redrawn Vision Transformer figure.
     from: 29.2,
-    to: 40.4,
+    to: 40.3,
+    rate: 1.2,
     captions: [
       {
-        at: 0.6,
-        hold: 2.6,
-        label: "Answer",
-        headline: "It explains the figure in the panel",
+        at: 30.0,
+        hold: 4.4,
+        label: "Any job",
+        headline: "Write, rewrite, convert, redraw",
       },
       {
-        // Canvas is on screen from ~32s of the source.
-        at: 4.5,
-        hold: 3.2,
-        label: "Canvas",
-        headline: "And draws it into your canvas file",
-      },
-      {
-        at: 8.0,
-        hold: 2.2,
-        label: "Editable",
-        headline: "Boxes and arrows stay editable",
+        at: 35.0,
+        hold: 4.6,
+        label: "In the project",
+        headline: "The result is a file you keep editing",
       },
     ],
   },
 ];
 
-const SECTION_TITLE_FRAMES = 150;
+const SECTION_TITLE_FRAMES = 180;
 
 export const partThree = (): Section => ({
   scenes: [
@@ -87,13 +74,25 @@ export const partThree = (): Section => ({
       key: "part3-title",
       duration: SECTION_TITLE_FRAMES,
       node: (
-        <SectionCard title="Agent" subtitle="It reads your project, and writes to it." />
+        <SectionCard
+          title="Agent"
+          subtitle="It reads your project, and writes to it."
+          reveal="fade"
+        />
       ),
+      motion: "settle",
+      enter: 26,
+      exit: 30,
     },
-    ...beatsToScenes(SEGMENTS, RECORDING_3_SRC, "p3"),
+    ...beatsToScenes(SEGMENTS, RECORDING_3_SRC, "p3", {
+      revealFrom: 15,
+      motions: ["swell", "rise"],
+      enters: [24, 30],
+      exits: [28, 24],
+    }),
   ],
   transitions: [
-    { frames: CUT_FRAMES, presentation: fade() as never },
-    { frames: JUMP_FRAMES, presentation: fade() as never },
+    { frames: OVERLAP_FRAMES, presentation: none() as never },
+    { frames: OVERLAP_FRAMES, presentation: none() as never },
   ],
 });

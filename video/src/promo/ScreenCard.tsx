@@ -1,34 +1,53 @@
-import { AbsoluteFill, OffthreadVideo, staticFile } from "remotion";
+import { Video } from "@remotion/media";
+import { AbsoluteFill, staticFile } from "remotion";
 import { BG, sec } from "./constants";
 
 export interface ScreenCardProps {
-  /** Filename inside public/ — the two recordings share the same geometry. */
+  /** Filename inside public/. */
   src: string;
   /** Source timestamps in seconds. */
   from: number;
   to: number;
+  /** Playback speed; the scene is sized to match in FeatureScene. */
+  rate: number;
+  /**
+   * CSS `object-position`. The captures are not all the same shape, and
+   * `cover` crops whatever does not fit:
+   *
+   * - 3244x2160 (parts 1-3) loses ~167px top and bottom — wallpaper only.
+   * - 3528x2160 (Overleaf) loses ~88px — wallpaper only.
+   * - 2880x2160 (share) is 4:3 and loses 540px. Centred, that eats the window
+   *   title bar and toolbar, which is where the collaborator avatars live —
+   *   the whole point of that clip. So it is anchored to the top instead and
+   *   gives up empty spreadsheet rows at the bottom.
+   */
+  focus?: string;
 }
 
 /**
  * A run of the screen recording, full bleed.
  *
- * The captures are 3:2 and the canvas is 16:9, so `objectFit: cover` trims
- * ~167px off the top and bottom of the source. That was checked against the
- * widest and the most zoomed-in frames of both recordings: it takes desktop
- * wallpaper, never app chrome — the title bar and toolbar survive even in the
- * tightest shots.
- *
- * Deliberately static: the capture already carries its own camera zooms, and a
- * second layer of movement on top of them reads as drift, not polish.
+ * Deliberately static: the capture already carries its own camera zooms, and
+ * SceneMotion is moving the whole screen underneath it. A third layer of
+ * movement here would read as drift, not polish.
  */
-export const ScreenCard: React.FC<ScreenCardProps> = ({ src, from, to }) => {
+export const ScreenCard: React.FC<ScreenCardProps> = ({
+  src,
+  from,
+  to,
+  rate,
+  focus = "50% 50%",
+}) => {
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
-      <OffthreadVideo
+      <Video
+        name="Screen recording"
         src={staticFile(src)}
         trimBefore={sec(from)}
         trimAfter={sec(to)}
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        playbackRate={rate}
+        style={{ width: "100%", height: "100%", objectPosition: focus }}
+        objectFit="cover"
       />
     </AbsoluteFill>
   );

@@ -6,20 +6,28 @@ import {
   RECORDING_2_SRC,
   RECORDING_3_FRAMES,
   RECORDING_3_SRC,
+  RECORDING_OVERLEAF_FRAMES,
+  RECORDING_OVERLEAF_SRC,
+  RECORDING_SHARE_FRAMES,
+  RECORDING_SHARE_SRC,
   RECORDING_FRAMES,
   RECORDING_SRC,
   WIDTH,
 } from "./promo/constants";
 import {
+  PART_FOUR_DURATION_IN_FRAMES,
   PART_ONE_DURATION_IN_FRAMES,
   PART_THREE_DURATION_IN_FRAMES,
   PART_TWO_DURATION_IN_FRAMES,
+  PartFour,
   PartOne,
   PartThree,
   PartTwo,
   Promo,
   PROMO_DURATION_IN_FRAMES,
 } from "./promo/Promo";
+import { FormatsScene } from "./promo/FormatsScene";
+import { KnitIconScene } from "./promo/KnitIcon";
 import { Recording } from "./Recording";
 
 export const RemotionRoot: React.FC = () => {
@@ -60,6 +68,33 @@ export const RemotionRoot: React.FC = () => {
         width={WIDTH}
         height={HEIGHT}
       />
+      <Composition
+        id="PartFour-Together"
+        component={PartFour}
+        durationInFrames={PART_FOUR_DURATION_IN_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+      {/* Just the formats overview, so it can be tuned without scrubbing the
+          film. Same component the film uses. */}
+      <Composition
+        id="Formats"
+        component={FormatsScene}
+        durationInFrames={300}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+      {/* Knit construction of the app icon, same component the title uses. */}
+      <Composition
+        id="KnitIcon"
+        component={KnitIconScene}
+        durationInFrames={180}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
       {/* The raw captures, kept registered so beat boundaries can be read off
           the timeline frame by frame while re-cutting. */}
       <Composition
@@ -88,6 +123,24 @@ export const RemotionRoot: React.FC = () => {
         width={WIDTH}
         height={HEIGHT}
         defaultProps={{ src: RECORDING_3_SRC }}
+      />
+      <Composition
+        id="Raw-Share"
+        component={Recording}
+        durationInFrames={RECORDING_SHARE_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+        defaultProps={{ src: RECORDING_SHARE_SRC }}
+      />
+      <Composition
+        id="Raw-Overleaf"
+        component={Recording}
+        durationInFrames={RECORDING_OVERLEAF_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+        defaultProps={{ src: RECORDING_OVERLEAF_SRC }}
       />
     </>
   );
