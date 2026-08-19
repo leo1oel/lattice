@@ -184,7 +184,7 @@ export function AppLogsSettings() {
     <div className="settings-section app-logs-settings">
       <SettingsSectionHeader
         title={t`Logs`}
-        description={t`Shows 300 recent entries; disk logs rotate.`}
+        description={t`Shows 300 recent entries; disk logs rotate`}
       />
       <SettingsGroup title={t`Activity log`}>
         <div className="app-log-actions">

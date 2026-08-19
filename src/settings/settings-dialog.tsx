@@ -68,8 +68,9 @@ import { InlineMessage } from "../components/ui/inline-message";
 import type { LocalSemanticSearchStatus } from "../project/project-semantic-search";
 import {
   applySynaraSettingsHeight,
+  applySynaraSettingsWheel,
+  isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
-  scrollSynaraSettingsViewportBy,
 } from "../agent/synara-settings-layout";
 
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
@@ -167,6 +168,7 @@ export function SettingsDialog(props: {
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const synaraSettingsHeightsRef = useRef<Record<string, number>>({});
   const synaraSettingsFrameHeightRef = useRef(470);
+  const settingsBottomPinFrameRef = useRef<number | null>(null);
   const settingsTopResetFrameRef = useRef<number | null>(null);
   const [synaraSettingsFrameHeight, setSynaraSettingsFrameHeight] = useState(470);
   const [readySynaraSettingsUrl, setReadySynaraSettingsUrl] = useState<string | null>(null);
@@ -225,6 +227,10 @@ export function SettingsDialog(props: {
     );
   }, [synaraEmbedUrl, synaraSettingsSection]);
   useLayoutEffect(() => {
+    if (settingsBottomPinFrameRef.current !== null) {
+      window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+      settingsBottomPinFrameRef.current = null;
+    }
     const nextHeight = synaraSettingsHeightKey
       ? (synaraSettingsHeightsRef.current[synaraSettingsHeightKey] ?? 470)
       : 470;
@@ -270,6 +276,9 @@ export function SettingsDialog(props: {
   ]);
   useEffect(
     () => () => {
+      if (settingsBottomPinFrameRef.current !== null) {
+        window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+      }
       if (settingsTopResetFrameRef.current !== null) {
         window.cancelAnimationFrame(settingsTopResetFrameRef.current);
       }
@@ -296,6 +305,13 @@ export function SettingsDialog(props: {
         const heightKey = `${synaraSettingsUrl}#${event.data.section}`;
         synaraSettingsHeightsRef.current[heightKey] = height;
         if (heightKey === synaraSettingsHeightKey) {
+          const previousHeight = synaraSettingsFrameHeightRef.current;
+          const viewport = settingsViewportRef.current;
+          const keepPinnedToBottom = Boolean(
+            viewport
+            && height > previousHeight
+            && isSettingsViewportNearBottom(viewport),
+          );
           synaraSettingsFrameHeightRef.current = height;
           // Height and wheel messages from the iframe are ordered, but a React
           // state update is not committed before the following wheel message.
@@ -307,6 +323,20 @@ export function SettingsDialog(props: {
             active: true,
           });
           setSynaraSettingsFrameHeight(height);
+          if (keepPinnedToBottom) {
+            // A disclosure expanding at the old bottom otherwise leaves the
+            // scrollbar there, with the newly added controls below the viewport.
+            if (settingsBottomPinFrameRef.current !== null) {
+              window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+            }
+            settingsBottomPinFrameRef.current = window.requestAnimationFrame(() => {
+              settingsBottomPinFrameRef.current = null;
+              const currentViewport = settingsViewportRef.current;
+              if (currentViewport) {
+                currentViewport.scrollTop = currentViewport.scrollHeight;
+              }
+            });
+          }
         }
         return;
       }
@@ -338,16 +368,11 @@ export function SettingsDialog(props: {
           });
           setSynaraSettingsFrameHeight(height);
         }
-        const scale = event.data.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : event.data.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? viewport.clientHeight
-            : 1;
-        scrollSynaraSettingsViewportBy(
-          viewport,
-          event.data.deltaY * scale,
-          typeof event.data.deltaX === "number" ? event.data.deltaX * scale : 0,
-        );
+        applySynaraSettingsWheel(viewport, {
+          deltaX: typeof event.data.deltaX === "number" ? event.data.deltaX : 0,
+          deltaY: event.data.deltaY,
+          deltaMode: event.data.deltaMode,
+        });
         return;
       }
       if (
@@ -374,6 +399,21 @@ export function SettingsDialog(props: {
     synaraSettingsSection,
     synaraSettingsUrl,
   ]);
+  useEffect(() => {
+    // WKWebView delivers wheel to the iframe element when scrolling="no", not
+    // to the child document. Without this, Providers/MCP/Skills can only move
+    // from the Lattice scrollbar thumb.
+    const container = synaraSettingsEmbedRef.current;
+    if (!container || !synaraSettingsSection) return;
+    const onWheel = (event: WheelEvent) => {
+      const viewport = settingsViewportRef.current;
+      if (!viewport) return;
+      applySynaraSettingsWheel(viewport, event);
+      event.preventDefault();
+    };
+    container.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => container.removeEventListener("wheel", onWheel, { capture: true });
+  }, [synaraSettingsSection, synaraSettingsUrl]);
   const updateBusy = updater.phase === "checking"
     || updater.phase === "downloading"
     || updater.phase === "installing";
@@ -535,7 +575,7 @@ export function SettingsDialog(props: {
               <div className="settings-section">
                 <SettingsSectionHeader
                   title={t`Appearance`}
-                  description={t`These preferences apply across every project on this Mac.`}
+                  description={t`These preferences apply across every project on this Mac`}
                 />
                 <SettingsGroup title={t`Language`}>
                   <SettingsRow
@@ -605,7 +645,7 @@ export function SettingsDialog(props: {
               <div className="settings-section">
                 <SettingsSectionHeader
                   title={t`Editor & builds`}
-                  description={t`Set the editor keymap and build behavior.`}
+                  description={t`Set the editor keymap and build behavior`}
                 />
                 <SettingsGroup title={t`Editing`}>
                   <SettingsRow
@@ -802,7 +842,7 @@ export function SettingsDialog(props: {
               <div className="settings-section">
                 <SettingsSectionHeader
                   title={t`TeX doctor`}
-                  description={t`Checks the tools Lattice needs to compile LaTeX.`}
+                  description={t`Checks the tools Lattice needs to compile LaTeX`}
                   actions={(
                     <ReloadIconButton
                       label={t`Run TeX doctor`}

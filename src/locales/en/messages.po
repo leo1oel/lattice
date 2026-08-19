@@ -181,8 +181,8 @@ msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 
 #: src/project/project-dialogs.tsx
-msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
-msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
+msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
+msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "a over b"
@@ -752,8 +752,8 @@ msgid "Checks English spelling and grammar as you type with Harper."
 msgstr "Checks English spelling and grammar as you type with Harper."
 
 #: src/settings/settings-dialog.tsx
-msgid "Checks the tools Lattice needs to compile LaTeX."
-msgstr "Checks the tools Lattice needs to compile LaTeX."
+msgid "Checks the tools Lattice needs to compile LaTeX"
+msgstr "Checks the tools Lattice needs to compile LaTeX"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Chi"
@@ -2808,8 +2808,8 @@ msgid "Open a project to manage Agent settings."
 msgstr "Open a project to manage Agent settings."
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Open and sync Overleaf projects in Lattice."
-msgstr "Open and sync Overleaf projects in Lattice."
+msgid "Open and sync Overleaf projects in Lattice"
+msgstr "Open and sync Overleaf projects in Lattice"
 
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
@@ -3479,8 +3479,8 @@ msgid "Research"
 msgstr "Research"
 
 #: src/project/project-dialogs.tsx
-msgid "Research, written with evidence."
-msgstr "Research, written with evidence."
+msgid "Research, written with evidence"
+msgstr "Research, written with evidence"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize dual source panes"
@@ -3852,8 +3852,8 @@ msgid "Set minus"
 msgstr "Set minus"
 
 #: src/settings/settings-dialog.tsx
-msgid "Set the editor keymap and build behavior."
-msgstr "Set the editor keymap and build behavior."
+msgid "Set the editor keymap and build behavior"
+msgstr "Set the editor keymap and build behavior"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Sets"
@@ -3909,8 +3909,8 @@ msgid "Show sidebar"
 msgstr "Show sidebar"
 
 #: src/telemetry/app-log.tsx
-msgid "Shows 300 recent entries; disk logs rotate."
-msgstr "Shows 300 recent entries; disk logs rotate."
+msgid "Shows 300 recent entries; disk logs rotate"
+msgstr "Shows 300 recent entries; disk logs rotate"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Side-by-side column block"
@@ -4292,8 +4292,8 @@ msgid "There exists"
 msgstr "There exists"
 
 #: src/settings/settings-dialog.tsx
-msgid "These preferences apply across every project on this Mac."
-msgstr "These preferences apply across every project on this Mac."
+msgid "These preferences apply across every project on this Mac"
+msgstr "These preferences apply across every project on this Mac"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Theta"

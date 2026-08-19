@@ -5,12 +5,21 @@ const MIN_SYNARA_SETTINGS_HEIGHT = 470;
  * models, picker, and CLI sections are rendered together.
  */
 const MAX_SYNARA_SETTINGS_HEIGHT = 64_000;
+const SETTINGS_BOTTOM_PIN_TOLERANCE = 24;
 
 export function normalizeSynaraSettingsHeight(height: number): number {
   return Math.min(
     MAX_SYNARA_SETTINGS_HEIGHT,
     Math.max(MIN_SYNARA_SETTINGS_HEIGHT, Math.ceil(height)),
   );
+}
+
+export function isSettingsViewportNearBottom(
+  viewport: Pick<HTMLElement, "clientHeight" | "scrollHeight" | "scrollTop">,
+  tolerance = SETTINGS_BOTTOM_PIN_TOLERANCE,
+): boolean {
+  const maxScrollTop = viewport.scrollHeight - viewport.clientHeight;
+  return maxScrollTop > 0 && maxScrollTop - viewport.scrollTop <= tolerance;
 }
 
 export function applySynaraSettingsHeight(options: {
@@ -54,4 +63,20 @@ export function scrollSynaraSettingsViewportBy(
   viewport.scrollTop = top;
   viewport.scrollLeft = left;
   return { left, top };
+}
+
+export function applySynaraSettingsWheel(
+  viewport: SynaraSettingsViewport,
+  event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">,
+): { left: number; top: number } {
+  const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? 16
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? viewport.clientHeight
+      : 1;
+  return scrollSynaraSettingsViewportBy(
+    viewport,
+    event.deltaY * scale,
+    event.deltaX * scale,
+  );
 }

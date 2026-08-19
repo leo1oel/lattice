@@ -292,7 +292,7 @@ describe("welcome screen", () => {
 
   it("offers project creation and existing folder import", () => {
     renderApp();
-    expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Guided tutorial" })).toBeInTheDocument();
@@ -318,7 +318,7 @@ describe("welcome screen", () => {
       throw new Error(`Unexpected command: ${command}`);
     });
     renderApp();
-    expect(screen.getByRole("heading", { name: "Research, written with evidence." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("initial_project"));
     expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
   });
@@ -645,6 +645,87 @@ describe("welcome screen", () => {
     await waitFor(() => expect(settingsViewport).toHaveProperty("scrollTop", 0));
   });
 
+  it("keeps an expanded Synara settings panel reachable from the old bottom", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
+      button: 0,
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Providers" }));
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>(
+        'iframe[title="Synara Providers settings"]',
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const settingsViewport = document.querySelector<HTMLDivElement>(
+      ".settings-content [data-slot='scroll-area-viewport']",
+    )!;
+    Object.defineProperties(settingsViewport, {
+      clientHeight: { configurable: true, value: 470 },
+      scrollHeight: {
+        configurable: true,
+        get: () => Number.parseInt(frame.style.height, 10) + 730,
+      },
+    });
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    }));
+
+    settingsViewport.scrollTop = 500;
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:settings-content-height",
+          height: 1_200,
+          section: "providers",
+        },
+      }));
+    });
+    await waitFor(() => expect(frame.style.height).toBe("1200px"));
+    await act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    }));
+    expect(settingsViewport.scrollTop).toBe(500);
+
+    settingsViewport.scrollTop = 1_445;
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:settings-content-height",
+          height: 1_400,
+          section: "providers",
+        },
+      }));
+    });
+    await waitFor(() => expect(settingsViewport.scrollTop).toBe(2_130));
+  });
+
   it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -660,7 +741,7 @@ describe("welcome screen", () => {
     expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
 
     fireEvent.click(screen.getByRole("button", { name: "关闭设置" }));
-    expect(await screen.findByRole("heading", { name: "以证据书写研究。" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "让研究写作有据可循" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
   });
 

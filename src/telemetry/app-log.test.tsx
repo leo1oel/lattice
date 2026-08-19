@@ -209,7 +209,7 @@ describe("AppToastStack", () => {
     expect(actions?.lastElementChild).toBe(filter);
     expect(filter).toHaveClass("app-log-level-filter");
     expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
-    expect(screen.getByText("Shows 300 recent entries; disk logs rotate."))
+    expect(screen.getByText("Shows 300 recent entries; disk logs rotate"))
       .toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
   });

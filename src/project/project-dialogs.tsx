@@ -57,9 +57,9 @@ export function Welcome(props: {
       <div className="welcome-content">
         <div className="brand-mark"><Sparkles size={24} /></div>
         <p className="eyebrow">LATTICE</p>
-        <h1>{t`Research, written with evidence.`}</h1>
+        <h1>{t`Research, written with evidence`}</h1>
         <p className="welcome-copy">
-          {t`A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected.`}
+          {t`A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected`}
         </p>
         <div className="welcome-actions">
           <MotionButton

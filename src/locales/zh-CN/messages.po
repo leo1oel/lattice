@@ -181,8 +181,8 @@ msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/…、arXiv:1706.03762 或论文标题"
 
 #: src/project/project-dialogs.tsx
-msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected."
-msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联。"
+msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
+msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "a over b"
@@ -752,8 +752,8 @@ msgid "Checks English spelling and grammar as you type with Harper."
 msgstr "使用 Harper 在输入时检查英文拼写和语法。"
 
 #: src/settings/settings-dialog.tsx
-msgid "Checks the tools Lattice needs to compile LaTeX."
-msgstr "检查 Lattice 编译 LaTeX 所需的工具。"
+msgid "Checks the tools Lattice needs to compile LaTeX"
+msgstr "检查 Lattice 编译 LaTeX 所需的工具"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Chi"
@@ -2808,8 +2808,8 @@ msgid "Open a project to manage Agent settings."
 msgstr "打开项目以管理智能助手设置。"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Open and sync Overleaf projects in Lattice."
-msgstr "在 Lattice 中打开并同步 Overleaf 项目。"
+msgid "Open and sync Overleaf projects in Lattice"
+msgstr "在 Lattice 中打开并同步 Overleaf 项目"
 
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
@@ -3477,8 +3477,8 @@ msgid "Research"
 msgstr "研究"
 
 #: src/project/project-dialogs.tsx
-msgid "Research, written with evidence."
-msgstr "以证据书写研究。"
+msgid "Research, written with evidence"
+msgstr "让研究写作有据可循"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize dual source panes"
@@ -3850,8 +3850,8 @@ msgid "Set minus"
 msgstr "集合差"
 
 #: src/settings/settings-dialog.tsx
-msgid "Set the editor keymap and build behavior."
-msgstr "设置编辑器键位和构建行为。"
+msgid "Set the editor keymap and build behavior"
+msgstr "设置编辑器键位和构建行为"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Sets"
@@ -3907,8 +3907,8 @@ msgid "Show sidebar"
 msgstr "显示侧边栏"
 
 #: src/telemetry/app-log.tsx
-msgid "Shows 300 recent entries; disk logs rotate."
-msgstr "显示最近 300 条记录；磁盘日志会自动轮换。"
+msgid "Shows 300 recent entries; disk logs rotate"
+msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Side-by-side column block"
@@ -4288,8 +4288,8 @@ msgid "There exists"
 msgstr "存在"
 
 #: src/settings/settings-dialog.tsx
-msgid "These preferences apply across every project on this Mac."
-msgstr "这些偏好设置会应用于这台 Mac 上的所有项目。"
+msgid "These preferences apply across every project on this Mac"
+msgstr "这些偏好设置会应用于这台 Mac 上的所有项目"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Theta"

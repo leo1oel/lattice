@@ -298,7 +298,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
     <div className="settings-section">
       <SettingsSectionHeader
         title="Overleaf"
-        description={t`Open and sync Overleaf projects in Lattice.`}
+        description={t`Open and sync Overleaf projects in Lattice`}
       />
       <SettingsGroup title={t`Connection`}>
         {loading && !loadError && (

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   applySynaraSettingsHeight,
+  applySynaraSettingsWheel,
+  isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
   scrollSynaraSettingsViewportBy,
 } from "./synara-settings-layout";
@@ -12,6 +14,30 @@ describe("Synara settings layout", () => {
     expect(normalizeSynaraSettingsHeight(812.2)).toBe(813);
     expect(normalizeSynaraSettingsHeight(8_000)).toBe(8_000);
     expect(normalizeSynaraSettingsHeight(100_000)).toBe(64_000);
+  });
+
+  it("recognizes a viewport close enough to follow a growing bottom edge", () => {
+    expect(
+      isSettingsViewportNearBottom({
+        clientHeight: 470,
+        scrollHeight: 1_200,
+        scrollTop: 706,
+      }),
+    ).toBe(true);
+    expect(
+      isSettingsViewportNearBottom({
+        clientHeight: 470,
+        scrollHeight: 1_200,
+        scrollTop: 705,
+      }),
+    ).toBe(false);
+    expect(
+      isSettingsViewportNearBottom({
+        clientHeight: 600,
+        scrollHeight: 470,
+        scrollTop: 0,
+      }),
+    ).toBe(false);
   });
 
   it("applies a reported height synchronously before the next wheel event", () => {
@@ -54,5 +80,21 @@ describe("Synara settings layout", () => {
       top: 4_343,
     });
     expect(viewport.scrollTop).toBe(4_343);
+  });
+
+  it("scales line-mode wheels onto the host settings viewport", () => {
+    const viewport = {
+      clientHeight: 470,
+      clientWidth: 500,
+      scrollHeight: 4_813,
+      scrollLeft: 0,
+      scrollTop: 1_000,
+      scrollWidth: 500,
+    };
+
+    expect(
+      applySynaraSettingsWheel(viewport, { deltaX: 0, deltaY: 3, deltaMode: 1 }),
+    ).toEqual({ left: 0, top: 1_048 });
+    expect(viewport.scrollTop).toBe(1_048);
   });
 });
