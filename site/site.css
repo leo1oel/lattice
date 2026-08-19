@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Instrument Serif", "Noto Serif SC", "Songti SC", "SimSun", ui-serif, Georgia,
+    serif;
+
+  --color-background: #f7f7f6;
+  --color-surface: #ffffff;
+  --color-foreground: #17171a;
+  --color-muted: #6c6c74;
+  --color-subtle: #9a9aa2;
+  --color-border: #e7e7e9;
+  --color-border-strong: #d9d9dd;
+  --color-accent: #3f5bf6;
+  --color-accent-strong: #2f47d6;
+  --color-accent-foreground: #ffffff;
+  --color-accent-soft: #eef1fe;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+/* Subtle staggered entrance used across sections */
+@keyframes site-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.site-rise {
+  animation: site-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .site-rise {
+    animation: none;
+  }
+}
