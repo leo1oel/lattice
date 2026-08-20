@@ -5,6 +5,7 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it, vi } from "vitest";
 import {
   beginEnvironmentClose,
+  insertLatexNewline,
   bibliographyEntryLine,
   citationCompletionRange,
   citationHoverTarget,
@@ -274,6 +275,51 @@ describe("LaTeX citation editing", () => {
     });
     expect(beginEnvironmentClose("\\begin{align}", "\n\\end{align}")).toBeNull();
     expect(beginEnvironmentClose("\\begin{align*}", "")?.insert).toContain("\\end{align*}");
+  });
+
+  it("starts the next line at the current indent, not an extra tab inside a document", () => {
+    const doc = "\\begin{document}\nHello\n\\end{document}";
+    const cursor = doc.indexOf("Hello") + "Hello".length;
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: { anchor: cursor },
+        extensions: latexEditorExtensions([]),
+      }),
+    });
+    expect(insertLatexNewline(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("\\begin{document}\nHello\n\n\\end{document}");
+    view.destroy();
+  });
+
+  it("keeps an already-indented line's indent on newline", () => {
+    const doc = "\\begin{itemize}\n  \\item one\n\\end{itemize}";
+    const cursor = doc.indexOf("one") + "one".length;
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: { anchor: cursor },
+        extensions: latexEditorExtensions([]),
+      }),
+    });
+    expect(insertLatexNewline(view)).toBe(true);
+    const line = view.state.doc.lineAt(view.state.selection.main.head);
+    expect(line.text).toBe("  ");
+    view.destroy();
+  });
+
+  it("lets Enter after \\begin{env} fall through so the environment can auto-close", () => {
+    const doc = "\\begin{align}";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: { anchor: doc.length },
+        extensions: latexEditorExtensions([]),
+      }),
+    });
+    expect(insertLatexNewline(view)).toBe(false);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
   });
 
   it("flags unmatched environments and duplicate labels", () => {

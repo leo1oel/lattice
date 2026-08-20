@@ -9,6 +9,7 @@ import {
   search,
   searchKeymap,
 } from "@codemirror/search";
+import { insertNewlineKeepIndent } from "@codemirror/commands";
 import { Prec, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, hoverTooltip, keymap, tooltips, type Rect } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
@@ -99,6 +100,26 @@ export function beginEnvironmentClose(
   const alreadyClosed = new RegExp(`^\\s*\\\\end\\{${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}`);
   if (alreadyClosed.test(textAfterCursor)) return null;
   return { insert: `\n  \n\\end{${name}}`, cursorOffset: 3 };
+}
+
+function isEnterAfterBeginEnvironment(view: EditorView): boolean {
+  const { main } = view.state.selection;
+  if (main.from !== main.to) return false;
+  return /\\begin\{[^}]+\}\s*$/.test(view.state.doc.lineAt(main.from).text);
+}
+
+/**
+ * Enter should keep the current line's indent, not add another indent unit.
+ *
+ * `codemirror-lang-latex` marks Environment / Group / Content as indentable, so
+ * CodeMirror's default Enter (`insertNewlineAndIndent`) inserts an extra tab
+ * (or indent unit) on every newline inside `\begin{document}`. That's right
+ * for a programming language, not for LaTeX prose. Fall through after
+ * `\begin{env}` so the language pack can still auto-close the environment.
+ */
+export function insertLatexNewline(view: EditorView): boolean {
+  if (isEnterAfterBeginEnvironment(view)) return false;
+  return insertNewlineKeepIndent(view);
 }
 
 export function countWords(text: string): number {
@@ -1501,6 +1522,10 @@ export function latexEditorExtensions(
         return true;
       },
     }),
+    Prec.high(keymap.of([
+      { key: "Enter", run: insertLatexNewline },
+      { key: "Shift-Enter", run: insertNewlineKeepIndent },
+    ])),
     keymap.of([
       ...searchKeymap,
       { key: "Mod-f", run: openSearchPanel },
