@@ -154,8 +154,33 @@ function pruneCell(sheet: SpreadsheetWorksheetData, row: number, column: number)
   if (sheet.cellData[row] && Object.keys(sheet.cellData[row]).length === 0) delete sheet.cellData[row];
 }
 
-function valueType(value: SpreadsheetCellValue): number {
-  return typeof value === "string" ? 1 : typeof value === "number" ? 2 : 3;
+// Univer CellValueType. Keep this file off @univerjs/core so the Agent write
+// path can run in tests without booting the editor.
+const CELL_STRING = 1;
+const CELL_NUMBER = 2;
+const CELL_BOOLEAN = 3;
+const CELL_FORCE_STRING = 4;
+const PLAIN_NUMERIC_STRING = /^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+
+function coercePlainNumericString(value: string): number | null {
+  const trimmed = value.trim();
+  if (!PLAIN_NUMERIC_STRING.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  // Integer IDs beyond the safe range must stay text; Number() would round them.
+  if (Number.isInteger(parsed) && !Number.isSafeInteger(parsed)) return null;
+  return parsed;
+}
+
+function writtenCellValue(value: Exclude<SpreadsheetCellValue, null>): { v: string | number | boolean; t: number } {
+  if (typeof value === "number") return { v: value, t: CELL_NUMBER };
+  if (typeof value === "boolean") return { v: value, t: CELL_BOOLEAN };
+  // Excel's force-string prefix. Agents use it for zip codes and other IDs that
+  // look numeric. Univer still marks those cells; that is the intended warning.
+  if (value.startsWith("'")) return { v: value.slice(1), t: CELL_FORCE_STRING };
+  const numeric = coercePlainNumericString(value);
+  if (numeric !== null) return { v: numeric, t: CELL_NUMBER };
+  return { v: value, t: CELL_STRING };
 }
 
 function validColor(value: string): boolean {
@@ -361,8 +386,9 @@ function applyOperation(workbook: SpreadsheetWorkbookData, operation: Spreadshee
           delete cell.v;
           delete cell.t;
         } else {
-          cell.v = value;
-          cell.t = valueType(value);
+          const written = writtenCellValue(value);
+          cell.v = written.v;
+          cell.t = written.t;
         }
         for (const key of ["f", "p", "si", "ref", "xf"]) delete cell[key];
       } else if (operation.type === "set_formulas") {

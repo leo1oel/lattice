@@ -81,6 +81,20 @@ describe("agent spreadsheet host protocol", () => {
     doc.destroy();
   });
 
+  it("stores quoted plain numbers from the Agent as numeric cells", async () => {
+    const doc = new Y.Doc();
+    seedSpreadsheetDoc(doc);
+    cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", { doc, canWrite: true }));
+
+    await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
+      version: 1,
+      path: "data.lattice-sheet",
+      operations: [{ type: "set_values", range: "A1:B1", values: [["0.764", "780"]] }],
+    }))).resolves.toMatchObject({ ok: true });
+    expect(readSpreadsheet(doc, { range: "A1:B1", include: ["values"] }).values).toEqual([[0.764, 780]]);
+    doc.destroy();
+  });
+
   it("rejects expired, invalid, and read-only updates without partial writes", async () => {
     const doc = new Y.Doc();
     seedSpreadsheetDoc(doc);
