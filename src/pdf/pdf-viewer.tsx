@@ -43,6 +43,7 @@ import {
   utf8ToBase64,
 } from "./pdf-bytes";
 import { MotionButton } from "../components/ui/motion";
+import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import {
   annotationBounds,
   closestPdfPageIndex,
@@ -321,6 +322,7 @@ async function renderContinuousPagePreview(ctx: {
   setPageError: (value: string) => void;
   setAnnotations: (items: PdfAnnotation[]) => void;
   onTextLayerText: (page: number, text: string) => void;
+  onTextLayerRendered: (container: HTMLDivElement) => void;
   bumpTextLayerVersion: () => void;
 }): Promise<boolean> {
   const { page, canvas, textContainer, scale, pixelRatio, pageNumber } = ctx;
@@ -365,6 +367,7 @@ async function renderContinuousPagePreview(ctx: {
     void textLayer.render()
       .then(() => {
         if (!ctx.isAlive()) return;
+        ctx.onTextLayerRendered(textContainer);
         ctx.onTextLayerText(pageNumber, textContainer.textContent ?? "");
         ctx.bumpTextLayerVersion();
       })
@@ -540,6 +543,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
     let alive = true;
     let previewTask: RenderTask | null = null;
     let textLayer: TextLayer | null = null;
+    let uninstallTextSelection: (() => void) | null = null;
     const cssViewport = page.getViewport({ scale });
     const fullPixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
     const previewPixelRatio = Math.min(1, fullPixelRatio);
@@ -564,6 +568,10 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
         setPageError,
         setAnnotations,
         onTextLayerText,
+        onTextLayerRendered: (container) => {
+          uninstallTextSelection?.();
+          uninstallTextSelection = installPdfTextLayerSelection(container);
+        },
         bumpTextLayerVersion: () => setTextLayerVersion((version) => version + 1),
       });
       if (!alive || !completed) return;
@@ -575,6 +583,8 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       alive = false;
       if (previewJobRef.current === cancelQueuedPreview) previewJobRef.current = null;
       cancelQueuedPreview();
+      uninstallTextSelection?.();
+      uninstallTextSelection = null;
       cancelContinuousPageWork(previewTask, textLayer);
     };
   }, [onTextLayerText, page, pageNumber, renderQueue, scale]);
@@ -663,7 +673,10 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
     <div
       ref={shellRef}
       className="pdf-page-content"
-      style={{ "--total-scale-factor": scale } as React.CSSProperties}
+      style={{
+        "--scale-factor": scale,
+        "--total-scale-factor": scale,
+      } as React.CSSProperties}
       aria-busy={rendering}
     >
       <canvas

@@ -2229,6 +2229,7 @@ describe("project workspace", () => {
     expect(preview.getAttribute("srcdoc")).toContain("target.scrollIntoView()");
     expect(preview.getAttribute("srcdoc")).toContain("lattice:html-preview-open-external");
 
+    await waitFor(() => expect(preview.contentDocument?.readyState).toBe("complete"));
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
         source: preview.contentWindow,
@@ -6433,7 +6434,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled());
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
-    await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(renderPdfPage.mock.calls.length).toBeGreaterThanOrEqual(2));
     // Every page gets a quick CSS-pixel preview before an offscreen high-DPI
     // refinement, so fast scrolling never waits on the final-quality pass.
     await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(4));

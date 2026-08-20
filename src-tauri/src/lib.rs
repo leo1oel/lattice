@@ -3762,10 +3762,14 @@ pub fn run() {
         // Remember the window's size + position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(is_focused) = event {
+                macos_window::set_window_focused(window.label(), *is_focused);
+            }
             // A closed window's project must stop being anyone's project, or
             // its LaTeX language server and Overleaf socket outlive the window
             // and a later window reusing the label inherits a stale binding.
             if matches!(event, tauri::WindowEvent::Destroyed) {
+                macos_window::clear_pdf_copy_text(window.label());
                 let state = window.state::<AppState>();
                 state.release_window(window.label());
                 state.retire_unused_projects();
@@ -3786,6 +3790,7 @@ pub fn run() {
                     macos_window::apply_window_background(&window, false);
                 }
                 macos_window::install_magnify_monitor(app.handle().clone());
+                macos_window::install_copy_shortcut_monitor(app.handle().clone());
             }
             Ok(())
         })
@@ -3842,6 +3847,7 @@ pub fn run() {
             import_project_sources,
             read_agent_composer_files,
             import_clipboard_image,
+            macos_window::set_pdf_copy_text,
             resolve_citation_query,
             read_project_asset,
             write_project_bytes,

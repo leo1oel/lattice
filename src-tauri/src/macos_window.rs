@@ -5,6 +5,17 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
+#[cfg(target_os = "macos")]
+use std::collections::HashMap;
+#[cfg(target_os = "macos")]
+use std::sync::LazyLock;
+
+#[cfg(target_os = "macos")]
+static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+#[cfg(target_os = "macos")]
+static FOCUSED_WINDOW_LABEL: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
+
 /// Payload of the `trackpad-magnify` event the web UI listens for.
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +78,108 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
     // the returned monitor alive for the process lifetime on purpose.
     let monitor = unsafe {
         NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::Magnify, &handler)
+    };
+    std::mem::forget(monitor);
+    std::mem::forget(handler);
+}
+
+/// Keep the selected PDF text close to AppKit's Command-C handler.
+///
+/// The frontend updates this only after a PDF drag and clears it when that
+/// selection loses ownership. Other platforms copy in the webview directly.
+#[tauri::command]
+pub fn set_pdf_copy_text(window: tauri::WebviewWindow, text: Option<String>) {
+    #[cfg(target_os = "macos")]
+    {
+        let mut selections = PDF_COPY_TEXT.lock().unwrap();
+        if let Some(text) = text.filter(|text| !text.is_empty()) {
+            selections.insert(window.label().to_string(), text);
+        } else {
+            selections.remove(window.label());
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, text);
+}
+
+pub fn clear_pdf_copy_text(window_label: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        PDF_COPY_TEXT.lock().unwrap().remove(window_label);
+        let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
+        if focused.as_deref() == Some(window_label) {
+            *focused = None;
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window_label;
+}
+
+pub fn set_window_focused(window_label: &str, is_focused: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
+        if is_focused {
+            *focused = Some(window_label.to_string());
+        } else if focused.as_deref() == Some(window_label) {
+            *focused = None;
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window_label, is_focused);
+}
+
+/// AppKit consumes Command-C as an Edit-menu key equivalent before WKWebView's
+/// JavaScript listeners run. If the active window owns a PDF selection, write
+/// its synchronized glyph text here and consume the event so native copying of
+/// transparent text cannot overwrite the clipboard with an empty string.
+#[cfg(target_os = "macos")]
+pub fn install_copy_shortcut_monitor(app: tauri::AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags};
+    use std::ptr::NonNull;
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+
+    let handler = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        let raw = event.as_ptr();
+        // SAFETY: AppKit hands us a live event for the duration of the block.
+        let pressed = unsafe { event.as_ref() };
+        let modifiers = pressed.modifierFlags();
+        if !modifiers.contains(NSEventModifierFlags::Command)
+            || modifiers.contains(NSEventModifierFlags::Shift)
+            || modifiers.contains(NSEventModifierFlags::Option)
+            || modifiers.contains(NSEventModifierFlags::Control)
+        {
+            return raw;
+        }
+        let mut is_c = pressed.keyCode() == 8;
+        if let Some(characters) = pressed.charactersIgnoringModifiers() {
+            is_c = is_c || characters.to_string().eq_ignore_ascii_case("c");
+        }
+        if !is_c {
+            return raw;
+        }
+        // Physical key events are not guaranteed to carry `NSEvent.window`.
+        // Window events maintain this label outside AppKit's key callback, so
+        // reading it here cannot synchronously call back into Tauri's event loop.
+        let Some(window_label) = FOCUSED_WINDOW_LABEL.lock().unwrap().clone() else {
+            return raw;
+        };
+        let text = PDF_COPY_TEXT.lock().unwrap().get(&window_label).cloned();
+        if let Some(text) = text {
+            match app.clipboard().write_text(text) {
+                Ok(()) => return std::ptr::null_mut(),
+                Err(error) => {
+                    log::warn!(target: "lattice::pdf", "Could not copy selected PDF text: {error}")
+                }
+            }
+        }
+        raw
+    });
+    // SAFETY: the block matches the documented handler signature, and we keep
+    // the returned monitor alive for the process lifetime on purpose.
+    let monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &handler)
     };
     std::mem::forget(monitor);
     std::mem::forget(handler);
