@@ -1298,7 +1298,9 @@ mod tests {
             self.calls.fetch_add(1, Ordering::Relaxed);
             let bytes = Sha256::digest(text.as_bytes());
             Ok(bytes[..8]
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|pair| f32::from(u16::from_le_bytes([pair[0], pair[1]])) + 1.0)
                 .collect())
         }
