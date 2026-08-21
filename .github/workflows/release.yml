@@ -197,7 +197,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           # Generate and upload latest.json so the in-app updater can find updates.
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           # Apple Silicon only. This makes the updater platform key darwin-aarch64.
           args: --target aarch64-apple-darwin
 
