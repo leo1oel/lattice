@@ -74,9 +74,27 @@
     return error;
   }
 
+  // Built-in Tauri plugin commands (window/webview/event management) fire
+  // during startup from many call sites that don't guard with `.catch()`.
+  // Rejecting them floods the console with unhandled rejections, so degrade
+  // them to inert no-ops. Only the app's own native commands (non-`plugin:`)
+  // reject with the tagged error, which the app already handles gracefully.
+  function webInvoke(cmd) {
+    if (typeof cmd === "string" && cmd.indexOf("plugin:") === 0) {
+      // Boolean window/webview queries: report a plain, inactive window state.
+      if (/\|is_/.test(cmd)) return Promise.resolve(false);
+      // `listen` resolves to a numeric event id used later to unlisten.
+      if (cmd === "plugin:event|listen") return Promise.resolve(0);
+      // Everything else (emit, unlisten, start_dragging, set_*, show, hide…)
+      // has no browser equivalent; resolve as a successful no-op.
+      return Promise.resolve(undefined);
+    }
+    return Promise.reject(webBridgeError(cmd));
+  }
+
   window.__TAURI_INTERNALS__ = {
     invoke: function (cmd) {
-      return Promise.reject(webBridgeError(cmd));
+      return webInvoke(cmd);
     },
     // Event listeners never fire in web mode; hand back a stable callback id.
     transformCallback: function () {
