@@ -565,7 +565,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
       />,
     );
 
-    const displayedSheet = univerMock.workbooks.at(-1)?.data.sheets[sheet.id];
+    const displayedSheet = univerMock.workbooks[univerMock.workbooks.length - 1].data.sheets[sheet.id];
     expect(displayedSheet.defaultStyle).toMatchObject({
       bl: 1,
       bg: { rgb: "#123456" },
