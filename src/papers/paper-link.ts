@@ -33,7 +33,6 @@ export function paperLinkHref(
 export function isPaperLibraryPath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
   // Project-relative cache prefix, not UI copy.
-  // eslint-disable-next-line lingui/no-unlocalized-strings
   return normalized === ".research/papers" || normalized.startsWith(".research/papers/");
 }
 
