@@ -3267,7 +3267,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`yjs@13.6.31`
+`yjs@13.6.32`
 
 </details>
 
