@@ -380,13 +380,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   height: 100%;
   overflow: hidden;
   background: var(--surface-sidebar);
+  color-scheme: inherit;
 }
 .synara-poc-frame {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
-  background: var(--surface-sidebar);
+  background-color: var(--surface-sidebar);
+  color-scheme: inherit;
   opacity: 0;
   transform: translateY(2px);
   transition: opacity var(--duration-base) var(--ease-default), transform var(--duration-base) var(--ease-default);
