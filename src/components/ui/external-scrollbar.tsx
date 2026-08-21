@@ -18,6 +18,7 @@ type ExternalScrollbarProps = {
 };
 
 const SCROLLING_HIDE_DELAY_MS = 500;
+const MAX_VIEWPORT_ATTACH_FRAMES = 60;
 
 const EMPTY_GEOMETRY: VerticalScrollGeometry = {
   height: 0,
@@ -81,6 +82,7 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
   useLayoutEffect(() => {
     let cancelled = false;
     let retryFrame: number | null = null;
+    let attachAttempts = 0;
     let resizeObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
     let viewport: HTMLElement | null = null;
@@ -101,7 +103,12 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
       if (cancelled) return;
       viewport = getViewport();
       if (!viewport) {
-        retryFrame = requestAnimationFrame(attach);
+        // Tests polyfill rAF as setTimeout(0). An uncapped retry would spin
+        // the Univer sidebar lookup (which never appears under the mock).
+        attachAttempts += 1;
+        if (attachAttempts < MAX_VIEWPORT_ATTACH_FRAMES) {
+          retryFrame = requestAnimationFrame(attach);
+        }
         return;
       }
 
