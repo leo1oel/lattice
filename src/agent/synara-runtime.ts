@@ -1,3 +1,6 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
+
 type SynaraRuntimeState = "starting" | "ready" | "stopped";
 
 export interface SynaraRuntimeInfo {
@@ -315,12 +318,22 @@ export function parseCodexFileCitation(directive: string): CodexFileCitation | n
   };
 }
 
+function formatCodexCitationLabel(citation: CodexFileCitation, baseName: string): string {
+  if (citation.sheet && citation.range) {
+    return i18n._(msg`${baseName} • ${citation.sheet}!${citation.range}`);
+  }
+  if (citation.sheet) return i18n._(msg`${baseName} • ${citation.sheet}`);
+  if (citation.range) return i18n._(msg`${baseName} • ${citation.range}`);
+  if (citation.line) return i18n._(msg`${baseName}:L${citation.line}`);
+  return baseName;
+}
+
 /**
  * Replace raw `:codex-file-citation{...}` directive tokens with readable,
  * clickable markdown links formatted with file basenames and cell/line ranges.
  */
 export function formatCodexFileCitation(text: string, projectRoot?: string | null): string {
-  if (!text.includes(":codex-file-citation{")) return text;
+  CODEX_CITATION_PATTERN.lastIndex = 0;
   return text.replace(CODEX_CITATION_PATTERN, (rawMatch) => {
     const citation = parseCodexFileCitation(rawMatch);
     if (!citation || !citation.path) return "";
@@ -328,18 +341,6 @@ export function formatCodexFileCitation(text: string, projectRoot?: string | nul
       || citation.path.split(/[\\/]/).at(-1)
       || citation.path;
     const baseName = relativePath.split(/[\\/]/).at(-1) || relativePath;
-
-    let label = baseName;
-    if (citation.sheet && citation.range) {
-      label = `${baseName} • ${citation.sheet}!${citation.range}`;
-    } else if (citation.sheet) {
-      label = `${baseName} • ${citation.sheet}`;
-    } else if (citation.range) {
-      label = `${baseName} • ${citation.range}`;
-    } else if (citation.line) {
-      label = `${baseName}:L${citation.line}`;
-    }
-
-    return ` [${label}](${relativePath})`;
+    return ` [${formatCodexCitationLabel(citation, baseName)}](${relativePath})`;
   });
 }

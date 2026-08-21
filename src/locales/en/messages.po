@@ -96,6 +96,23 @@ msgstr "{0} markers"
 msgid "{0} others"
 msgstr "{0} others"
 
+#. placeholder {0}: citation.range
+#. placeholder {0}: citation.sheet
+#: src/agent/synara-runtime.ts
+msgid "{baseName} • {0}"
+msgstr "{baseName} • {0}"
+
+#. placeholder {0}: citation.sheet
+#. placeholder {1}: citation.range
+#: src/agent/synara-runtime.ts
+msgid "{baseName} • {0}!{1}"
+msgstr "{baseName} • {0}!{1}"
+
+#. placeholder {0}: citation.line
+#: src/agent/synara-runtime.ts
+msgid "{baseName}:L{0}"
+msgstr "{baseName}:L{0}"
+
 #. placeholder {0}: collabSession.room
 #: src/App.tsx
 msgid "{collabPeers} connected · {0}"
