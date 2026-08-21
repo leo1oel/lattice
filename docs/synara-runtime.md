@@ -248,7 +248,7 @@ constraint.
 
 1. Fetch and merge `upstream/main` into **the branch named by `branch` in
    [`../scripts/synara-runtime.json`](../scripts/synara-runtime.json)** — today
-   `amp/lattice-v0.7.2-sync`. The branch moves with each upstream version, so read it from the pin
+   `amp/lattice-v0.7.3-sync`. The branch moves with each upstream version, so read it from the pin
    rather than from memory; older branches such as `codex/lattice-embed` still exist in the fork and
    are not what ships. Do not rewrite branch history. Tag a backup branch at the pre-merge commit
    first; the merge touches enough surface that a clean abort is worth having.

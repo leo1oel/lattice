@@ -17696,7 +17696,7 @@ to reproduce is not available from the artifact we distribute.
 - `@mariozechner/clipboard@0.3.9` (sidecar) — declared `MIT`
 - `@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4` (sidecar) — declared `MIT`
 - `@nodable/entities@2.1.0` (sidecar) — declared `MIT`
-- `@opencode-ai/sdk@1.18.18` (sidecar) — declared `MIT`
+- `@opencode-ai/sdk@1.18.19` (sidecar) — declared `MIT`
 - `@xterm/headless@6.0.0` (sidecar) — declared `MIT`
 - `data-uri-to-buffer@4.0.1` (sidecar) — declared `MIT`
 - `kubernetes-types@1.30.0` (sidecar) — declared `Apache-2.0`
@@ -17787,7 +17787,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 <details><summary>Packages sharing this text</summary>
 
-`accepts@2.0.0`, `agent-base@7.1.4`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@7.0.2`, `https-proxy-agent@7.0.6`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.0.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.7`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
+`accepts@2.0.0`, `agent-base@7.1.4`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@7.0.2`, `https-proxy-agent@7.0.6`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.1.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.7`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
 
 </details>
 
