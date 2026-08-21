@@ -173,7 +173,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
 
       - name: Build, sign, and publish the release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
@@ -197,7 +197,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           # Generate and upload latest.json so the in-app updater can find updates.
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           # Apple Silicon only. This makes the updater platform key darwin-aarch64.
           args: --target aarch64-apple-darwin
 
