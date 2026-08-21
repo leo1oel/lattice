@@ -2,7 +2,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -18,6 +18,7 @@ type ExternalScrollbarProps = {
 };
 
 const SCROLLING_HIDE_DELAY_MS = 500;
+const MAX_VIEWPORT_ATTACH_FRAMES = 60;
 
 const EMPTY_GEOMETRY: VerticalScrollGeometry = {
   height: 0,
@@ -73,9 +74,15 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
     });
   }, [measure]);
 
-  useEffect(() => {
+  // Layout, not paint: this scrollbar often mounts because its viewport is
+  // already in the DOM (Univer's All Functions list). A useEffect attach would
+  // leave a committed node that does not yet listen for pointerenter, so the
+  // first hover can miss — especially when jsdom's 16 ms rAF retry is delayed
+  // behind other frames.
+  useLayoutEffect(() => {
     let cancelled = false;
     let retryFrame: number | null = null;
+    let attachAttempts = 0;
     let resizeObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
     let viewport: HTMLElement | null = null;
@@ -96,7 +103,12 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
       if (cancelled) return;
       viewport = getViewport();
       if (!viewport) {
-        retryFrame = requestAnimationFrame(attach);
+        // Tests polyfill rAF as setTimeout(0). An uncapped retry would spin
+        // the Univer sidebar lookup (which never appears under the mock).
+        attachAttempts += 1;
+        if (attachAttempts < MAX_VIEWPORT_ATTACH_FRAMES) {
+          retryFrame = requestAnimationFrame(attach);
+        }
         return;
       }
 

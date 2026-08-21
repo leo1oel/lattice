@@ -109,22 +109,35 @@ if (typeof window !== "undefined") setupDomShims();
 
 function setupDomShims() {
 
-// jsdom does not implement requestAnimationFrame / cancelAnimationFrame.
-// Preact 11's hooks call cancelAnimationFrame during unmount, and navigator
-// tests that install fake timers can leave a scheduled frame whose cancel
-// then throws `cancelAnimationFrame is not defined` after every test has
-// passed. Implement both with timers so an all-green suite cannot exit 1.
-// Delay is 0 ms, not a frame's 16 ms: afterAll only waits 2 ms twice, which
-// is what flushes these callbacks before jsdom teardown.
-if (typeof globalThis.requestAnimationFrame !== "function") {
-  (globalThis as unknown as { requestAnimationFrame: (cb: (time: number) => void) => number })
-    .requestAnimationFrame = (callback) => (
-      globalThis.setTimeout(() => callback(Date.now()), 0) as unknown as number
-    );
-}
-if (typeof globalThis.cancelAnimationFrame !== "function") {
-  (globalThis as unknown as { cancelAnimationFrame: (id: number) => void })
-    .cancelAnimationFrame = (id) => { globalThis.clearTimeout(id); };
+// Vitest's jsdom environment sets pretendToBeVisual, so Window already has
+// requestAnimationFrame — as a ~16 ms setInterval. Preact 11's hooks call
+// cancelAnimationFrame during unmount, and navigator tests that install fake
+// timers can leave a scheduled frame whose cancel then throws
+// `cancelAnimationFrame is not defined` after every test has passed.
+//
+// The previous `typeof !== "function"` guard was a no-op here and left jsdom's
+// 16 ms frames in place. afterAll only waits 2 ms twice, so those frames
+// fired after jsdom teardown deleted cancelAnimationFrame. Always replace
+// both APIs with 0 ms timers so the drain actually runs them, and write them
+// onto window as well as globalThis — populateGlobal copies at environment
+// setup, and the two can diverge.
+{
+  const requestAnimationFrame = (callback: (time: number) => void) => (
+    globalThis.setTimeout(() => callback(Date.now()), 0) as unknown as number
+  );
+  const cancelAnimationFrame = (id: number) => { globalThis.clearTimeout(id); };
+  for (const target of [globalThis, window] as Array<typeof globalThis>) {
+    Object.defineProperty(target, "requestAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: requestAnimationFrame,
+    });
+    Object.defineProperty(target, "cancelAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: cancelAnimationFrame,
+    });
+  }
 }
 
 Object.defineProperty(window, "matchMedia", {
