@@ -113,12 +113,13 @@ function setupDomShims() {
 // Preact 11's hooks call cancelAnimationFrame during unmount, and navigator
 // tests that install fake timers can leave a scheduled frame whose cancel
 // then throws `cancelAnimationFrame is not defined` after every test has
-// passed. Implement both with timers so an all-green suite cannot exit 1,
-// and so the afterAll drain above also flushes those frames.
+// passed. Implement both with timers so an all-green suite cannot exit 1.
+// Delay is 0 ms, not a frame's 16 ms: afterAll only waits 2 ms twice, which
+// is what flushes these callbacks before jsdom teardown.
 if (typeof globalThis.requestAnimationFrame !== "function") {
   (globalThis as unknown as { requestAnimationFrame: (cb: (time: number) => void) => number })
     .requestAnimationFrame = (callback) => (
-      globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number
+      globalThis.setTimeout(() => callback(Date.now()), 0) as unknown as number
     );
 }
 if (typeof globalThis.cancelAnimationFrame !== "function") {
