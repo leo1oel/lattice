@@ -12,17 +12,17 @@ importers:
         specifier: ^0.2.117
         version: 0.2.117
       partyserver:
-        specifier: ^0.5.8
-        version: 0.5.8(@cloudflare/workers-types@5.20260818.1)
+        specifier: ^0.5.10
+        version: 0.5.10(@cloudflare/workers-types@5.20260818.1)
       y-partyserver:
         specifier: ^2.2.0
-        version: 2.2.0(@cloudflare/workers-types@5.20260818.1)(partyserver@0.5.8(@cloudflare/workers-types@5.20260818.1))(yjs@13.6.31)
+        version: 2.2.0(@cloudflare/workers-types@5.20260818.1)(partyserver@0.5.10(@cloudflare/workers-types@5.20260818.1))(yjs@13.6.32)
       y-protocols:
         specifier: ^1.0.7
-        version: 1.0.7(yjs@13.6.31)
+        version: 1.0.7(yjs@13.6.32)
       yjs:
-        specifier: ^13.6.31
-        version: 13.6.31
+        specifier: ^13.6.32
+        version: 13.6.32
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.22.0
@@ -756,10 +756,10 @@ packages:
     resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
     engines: {node: '>=12.20.0'}
 
-  partyserver@0.5.8:
-    resolution: {integrity: sha512-htgSwiBcBu9zIYLrsxBAOvdkjukHvncbTk0nDrJgfruvZ08rxtEN1Ab4T7j9osykP80Bq3zA2oWFd3ngc4Z9uw==}
+  partyserver@0.5.10:
+    resolution: {integrity: sha512-t2B3mhTL1IOxCsj8rZgn4TxTuub7oLhypjc1/fGPNsbgnn9OsHms6uR3QEd5bFJ/7xrFo771j3DdUlll8cxgBg==}
     peerDependencies:
-      '@cloudflare/workers-types': ^4.20260424.1
+      '@cloudflare/workers-types': ^4.20260424.1 || ^5.20260703.1
 
   path-to-regexp@6.3.0:
     resolution: {integrity: sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==}
@@ -971,8 +971,8 @@ packages:
     peerDependencies:
       yjs: ^13.0.0
 
-  yjs@13.6.31:
-    resolution: {integrity: sha512-Eq+5BRfbeGyqGVrTJL3bEcr8gKkxPuyuoHmAwpk52fDb8kOVMrfVSTRPd6yiGgX5Fskb96qCRjzjbRjrL4YEnw==}
+  yjs@13.6.32:
+    resolution: {integrity: sha512-lfiJIIC4Xayt5ItynE407ehlE03pCjeOc4hkR4yxxvvNJ4kuiN25B0g+Qp8XagYz361LLL7DCzR5bvFJ81QKtQ==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
 
   youch-core@0.3.3:
@@ -1487,7 +1487,7 @@ snapshots:
 
   obug@2.1.4: {}
 
-  partyserver@0.5.8(@cloudflare/workers-types@5.20260818.1):
+  partyserver@0.5.10(@cloudflare/workers-types@5.20260818.1):
     dependencies:
       '@cloudflare/workers-types': 5.20260818.1
       nanoid: 5.1.16
@@ -1665,22 +1665,22 @@ snapshots:
 
   ws@8.21.0: {}
 
-  y-partyserver@2.2.0(@cloudflare/workers-types@5.20260818.1)(partyserver@0.5.8(@cloudflare/workers-types@5.20260818.1))(yjs@13.6.31):
+  y-partyserver@2.2.0(@cloudflare/workers-types@5.20260818.1)(partyserver@0.5.10(@cloudflare/workers-types@5.20260818.1))(yjs@13.6.32):
     dependencies:
       '@cloudflare/workers-types': 5.20260818.1
       lib0: 0.2.117
       lodash.debounce: 4.0.8
       nanoid: 5.1.16
-      partyserver: 0.5.8(@cloudflare/workers-types@5.20260818.1)
-      y-protocols: 1.0.7(yjs@13.6.31)
-      yjs: 13.6.31
+      partyserver: 0.5.10(@cloudflare/workers-types@5.20260818.1)
+      y-protocols: 1.0.7(yjs@13.6.32)
+      yjs: 13.6.32
 
-  y-protocols@1.0.7(yjs@13.6.31):
+  y-protocols@1.0.7(yjs@13.6.32):
     dependencies:
       lib0: 0.2.117
-      yjs: 13.6.31
+      yjs: 13.6.32
 
-  yjs@13.6.31:
+  yjs@13.6.32:
     dependencies:
       lib0: 0.2.117
 
