@@ -2,7 +2,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -73,7 +73,12 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
     });
   }, [measure]);
 
-  useEffect(() => {
+  // Layout, not paint: this scrollbar often mounts because its viewport is
+  // already in the DOM (Univer's All Functions list). A useEffect attach would
+  // leave a committed node that does not yet listen for pointerenter, so the
+  // first hover can miss — especially when jsdom's 16 ms rAF retry is delayed
+  // behind other frames.
+  useLayoutEffect(() => {
     let cancelled = false;
     let retryFrame: number | null = null;
     let resizeObserver: ResizeObserver | null = null;

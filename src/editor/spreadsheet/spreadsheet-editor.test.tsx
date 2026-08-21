@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
@@ -272,6 +272,10 @@ import { applySpreadsheetBatch, readSpreadsheet } from "./spreadsheet-operations
 import { createDefaultSpreadsheet, seedSpreadsheetDoc, serializeSpreadsheetFile } from "./spreadsheet-yjs";
 
 afterEach(() => {
+  // Unmount leftover editors before resetting Univer mocks. A thrown assertion
+  // skips the per-test `view.unmount()`, and the next case then talks to the
+  // previous workbook's export menu / sheet ids.
+  cleanup();
   univerMock.api = null;
   univerMock.workbooks.length = 0;
   univerMock.presetConfigs.length = 0;
@@ -384,15 +388,17 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(host).not.toBeNull();
     expect(list).not.toBeNull();
     act(() => host?.append(panel));
-    const nestedScrollbar = await waitFor(() => {
-      const scrollbar = view.container.querySelector<HTMLElement>(
+    await waitFor(() => {
+      expect(view.container.querySelector(
         ".spreadsheet-functions-scrollbar-surface .external-scrollbar",
-      );
-      expect(scrollbar).not.toBeNull();
-      return scrollbar;
+      )).not.toBeNull();
     });
-    fireEvent.pointerEnter(list as HTMLElement);
-    expect(nestedScrollbar).toHaveAttribute("data-hovering");
+    await waitFor(() => {
+      fireEvent.pointerEnter(list as HTMLElement);
+      expect(
+        view.container.querySelector(".spreadsheet-functions-scrollbar-surface .external-scrollbar"),
+      ).toHaveAttribute("data-hovering");
+    });
 
     act(() => panel.remove());
     await waitFor(() => {
@@ -476,7 +482,9 @@ describe("SpreadsheetEditor collaboration bridge", () => {
       />,
     );
 
-    const exportMenu = univerMock.menus.find(({ item }) => item.id === "lattice.spreadsheet.export-xlsx");
+    const exportMenu = univerMock.menus.filter(
+      ({ item }) => item.id === "lattice.spreadsheet.export-xlsx",
+    ).at(-1);
     expect(univerMock.menuSchemas).toContainEqual({
       "ribbon.start.layout": {
         "lattice.spreadsheet.formulas": {
@@ -557,7 +565,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
       />,
     );
 
-    const displayedSheet = univerMock.workbooks[0].data.sheets[sheet.id];
+    const displayedSheet = univerMock.workbooks.at(-1)?.data.sheets[sheet.id];
     expect(displayedSheet.defaultStyle).toMatchObject({
       bl: 1,
       bg: { rgb: "#123456" },
