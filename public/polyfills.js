@@ -46,70 +46,8 @@
   if (typeof WeakMap !== "undefined") install(WeakMap.prototype);
 })();
 
-/* Web fallback for the Tauri native bridge.
- *
- * Lattice is a Tauri desktop app: the real runtime injects
- * `window.__TAURI_INTERNALS__` before any page script runs, so `invoke`,
- * `listen`, and `getCurrentWindow()` can reach the native (Rust) backend.
- * When the same frontend is served as a plain website (e.g. a Vercel
- * deployment) that object is absent, and every `@tauri-apps/api` call throws
- * `TypeError: Cannot read properties of undefined (reading 'invoke')`.
- *
- * This shim installs a stand-in ONLY when the real bridge is missing, so it
- * never shadows the desktop runtime. Native commands become a tagged rejected
- * promise instead of a hard crash: existing `.catch()` guards keep working,
- * and `global-error-capture` recognises the tag to stay quiet in web mode. */
-(function () {
-  if (typeof window === "undefined") return;
-  if (window.__TAURI_INTERNALS__) return;
-
-  var LABEL = "main";
-  function webBridgeError(cmd) {
-    var error = new Error(
-      "Lattice native bridge unavailable in the browser" +
-        (cmd ? " (command: " + cmd + ")" : "") +
-        ". This feature only works in the desktop app.",
-    );
-    error.latticeWebBridgeUnavailable = true;
-    return error;
-  }
-
-  // Built-in Tauri plugin commands (window/webview/event management) fire
-  // during startup from many call sites that don't guard with `.catch()`.
-  // Rejecting them floods the console with unhandled rejections, so degrade
-  // them to inert no-ops. Only the app's own native commands (non-`plugin:`)
-  // reject with the tagged error, which the app already handles gracefully.
-  function webInvoke(cmd) {
-    if (typeof cmd === "string" && cmd.indexOf("plugin:") === 0) {
-      // Boolean window/webview queries: report a plain, inactive window state.
-      if (/\|is_/.test(cmd)) return Promise.resolve(false);
-      // `listen` resolves to a numeric event id used later to unlisten.
-      if (cmd === "plugin:event|listen") return Promise.resolve(0);
-      // Everything else (emit, unlisten, start_dragging, set_*, show, hide…)
-      // has no browser equivalent; resolve as a successful no-op.
-      return Promise.resolve(undefined);
-    }
-    return Promise.reject(webBridgeError(cmd));
-  }
-
-  window.__TAURI_INTERNALS__ = {
-    invoke: function (cmd) {
-      return webInvoke(cmd);
-    },
-    // Event listeners never fire in web mode; hand back a stable callback id.
-    transformCallback: function () {
-      return 0;
-    },
-    unregisterCallback: function () {},
-    // No custom protocol exists in the browser, so keep the path as-is.
-    convertFileSrc: function (filePath) {
-      return filePath;
-    },
-    // `getCurrentWindow()` / `getCurrentWebview()` read these labels
-    // synchronously while constructing their handles.
-    metadata: {
-      currentWindow: { label: LABEL },
-      currentWebview: { label: LABEL },
-    },
-  };
-})();
+/* NOTE: The Tauri native-bridge web fallback (window.__TAURI_INTERNALS__ shim)
+ * lives as an inline <script> in index.html, not here. It must always reflect
+ * the latest logic, and index.html is revalidated on every load while files
+ * under /public can be served from a stale browser/CDN cache. Keep the shim
+ * inline there; this file only holds early Map/console compatibility fixes. */

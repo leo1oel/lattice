@@ -9,7 +9,53 @@
 
   <body>
     <div id="root"></div>
-    <script src="/polyfills.js?v=2"></script>
+    <script src="/polyfills.js?v=3"></script>
+    <script>
+      /* Web fallback for the Tauri native bridge — inlined so it is never
+       * served from a stale static-file cache (index.html is always
+       * revalidated, unlike files under /public). Installs a stand-in ONLY
+       * when the real desktop runtime is absent, so it never shadows Tauri.
+       * Built-in `plugin:*` commands degrade to inert no-ops; the app's own
+       * native commands reject with a tagged error the app already handles. */
+      (function () {
+        if (typeof window === "undefined") return;
+        if (window.__TAURI_INTERNALS__) return;
+        var LABEL = "main";
+        function webBridgeError(cmd) {
+          var error = new Error(
+            "Lattice native bridge unavailable in the browser" +
+              (cmd ? " (command: " + cmd + ")" : "") +
+              ". This feature only works in the desktop app.",
+          );
+          error.latticeWebBridgeUnavailable = true;
+          return error;
+        }
+        function webInvoke(cmd) {
+          if (typeof cmd === "string" && cmd.indexOf("plugin:") === 0) {
+            if (/\|is_/.test(cmd)) return Promise.resolve(false);
+            if (cmd === "plugin:event|listen") return Promise.resolve(0);
+            return Promise.resolve(undefined);
+          }
+          return Promise.reject(webBridgeError(cmd));
+        }
+        window.__TAURI_INTERNALS__ = {
+          invoke: function (cmd) {
+            return webInvoke(cmd);
+          },
+          transformCallback: function () {
+            return 0;
+          },
+          unregisterCallback: function () {},
+          convertFileSrc: function (filePath) {
+            return filePath;
+          },
+          metadata: {
+            currentWindow: { label: LABEL },
+            currentWebview: { label: LABEL },
+          },
+        };
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

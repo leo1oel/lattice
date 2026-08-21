@@ -4546,7 +4546,13 @@ function App() {
     } catch (reason) {
       autoTutorialAttemptedRef.current = false;
       cancelProjectTransition();
-      setError(toMessage(reason));
+      // In the browser there is no Rust backend to scaffold the sample
+      // project on disk, so surface a friendly hint instead of a raw crash.
+      setError(
+        isWebBridgeUnavailable(reason)
+          ? "The guided tutorial is only available in the Lattice desktop app."
+          : toMessage(reason),
+      );
       return false;
     } finally {
       setBusyLabel(null);
