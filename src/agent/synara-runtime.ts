@@ -279,3 +279,67 @@ export function synaraFrameUrl(input: {
   }
   return url.toString();
 }
+
+export interface CodexFileCitation {
+  path?: string;
+  purpose?: string;
+  artifactKind?: string;
+  sheet?: string;
+  range?: string;
+  line?: number;
+  raw: string;
+}
+
+const CODEX_CITATION_PATTERN = /:codex-file-citation\{([^}]+)\}/g;
+
+export function parseCodexFileCitation(directive: string): CodexFileCitation | null {
+  const match = /^:codex-file-citation\{([^}]+)\}$/.exec(directive.trim());
+  if (!match) return null;
+  const body = match[1];
+  const attributes: Record<string, string> = {};
+  const attrPattern = /([a-zA-Z_][a-zA-Z0-9_-]*)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  let attrMatch: RegExpExecArray | null;
+  while ((attrMatch = attrPattern.exec(body)) !== null) {
+    const key = attrMatch[1];
+    const val = attrMatch[2] ?? attrMatch[3] ?? attrMatch[4] ?? "";
+    attributes[key] = val;
+  }
+  return {
+    path: attributes.path,
+    purpose: attributes.purpose,
+    artifactKind: attributes.artifact_kind ?? attributes.artifactKind,
+    sheet: attributes.sheet,
+    range: attributes.range,
+    line: attributes.line ? Number(attributes.line) : undefined,
+    raw: directive,
+  };
+}
+
+/**
+ * Replace raw `:codex-file-citation{...}` directive tokens with readable,
+ * clickable markdown links formatted with file basenames and cell/line ranges.
+ */
+export function formatCodexFileCitation(text: string, projectRoot?: string | null): string {
+  if (!text.includes(":codex-file-citation{")) return text;
+  return text.replace(CODEX_CITATION_PATTERN, (rawMatch) => {
+    const citation = parseCodexFileCitation(rawMatch);
+    if (!citation || !citation.path) return "";
+    const relativePath = synaraProjectRelativeFilePath(citation.path, projectRoot)
+      || citation.path.split(/[\\/]/).at(-1)
+      || citation.path;
+    const baseName = relativePath.split(/[\\/]/).at(-1) || relativePath;
+
+    let label = baseName;
+    if (citation.sheet && citation.range) {
+      label = `${baseName} • ${citation.sheet}!${citation.range}`;
+    } else if (citation.sheet) {
+      label = `${baseName} • ${citation.sheet}`;
+    } else if (citation.range) {
+      label = `${baseName} • ${citation.range}`;
+    } else if (citation.line) {
+      label = `${baseName}:L${citation.line}`;
+    }
+
+    return ` [${label}](${relativePath})`;
+  });
+}

@@ -6,6 +6,8 @@ import {
   normalizeSynaraOrigin,
   parseAgentProjectHistorySnapshot,
   parseAgentCompileResultMessage,
+  parseCodexFileCitation,
+  formatCodexFileCitation,
   synaraFrameUrl,
   synaraProjectRelativeFilePath,
 } from "./synara-runtime";
@@ -121,5 +123,31 @@ describe("Synara runtime URLs", () => {
         }],
       })).toBeNull();
     }
+  });
+
+  it("parses and formats structured Codex file citation directives into clean links", () => {
+    const raw = ':codex-file-citation{path="/Users/leonardo/Documents/research/Native VLM/results.lattice-sheet" purpose="source" artifact_kind="workbook" sheet="Results" range="A20"}';
+    const parsed = parseCodexFileCitation(raw);
+    expect(parsed).toEqual({
+      path: "/Users/leonardo/Documents/research/Native VLM/results.lattice-sheet",
+      purpose: "source",
+      artifactKind: "workbook",
+      sheet: "Results",
+      range: "A20",
+      line: undefined,
+      raw,
+    });
+
+    const root = "/Users/leonardo/Documents/research/Native VLM";
+    const text = `刚才 Lattice 表格接口连续超时，A20 背景尚未写入；你确认排序口径后，我会把背景和排序一起完成。${raw}`;
+    const formatted = formatCodexFileCitation(text, root);
+    expect(formatted).toBe(
+      "刚才 Lattice 表格接口连续超时，A20 背景尚未写入；你确认排序口径后，我会把背景和排序一起完成。 [results.lattice-sheet • Results!A20](results.lattice-sheet)",
+    );
+
+    const codeCitation = ':codex-file-citation{path="main.tex" line=42}';
+    expect(formatCodexFileCitation(`See ${codeCitation} for details.`, root)).toBe(
+      "See  [main.tex:L42](main.tex) for details.",
+    );
   });
 });
