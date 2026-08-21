@@ -45,3 +45,53 @@
   install(Map.prototype);
   if (typeof WeakMap !== "undefined") install(WeakMap.prototype);
 })();
+
+/* Web fallback for the Tauri native bridge.
+ *
+ * Lattice is a Tauri desktop app: the real runtime injects
+ * `window.__TAURI_INTERNALS__` before any page script runs, so `invoke`,
+ * `listen`, and `getCurrentWindow()` can reach the native (Rust) backend.
+ * When the same frontend is served as a plain website (e.g. a Vercel
+ * deployment) that object is absent, and every `@tauri-apps/api` call throws
+ * `TypeError: Cannot read properties of undefined (reading 'invoke')`.
+ *
+ * This shim installs a stand-in ONLY when the real bridge is missing, so it
+ * never shadows the desktop runtime. Native commands become a tagged rejected
+ * promise instead of a hard crash: existing `.catch()` guards keep working,
+ * and `global-error-capture` recognises the tag to stay quiet in web mode. */
+(function () {
+  if (typeof window === "undefined") return;
+  if (window.__TAURI_INTERNALS__) return;
+
+  var LABEL = "main";
+  function webBridgeError(cmd) {
+    var error = new Error(
+      "Lattice native bridge unavailable in the browser" +
+        (cmd ? " (command: " + cmd + ")" : "") +
+        ". This feature only works in the desktop app.",
+    );
+    error.latticeWebBridgeUnavailable = true;
+    return error;
+  }
+
+  window.__TAURI_INTERNALS__ = {
+    invoke: function (cmd) {
+      return Promise.reject(webBridgeError(cmd));
+    },
+    // Event listeners never fire in web mode; hand back a stable callback id.
+    transformCallback: function () {
+      return 0;
+    },
+    unregisterCallback: function () {},
+    // No custom protocol exists in the browser, so keep the path as-is.
+    convertFileSrc: function (filePath) {
+      return filePath;
+    },
+    // `getCurrentWindow()` / `getCurrentWebview()` read these labels
+    // synchronously while constructing their handles.
+    metadata: {
+      currentWindow: { label: LABEL },
+      currentWebview: { label: LABEL },
+    },
+  };
+})();

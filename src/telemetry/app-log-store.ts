@@ -136,6 +136,9 @@ function forwardToFileLog(entry: AppLogEntry): void {
       // Disable BEFORE reporting: a wrapped console.error → addAppLog →
       // forward → fail loop is the failure mode this prevents.
       forwardDisabled = true;
+      // Served as a plain website there is no on-disk log by design, so stay
+      // quiet instead of reporting the expected web-bridge rejection.
+      if (isWebBridgeUnavailable(reason)) return;
       try {
         console.error("Lattice file logging unavailable", reason);
       } catch {

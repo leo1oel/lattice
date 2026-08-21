@@ -8,6 +8,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
+import { isWebBridgeUnavailable } from "./platform/web-bridge";
 import {
   bibliographyEntryLine,
   mergeReferences,
@@ -4673,7 +4674,11 @@ function App() {
       })
       .catch((reason) => {
         initialProjectProbe.resolve(false);
-        if (active) setError(toMessage(reason));
+        if (!active) return;
+        // Served as a plain website: no native backend means no initial
+        // project, which is the welcome screen — not a user-facing error.
+        if (isWebBridgeUnavailable(reason)) return;
+        setError(toMessage(reason));
       });
     return () => {
       active = false;

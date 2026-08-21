@@ -1,4 +1,5 @@
 import { addAppLog } from "./app-log-store";
+import { isWebBridgeUnavailable } from "../platform/web-bridge";
 
 let installed = false;
 // Recursion guard: if the logging path itself throws (or a wrapped console
@@ -38,6 +39,7 @@ function isResizeObserverNotification(message: string): boolean {
     || message === "ResizeObserver loop completed with undelivered notifications.";
 }
 
+
 /**
  * Routes uncaught errors, unhandled promise rejections, and console.error/warn
  * into the app log (in-app list + on-disk file). Installed once at startup.
@@ -57,6 +59,12 @@ export function installGlobalErrorCapture(): void {
     report("error", "Unexpected error", event.error ? formatArg(event.error) : event.message);
   });
   window.addEventListener("unhandledrejection", (event) => {
+    // Native commands invoked in a plain browser reject by design; swallow them
+    // so a web deployment does not surface a wall of desktop-only errors.
+    if (isWebBridgeUnavailable(event.reason)) {
+      event.preventDefault();
+      return;
+    }
     report("error", "Unhandled promise rejection", formatArg(event.reason));
   });
 
