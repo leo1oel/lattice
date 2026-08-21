@@ -19,12 +19,12 @@
     "yjs": "^13.6.31"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.20.1",
-    "@cloudflare/workers-types": "^4.20260702.1",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260818.1",
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10",
-    "wrangler": "^4.28.0"
+    "wrangler": "^4.124.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
