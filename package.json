@@ -168,7 +168,7 @@
     "y-partyserver": "^2.2.0",
     "y-protocols": "1.0.7",
     "yaml": "^2.9.0",
-    "yjs": "^13.6.31",
+    "yjs": "^13.6.32",
     "zod": "^4.4.3"
   },
   "devDependencies": {
