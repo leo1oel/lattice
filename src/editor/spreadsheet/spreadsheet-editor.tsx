@@ -628,9 +628,20 @@ function withStoredSheetViewState(
 }
 
 function structureFingerprint(workbook: SpreadsheetWorkbookData): string {
-  const copy = clone(workbook);
-  for (const sheet of Object.values(copy.sheets)) sheet.cellData = {};
-  return JSON.stringify(copy);
+  return JSON.stringify({
+    sheetOrder: workbook.sheetOrder,
+    sheets: Object.fromEntries(
+      workbook.sheetOrder.map((id) => {
+        const sheet = workbook.sheets[id];
+        return [id, {
+          id: sheet?.id,
+          name: sheet?.name,
+          rowCount: sheet?.rowCount,
+          columnCount: sheet?.columnCount,
+        }];
+      }),
+    ),
+  });
 }
 
 function workbookViewState(workbook: FWorkbook): SpreadsheetFileViewState {
@@ -1136,6 +1147,8 @@ function SpreadsheetEditorSurface({
         } finally {
           applyingRemote = false;
         }
+      } else if (structureFingerprint(next) === structureFingerprint(renderedSnapshot)) {
+        renderedSnapshot = next;
       } else {
         replaceWorkbook(next);
       }
@@ -1191,6 +1204,7 @@ function SpreadsheetEditorSurface({
         const next = withSheetViewState(commandSnapshot(workbook, renderedSnapshot), renderedSnapshot);
         if (sameJson(next, renderedSnapshot)) return;
         reconcileSpreadsheetDocChanges(doc, renderedSnapshot, next, SPREADSHEET_LOCAL_ORIGIN);
+        renderedSnapshot = next;
         // A remote transaction can land after the command event but before
         // this microtask. Render the merged Y.Doc immediately so the local
         // snapshot neither erases that update nor hides it in Univer.

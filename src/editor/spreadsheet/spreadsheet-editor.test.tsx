@@ -436,6 +436,32 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(univerMock.disposed).toBe(1);
   });
 
+  it("preserves workbook instance without rebuild when resizing column width locally", async () => {
+    const file = createDefaultSpreadsheet("Resize");
+    const onChange = vi.fn();
+    const view = render(
+      <SpreadsheetEditor
+        path="resize.lattice-sheet"
+        source={serializeSpreadsheetFile(file.workbook)}
+        onChange={onChange}
+        onPersist={async () => true}
+      />,
+    );
+    const initialWorkbookCount = univerMock.workbooks.length;
+    const workbook = univerMock.workbooks[0];
+    const sheet = workbook.data.sheets[workbook.data.sheetOrder[0]];
+    sheet.columnData = { 5: { w: 240 } };
+
+    await act(async () => {
+      univerMock.api?.commandListener?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(univerMock.workbooks.length).toBe(initialWorkbookCount);
+    expect(univerMock.api?.disposeUnit).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   it("exports the current workbook as a binary Excel file", async () => {
     await activateAppLocale("zh-CN");
     tauriMock.save.mockResolvedValue("/tmp/results.xlsx");
