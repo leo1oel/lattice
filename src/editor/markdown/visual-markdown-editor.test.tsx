@@ -4742,11 +4742,21 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("Changed\r\n", "Hello\r\n"));
   });
 
-  it("opens relative project links on an ordinary click", async () => {
+  it.each([
+    ["space escape", "./Agent%20Memory.md", "notes/Agent Memory.md"],
+    ["UTF-8 escapes", "./%E7%A0%94%E7%A9%B6.md", "notes/研究.md"],
+    ["escaped slash", "./a%2Fb.md", "notes/a%2Fb.md"],
+    ["escaped backslash", "./a%5Cb.md", "notes/a%5Cb.md"],
+    ["escaped current-directory segment", "./%2E/secret.md", "notes/%2E/secret.md"],
+    ["escaped parent-directory segment", "./%2E%2E/secret.md", "notes/%2E%2E/secret.md"],
+    ["malformed escape", "./100%ZZ.md", "notes/100%ZZ.md"],
+    ["fragment", "./Agent%20Memory.md#section", "notes/Agent Memory.md"],
+    ["literal parent segment", "../sibling/file.md", "sibling/file.md"],
+  ])("opens a relative project link containing %s on an ordinary click", async (_case, href, expectedPath) => {
     const onOpenProjectPath = vi.fn();
     render(
       <VisualMarkdownEditor
-        text="[Details](details.md)"
+        text={`[Details](${href})`}
         activePath="notes/index.md"
         onChangeMarkdown={() => true}
         onOpenProjectPath={onOpenProjectPath}
@@ -4756,7 +4766,7 @@ describe("VisualMarkdownEditor", () => {
     );
     const link = await screen.findByRole("link", { name: "Details" });
     fireEvent.click(link);
-    expect(onOpenProjectPath).toHaveBeenCalledWith("notes/details.md");
+    expect(onOpenProjectPath).toHaveBeenCalledWith(expectedPath);
   });
 
   it("round-trips Markdown images instead of dropping them on the first edit", async () => {

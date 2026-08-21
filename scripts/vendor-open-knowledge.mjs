@@ -502,6 +502,41 @@ ${hostListbox}
     /editor\.chain\(\)\.focus\(\)\.toggleHighlight\(\)\.run\(\)/g,
     "editor.chain().focus().toggleHighlight({ color: '#FFD875' }).run()",
   ],
+  // Selectively carry Open Knowledge 28879c82: Panzoom translates the SVG,
+  // so the labeled directions need the opposite coordinate signs. Smooth
+  // control pans without overriding the user's reduced-motion preference.
+  [
+    /import \{ type ComponentProps, useEffect, useLayoutEffect, useRef, useState \} from 'react';/g,
+    "import { type ComponentProps, useEffect, useLayoutEffect, useRef, useState } from 'react';\nimport { useReducedMotion } from 'motion/react';",
+  ],
+  [
+    /const MERMAID_PAN_STEP = 48;/g,
+    "const MERMAID_PAN_STEP = 48;\nconst MERMAID_PAN_ANIMATE_MS = 200;\nconst MERMAID_PAN_EASING = 'ease-out';",
+  ],
+  [
+    /  const \{ t \} = useLingui\(\);\n  const labels = \{\n    zoomIn: t`Zoom in`,/g,
+    "  const { t } = useLingui();\n  const reducedMotion = useReducedMotion();\n  const labels = {\n    zoomIn: t`Zoom in`,",
+  ],
+  [
+    /  const panBy = \(x: number, y: number\) => \{\n    panzoomRef\.current\?\.pan\(x, y, \{ relative: true \}\);\n  \};/g,
+    "  // Panzoom translates the SVG element itself, so +y moves the diagram down\n  // and the viewport up — an Up arrow needs to pass +MERMAID_PAN_STEP.\n  const panBy = (x: number, y: number) => {\n    panzoomRef.current?.pan(x, y, {\n      animate: !reducedMotion,\n      duration: MERMAID_PAN_ANIMATE_MS,\n      easing: MERMAID_PAN_EASING,\n      relative: true,\n    });\n  };",
+  ],
+  [
+    /title=\{labels\.panUp\}\n        aria-label=\{labels\.panUp\}\n        onClick=\{\(\) => panBy\(0, -MERMAID_PAN_STEP\)\}/g,
+    "title={labels.panUp}\n        aria-label={labels.panUp}\n        onClick={() => panBy(0, MERMAID_PAN_STEP)}",
+  ],
+  [
+    /title=\{labels\.panLeft\}\n        aria-label=\{labels\.panLeft\}\n        onClick=\{\(\) => panBy\(-MERMAID_PAN_STEP, 0\)\}/g,
+    "title={labels.panLeft}\n        aria-label={labels.panLeft}\n        onClick={() => panBy(MERMAID_PAN_STEP, 0)}",
+  ],
+  [
+    /title=\{labels\.panRight\}\n        aria-label=\{labels\.panRight\}\n        onClick=\{\(\) => panBy\(MERMAID_PAN_STEP, 0\)\}/g,
+    "title={labels.panRight}\n        aria-label={labels.panRight}\n        onClick={() => panBy(-MERMAID_PAN_STEP, 0)}",
+  ],
+  [
+    /title=\{labels\.panDown\}\n        aria-label=\{labels\.panDown\}\n        onClick=\{\(\) => panBy\(0, MERMAID_PAN_STEP\)\}/g,
+    "title={labels.panDown}\n        aria-label={labels.panDown}\n        onClick={() => panBy(0, -MERMAID_PAN_STEP)}",
+  ],
   // Mermaid stays a normal code block. Add it to the existing HTML-style
   // language picker + eye-toggle preview path and render MermaidView in the
   // preview surface instead of an iframe.

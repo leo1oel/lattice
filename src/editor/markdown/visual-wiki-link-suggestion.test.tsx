@@ -17,6 +17,7 @@ import { getMarkdownManager } from "./visual-markdown-schema";
 const contents: Record<string, string> = {
   "notes.md": "# Notes",
   "TargetDoc.md": "# Target title\n## Installation Guide\n### Details",
+  "Agent%20Memory.md": "# Literal percent escape",
   "other.md": "# Other page\n## Background",
 };
 
@@ -87,5 +88,12 @@ describe("visual wiki-link suggestion", () => {
     const { surface } = renderEditor("[[TargetDoc]]", onOpenProjectPath);
     fireEvent.click(surface.querySelector("[data-wiki-link]")!, { metaKey: true });
     expect(onOpenProjectPath).toHaveBeenCalledWith("TargetDoc.md");
+  });
+
+  it("keeps percent escapes literal in wiki-link targets", () => {
+    const onOpenProjectPath = vi.fn();
+    const { surface } = renderEditor("[[Agent%20Memory]]", onOpenProjectPath);
+    fireEvent.click(surface.querySelector("[data-wiki-link]")!, { metaKey: true });
+    expect(onOpenProjectPath).toHaveBeenCalledWith("Agent%20Memory.md");
   });
 });

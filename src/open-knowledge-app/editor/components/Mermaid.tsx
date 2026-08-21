@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import type { default as MermaidNS } from 'mermaid';
 import { type ComponentProps, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 import { Button } from '@ok-app/components/ui/button';
 import { cn } from '@ok-app/lib/utils.ts';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
@@ -97,6 +98,8 @@ const MERMAID_ZOOM_MIN = 0.5;
 const MERMAID_ZOOM_MAX = 4;
 const MERMAID_ZOOM_STEP = 0.25;
 const MERMAID_PAN_STEP = 48;
+const MERMAID_PAN_ANIMATE_MS = 200;
+const MERMAID_PAN_EASING = 'ease-out';
 const buttonProps: ComponentProps<typeof Button> = {
   type: 'button',
   size: 'icon-sm',
@@ -603,6 +606,7 @@ function MermaidViewControls({
   panzoomRef: React.RefObject<PanzoomObject | null>;
 }) {
   const { t } = useLingui();
+  const reducedMotion = useReducedMotion();
   const labels = {
     zoomIn: t`Zoom in`,
     zoomOut: t`Zoom out`,
@@ -614,8 +618,15 @@ function MermaidViewControls({
     toolbar: t`Mermaid diagram controls`,
   } as const;
 
+  // Panzoom translates the SVG element itself, so +y moves the diagram down
+  // and the viewport up — an Up arrow needs to pass +MERMAID_PAN_STEP.
   const panBy = (x: number, y: number) => {
-    panzoomRef.current?.pan(x, y, { relative: true });
+    panzoomRef.current?.pan(x, y, {
+      animate: !reducedMotion,
+      duration: MERMAID_PAN_ANIMATE_MS,
+      easing: MERMAID_PAN_EASING,
+      relative: true,
+    });
   };
 
   return (
@@ -630,7 +641,7 @@ function MermaidViewControls({
         {...buttonProps}
         title={labels.panUp}
         aria-label={labels.panUp}
-        onClick={() => panBy(0, -MERMAID_PAN_STEP)}
+        onClick={() => panBy(0, MERMAID_PAN_STEP)}
       >
         <ArrowUp className="size-4" aria-hidden="true" />
       </Button>
@@ -646,7 +657,7 @@ function MermaidViewControls({
         {...buttonProps}
         title={labels.panLeft}
         aria-label={labels.panLeft}
-        onClick={() => panBy(-MERMAID_PAN_STEP, 0)}
+        onClick={() => panBy(MERMAID_PAN_STEP, 0)}
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
       </Button>
@@ -662,7 +673,7 @@ function MermaidViewControls({
         {...buttonProps}
         title={labels.panRight}
         aria-label={labels.panRight}
-        onClick={() => panBy(MERMAID_PAN_STEP, 0)}
+        onClick={() => panBy(-MERMAID_PAN_STEP, 0)}
       >
         <ArrowRight className="size-4" aria-hidden="true" />
       </Button>
@@ -671,7 +682,7 @@ function MermaidViewControls({
         {...buttonProps}
         title={labels.panDown}
         aria-label={labels.panDown}
-        onClick={() => panBy(0, MERMAID_PAN_STEP)}
+        onClick={() => panBy(0, -MERMAID_PAN_STEP)}
       >
         <ArrowDown className="size-4" aria-hidden="true" />
       </Button>

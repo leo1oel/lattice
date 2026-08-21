@@ -1426,15 +1426,34 @@ type VisualMarkdownEditorProps = {
   onConsumeInitialHandoff?: () => void;
 };
 
+function decodeProjectLinkSegment(segment: string): string {
+  if (!segment.includes("%")) return segment;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+  // An encoded octet is segment data, not new hierarchy. Refuse decodes that
+  // would mint separators, traversal, or a NUL and keep the authored bytes.
+  if (
+    decoded === "."
+    || decoded === ".."
+    || decoded.includes("/")
+    || decoded.includes("\\")
+    || decoded.includes("\0")
+  ) return segment;
+  return decoded;
+}
+
 function resolveProjectLink(activePath: string, href: string): string | null {
   const rawPath = href.split(/[?#]/, 1)[0];
   if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) return null;
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
-  } catch {
-    return null;
-  }
+  const decoded = rawPath
+    .replace(/\\/g, "/")
+    .split("/")
+    .map(decodeProjectLinkSegment)
+    .join("/");
   const parts = decoded.startsWith("/")
     ? []
     : activePath.replace(/\\/g, "/").split("/").slice(0, -1).filter(Boolean);

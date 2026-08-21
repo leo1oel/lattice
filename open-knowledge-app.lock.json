@@ -2,7 +2,7 @@
   "upstream": "https://github.com/inkeep/open-knowledge",
   "commit": "7120dc1f61f67468e3fda71d18390a0c6f1503e3",
   "sourceRoot": "packages/app/src",
-  "vendoredAt": "2026-08-07T21:33:42.672Z",
+  "vendoredAt": "2026-08-21T07:47:41.531Z",
   "note": "Regenerate with: node scripts/vendor-open-knowledge.mjs. Do not hand-edit vendored files; local seams live alongside but are not in this lock.",
   "files": {
     "editor/extensions/drag-handle.ts": "0d6b503700148493",
@@ -136,7 +136,7 @@
     "editor/components/Embed.tsx": "96524b6a23bd11de",
     "editor/components/Image.tsx": "a2fe6365afdff929",
     "editor/components/Math.tsx": "a33de6feee0b5fce",
-    "editor/components/Mermaid.tsx": "c5b7eae662ebe333",
+    "editor/components/Mermaid.tsx": "f557112ea209cef7",
     "editor/components/MirrorSource.tsx": "6b5cee85219f708d",
     "editor/components/Pdf.tsx": "2dcf598e2320bc7a",
     "editor/components/pdf-layout.ts": "e22472a16c1b40aa",
