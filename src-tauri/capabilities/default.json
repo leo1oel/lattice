@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the project windows. Every project window runs the same App and can expose every listed feature, so a per-window split would not reduce authority. `allow-destroy` is required because the close-request listener leaves collaboration presence before destroying the window. Opener URL scope remains http(s), mailto, and tel; the backend opens Lattice's log directory without granting the WebView arbitrary path opening. Clipboard text read supports link paste prefill, image read supports figure paste, and text write supports copy actions. Dialog open/save/message, update check/download-and-install, process restart, logging, drag/fullscreen/min-size, zoom, and core event/IPC/window defaults all have frontend callers.",
+  "description": "Capability for the project windows. Every project window runs the same App and can expose every listed feature, so a per-window split would not reduce authority. `allow-close` lets a workspace request its normal close lifecycle during browser handoff; `allow-destroy` is required because that close-request listener leaves collaboration presence before destroying the window. Opener URL scope remains http(s), mailto, and tel; the backend opens Lattice's log directory without granting the WebView arbitrary path opening. Clipboard text read supports link paste prefill, image read supports figure paste, and text write supports copy actions. Dialog open/save/message, update check/download-and-install, process restart, logging, drag/fullscreen/min-size, zoom, and core event/IPC/window defaults all have frontend callers.",
   "windows": ["main", "project-*", "browser-*"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",

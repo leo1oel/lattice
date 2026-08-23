@@ -2881,10 +2881,6 @@ msgstr "Open in Overleaf"
 msgid "Open landing page"
 msgstr "Open landing page"
 
-#: src/settings/settings-dialog.tsx
-msgid "Open Lattice in your browser"
-msgstr "Open Lattice in your browser"
-
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"

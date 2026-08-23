@@ -24,6 +24,7 @@ function readJson<T>(path: string): T {
 
 const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
+const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 
 describe("Tauri security boundary", () => {
   it("keeps an explicit production and development CSP", () => {
@@ -83,6 +84,7 @@ describe("Tauri security boundary", () => {
     expect(capability.windows).toEqual(["main", "project-*", "browser-*"]);
     expect(capability.permissions).toEqual([
       "core:default",
+      "core:window:allow-close",
       "core:window:allow-destroy",
       "core:window:allow-start-dragging",
       "core:window:allow-set-fullscreen",
@@ -106,5 +108,11 @@ describe("Tauri security boundary", () => {
     expect(capability.permissions).not.toContain("opener:allow-open-path");
     expect(capability.permissions).not.toContain("dialog:default");
     expect(capability.permissions).not.toContain("updater:default");
+  });
+
+  it("keeps browser bridge windows hidden during the handoff", () => {
+    // The window-state plugin shows new dynamic windows unless they are
+    // filtered out, overriding the bridge builder's `visible(false)` setting.
+    expect(rustApp).toContain('.with_filter(|label| !label.starts_with("browser-"))');
   });
 });

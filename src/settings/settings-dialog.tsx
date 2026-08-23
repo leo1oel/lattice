@@ -593,29 +593,6 @@ export function SettingsDialog(props: {
                   title={t`Appearance`}
                   description={t`These preferences apply across every project on this Mac`}
                 />
-                <SettingsGroup title={t`Browser`}>
-                  <SettingsRow
-                    label={browserHosted ? t`Opened in browser` : t`Open Lattice in your browser`}
-                    description={browserHosted
-                      ? t`The installed Lattice app is providing all local tools to this tab.`
-                      : t`Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac.`}
-                  >
-                    {!browserHosted && (
-                      <Button
-                        size="compact"
-                        disabled={browserOpening}
-                        onClick={() => void openInBrowser()}
-                      >
-                        {browserOpening ? t`Opening…` : t`Open in browser`}
-                      </Button>
-                    )}
-                  </SettingsRow>
-                  {browserOpenError && (
-                    <InlineMessage level="error" className="settings-inline">
-                      {browserOpenError}
-                    </InlineMessage>
-                  )}
-                </SettingsGroup>
                 <SettingsGroup title={t`Language`}>
                   <SettingsRow
                     label={t`Interface language`}
@@ -677,6 +654,29 @@ export function SettingsDialog(props: {
                       interfaceSounds,
                     })}
                   />
+                </SettingsGroup>
+                <SettingsGroup title={t`Browser`}>
+                  <SettingsRow
+                    label={browserHosted ? t`Opened in browser` : t`Open in browser`}
+                    description={browserHosted
+                      ? t`The installed Lattice app is providing all local tools to this tab.`
+                      : t`Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac.`}
+                  >
+                    {!browserHosted && (
+                      <Button
+                        size="compact"
+                        disabled={browserOpening}
+                        onClick={() => void openInBrowser()}
+                      >
+                        {browserOpening ? t`Opening…` : t`Open in browser`}
+                      </Button>
+                    )}
+                  </SettingsRow>
+                  {browserOpenError && (
+                    <InlineMessage level="error" className="settings-inline">
+                      {browserOpenError}
+                    </InlineMessage>
+                  )}
                 </SettingsGroup>
               </div>
             )}

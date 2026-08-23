@@ -3791,7 +3791,15 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         // Remember the window's size + position across launches.
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // The browser bridge is deliberately hidden. The plugin's default
+        // restore path shows every newly created dynamic window, even when its
+        // builder says `visible(false)`, so bridge windows must stay outside
+        // this lifecycle entirely.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_filter(|label| !label.starts_with("browser-"))
+                .build(),
+        )
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(is_focused) = event {
                 macos_window::set_window_focused(window.label(), *is_focused);
