@@ -596,6 +596,10 @@ msgstr "恢复 {0}"
 msgid "Browse your bibliography"
 msgstr "浏览参考文献"
 
+#: src/settings/settings-dialog.tsx
+msgid "Browser"
+msgstr "浏览器"
+
 #: src/App.tsx
 #: src/app/app-titlebar.tsx
 msgid "Build"
@@ -2556,6 +2560,10 @@ msgstr "满足 / 蕴涵"
 msgid "modified"
 msgstr "已修改"
 
+#: src/settings/settings-dialog.tsx
+msgid "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
+msgstr "将此工作区移至默认浏览器中。文件、LaTeX、智能助手和凭据仍保留在这台 Mac 上。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "缪"
@@ -2861,6 +2869,10 @@ msgstr "打开引导式教程"
 msgid "Open here"
 msgstr "在此打开"
 
+#: src/settings/settings-dialog.tsx
+msgid "Open in browser"
+msgstr "在浏览器中打开"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
@@ -2868,6 +2880,10 @@ msgstr "在 Overleaf 中打开"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open landing page"
 msgstr "打开论文主页"
+
+#: src/settings/settings-dialog.tsx
+msgid "Open Lattice in your browser"
+msgstr "在浏览器中打开 Lattice"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
@@ -2929,6 +2945,10 @@ msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
 
+#: src/settings/settings-dialog.tsx
+msgid "Opened in browser"
+msgstr "已在浏览器中打开"
+
 #. placeholder {0}: primaryOpening.label
 #: src/App.tsx
 msgid "Opening {0}…"
@@ -2937,6 +2957,10 @@ msgstr "正在打开{0}…"
 #: src/app/use-collab-v2-session.ts
 msgid "Opening the shared document…"
 msgstr "正在打开共享文档…"
+
+#: src/settings/settings-dialog.tsx
+msgid "Opening…"
+msgstr "正在打开…"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Operators"
@@ -3764,6 +3788,10 @@ msgstr "保存 PDF"
 msgid "Save PDF as…"
 msgstr "将 PDF 另存为…"
 
+#: src/App.tsx
+msgid "Save the current workspace before opening it in a browser."
+msgstr "请先保存当前工作区，再在浏览器中打开。"
+
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "保存版本"
@@ -4254,6 +4282,10 @@ msgstr "主机已结束此次共享，已重新打开你自己的项目。"
 #: src/app/use-collab-v2-session.ts
 msgid "The host removed you from this share. Your own project is open again."
 msgstr "主机已将你移出此次共享，已重新打开你自己的项目。"
+
+#: src/settings/settings-dialog.tsx
+msgid "The installed Lattice app is providing all local tools to this tab."
+msgstr "已安装的 Lattice 应用正在为此标签页提供所有本地工具。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"

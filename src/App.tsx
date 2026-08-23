@@ -43,6 +43,7 @@ import {
   mergeEditorComments,
 } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
+import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { usePanelLayout } from "./app/use-panel-layout";
 import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
@@ -2840,6 +2841,29 @@ function App() {
       return primaryDirty || secondarySourceRef.current !== secondarySavedRef.current;
     };
   }, [activeAsset, activePaper]);
+
+  useEffect(() => {
+    if (!isBrowserHosted()) return;
+    const saveBrowserPage = (event?: BeforeUnloadEvent) => {
+      visualMarkdownFlushRef.current?.();
+      if (!hasLateProjectTransitionEditRef.current()) return;
+      // Sending the invoke begins synchronously before the tab is discarded.
+      // The confirmation keeps a just-typed buffer alive long enough for the
+      // loopback write to finish instead of losing the last autosave interval.
+      void saveBeforeProjectTransitionRef.current();
+      if (event) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    const pageHide = () => saveBrowserPage();
+    window.addEventListener("beforeunload", saveBrowserPage);
+    window.addEventListener("pagehide", pageHide);
+    return () => {
+      window.removeEventListener("beforeunload", saveBrowserPage);
+      window.removeEventListener("pagehide", pageHide);
+    };
+  }, []);
   const secondaryMtimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -7441,6 +7465,22 @@ function App() {
         onCleanProject={() => { void cleanProject(); }}
         cleaning={cleaning}
         building={building}
+        onOpenInBrowser={async () => {
+          if (!await startProjectTransition()) {
+            throw new Error(t`Save the current workspace before opening it in a browser.`);
+          }
+          try {
+            await invoke("open_in_browser");
+            setSettingsOpen(false);
+            // The existing close-request path leaves collaboration presence
+            // before destruction. The backend activates the browser only once
+            // that cleanup completes, so the two surfaces never edit together.
+            await getCurrentWindow().close();
+          } catch (reason) {
+            cancelProjectTransition();
+            throw reason;
+          }
+        }}
         appearance={appearance}
         setAppearance={setAppearance}
         localSemanticSearchEnabled={localSemanticSearchEnabled}

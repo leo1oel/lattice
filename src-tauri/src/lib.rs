@@ -1,4 +1,5 @@
 mod alphaxiv;
+mod browser_host;
 mod citation_health;
 mod collab_credentials;
 mod commands;
@@ -807,7 +808,9 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
 #[tauri::command]
 async fn open_project_window(
     app: tauri::AppHandle,
+    window: tauri::Window,
     state: tauri::State<'_, AppState>,
+    browser: tauri::State<'_, browser_host::BrowserHost>,
     path: String,
     pending: Option<String>,
 ) -> Result<OpenedProjectWindow, String> {
@@ -818,7 +821,14 @@ async fn open_project_window(
     let root = PathBuf::from(&snapshot.root);
 
     if let Some(label) = state.window_showing(&root) {
-        if let Some(existing) = app.get_webview_window(&label) {
+        if label.starts_with("browser-") {
+            if browser.reopen_window(&app, &label)? {
+                return Ok(OpenedProjectWindow {
+                    label,
+                    focused_existing: true,
+                });
+            }
+        } else if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.unminimize();
             let _ = existing.set_focus();
             // The window is already up, so it will not run startup again. The
@@ -831,6 +841,14 @@ async fn open_project_window(
         }
         // The binding outlived its window. Drop it and open a fresh one.
         state.release_window(&label);
+    }
+
+    if window.label().starts_with("browser-") {
+        let label = browser.open_project(&app, &state, root, pending)?;
+        return Ok(OpenedProjectWindow {
+            label,
+            focused_existing: false,
+        });
     }
 
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
@@ -1979,6 +1997,19 @@ fn open_app_log_dir(app: tauri::AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|error| format!("Could not open the log folder: {error}"))
+}
+
+/// Hand the current workspace to a browser tab while this installed app keeps
+/// every native capability behind a loopback-only, token-authenticated bridge.
+#[tauri::command]
+fn open_in_browser(
+    app: tauri::AppHandle,
+    browser: tauri::State<'_, browser_host::BrowserHost>,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+) -> Result<String, String> {
+    let project_root = state.root_for(window.label())?;
+    browser.open(&app, window.label(), project_root)
 }
 
 #[tauri::command]
@@ -3772,12 +3803,16 @@ pub fn run() {
                 macos_window::clear_pdf_copy_text(window.label());
                 let state = window.state::<AppState>();
                 state.release_window(window.label());
+                window
+                    .state::<browser_host::BrowserHost>()
+                    .activate_source(window.label(), &state);
                 state.retire_unused_projects();
             }
         })
         .setup(|app| {
             log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
             app.manage(AppState::from_environment());
+            app.manage(browser_host::BrowserHost::default());
             app.manage(synara::SynaraRuntime::new(app)?);
             // After an update changed a tool pin, this rebuilds the uvx
             // environment now instead of during the user's first import.
@@ -3803,6 +3838,7 @@ pub fn run() {
             open_tutorial_project,
             get_app_log_dir,
             open_app_log_dir,
+            open_in_browser,
             create_collab_join_workspace,
             initial_project,
             open_project,

@@ -596,6 +596,10 @@ msgstr "Bring back {0}"
 msgid "Browse your bibliography"
 msgstr "Browse your bibliography"
 
+#: src/settings/settings-dialog.tsx
+msgid "Browser"
+msgstr "Browser"
+
 #: src/App.tsx
 #: src/app/app-titlebar.tsx
 msgid "Build"
@@ -2556,6 +2560,10 @@ msgstr "Models / entails"
 msgid "modified"
 msgstr "modified"
 
+#: src/settings/settings-dialog.tsx
+msgid "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
+msgstr "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "Mu"
@@ -2861,6 +2869,10 @@ msgstr "Open guided tutorial"
 msgid "Open here"
 msgstr "Open here"
 
+#: src/settings/settings-dialog.tsx
+msgid "Open in browser"
+msgstr "Open in browser"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
@@ -2868,6 +2880,10 @@ msgstr "Open in Overleaf"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open landing page"
 msgstr "Open landing page"
+
+#: src/settings/settings-dialog.tsx
+msgid "Open Lattice in your browser"
+msgstr "Open Lattice in your browser"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
@@ -2929,6 +2945,10 @@ msgstr "Open this Agent task before restoring its files"
 msgid "OpenAlex search"
 msgstr "OpenAlex search"
 
+#: src/settings/settings-dialog.tsx
+msgid "Opened in browser"
+msgstr "Opened in browser"
+
 #. placeholder {0}: primaryOpening.label
 #: src/App.tsx
 msgid "Opening {0}…"
@@ -2937,6 +2957,10 @@ msgstr "Opening {0}…"
 #: src/app/use-collab-v2-session.ts
 msgid "Opening the shared document…"
 msgstr "Opening the shared document…"
+
+#: src/settings/settings-dialog.tsx
+msgid "Opening…"
+msgstr "Opening…"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Operators"
@@ -3766,6 +3790,10 @@ msgstr "Save PDF"
 msgid "Save PDF as…"
 msgstr "Save PDF as…"
 
+#: src/App.tsx
+msgid "Save the current workspace before opening it in a browser."
+msgstr "Save the current workspace before opening it in a browser."
+
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "Save version"
@@ -4258,6 +4286,10 @@ msgstr "The host ended this share. Your own project is open again."
 #: src/app/use-collab-v2-session.ts
 msgid "The host removed you from this share. Your own project is open again."
 msgstr "The host removed you from this share. Your own project is open again."
+
+#: src/settings/settings-dialog.tsx
+msgid "The installed Lattice app is providing all local tools to this tab."
+msgstr "The installed Lattice app is providing all local tools to this tab."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"

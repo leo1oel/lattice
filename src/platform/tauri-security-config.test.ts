@@ -78,7 +78,9 @@ describe("Tauri security boundary", () => {
   });
 
   it("keeps project-window permissions tied to observed API callers", () => {
-    expect(capability.windows).toEqual(["main", "project-*"]);
+    // Browser-host windows are hidden native WebViews that execute the same
+    // authorized API calls on behalf of a token-authenticated loopback tab.
+    expect(capability.windows).toEqual(["main", "project-*", "browser-*"]);
     expect(capability.permissions).toEqual([
       "core:default",
       "core:window:allow-destroy",

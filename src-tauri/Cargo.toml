@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.236"
+version = "0.1.237"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -70,9 +70,10 @@ sha2 = "0.10"
 md5 = "0.7"
 html-escape = "0.2.14"
 diffy = "0.5.1"
-tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
 tokio = { version = "1", features = ["sync", "net", "time"] }
+axum = { version = "0.8", features = ["ws"] }
 keyring = { version = "3", features = ["apple-native"] }
 rustix = { version = "1", features = ["fs"] }
 anydoc = "0.1.7"

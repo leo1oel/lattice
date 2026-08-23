@@ -1,3 +1,4 @@
+import { browserRuntimeError, browserRuntimeReady } from "./platform/browser-runtime";
 import "./platform/polyfills";
 // OpenKnowledge imports the zoom package's structural stylesheet once at the
 // app root. Without it, the native dialog expands as an unstyled white page,
@@ -20,16 +21,17 @@ import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
 
-installGlobalErrorCapture();
-
-// Dev-only perf probe (docs/performance.md). The DEV guard makes the whole
-// branch dead code in production builds; the dynamic import keeps it out of
-// the startup chunk in dev.
-if (import.meta.env.DEV && localStorage.getItem("lattice-perf")) {
-  void import("./platform/perf-probe").then((probe) => probe.installPerfProbe());
-}
-
 async function startApp() {
+  await browserRuntimeReady();
+  installGlobalErrorCapture();
+
+  // Dev-only perf probe (docs/performance.md). The DEV guard makes the whole
+  // branch dead code in production builds; the dynamic import keeps it out of
+  // the startup chunk in dev.
+  if (import.meta.env.DEV && localStorage.getItem("lattice-perf")) {
+    void import("./platform/perf-probe").then((probe) => probe.installPerfProbe());
+  }
+
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <I18nProvider i18n={i18n}>
@@ -46,4 +48,21 @@ async function startApp() {
   );
 }
 
-void startApp();
+function showUnavailable(reason: unknown) {
+  const root = document.getElementById("root");
+  if (!root) return;
+  root.style.cssText = "min-height:100vh;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  root.textContent = reason instanceof Error ? reason.message : String(reason);
+}
+
+const hostConfig = window.__LATTICE_BROWSER_HOST_CONFIG__;
+const unavailable = browserRuntimeError();
+if (hostConfig) {
+  void import("./platform/browser-host-bridge").then(({ startBrowserHostBridge }) => {
+    startBrowserHostBridge(hostConfig);
+  });
+} else if (unavailable) {
+  showUnavailable(unavailable);
+} else {
+  void startApp().catch(showUnavailable);
+}

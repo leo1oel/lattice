@@ -72,6 +72,7 @@ import {
   isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
 } from "../agent/synara-settings-layout";
+import { isBrowserHosted } from "../platform/browser-runtime";
 
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
   agent: "providers",
@@ -129,6 +130,7 @@ export function SettingsDialog(props: {
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
+  onOpenInBrowser: () => Promise<void>;
   onClose: () => void;
 }) {
   const { t } = useLingui();
@@ -173,6 +175,9 @@ export function SettingsDialog(props: {
   const [synaraSettingsFrameHeight, setSynaraSettingsFrameHeight] = useState(470);
   const [readySynaraSettingsUrl, setReadySynaraSettingsUrl] = useState<string | null>(null);
   const [projectWordDraft, setProjectWordDraft] = useState("");
+  const [browserOpening, setBrowserOpening] = useState(false);
+  const [browserOpenError, setBrowserOpenError] = useState("");
+  const browserHosted = isBrowserHosted();
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
@@ -183,6 +188,17 @@ export function SettingsDialog(props: {
       props.onUpdateManifest({ spellingWords: [...projectSpellingWords, word] });
     }
     setProjectWordDraft("");
+  };
+  const openInBrowser = async () => {
+    if (browserOpening || browserHosted) return;
+    setBrowserOpening(true);
+    setBrowserOpenError("");
+    try {
+      await props.onOpenInBrowser();
+    } catch (reason) {
+      setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
+      setBrowserOpening(false);
+    }
   };
   const synaraEmbedUrl = props.synaraRuntime.state === "ready"
     ? props.synaraRuntime.origin
@@ -577,6 +593,29 @@ export function SettingsDialog(props: {
                   title={t`Appearance`}
                   description={t`These preferences apply across every project on this Mac`}
                 />
+                <SettingsGroup title={t`Browser`}>
+                  <SettingsRow
+                    label={browserHosted ? t`Opened in browser` : t`Open Lattice in your browser`}
+                    description={browserHosted
+                      ? t`The installed Lattice app is providing all local tools to this tab.`
+                      : t`Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac.`}
+                  >
+                    {!browserHosted && (
+                      <Button
+                        size="compact"
+                        disabled={browserOpening}
+                        onClick={() => void openInBrowser()}
+                      >
+                        {browserOpening ? t`Opening…` : t`Open in browser`}
+                      </Button>
+                    )}
+                  </SettingsRow>
+                  {browserOpenError && (
+                    <InlineMessage level="error" className="settings-inline">
+                      {browserOpenError}
+                    </InlineMessage>
+                  )}
+                </SettingsGroup>
                 <SettingsGroup title={t`Language`}>
                   <SettingsRow
                     label={t`Interface language`}

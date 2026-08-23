@@ -13,3 +13,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  __LATTICE_BROWSER_HOST_CONFIG__?: {
+    token: string;
+    port: number;
+  };
+}

@@ -9315,13 +9315,13 @@ For more information on this, and how to apply and follow the GNU AGPL, see
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**913 packages.**
+**914 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT OR Apache-2.0` | 446 |
-| `MIT` | 215 |
-| `Apache-2.0 OR MIT` | 62 |
+| `MIT OR Apache-2.0` | 444 |
+| `MIT` | 218 |
+| `Apache-2.0 OR MIT` | 61 |
 | `MIT/Apache-2.0` | 43 |
 | `Zlib OR Apache-2.0 OR MIT` | 21 |
 | `Apache-2.0` | 19 |
@@ -9357,19 +9357,20 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `BSD-3-Clause/MIT` | 1 |
 | `CC0-1.0 OR MIT-0 OR Apache-2.0` | 1 |
 | `MIT / Apache-2.0` | 1 |
+| `MIT AND BSD-3-Clause` | 1 |
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 
-### License texts (95 distinct texts across 913 packages)
+### License texts (96 distinct texts across 914 packages)
 
-#### 1. MIT OR Apache-2.0 (+17 other declarations) — 446 package(s), from `LICENSE-MIT`
+#### 1. MIT OR Apache-2.0 (+17 other declarations) — 444 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
-`adler2@2.0.1`, `aes@0.8.4`, `ahash@0.8.12`, `allocator-api2@0.2.21`, `ammonia@4.1.4`, `android_log-sys@0.3.2`, `android_logger@0.15.1`, `anstream@1.0.0`, `anstyle-parse@1.0.0`, `anstyle-query@1.1.5`, `anstyle-wincon@3.0.11`, `anstyle@1.0.14`, `anyhow@1.0.103`, `arrayvec@0.7.8`, `ash@0.38.0+1.3.281`, `async-channel@2.5.0`, `async-executor@1.14.0`, `async-io@2.6.0`, `async-lock@3.4.2`, `async-process@2.5.0`, `async-recursion@1.1.1`, `async-signal@0.2.14`, `async-task@4.7.1`, `async-trait@0.1.89`, `atk-sys@0.18.2`, `atk@0.18.2`, `atoi_simd@0.18.1`, `atomic_float@1.1.0`, `atomic-waker@1.1.2`, `autocfg@1.5.1`, `bit-set@0.8.0`, `bit-vec@0.8.0`, `bitflags@1.3.2`, `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-buffer@0.12.1`, `block-padding@0.3.3`, `blocking@1.6.2`, `brotli@8.0.4`, `bumpalo@3.20.3`, `bytes@1.12.1`, `cairo-rs@0.18.5`, `cairo-sys-rs@0.18.2`, `camino@1.2.4`, `cargo_metadata@0.19.2`, `cargo-platform@0.1.9`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0`, `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clap_builder@4.6.6`, `clap_derive@4.6.4`, `clap_lex@1.1.0`, `clap@4.6.6`, `codepage@0.1.2`, `colorchoice@1.0.5`, `concurrent-queue@2.5.0`, `const-oid@0.10.2`, `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crypto-common@0.1.7`, `crypto-common@0.2.2`, `ctor-proc-macro@0.0.7`, `ctor@0.8.0`, `cudarc@0.17.8`, `dbus@0.9.12`, `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `diffy@0.5.1`, `digest@0.10.7`, `digest@0.11.3`, `dirs-sys@0.5.0`, `dirs@6.0.0`, `displaydoc@0.2.6`, `document-features@0.2.12`, `downcast-rs@1.2.1`, `dtoa@1.0.11`, `dtor-proc-macro@0.0.6`, `dtor@0.3.0`, `dyn-clone@1.0.20`, `either@1.17.0`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35`, `endi@1.1.1`, `enum-as-inner@0.6.1`, `enumflags2_derive@0.7.12`, `enumflags2@0.7.12`, `enumset_derive@0.15.0`, `enumset@1.1.14`, `env_filter@0.1.4`, `env_filter@2.0.0`, `env_logger@0.11.11`, `equivalent@1.0.2`, `erased-serde@0.4.10`, `errno@0.3.14`, `event-listener-strategy@0.5.4`, `event-listener@5.4.1`, `fallible-iterator@0.3.0`, `fallible-streaming-iterator@0.1.9`, `fast-float2@0.2.3`, `fastrand@2.4.1`, `fern@0.7.1`, `fid-rs@0.2.0`, `filetime@0.2.29`, `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2`, `fixedbitset@0.5.7`, `flate2@1.1.9`, `float-ord@0.3.2`, `fnv@1.0.7`, `foreign-types-macros@0.2.3`, `foreign-types-shared@0.3.1`, `foreign-types@0.5.0`, `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1`, `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gdk-pixbuf-sys@0.18.0`, `gdk-pixbuf@0.18.5`, `gdk-sys@0.18.2`, `gdk@0.18.2`, `gdkwayland-sys@0.18.2`, `gdkx11-sys@0.18.2`, `gdkx11@0.18.2`, `getopts@0.2.24`, `getrandom@0.2.17`, `getrandom@0.3.4`, `getrandom@0.4.3`, `gio-sys@0.18.1`, `gio@0.18.4`, `glib-macros@0.18.5`, `glib-sys@0.18.1`, `glib@0.18.5`, `glob@0.3.3`, `glow@0.16.0`, `gobject-sys@0.18.0`, `gpu-allocator@0.27.0`, `gtk-sys@0.18.2`, `gtk@0.18.2`, `gtk3-macros@0.18.2`, `h2@0.4.15`, `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `hex@0.4.3`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http-body-util@0.1.4`, `http-body@1.1.0`, `http@1.4.2`, `httparse@1.10.1`, `hybrid-array@0.4.13`, `hyper-rustls@0.27.9`, `hyper-util@0.1.20`, `hyper@1.10.1`, `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2`, `idna@1.1.0`, `indexmap@1.9.3`, `indexmap@2.14.0`, `inout@0.1.4`, `ipnet@2.12.0`, `is_terminal_polyfill@1.70.2`, `itertools@0.13.0`, `itertools@0.14.0`, `itoa@1.0.18`, `jni-sys@0.3.1`, `jni-sys@0.4.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0`, `kqueue-sys@1.1.2`, `kqueue@1.2.1`, `levenshtein_automata@0.2.1`, `libc@0.2.189`, `libdbus-sys@0.2.7`, `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `libsqlite3-sys@0.38.2`, `linux-raw-sys@0.12.1`, `litrs@1.0.0`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2`, `maplit@1.0.2`, `markup5ever@0.38.0`, `markup5ever@0.39.0`, `md-5@0.10.6`, `memmap2@0.9.11`, `memoffset@0.9.1`, `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1`, `mio@1.2.2`, `nb@0.1.3`, `nb@1.1.0`, `new_debug_unreachable@1.0.6`, `nom@7.1.3`, `nom@8.0.0`, `notify-types@2.1.0`, `num_cpus@1.17.0`, `num_enum_derive@0.7.6`, `num_enum@0.7.6`, `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-conv@0.2.2`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell_polyfill@1.70.2`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-float@4.6.0`, `ordered-float@5.3.0`, `ordered-stream@0.2.0`, `osakit@0.3.1`, `pango-sys@0.18.0`, `pango@0.18.3`, `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1`, `paste@1.0.15`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `pin-project-lite@0.2.17`, `piper@0.2.5`, `pkg-config@0.3.33`, `plist@1.10.0`, `png@0.17.16`, `png@0.18.1`, `polling@3.11.0`, `portable-atomic-util@0.2.7`, `portable-atomic@1.14.0`, `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `prettyplease@0.2.37`, `proc-macro-crate@1.3.1`, `proc-macro-crate@2.0.2`, `proc-macro-crate@3.5.0`, `proc-macro2@1.0.106`, `quick-error@2.0.1`, `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `quote@1.0.46`, `rand_chacha@0.9.0`, `rand_core@0.10.1`, `rand_core@0.6.4`, `rand_core@0.9.5`, `rand_distr@0.5.1`, `rand_pcg@0.10.2`, `rand@0.10.2`, `rand@0.8.7`, `rand@0.9.5`, `rangemap@1.7.1`, `rawpointer@0.2.1`, `rayon-core@1.13.0`, `rayon@1.12.0`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rusqlite@0.40.2`, `rustc_version@0.4.1`, `rustc-hash@1.1.0`, `rustc-hash@2.1.3`, `rustix@1.1.4`, `rustls-native-certs@0.8.4`, `rustls-pki-types@1.15.0`, `rustls@0.23.42`, `rustversion@1.0.23`, `schannel@0.1.29`, `scopeguard@1.2.0`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_repr@0.1.20`, `serde_spanned@0.6.9`, `serde_spanned@1.1.1`, `serde_urlencoded@0.7.1`, `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serde-untagged@0.1.9`, `serde@1.0.229`, `servo_arc@0.4.3`, `sha1@0.11.0`, `sha2@0.10.9`, `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0`, `slab@0.4.12`, `slug@0.1.6`, `smallvec@1.15.2`, `socket2@0.6.5`, `softbuffer@0.4.8`, `stable_deref_trait@1.2.1`, `stable-vec@0.4.2`, `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `stringprep@0.1.5`, `swift-rs@1.0.7`, `syn@1.0.109`, `syn@2.0.119`, `syn@3.0.3`, `synstructure@0.13.2`, `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `tinyvec@1.12.0`, `tokio-rustls@0.26.4`, `tokio-tungstenite@0.30.0`, `toml_datetime@0.6.3`, `toml_datetime@0.7.5+spec-1.1.0`, `toml_datetime@1.1.1+spec-1.1.0`, `toml_edit@0.19.15`, `toml_edit@0.20.2`, `toml_edit@0.25.13+spec-1.1.0`, `toml_parser@1.1.2+spec-1.1.0`, `toml_writer@1.1.2+spec-1.1.0`, `toml@0.8.2`, `toml@0.9.12+spec-1.1.0`, `toml@1.1.3+spec-1.1.0`, `tower-http@0.6.11`, `tower-layer@0.3.3`, `tower-service@0.3.3`, `tower@0.5.3`, `tracing-attributes@0.1.31`, `tracing-core@0.1.36`, `tracing@0.1.44`, `trie-rs@0.4.2`, `try-lock@0.2.5`, `ttf-parser@0.25.1`, `tungstenite@0.30.0`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicase@2.9.0`, `unicode_categories@0.1.1`, `unicode-bidi@0.3.18`, `unicode-ident@1.0.24`, `unicode-normalization@0.1.25`, `unicode-properties@0.1.4`, `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unindent@0.2.4`, `url@2.5.8`, `utf8_iter@1.0.4`, `utf8parse@0.2.2`, `uuid@1.24.1`, `vcpkg@0.2.15`, `version-compare@0.2.1`, `want@0.3.1`, `wasi@0.11.1+wasi-snapshot-preview1`, `wasip2@1.0.4+wasi-0.2.12`, `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wayland-backend@0.3.15`, `wayland-client@0.31.14`, `wayland-protocols-wlr@0.3.12`, `wayland-protocols@0.32.13`, `wayland-scanner@0.31.10`, `wayland-sys@0.31.11`, `web_atoms@0.2.5`, `web-sys@0.3.103`, `winapi@0.3.9`, `winnow@0.5.40`, `winnow@0.7.15`, `winnow@1.0.4`, `winreg@0.55.0`, `wit-bindgen@0.57.1`, `wl-clipboard-rs@0.9.3`, `x11-dl@2.21.0`, `x11@2.21.0`, `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `zbus_macros@5.17.0`, `zbus_names@4.3.3`, `zbus@5.17.0`, `zerocopy-derive@0.8.54`, `zerocopy@0.8.54`, `zeroize@1.9.0`, `zmij@1.0.23`, `zvariant_derive@5.13.0`, `zvariant_utils@3.5.0`, `zvariant@5.13.0`
+`adler2@2.0.1`, `aes@0.8.4`, `ahash@0.8.12`, `allocator-api2@0.2.21`, `ammonia@4.1.4`, `android_log-sys@0.3.2`, `android_logger@0.15.1`, `anstream@1.0.0`, `anstyle-parse@1.0.0`, `anstyle-query@1.1.5`, `anstyle-wincon@3.0.11`, `anstyle@1.0.14`, `anyhow@1.0.103`, `arrayvec@0.7.8`, `ash@0.38.0+1.3.281`, `async-channel@2.5.0`, `async-executor@1.14.0`, `async-io@2.6.0`, `async-lock@3.4.2`, `async-process@2.5.0`, `async-recursion@1.1.1`, `async-signal@0.2.14`, `async-task@4.7.1`, `async-trait@0.1.89`, `atk-sys@0.18.2`, `atk@0.18.2`, `atoi_simd@0.18.1`, `atomic_float@1.1.0`, `atomic-waker@1.1.2`, `autocfg@1.5.1`, `axum@0.8.9`, `bit-set@0.8.0`, `bit-vec@0.8.0`, `bitflags@1.3.2`, `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-padding@0.3.3`, `blocking@1.6.2`, `brotli@8.0.4`, `bumpalo@3.20.3`, `bytes@1.12.1`, `cairo-rs@0.18.5`, `cairo-sys-rs@0.18.2`, `camino@1.2.4`, `cargo_metadata@0.19.2`, `cargo-platform@0.1.9`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0`, `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clap_builder@4.6.6`, `clap_derive@4.6.4`, `clap_lex@1.1.0`, `clap@4.6.6`, `codepage@0.1.2`, `colorchoice@1.0.5`, `concurrent-queue@2.5.0`, `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crypto-common@0.1.7`, `ctor-proc-macro@0.0.7`, `ctor@0.8.0`, `cudarc@0.17.8`, `dbus@0.9.12`, `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `diffy@0.5.1`, `digest@0.10.7`, `dirs-sys@0.5.0`, `dirs@6.0.0`, `displaydoc@0.2.6`, `document-features@0.2.12`, `downcast-rs@1.2.1`, `dtoa@1.0.11`, `dtor-proc-macro@0.0.6`, `dtor@0.3.0`, `dyn-clone@1.0.20`, `either@1.17.0`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35`, `endi@1.1.1`, `enum-as-inner@0.6.1`, `enumflags2_derive@0.7.12`, `enumflags2@0.7.12`, `enumset_derive@0.15.0`, `enumset@1.1.14`, `env_filter@0.1.4`, `env_filter@2.0.0`, `env_logger@0.11.11`, `equivalent@1.0.2`, `erased-serde@0.4.10`, `errno@0.3.14`, `event-listener-strategy@0.5.4`, `event-listener@5.4.1`, `fallible-iterator@0.3.0`, `fallible-streaming-iterator@0.1.9`, `fast-float2@0.2.3`, `fastrand@2.4.1`, `fern@0.7.1`, `fid-rs@0.2.0`, `filetime@0.2.29`, `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2`, `fixedbitset@0.5.7`, `flate2@1.1.9`, `float-ord@0.3.2`, `fnv@1.0.7`, `foreign-types-macros@0.2.3`, `foreign-types-shared@0.3.1`, `foreign-types@0.5.0`, `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1`, `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gdk-pixbuf-sys@0.18.0`, `gdk-pixbuf@0.18.5`, `gdk-sys@0.18.2`, `gdk@0.18.2`, `gdkwayland-sys@0.18.2`, `gdkx11-sys@0.18.2`, `gdkx11@0.18.2`, `getopts@0.2.24`, `getrandom@0.2.17`, `getrandom@0.3.4`, `getrandom@0.4.3`, `gio-sys@0.18.1`, `gio@0.18.4`, `glib-macros@0.18.5`, `glib-sys@0.18.1`, `glib@0.18.5`, `glob@0.3.3`, `glow@0.16.0`, `gobject-sys@0.18.0`, `gpu-allocator@0.27.0`, `gtk-sys@0.18.2`, `gtk@0.18.2`, `gtk3-macros@0.18.2`, `h2@0.4.15`, `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `hex@0.4.3`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http-body-util@0.1.4`, `http-body@1.1.0`, `http@1.4.2`, `httparse@1.10.1`, `httpdate@1.0.3`, `hyper-rustls@0.27.9`, `hyper-util@0.1.20`, `hyper@1.10.1`, `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2`, `idna@1.1.0`, `indexmap@1.9.3`, `indexmap@2.14.0`, `inout@0.1.4`, `ipnet@2.12.0`, `is_terminal_polyfill@1.70.2`, `itertools@0.13.0`, `itertools@0.14.0`, `itoa@1.0.18`, `jni-sys@0.3.1`, `jni-sys@0.4.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0`, `kqueue-sys@1.1.2`, `kqueue@1.2.1`, `levenshtein_automata@0.2.1`, `libc@0.2.189`, `libdbus-sys@0.2.7`, `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `libsqlite3-sys@0.38.2`, `linux-raw-sys@0.12.1`, `litrs@1.0.0`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2`, `maplit@1.0.2`, `markup5ever@0.38.0`, `markup5ever@0.39.0`, `md-5@0.10.6`, `memmap2@0.9.11`, `memoffset@0.9.1`, `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1`, `mio@1.2.2`, `nb@0.1.3`, `nb@1.1.0`, `new_debug_unreachable@1.0.6`, `nom@7.1.3`, `nom@8.0.0`, `notify-types@2.1.0`, `num_cpus@1.17.0`, `num_enum_derive@0.7.6`, `num_enum@0.7.6`, `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-conv@0.2.2`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell_polyfill@1.70.2`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-float@4.6.0`, `ordered-float@5.3.0`, `ordered-stream@0.2.0`, `osakit@0.3.1`, `pango-sys@0.18.0`, `pango@0.18.3`, `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1`, `paste@1.0.15`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `pin-project-lite@0.2.17`, `piper@0.2.5`, `pkg-config@0.3.33`, `plist@1.10.0`, `png@0.17.16`, `png@0.18.1`, `polling@3.11.0`, `portable-atomic-util@0.2.7`, `portable-atomic@1.14.0`, `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `prettyplease@0.2.37`, `proc-macro-crate@1.3.1`, `proc-macro-crate@2.0.2`, `proc-macro-crate@3.5.0`, `proc-macro2@1.0.106`, `quick-error@2.0.1`, `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `quote@1.0.46`, `rand_chacha@0.9.0`, `rand_core@0.10.1`, `rand_core@0.6.4`, `rand_core@0.9.5`, `rand_distr@0.5.1`, `rand_pcg@0.10.2`, `rand@0.10.2`, `rand@0.8.7`, `rand@0.9.5`, `rangemap@1.7.1`, `rawpointer@0.2.1`, `rayon-core@1.13.0`, `rayon@1.12.0`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rusqlite@0.40.2`, `rustc_version@0.4.1`, `rustc-hash@1.1.0`, `rustc-hash@2.1.3`, `rustix@1.1.4`, `rustls-native-certs@0.8.4`, `rustls-pki-types@1.15.0`, `rustls@0.23.42`, `rustversion@1.0.23`, `schannel@0.1.29`, `scopeguard@1.2.0`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_spanned@0.6.9`, `serde_spanned@1.1.1`, `serde_urlencoded@0.7.1`, `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serde-untagged@0.1.9`, `serde@1.0.229`, `servo_arc@0.4.3`, `sha1@0.10.7`, `sha2@0.10.9`, `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0`, `slab@0.4.12`, `slug@0.1.6`, `smallvec@1.15.2`, `socket2@0.6.5`, `softbuffer@0.4.8`, `stable_deref_trait@1.2.1`, `stable-vec@0.4.2`, `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `stringprep@0.1.5`, `swift-rs@1.0.7`, `syn@1.0.109`, `syn@2.0.119`, `syn@3.0.3`, `synstructure@0.13.2`, `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `tinyvec@1.12.0`, `tokio-rustls@0.26.4`, `tokio-tungstenite@0.29.0`, `toml_datetime@0.6.3`, `toml_datetime@0.7.5+spec-1.1.0`, `toml_datetime@1.1.1+spec-1.1.0`, `toml_edit@0.19.15`, `toml_edit@0.20.2`, `toml_edit@0.25.13+spec-1.1.0`, `toml_parser@1.1.2+spec-1.1.0`, `toml_writer@1.1.2+spec-1.1.0`, `toml@0.8.2`, `toml@0.9.12+spec-1.1.0`, `toml@1.1.3+spec-1.1.0`, `tower-http@0.6.11`, `tower-layer@0.3.3`, `tower-service@0.3.3`, `tower@0.5.3`, `tracing-attributes@0.1.31`, `tracing-core@0.1.36`, `tracing@0.1.44`, `trie-rs@0.4.2`, `try-lock@0.2.5`, `ttf-parser@0.25.1`, `tungstenite@0.29.0`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicase@2.9.0`, `unicode_categories@0.1.1`, `unicode-bidi@0.3.18`, `unicode-ident@1.0.24`, `unicode-normalization@0.1.25`, `unicode-properties@0.1.4`, `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unindent@0.2.4`, `url@2.5.8`, `utf8_iter@1.0.4`, `utf8parse@0.2.2`, `uuid@1.24.1`, `vcpkg@0.2.15`, `version-compare@0.2.1`, `want@0.3.1`, `wasi@0.11.1+wasi-snapshot-preview1`, `wasip2@1.0.4+wasi-0.2.12`, `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wayland-backend@0.3.15`, `wayland-client@0.31.14`, `wayland-protocols-wlr@0.3.12`, `wayland-protocols@0.32.13`, `wayland-scanner@0.31.10`, `wayland-sys@0.31.11`, `web_atoms@0.2.5`, `web-sys@0.3.103`, `winapi@0.3.9`, `winnow@0.5.40`, `winnow@0.7.15`, `winnow@1.0.4`, `winreg@0.55.0`, `wit-bindgen@0.57.1`, `wl-clipboard-rs@0.9.3`, `x11-dl@2.21.0`, `x11@2.21.0`, `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `zbus_macros@5.17.0`, `zbus_names@4.3.3`, `zbus@5.17.0`, `zerocopy-derive@0.8.54`, `zerocopy@0.8.54`, `zeroize@1.9.0`, `zmij@1.0.23`, `zvariant_derive@5.13.0`, `zvariant_utils@3.5.0`, `zvariant@5.13.0`
 
 </details>
 
-Copyright notices (169):
+Copyright notices (165):
 
 ```text
 (C) Copyright 2016 Jethro G. Beekman
@@ -9424,6 +9425,7 @@ Copyright (c) 2016 Artyom Pavlov
 Copyright (c) 2016 Jason Housley
 Copyright (c) 2016 Joe Wilm
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
+Copyright (c) 2016 Pyfisch
 Copyright (c) 2016 The Rust Project Developers
 Copyright (c) 2016 The android_log_sys Developers
 Copyright (c) 2016 The android_logger Developers
@@ -9438,7 +9440,6 @@ Copyright (c) 2016-2020 RustCrypto Developers
 Copyright (c) 2016-2023 Alex Crichton and Portable-Network-Archive Developers
 Copyright (c) 2016-2025 Sean McArthur
 Copyright (c) 2016-2026 Sean McArthur
-Copyright (c) 2016-2026 The RustCrypto Project Developers
 Copyright (c) 2017 Alexey Galakhov
 Copyright (c) 2017 Artyom Pavlov
 Copyright (c) 2017 Contributors
@@ -9462,7 +9463,6 @@ Copyright (c) 2017 tokio-jsonrpc developers
 Copyright (c) 2017-2018 Jorge Aparicio
 Copyright (c) 2017-2023 Maik Klein, Maja Kądziołka
 Copyright (c) 2017-2025 Alissa Rao <aura@aura.moe>
-Copyright (c) 2017-2025 RustCrypto Developers
 Copyright (c) 2018 Artyom Pavlov
 Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
 Copyright (c) 2018 Carl Lerche
@@ -9478,7 +9478,6 @@ Copyright (c) 2018-2019 dirs-rs contributors
 Copyright (c) 2018-2022 RustCrypto Developers
 Copyright (c) 2018-2023 Sean McArthur
 Copyright (c) 2018-2024 The rust-random Project Developers
-Copyright (c) 2018-2025 The RustCrypto Project Developers
 Copyright (c) 2018-2025 The rust-random Project Developers
 Copyright (c) 2018-2026 The Rand Project Developers
 Copyright (c) 2018-2026 The RustCrypto Project Developers
@@ -9491,6 +9490,7 @@ Copyright (c) 2019 Sho Nakatani
 Copyright (c) 2019 The CryptoCorrosion Contributors
 Copyright (c) 2019 Tokio Contributors
 Copyright (c) 2019 Tower Contributors
+Copyright (c) 2019 axum Contributors
 Copyright (c) 2019-2021 Tower Contributors
 Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors
 Copyright (c) 2019-2026 The RustCrypto Project Developers
@@ -9500,18 +9500,15 @@ Copyright (c) 2020 Olivier Goffart <ogoffart@sixtyfps.io>
 Copyright (c) 2020 Project Developers
 Copyright (c) 2020 Yevhenii Reizner
 Copyright (c) 2020-2025 The RustCrypto Project Developers
-Copyright (c) 2020-2026 The RustCrypto Project Developers
 Copyright (c) 2021 Jacob Pratt
 Copyright (c) 2021 RustCrypto Developers
 Copyright (c) 2021 Traverse Research B.V.
 Copyright (c) 2021-2022 The Rust embedded HAL team and contributors.
-Copyright (c) 2021-2026 RustCrypto Developers
 Copyright (c) 2022 Artyom Pavlov
 Copyright (c) 2022 Dmitry Rodionov
 Copyright (c) 2022 Eyal Kalderon
 Copyright (c) 2022 The RustCrypto Project Developers
 Copyright (c) 2022 The critical-section authors
-Copyright (c) 2022-2026 The RustCrypto Project Developers
 Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
 Copyright (c) 2023 Jacob Pratt et al.
 Copyright (c) 2023 Notify Contributors
@@ -9544,10 +9541,8 @@ Copyright Mozilla Foundation
 ```
 
 ```text
-Copyright (c) 2016-2026 The RustCrypto Project Developers
-Copyright (c) 2016 Artyom Pavlov
-Copyright (c) 2009-2013 Mozilla Foundation
-Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2014 The Rust Project Developers
+Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -9574,11 +9569,11 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 2. MIT OR Apache-2.0 (+13 other declarations) — 361 package(s), from `LICENSE-APACHE.md`
+#### 2. MIT OR Apache-2.0 (+13 other declarations) — 357 package(s), from `LICENSE-APACHE.md`
 
 <details><summary>Packages sharing this text</summary>
 
-`aes@0.8.4`, `ahash@0.8.12`, `arbitrary@1.4.2`, `arrayvec@0.7.8`, `async-channel@2.5.0`, `async-executor@1.14.0`, `async-io@2.6.0`, `async-lock@3.4.2`, `async-process@2.5.0`, `async-recursion@1.1.1`, `async-signal@0.2.14`, `async-task@4.7.1`, `atoi_simd@0.18.1`, `atomic_float@1.1.0`, `atomic-waker@1.1.2`, `autocfg@1.5.1`, `base64@0.21.7`, `base64@0.22.1`, `bit-set@0.8.0`, `bit-vec@0.8.0`, `bitflags@1.3.2`, `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-buffer@0.12.1`, `block-padding@0.3.3`, `blocking@1.6.2`, `bs58@0.5.1`, `bumpalo@3.20.3`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `camino@1.2.4`, `candle-core@0.9.2`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0`, `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clang-sys@1.9.1`, `codepage@0.1.2`, `codespan-reporting@0.12.0`, `concurrent-queue@2.5.0`, `const-oid@0.10.2`, `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crossbeam-channel@0.5.16`, `crossbeam-deque@0.8.7`, `crossbeam-epoch@0.9.20`, `crossbeam-utils@0.8.22`, `crypto-common@0.1.7`, `crypto-common@0.2.2`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `derive_arbitrary@1.4.2`, `diffy@0.5.1`, `digest@0.10.7`, `digest@0.11.3`, `displaydoc@0.2.6`, `downcast-rs@1.2.1`, `either@1.17.0`, `embed_plist@1.2.2`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35`, `enumset_derive@0.15.0`, `enumset@1.1.14`, `equivalent@1.0.2`, `errno@0.3.14`, `event-listener-strategy@0.5.4`, `event-listener@5.4.1`, `fast-float2@0.2.3`, `fastrand@2.4.1`, `fid-rs@0.2.0`, `filetime@0.2.29`, `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2`, `fixedbitset@0.5.7`, `flate2@1.1.9`, `fnv@1.0.7`, `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1`, `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gethostname@1.1.0`, `getopts@0.2.24`, `glob@0.3.3`, `glow@0.16.0`, `gpu-allocator@0.27.0`, `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `hashlink@0.12.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http@1.4.2`, `httparse@1.10.1`, `hybrid-array@0.4.13`, `hyper-rustls@0.27.9`, `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2`, `idna@1.1.0`, `indexmap@1.9.3`, `indexmap@2.14.0`, `inout@0.1.4`, `is-macro@0.3.7`, `itertools@0.13.0`, `itertools@0.14.0`, `jni@0.21.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `jsonptr@0.6.3`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0`, `libappindicator@0.9.0`, `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `linux-raw-sys@0.12.1`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2`, `maplit@1.0.2`, `markup5ever@0.38.0`, `markup5ever@0.39.0`, `matrixmultiply@0.3.11`, `md-5@0.10.6`, `memmap2@0.9.11`, `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1`, `moxcms@0.8.1`, `muda@0.19.3`, `nb@0.1.3`, `nb@1.1.0`, `ndarray@0.16.1`, `notify-types@2.1.0`, `ntapi@0.4.3`, `num_cpus@1.17.0`, `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-stream@0.2.0`, `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `piper@0.2.5`, `pkg-config@0.3.33`, `png@0.17.16`, `png@0.18.1`, `polling@3.11.0`, `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pxfm@0.1.30`, `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `rawpointer@0.2.1`, `rayon-core@1.13.0`, `rayon@1.12.0`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rustc_version@0.4.1`, `rustc-hash@1.1.0`, `rustix@1.1.4`, `rustls-native-certs@0.8.4`, `rustls-pki-types@1.15.0`, `rustls-platform-verifier@0.7.0`, `rustls@0.23.42`, `safetensors@0.6.2`, `safetensors@0.7.0`, `scopeguard@1.2.0`, `security-framework-sys@2.17.0`, `security-framework@2.11.1`, `security-framework@3.7.0`, `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `servo_arc@0.4.3`, `sha1@0.11.0`, `sha2@0.10.9`, `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0`, `slug@0.1.6`, `smallvec@1.15.2`, `socket2@0.6.5`, `stable_deref_trait@1.2.1`, `static_assertions@1.1.0`, `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `syn@1.0.109`, `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `tinyvec_macros@0.1.1`, `tinyvec@1.12.0`, `tokio-rustls@0.26.4`, `toml_datetime@0.6.3`, `tray-icon@0.24.1`, `trie-rs@0.4.2`, `ttf-parser@0.25.1`, `tungstenite@0.30.0`, `typenum@1.20.1`, `unicase@2.9.0`, `unicode-bidi@0.3.18`, `unicode-normalization@0.1.25`, `unicode-properties@0.1.4`, `unicode-script@0.5.8`, `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unty@0.0.4`, `url@2.5.8`, `utf8_iter@1.0.4`, `uuid@1.24.1`, `vcpkg@0.2.15`, `version_check@0.9.5`, `wasi@0.11.1+wasi-snapshot-preview1`, `wasip2@1.0.4+wasi-0.2.12`, `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `web_atoms@0.2.5`, `web-sys@0.3.103`, `web-time@1.1.0`, `weezl@0.1.12`, `window-vibrancy@0.6.0`, `windows_aarch64_gnullvm@0.42.2`, `windows_aarch64_gnullvm@0.52.6`, `windows_aarch64_gnullvm@0.53.1`, `windows_aarch64_msvc@0.42.2`, `windows_aarch64_msvc@0.52.6`, `windows_aarch64_msvc@0.53.1`, `windows_i686_gnu@0.42.2`, `windows_i686_gnu@0.52.6`, `windows_i686_gnu@0.53.1`, `windows_i686_gnullvm@0.52.6`, `windows_i686_gnullvm@0.53.1`, `windows_i686_msvc@0.42.2`, `windows_i686_msvc@0.52.6`, `windows_i686_msvc@0.53.1`, `windows_x86_64_gnu@0.42.2`, `windows_x86_64_gnu@0.52.6`, `windows_x86_64_gnu@0.53.1`, `windows_x86_64_gnullvm@0.42.2`, `windows_x86_64_gnullvm@0.52.6`, `windows_x86_64_gnullvm@0.53.1`, `windows_x86_64_msvc@0.42.2`, `windows_x86_64_msvc@0.52.6`, `windows_x86_64_msvc@0.53.1`, `windows-collections@0.2.0`, `windows-core@0.58.0`, `windows-core@0.61.2`, `windows-core@0.62.2`, `windows-future@0.2.1`, `windows-implement@0.58.0`, `windows-implement@0.60.2`, `windows-interface@0.58.0`, `windows-interface@0.59.3`, `windows-link@0.1.3`, `windows-link@0.2.1`, `windows-numerics@0.2.0`, `windows-registry@0.6.1`, `windows-result@0.2.0`, `windows-result@0.3.4`, `windows-result@0.4.1`, `windows-strings@0.1.0`, `windows-strings@0.4.2`, `windows-strings@0.5.1`, `windows-sys@0.45.0`, `windows-sys@0.52.0`, `windows-sys@0.59.0`, `windows-sys@0.60.2`, `windows-sys@0.61.2`, `windows-targets@0.42.2`, `windows-targets@0.52.6`, `windows-targets@0.53.5`, `windows-threading@0.1.0`, `windows-version@0.1.7`, `windows@0.58.0`, `windows@0.61.3`, `wit-bindgen@0.57.1`, `wl-clipboard-rs@0.9.3`, `wry@0.55.1`, `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `yansi@1.0.1`, `zerocopy-derive@0.8.54`, `zerocopy@0.8.54`, `zeroize@1.9.0`, `zopfli@0.8.3`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
+`aes@0.8.4`, `ahash@0.8.12`, `arbitrary@1.4.2`, `arrayvec@0.7.8`, `async-channel@2.5.0`, `async-executor@1.14.0`, `async-io@2.6.0`, `async-lock@3.4.2`, `async-process@2.5.0`, `async-recursion@1.1.1`, `async-signal@0.2.14`, `async-task@4.7.1`, `atoi_simd@0.18.1`, `atomic_float@1.1.0`, `atomic-waker@1.1.2`, `autocfg@1.5.1`, `base64@0.21.7`, `base64@0.22.1`, `bit-set@0.8.0`, `bit-vec@0.8.0`, `bitflags@1.3.2`, `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-padding@0.3.3`, `blocking@1.6.2`, `bs58@0.5.1`, `bumpalo@3.20.3`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `camino@1.2.4`, `candle-core@0.9.2`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0`, `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clang-sys@1.9.1`, `codepage@0.1.2`, `codespan-reporting@0.12.0`, `concurrent-queue@2.5.0`, `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crossbeam-channel@0.5.16`, `crossbeam-deque@0.8.7`, `crossbeam-epoch@0.9.20`, `crossbeam-utils@0.8.22`, `crypto-common@0.1.7`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `derive_arbitrary@1.4.2`, `diffy@0.5.1`, `digest@0.10.7`, `displaydoc@0.2.6`, `downcast-rs@1.2.1`, `either@1.17.0`, `embed_plist@1.2.2`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35`, `enumset_derive@0.15.0`, `enumset@1.1.14`, `equivalent@1.0.2`, `errno@0.3.14`, `event-listener-strategy@0.5.4`, `event-listener@5.4.1`, `fast-float2@0.2.3`, `fastrand@2.4.1`, `fid-rs@0.2.0`, `filetime@0.2.29`, `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2`, `fixedbitset@0.5.7`, `flate2@1.1.9`, `fnv@1.0.7`, `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1`, `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gethostname@1.1.0`, `getopts@0.2.24`, `glob@0.3.3`, `glow@0.16.0`, `gpu-allocator@0.27.0`, `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `hashlink@0.12.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http@1.4.2`, `httparse@1.10.1`, `httpdate@1.0.3`, `hyper-rustls@0.27.9`, `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2`, `idna@1.1.0`, `indexmap@1.9.3`, `indexmap@2.14.0`, `inout@0.1.4`, `is-macro@0.3.7`, `itertools@0.13.0`, `itertools@0.14.0`, `jni@0.21.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `jsonptr@0.6.3`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0`, `libappindicator@0.9.0`, `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `linux-raw-sys@0.12.1`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2`, `maplit@1.0.2`, `markup5ever@0.38.0`, `markup5ever@0.39.0`, `matrixmultiply@0.3.11`, `md-5@0.10.6`, `memmap2@0.9.11`, `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1`, `moxcms@0.8.1`, `muda@0.19.3`, `nb@0.1.3`, `nb@1.1.0`, `ndarray@0.16.1`, `notify-types@2.1.0`, `ntapi@0.4.3`, `num_cpus@1.17.0`, `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-stream@0.2.0`, `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `piper@0.2.5`, `pkg-config@0.3.33`, `png@0.17.16`, `png@0.18.1`, `polling@3.11.0`, `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pxfm@0.1.30`, `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `rawpointer@0.2.1`, `rayon-core@1.13.0`, `rayon@1.12.0`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rustc_version@0.4.1`, `rustc-hash@1.1.0`, `rustix@1.1.4`, `rustls-native-certs@0.8.4`, `rustls-pki-types@1.15.0`, `rustls-platform-verifier@0.7.0`, `rustls@0.23.42`, `safetensors@0.6.2`, `safetensors@0.7.0`, `scopeguard@1.2.0`, `security-framework-sys@2.17.0`, `security-framework@2.11.1`, `security-framework@3.7.0`, `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `servo_arc@0.4.3`, `sha1@0.10.7`, `sha2@0.10.9`, `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0`, `slug@0.1.6`, `smallvec@1.15.2`, `socket2@0.6.5`, `stable_deref_trait@1.2.1`, `static_assertions@1.1.0`, `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `syn@1.0.109`, `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `tinyvec_macros@0.1.1`, `tinyvec@1.12.0`, `tokio-rustls@0.26.4`, `toml_datetime@0.6.3`, `tray-icon@0.24.1`, `trie-rs@0.4.2`, `ttf-parser@0.25.1`, `tungstenite@0.29.0`, `typenum@1.20.1`, `unicase@2.9.0`, `unicode-bidi@0.3.18`, `unicode-normalization@0.1.25`, `unicode-properties@0.1.4`, `unicode-script@0.5.8`, `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unty@0.0.4`, `url@2.5.8`, `utf8_iter@1.0.4`, `uuid@1.24.1`, `vcpkg@0.2.15`, `version_check@0.9.5`, `wasi@0.11.1+wasi-snapshot-preview1`, `wasip2@1.0.4+wasi-0.2.12`, `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `web_atoms@0.2.5`, `web-sys@0.3.103`, `web-time@1.1.0`, `weezl@0.1.12`, `window-vibrancy@0.6.0`, `windows_aarch64_gnullvm@0.42.2`, `windows_aarch64_gnullvm@0.52.6`, `windows_aarch64_gnullvm@0.53.1`, `windows_aarch64_msvc@0.42.2`, `windows_aarch64_msvc@0.52.6`, `windows_aarch64_msvc@0.53.1`, `windows_i686_gnu@0.42.2`, `windows_i686_gnu@0.52.6`, `windows_i686_gnu@0.53.1`, `windows_i686_gnullvm@0.52.6`, `windows_i686_gnullvm@0.53.1`, `windows_i686_msvc@0.42.2`, `windows_i686_msvc@0.52.6`, `windows_i686_msvc@0.53.1`, `windows_x86_64_gnu@0.42.2`, `windows_x86_64_gnu@0.52.6`, `windows_x86_64_gnu@0.53.1`, `windows_x86_64_gnullvm@0.42.2`, `windows_x86_64_gnullvm@0.52.6`, `windows_x86_64_gnullvm@0.53.1`, `windows_x86_64_msvc@0.42.2`, `windows_x86_64_msvc@0.52.6`, `windows_x86_64_msvc@0.53.1`, `windows-collections@0.2.0`, `windows-core@0.58.0`, `windows-core@0.61.2`, `windows-core@0.62.2`, `windows-future@0.2.1`, `windows-implement@0.58.0`, `windows-implement@0.60.2`, `windows-interface@0.58.0`, `windows-interface@0.59.3`, `windows-link@0.1.3`, `windows-link@0.2.1`, `windows-numerics@0.2.0`, `windows-registry@0.6.1`, `windows-result@0.2.0`, `windows-result@0.3.4`, `windows-result@0.4.1`, `windows-strings@0.1.0`, `windows-strings@0.4.2`, `windows-strings@0.5.1`, `windows-sys@0.45.0`, `windows-sys@0.52.0`, `windows-sys@0.59.0`, `windows-sys@0.60.2`, `windows-sys@0.61.2`, `windows-targets@0.42.2`, `windows-targets@0.52.6`, `windows-targets@0.53.5`, `windows-threading@0.1.0`, `windows-version@0.1.7`, `windows@0.58.0`, `windows@0.61.3`, `wit-bindgen@0.57.1`, `wl-clipboard-rs@0.9.3`, `wry@0.55.1`, `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `yansi@1.0.1`, `zerocopy-derive@0.8.54`, `zerocopy@0.8.54`, `zeroize@1.9.0`, `zopfli@0.8.3`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
 
 </details>
 
@@ -9831,15 +9826,15 @@ Apache License
    limitations under the License.
 ```
 
-#### 3. MIT (+5 other declarations) — 140 package(s), from `LICENSE`
+#### 3. MIT (+6 other declarations) — 143 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`anydoc@0.1.9`, `arbitrary@1.4.2`, `arboard@3.6.1`, `blanket@0.4.0`, `bs58@0.5.1`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2`, `diff@0.1.13`, `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1`, `html-escape@0.2.15`, `ico@0.5.0`, `ident_case@1.0.1`, `image@0.25.10`, `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1`, `jsonptr@0.6.3`, `libappindicator@0.9.0`, `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10`, `miniz_oxide@0.8.9`, `moddef@0.3.0`, `muda@0.19.3`, `objc@0.2.7`, `pdf-inspector@1.15.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pulp@0.22.3`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0`, `ruzstd@0.8.3`, `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `simd-adler32@0.3.10`, `simdutf8@0.1.5`, `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0`, `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1`, `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8`, `unty@0.0.4`, `urlpattern@0.3.0`, `variadics_please@1.1.0`, `web-time@1.1.0`, `wgpu-hal@26.0.6`, `window-vibrancy@0.6.0`, `wry@0.55.1`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
+`anydoc@0.1.9`, `arbitrary@1.4.2`, `arboard@3.6.1`, `axum-core@0.5.6`, `blanket@0.4.0`, `bs58@0.5.1`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2`, `diff@0.1.13`, `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1`, `html-escape@0.2.15`, `ico@0.5.0`, `ident_case@1.0.1`, `image@0.25.10`, `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1`, `jsonptr@0.6.3`, `libappindicator@0.9.0`, `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10`, `matchit@0.8.4`, `miniz_oxide@0.8.9`, `moddef@0.3.0`, `muda@0.19.3`, `objc@0.2.7`, `pdf-inspector@1.15.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pulp@0.22.3`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0`, `ruzstd@0.8.3`, `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `simd-adler32@0.3.10`, `simdutf8@0.1.5`, `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0`, `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1`, `tokio-macros@2.7.2`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1`, `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8`, `unty@0.0.4`, `urlpattern@0.3.0`, `variadics_please@1.1.0`, `web-time@1.1.0`, `wgpu-hal@26.0.6`, `window-vibrancy@0.6.0`, `wry@0.55.1`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
 
 </details>
 
-Copyright notices (70):
+Copyright notices (73):
 
 ```text
 Copyright (c) 2015 Utkarsh Kukreti
@@ -9871,7 +9866,9 @@ Copyright (c) 2019 Manish Goregaokar
 Copyright (c) 2019 Moritz Borcherding
 Copyright (c) 2019 Osspial
 Copyright (c) 2019 Peter Glotfelty
+Copyright (c) 2019 Yoshua Wuyts
 Copyright (c) 2019-2020 CreepySkeleton
+Copyright (c) 2019–2025 axum Contributors
 Copyright (c) 2020 Katharos Technology
 Copyright (c) 2020 Nikolai Vazquez
 Copyright (c) 2020 Soveu
@@ -9887,6 +9884,7 @@ Copyright (c) 2021 the Deno authors
 Copyright (c) 2022 1Password
 Copyright (c) 2022 Bartłomiej Maryńczak
 Copyright (c) 2022 Chance Dinkins
+Copyright (c) 2022 Ibraheem Ahmed
 Copyright (c) 2022 Nathaniel Simard & Burn Framework Contributors
 Copyright (c) 2022 Nathaniel Simard & CubeCL Framework Contributors
 Copyright (c) 2022 The Arboard contributors
@@ -9941,11 +9939,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 4. MIT OR Apache-2.0 (+8 other declarations) — 83 package(s), from `LICENSE-APACHE.md`
+#### 4. MIT OR Apache-2.0 (+8 other declarations) — 84 package(s), from `LICENSE-APACHE.md`
 
 <details><summary>Packages sharing this text</summary>
 
-`allocator-api2@0.2.21`, `anyhow@1.0.103`, `arboard@3.6.1`, `async-trait@0.1.89`, `cudarc@0.17.8`, `dtoa@1.0.11`, `dyn-clone@1.0.20`, `erased-serde@0.4.10`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `half@2.7.1`, `image@0.25.10`, `itoa@1.0.18`, `libc@0.2.189`, `litrs@1.0.0`, `miniz_oxide@0.8.9`, `num_enum_derive@0.7.6`, `num_enum@0.7.6`, `num-conv@0.2.2`, `osakit@0.3.1`, `paste@1.0.15`, `pin-project-lite@0.2.17`, `portable-atomic-util@0.2.7`, `portable-atomic@1.14.0`, `prettyplease@0.2.37`, `proc-macro2@1.0.106`, `quote@1.0.46`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `rustc-hash@2.1.3`, `rustversion@1.0.23`, `ryu@1.0.23`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_repr@0.1.20`, `serde_urlencoded@0.7.1`, `serde-untagged@0.1.9`, `serde@1.0.229`, `simdutf8@0.1.5`, `stable-vec@0.4.2`, `syn@2.0.119`, `syn@3.0.3`, `sync_wrapper@1.0.2`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicode-ident@1.0.24`, `unindent@0.2.4`, `utf8parse@0.2.2`, `variadics_please@1.1.0`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wgpu-hal@26.0.6`, `zstd-safe@7.2.4`, `zstd-sys@2.0.16+zstd.1.5.7`
+`allocator-api2@0.2.21`, `anyhow@1.0.103`, `arboard@3.6.1`, `async-trait@0.1.89`, `cudarc@0.17.8`, `dtoa@1.0.11`, `dyn-clone@1.0.20`, `erased-serde@0.4.10`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `half@2.7.1`, `image@0.25.10`, `itoa@1.0.18`, `libc@0.2.189`, `litrs@1.0.0`, `miniz_oxide@0.8.9`, `num_enum_derive@0.7.6`, `num_enum@0.7.6`, `num-conv@0.2.2`, `osakit@0.3.1`, `paste@1.0.15`, `pin-project-lite@0.2.17`, `portable-atomic-util@0.2.7`, `portable-atomic@1.14.0`, `prettyplease@0.2.37`, `proc-macro2@1.0.106`, `quote@1.0.46`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `rustc-hash@2.1.3`, `rustversion@1.0.23`, `ryu@1.0.23`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_urlencoded@0.7.1`, `serde-untagged@0.1.9`, `serde@1.0.229`, `simdutf8@0.1.5`, `stable-vec@0.4.2`, `syn@2.0.119`, `syn@3.0.3`, `sync_wrapper@1.0.2`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicode-ident@1.0.24`, `unindent@0.2.4`, `utf8parse@0.2.2`, `variadics_please@1.1.0`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wgpu-hal@26.0.6`, `zstd-safe@7.2.4`, `zstd-sys@2.0.16+zstd.1.5.7`
 
 </details>
 
@@ -14453,7 +14451,53 @@ AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 53. MIT OR Apache-2.0 — 1 package(s), from `COPYRIGHT`
+#### 53. MIT AND BSD-3-Clause — 1 package(s), from `LICENSE.httprouter`
+
+<details><summary>Packages sharing this text</summary>
+
+`matchit@0.8.4`
+
+</details>
+
+Copyright notices (1):
+
+```text
+Copyright (c) 2013, Julien Schmidt
+```
+
+```text
+BSD 3-Clause License
+
+Copyright (c) 2013, Julien Schmidt
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+#### 54. MIT OR Apache-2.0 — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14472,7 +14516,7 @@ carrying such notice may not be copied, modified, or distributed except
 according to those terms.
 ```
 
-#### 54. MIT/Apache-2.0 — 1 package(s), from `copyright.txt`
+#### 55. MIT/Apache-2.0 — 1 package(s), from `copyright.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14495,7 +14539,7 @@ Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 // copied, modified, or distributed except according to those terms.
 ```
 
-#### 55. MIT — 1 package(s), from `LICENSE`
+#### 56. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14539,7 +14583,7 @@ derived from the "nipper" project (https://github.com/importcjj/nipper),
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 ```
 
-#### 56. Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
+#### 57. Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14578,7 +14622,7 @@ is licensed under:
 at your option.
 ```
 
-#### 57. Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
+#### 58. Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14637,7 +14681,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-#### 58. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 59. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14682,7 +14726,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 59. Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
+#### 60. Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14702,7 +14746,7 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 ```
 
-#### 60. MIT/Apache-2.0 — 1 package(s), from `LICENSE.md`
+#### 61. MIT/Apache-2.0 — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -14757,7 +14801,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 61. MPL-2.0 — 1 package(s), from `LICENSE.txt`
+#### 62. MPL-2.0 — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15147,7 +15191,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-#### 62. (Apache-2.0 OR MIT) AND BSD-3-Clause — 1 package(s), from `COPYRIGHT`
+#### 63. (Apache-2.0 OR MIT) AND BSD-3-Clause — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15175,7 +15219,7 @@ Test code within encoding_rs is dedicated to the Public Domain when so
 designated (see the individual files for PD/CC0-dedicated sections).
 ```
 
-#### 63. Apache-2.0 AND ISC — 1 package(s), from `LICENSE-other-bits`
+#### 64. Apache-2.0 AND ISC — 1 package(s), from `LICENSE-other-bits`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15206,7 +15250,7 @@ OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 64. MIT — 1 package(s), from `COPYRIGHT`
+#### 65. MIT — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15230,7 +15274,7 @@ For full authorship information, see the version control history.
 https://github.com/jaemk/cached/graphs/contributors
 ```
 
-#### 65. Apache-2.0/MIT — 1 package(s), from `COPYRIGHT-RUST.txt`
+#### 66. Apache-2.0/MIT — 1 package(s), from `COPYRIGHT-RUST.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15679,7 +15723,7 @@ their own copyright notices and license terms:
   copyright itself, held by the contributor.
 ```
 
-#### 66. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 67. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15725,7 +15769,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 67. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
+#### 68. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -15755,7 +15799,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/window-vibrancy.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 68. Apache-2.0 AND ISC — 1 package(s), from `LICENSE-BoringSSL`
+#### 69. Apache-2.0 AND ISC — 1 package(s), from `LICENSE-BoringSSL`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16047,7 +16091,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 69. MIT — 1 package(s), from `LICENSE`
+#### 70. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16125,7 +16169,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 70. CC0-1.0 — 1 package(s), from `LICENSE-CC0`
+#### 71. CC0-1.0 — 1 package(s), from `LICENSE-CC0`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16177,7 +16221,7 @@ For these and/or other purposes and motivations, and without any expectation of 
      d. Affirmer understands and acknowledges that Creative Commons is not a party to this document and has no duty or obligation with respect to this CC0 or use of the Work.
 ```
 
-#### 71. BSD-2-Clause — 1 package(s), from `COPYING`
+#### 72. BSD-2-Clause — 1 package(s), from `COPYING`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16403,7 +16447,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 72. MIT/Apache-2.0 — 1 package(s), from `LICENSE.BSD-3-Clause`
+#### 73. MIT/Apache-2.0 — 1 package(s), from `LICENSE.BSD-3-Clause`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16452,7 +16496,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 73. MIT OR Apache-2.0 — 1 package(s), from `LICENSE.spdx`
+#### 74. MIT OR Apache-2.0 — 1 package(s), from `LICENSE.spdx`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16482,7 +16526,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tray-icon.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 74. Apache-2.0 AND MIT — 1 package(s), from `LICENSE-LIBM-MIT`
+#### 75. Apache-2.0 AND MIT — 1 package(s), from `LICENSE-LIBM-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16558,7 +16602,7 @@ have been licensed under extremely permissive terms.
 ------------------------------------------------------------------------------
 ```
 
-#### 75. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-MIT`
+#### 76. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16595,7 +16639,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 76. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
+#### 77. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16626,7 +16670,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 77. MIT/Apache-2.0 — 1 package(s), from `LICENSE-MIT`
+#### 78. MIT/Apache-2.0 — 1 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16723,7 +16767,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 78. Apache-2.0 OR MIT — 1 package(s), from `LICENSE-MIT`
+#### 79. Apache-2.0 OR MIT — 1 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16751,7 +16795,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 79. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-MIT`
+#### 80. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16795,7 +16839,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 80. MIT/Apache-2.0 — 1 package(s), from `COPYING`
+#### 81. MIT/Apache-2.0 — 1 package(s), from `COPYING`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16820,7 +16864,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option.
 ```
 
-#### 81. ISC — 1 package(s), from `LICENSE.txt`
+#### 82. ISC — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16851,7 +16895,7 @@ copyright notice and this permission notice appear in all copies.
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 82. Apache-2.0 AND ISC — 1 package(s), from `LICENSE`
+#### 83. Apache-2.0 AND ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16871,7 +16915,7 @@ See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
 ```
 
-#### 83. MIT — 1 package(s), from `LICENSE.md`
+#### 84. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16913,7 +16957,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 84. Apache-2.0 OR ISC OR MIT — 1 package(s), from `LICENSE`
+#### 85. Apache-2.0 OR ISC OR MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16933,7 +16977,7 @@ respectively.  You may use this software under the terms of any
 of these licenses, at your option.
 ```
 
-#### 85. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
+#### 86. Apache-2.0 OR MIT — 1 package(s), from `LICENSE.spdx`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -16963,7 +17007,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 86. Apache-2.0 OR MIT — 1 package(s), from `LICENSE`
+#### 87. Apache-2.0 OR MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -17185,7 +17229,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 87. Apache-2.0 OR MIT — 1 package(s), from `LICENSE-THIRD-PARTY`
+#### 88. Apache-2.0 OR MIT — 1 package(s), from `LICENSE-THIRD-PARTY`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -17211,7 +17255,7 @@ option. All files in the project carrying such notice may not be
 copied, modified, or distributed except according to those terms.
 ```
 
-#### 88. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-THIRD-PARTY`
+#### 89. MIT OR Apache-2.0 — 1 package(s), from `LICENSE-THIRD-PARTY`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -17827,7 +17871,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-#### 89. (MIT OR Apache-2.0) AND Unicode-3.0 — 1 package(s), from `LICENSE-UNICODE`
+#### 90. (MIT OR Apache-2.0) AND Unicode-3.0 — 1 package(s), from `LICENSE-UNICODE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -17884,7 +17928,7 @@ dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 ```
 
-#### 90. Apache-2.0 — 1 package(s), from `LICENSE.spdx`
+#### 91. Apache-2.0 — 1 package(s), from `LICENSE.spdx`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -17913,7 +17957,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tao.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 91. MIT OR Apache-2.0 — 1 package(s), from `LICENSE.txt`
+#### 92. MIT OR Apache-2.0 — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -18171,7 +18215,7 @@ limitations under the License.
 ~~~~
 ```
 
-#### 92. MIT OR Apache-2.0 — 1 package(s), from `COPYRIGHT`
+#### 93. MIT OR Apache-2.0 — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -18197,7 +18241,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-#### 93. Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
+#### 94. Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — 1 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -18236,7 +18280,7 @@ is licensed under:
 at your option.
 ```
 
-#### 94. ISC — 1 package(s), from `LICENSE`
+#### 95. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -18273,7 +18317,7 @@ The files under third-party/chromium are licensed as described in
 third-party/chromium/LICENSE.
 ```
 
-#### 95. MIT/Apache-2.0 — 1 package(s), from `LICENSE-MIT`
+#### 96. MIT/Apache-2.0 — 1 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 

@@ -42,6 +42,10 @@ const eslint = new ESLint({
           "^[^\\p{L}]+$",
           "^(?:Vim|Emacs|MCP|Overleaf|BasicTeX|pdfLaTeX|XeLaTeX|LuaLaTeX)$",
           "^[a-z][a-z0-9:+./_-]*$",
+          // The loopback bridge runs before a saved locale is available (or
+          // in a hidden host), so these are bootstrap diagnostics and protocol
+          // constants rather than strings rendered by the localized app.
+          "^(?:The local Lattice app disconnected\\.|Could not connect to the local Lattice app\\.|The local Lattice app did not finish the browser handoff\\.|Open this page from the installed Lattice app to use its local tools\\.|\\[Lattice browser host\\].*|__CHANNEL__:|plugin:event\\|unlisten|min-height:100vh;.*|position:fixed;inset:0;z-index:2147483647;.*)$",
         ],
       }],
     },
