@@ -50,6 +50,16 @@ function plistSet(plist, key, value) {
   execFileSync("/usr/libexec/PlistBuddy", ["-c", `Set :${key} ${value}`, plist]);
 }
 
+function sign(path, { deep = false, includeEntitlements = false } = {}) {
+  const arguments_ = ["--force"];
+  if (deep) arguments_.push("--deep");
+  arguments_.push("--options", "runtime");
+  if (signingIdentity !== "-") arguments_.push("--timestamp");
+  if (includeEntitlements) arguments_.push("--entitlements", entitlements);
+  arguments_.push("--sign", signingIdentity, path);
+  execFileSync("/usr/bin/codesign", arguments_, { stdio: "inherit" });
+}
+
 // Tauri's resource copier deliberately dereferences symlinks. A conventional
 // macOS framework then arrives with duplicate binaries and no Resources link,
 // invalidating both Electron and its signature. Convert Electron's four
@@ -135,16 +145,15 @@ try {
     flattenFramework(join(frameworks, name));
   }
 
-  const signArguments = [
-    "--force",
-    "--deep",
-    "--options", "runtime",
-    "--entitlements", entitlements,
-    "--sign", signingIdentity,
-  ];
-  if (signingIdentity !== "-") signArguments.splice(4, 0, "--timestamp");
-  signArguments.push(stagedApp);
-  execFileSync("/usr/bin/codesign", signArguments, { stdio: "inherit" });
+  // `codesign --deep` signs recognized bundles after flattening, but skips raw
+  // Mach-O files nested inside their resource directories. Apple notarization
+  // checks those files independently, so sign them before sealing the app.
+  const electronFramework = join(frameworks, "Electron Framework.framework");
+  for (const name of readdirSync(join(electronFramework, "Libraries"))) {
+    if (name.endsWith(".dylib")) sign(join(electronFramework, "Libraries", name));
+  }
+  sign(join(frameworks, "Squirrel.framework", "Resources", "ShipIt"));
+  sign(stagedApp, { deep: true, includeEntitlements: true });
   execFileSync("/usr/bin/codesign", ["--verify", "--deep", "--strict", "--verbose=2", stagedApp], {
     stdio: "inherit",
   });
