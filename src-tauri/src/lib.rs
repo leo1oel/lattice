@@ -927,6 +927,13 @@ fn return_to_desktop(
     if !window.label().starts_with("browser-") {
         return Err("This workspace is already open in the desktop app.".to_string());
     }
+    if browser.has_bundled_chromium(window.label())? {
+        // The fixed Chromium build already owns this workspace and is merely
+        // parked while the system-browser peer is connected. Resume that same
+        // renderer instead of creating a slower WebKit desktop window.
+        browser.return_to_desktop(&app, window.label(), true)?;
+        return Ok(window.label().to_string());
+    }
     let root = current_root(&state, &window)?;
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
     #[cfg(target_os = "macos")]
@@ -941,7 +948,7 @@ fn return_to_desktop(
             return Err(reason);
         }
     };
-    if let Err(reason) = browser.return_to_desktop(&app, window.label()) {
+    if let Err(reason) = browser.return_to_desktop(&app, window.label(), false) {
         let _ = desktop.destroy();
         state.release_window(&label);
         state.retire_unused_projects();
@@ -2101,6 +2108,22 @@ fn open_in_browser(
     }
 }
 
+/// Open the bundled-Chromium workspace in the user's default browser without
+/// tearing down its desktop surface. The browser host parks that surface while
+/// the external tab is connected and restores it when the tab closes.
+#[tauri::command]
+fn open_in_system_browser(
+    app: tauri::AppHandle,
+    browser: tauri::State<'_, browser_host::BrowserHost>,
+    window: tauri::Window,
+) -> Result<(), String> {
+    if browser.open_in_system_browser(&app, window.label())? {
+        Ok(())
+    } else {
+        Err("This Lattice workspace is no longer available.".to_string())
+    }
+}
+
 #[tauri::command]
 fn browser_access_enabled(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch()
@@ -2120,7 +2143,13 @@ fn set_browser_access_enabled(app: tauri::AppHandle, enabled: bool) -> Result<()
     if enabled {
         browser.keep_resident(&app)
     } else {
-        browser.stop_resident(&app);
+        // Packaged Chromium is still the running desktop application after its
+        // last window closes on macOS. Its small native owner must stay alive
+        // until the user explicitly quits so the Dock can reopen it and the
+        // loopback browser address does not disappear.
+        if !app.state::<chromium::ChromiumRuntime>().is_running() {
+            browser.stop_resident(&app);
+        }
         Ok(())
     }
 }
@@ -3998,7 +4027,7 @@ pub fn run() {
                 log::warn!(target: "lattice::browser", "{reason}");
             }
             let access_enabled = background || app.autolaunch().is_enabled().unwrap_or(false);
-            if access_enabled {
+            if access_enabled || chromium_ready {
                 app.state::<browser_host::BrowserHost>()
                     .keep_resident(app.handle())
                     .map_err(std::io::Error::other)?;
@@ -4044,6 +4073,7 @@ pub fn run() {
             get_app_log_dir,
             open_app_log_dir,
             open_in_browser,
+            open_in_system_browser,
             return_to_desktop,
             browser_access_enabled,
             set_browser_access_enabled,

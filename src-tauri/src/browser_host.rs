@@ -65,8 +65,39 @@ struct BrowserSession {
     active: bool,
     host: Option<Peer>,
     browser: Option<Peer>,
-    browser_epoch: u64,
-    returning_to_desktop: bool,
+    desktop: Option<Peer>,
+    bundled_chromium: bool,
+    visible_epoch: u64,
+    desktop_return: Option<DesktopReturnRequest>,
+}
+
+struct PeerRegistration {
+    host_label: String,
+    hide_desktop: bool,
+    complete_desktop_return: bool,
+}
+
+enum SessionSettlement {
+    Unchanged,
+    ResumeDesktop(String),
+    Expire(String),
+}
+
+enum DesktopReturn {
+    PendingBundled,
+    Bundled(String),
+    Native(BrowserSession),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DesktopReturnTarget {
+    Bundled,
+    Native,
+}
+
+struct DesktopReturnRequest {
+    target: DesktopReturnTarget,
+    acknowledged: bool,
 }
 
 #[derive(Clone)]
@@ -105,6 +136,7 @@ struct SessionQuery {
 #[serde(rename_all = "lowercase")]
 enum BridgeRole {
     Browser,
+    Desktop,
     Host,
 }
 
@@ -509,13 +541,38 @@ impl BrowserHost {
         app: &tauri::AppHandle,
         host_label: &str,
     ) -> Result<bool, String> {
+        let Some(browser_url) = self.workspace_url(host_label)? else {
+            return Ok(false);
+        };
+        open_workspace_url(app, &browser_url)?;
+        Ok(true)
+    }
+
+    /// Open the current bundled-Chromium workspace in the user's system
+    /// browser. This deliberately bypasses `open_workspace_url`, whose normal
+    /// packaged behavior is to route workspace URLs back into Chromium.
+    pub(crate) fn open_in_system_browser(
+        &self,
+        app: &tauri::AppHandle,
+        host_label: &str,
+    ) -> Result<bool, String> {
+        let Some(browser_url) = self.workspace_url(host_label)? else {
+            return Ok(false);
+        };
+        app.opener()
+            .open_url(browser_url, None::<&str>)
+            .map_err(|error| format!("Could not open the browser workspace: {error}"))?;
+        Ok(true)
+    }
+
+    fn workspace_url(&self, host_label: &str) -> Result<Option<String>, String> {
         let (port, sessions) = {
             let running = self
                 .running
                 .lock()
                 .map_err(|_| "Browser server state is unavailable.".to_string())?;
             let Some(server) = running.as_ref() else {
-                return Ok(false);
+                return Ok(None);
             };
             (server.port, Arc::clone(&server.sessions))
         };
@@ -531,11 +588,19 @@ impl BrowserHost {
                     )
                 })
             });
-        let Some(browser_url) = browser_url else {
-            return Ok(false);
-        };
-        open_workspace_url(app, &browser_url)?;
-        Ok(true)
+        Ok(browser_url)
+    }
+
+    pub(crate) fn has_bundled_chromium(&self, host_label: &str) -> Result<bool, String> {
+        let sessions = self
+            .sessions()
+            .ok_or_else(|| "Browser server state is unavailable.".to_string())?;
+        let sessions = sessions
+            .lock()
+            .map_err(|_| "Browser session state is unavailable.".to_string())?;
+        Ok(sessions
+            .values()
+            .any(|session| session.host_label == host_label && session.bundled_chromium))
     }
 
     /// Reopen the workspace owned by the fixed local browser entry, if one is
@@ -573,6 +638,7 @@ impl BrowserHost {
         &self,
         app: &tauri::AppHandle,
         host_label: &str,
+        bundled_chromium: bool,
     ) -> Result<(), String> {
         let sessions = self
             .sessions()
@@ -585,13 +651,20 @@ impl BrowserHost {
                 .iter_mut()
                 .find(|(_, session)| session.host_label == host_label)
                 .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
-            session.returning_to_desktop = true;
+            session.desktop_return = Some(DesktopReturnRequest {
+                target: if bundled_chromium {
+                    DesktopReturnTarget::Bundled
+                } else {
+                    DesktopReturnTarget::Native
+                },
+                acknowledged: false,
+            });
             token.clone()
         };
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_secs(5)).await;
-            complete_desktop_return(&app, &sessions, &token, None);
+            let _ = complete_desktop_return(&app, &sessions, &token, None);
         });
         Ok(())
     }
@@ -670,8 +743,10 @@ impl BrowserHost {
                     active,
                     host: None,
                     browser: None,
-                    browser_epoch: 0,
-                    returning_to_desktop: false,
+                    desktop: None,
+                    bundled_chromium: false,
+                    visible_epoch: 0,
+                    desktop_return: None,
                 },
             );
         }
@@ -968,8 +1043,10 @@ async fn open_browser_session(
             active: true,
             host: None,
             browser: None,
-            browser_epoch: 0,
-            returning_to_desktop: false,
+            desktop: None,
+            bundled_chromium: false,
+            visible_epoch: 0,
+            desktop_return: None,
         };
         let config = session_config(&token, &session, state.port);
         sessions.insert(token.clone(), session);
@@ -989,12 +1066,8 @@ async fn open_browser_session(
             // A page that requests a token but never completes its WebSocket
             // handshake must not leave a hidden WebView alive indefinitely.
             tokio::time::sleep(SESSION_CONNECT_TIMEOUT).await;
-            if let Some(host_label) = expire_browser_session(&sessions, &token, 0) {
-                if let Some(window) = app.get_webview_window(&host_label) {
-                    let _ = window.destroy();
-                }
-                shutdown_synara_if_idle(&app, &sessions);
-            }
+            let settlement = settle_browser_session(&sessions, &token, 0);
+            apply_session_settlement(&app, &sessions, settlement);
         });
     }
 
@@ -1019,7 +1092,7 @@ async fn upgrade_bridge(
     let allowed = valid_loopback_host(&headers, state.port)
         && state.sessions.lock().ok().is_some_and(|sessions| {
             sessions.get(&query.token).is_some_and(|session| {
-                query.role != BridgeRole::Browser
+                query.role == BridgeRole::Host
                     || headers
                         .get(header::ORIGIN)
                         .and_then(|origin| origin.to_str().ok())
@@ -1044,8 +1117,19 @@ async fn bridge_socket(
     let peer_id = uuid::Uuid::new_v4().simple().to_string();
     let (sender, mut outgoing) = mpsc::unbounded_channel();
     let (mut sink, mut incoming) = socket.split();
-    if !register_peer(&sessions, &query, &peer_id, sender) {
+    let Some(registration) = register_peer(&sessions, &query, &peer_id, sender) else {
         return;
+    };
+    if registration.hide_desktop {
+        if let Err(reason) = app
+            .state::<crate::chromium::ChromiumRuntime>()
+            .set_window_visibility(&registration.host_label, false)
+        {
+            log::warn!(target: "lattice::chromium", "could not hide Chromium workspace: {reason}");
+        }
+    }
+    if registration.complete_desktop_return {
+        let _ = complete_desktop_return(&app, &sessions, &query.token, None);
     }
 
     loop {
@@ -1062,13 +1146,14 @@ async fn bridge_socket(
                         if query.role == BridgeRole::Host
                             && message.as_str() == DESKTOP_RETURN_COMPLETE =>
                     {
-                        complete_desktop_return(
+                        if !complete_desktop_return(
                             &app,
                             &sessions,
                             &query.token,
                             Some(&peer_id),
-                        );
-                        break;
+                        ) {
+                            break;
+                        }
                     }
                     Message::Text(_) | Message::Binary(_) => {
                         if let Some(target) = other_peer(&sessions, &query, &peer_id) {
@@ -1091,15 +1176,45 @@ fn take_returning_session(
     sessions: &Sessions,
     token: &str,
     host_peer_id: Option<&str>,
-) -> Option<BrowserSession> {
+) -> Option<DesktopReturn> {
     let mut sessions = sessions.lock().ok()?;
     let session = sessions.get(token)?;
     let matches_host = host_peer_id
         .is_none_or(|peer_id| session.host.as_ref().map(|host| host.id.as_str()) == Some(peer_id));
-    if !session.returning_to_desktop || !matches_host {
+    if session.desktop_return.is_none() || !matches_host {
         return None;
     }
-    sessions.remove(token)
+    let session = sessions.get_mut(token)?;
+    let request = session.desktop_return.as_mut()?;
+    request.acknowledged = true;
+    if request.target == DesktopReturnTarget::Bundled && session.desktop.is_none() {
+        // The parked renderer reloads when takeover starts, so its socket can
+        // be briefly absent when the host acknowledges the command response.
+        // Keep the browser and host alive until that renderer reconnects.
+        return Some(DesktopReturn::PendingBundled);
+    }
+    if request.target == DesktopReturnTarget::Native {
+        return sessions.remove(token).map(DesktopReturn::Native);
+    }
+    session.desktop_return = None;
+    session.visible_epoch = session.visible_epoch.wrapping_add(1);
+    if let Some(browser) = session.browser.take() {
+        let _ = browser
+            .sender
+            .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
+        let _ = browser.sender.send(Message::Close(None));
+    }
+    if let Some(host) = &session.host {
+        let _ = host
+            .sender
+            .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+    }
+    if let Some(desktop) = &session.desktop {
+        let _ = desktop
+            .sender
+            .send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
+    }
+    Some(DesktopReturn::Bundled(session.host_label.clone()))
 }
 
 fn complete_desktop_return(
@@ -1107,9 +1222,17 @@ fn complete_desktop_return(
     sessions: &Sessions,
     token: &str,
     host_peer_id: Option<&str>,
-) {
-    let Some(session) = take_returning_session(sessions, token, host_peer_id) else {
-        return;
+) -> bool {
+    let Some(returned) = take_returning_session(sessions, token, host_peer_id) else {
+        return false;
+    };
+    let session = match returned {
+        DesktopReturn::PendingBundled => return true,
+        DesktopReturn::Bundled(host_label) => {
+            show_chromium_workspace(app, &host_label);
+            return true;
+        }
+        DesktopReturn::Native(session) => session,
     };
     let host_label = session.host_label;
     if let Some(browser) = session.browser {
@@ -1124,6 +1247,7 @@ fn complete_desktop_return(
             let _ = window.destroy();
         }
     });
+    false
 }
 
 fn register_peer(
@@ -1131,12 +1255,17 @@ fn register_peer(
     query: &BridgeQuery,
     peer_id: &str,
     sender: mpsc::UnboundedSender<Message>,
-) -> bool {
-    let Ok(mut sessions) = sessions.lock() else {
-        return false;
-    };
-    let Some(session) = sessions.get_mut(&query.token) else {
-        return false;
+) -> Option<PeerRegistration> {
+    let mut sessions = sessions.lock().ok()?;
+    let session = sessions.get_mut(&query.token)?;
+    let mut registration = PeerRegistration {
+        host_label: session.host_label.clone(),
+        hide_desktop: match query.role {
+            BridgeRole::Browser => session.bundled_chromium,
+            BridgeRole::Desktop => session.browser.is_some(),
+            BridgeRole::Host => false,
+        },
+        complete_desktop_return: false,
     };
     let peer = Peer {
         id: peer_id.to_string(),
@@ -1144,15 +1273,51 @@ fn register_peer(
     };
     match query.role {
         BridgeRole::Browser => {
-            let replacing_browser = session.browser_epoch != 0;
-            session.browser_epoch = session.browser_epoch.wrapping_add(1);
+            let reset_host = session.visible_epoch != 0;
+            session.visible_epoch = session.visible_epoch.wrapping_add(1);
             if let Some(previous) = session.browser.replace(peer) {
                 let _ = previous
                     .sender
                     .send(Message::Text(r#"{"type":"browser-replaced"}"#.into()));
                 let _ = previous.sender.send(Message::Close(None));
             }
-            if replacing_browser {
+            if let Some(desktop) = &session.desktop {
+                let _ = desktop
+                    .sender
+                    .send(Message::Text(r#"{"type":"desktop-suspended"}"#.into()));
+            }
+            if reset_host {
+                if let Some(host) = &session.host {
+                    let _ = host
+                        .sender
+                        .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+                }
+            }
+        }
+        BridgeRole::Desktop => {
+            session.bundled_chromium = true;
+            registration.complete_desktop_return = session
+                .desktop_return
+                .as_ref()
+                .is_some_and(|request| request.acknowledged);
+            let reset_host = session.browser.is_none() && session.visible_epoch != 0;
+            // Mark the initial fixed-Chromium connection so the session-create
+            // timeout cannot retire it. Later standby reloads must preserve
+            // the browser generation: otherwise a desktop reconnect during
+            // the browser-close grace period cancels the pending resume.
+            if session.visible_epoch == 0 {
+                session.visible_epoch = 1;
+            }
+            if let Some(previous) = session.desktop.replace(peer) {
+                let _ = previous.sender.send(Message::Close(None));
+            }
+            if session.browser.is_some() {
+                if let Some(desktop) = &session.desktop {
+                    let _ = desktop
+                        .sender
+                        .send(Message::Text(r#"{"type":"desktop-suspended"}"#.into()));
+                }
+            } else if reset_host {
                 if let Some(host) = &session.host {
                     let _ = host
                         .sender
@@ -1167,11 +1332,12 @@ fn register_peer(
         }
     }
     notify_ready(session);
-    true
+    Some(registration)
 }
 
 fn notify_ready(session: &BrowserSession) {
-    if !session.active || session.host.is_none() || session.browser.is_none() {
+    let visible = session.browser.as_ref().or(session.desktop.as_ref());
+    if !session.active || session.host.is_none() || visible.is_none() {
         return;
     }
     let ready =
@@ -1179,7 +1345,7 @@ fn notify_ready(session: &BrowserSession) {
     if let Some(host) = &session.host {
         let _ = host.sender.send(ready.clone());
     }
-    if let Some(browser) = &session.browser {
+    if let Some(browser) = visible {
         let _ = browser.sender.send(ready);
     }
 }
@@ -1196,7 +1362,16 @@ fn other_peer(
     }
     let (source, target) = match query.role {
         BridgeRole::Browser => (session.browser.as_ref(), session.host.as_ref()),
-        BridgeRole::Host => (session.host.as_ref(), session.browser.as_ref()),
+        BridgeRole::Desktop => {
+            if session.browser.is_some() {
+                return None;
+            }
+            (session.desktop.as_ref(), session.host.as_ref())
+        }
+        BridgeRole::Host => (
+            session.host.as_ref(),
+            session.browser.as_ref().or(session.desktop.as_ref()),
+        ),
     };
     if source?.id != peer_id {
         return None;
@@ -1222,22 +1397,69 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     }
 }
 
-/// Atomically retire an entry session after its reconnect grace period. Once
-/// removed, a simultaneous fixed-address request must create a fresh session
-/// rather than attaching to the host this expiry is about to destroy.
-fn expire_browser_session(sessions: &Sessions, token: &str, browser_epoch: u64) -> Option<String> {
-    let mut sessions = sessions.lock().ok()?;
-    let expired = sessions
-        .get(token)
-        .is_some_and(|session| session.browser.is_none() && session.browser_epoch == browser_epoch);
-    if !expired {
-        return None;
+fn show_chromium_workspace(app: &tauri::AppHandle, host_label: &str) {
+    if let Err(reason) = app
+        .state::<crate::chromium::ChromiumRuntime>()
+        .set_window_visibility(host_label, true)
+    {
+        log::warn!(target: "lattice::chromium", "could not restore Chromium workspace: {reason}");
     }
-    sessions.remove(token).map(|session| session.host_label)
+}
+
+/// Resume a parked bundled-Chromium surface, or atomically retire an entry
+/// session when no visible peer returned during its reconnect grace period.
+fn settle_browser_session(
+    sessions: &Sessions,
+    token: &str,
+    visible_epoch: u64,
+) -> SessionSettlement {
+    let Ok(mut sessions) = sessions.lock() else {
+        return SessionSettlement::Unchanged;
+    };
+    let Some(session) = sessions.get_mut(token) else {
+        return SessionSettlement::Unchanged;
+    };
+    if session.browser.is_some() || session.visible_epoch != visible_epoch {
+        return SessionSettlement::Unchanged;
+    }
+    if let Some(desktop) = &session.desktop {
+        if let Some(host) = &session.host {
+            let _ = host
+                .sender
+                .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+        }
+        let _ = desktop
+            .sender
+            .send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
+        return SessionSettlement::ResumeDesktop(session.host_label.clone());
+    }
+    sessions
+        .remove(token)
+        .map(|session| SessionSettlement::Expire(session.host_label))
+        .unwrap_or(SessionSettlement::Unchanged)
+}
+
+fn apply_session_settlement(
+    app: &tauri::AppHandle,
+    sessions: &Sessions,
+    settlement: SessionSettlement,
+) {
+    match settlement {
+        SessionSettlement::Unchanged => {}
+        SessionSettlement::ResumeDesktop(host_label) => {
+            show_chromium_workspace(app, &host_label);
+        }
+        SessionSettlement::Expire(host_label) => {
+            if let Some(window) = app.get_webview_window(&host_label) {
+                let _ = window.destroy();
+            }
+            shutdown_synara_if_idle(app, sessions);
+        }
+    }
 }
 
 fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery, peer_id: String) {
-    let mut browser_epoch = None;
+    let mut visible_epoch = None;
     let mut remove_session_now = false;
     if let Ok(mut sessions_guard) = sessions.lock() {
         let Some(session) = sessions_guard.get_mut(&query.token) else {
@@ -1245,6 +1467,7 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
         };
         let peer = match query.role {
             BridgeRole::Browser => &mut session.browser,
+            BridgeRole::Desktop => &mut session.desktop,
             BridgeRole::Host => &mut session.host,
         };
         if peer.as_ref().map(|peer| peer.id.as_str()) != Some(peer_id.as_str()) {
@@ -1253,16 +1476,30 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
         *peer = None;
         match query.role {
             BridgeRole::Browser => {
-                session.browser_epoch = session.browser_epoch.wrapping_add(1);
-                browser_epoch = Some(session.browser_epoch);
+                session.visible_epoch = session.visible_epoch.wrapping_add(1);
+                if session.browser.is_none() {
+                    visible_epoch = Some(session.visible_epoch);
+                }
+            }
+            BridgeRole::Desktop => {
+                // A parked Chromium renderer reloads after browser takeover.
+                // Its socket replacement must not invalidate the browser's
+                // grace timer, but a real desktop close still needs a timer
+                // that expires the hidden host when no browser replaces it.
+                if session.browser.is_none() {
+                    visible_epoch = Some(session.visible_epoch);
+                }
             }
             BridgeRole::Host => {
-                if let Some(browser) = &session.browser {
-                    let message = if session.returning_to_desktop {
-                        r#"{"type":"desktop-returned"}"#
-                    } else {
-                        r#"{"type":"host-disconnected"}"#
-                    };
+                let message = if session.desktop_return.is_some() {
+                    r#"{"type":"desktop-returned"}"#
+                } else {
+                    r#"{"type":"host-disconnected"}"#
+                };
+                for browser in [session.browser.as_ref(), session.desktop.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
                     let _ = browser.sender.send(Message::Text(message.into()));
                 }
                 remove_session_now = true;
@@ -1277,17 +1514,13 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
         shutdown_synara_if_idle(&app, &sessions);
     }
 
-    if let Some(epoch) = browser_epoch {
+    if let Some(epoch) = visible_epoch {
         tauri::async_runtime::spawn(async move {
             // A reload briefly replaces the browser socket. Preserve the host
             // across that gap, but retire it when the tab is actually gone.
             tokio::time::sleep(Duration::from_secs(5)).await;
-            if let Some(host_label) = expire_browser_session(&sessions, &query.token, epoch) {
-                if let Some(window) = app.get_webview_window(&host_label) {
-                    let _ = window.destroy();
-                }
-                shutdown_synara_if_idle(&app, &sessions);
-            }
+            let settlement = settle_browser_session(&sessions, &query.token, epoch);
+            apply_session_settlement(&app, &sessions, settlement);
         });
     }
 }
@@ -1296,9 +1529,13 @@ fn send_session_error(sessions: &Sessions, token: &str, reason: &str) {
     let message = serde_json::json!({ "type": "error", "message": reason }).to_string();
     if let Ok(sessions) = sessions.lock() {
         if let Some(session) = sessions.get(token) {
-            for peer in [session.host.as_ref(), session.browser.as_ref()]
-                .into_iter()
-                .flatten()
+            for peer in [
+                session.host.as_ref(),
+                session.browser.as_ref(),
+                session.desktop.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
             {
                 let _ = peer.sender.send(Message::Text(message.clone().into()));
             }
@@ -1395,8 +1632,10 @@ mod tests {
             active,
             host: None,
             browser: None,
-            browser_epoch: 0,
-            returning_to_desktop: false,
+            desktop: None,
+            bundled_chromium: false,
+            visible_epoch: 0,
+            desktop_return: None,
         }
     }
 
@@ -1443,13 +1682,8 @@ mod tests {
         let (browser_sender, _browser_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
         let browser_query = query(BridgeRole::Browser);
-        assert!(register_peer(&sessions, &host_query, "host", host_sender));
-        assert!(register_peer(
-            &sessions,
-            &browser_query,
-            "browser",
-            browser_sender
-        ));
+        assert!(register_peer(&sessions, &host_query, "host", host_sender).is_some());
+        assert!(register_peer(&sessions, &browser_query, "browser", browser_sender).is_some());
         assert!(other_peer(&sessions, &browser_query, "browser").is_none());
         assert!(host_messages.try_recv().is_err());
 
@@ -1471,20 +1705,16 @@ mod tests {
         )])));
         let (host_sender, _host_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
-        assert!(register_peer(
-            &sessions,
-            &host_query,
-            "current-host",
-            host_sender,
-        ));
+        assert!(register_peer(&sessions, &host_query, "current-host", host_sender,).is_some());
 
         assert!(take_returning_session(&sessions, "secret", Some("current-host")).is_none());
-        sessions
-            .lock()
-            .unwrap()
-            .get_mut("secret")
-            .unwrap()
-            .returning_to_desktop = true;
+        {
+            let mut sessions = sessions.lock().unwrap();
+            sessions.get_mut("secret").unwrap().desktop_return = Some(DesktopReturnRequest {
+                target: DesktopReturnTarget::Native,
+                acknowledged: false,
+            });
+        }
         assert!(take_returning_session(&sessions, "secret", Some("stale-host")).is_none());
         assert!(take_returning_session(&sessions, "secret", Some("current-host")).is_some());
         assert!(sessions.lock().unwrap().is_empty());
@@ -1501,22 +1731,12 @@ mod tests {
         let (second_sender, _second_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
         let browser_query = query(BridgeRole::Browser);
-        assert!(register_peer(&sessions, &host_query, "host", host_sender));
-        assert!(register_peer(
-            &sessions,
-            &browser_query,
-            "first",
-            first_sender
-        ));
+        assert!(register_peer(&sessions, &host_query, "host", host_sender).is_some());
+        assert!(register_peer(&sessions, &browser_query, "first", first_sender).is_some());
         let _ = first_messages.try_recv();
         let _ = host_messages.try_recv();
 
-        assert!(register_peer(
-            &sessions,
-            &browser_query,
-            "second",
-            second_sender
-        ));
+        assert!(register_peer(&sessions, &browser_query, "second", second_sender).is_some());
 
         assert!(matches!(
             first_messages.try_recv(),
@@ -1532,6 +1752,165 @@ mod tests {
         ));
         assert!(other_peer(&sessions, &browser_query, "first").is_none());
         assert!(other_peer(&sessions, &browser_query, "second").is_some());
+    }
+
+    #[test]
+    fn external_browser_parks_and_then_resumes_bundled_chromium() {
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "secret".to_string(),
+            session(true),
+        )])));
+        let (host_sender, mut host_messages) = mpsc::unbounded_channel();
+        let (desktop_sender, mut desktop_messages) = mpsc::unbounded_channel();
+        let (browser_sender, _browser_messages) = mpsc::unbounded_channel();
+        let host_query = query(BridgeRole::Host);
+        let desktop_query = query(BridgeRole::Desktop);
+        let browser_query = query(BridgeRole::Browser);
+        assert!(register_peer(&sessions, &host_query, "host", host_sender).is_some());
+        assert!(register_peer(&sessions, &desktop_query, "desktop", desktop_sender,).is_some());
+        while host_messages.try_recv().is_ok() {}
+        while desktop_messages.try_recv().is_ok() {}
+
+        let registration =
+            register_peer(&sessions, &browser_query, "browser", browser_sender).unwrap();
+        assert!(registration.hide_desktop);
+        assert!(matches!(
+            desktop_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("desktop-suspended")
+        ));
+        assert!(other_peer(&sessions, &desktop_query, "desktop").is_none());
+        while host_messages.try_recv().is_ok() {}
+
+        let epoch = {
+            let mut sessions = sessions.lock().unwrap();
+            let session = sessions.get_mut("secret").unwrap();
+            session.browser = None;
+            session.visible_epoch = session.visible_epoch.wrapping_add(1);
+            session.visible_epoch
+        };
+        let (reconnected_sender, mut reconnected_messages) = mpsc::unbounded_channel();
+        assert!(register_peer(
+            &sessions,
+            &desktop_query,
+            "desktop-reconnected",
+            reconnected_sender,
+        )
+        .is_some());
+        assert_eq!(
+            sessions
+                .lock()
+                .unwrap()
+                .get("secret")
+                .unwrap()
+                .visible_epoch,
+            epoch,
+            "a parked desktop reload must not cancel browser-close recovery"
+        );
+        while host_messages.try_recv().is_ok() {}
+        while reconnected_messages.try_recv().is_ok() {}
+        assert!(matches!(
+            settle_browser_session(&sessions, "secret", epoch),
+            SessionSettlement::ResumeDesktop(label) if label == "browser-test"
+        ));
+        assert!(matches!(
+            host_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("browser-reset")
+        ));
+        assert!(matches!(
+            reconnected_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("desktop-resumed")
+        ));
+        assert!(other_peer(&sessions, &desktop_query, "desktop-reconnected").is_some());
+    }
+
+    #[test]
+    fn explicit_desktop_return_restores_bundled_chromium_without_retiring_its_session() {
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "secret".to_string(),
+            session(true),
+        )])));
+        let (host_sender, mut host_messages) = mpsc::unbounded_channel();
+        let (desktop_sender, mut desktop_messages) = mpsc::unbounded_channel();
+        let (browser_sender, mut browser_messages) = mpsc::unbounded_channel();
+        assert!(register_peer(&sessions, &query(BridgeRole::Host), "host", host_sender,).is_some());
+        assert!(register_peer(
+            &sessions,
+            &query(BridgeRole::Desktop),
+            "desktop",
+            desktop_sender,
+        )
+        .is_some());
+        assert!(register_peer(
+            &sessions,
+            &query(BridgeRole::Browser),
+            "browser",
+            browser_sender,
+        )
+        .is_some());
+        while host_messages.try_recv().is_ok() {}
+        while desktop_messages.try_recv().is_ok() {}
+        while browser_messages.try_recv().is_ok() {}
+        {
+            let mut sessions = sessions.lock().unwrap();
+            let session = sessions.get_mut("secret").unwrap();
+            // Browser takeover asks the parked Chromium page to reload. The
+            // explicit return can arrive during the resulting socket gap.
+            session.desktop = None;
+            session.desktop_return = Some(DesktopReturnRequest {
+                target: DesktopReturnTarget::Bundled,
+                acknowledged: false,
+            });
+        }
+
+        assert!(matches!(
+            take_returning_session(&sessions, "secret", Some("host")),
+            Some(DesktopReturn::PendingBundled)
+        ));
+        {
+            let sessions = sessions.lock().unwrap();
+            let session = sessions.get("secret").unwrap();
+            assert!(session.browser.is_some());
+            assert!(session.desktop_return.as_ref().unwrap().acknowledged);
+        }
+
+        let (reconnected_sender, mut reconnected_messages) = mpsc::unbounded_channel();
+        let registration = register_peer(
+            &sessions,
+            &query(BridgeRole::Desktop),
+            "desktop-reconnected",
+            reconnected_sender,
+        )
+        .unwrap();
+        assert!(registration.complete_desktop_return);
+        while host_messages.try_recv().is_ok() {}
+        while browser_messages.try_recv().is_ok() {}
+        while reconnected_messages.try_recv().is_ok() {}
+        assert!(matches!(
+            take_returning_session(&sessions, "secret", None),
+            Some(DesktopReturn::Bundled(label)) if label == "browser-test"
+        ));
+
+        let session = sessions.lock().unwrap();
+        let session = session.get("secret").unwrap();
+        assert!(session.browser.is_none());
+        assert!(session.desktop.is_some());
+        assert!(session.desktop_return.is_none());
+        assert!(matches!(
+            browser_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("desktop-returned")
+        ));
+        assert!(matches!(
+            browser_messages.try_recv(),
+            Ok(Message::Close(None))
+        ));
+        assert!(matches!(
+            host_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("browser-reset")
+        ));
+        assert!(matches!(
+            reconnected_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("desktop-resumed")
+        ));
     }
 
     #[test]
@@ -1557,11 +1936,16 @@ mod tests {
             session(true),
         )])));
 
-        assert!(expire_browser_session(&sessions, "current", 1).is_none());
+        assert!(matches!(
+            settle_browser_session(&sessions, "current", 1),
+            SessionSettlement::Unchanged
+        ));
         assert!(reusable_entry_config(&sessions, PREFERRED_PORT, None).is_some());
 
-        let expired_host = expire_browser_session(&sessions, "current", 0).unwrap();
-        assert_eq!(expired_host, "browser-test");
+        assert!(matches!(
+            settle_browser_session(&sessions, "current", 0),
+            SessionSettlement::Expire(label) if label == "browser-test"
+        ));
         assert!(reusable_entry_config(&sessions, PREFERRED_PORT, None).is_none());
     }
 

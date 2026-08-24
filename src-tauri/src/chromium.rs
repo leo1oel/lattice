@@ -31,12 +31,18 @@ pub(crate) struct ChromiumRuntime {
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum ShellMessage<'a> {
     OpenUrl { url: &'a str },
+    SetWindowVisibility { label: &'a str, visible: bool },
 }
 
-fn encode_open_url(url: &str) -> Result<String, String> {
-    serde_json::to_string(&ShellMessage::OpenUrl { url })
+fn encode_message(message: &ShellMessage<'_>) -> Result<String, String> {
+    serde_json::to_string(message)
         .map(|message| format!("{message}\n"))
         .map_err(|error| format!("Could not encode the Chromium window request: {error}"))
+}
+
+#[cfg(test)]
+fn encode_open_url(url: &str) -> Result<String, String> {
+    encode_message(&ShellMessage::OpenUrl { url })
 }
 
 impl ChromiumRuntime {
@@ -117,10 +123,20 @@ impl ChromiumRuntime {
     /// Open or focus a Chromium workspace. False means no packaged shell owns
     /// the request, so explicit browser-access mode may use the system browser.
     pub(crate) fn open_url(&self, url: &str) -> Result<bool, String> {
+        self.send(&ShellMessage::OpenUrl { url })
+    }
+
+    /// Hide a workspace while its system-browser peer is active, then reveal
+    /// the same Chromium window after that peer disconnects.
+    pub(crate) fn set_window_visibility(&self, label: &str, visible: bool) -> Result<bool, String> {
+        self.send(&ShellMessage::SetWindowVisibility { label, visible })
+    }
+
+    fn send(&self, message: &ShellMessage<'_>) -> Result<bool, String> {
         if !self.is_running() {
             return Ok(false);
         }
-        let message = encode_open_url(url)?;
+        let message = encode_message(message)?;
         let mut input = self
             .input
             .lock()
@@ -163,7 +179,7 @@ impl ChromiumRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::encode_open_url;
+    use super::{encode_message, encode_open_url, ShellMessage};
 
     #[test]
     fn control_messages_keep_authenticated_urls_out_of_process_arguments() {
@@ -175,5 +191,25 @@ mod tests {
             encoded,
             "{\"type\":\"open-url\",\"url\":\"http://127.0.0.1:18452/#token=secret&bridgePort=18452&label=browser-test\"}\n"
         );
+    }
+
+    #[test]
+    fn control_messages_can_hide_and_restore_one_workspace() {
+        let encoded = encode_message(&ShellMessage::SetWindowVisibility {
+            label: "browser-test",
+            visible: false,
+        })
+        .unwrap();
+        assert_eq!(
+            encoded,
+            "{\"type\":\"set-window-visibility\",\"label\":\"browser-test\",\"visible\":false}\n"
+        );
+    }
+
+    #[test]
+    fn red_close_keeps_the_macos_chromium_owner_alive() {
+        let shell = include_str!("../../scripts/chromium-shell.mjs");
+        assert!(shell.contains("app.on(\"window-all-closed\""));
+        assert!(shell.contains("process.platform !== \"darwin\""));
     }
 }

@@ -18,10 +18,17 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
+  | { type: "desktop-suspended" }
+  | { type: "desktop-resumed" }
   | { type: "browser-replaced" }
   | { type: "desktop-returned" }
   | { type: "host-disconnected" }
   | { type: "error"; message: string };
+
+type BrowserPeerRole = "browser" | "desktop";
+
+const DESKTOP_STANDBY_KEY = "lattice.desktop-browser-standby";
+const APPEARANCE_KEY = "lattice.appearance.v5";
 
 interface BrowserInternals {
   invoke: (command: string, args?: unknown, options?: unknown) => Promise<unknown>;
@@ -77,12 +84,15 @@ export class BrowserRelay {
   private pageLeaving = false;
   private terminal = false;
   private recovering = false;
+  private standby = false;
   readonly storageReady: Promise<void>;
 
   constructor(
     config: BrowserRuntimeConfig,
     callbacks: Map<number, Callback>,
     private readonly reloadPage: () => void = () => window.location.reload(),
+    private readonly role: BrowserPeerRole = browserPeerRole(),
+    private readonly closePage: () => void = () => window.close(),
   ) {
     this.callbacks = callbacks;
     this.readyPromise = new Promise<void>((resolve, reject) => {
@@ -95,7 +105,7 @@ export class BrowserRelay {
     });
     const socketUrl = new URL(`ws://127.0.0.1:${config.bridgePort}/__lattice_bridge`);
     socketUrl.searchParams.set("token", config.token);
-    socketUrl.searchParams.set("role", "browser");
+    socketUrl.searchParams.set("role", role);
     this.socket = new WebSocket(socketUrl);
     this.socket.addEventListener("message", (event) => this.receive(event));
     this.socket.addEventListener("close", () => {
@@ -115,7 +125,9 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready) this.fail(new Error("The local Lattice app did not finish the browser handoff."));
+      if (!this.ready && !this.standby) {
+        this.fail(new Error(runtimeMessage("handoff-timeout")));
+      }
     }, 20_000);
   }
 
@@ -159,6 +171,7 @@ export class BrowserRelay {
       return;
     }
     if (message.type === "ready") {
+      if (this.role === "desktop") sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
       if (!this.ready) {
         this.ready = true;
         this.readyResolve();
@@ -185,17 +198,53 @@ export class BrowserRelay {
       return;
     }
     if (message.type === "host-disconnected") {
-      this.disconnect(new Error("The local Lattice app disconnected."));
+      this.disconnect(new Error(runtimeMessage("app-disconnected")));
+      return;
+    }
+    if (message.type === "desktop-suspended") {
+      this.standby = true;
+      const reason = new Error(runtimeMessage("desktop-suspended"));
+      showRuntimeFailure(reason);
+      for (const pending of this.pending.values()) pending.reject(reason);
+      this.pending.clear();
+      if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
+        sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
+        this.recovering = true;
+        try {
+          this.reloadPage();
+        } catch {
+          this.recovering = false;
+          // The status remains visible and the server will resume this peer
+          // when the external browser closes.
+        }
+      }
+      return;
+    }
+    if (message.type === "desktop-resumed") {
+      sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
+      try {
+        this.reloadPage();
+      } catch (reason) {
+        this.fail(reason instanceof Error ? reason : new Error(String(reason)));
+      }
       return;
     }
     if (message.type === "browser-replaced") {
       this.terminal = true;
-      this.fail(new Error("This Lattice workspace is open in another browser tab."));
+      this.fail(new Error(runtimeMessage("browser-replaced")));
       return;
     }
     if (message.type === "desktop-returned") {
       this.terminal = true;
-      this.fail(new Error("This workspace is now open in the Lattice desktop app. You can close this tab."));
+      this.syncStorage();
+      try {
+        this.closePage();
+      } catch {
+        // Browsers may reject window.close() for a tab opened by another app.
+      }
+      // If the browser permits the close, this document disappears before the
+      // fallback paints. Otherwise, leave an explicit completion message.
+      this.fail(new Error(runtimeMessage("desktop-returned")));
       return;
     }
     if (message.type === "error") {
@@ -206,6 +255,16 @@ export class BrowserRelay {
 
   private disconnect(reason: Error): void {
     if (this.terminal || this.pageLeaving || this.recovering) return;
+    if (this.standby) {
+      this.recovering = true;
+      try {
+        this.reloadPage();
+      } catch {
+        this.recovering = false;
+        this.fail(reason);
+      }
+      return;
+    }
     if (!this.ready) {
       this.fail(reason);
       return;
@@ -241,6 +300,61 @@ export class BrowserRelay {
     for (const pending of this.pending.values()) pending.reject(reason);
     this.pending.clear();
   }
+}
+
+type RuntimeMessage =
+  | "app-disconnected"
+  | "handoff-timeout"
+  | "desktop-suspended"
+  | "browser-replaced"
+  | "desktop-returned";
+
+function runtimeMessage(message: RuntimeMessage): string {
+  let configuredLanguage = "system";
+  try {
+    const appearance = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}") as {
+      interfaceLanguage?: unknown;
+    };
+    if (appearance.interfaceLanguage === "en" || appearance.interfaceLanguage === "zh-CN") {
+      configuredLanguage = appearance.interfaceLanguage;
+    }
+  } catch {
+    // A malformed preference falls back to the browser language, just as the
+    // main settings loader does.
+  }
+  const chinese = configuredLanguage === "zh-CN"
+    || (configuredLanguage === "system" && navigator.languages.some((locale) => (
+      locale.toLocaleLowerCase().startsWith("zh")
+    )));
+  const messages: Record<RuntimeMessage, [english: string, chinese: string]> = {
+    "app-disconnected": [
+      "The local Lattice app disconnected.",
+      "与本地 Lattice 应用的连接已断开。",
+    ],
+    "handoff-timeout": [
+      "The local Lattice app did not finish the browser handoff.",
+      "本地 Lattice 应用未能完成浏览器切换。",
+    ],
+    "desktop-suspended": [
+      "This workspace is open in your browser. It will return here when that browser tab closes.",
+      "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
+    ],
+    "browser-replaced": [
+      "This Lattice workspace is open in another browser tab.",
+      "此 Lattice 工作区已在另一个浏览器标签页中打开。",
+    ],
+    "desktop-returned": [
+      "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
+      "此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。",
+    ],
+  };
+  return messages[message][chinese ? 1 : 0];
+}
+
+function browserPeerRole(): BrowserPeerRole {
+  return new URLSearchParams(window.location.search).get("latticeChromium") === "1"
+    ? "desktop"
+    : "browser";
 }
 
 function showRuntimeFailure(reason: Error): void {

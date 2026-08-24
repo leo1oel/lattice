@@ -182,6 +182,7 @@ export function SettingsDialog(props: {
   const [browserAccessEnabled, setBrowserAccessEnabled] = useState(false);
   const [browserAccessLoading, setBrowserAccessLoading] = useState(true);
   const browserHosted = props.browserHosted;
+  const browserOutsideChromium = browserHosted && !props.bundledChromium;
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
@@ -194,7 +195,7 @@ export function SettingsDialog(props: {
     setProjectWordDraft("");
   };
   const openInBrowser = async () => {
-    if (browserOpening || browserHosted) return;
+    if (browserOpening || browserOutsideChromium) return;
     setBrowserOpening(true);
     setBrowserOpenError("");
     try {
@@ -701,38 +702,38 @@ export function SettingsDialog(props: {
                 </SettingsGroup>
                 <SettingsGroup title={t`Browser`}>
                   <SwitchField
-                    label={t`Keep browser access ready`}
-                    description={t`Start Lattice quietly after login so the local browser address is always available.`}
+                    label={t`Start browser access after login`}
+                    description={t`Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it.`}
                     checked={browserAccessEnabled}
                     disabled={browserAccessLoading}
                     onChange={(enabled) => { void updateBrowserAccess(enabled); }}
                   />
-                  {!props.bundledChromium && (
-                    <SettingsRow
-                      label={browserHosted ? t`Open desktop app` : t`Open in browser`}
-                      description={browserHosted
-                        ? t`Move this workspace back to a Lattice window on this Mac.`
+                  <SettingsRow
+                    label={browserOutsideChromium ? t`Open desktop app` : t`Open in browser`}
+                    description={browserOutsideChromium
+                      ? t`Move this workspace back to a Lattice window on this Mac.`
+                      : props.bundledChromium
+                        ? t`Open this workspace in your default browser. It returns to this window when the browser tab closes.`
                         : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
-                    >
-                      {browserHosted ? (
-                        <Button
-                          size="compact"
-                          disabled={browserOpening}
-                          onClick={() => void returnToDesktop()}
-                        >
-                          {browserOpening ? t`Opening…` : t`Open desktop app`}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="compact"
-                          disabled={browserOpening}
-                          onClick={() => void openInBrowser()}
-                        >
-                          {browserOpening ? t`Opening…` : t`Open in browser`}
-                        </Button>
-                      )}
-                    </SettingsRow>
-                  )}
+                  >
+                    {browserOutsideChromium ? (
+                      <Button
+                        size="compact"
+                        disabled={browserOpening}
+                        onClick={() => void returnToDesktop()}
+                      >
+                        {browserOpening ? t`Opening…` : t`Open desktop app`}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="compact"
+                        disabled={browserOpening}
+                        onClick={() => void openInBrowser()}
+                      >
+                        {browserOpening ? t`Opening…` : t`Open in browser`}
+                      </Button>
+                    )}
+                  </SettingsRow>
                   {browserOpenError && (
                     <InlineMessage level="error" className="settings-inline">
                       {browserOpenError}

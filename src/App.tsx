@@ -7521,6 +7521,15 @@ function App() {
             throw new Error(t`Save the current workspace before opening it in a browser.`);
           }
           try {
+            if (bundledChromium) {
+              await invoke("open_in_system_browser");
+              setSettingsOpen(false);
+              // The native workspace is not changing ownership yet. It stays
+              // parked behind a status screen only while the system-browser
+              // peer is connected, then reloads into the same Chromium window.
+              cancelProjectTransition();
+              return;
+            }
             await invoke("open_in_browser");
             setSettingsOpen(false);
             // The existing close-request path leaves collaboration presence

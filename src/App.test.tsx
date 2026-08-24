@@ -814,11 +814,11 @@ describe("welcome screen", () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
-    const residentAccess = await screen.findByLabelText("Keep browser access ready");
+    const residentAccess = await screen.findByLabelText("Start browser access after login");
     expect(residentAccess).toBeChecked();
     expect(screen.getByText("Browser").compareDocumentPosition(screen.getByText("Feedback")))
       .toBe(Node.DOCUMENT_POSITION_PRECEDING);
-    expect(screen.getByText(/http:\/\/127\.0\.0\.1:18452/)).toBeInTheDocument();
+    expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:18452/)).toHaveLength(2);
 
     fireEvent.click(residentAccess);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_browser_access_enabled", {
@@ -861,15 +861,24 @@ describe("welcome screen", () => {
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
   });
 
-  it("does not offer the obsolete WebKit handoff inside the bundled Chromium app", async () => {
+  it("opens the bundled Chromium workspace in the default browser", async () => {
     browserRuntime.hosted = true;
     browserRuntime.bundled = true;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "open_in_system_browser") return null;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
 
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
-    await screen.findByLabelText("Keep browser access ready");
-    expect(screen.queryByRole("button", { name: "Open desktop app" })).not.toBeInTheDocument();
+    await screen.findByLabelText("Start browser access after login");
+    fireEvent.click(screen.getByRole("button", { name: "Open in browser" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_in_system_browser"));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    });
   });
 
   it("keeps an explicitly selected manual build preference", async () => {

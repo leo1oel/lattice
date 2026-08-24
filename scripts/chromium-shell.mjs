@@ -50,6 +50,26 @@ function focusWindow(window) {
   window.focus();
 }
 
+async function showWorkspace(label) {
+  const window = windowsByLabel.get(label);
+  if (!window || window.isDestroyed()) return;
+  // The backend asks the parked renderer to reload before revealing it. Wait
+  // until the real workspace has replaced the standby status so switching
+  // back never flashes an obsolete "open in browser" page.
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      const ready = await window.webContents.executeJavaScript(
+        "Boolean(document.querySelector('.app-shell')) && !document.querySelector('#lattice-browser-runtime-error')",
+      );
+      if (ready) break;
+    } catch {
+      // A reload briefly replaces the renderer's JavaScript context.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (!window.isDestroyed()) focusWindow(window);
+}
+
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -214,11 +234,23 @@ function installControlPipe() {
     } catch {
       return;
     }
-    if (message?.type !== "open-url" || typeof message.url !== "string") return;
-    void openWorkspace(message.url).catch((error) => {
-      console.error(error);
-      dialog.showErrorBox("Could not open Lattice", error instanceof Error ? error.message : String(error));
-    });
+    if (message?.type === "open-url" && typeof message.url === "string") {
+      void openWorkspace(message.url).catch((error) => {
+        console.error(error);
+        dialog.showErrorBox("Could not open Lattice", error instanceof Error ? error.message : String(error));
+      });
+      return;
+    }
+    if (
+      message?.type === "set-window-visibility"
+      && typeof message.label === "string"
+      && typeof message.visible === "boolean"
+    ) {
+      const window = windowsByLabel.get(message.label);
+      if (!window || window.isDestroyed()) return;
+      if (message.visible) void showWorkspace(message.label);
+      else window.hide();
+    }
   });
   input.on("close", () => {
     if (process.env.LATTICE_CHROMIUM_MANAGED === "1" && !quitting) app.quit();
@@ -226,6 +258,14 @@ function installControlPipe() {
 }
 
 app.setName("Lattice");
+
+// Closing the last macOS window is not an application quit. Keep the managed
+// shell alive so its Tauri owner can continue serving an external browser tab,
+// and so clicking Lattice in the Dock can create a new window. Command-Q still
+// reaches `before-quit` and shuts down the complete process tree normally.
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
 
 const lockAcquired = app.requestSingleInstanceLock();
 if (!lockAcquired) {

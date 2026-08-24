@@ -2180,8 +2180,8 @@ msgid "Kappa"
 msgstr "卡帕"
 
 #: src/settings/settings-dialog.tsx
-msgid "Keep browser access ready"
-msgstr "保持浏览器入口就绪"
+msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it."
+msgstr "登录后保持 http://127.0.0.1:18452 可用。退出 Lattice 后，该地址将停止服务。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
@@ -2948,6 +2948,10 @@ msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
 msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留在这台 Mac 上。"
+
+#: src/settings/settings-dialog.tsx
+msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes."
+msgstr "在默认浏览器中打开此工作区。关闭浏览器标签页后，工作区会自动返回此窗口。"
 
 #: src/App.tsx
 msgid "OpenAlex search"
@@ -4100,8 +4104,8 @@ msgid "Start / join live sharing"
 msgstr "开始或加入实时共享"
 
 #: src/settings/settings-dialog.tsx
-msgid "Start Lattice quietly after login so the local browser address is always available."
-msgstr "登录后在后台启动 Lattice，让本地浏览器地址随时可用。"
+msgid "Start browser access after login"
+msgstr "登录后启动浏览器访问服务"
 
 #: src/collab/collab-dialog.tsx
 msgid "Start sharing"

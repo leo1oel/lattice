@@ -34,24 +34,30 @@ class FakeWebSocket extends EventTarget {
 const sockets: FakeWebSocket[] = [];
 const NativeWebSocket = globalThis.WebSocket;
 
-function connectedRelay(reload = vi.fn()) {
+function connectedRelay(
+  reload = vi.fn(),
+  role: "browser" | "desktop" = "browser",
+  closePage = vi.fn(),
+) {
   const config: BrowserRuntimeConfig = {
     token: "secret",
     bridgePort: 18_452,
     label: "browser-test",
   };
-  const relay = new BrowserRelay(config, new Map(), reload);
+  const relay = new BrowserRelay(config, new Map(), reload, role, closePage);
   const socket = sockets.at(-1);
   if (!socket) throw new Error("Browser relay did not open a socket");
   socket.message({ type: "ready", label: config.label });
   socket.message({ type: "storage", entries: [] });
-  return { relay, socket, reload };
+  return { relay, socket, reload, closePage };
 }
 
 afterEach(() => {
   sockets.length = 0;
   vi.useRealTimers();
   vi.stubGlobal("WebSocket", NativeWebSocket);
+  localStorage.removeItem("lattice.appearance.v5");
+  sessionStorage.removeItem("lattice.desktop-browser-standby");
   document.getElementById("lattice-browser-runtime-error")?.remove();
 });
 
@@ -150,17 +156,71 @@ describe("browser bridge recovery", () => {
     );
   });
 
+  it("parks bundled Chromium while a browser tab is active and reloads it on return", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
+
+    expect(new URL(socket.url).searchParams.get("role")).toBe("desktop");
+    socket.message({ type: "desktop-suspended" });
+
+    expect(reload).toHaveBeenCalledOnce();
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "This workspace is open in your browser. It will return here when that browser tab closes.",
+    );
+
+    reload.mockClear();
+    socket.message({ type: "desktop-resumed" });
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("shows the translated handoff status after the standby page reloads", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
+    const reload = vi.fn();
+    new BrowserRelay({
+      token: "secret",
+      bridgePort: 18_452,
+      label: "browser-test",
+    }, new Map(), reload, "desktop");
+    const socket = sockets.at(-1);
+    if (!socket) throw new Error("Browser relay did not open a socket");
+
+    socket.message({ type: "desktop-suspended" });
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
+    );
+  });
+
+  it("reconnects a parked desktop if its standby socket is discarded", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
+    const reload = vi.fn();
+    const { socket } = connectedRelay(reload, "desktop");
+    socket.message({ type: "desktop-suspended" });
+
+    socket.disconnect();
+
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
   it("stays closed after returning the workspace to the desktop app", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    const { socket, reload } = connectedRelay();
+    const { socket, reload, closePage } = connectedRelay();
 
     socket.message({ type: "desktop-returned" });
     socket.disconnect();
 
+    expect(closePage).toHaveBeenCalledOnce();
     expect(reload).not.toHaveBeenCalled();
     expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
-      "This workspace is now open in the Lattice desktop app. You can close this tab.",
+      "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
     );
   });
 });
