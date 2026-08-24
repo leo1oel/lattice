@@ -19285,7 +19285,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@pierre/diffs@1.3.5`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.1`
+`@pierre/diffs@1.3.6`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.1`
 
 </details>
 
