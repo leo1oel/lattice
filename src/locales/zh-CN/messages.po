@@ -2179,6 +2179,10 @@ msgstr "只有你"
 msgid "Kappa"
 msgstr "卡帕"
 
+#: src/settings/settings-dialog.tsx
+msgid "Keep browser access ready"
+msgstr "保持浏览器入口就绪"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
@@ -2560,10 +2564,6 @@ msgstr "满足 / 蕴涵"
 msgid "modified"
 msgstr "已修改"
 
-#: src/settings/settings-dialog.tsx
-msgid "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
-msgstr "将此工作区移至默认浏览器中。文件、LaTeX、智能助手和凭据仍保留在这台 Mac 上。"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "缪"
@@ -2936,6 +2936,10 @@ msgstr "在 Lattice 或浏览器中打开 PDF"
 #: src/history/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
 msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
+
+#: src/settings/settings-dialog.tsx
+msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
+msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留在这台 Mac 上。"
 
 #: src/App.tsx
 msgid "OpenAlex search"
@@ -4086,6 +4090,10 @@ msgstr "星形运算符"
 #: src/App.tsx
 msgid "Start / join live sharing"
 msgstr "开始或加入实时共享"
+
+#: src/settings/settings-dialog.tsx
+msgid "Start Lattice quietly after login so the local browser address is always available."
+msgstr "登录后在后台启动 Lattice，让本地浏览器地址随时可用。"
 
 #: src/collab/collab-dialog.tsx
 msgid "Start sharing"

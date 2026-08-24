@@ -127,6 +127,9 @@ describe("shared surface contracts", () => {
     expect(appCss).toMatch(
       /\[data-u-comp="defined-name"\] \{ padding-block: 0 !important; \}/,
     )
+    expect(appCss).toContain(
+      '[data-u-comp="formula-bar"] > div:first-child { flex: 0 0 calc(6rem + 4px); }',
+    )
     expect(appCss).toMatch(
       /\[data-u-comp="defined-name"\] input,[^}]+background: #FAFAFA !important;/,
     )

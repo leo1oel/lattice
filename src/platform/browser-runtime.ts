@@ -244,7 +244,7 @@ class BrowserEventRegistry {
   }
 }
 
-function installBrowserRuntime(config: BrowserRuntimeConfig): void {
+function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
   const runtimeWindow = window as unknown as RuntimeWindow;
   const callbacks = new Map<number, Callback>();
   const unregisterCallback = (id: number) => callbacks.delete(id);
@@ -263,11 +263,20 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): void {
   const events = new BrowserEventRegistry(runCallback);
   const relay = new BrowserRelay(config, callbacks);
   mirrorLocalStorage(relay);
-  runtimeReady = relay.storageReady;
 
   const invoke = async (command: string, args: unknown = {}, options?: unknown) => {
     const local = handleBrowserCommand(command, args);
     if (local.handled) return local.value;
+    // Tauri's dialog plugin parents native panels to the invoking WebView.
+    // That parent is the hidden bridge in browser mode, which leaves the panel
+    // behind the browser. The browser-specific commands use an unparented
+    // system panel while preserving the plugin's request and return shapes.
+    if (command === "plugin:dialog|open") {
+      return relay.invoke("browser_dialog_open", args, options);
+    }
+    if (command === "plugin:dialog|save") {
+      return relay.invoke("browser_dialog_save", args, options);
+    }
     if (command === "plugin:event|listen") {
       const eventArgs = args as { event: string; handler: number };
       const localEventId = events.listen(eventArgs.event, eventArgs.handler);
@@ -302,6 +311,7 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): void {
   runtimeWindow.__LATTICE_BROWSER_RUNTIME__ = true;
   runtimeWindow.isTauri = true;
   browserRuntime = true;
+  return relay.storageReady;
 }
 
 function mirrorLocalStorage(relay: BrowserRelay): void {
@@ -361,21 +371,91 @@ function handleBrowserCommand(command: string, args: unknown): { handled: boolea
   }
 }
 
-function readBrowserConfig(): BrowserRuntimeConfig | null {
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const token = hash.get("token") ?? sessionStorage.getItem("lattice.browser-token");
-  const bridgePort = Number(hash.get("bridgePort") ?? sessionStorage.getItem("lattice.browser-port"));
-  const label = hash.get("label") ?? sessionStorage.getItem("lattice.browser-label");
+function validBrowserConfig(
+  token: string | null,
+  bridgePort: number,
+  label: string | null,
+): BrowserRuntimeConfig | null {
   if (!token || !label || !Number.isInteger(bridgePort) || bridgePort < 1 || bridgePort > 65_535) {
     return null;
   }
-  sessionStorage.setItem("lattice.browser-token", token);
-  sessionStorage.setItem("lattice.browser-port", String(bridgePort));
-  sessionStorage.setItem("lattice.browser-label", label);
+  return { token, bridgePort, label };
+}
+
+function persistBrowserConfig(config: BrowserRuntimeConfig): void {
+  sessionStorage.setItem("lattice.browser-token", config.token);
+  sessionStorage.setItem("lattice.browser-port", String(config.bridgePort));
+  sessionStorage.setItem("lattice.browser-label", config.label);
+}
+
+function readHashBrowserConfig(): BrowserRuntimeConfig | null {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const config = validBrowserConfig(
+    hash.get("token"),
+    Number(hash.get("bridgePort")),
+    hash.get("label"),
+  );
+  if (!config) return null;
+  persistBrowserConfig(config);
   if (window.location.hash) {
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
   }
-  return { token, bridgePort, label };
+  return config;
+}
+
+function readStoredBrowserConfig(): BrowserRuntimeConfig | null {
+  return validBrowserConfig(
+    sessionStorage.getItem("lattice.browser-token"),
+    Number(sessionStorage.getItem("lattice.browser-port")),
+    sessionStorage.getItem("lattice.browser-label"),
+  );
+}
+
+async function requestBrowserSession(
+  bridgePort: number,
+  resumeToken?: string,
+): Promise<BrowserRuntimeConfig> {
+  const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
+  if (resumeToken) endpoint.searchParams.set("token", resumeToken);
+  const response = await fetch(endpoint, {
+    cache: "no-store",
+    mode: "cors",
+  });
+  if (!response.ok) {
+    throw new Error(`The local Lattice entry returned ${response.status}.`);
+  }
+  const value = await response.json() as Partial<BrowserRuntimeConfig>;
+  const config = validBrowserConfig(
+    typeof value.token === "string" ? value.token : null,
+    Number(value.bridgePort),
+    typeof value.label === "string" ? value.label : null,
+  );
+  if (!config) throw new Error("The local Lattice entry returned an invalid session.");
+  persistBrowserConfig(config);
+  return config;
+}
+
+async function initializeBrowserRuntime(): Promise<void> {
+  const fromHash = readHashBrowserConfig();
+  if (fromHash) {
+    await installBrowserRuntime(fromHash);
+    return;
+  }
+  const stored = readStoredBrowserConfig();
+  const fixedEntry = window.location.hostname === "127.0.0.1"
+    && window.location.port === "18452";
+  const developmentEntry = new URLSearchParams(window.location.search).get("latticeBrowser") === "1";
+  if (!stored && !fixedEntry && !developmentEntry) {
+    runtimeError = "Open this page from the installed Lattice app to use its local tools.";
+    return;
+  }
+  const config = await requestBrowserSession(stored?.bridgePort ?? 18_452, stored?.token);
+  if (developmentEntry) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("latticeBrowser");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  await installBrowserRuntime(config);
 }
 
 function encodeBridgeValue(value: unknown): BridgeValue {
@@ -441,9 +521,7 @@ function isLoopbackPage(): boolean {
 
 const runtimeWindow = window as unknown as RuntimeWindow;
 if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
-  const config = readBrowserConfig();
-  if (config) installBrowserRuntime(config);
-  else runtimeError = "Open this page from the installed Lattice app to use its local tools.";
+  runtimeReady = initializeBrowserRuntime();
 }
 
 export function isBrowserHosted(): boolean {

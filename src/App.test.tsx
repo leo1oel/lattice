@@ -57,6 +57,7 @@ const interfaceSounds = vi.hoisted(() => ({
   configure: vi.fn(),
   play: vi.fn(),
 }));
+const browserRuntime = vi.hoisted(() => ({ hosted: false }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
@@ -90,6 +91,9 @@ vi.mock("./telemetry/interface-sounds", () => ({
   configureInterfaceSounds: interfaceSounds.configure,
   playInterfaceSound: interfaceSounds.play,
 }));
+vi.mock("./platform/browser-runtime", () => ({
+  isBrowserHosted: () => browserRuntime.hosted,
+}));
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
   getDocument: vi.fn(),
@@ -113,6 +117,8 @@ function mockAppCommand(command: string, ..._args: unknown[]) {
   // Every window asks for its one-shot instruction at startup; only a window
   // opened to join a share is given one.
   if (command === "take_pending_window_action") return null;
+  if (command === "browser_access_enabled") return false;
+  if (command === "set_browser_access_enabled") return null;
   if (command === "list_citation_keys") return [];
   if (command === "list_citations") return [];
   if (command === "list_references") return [];
@@ -163,6 +169,7 @@ async function findProjectTreeRenameInput(): Promise<HTMLInputElement> {
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
+  browserRuntime.hosted = false;
   webviewApi.dragDropHandler = null;
   synaraHook.runtime = {
     state: "ready",
@@ -188,6 +195,8 @@ beforeEach(() => {
   windowApi.onResized.mockResolvedValue(() => undefined);
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "initial_project") return null;
+    if (command === "browser_access_enabled") return false;
+    if (command === "set_browser_access_enabled") return null;
     throw new Error(`Unexpected command: ${command}`);
   });
 });
@@ -787,6 +796,30 @@ describe("welcome screen", () => {
     await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5"))
       .toContain('"interfaceSounds":false'));
     expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps the resident browser entry at the bottom of Appearance and controls login startup", async () => {
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return null;
+      if (command === "browser_access_enabled") return true;
+      if (command === "set_browser_access_enabled") return null;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    const residentAccess = await screen.findByLabelText("Keep browser access ready");
+    expect(residentAccess).toBeChecked();
+    expect(screen.getByText("Browser").compareDocumentPosition(screen.getByText("Feedback")))
+      .toBe(Node.DOCUMENT_POSITION_PRECEDING);
+    expect(screen.getByText(/http:\/\/127\.0\.0\.1:18452/)).toBeInTheDocument();
+
+    fireEvent.click(residentAccess);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_browser_access_enabled", {
+      enabled: false,
+    }));
+    expect(residentAccess).not.toBeChecked();
   });
 
   it("keeps an explicitly selected manual build preference", async () => {
@@ -2966,6 +2999,33 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
     await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
+  });
+
+  it("moves the navigator control to the left edge in a browser tab", async () => {
+    browserRuntime.hosted = true;
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("button", { name: "Hide sidebar" });
+    expect(document.querySelector(".app-shell")).toHaveClass("browser-hosted");
+    expect(invoke).not.toHaveBeenCalledWith("align_traffic_lights", expect.anything());
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {

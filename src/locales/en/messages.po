@@ -2179,6 +2179,10 @@ msgstr "just you"
 msgid "Kappa"
 msgstr "Kappa"
 
+#: src/settings/settings-dialog.tsx
+msgid "Keep browser access ready"
+msgstr "Keep browser access ready"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
@@ -2560,10 +2564,6 @@ msgstr "Models / entails"
 msgid "modified"
 msgstr "modified"
 
-#: src/settings/settings-dialog.tsx
-msgid "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
-msgstr "Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac."
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "Mu"
@@ -2936,6 +2936,10 @@ msgstr "Open the PDF in Lattice or your browser"
 #: src/history/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
+
+#: src/settings/settings-dialog.tsx
+msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
+msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
 
 #: src/App.tsx
 msgid "OpenAlex search"
@@ -4088,6 +4092,10 @@ msgstr "Star operator"
 #: src/App.tsx
 msgid "Start / join live sharing"
 msgstr "Start / join live sharing"
+
+#: src/settings/settings-dialog.tsx
+msgid "Start Lattice quietly after login so the local browser address is always available."
+msgstr "Start Lattice quietly after login so the local browser address is always available."
 
 #: src/collab/collab-dialog.tsx
 msgid "Start sharing"

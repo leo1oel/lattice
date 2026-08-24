@@ -449,6 +449,7 @@ function allowRememberedFileViewPath(removedPaths: string[], path: string): stri
 
 function App() {
   const { t } = useLingui();
+  const browserHosted = isBrowserHosted();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const workspaceIndex = useMemo(
     () => new MarkdownWorkspaceIndex((path) => invoke<string>("read_project_file", { path })),
@@ -2843,7 +2844,7 @@ function App() {
   }, [activeAsset, activePaper]);
 
   useEffect(() => {
-    if (!isBrowserHosted()) return;
+    if (!browserHosted) return;
     const saveBrowserPage = (event?: BeforeUnloadEvent) => {
       visualMarkdownFlushRef.current?.();
       if (!hasLateProjectTransitionEditRef.current()) return;
@@ -2863,7 +2864,7 @@ function App() {
       window.removeEventListener("beforeunload", saveBrowserPage);
       window.removeEventListener("pagehide", pageHide);
     };
-  }, []);
+  }, [browserHosted]);
   const secondaryMtimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -4779,7 +4780,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isFullscreen) return;
+    if (browserHosted || isFullscreen) return;
     let active = true;
     let stopListening: (() => void) | undefined;
     let resizeTimer: number | undefined;
@@ -4844,7 +4845,7 @@ function App() {
       if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
       stopListening?.();
     };
-  }, [appearance.interfaceScale, isFullscreen, project?.manifest.name]);
+  }, [appearance.interfaceScale, browserHosted, isFullscreen, project?.manifest.name]);
 
   useEffect(() => {
     const documentDirty = Boolean(!activePaper && !activeAsset && activeFile && source !== savedSource);
@@ -8082,7 +8083,10 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${isFullscreen ? "fullscreen" : ""}`} ref={shellRef}>
+    <div
+      className={`app-shell ${isFullscreen ? "fullscreen" : ""} ${browserHosted ? "browser-hosted" : ""}`}
+      ref={shellRef}
+    >
       <AppTitlebar
         abortBuild={abortBuild}
         activePaper={activePaper}

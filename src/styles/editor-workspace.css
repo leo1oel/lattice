@@ -1980,9 +1980,14 @@ body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-men
 /* Univer compresses the name input to 15px with vertical padding while the
    adjacent formula editor occupies the full 27px row. Let both controls use
    that full row and replace their stark white fill with Lattice's softer
-   formula surface. The canvas bitmap is updated alongside this CSS in the
-   spreadsheet render-appearance bridge. */
+   formula surface. Univer fixes the name-box wrapper at 100px while its child
+   is 6rem, which becomes 120px when the browser's default font is 20px.
+   Deriving the wrapper from that same rem width preserves the intended 4px
+   gutter before the cancel button at every default font size and page zoom.
+   The canvas bitmap is updated alongside this CSS in the spreadsheet
+   render-appearance bridge. */
 .spreadsheet-univer-host [data-u-comp="formula-bar"] { background: #FAFAFA !important; }
+.spreadsheet-univer-host [data-u-comp="formula-bar"] > div:first-child { flex: 0 0 calc(6rem + 4px); }
 .spreadsheet-univer-host [data-u-comp="defined-name"] { padding-block: 0 !important; }
 .spreadsheet-univer-host [data-u-comp="defined-name"] input,
 .spreadsheet-univer-host [data-u-comp="formula-bar"] canvas { background: #FAFAFA !important; }

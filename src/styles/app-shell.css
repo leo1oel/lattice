@@ -81,14 +81,14 @@ input[type="search"]:focus-visible {
   top: 50%;
   translate: -50% -50%;
 }
-.app-shell.fullscreen .titlebar-navigator { width: var(--titlebar-navigator-width-fullscreen); padding: 0 var(--space-4); }
-.app-shell.fullscreen .traffic-space { width: 0; }
-/* Fullscreen has no traffic lights, so the measured midpoint points at empty
-   space the navigator no longer occupies: center the toggle over the narrowed
-   navigator instead. This overrides `left` rather than redefining
-   --titlebar-toggle-center because App.tsx writes that variable inline on
-   .app-shell, and an inline custom property beats any selector. */
-.app-shell.fullscreen .titlebar-sidebar-toggle .icon-button {
+.app-shell:is(.fullscreen, .browser-hosted) .titlebar-navigator { width: var(--titlebar-navigator-width-fullscreen); padding: 0 var(--space-4); }
+.app-shell:is(.fullscreen, .browser-hosted) .traffic-space { width: 0; }
+/* Fullscreen and browser tabs have no traffic lights, so the measured midpoint
+   points at empty space the navigator no longer occupies: center the toggle
+   over the narrowed navigator instead. This overrides `left` rather than
+   redefining --titlebar-toggle-center because App.tsx writes that variable
+   inline on .app-shell, and an inline custom property beats any selector. */
+.app-shell:is(.fullscreen, .browser-hosted) .titlebar-sidebar-toggle .icon-button {
   left: calc(var(--titlebar-navigator-width-fullscreen) / 2);
 }
 .icon-button { width: var(--titlebar-action-size); height: var(--titlebar-action-size); border-radius: var(--radius-chrome); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }

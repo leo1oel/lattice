@@ -5,6 +5,7 @@ type Csp = Record<string, string[]>;
 
 type TauriConfig = {
   app: {
+    windows: Array<{ visible?: boolean }>;
     security: {
       csp: Csp | null;
       devCsp?: Csp | null;
@@ -25,6 +26,8 @@ function readJson<T>(path: string): T {
 const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
+const browserHost = readFileSync("src-tauri/src/browser_host.rs", "utf8");
+const indexHtml = readFileSync("index.html", "utf8");
 
 describe("Tauri security boundary", () => {
   it("keeps an explicit production and development CSP", () => {
@@ -113,6 +116,27 @@ describe("Tauri security boundary", () => {
   it("keeps browser bridge windows hidden during the handoff", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.
-    expect(rustApp).toContain('.with_filter(|label| !label.starts_with("browser-"))');
+    expect(rustApp).toContain('!label.starts_with("browser-")');
+    expect(rustApp).toContain("label != browser_host::SERVICE_WINDOW_LABEL");
+    expect(browserHost).toContain("tauri::ActivationPolicy::Accessory");
+    expect(browserHost).toContain('.title("")');
+  });
+
+  it("keeps the fixed browser entry local, authenticated, and windowless at login", () => {
+    expect(config.app.windows[0]?.visible).toBe(false);
+    expect(rustApp).toContain('.arg(BROWSER_HOST_ARG)');
+    expect(rustApp).toContain("browser_host_launch()");
+    expect(browserHost).toContain("tauri::window::WindowBuilder::new(app, SERVICE_WINDOW_LABEL)");
+    expect(browserHost).toContain("Ipv4Addr::LOCALHOST, PREFERRED_PORT");
+    expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
+    expect(browserHost).toContain("valid_loopback_host(&headers, state.port)");
+    expect(browserHost).toContain("Some(session.browser_origin.as_str())");
+    expect(browserHost).toContain('header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
+  });
+
+  it("gives loopback browser tabs the product icon", () => {
+    expect(indexHtml).toContain(
+      '<link rel="icon" type="image/svg+xml" href="/src-tauri/icons/app-icon.svg" />',
+    );
   });
 });

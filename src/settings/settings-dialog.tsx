@@ -177,6 +177,8 @@ export function SettingsDialog(props: {
   const [projectWordDraft, setProjectWordDraft] = useState("");
   const [browserOpening, setBrowserOpening] = useState(false);
   const [browserOpenError, setBrowserOpenError] = useState("");
+  const [browserAccessEnabled, setBrowserAccessEnabled] = useState(false);
+  const [browserAccessLoading, setBrowserAccessLoading] = useState(true);
   const browserHosted = isBrowserHosted();
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
@@ -198,6 +200,35 @@ export function SettingsDialog(props: {
     } catch (reason) {
       setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
       setBrowserOpening(false);
+    }
+  };
+  useEffect(() => {
+    let active = true;
+    void invoke<boolean>("browser_access_enabled")
+      .then((enabled) => {
+        if (active) setBrowserAccessEnabled(enabled);
+      })
+      .catch((reason) => {
+        if (active) setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
+      })
+      .finally(() => {
+        if (active) setBrowserAccessLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const updateBrowserAccess = async (enabled: boolean) => {
+    if (browserAccessLoading) return;
+    setBrowserAccessLoading(true);
+    setBrowserOpenError("");
+    try {
+      await invoke("set_browser_access_enabled", { enabled });
+      setBrowserAccessEnabled(enabled);
+    } catch (reason) {
+      setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBrowserAccessLoading(false);
     }
   };
   const synaraEmbedUrl = props.synaraRuntime.state === "ready"
@@ -656,11 +687,18 @@ export function SettingsDialog(props: {
                   />
                 </SettingsGroup>
                 <SettingsGroup title={t`Browser`}>
+                  <SwitchField
+                    label={t`Keep browser access ready`}
+                    description={t`Start Lattice quietly after login so the local browser address is always available.`}
+                    checked={browserAccessEnabled}
+                    disabled={browserAccessLoading}
+                    onChange={(enabled) => { void updateBrowserAccess(enabled); }}
+                  />
                   <SettingsRow
                     label={browserHosted ? t`Opened in browser` : t`Open in browser`}
                     description={browserHosted
                       ? t`The installed Lattice app is providing all local tools to this tab.`
-                      : t`Move this workspace into your default browser. Files, LaTeX, Agent, and credentials stay on this Mac.`}
+                      : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
                   >
                     {!browserHosted && (
                       <Button

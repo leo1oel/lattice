@@ -43,6 +43,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Default)]
@@ -324,6 +325,11 @@ mod realtime_generation_tests {
 
 /// Label Tauri gives the window declared in tauri.conf.json.
 const MAIN_WINDOW_LABEL: &str = "main";
+const BROWSER_HOST_ARG: &str = "--browser-host";
+
+fn browser_host_launch() -> bool {
+    std::env::args_os().any(|argument| argument == BROWSER_HOST_ARG)
+}
 
 struct AppState {
     /// The project each window is looking at.
@@ -763,7 +769,16 @@ async fn open_project(
     path: String,
 ) -> Result<ProjectSnapshot, String> {
     let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
-    set_root(&state, &window, PathBuf::from(&snapshot.root)).await?;
+    let root = PathBuf::from(&snapshot.root);
+    if let Some(label) = state.window_showing(&root) {
+        if label != window.label() {
+            return Err(
+                "This project is already open in another Lattice window. Open it in the browser from that window instead."
+                    .to_string(),
+            );
+        }
+    }
+    set_root(&state, &window, root).await?;
     Ok(snapshot)
 }
 
@@ -2009,7 +2024,64 @@ fn open_in_browser(
     window: tauri::Window,
 ) -> Result<String, String> {
     let project_root = state.root_for(window.label())?;
-    browser.open(&app, window.label(), project_root)
+    // Fail before changing login startup when another process owns the fixed
+    // entry. The setting should not look enabled after an unsuccessful open.
+    browser.start(&app)?;
+    // Opening the fixed browser entry opts into its defining behavior: after
+    // the next login, a windowless Lattice process keeps the bookmarked local
+    // address available without making the writer open the desktop UI first.
+    let access_was_enabled = app
+        .autolaunch()
+        .is_enabled()
+        .map_err(|error| format!("Could not read the browser access setting: {error}"))?;
+    if !access_was_enabled {
+        app.autolaunch()
+            .enable()
+            .map_err(|error| format!("Could not keep browser access ready after login: {error}"))?;
+    }
+    let resident_was_present = app.get_window(browser_host::SERVICE_WINDOW_LABEL).is_some();
+    if let Err(reason) = browser.keep_resident(&app) {
+        if !access_was_enabled {
+            let _ = app.autolaunch().disable();
+        }
+        return Err(reason);
+    }
+    match browser.open(&app, window.label(), project_root) {
+        Ok(url) => Ok(url),
+        Err(reason) => {
+            if !resident_was_present {
+                browser.stop_resident(&app);
+            }
+            if !access_was_enabled {
+                let _ = app.autolaunch().disable();
+            }
+            Err(reason)
+        }
+    }
+}
+
+#[tauri::command]
+fn browser_access_enabled(app: tauri::AppHandle) -> Result<bool, String> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|error| format!("Could not read the browser access setting: {error}"))
+}
+
+#[tauri::command]
+fn set_browser_access_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let result = if enabled {
+        app.autolaunch().enable()
+    } else {
+        app.autolaunch().disable()
+    };
+    result.map_err(|error| format!("Could not update browser access: {error}"))?;
+    let browser = app.state::<browser_host::BrowserHost>();
+    if enabled {
+        browser.keep_resident(&app)
+    } else {
+        browser.stop_resident(&app);
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -3754,6 +3826,41 @@ fn run_cli() -> bool {
     }
 }
 
+fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular)
+        .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
+
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        window
+            .show()
+            .map_err(|error| format!("Could not show the Lattice window: {error}"))?;
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    let builder =
+        tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, tauri::WebviewUrl::default())
+            .title("Lattice")
+            .inner_size(1440.0, 900.0)
+            .min_inner_size(1222.0, 680.0)
+            .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+    let window = builder
+        .build()
+        .map_err(|error| format!("Could not create the Lattice window: {error}"))?;
+    #[cfg(target_os = "macos")]
+    {
+        macos_window::install_traffic_light_alignment(&window);
+        macos_window::apply_window_background(&window, false);
+    }
+    let _ = window.set_focus();
+    Ok(())
+}
+
 pub fn run() {
     if run_cli() {
         return;
@@ -3790,6 +3897,11 @@ pub fn run() {
         // In-app auto-update (checks GitHub Releases, verifies with the updater key).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .arg(BROWSER_HOST_ARG)
+                .build(),
+        )
         // Remember the window's size + position across launches.
         // The browser bridge is deliberately hidden. The plugin's default
         // restore path shows every newly created dynamic window, even when its
@@ -3797,7 +3909,9 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
+                .with_filter(|label| {
+                    !label.starts_with("browser-") && label != browser_host::SERVICE_WINDOW_LABEL
+                })
                 .build(),
         )
         .on_window_event(|window, event| {
@@ -3811,9 +3925,9 @@ pub fn run() {
                 macos_window::clear_pdf_copy_text(window.label());
                 let state = window.state::<AppState>();
                 state.release_window(window.label());
-                window
-                    .state::<browser_host::BrowserHost>()
-                    .activate_source(window.label(), &state);
+                let browser = window.state::<browser_host::BrowserHost>();
+                browser.activate_source(window.label(), &state);
+                browser.hide_desktop_shell_if_browser_only(window.app_handle());
                 state.retire_unused_projects();
             }
         })
@@ -3822,18 +3936,43 @@ pub fn run() {
             app.manage(AppState::from_environment());
             app.manage(browser_host::BrowserHost::default());
             app.manage(synara::SynaraRuntime::new(app)?);
+            let background = browser_host_launch();
+            let browser_start = app.state::<browser_host::BrowserHost>().start(app.handle());
+            if let Err(reason) = browser_start {
+                if background {
+                    return Err(std::io::Error::other(reason).into());
+                }
+                log::warn!(target: "lattice::browser", "{reason}");
+            }
+            let access_enabled = background || app.autolaunch().is_enabled().unwrap_or(false);
+            if access_enabled {
+                app.state::<browser_host::BrowserHost>()
+                    .keep_resident(app.handle())
+                    .map_err(std::io::Error::other)?;
+            }
             // After an update changed a tool pin, this rebuilds the uvx
             // environment now instead of during the user's first import.
             tauri::async_runtime::spawn_blocking(commands::prewarm_literature_tools);
             #[cfg(target_os = "macos")]
             {
                 macos_window::clear_launch_quarantine();
-                if let Some(window) = app.get_webview_window("main") {
+                macos_window::install_magnify_monitor(app.handle().clone());
+                macos_window::install_copy_shortcut_monitor(app.handle().clone());
+            }
+            if background {
+                if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+                    let _ = window.destroy();
+                }
+                #[cfg(target_os = "macos")]
+                app.handle()
+                    .set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+            } else {
+                show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
+                #[cfg(target_os = "macos")]
+                if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
                     macos_window::install_traffic_light_alignment(&window);
                     macos_window::apply_window_background(&window, false);
                 }
-                macos_window::install_magnify_monitor(app.handle().clone());
-                macos_window::install_copy_shortcut_monitor(app.handle().clone());
             }
             Ok(())
         })
@@ -3847,6 +3986,10 @@ pub fn run() {
             get_app_log_dir,
             open_app_log_dir,
             open_in_browser,
+            browser_access_enabled,
+            set_browser_access_enabled,
+            browser_host::browser_dialog_open,
+            browser_host::browser_dialog_save,
             create_collab_join_workspace,
             initial_project,
             open_project,
@@ -4012,6 +4155,27 @@ pub fn run() {
     app.run(|app_handle, event| {
         if matches!(event, tauri::RunEvent::Exit) {
             app_handle.state::<synara::SynaraRuntime>().shutdown();
+        }
+        #[cfg(target_os = "macos")]
+        if matches!(
+            event,
+            tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            }
+        ) {
+            let browser = app_handle.state::<browser_host::BrowserHost>();
+            match browser.reopen_entry(app_handle) {
+                Ok(true) => {}
+                Ok(false) => {
+                    if let Err(reason) = show_desktop_window(app_handle) {
+                        log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
+                    }
+                }
+                Err(reason) => {
+                    log::error!(target: "lattice::browser", "could not reopen browser entry: {reason}");
+                }
+            }
         }
     });
 }
