@@ -118,6 +118,12 @@ export function startBrowserHostBridge(config: HostConfig): void {
         }
       }
       send({ type: "response", id: message.id, ok: true, value: encodeBridgeValue(value) });
+      if (message.command === "return_to_desktop") {
+        // The server retires the browser session only after this marker. Both
+        // messages use the same socket, so the command response is guaranteed
+        // to be queued first rather than racing an arbitrary teardown timer.
+        send({ type: "desktop-return-complete" });
+      }
     } catch (error) {
       if (hostEventCallback !== undefined) internals.unregisterCallback(hostEventCallback);
       send({

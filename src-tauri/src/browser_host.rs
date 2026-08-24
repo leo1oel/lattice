@@ -27,6 +27,7 @@ use tokio::sync::mpsc;
 const PREFERRED_PORT: u16 = 18452;
 const MAX_BRIDGE_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+const DESKTOP_RETURN_COMPLETE: &str = r#"{"type":"desktop-return-complete"}"#;
 pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
 
 #[cfg(target_os = "macos")]
@@ -65,6 +66,7 @@ struct BrowserSession {
     host: Option<Peer>,
     browser: Option<Peer>,
     browser_epoch: u64,
+    returning_to_desktop: bool,
 }
 
 #[derive(Clone)]
@@ -561,10 +563,10 @@ impl BrowserHost {
         Ok(true)
     }
 
-    /// Retire the loopback session after the browser command that requested a
-    /// desktop window has had time to receive its response. The browser gets a
-    /// terminal message before both bridge peers are dropped, so its ordinary
-    /// disconnect recovery cannot reopen a second copy of the project.
+    /// Mark a session for retirement once the hidden host confirms that the
+    /// command response is already queued for the browser. A fallback retires
+    /// it if the host bridge fails between returning the command and sending
+    /// that acknowledgement.
     pub(crate) fn return_to_desktop(
         &self,
         app: &tauri::AppHandle,
@@ -573,31 +575,21 @@ impl BrowserHost {
         let sessions = self
             .sessions()
             .ok_or_else(|| "Browser server state is unavailable.".to_string())?;
-        let token = sessions
-            .lock()
-            .map_err(|_| "Browser session state is unavailable.".to_string())?
-            .iter()
-            .find_map(|(token, session)| (session.host_label == host_label).then(|| token.clone()))
-            .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
-        let app = app.clone();
-        let host_label = host_label.to_string();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let retired = sessions
+        let token = {
+            let mut sessions = sessions
                 .lock()
-                .ok()
-                .and_then(|mut sessions| sessions.remove(&token));
-            if let Some(session) = retired {
-                if let Some(browser) = session.browser {
-                    let _ = browser
-                        .sender
-                        .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            if let Some(window) = app.get_webview_window(&host_label) {
-                let _ = window.destroy();
-            }
+                .map_err(|_| "Browser session state is unavailable.".to_string())?;
+            let (token, session) = sessions
+                .iter_mut()
+                .find(|(_, session)| session.host_label == host_label)
+                .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
+            session.returning_to_desktop = true;
+            token.clone()
+        };
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            complete_desktop_return(&app, &sessions, &token, None);
         });
         Ok(())
     }
@@ -672,6 +664,7 @@ impl BrowserHost {
                     host: None,
                     browser: None,
                     browser_epoch: 0,
+                    returning_to_desktop: false,
                 },
             );
         }
@@ -953,6 +946,7 @@ async fn open_browser_session(
             host: None,
             browser: None,
             browser_epoch: 0,
+            returning_to_desktop: false,
         };
         let config = session_config(&token, &session, state.port);
         sessions.insert(token.clone(), session);
@@ -1041,6 +1035,18 @@ async fn bridge_socket(
             message = incoming.next() => {
                 let Some(Ok(message)) = message else { break };
                 match message {
+                    Message::Text(message)
+                        if query.role == BridgeRole::Host
+                            && message.as_str() == DESKTOP_RETURN_COMPLETE =>
+                    {
+                        complete_desktop_return(
+                            &app,
+                            &sessions,
+                            &query.token,
+                            Some(&peer_id),
+                        );
+                        break;
+                    }
                     Message::Text(_) | Message::Binary(_) => {
                         if let Some(target) = other_peer(&sessions, &query, &peer_id) {
                             let _ = target.send(message);
@@ -1056,6 +1062,45 @@ async fn bridge_socket(
         }
     }
     unregister_peer(app, sessions, query, peer_id);
+}
+
+fn take_returning_session(
+    sessions: &Sessions,
+    token: &str,
+    host_peer_id: Option<&str>,
+) -> Option<BrowserSession> {
+    let mut sessions = sessions.lock().ok()?;
+    let session = sessions.get(token)?;
+    let matches_host = host_peer_id
+        .is_none_or(|peer_id| session.host.as_ref().map(|host| host.id.as_str()) == Some(peer_id));
+    if !session.returning_to_desktop || !matches_host {
+        return None;
+    }
+    sessions.remove(token)
+}
+
+fn complete_desktop_return(
+    app: &tauri::AppHandle,
+    sessions: &Sessions,
+    token: &str,
+    host_peer_id: Option<&str>,
+) {
+    let Some(session) = take_returning_session(sessions, token, host_peer_id) else {
+        return;
+    };
+    let host_label = session.host_label;
+    if let Some(browser) = session.browser {
+        let _ = browser
+            .sender
+            .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        if let Some(window) = app.get_webview_window(&host_label) {
+            let _ = window.destroy();
+        }
+    });
 }
 
 fn register_peer(
@@ -1190,9 +1235,12 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
             }
             BridgeRole::Host => {
                 if let Some(browser) = &session.browser {
-                    let _ = browser
-                        .sender
-                        .send(Message::Text(r#"{"type":"host-disconnected"}"#.into()));
+                    let message = if session.returning_to_desktop {
+                        r#"{"type":"desktop-returned"}"#
+                    } else {
+                        r#"{"type":"host-disconnected"}"#
+                    };
+                    let _ = browser.sender.send(Message::Text(message.into()));
                 }
                 remove_session_now = true;
             }
@@ -1325,6 +1373,7 @@ mod tests {
             host: None,
             browser: None,
             browser_epoch: 0,
+            returning_to_desktop: false,
         }
     }
 
@@ -1389,6 +1438,33 @@ mod tests {
 
         assert!(matches!(host_messages.try_recv(), Ok(Message::Text(_))));
         assert!(other_peer(&sessions, &browser_query, "browser").is_some());
+    }
+
+    #[test]
+    fn desktop_return_requires_the_marked_session_and_current_host() {
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "secret".to_string(),
+            session(true),
+        )])));
+        let (host_sender, _host_messages) = mpsc::unbounded_channel();
+        let host_query = query(BridgeRole::Host);
+        assert!(register_peer(
+            &sessions,
+            &host_query,
+            "current-host",
+            host_sender,
+        ));
+
+        assert!(take_returning_session(&sessions, "secret", Some("current-host")).is_none());
+        sessions
+            .lock()
+            .unwrap()
+            .get_mut("secret")
+            .unwrap()
+            .returning_to_desktop = true;
+        assert!(take_returning_session(&sessions, "secret", Some("stale-host")).is_none());
+        assert!(take_returning_session(&sessions, "secret", Some("current-host")).is_some());
+        assert!(sessions.lock().unwrap().is_empty());
     }
 
     #[test]
