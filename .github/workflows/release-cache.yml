@@ -57,11 +57,12 @@ jobs:
           shared-key: aarch64-apple-darwin-release
 
       # tauri-build compiles the resource list from tauri.conf.json, which names
-      # the sidecar runtime. Nothing here launches it.
-      - name: Stub the Synara runtime resource for compilation
+      # both bundled runtimes. Nothing here launches them.
+      - name: Stub bundled runtime resources for compilation
         run: |
-          mkdir -p src-tauri/synara-runtime
+          mkdir -p src-tauri/synara-runtime src-tauri/chromium-runtime
           echo stub > src-tauri/synara-runtime/placeholder.txt
+          echo stub > src-tauri/chromium-runtime/placeholder.txt
 
       # generate_context! embeds the frontend at compile time. The build is
       # cheap next to the Rust compile and removes any question of whether a

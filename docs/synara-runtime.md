@@ -8,17 +8,16 @@ install Synara, Node.js, Bun, or start a separate service.
 
 ## Working without the sidecar
 
-Only `pnpm tauri dev` and `pnpm tauri build` need the Synara source. Everything else — `pnpm check`,
-`pnpm dev`, `cargo test`, `cargo clippy` — needs nothing but an existing directory, because Cargo
-compiles Tauri's resource manifest and that manifest expects `src-tauri/synara-runtime/` to exist:
+Only `pnpm tauri dev` and `pnpm tauri build` need the Synara source.
+Everything else — `pnpm check`, `pnpm dev`, `cargo test`, `cargo clippy` — needs only stub directories, because Cargo compiles Tauri's resource manifest and that manifest expects both bundled runtime paths to exist:
 
 ```bash
-mkdir -p src-tauri/synara-runtime && touch src-tauri/synara-runtime/placeholder.txt
+mkdir -p src-tauri/{synara-runtime,chromium-runtime}
+touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
 ```
 
-That is the whole workaround, and it is what two of the three CI workflows do (`ci.yml` and
-`release-cache.yml`; only `release.yml` stages the real runtime, because only it packages the app).
-The directory is gitignored, so the stub stays out of your commits.
+That is the whole workaround, and it is what two of the three CI workflows do (`ci.yml` and `release-cache.yml`; only `release.yml` stages the real runtimes, because only it packages the app).
+The directories are gitignored, so the stubs stay out of your commits.
 
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md) is the authoritative setup guide, including how to point
 `SYNARA_SOURCE_DIR` at a real checkout when you *are* changing the agent surface. This document

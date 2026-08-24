@@ -16,12 +16,12 @@ node scripts/bump-version.mjs patch   # release: rewrites the version in package
                                       # pushing the tag yourself is what triggers CI to publish.
 ```
 
-Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source. Everything
-else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs the
-resource stub:
+Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source.
+Everything else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs resource stubs for the bundled runtimes:
 
 ```bash
-mkdir -p src-tauri/synara-runtime && touch src-tauri/synara-runtime/placeholder.txt
+mkdir -p src-tauri/{synara-runtime,chromium-runtime}
+touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
 ```
 
 For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at

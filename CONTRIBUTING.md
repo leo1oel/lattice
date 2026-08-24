@@ -90,24 +90,21 @@ corepack enable      # only if you are not using mise
 pnpm install
 ```
 
-### You probably do not need to build the agent sidecar
+### You probably do not need to build the bundled runtimes
 
-**This is the part that trips up most new contributors.** Cargo compiles Tauri's
-resource manifest, which expects `src-tauri/synara-runtime/` to exist — but the
-tests never launch the sidecar. A stub file is enough:
+**This is the part that trips up most new contributors.**
+Cargo compiles Tauri's resource manifest, which expects both `src-tauri/synara-runtime/` and `src-tauri/chromium-runtime/` to exist, but the tests never launch either runtime.
+Stub files are enough:
 
 ```bash
-mkdir -p src-tauri/synara-runtime && touch src-tauri/synara-runtime/placeholder.txt
+mkdir -p src-tauri/{synara-runtime,chromium-runtime}
+touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
 ```
 
-With that one file in place, `pnpm check`, `cargo test`, and `cargo clippy` all
-pass. Two of the three workflows do exactly this — see the "Stub the Synara
-runtime resource for compilation" step in `.github/workflows/ci.yml` and
-`.github/workflows/release-cache.yml`, neither of which ships a binary.
-`.github/workflows/release.yml` is the only one that stages the real pinned
-runtime, because it is the only one that packages the app.
-`src-tauri/synara-runtime/` is gitignored, so the stub stays out of your
-commits.
+With those files in place, `pnpm check`, `cargo test`, and `cargo clippy` all pass.
+Two of the three workflows do exactly this — see the "Stub bundled runtime resources for compilation" step in `.github/workflows/ci.yml` and `.github/workflows/release-cache.yml`, neither of which ships a binary.
+`.github/workflows/release.yml` is the only one that stages the real pinned runtimes, because it is the only one that packages the app.
+Both runtime directories are gitignored, so the stubs stay out of your commits.
 
 Unless you are changing the agent surface itself, stop here — you can run the
 whole gate, the frontend dev server (`pnpm dev`), and every test without the
