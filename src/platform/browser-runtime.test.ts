@@ -1,5 +1,59 @@
-import { describe, expect, it } from "vitest";
-import { decodeBridgeValue, encodeBridgeValue } from "./browser-runtime";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  BrowserRelay,
+  decodeBridgeValue,
+  encodeBridgeValue,
+  type BrowserRuntimeConfig,
+} from "./browser-runtime";
+
+class FakeWebSocket extends EventTarget {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+  readonly url: string;
+  readyState = FakeWebSocket.OPEN;
+  send = vi.fn();
+
+  constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+    sockets.push(this);
+  }
+
+  message(value: unknown): void {
+    this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(value) }));
+  }
+
+  disconnect(): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.dispatchEvent(new Event("close"));
+  }
+}
+
+const sockets: FakeWebSocket[] = [];
+const NativeWebSocket = globalThis.WebSocket;
+
+function connectedRelay(reload = vi.fn()) {
+  const config: BrowserRuntimeConfig = {
+    token: "secret",
+    bridgePort: 18_452,
+    label: "browser-test",
+  };
+  const relay = new BrowserRelay(config, new Map(), reload);
+  const socket = sockets.at(-1);
+  if (!socket) throw new Error("Browser relay did not open a socket");
+  socket.message({ type: "ready", label: config.label });
+  socket.message({ type: "storage", entries: [] });
+  return { relay, socket, reload };
+}
+
+afterEach(() => {
+  sockets.length = 0;
+  vi.useRealTimers();
+  vi.stubGlobal("WebSocket", NativeWebSocket);
+  document.getElementById("lattice-browser-runtime-error")?.remove();
+});
 
 describe("browser bridge serialization", () => {
   it("round-trips binary command bodies across more than one base64 chunk", () => {
@@ -33,5 +87,80 @@ describe("browser bridge serialization", () => {
     expect(decodeBridgeValue(encodeBridgeValue(value))).toEqual({
       Logical: { width: 1200, height: 680 },
     });
+  });
+});
+
+describe("browser bridge recovery", () => {
+  it("reloads a live page when its idle WebSocket is disconnected", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay();
+
+    socket.disconnect();
+    socket.dispatchEvent(new Event("error"));
+
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("reloads when the native half of the browser bridge restarts", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay();
+
+    socket.message({ type: "host-disconnected" });
+
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("shows the failure if an unsaved edit prevents the recovery reload", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket } = connectedRelay();
+
+    socket.disconnect();
+    vi.advanceTimersByTime(1_000);
+
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "The local Lattice app disconnected.",
+    );
+  });
+
+  it("does not reopen a tab that is intentionally closing", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay();
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide"));
+    socket.disconnect();
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("does not fight a second tab that took over the workspace", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay();
+
+    socket.message({ type: "browser-replaced" });
+    socket.disconnect();
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "This Lattice workspace is open in another browser tab.",
+    );
+  });
+
+  it("stays closed after returning the workspace to the desktop app", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const { socket, reload } = connectedRelay();
+
+    socket.message({ type: "desktop-returned" });
+    socket.disconnect();
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "This workspace is now open in the Lattice desktop app. You can close this tab.",
+    );
   });
 });

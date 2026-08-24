@@ -72,7 +72,6 @@ import {
   isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
 } from "../agent/synara-settings-layout";
-import { isBrowserHosted } from "../platform/browser-runtime";
 
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
   agent: "providers",
@@ -130,7 +129,9 @@ export function SettingsDialog(props: {
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
+  browserHosted: boolean;
   onOpenInBrowser: () => Promise<void>;
+  onReturnToDesktop: () => Promise<void>;
   onClose: () => void;
 }) {
   const { t } = useLingui();
@@ -179,7 +180,7 @@ export function SettingsDialog(props: {
   const [browserOpenError, setBrowserOpenError] = useState("");
   const [browserAccessEnabled, setBrowserAccessEnabled] = useState(false);
   const [browserAccessLoading, setBrowserAccessLoading] = useState(true);
-  const browserHosted = isBrowserHosted();
+  const browserHosted = props.browserHosted;
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
@@ -197,6 +198,17 @@ export function SettingsDialog(props: {
     setBrowserOpenError("");
     try {
       await props.onOpenInBrowser();
+    } catch (reason) {
+      setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
+      setBrowserOpening(false);
+    }
+  };
+  const returnToDesktop = async () => {
+    if (browserOpening || !browserHosted) return;
+    setBrowserOpening(true);
+    setBrowserOpenError("");
+    try {
+      await props.onReturnToDesktop();
     } catch (reason) {
       setBrowserOpenError(reason instanceof Error ? reason.message : String(reason));
       setBrowserOpening(false);
@@ -695,12 +707,20 @@ export function SettingsDialog(props: {
                     onChange={(enabled) => { void updateBrowserAccess(enabled); }}
                   />
                   <SettingsRow
-                    label={browserHosted ? t`Opened in browser` : t`Open in browser`}
+                    label={browserHosted ? t`Open desktop app` : t`Open in browser`}
                     description={browserHosted
-                      ? t`The installed Lattice app is providing all local tools to this tab.`
+                      ? t`Move this workspace back to a Lattice window on this Mac.`
                       : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
                   >
-                    {!browserHosted && (
+                    {browserHosted ? (
+                      <Button
+                        size="compact"
+                        disabled={browserOpening}
+                        onClick={() => void returnToDesktop()}
+                      >
+                        {browserOpening ? t`Opening…` : t`Open desktop app`}
+                      </Button>
+                    ) : (
                       <Button
                         size="compact"
                         disabled={browserOpening}

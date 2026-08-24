@@ -7466,6 +7466,7 @@ function App() {
         onCleanProject={() => { void cleanProject(); }}
         cleaning={cleaning}
         building={building}
+        browserHosted={browserHosted}
         onOpenInBrowser={async () => {
           if (!await startProjectTransition()) {
             throw new Error(t`Save the current workspace before opening it in a browser.`);
@@ -7477,6 +7478,18 @@ function App() {
             // before destruction. The backend activates the browser only once
             // that cleanup completes, so the two surfaces never edit together.
             await getCurrentWindow().close();
+          } catch (reason) {
+            cancelProjectTransition();
+            throw reason;
+          }
+        }}
+        onReturnToDesktop={async () => {
+          if (!await startProjectTransition()) {
+            throw new Error(t`Save the current workspace before opening it in the desktop app.`);
+          }
+          try {
+            await invoke("return_to_desktop");
+            setSettingsOpen(false);
           } catch (reason) {
             cancelProjectTransition();
             throw reason;

@@ -14,6 +14,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    io,
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -27,6 +28,19 @@ const PREFERRED_PORT: u16 = 18452;
 const MAX_BRIDGE_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
+
+#[cfg(target_os = "macos")]
+const CS_OPS_CDHASH: libc::c_uint = 5;
+
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn csops(
+        pid: libc::pid_t,
+        ops: libc::c_uint,
+        useraddr: *mut libc::c_void,
+        usersize: libc::size_t,
+    ) -> libc::c_int;
+}
 
 type Sessions = Arc<Mutex<HashMap<String, BrowserSession>>>;
 
@@ -64,6 +78,14 @@ struct ServerState {
     app: tauri::AppHandle,
     port: u16,
     sessions: Sessions,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct ProcessIdentity {
+    pid: libc::pid_t,
+    start_seconds: u64,
+    start_microseconds: u64,
 }
 
 #[derive(Deserialize)]
@@ -166,6 +188,209 @@ fn browser_dialog_window(window: &tauri::WebviewWindow) -> Result<(), String> {
 
 fn browser_dialog_path(path: PathBuf) -> String {
     path.to_string_lossy().into_owned()
+}
+
+fn bind_browser_listener() -> io::Result<TcpListener> {
+    let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT);
+    match TcpListener::bind(address) {
+        Ok(listener) => Ok(listener),
+        #[cfg(target_os = "macos")]
+        Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
+            replace_stale_browser_host(address).ok_or(error)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn replace_stale_browser_host(address: SocketAddrV4) -> Option<TcpListener> {
+    let current_exe = std::env::current_exe().ok()?;
+    let candidate = stale_browser_host(&current_exe)?;
+    // Re-read every authorization input immediately before signaling. A PID
+    // can be recycled and the fixed port can change owners between `lsof` and
+    // this point; either change must fail closed instead of killing the new
+    // listener.
+    if stale_browser_host(&current_exe)? != candidate {
+        return None;
+    }
+    if unsafe { libc::kill(candidate.pid, libc::SIGTERM) } != 0 {
+        return None;
+    }
+    for _ in 0..40 {
+        std::thread::sleep(Duration::from_millis(50));
+        match TcpListener::bind(address) {
+            Ok(listener) => {
+                log::info!(
+                    target: "lattice::browser",
+                    "replaced browser host from an older installed build"
+                );
+                return Some(listener);
+            }
+            Err(error) if error.kind() == io::ErrorKind::AddrInUse => {}
+            Err(_) => return None,
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn stale_browser_host(current_exe: &std::path::Path) -> Option<ProcessIdentity> {
+    let pid = browser_listener_pid()?;
+    let identity = process_identity(pid)?;
+    let arguments = process_arguments(pid)?;
+    if identity.pid == std::process::id() as libc::pid_t
+        || !process_executable_matches(pid, current_exe)
+        || !browser_host_arguments_match(&arguments, current_exe)
+    {
+        return None;
+    }
+    let running_hash = process_code_hash(pid)?;
+    let current_hash = process_code_hash(std::process::id() as libc::pid_t)?;
+    (running_hash != current_hash).then_some(identity)
+}
+
+#[cfg(target_os = "macos")]
+fn browser_host_arguments_match(arguments: &[Vec<u8>], current_exe: &std::path::Path) -> bool {
+    arguments.len() == 2
+        && arguments[0].as_slice() == current_exe.as_os_str().as_encoded_bytes()
+        && arguments[1].as_slice() == b"--browser-host"
+}
+
+#[cfg(target_os = "macos")]
+fn process_executable_matches(pid: libc::pid_t, current_exe: &std::path::Path) -> bool {
+    let mut path = vec![0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+    let read = unsafe {
+        libc::proc_pidpath(
+            pid,
+            path.as_mut_ptr().cast(),
+            path.len().try_into().unwrap_or(u32::MAX),
+        )
+    };
+    if read <= 0 {
+        return false;
+    }
+    let read = read as usize;
+    let length = path[..read]
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(read);
+    path[..length] == *current_exe.as_os_str().as_encoded_bytes()
+}
+
+#[cfg(target_os = "macos")]
+fn browser_listener_pid() -> Option<libc::pid_t> {
+    let output = std::process::Command::new("/usr/sbin/lsof")
+        .args(["-nP", "-t", "-a", "-iTCP@127.0.0.1:18452", "-sTCP:LISTEN"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let mut pids = String::from_utf8(output.stdout)
+        .ok()?
+        .lines()
+        .filter_map(|line| line.trim().parse::<libc::pid_t>().ok())
+        .collect::<Vec<_>>();
+    pids.sort_unstable();
+    pids.dedup();
+    (pids.len() == 1 && pids[0] > 0).then_some(pids[0])
+}
+
+#[cfg(target_os = "macos")]
+fn process_identity(pid: libc::pid_t) -> Option<ProcessIdentity> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::zeroed();
+    let size = std::mem::size_of::<libc::proc_bsdinfo>();
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size as libc::c_int,
+        )
+    };
+    if read != size as libc::c_int {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    if info.pbi_uid != unsafe { libc::geteuid() } {
+        return None;
+    }
+    Some(ProcessIdentity {
+        pid,
+        start_seconds: info.pbi_start_tvsec,
+        start_microseconds: info.pbi_start_tvusec,
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn process_arguments(pid: libc::pid_t) -> Option<Vec<Vec<u8>>> {
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid];
+    let mut size = 0;
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as libc::c_uint,
+            std::ptr::null_mut(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    } != 0
+        || size < std::mem::size_of::<libc::c_int>()
+        || size > 1024 * 1024
+    {
+        return None;
+    }
+    let mut buffer = vec![0_u8; size];
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as libc::c_uint,
+            buffer.as_mut_ptr().cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    } != 0
+    {
+        return None;
+    }
+    buffer.truncate(size);
+    parse_process_arguments(&buffer)
+        .map(|arguments| arguments.into_iter().map(<[u8]>::to_vec).collect())
+}
+
+#[cfg(target_os = "macos")]
+fn parse_process_arguments(buffer: &[u8]) -> Option<Vec<&[u8]>> {
+    let argc_size = std::mem::size_of::<libc::c_int>();
+    let argc = libc::c_int::from_ne_bytes(buffer.get(..argc_size)?.try_into().ok()?);
+    if argc < 0 || argc > 64 {
+        return None;
+    }
+    let mut cursor = argc_size;
+    cursor += buffer.get(cursor..)?.iter().position(|byte| *byte == 0)? + 1;
+    while buffer.get(cursor) == Some(&0) {
+        cursor += 1;
+    }
+    let mut arguments = Vec::with_capacity(argc as usize);
+    for _ in 0..argc {
+        let rest = buffer.get(cursor..)?;
+        let length = rest.iter().position(|byte| *byte == 0)?;
+        arguments.push(&rest[..length]);
+        cursor += length + 1;
+        while buffer.get(cursor) == Some(&0) {
+            cursor += 1;
+        }
+    }
+    Some(arguments)
+}
+
+#[cfg(target_os = "macos")]
+fn process_code_hash(pid: libc::pid_t) -> Option<[u8; 20]> {
+    let mut hash = [0_u8; 20];
+    let result = unsafe { csops(pid, CS_OPS_CDHASH, hash.as_mut_ptr().cast(), hash.len()) };
+    (result == 0).then_some(hash)
 }
 
 /// The dialog plugin always parents its panels to the invoking WebView. In a
@@ -334,6 +559,47 @@ impl BrowserHost {
             .open_url(browser_url, None::<&str>)
             .map_err(|error| format!("Could not reopen the browser workspace: {error}"))?;
         Ok(true)
+    }
+
+    /// Retire the loopback session after the browser command that requested a
+    /// desktop window has had time to receive its response. The browser gets a
+    /// terminal message before both bridge peers are dropped, so its ordinary
+    /// disconnect recovery cannot reopen a second copy of the project.
+    pub(crate) fn return_to_desktop(
+        &self,
+        app: &tauri::AppHandle,
+        host_label: &str,
+    ) -> Result<(), String> {
+        let sessions = self
+            .sessions()
+            .ok_or_else(|| "Browser server state is unavailable.".to_string())?;
+        let token = sessions
+            .lock()
+            .map_err(|_| "Browser session state is unavailable.".to_string())?
+            .iter()
+            .find_map(|(token, session)| (session.host_label == host_label).then(|| token.clone()))
+            .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
+        let app = app.clone();
+        let host_label = host_label.to_string();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let retired = sessions
+                .lock()
+                .ok()
+                .and_then(|mut sessions| sessions.remove(&token));
+            if let Some(session) = retired {
+                if let Some(browser) = session.browser {
+                    let _ = browser
+                        .sender
+                        .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if let Some(window) = app.get_webview_window(&host_label) {
+                let _ = window.destroy();
+            }
+        });
+        Ok(())
     }
 
     /// Start the small loopback listener without creating a workspace. The
@@ -521,8 +787,7 @@ impl BrowserHost {
         // A bookmark can only be permanent if its port is permanent. Do not
         // silently fall back to a random port: that would make the setting look
         // enabled while the saved address opens some other process or nothing.
-        let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT))
-            .map_err(|error| {
+        let listener = bind_browser_listener().map_err(|error| {
                 format!(
                     "Could not start local browser access at http://127.0.0.1:{PREFERRED_PORT}: {error}"
                 )
@@ -814,6 +1079,9 @@ fn register_peer(
             let replacing_browser = session.browser_epoch != 0;
             session.browser_epoch = session.browser_epoch.wrapping_add(1);
             if let Some(previous) = session.browser.replace(peer) {
+                let _ = previous
+                    .sender
+                    .send(Message::Text(r#"{"type":"browser-replaced"}"#.into()));
                 let _ = previous.sender.send(Message::Close(None));
             }
             if replacing_browser {
@@ -922,9 +1190,9 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
             }
             BridgeRole::Host => {
                 if let Some(browser) = &session.browser {
-                    let _ = browser.sender.send(Message::Text(
-                        r#"{"type":"error","message":"The local Lattice host closed."}"#.into(),
-                    ));
+                    let _ = browser
+                        .sender
+                        .send(Message::Text(r#"{"type":"host-disconnected"}"#.into()));
                 }
                 remove_session_now = true;
             }
@@ -1032,6 +1300,19 @@ async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "macos")]
+    fn encoded_process_arguments(executable: &[u8], arguments: &[&[u8]]) -> Vec<u8> {
+        let mut encoded = (arguments.len() as libc::c_int).to_ne_bytes().to_vec();
+        encoded.extend_from_slice(executable);
+        encoded.extend_from_slice(&[0, 0, 0]);
+        for argument in arguments {
+            encoded.extend_from_slice(argument);
+            encoded.push(0);
+        }
+        encoded.extend_from_slice(b"HOME=/tmp\0");
+        encoded
+    }
+
     fn session(active: bool) -> BrowserSession {
         BrowserSession {
             source_label: Some("main".to_string()),
@@ -1052,6 +1333,32 @@ mod tests {
             token: "secret".to_string(),
             role,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn stale_host_authorization_requires_the_exact_executable_and_single_host_argument() {
+        let executable =
+            std::path::Path::new("/Applications/Lattice.app/Contents/MacOS/research-writer");
+        let raw = encoded_process_arguments(
+            executable.as_os_str().as_encoded_bytes(),
+            &[executable.as_os_str().as_encoded_bytes(), b"--browser-host"],
+        );
+        let arguments = parse_process_arguments(&raw)
+            .unwrap()
+            .into_iter()
+            .map(<[u8]>::to_vec)
+            .collect::<Vec<_>>();
+
+        assert!(browser_host_arguments_match(&arguments, executable));
+
+        let mut extra_argument = arguments.clone();
+        extra_argument.push(b"--unexpected".to_vec());
+        assert!(!browser_host_arguments_match(&extra_argument, executable));
+        assert!(!browser_host_arguments_match(
+            &arguments,
+            std::path::Path::new("/tmp/research-writer")
+        ));
     }
 
     #[test]
@@ -1112,6 +1419,10 @@ mod tests {
             second_sender
         ));
 
+        assert!(matches!(
+            first_messages.try_recv(),
+            Ok(Message::Text(message)) if message.as_str().contains("browser-replaced")
+        ));
         assert!(matches!(
             first_messages.try_recv(),
             Ok(Message::Close(None))

@@ -18,6 +18,9 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
+  | { type: "browser-replaced" }
+  | { type: "desktop-returned" }
+  | { type: "host-disconnected" }
   | { type: "error"; message: string };
 
 interface BrowserInternals {
@@ -43,7 +46,7 @@ interface RuntimeWindow {
   isTauri?: boolean;
 }
 
-interface BrowserRuntimeConfig {
+export interface BrowserRuntimeConfig {
   token: string;
   bridgePort: number;
   label: string;
@@ -53,7 +56,7 @@ let runtimeError: string | null = null;
 let browserRuntime = false;
 let runtimeReady: Promise<void> = Promise.resolve();
 
-class BrowserRelay {
+export class BrowserRelay {
   private readonly socket: WebSocket;
   private readonly callbacks: Map<number, Callback>;
   private readonly pending = new Map<number, {
@@ -71,9 +74,16 @@ class BrowserRelay {
   private storageResolve!: () => void;
   private storageReject!: (reason: unknown) => void;
   private storageHydrated = false;
+  private pageLeaving = false;
+  private terminal = false;
+  private recovering = false;
   readonly storageReady: Promise<void>;
 
-  constructor(config: BrowserRuntimeConfig, callbacks: Map<number, Callback>) {
+  constructor(
+    config: BrowserRuntimeConfig,
+    callbacks: Map<number, Callback>,
+    private readonly reloadPage: () => void = () => window.location.reload(),
+  ) {
     this.callbacks = callbacks;
     this.readyPromise = new Promise<void>((resolve, reject) => {
       this.readyResolve = resolve;
@@ -89,13 +99,20 @@ class BrowserRelay {
     this.socket = new WebSocket(socketUrl);
     this.socket.addEventListener("message", (event) => this.receive(event));
     this.socket.addEventListener("close", () => {
-      this.fail(new Error("The local Lattice app disconnected."));
+      this.disconnect(new Error("The local Lattice app disconnected."));
     });
     this.socket.addEventListener("error", () => {
-      this.fail(new Error("Could not connect to the local Lattice app."));
+      this.disconnect(new Error("Could not connect to the local Lattice app."));
     });
     window.addEventListener("pagehide", () => {
+      this.pageLeaving = true;
       this.syncStorage();
+    });
+    window.addEventListener("pageshow", (event) => {
+      this.pageLeaving = false;
+      if (event.persisted && this.socket.readyState !== WebSocket.OPEN) {
+        this.disconnect(new Error("The local Lattice app disconnected."));
+      }
     });
     window.setTimeout(() => {
       if (!this.ready) this.fail(new Error("The local Lattice app did not finish the browser handoff."));
@@ -167,7 +184,54 @@ class BrowserRelay {
       else pending.reject(decodeBridgeValue(message.error));
       return;
     }
-    if (message.type === "error") this.fail(new Error(message.message));
+    if (message.type === "host-disconnected") {
+      this.disconnect(new Error("The local Lattice app disconnected."));
+      return;
+    }
+    if (message.type === "browser-replaced") {
+      this.terminal = true;
+      this.fail(new Error("This Lattice workspace is open in another browser tab."));
+      return;
+    }
+    if (message.type === "desktop-returned") {
+      this.terminal = true;
+      this.fail(new Error("This workspace is now open in the Lattice desktop app. You can close this tab."));
+      return;
+    }
+    if (message.type === "error") {
+      this.terminal = true;
+      this.fail(new Error(message.message));
+    }
+  }
+
+  private disconnect(reason: Error): void {
+    if (this.terminal || this.pageLeaving || this.recovering) return;
+    if (!this.ready) {
+      this.fail(reason);
+      return;
+    }
+    this.recovering = true;
+    for (const pending of this.pending.values()) pending.reject(reason);
+    this.pending.clear();
+    // Browser memory savers and laptop sleep can tear down an idle WebSocket
+    // while leaving the document alive. Reload through the fixed entry so it
+    // can reuse the five-second session grace period or create a fresh host
+    // after a longer suspension. A normal close/navigation sets pageLeaving
+    // first and therefore still releases the native workspace as before.
+    const recoveryFallback = window.setTimeout(() => {
+      // A dirty editor can cancel the browser's reload confirmation. Leave its
+      // content in place, but make the failed connection visible instead of
+      // leaving a page that silently ignores every later recovery attempt.
+      this.recovering = false;
+      this.fail(reason);
+    }, 1_000);
+    try {
+      this.reloadPage();
+    } catch {
+      window.clearTimeout(recoveryFallback);
+      this.recovering = false;
+      this.fail(reason);
+    }
   }
 
   private fail(reason: Error): void {

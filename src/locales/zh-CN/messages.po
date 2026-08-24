@@ -2564,6 +2564,10 @@ msgstr "满足 / 蕴涵"
 msgid "modified"
 msgstr "已修改"
 
+#: src/settings/settings-dialog.tsx
+msgid "Move this workspace back to a Lattice window on this Mac."
+msgstr "将此工作区移回这台 Mac 上的 Lattice 窗口。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "缪"
@@ -2852,6 +2856,10 @@ msgstr "在浏览器中打开文章"
 msgid "Open comments"
 msgstr "打开评论"
 
+#: src/settings/settings-dialog.tsx
+msgid "Open desktop app"
+msgstr "在桌面应用中打开"
+
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
@@ -2944,10 +2952,6 @@ msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留
 #: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
-
-#: src/settings/settings-dialog.tsx
-msgid "Opened in browser"
-msgstr "已在浏览器中打开"
 
 #. placeholder {0}: primaryOpening.label
 #: src/App.tsx
@@ -3792,6 +3796,10 @@ msgstr "将 PDF 另存为…"
 msgid "Save the current workspace before opening it in a browser."
 msgstr "请先保存当前工作区，再在浏览器中打开。"
 
+#: src/App.tsx
+msgid "Save the current workspace before opening it in the desktop app."
+msgstr "请先保存当前工作区，再在桌面应用中打开。"
+
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "保存版本"
@@ -4286,10 +4294,6 @@ msgstr "主机已结束此次共享，已重新打开你自己的项目。"
 #: src/app/use-collab-v2-session.ts
 msgid "The host removed you from this share. Your own project is open again."
 msgstr "主机已将你移出此次共享，已重新打开你自己的项目。"
-
-#: src/settings/settings-dialog.tsx
-msgid "The installed Lattice app is providing all local tools to this tab."
-msgstr "已安装的 Lattice 应用正在为此标签页提供所有本地工具。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"

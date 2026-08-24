@@ -2564,6 +2564,10 @@ msgstr "Models / entails"
 msgid "modified"
 msgstr "modified"
 
+#: src/settings/settings-dialog.tsx
+msgid "Move this workspace back to a Lattice window on this Mac."
+msgstr "Move this workspace back to a Lattice window on this Mac."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
 msgstr "Mu"
@@ -2852,6 +2856,10 @@ msgstr "Open article in browser"
 msgid "Open comments"
 msgstr "Open comments"
 
+#: src/settings/settings-dialog.tsx
+msgid "Open desktop app"
+msgstr "Open desktop app"
+
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
@@ -2944,10 +2952,6 @@ msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials sta
 #: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex search"
-
-#: src/settings/settings-dialog.tsx
-msgid "Opened in browser"
-msgstr "Opened in browser"
 
 #. placeholder {0}: primaryOpening.label
 #: src/App.tsx
@@ -3794,6 +3798,10 @@ msgstr "Save PDF as…"
 msgid "Save the current workspace before opening it in a browser."
 msgstr "Save the current workspace before opening it in a browser."
 
+#: src/App.tsx
+msgid "Save the current workspace before opening it in the desktop app."
+msgstr "Save the current workspace before opening it in the desktop app."
+
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "Save version"
@@ -4290,10 +4298,6 @@ msgstr "The host ended this share. Your own project is open again."
 #: src/app/use-collab-v2-session.ts
 msgid "The host removed you from this share. Your own project is open again."
 msgstr "The host removed you from this share. Your own project is open again."
-
-#: src/settings/settings-dialog.tsx
-msgid "The installed Lattice app is providing all local tools to this tab."
-msgstr "The installed Lattice app is providing all local tools to this tab."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"

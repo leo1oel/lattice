@@ -813,6 +813,30 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
         .expect("an unused window label always exists")
 }
 
+fn build_project_window(
+    app: &tauri::AppHandle,
+    label: &str,
+) -> Result<tauri::WebviewWindow, String> {
+    let builder = tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
+        .title("Lattice")
+        .inner_size(1440.0, 900.0)
+        .min_inner_size(1222.0, 680.0)
+        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+    let created = builder
+        .build()
+        .map_err(|error| format!("Could not open a new Lattice window: {error}"))?;
+    #[cfg(target_os = "macos")]
+    {
+        macos_window::install_traffic_light_alignment(&created);
+        macos_window::apply_window_background(&created, false);
+    }
+    Ok(created)
+}
+
 /// Open a project in a window of its own.
 ///
 /// A project may only be open in one window at a time. Two windows on one
@@ -873,30 +897,9 @@ async fn open_project_window(
     if let Some(pending) = pending {
         state.set_pending_action(&label, pending);
     }
-    let builder = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::default())
-        .title("Lattice")
-        .inner_size(1440.0, 900.0)
-        .min_inner_size(1222.0, 680.0)
-        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
-    #[cfg(target_os = "macos")]
-    let builder = builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true);
-    let built = builder.build();
-    match built {
+    match build_project_window(&app, &label) {
         Ok(created) => {
-            // Every window needs the native chrome the first one gets in
-            // `setup`: without it the traffic lights sit where AppKit put
-            // them, a few points up and to the left of where this app's
-            // titlebar wants them, and live resize shows the bare backing
-            // surface along the growing edges.
-            #[cfg(target_os = "macos")]
-            {
-                macos_window::install_traffic_light_alignment(&created);
-                macos_window::apply_window_background(&created, false);
-            }
-            #[cfg(not(target_os = "macos"))]
-            let _ = created;
+            let _ = created.set_focus();
             Ok(OpenedProjectWindow {
                 label,
                 focused_existing: false,
@@ -908,6 +911,43 @@ async fn open_project_window(
             Err(format!("Could not open a new window: {error}"))
         }
     }
+}
+
+/// Move a browser-hosted project back into an ordinary desktop window. The
+/// browser relay is retired only after this command's response has crossed the
+/// bridge, so the caller never hangs waiting on a socket we just closed.
+#[tauri::command]
+fn return_to_desktop(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    browser: tauri::State<'_, browser_host::BrowserHost>,
+    window: tauri::Window,
+) -> Result<String, String> {
+    if !window.label().starts_with("browser-") {
+        return Err("This workspace is already open in the desktop app.".to_string());
+    }
+    let root = current_root(&state, &window)?;
+    let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular)
+        .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
+    state.bind_window(&label, root)?;
+    let desktop = match build_project_window(&app, &label) {
+        Ok(window) => window,
+        Err(reason) => {
+            state.release_window(&label);
+            state.retire_unused_projects();
+            return Err(reason);
+        }
+    };
+    if let Err(reason) = browser.return_to_desktop(&app, window.label()) {
+        let _ = desktop.destroy();
+        state.release_window(&label);
+        state.retire_unused_projects();
+        return Err(reason);
+    }
+    let _ = desktop.set_focus();
+    Ok(label)
 }
 
 /// Unpack a project from a ZIP. As with `create_project`, placing it in a
@@ -3986,6 +4026,7 @@ pub fn run() {
             get_app_log_dir,
             open_app_log_dir,
             open_in_browser,
+            return_to_desktop,
             browser_access_enabled,
             set_browser_access_enabled,
             browser_host::browser_dialog_open,

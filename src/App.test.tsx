@@ -822,6 +822,40 @@ describe("welcome screen", () => {
     expect(residentAccess).not.toBeChecked();
   });
 
+  it("moves a browser workspace back into the desktop app from Settings", async () => {
+    browserRuntime.hosted = true;
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "return_to_desktop") return "project-1";
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByRole("tab", { name: "main.tex" });
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
+      button: 0,
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open desktop app" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("return_to_desktop"));
+    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+  });
+
   it("keeps an explicitly selected manual build preference", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     renderApp();
