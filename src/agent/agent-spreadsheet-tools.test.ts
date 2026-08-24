@@ -8,6 +8,7 @@ import {
   registerAgentSpreadsheetDocumentResolver,
   SYNARA_SPREADSHEET_TOOL_REQUEST,
   type AgentSpreadsheetToolRequest,
+  waitForAgentSpreadsheetDocument,
 } from "./agent-spreadsheet-tools";
 import { applySpreadsheetBatch, readSpreadsheet } from "../editor/spreadsheet/spreadsheet-operations";
 import { seedSpreadsheetDoc } from "../editor/spreadsheet/spreadsheet-yjs";
@@ -165,6 +166,20 @@ describe("agent spreadsheet host protocol", () => {
     }))).resolves.toMatchObject({ ok: true, result: { values: [["unfocused"]] } });
     focusedDoc.destroy();
     unfocusedDoc.destroy();
+  });
+
+  it("waits until the requested spreadsheet editor registers its live document", async () => {
+    const doc = new Y.Doc();
+    seedSpreadsheetDoc(doc);
+    let settled = false;
+    const waiting = waitForAgentSpreadsheetDocument("new.lattice-sheet", 1_000)
+      .then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    cleanups.push(registerAgentSpreadsheetDocument("new.lattice-sheet", { doc, canWrite: true }));
+    await waiting;
+    expect(settled).toBe(true);
+    doc.destroy();
   });
 
   it("does not invite a duplicate structural update when persistence is unconfirmed", async () => {

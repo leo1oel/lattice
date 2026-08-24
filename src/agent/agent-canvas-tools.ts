@@ -31,13 +31,56 @@ export type AgentCanvasAdapter = {
   execute(action: AgentCanvasAction, args: Record<string, unknown>): unknown;
 };
 
-let activeAdapter: AgentCanvasAdapter | null = null;
+type ActiveAgentCanvasAdapter = {
+  path: string;
+  adapter: AgentCanvasAdapter;
+};
 
-export function registerAgentCanvasAdapter(adapter: AgentCanvasAdapter): () => void {
-  activeAdapter = adapter;
+type AgentCanvasWaiter = {
+  resolve: () => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+let activeAdapter: ActiveAgentCanvasAdapter | null = null;
+const adapterWaiters = new Map<string, Set<AgentCanvasWaiter>>();
+
+export function registerAgentCanvasAdapter(path: string, adapter: AgentCanvasAdapter): () => void {
+  activeAdapter = { path, adapter };
+  const waiters = adapterWaiters.get(path);
+  if (waiters) {
+    adapterWaiters.delete(path);
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timer);
+      waiter.resolve();
+    }
+  }
   return () => {
-    if (activeAdapter === adapter) activeAdapter = null;
+    if (activeAdapter?.adapter === adapter) activeAdapter = null;
   };
+}
+
+export function waitForAgentCanvasAdapter(path: string, timeoutMs: number): Promise<void> {
+  if (activeAdapter?.path === path) return Promise.resolve();
+  if (timeoutMs <= 0) {
+    return Promise.reject(Object.assign(new Error(`The canvas did not open before the request expired: ${path}`), {
+      code: "project_document_open_timeout",
+    }));
+  }
+  return new Promise((resolve, reject) => {
+    const waiters = adapterWaiters.get(path) ?? new Set<AgentCanvasWaiter>();
+    const waiter: AgentCanvasWaiter = {
+      resolve,
+      timer: setTimeout(() => {
+        waiters.delete(waiter);
+        if (waiters.size === 0) adapterWaiters.delete(path);
+        reject(Object.assign(new Error(`The canvas did not open before the request expired: ${path}`), {
+          code: "project_document_open_timeout",
+        }));
+      }, timeoutMs),
+    };
+    waiters.add(waiter);
+    adapterWaiters.set(path, waiters);
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,7 +104,7 @@ export async function executeAgentCanvasToolRequest(
       throw Object.assign(new Error("The canvas request expired before execution."), { code: "canvas_tool_expired" });
     }
     if (!activeAdapter) throw Object.assign(new Error("Open a .tldr canvas before using canvas tools."), { code: "canvas_not_open" });
-    const result = activeAdapter.execute(request.action, request.args);
+    const result = activeAdapter.adapter.execute(request.action, request.args);
     return { type: LATTICE_CANVAS_TOOL_RESULT, version: 1, id: request.id, ok: true, result };
   } catch (error) {
     const code = isRecord(error) && typeof error.code === "string" ? error.code : "canvas_tool_failed";

@@ -52,6 +52,7 @@ import { MathView } from './Math.tsx';
 import { MermaidView } from './Mermaid.tsx';
 import { Mirror } from './Mirror-host.tsx';
 import { MirrorSource } from './MirrorSource.tsx';
+import { PaperFigure, PaperFigurePanel, PaperFigureRow } from './PaperFigure.tsx';
 import { Pdf } from './Pdf.tsx';
 import { Tab } from './Tab.tsx';
 import { Tabs } from './Tabs.tsx';
@@ -97,6 +98,12 @@ export const componentMap: Record<string, React.ComponentType<any>> = {
   // (GitHub-README centered headers). Children stay ordinary editable
   // blocks; the wrapper only applies text alignment.
   HtmlAlignBlock: AlignBlock,
+  // Extraction-only structure for LaTeXML multi-panel figures. These remain
+  // ordinary MDX containers so images and captions stay editable, while the
+  // row component restores the source HTML's cell widths.
+  PaperFigure,
+  PaperFigureRow,
+  PaperFigurePanel,
   Tabs,
   Tab,
   Math: MathView,

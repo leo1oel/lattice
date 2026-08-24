@@ -893,6 +893,30 @@ const tabProps: PropDef[] = [
   },
 ];
 
+// arxiv2md's structured form for LaTeXML multi-panel figures. These
+// descriptors are hidden from the slash menu: authors insert ordinary images;
+// the extraction pipeline owns this layout because it has the source HTML's
+// row breaks, panel anchors, and `ltx_flex_size_N` widths.
+const paperFigureProps: PropDef[] = [
+  {
+    name: 'id',
+    type: 'string',
+    required: false,
+    hidden: true,
+    description: 'Source figure anchor',
+  },
+];
+
+const paperFigureRowProps: PropDef[] = [
+  {
+    name: 'columns',
+    type: 'string',
+    required: true,
+    hidden: true,
+    description: 'Space-separated LaTeXML cell-width denominators',
+  },
+];
+
 // Math + Mermaid ----------------------------------
 const mathProps: PropDef[] = [
   {
@@ -1356,6 +1380,45 @@ export const builtInComponents: JsxComponentMeta[] = [
     searchTerms: ['tab', 'panel'],
     exampleBody: 'Panel content — must be nested inside a `<Tabs>` parent.',
     serialize: (node, ctx) => emitMdxJsx('Tab', node, ctx, tabProps),
+  },
+  // Multi-panel paper figures — extraction-owned structural containers. They
+  // are registered canonicals because their MDX source form is the native
+  // round-trip representation, but hidden from slash insertion below.
+  {
+    name: 'PaperFigure',
+    surface: 'canonical',
+    hasChildren: true,
+    props: paperFigureProps,
+    icon: 'GalleryHorizontal',
+    category: 'media',
+    displayName: 'Paper figure',
+    description: 'A grouped multi-panel figure preserved from source HTML',
+    searchTerms: ['paper', 'figure', 'multipanel'],
+    serialize: (node, ctx) => emitMdxJsx('PaperFigure', node, ctx, paperFigureProps),
+  },
+  {
+    name: 'PaperFigureRow',
+    surface: 'canonical',
+    hasChildren: true,
+    props: paperFigureRowProps,
+    icon: 'Columns3',
+    category: 'media',
+    displayName: 'Paper figure row',
+    description: 'One source-defined row of a multi-panel paper figure',
+    searchTerms: ['paper', 'figure', 'row'],
+    serialize: (node, ctx) => emitMdxJsx('PaperFigureRow', node, ctx, paperFigureRowProps),
+  },
+  {
+    name: 'PaperFigurePanel',
+    surface: 'canonical',
+    hasChildren: true,
+    props: paperFigureProps,
+    icon: 'PanelTop',
+    category: 'media',
+    displayName: 'Paper figure panel',
+    description: 'One image-and-caption panel within a grouped paper figure',
+    searchTerms: ['paper', 'figure', 'panel'],
+    serialize: (node, ctx) => emitMdxJsx('PaperFigurePanel', node, ctx, paperFigureProps),
   },
   // Math + Mermaid canonical descriptors
   {

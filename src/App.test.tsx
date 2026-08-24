@@ -9,8 +9,11 @@ import type { Editor as TiptapEditor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import * as Y from "yjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
+import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
 import { persistWorkspaceLayout } from "./settings/app-settings";
 import { mapCollabProjectStatusV2 } from "./collab/collab-status";
@@ -8093,6 +8096,103 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .not.toBeInTheDocument();
+  });
+
+  it("lets the Agent create and open a board or spreadsheet through the host bridge", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "create_project_entry") return (args as { path: string }).path;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+
+    const unregisterBoard = registerAgentCanvasAdapter("agent-board.tldr", { execute: () => ({}) });
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:project-document-tool-request",
+          version: 1,
+          id: "create-board",
+          args: { path: "agent-board.tldr", documentType: "board" },
+          expiresAt: Date.now() + 10_000,
+        },
+      }));
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "agent-board.tldr",
+      kind: "file",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lattice:project-document-tool-result",
+        id: "create-board",
+        ok: true,
+        result: { path: "agent-board.tldr", documentType: "board", opened: true },
+      }),
+      synaraHook.runtime.origin,
+    ));
+    expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
+    unregisterBoard();
+
+    const spreadsheetDoc = new Y.Doc();
+    const unregisterSpreadsheet = registerAgentSpreadsheetDocument(
+      "agent-data.lattice-sheet",
+      { doc: spreadsheetDoc, canWrite: true },
+    );
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:project-document-tool-request",
+          version: 1,
+          id: "create-spreadsheet",
+          args: { path: "agent-data.lattice-sheet", documentType: "spreadsheet" },
+          expiresAt: Date.now() + 10_000,
+        },
+      }));
+    });
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "lattice:project-document-tool-result",
+        id: "create-spreadsheet",
+        ok: true,
+        result: {
+          path: "agent-data.lattice-sheet",
+          documentType: "spreadsheet",
+          opened: true,
+        },
+      }),
+      synaraHook.runtime.origin,
+    ));
+    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
+    unregisterSpreadsheet();
+    spreadsheetDoc.destroy();
   });
 
 });

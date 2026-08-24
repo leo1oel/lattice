@@ -1300,6 +1300,65 @@
   max-height: min(60cqi, 60vh);
 }
 
+/* Multi-panel figures retain LaTeXML's explicit flex rows and
+   `ltx_flex_size_N` widths through PaperFigure MDX. The PM-owned direct child
+   renderers sit two layers below NodeViewContent, so the grid belongs on the
+   contentDOM element rather than on the React row wrapper itself. Panel
+   padding creates separation without changing the source width fractions. */
+.ProseMirror .paper-figure {
+  width: 100%;
+  margin: 0;
+}
+
+.ProseMirror .paper-figure-row {
+  width: 100%;
+}
+
+.ProseMirror
+  .paper-figure-row
+  > .component-children
+  > [data-node-view-content-react] {
+  display: grid;
+  grid-template-columns: var(--paper-figure-columns);
+  align-items: end;
+  justify-content: center;
+  width: 100%;
+}
+
+.ProseMirror .paper-figure-panel {
+  min-width: 0;
+  margin: 0;
+  padding-inline: var(--space-2);
+  text-align: center;
+}
+
+/* Row, panel, and image NodeViews are nested implementation details of one
+   figure block. Remove the normal per-component spacing and structural chrome
+   from those inner wrappers; the outer PaperFigure remains the selectable,
+   editable block and individual images keep their own image controls. */
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurerow"],
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurepanel"],
+.ProseMirror .paper-figure-row .jsx-component-wrapper {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.ProseMirror
+  .jsx-component-wrapper[data-component-type="paperfigurerow"]
+  > .jsx-component-chrome,
+.ProseMirror
+  .jsx-component-wrapper[data-component-type="paperfigurepanel"]
+  > .jsx-component-chrome {
+  display: none;
+}
+
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurerow"]::before,
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurerow"]::after,
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurepanel"]::before,
+.ProseMirror .jsx-component-wrapper[data-component-type="paperfigurepanel"]::after {
+  display: none;
+}
+
 .ProseMirror img.ProseMirror-selectednode {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

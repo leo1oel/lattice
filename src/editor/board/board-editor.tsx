@@ -31,6 +31,8 @@ export type BoardCollabBinding = {
 };
 
 export type BoardEditorProps = {
+  /** Workspace-relative path used to route Agent shape tools to this board. */
+  path: string;
   /** Initial .tldr JSON for local mode. The board owns its state after mount. */
   source: string;
   onChange: (next: string) => void;
@@ -65,6 +67,7 @@ export function mergeExternalBoardSource(store: TLStore, source: string): boolea
 }
 
 export function BoardEditor({
+  path,
   source,
   onChange,
   collab,
@@ -118,10 +121,11 @@ export function BoardEditor({
     const editor = editorRef.current;
     if (active && editor) {
       unregisterAgentAdapterRef.current = registerAgentCanvasAdapter(
+        path,
         createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
       );
     }
-  }, [active]);
+  }, [active, path]);
   // The store is created once per mount (the canvas keys this component by
   // file path). Collab mode starts empty: attachBoardBridge seeds records
   // from the doc's imported content and pulls the doc-authoritative state.
@@ -233,6 +237,7 @@ export function BoardEditor({
           unregisterAgentAdapterRef.current?.();
           unregisterAgentAdapterRef.current = active
             ? registerAgentCanvasAdapter(
+              path,
               createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
             )
             : null;

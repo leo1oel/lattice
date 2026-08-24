@@ -46,9 +46,10 @@ checkpoint, and protocol implementations still come from Synara, and no upstream
 reimplemented.
 
 Ownership stays split at that boundary. Synara owns provider adapters, turns, checkpoints, and the
-provider-facing trace producer. Lattice owns live editor host context, the literature, canvas and
-spreadsheet brokers, and the host-side compile bridge. In particular, Lattice does not copy a
-provider adapter. Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
+provider-facing trace producer. Lattice owns live editor host context, the literature, canvas,
+spreadsheet, and project-document brokers, and the host-side compile bridge.
+In particular, Lattice does not copy a provider adapter.
+Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
 plus an omission count when an explicit selection is truncated to the
 `MAX_SELECTION_LENGTH` = 12,000-character model limit (`src/agent/agent-host-context.ts`).
 
@@ -110,7 +111,7 @@ since the read-only phase-one catalog:
 - **Browser control is out.** The `browser_*` tools have no alias and are not in the allowlist, so
   the embedded-browser surface never reaches the Lattice catalog.
 
-`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **26** names that pass the filter *without* being
+`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
 | Group | Count | Names | Implemented by |
@@ -118,6 +119,7 @@ renamed. They are not all Lattice code:
 | Literature | 8 | `search_literature`, `list_papers`, `search_library`, `fetch_paper`, `fetch_web_reference`, `cite`, `upgrade_bibliography`, `remove_reference` | Lattice. They shell out to the Lattice executable, which parses them as the `LiteratureRequest` enum in `src-tauri/src/lib.rs` (grep `enum LiteratureRequest`) and dispatches to `literature::` and `papers::`, keeping the Rust literature and bibliography code the only source of truth. |
 | Canvas | 4 | `list_canvas_shapes`, `create_canvas_shapes`, `update_canvas_shapes`, `delete_canvas_shapes` | Lattice. They reach the tldraw surface through the canvas broker (`src/agent/agent-canvas-tools.ts`, actions `list` / `create` / `update` / `delete`). |
 | Spreadsheet | 2 | `spreadsheet_read`, `spreadsheet_batch_update` | Lattice, via `src/agent/agent-spreadsheet-tools.ts` (actions `read` / `batch_update`). |
+| Project documents | 1 | `create_project_document` | Lattice. It creates and opens native `.tldr` boards or `.lattice-sheet` spreadsheets through the project transaction path, including shared-project catalog registration. |
 | iOS Simulator | 12 | `device_list`, `device_boot`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/src/synara.rs`). |
 
 The mutating literature tools run with `HistoryMode::Defer`, so agent bibliography edits fold into

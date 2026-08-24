@@ -104,11 +104,18 @@ import {
 import {
   executeAgentCanvasToolRequest,
   parseAgentCanvasToolRequest,
+  waitForAgentCanvasAdapter,
 } from "./agent/agent-canvas-tools";
+import {
+  executeAgentProjectDocumentToolRequest,
+  parseAgentProjectDocumentToolRequest,
+  type AgentProjectDocumentToolRequest,
+} from "./agent/agent-project-document-tools";
 import {
   executeAgentSpreadsheetToolRequest,
   parseAgentSpreadsheetToolRequest,
   registerAgentSpreadsheetDocumentResolver,
+  waitForAgentSpreadsheetDocument,
 } from "./agent/agent-spreadsheet-tools";
 import { isSpreadsheetPath } from "./editor/spreadsheet/spreadsheet-types";
 import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
@@ -1218,6 +1225,9 @@ function App() {
   const collabPathMutationGeneration = useCallback((path: string) => collabPathMutationGenerationRef.current.get(path) ?? 0, []);
   const collabDetachRef = useRef<(() => void) | null>(null);
   const projectRootRef = useRef<string | null>(null);
+  const agentProjectDocumentCreatorRef = useRef<((
+    request: AgentProjectDocumentToolRequest,
+  ) => Promise<string>) | null>(null);
   const enterProjectRef = useRef<((
     snapshot: ProjectSnapshot,
     options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
@@ -1821,6 +1831,14 @@ function App() {
         selectionSourceRef.current = null;
         setSelection("");
         setSelectionSource(null);
+        return;
+      }
+      const projectDocumentRequest = parseAgentProjectDocumentToolRequest(event.data);
+      if (projectDocumentRequest) {
+        void executeAgentProjectDocumentToolRequest(
+          projectDocumentRequest,
+          agentProjectDocumentCreatorRef.current,
+        ).then(postSynaraMessage);
         return;
       }
       const canvasRequest = parseAgentCanvasToolRequest(event.data);
@@ -6225,6 +6243,35 @@ function App() {
     refreshProject,
     shareCreatedFileWithCollabV2,
   ]);
+  useLayoutEffect(() => {
+    const createAgentProjectDocument = async (request: AgentProjectDocumentToolRequest) => {
+      if (!project?.root) {
+        throw Object.assign(new Error("Open a Lattice project before creating a document."), {
+          code: "project_document_project_unavailable",
+        });
+      }
+      if (collabSession?.canWrite === false || !collabCanWrite) {
+        throw Object.assign(
+          new Error("This shared project is read-only, so it cannot create documents."),
+          { code: "project_document_read_only" },
+        );
+      }
+      const createdPath = await createProjectEntry(request.args.path, "file");
+      const remainingMs = request.expiresAt - Date.now();
+      if (request.args.documentType === "board") {
+        await waitForAgentCanvasAdapter(createdPath, remainingMs);
+      } else {
+        await waitForAgentSpreadsheetDocument(createdPath, remainingMs);
+      }
+      return createdPath;
+    };
+    agentProjectDocumentCreatorRef.current = createAgentProjectDocument;
+    return () => {
+      if (agentProjectDocumentCreatorRef.current === createAgentProjectDocument) {
+        agentProjectDocumentCreatorRef.current = null;
+      }
+    };
+  }, [collabCanWrite, collabSession?.canWrite, createProjectEntry, project?.root]);
 
   const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures"): Promise<string[]> => {
     if (!paths.length || assetImporting) return [];

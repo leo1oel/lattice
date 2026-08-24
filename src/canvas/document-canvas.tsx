@@ -3697,6 +3697,7 @@ export function DocumentCanvas(props: {
       <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label={t`Preparing board editor`} />}>
         <BoardEditor
           key={activeFile}
+          path={activeFile}
           source={props.source}
           onChange={(next) => setSourceRef.current(next)}
           collab={boardCollabForPath(activeFile)}
@@ -3764,6 +3765,7 @@ export function DocumentCanvas(props: {
         <Suspense fallback={<div className="board-editor-root" aria-busy="true" aria-label={t`Preparing board editor`} />}>
           <BoardEditor
             key={secondaryFile}
+            path={secondaryFile}
             source={secondarySource}
             onChange={(next) => setSecondarySourceRef.current(next)}
             collab={boardCollabForPath(secondaryFile)}
@@ -3978,6 +3980,7 @@ export function DocumentCanvas(props: {
           {boardDocument ? (
             <BoardEditor
               key={activeFile}
+              path={activeFile}
               source={props.source}
               onChange={(next) => setSourceRef.current(next)}
               collab={boardCollabForPath(activeFile)}

@@ -22,4 +22,10 @@ describe("visual editor selection styles", () => {
   it("removes the image baseline gap from the block-selection halo", () => {
     expect(editorGlobalsCss).toMatch(/\.ProseMirror \.ok-image-resizable \{[^}]*line-height: 0;/);
   });
+
+  it("matches arXiv's centering and bottom alignment for multi-panel figure rows", () => {
+    expect(editorGlobalsCss).toContain(
+      "grid-template-columns: var(--paper-figure-columns);\n  align-items: end;\n  justify-content: center;",
+    );
+  });
 });

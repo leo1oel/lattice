@@ -574,8 +574,15 @@ function createInsertCommand(
 // insertion via slash menu would create a dangling panel. Users add tabs by
 // duplicating an existing Tab via the drag-handle, OR by editing source.
 // `File` stays hidden because the file-upload affordance has its own slash
-// entry that opens an OS picker.
-export const SLASH_HIDDEN_CANONICALS: ReadonlySet<string> = new Set(['File', 'Tab']);
+// entry that opens an OS picker. PaperFigure* is extraction-owned: only the
+// arXiv HTML converter knows the original rows, widths, captions, and anchors.
+export const SLASH_HIDDEN_CANONICALS: ReadonlySet<string> = new Set([
+  'File',
+  'PaperFigure',
+  'PaperFigurePanel',
+  'PaperFigureRow',
+  'Tab',
+]);
 
 /**
  * Custom block-level slash entries for canonicals whose user-facing

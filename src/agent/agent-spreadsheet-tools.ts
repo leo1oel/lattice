@@ -48,7 +48,13 @@ type OpenAgentSpreadsheetDocument = {
   active: boolean;
 };
 
+type AgentSpreadsheetDocumentWaiter = {
+  resolve: () => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
 const openDocuments = new Map<string, Set<OpenAgentSpreadsheetDocument>>();
+const documentWaiters = new Map<string, Set<AgentSpreadsheetDocumentWaiter>>();
 let documentResolver: AgentSpreadsheetDocumentResolver | null = null;
 const SPREADSHEET_AGENT_PRESENCE_FIELD = "spreadsheetAgentPresence";
 const SPREADSHEET_AGENT_REQUESTS_KEY = "spreadsheetAgentRequests";
@@ -158,12 +164,44 @@ export function registerAgentSpreadsheetDocument(
   const registrations = openDocuments.get(path) ?? new Set<OpenAgentSpreadsheetDocument>();
   registrations.add(registration);
   openDocuments.set(path, registrations);
+  const waiters = documentWaiters.get(path);
+  if (waiters) {
+    documentWaiters.delete(path);
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timer);
+      waiter.resolve();
+    }
+  }
   return () => {
     registrations.delete(registration);
     if (registrations.size === 0 && openDocuments.get(path) === registrations) {
       openDocuments.delete(path);
     }
   };
+}
+
+export function waitForAgentSpreadsheetDocument(path: string, timeoutMs: number): Promise<void> {
+  if ((openDocuments.get(path)?.size ?? 0) > 0) return Promise.resolve();
+  if (timeoutMs <= 0) {
+    return Promise.reject(Object.assign(new Error(`The spreadsheet did not open before the request expired: ${path}`), {
+      code: "project_document_open_timeout",
+    }));
+  }
+  return new Promise((resolve, reject) => {
+    const waiters = documentWaiters.get(path) ?? new Set<AgentSpreadsheetDocumentWaiter>();
+    const waiter: AgentSpreadsheetDocumentWaiter = {
+      resolve,
+      timer: setTimeout(() => {
+        waiters.delete(waiter);
+        if (waiters.size === 0) documentWaiters.delete(path);
+        reject(Object.assign(new Error(`The spreadsheet did not open before the request expired: ${path}`), {
+          code: "project_document_open_timeout",
+        }));
+      }, timeoutMs),
+    };
+    waiters.add(waiter);
+    documentWaiters.set(path, waiters);
+  });
 }
 
 export function registerAgentSpreadsheetDocumentResolver(resolver: AgentSpreadsheetDocumentResolver): () => void {

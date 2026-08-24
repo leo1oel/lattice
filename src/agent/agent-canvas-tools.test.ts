@@ -6,6 +6,7 @@ import {
   parseAgentCanvasToolRequest,
   registerAgentCanvasAdapter,
   SYNARA_CANVAS_TOOL_REQUEST,
+  waitForAgentCanvasAdapter,
 } from "./agent-canvas-tools";
 
 function fakeEditor() {
@@ -69,8 +70,8 @@ describe("agent canvas tools", () => {
   });
 
   it("keeps a newer board registered when an older board unmounts", async () => {
-    const unregisterOld = registerAgentCanvasAdapter({ execute: () => ({ board: "old" }) });
-    const unregisterCurrent = registerAgentCanvasAdapter({ execute: () => ({ board: "current" }) });
+    const unregisterOld = registerAgentCanvasAdapter("old.tldr", { execute: () => ({ board: "old" }) });
+    const unregisterCurrent = registerAgentCanvasAdapter("current.tldr", { execute: () => ({ board: "current" }) });
     unregisterOld();
     const request = parseAgentCanvasToolRequest({
       type: SYNARA_CANVAS_TOOL_REQUEST,
@@ -97,12 +98,25 @@ describe("agent canvas tools", () => {
       expiresAt: Date.now() + 1_000,
     });
     expect(request).not.toBeNull();
-    const unregister = registerAgentCanvasAdapter({ execute: () => ({ shapes: [] }) });
+    const unregister = registerAgentCanvasAdapter("shapes.tldr", { execute: () => ({ shapes: [] }) });
     unregister();
     await expect(executeAgentCanvasToolRequest(request!)).resolves.toMatchObject({
       id: "request-1",
       ok: false,
       error: { code: "canvas_not_open" },
     });
+  });
+
+  it("waits for the requested board rather than accepting a different active canvas", async () => {
+    const unregisterOld = registerAgentCanvasAdapter("old.tldr", { execute: () => ({}) });
+    let settled = false;
+    const waiting = waitForAgentCanvasAdapter("new.tldr", 1_000).then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    const unregisterNew = registerAgentCanvasAdapter("new.tldr", { execute: () => ({}) });
+    await waiting;
+    expect(settled).toBe(true);
+    unregisterOld();
+    unregisterNew();
   });
 });

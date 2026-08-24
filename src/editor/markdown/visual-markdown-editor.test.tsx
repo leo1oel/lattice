@@ -4120,6 +4120,16 @@ describe("VisualMarkdownEditor", () => {
     });
   });
 
+  it("renders unsupported LaTeX 2.09 font declarations through compatibility macros", async () => {
+    renderEditor("Inline $\\sc t$ and ${\\sl slanted}$.\n\n$$\n{\\sc Display}\n$$");
+
+    await waitFor(() => expect(document.querySelectorAll(".katex")).toHaveLength(3));
+    expect(document.querySelector('[style*="color:#cc0000"]')).toBeNull();
+    expect(document.querySelector(".math-inline-trigger .mathrm")).toHaveTextContent("t");
+    expect(document.querySelector(".math-inline-trigger .mathit")).toHaveTextContent("slanted");
+    expect(document.querySelector(".math-display .mathrm")).toHaveTextContent("Display");
+  });
+
   it("opens inline math properties only when the atom itself is selected", async () => {
     renderEditor("Before $x^2$ after.");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
@@ -4147,6 +4157,13 @@ describe("VisualMarkdownEditor", () => {
       editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, atomPosition)),
     );
     expect(await screen.findByText("Inline Math Properties")).toBeInTheDocument();
+
+    // In Chromium the NodeSelection effect can open the controlled popover
+    // before the original pointer click reaches Radix's trigger. That same
+    // click must not immediately toggle the newly opened popover closed.
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("data-state", "open");
+    expect(screen.getByText("Inline Math Properties")).toBeInTheDocument();
   });
 
   it("renders complete-editor math before any viewport intersection", async () => {
@@ -4777,6 +4794,96 @@ describe("VisualMarkdownEditor", () => {
     editor.commands.insertContentAt(1, "Updated ");
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(String(onChange.mock.lastCall?.[0])).toContain('![Plot](figures/plot.png "Results")');
+  });
+
+  it("renders extracted multi-panel paper figures with source slots and alignment", async () => {
+    const markdown = [
+      '<PaperFigure id="S2.F1">',
+      "",
+      '<PaperFigureRow columns="3 3 3">',
+      "",
+      '<PaperFigurePanel id="S2.F1.placeholder">',
+      "</PaperFigurePanel>",
+      "",
+      '<PaperFigurePanel id="S2.F1.sf1">',
+      "",
+      "![First panel](paper_assets/first.webp)",
+      "",
+      "*(a) Swiss Roll*",
+      "",
+      "</PaperFigurePanel>",
+      "",
+      '<PaperFigurePanel id="S2.F1.sf2">',
+      "",
+      "![Second panel](paper_assets/second.webp)",
+      "",
+      "*(b) Torus*",
+      "",
+      "</PaperFigurePanel>",
+      "",
+      "</PaperFigureRow>",
+      "",
+      "*Figure 1: Manifold examples.*",
+      "",
+      "</PaperFigure>",
+    ].join("\n");
+    const parsed = parseVisualMarkdown(markdown, ".research/papers/2311.03757/paper.md");
+    const figure = parsed.content?.[0];
+    const row = figure?.content?.[0];
+    expect(figure?.attrs?.componentName).toBe("PaperFigure");
+    expect(row?.attrs?.componentName).toBe("PaperFigureRow");
+    expect(row?.attrs?.props).toMatchObject({ columns: "3 3 3" });
+    expect(row?.content?.map((node) => node.attrs?.componentName)).toEqual([
+      "PaperFigurePanel",
+      "PaperFigurePanel",
+      "PaperFigurePanel",
+    ]);
+
+    const onLoadAsset = vi.fn(async (path: string) => `data:image/webp;base64,${path}`);
+    render(
+      <VisualMarkdownEditor
+        text={markdown}
+        activePath=".research/papers/2311.03757/paper.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+        onLoadAsset={onLoadAsset}
+      />,
+    );
+
+    const figureElement = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".paper-figure");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(figureElement).toHaveAttribute("id", "S2.F1");
+    const rowElement = figureElement.querySelector<HTMLElement>(".paper-figure-row");
+    expect(rowElement?.style.getPropertyValue("--paper-figure-columns")).toBe(
+      "minmax(0, calc(100% / 3)) minmax(0, calc(100% / 3)) minmax(0, calc(100% / 3))",
+    );
+    expect(figureElement.querySelectorAll(".paper-figure-panel")).toHaveLength(3);
+    expect(document.getElementById("S2.F1.placeholder")).toBeInTheDocument();
+    expect(document.getElementById("S2.F1.sf1")).toHaveTextContent("(a) Swiss Roll");
+    expect(document.getElementById("S2.F1.sf2")).toHaveTextContent("(b) Torus");
+    expect(await screen.findByRole("img", { name: "First panel" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Second panel" })).toBeInTheDocument();
+
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    let firstCaptionPosition = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "paragraph" && node.textContent === "(a) Swiss Roll") {
+        firstCaptionPosition = position;
+      }
+    });
+    editor.commands.insertContentAt(firstCaptionPosition + 1, "Updated ");
+    const edited = editorMarkdown(editor);
+    expect(edited).toContain("<PaperFigure");
+    expect(edited).toContain("*Updated (a) Swiss Roll*");
+    expect(edited).toContain('<PaperFigureRow columns="3 3 3">');
+    expect(edited).toContain('<PaperFigurePanel id="S2.F1.placeholder">');
+    const reparsed = parseVisualMarkdown(edited, ".research/papers/2311.03757/paper.md");
+    expect(reparsed.content?.[0]?.attrs?.componentName).toBe("PaperFigure");
   });
 
   it("loads a project-relative Markdown image through the host asset reader", async () => {

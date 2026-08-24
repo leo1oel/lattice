@@ -37,7 +37,7 @@ import { incrementJsxRenderFailure } from '@ok-core';
 import { Trans } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
-import { NodeViewWrapper, useEditorState } from '@tiptap/react';
+import { NodeViewWrapper } from '@tiptap/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '../../components/ui/button.tsx';
@@ -114,28 +114,40 @@ function EmptyInlineMathPlaceholder() {
   );
 }
 
-export function MathInlineView({ node, getPos, editor }: NodeViewProps) {
+export function MathInlineView({ node, getPos, editor, selected }: NodeViewProps) {
   const formula = typeof node.attrs.formula === 'string' ? node.attrs.formula : '';
   const id = typeof node.attrs.id === 'string' ? node.attrs.id : undefined;
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [formulaDraft, setFormulaDraft] = useState(formula);
+  const [, setSelectionVersion] = useState(0);
   const displayedFormula = popoverOpen ? formulaDraft : formula;
   const wasSelected = useRef(false);
-  const isSoleSelection = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => {
-      const selection = currentEditor.state.selection;
-      if (!(selection instanceof NodeSelection)) return false;
-      try {
-        const pos = typeof getPos === 'function' ? getPos() : undefined;
-        return typeof pos === 'number'
-          && selection.from === pos
-          && selection.to === pos + node.nodeSize;
-      } catch {
-        return false;
-      }
-    },
-  });
+  const selection = editor.state.selection;
+  let isSoleSelection = false;
+  if (selected && selection instanceof NodeSelection) {
+    try {
+      const pos = typeof getPos === 'function' ? getPos() : undefined;
+      isSoleSelection = typeof pos === 'number'
+        && selection.from === pos
+        && selection.to === pos + node.nodeSize;
+    } catch {
+      isSoleSelection = false;
+    }
+  }
+
+  // TipTap already updates the `selected` NodeView prop when this atom enters
+  // or leaves a selection. Only keep a direct selection listener while the
+  // atom is selected, covering the enclosing-range → exact-NodeSelection
+  // transition without making every inline formula recompute getPos() on
+  // every cursor move in a large document.
+  useEffect(() => {
+    if (!selected) return;
+    const refreshSelection = () => setSelectionVersion((version) => version + 1);
+    editor.on('selectionUpdate', refreshSelection);
+    return () => {
+      editor.off('selectionUpdate', refreshSelection);
+    };
+  }, [editor, selected]);
 
   const commitFormulaDraft = useCallback(() => {
     if (formulaDraft === formula) return;
@@ -216,6 +228,29 @@ export function MathInlineView({ node, getPos, editor }: NodeViewProps) {
           <span
             className="math-inline-trigger"
             data-component-type="math-inline"
+            onClick={(event) => {
+              // ProseMirror turns this pointer gesture into a NodeSelection.
+              // That selection opens the controlled popover before Radix sees
+              // the original click on large documents; prevent Radix from
+              // interpreting the same click as a request to toggle it closed.
+              event.preventDefault();
+              const pos = typeof getPos === 'function' ? getPos() : undefined;
+              if (typeof pos === 'number') {
+                const current = editor.state.doc.nodeAt(pos);
+                if (current?.type.name === 'mathInline') {
+                  const currentSelection = editor.state.selection;
+                  if (!(currentSelection instanceof NodeSelection)
+                    || currentSelection.from !== pos
+                    || currentSelection.to !== pos + current.nodeSize) {
+                    editor.view.dispatch(
+                      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)),
+                    );
+                  }
+                }
+              }
+              setFormulaDraft(formula);
+              setPopoverOpen(true);
+            }}
             // Surface the formula as a DOM attribute so the clipboard
             // walker's post-clone pass can replace this span with a
             // source-fallback `<span class="mdx-inline">$$formula$$</span>`
