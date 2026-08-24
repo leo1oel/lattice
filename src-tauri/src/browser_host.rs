@@ -367,7 +367,7 @@ fn process_arguments(pid: libc::pid_t) -> Option<Vec<Vec<u8>>> {
 fn parse_process_arguments(buffer: &[u8]) -> Option<Vec<&[u8]>> {
     let argc_size = std::mem::size_of::<libc::c_int>();
     let argc = libc::c_int::from_ne_bytes(buffer.get(..argc_size)?.try_into().ok()?);
-    if argc < 0 || argc > 64 {
+    if !(0..=64).contains(&argc) {
         return None;
     }
     let mut cursor = argc_size;
