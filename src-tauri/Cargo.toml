@@ -60,7 +60,7 @@ tauri-plugin-process = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-log = "2"
 tauri-plugin-autostart = "2.5.1"
-rfd = "0.16"
+rfd = "0.17"
 log = "0.4"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
