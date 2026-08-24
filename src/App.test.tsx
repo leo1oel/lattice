@@ -60,7 +60,7 @@ const interfaceSounds = vi.hoisted(() => ({
   configure: vi.fn(),
   play: vi.fn(),
 }));
-const browserRuntime = vi.hoisted(() => ({ hosted: false }));
+const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
@@ -96,6 +96,7 @@ vi.mock("./telemetry/interface-sounds", () => ({
 }));
 vi.mock("./platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted,
+  isBundledChromium: () => browserRuntime.bundled,
 }));
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
@@ -173,6 +174,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
   browserRuntime.hosted = false;
+  browserRuntime.bundled = false;
   webviewApi.dragDropHandler = null;
   synaraHook.runtime = {
     state: "ready",
@@ -857,6 +859,17 @@ describe("welcome screen", () => {
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("return_to_desktop"));
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer the obsolete WebKit handoff inside the bundled Chromium app", async () => {
+    browserRuntime.hosted = true;
+    browserRuntime.bundled = true;
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    await screen.findByLabelText("Keep browser access ready");
+    expect(screen.queryByRole("button", { name: "Open desktop app" })).not.toBeInTheDocument();
   });
 
   it("keeps an explicitly selected manual build preference", async () => {

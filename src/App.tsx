@@ -43,7 +43,7 @@ import {
   mergeEditorComments,
 } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
-import { isBrowserHosted } from "./platform/browser-runtime";
+import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { usePanelLayout } from "./app/use-panel-layout";
 import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
@@ -457,6 +457,7 @@ function allowRememberedFileViewPath(removedPaths: string[], path: string): stri
 function App() {
   const { t } = useLingui();
   const browserHosted = isBrowserHosted();
+  const bundledChromium = isBundledChromium();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const workspaceIndex = useMemo(
     () => new MarkdownWorkspaceIndex((path) => invoke<string>("read_project_file", { path })),
@@ -7514,6 +7515,7 @@ function App() {
         cleaning={cleaning}
         building={building}
         browserHosted={browserHosted}
+        bundledChromium={bundledChromium}
         onOpenInBrowser={async () => {
           if (!await startProjectTransition()) {
             throw new Error(t`Save the current workspace before opening it in a browser.`);

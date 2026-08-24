@@ -13,6 +13,7 @@
     "i18n:check": "pnpm i18n:extract && git diff --exit-code -- src/locales && pnpm i18n:compile && pnpm i18n:guard",
     "prepare:synara": "node scripts/prepare-synara-sidecar.mjs",
     "prepare:synara:dev": "node scripts/prepare-synara-sidecar.mjs --allow-dirty",
+    "prepare:chromium": "node scripts/prepare-chromium-runtime.mjs",
     "prepare:runtime": "pnpm prepare:synara",
     "prepare:runtime:dev": "pnpm prepare:synara:dev",
     "check": "mise run check",

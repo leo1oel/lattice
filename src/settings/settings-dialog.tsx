@@ -130,6 +130,7 @@ export function SettingsDialog(props: {
   cleaning: boolean;
   building: boolean;
   browserHosted: boolean;
+  bundledChromium: boolean;
   onOpenInBrowser: () => Promise<void>;
   onReturnToDesktop: () => Promise<void>;
   onClose: () => void;
@@ -706,30 +707,32 @@ export function SettingsDialog(props: {
                     disabled={browserAccessLoading}
                     onChange={(enabled) => { void updateBrowserAccess(enabled); }}
                   />
-                  <SettingsRow
-                    label={browserHosted ? t`Open desktop app` : t`Open in browser`}
-                    description={browserHosted
-                      ? t`Move this workspace back to a Lattice window on this Mac.`
-                      : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
-                  >
-                    {browserHosted ? (
-                      <Button
-                        size="compact"
-                        disabled={browserOpening}
-                        onClick={() => void returnToDesktop()}
-                      >
-                        {browserOpening ? t`Opening…` : t`Open desktop app`}
-                      </Button>
-                    ) : (
-                      <Button
-                        size="compact"
-                        disabled={browserOpening}
-                        onClick={() => void openInBrowser()}
-                      >
-                        {browserOpening ? t`Opening…` : t`Open in browser`}
-                      </Button>
-                    )}
-                  </SettingsRow>
+                  {!props.bundledChromium && (
+                    <SettingsRow
+                      label={browserHosted ? t`Open desktop app` : t`Open in browser`}
+                      description={browserHosted
+                        ? t`Move this workspace back to a Lattice window on this Mac.`
+                        : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
+                    >
+                      {browserHosted ? (
+                        <Button
+                          size="compact"
+                          disabled={browserOpening}
+                          onClick={() => void returnToDesktop()}
+                        >
+                          {browserOpening ? t`Opening…` : t`Open desktop app`}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="compact"
+                          disabled={browserOpening}
+                          onClick={() => void openInBrowser()}
+                        >
+                          {browserOpening ? t`Opening…` : t`Open in browser`}
+                        </Button>
+                      )}
+                    </SettingsRow>
+                  )}
                   {browserOpenError && (
                     <InlineMessage level="error" className="settings-inline">
                       {browserOpenError}

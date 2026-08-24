@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm prepare:runtime:dev && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm prepare:runtime && pnpm build",
+    "beforeBuildCommand": "pnpm prepare:runtime && pnpm prepare:chromium && pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -74,6 +74,7 @@
     "targets": "all",
     "createUpdaterArtifacts": true,
     "resources": [
+      "chromium-runtime/",
       "synara-runtime/**/*",
       "src/embedded_skills/"
     ],

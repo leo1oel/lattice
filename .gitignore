@@ -14,6 +14,7 @@ public/pdfjs
 *.local
 src/locales/**/*.js
 src/locales/**/*.js.map
+src-tauri/chromium-runtime/
 src-tauri/synara-runtime/
 .agents/artifacts/
 .agents/skills/

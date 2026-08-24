@@ -192,27 +192,30 @@ fn browser_dialog_path(path: PathBuf) -> String {
     path.to_string_lossy().into_owned()
 }
 
-fn bind_browser_listener() -> io::Result<TcpListener> {
+fn bind_browser_listener(take_over_background_host: bool) -> io::Result<TcpListener> {
     let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT);
     match TcpListener::bind(address) {
         Ok(listener) => Ok(listener),
         #[cfg(target_os = "macos")]
         Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
-            replace_stale_browser_host(address).ok_or(error)
+            replace_stale_browser_host(address, take_over_background_host).ok_or(error)
         }
         Err(error) => Err(error),
     }
 }
 
 #[cfg(target_os = "macos")]
-fn replace_stale_browser_host(address: SocketAddrV4) -> Option<TcpListener> {
+fn replace_stale_browser_host(
+    address: SocketAddrV4,
+    take_over_background_host: bool,
+) -> Option<TcpListener> {
     let current_exe = std::env::current_exe().ok()?;
-    let candidate = stale_browser_host(&current_exe)?;
+    let candidate = stale_browser_host(&current_exe, take_over_background_host)?;
     // Re-read every authorization input immediately before signaling. A PID
     // can be recycled and the fixed port can change owners between `lsof` and
     // this point; either change must fail closed instead of killing the new
     // listener.
-    if stale_browser_host(&current_exe)? != candidate {
+    if stale_browser_host(&current_exe, take_over_background_host)? != candidate {
         return None;
     }
     if unsafe { libc::kill(candidate.pid, libc::SIGTERM) } != 0 {
@@ -236,7 +239,10 @@ fn replace_stale_browser_host(address: SocketAddrV4) -> Option<TcpListener> {
 }
 
 #[cfg(target_os = "macos")]
-fn stale_browser_host(current_exe: &std::path::Path) -> Option<ProcessIdentity> {
+fn stale_browser_host(
+    current_exe: &std::path::Path,
+    take_over_background_host: bool,
+) -> Option<ProcessIdentity> {
     let pid = browser_listener_pid()?;
     let identity = process_identity(pid)?;
     let arguments = process_arguments(pid)?;
@@ -248,7 +254,7 @@ fn stale_browser_host(current_exe: &std::path::Path) -> Option<ProcessIdentity> 
     }
     let running_hash = process_code_hash(pid)?;
     let current_hash = process_code_hash(std::process::id() as libc::pid_t)?;
-    (running_hash != current_hash).then_some(identity)
+    (take_over_background_host || running_hash != current_hash).then_some(identity)
 }
 
 #[cfg(target_os = "macos")]
@@ -528,9 +534,7 @@ impl BrowserHost {
         let Some(browser_url) = browser_url else {
             return Ok(false);
         };
-        app.opener()
-            .open_url(browser_url, None::<&str>)
-            .map_err(|error| format!("Could not reopen the browser workspace: {error}"))?;
+        open_workspace_url(app, &browser_url)?;
         Ok(true)
     }
 
@@ -557,9 +561,7 @@ impl BrowserHost {
             "{origin}/#token={}&bridgePort={}&label={}",
             config.token, config.bridge_port, config.label
         );
-        app.opener()
-            .open_url(browser_url, None::<&str>)
-            .map_err(|error| format!("Could not reopen the browser workspace: {error}"))?;
+        open_workspace_url(app, &browser_url)?;
         Ok(true)
     }
 
@@ -597,8 +599,13 @@ impl BrowserHost {
     /// Start the small loopback listener without creating a workspace. The
     /// listener survives browser-tab teardown and is what makes the bookmarked
     /// address a permanent entry point.
-    pub(crate) fn start(&self, app: &tauri::AppHandle) -> Result<u16, String> {
-        self.ensure_server(app).map(|(port, _)| port)
+    pub(crate) fn start(
+        &self,
+        app: &tauri::AppHandle,
+        take_over_background_host: bool,
+    ) -> Result<u16, String> {
+        self.ensure_server(app, take_over_background_host)
+            .map(|(port, _)| port)
     }
 
     /// A native window with no WebView keeps Tauri's event loop alive after the
@@ -636,7 +643,7 @@ impl BrowserHost {
         active: bool,
         entry_session: bool,
     ) -> Result<String, String> {
-        let (port, sessions) = self.ensure_server(app)?;
+        let (port, sessions) = self.ensure_server(app, false)?;
         let token = uuid::Uuid::new_v4().simple().to_string();
         let browser_origin = browser_origin(app, port);
         let browser_url =
@@ -674,12 +681,12 @@ impl BrowserHost {
             return Err(error);
         }
 
-        if let Err(error) = app.opener().open_url(&browser_url, None::<&str>) {
+        if let Err(error) = open_workspace_url(app, &browser_url) {
             if let Some(window) = app.get_webview_window(&host_label) {
                 let _ = window.destroy();
             }
             remove_session(&sessions, &token);
-            return Err(format!("Could not open the browser: {error}"));
+            return Err(error);
         }
         Ok(browser_url)
     }
@@ -768,7 +775,11 @@ impl BrowserHost {
         let _ = app;
     }
 
-    fn ensure_server(&self, app: &tauri::AppHandle) -> Result<(u16, Sessions), String> {
+    fn ensure_server(
+        &self,
+        app: &tauri::AppHandle,
+        take_over_background_host: bool,
+    ) -> Result<(u16, Sessions), String> {
         let mut running = self
             .running
             .lock()
@@ -780,7 +791,7 @@ impl BrowserHost {
         // A bookmark can only be permanent if its port is permanent. Do not
         // silently fall back to a random port: that would make the setting look
         // enabled while the saved address opens some other process or nothing.
-        let listener = bind_browser_listener().map_err(|error| {
+        let listener = bind_browser_listener(take_over_background_host).map_err(|error| {
                 format!(
                     "Could not start local browser access at http://127.0.0.1:{PREFERRED_PORT}: {error}"
                 )
@@ -821,6 +832,18 @@ impl BrowserHost {
         });
         Ok((port, sessions))
     }
+}
+
+fn open_workspace_url(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    if app
+        .state::<crate::chromium::ChromiumRuntime>()
+        .open_url(url)?
+    {
+        return Ok(());
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| format!("Could not open the browser workspace: {error}"))
 }
 
 fn browser_origin(app: &tauri::AppHandle, port: u16) -> String {

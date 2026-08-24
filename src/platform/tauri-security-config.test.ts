@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 type Csp = Record<string, string[]>;
 
 type TauriConfig = {
+  build: {
+    beforeBuildCommand: string;
+  };
   app: {
     windows: Array<{ visible?: boolean }>;
     security: {
@@ -11,6 +14,9 @@ type TauriConfig = {
       devCsp?: Csp | null;
       dangerousDisableAssetCspModification?: string[] | boolean;
     };
+  };
+  bundle: {
+    resources: string[];
   };
 };
 
@@ -25,8 +31,11 @@ function readJson<T>(path: string): T {
 
 const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
+const packageJson = readJson<{ scripts: Record<string, string> }>("package.json");
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 const browserHost = readFileSync("src-tauri/src/browser_host.rs", "utf8");
+const chromiumRuntime = readFileSync("src-tauri/src/chromium.rs", "utf8");
+const chromiumShell = readFileSync("scripts/chromium-shell.mjs", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 
 describe("Tauri security boundary", () => {
@@ -132,6 +141,22 @@ describe("Tauri security boundary", () => {
     expect(browserHost).toContain("valid_loopback_host(&headers, state.port)");
     expect(browserHost).toContain("Some(session.browser_origin.as_str())");
     expect(browserHost).toContain('header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
+  });
+
+  it("packages the sandboxed Chromium renderer without exposing workspace tokens in argv", () => {
+    expect(packageJson.scripts["prepare:chromium"]).toBe(
+      "node scripts/prepare-chromium-runtime.mjs",
+    );
+    expect(config.build.beforeBuildCommand).toContain("pnpm prepare:chromium");
+    expect(config.bundle.resources).toContain("chromium-runtime/");
+    expect(rustApp).toContain("chromium_packaged");
+    expect(browserHost).toContain(".open_url(url)?");
+    expect(chromiumRuntime).toContain(".stdin(Stdio::piped())");
+    expect(chromiumRuntime).toContain("encode_open_url(url)");
+    expect(chromiumRuntime).not.toContain(".arg(url)");
+    expect(chromiumShell).toContain("sandbox: true");
+    expect(chromiumShell).toContain("contextIsolation: true");
+    expect(chromiumShell).toContain("nodeIntegration: false");
   });
 
   it("gives loopback browser tabs the product icon", () => {

@@ -592,6 +592,11 @@ export function isBrowserHosted(): boolean {
   return browserRuntime;
 }
 
+export function isBundledChromium(): boolean {
+  return browserRuntime
+    && new URLSearchParams(window.location.search).get("latticeChromium") === "1";
+}
+
 export function browserRuntimeError(): string | null {
   return runtimeError;
 }

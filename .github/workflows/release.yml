@@ -240,6 +240,24 @@ jobs:
           app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$app_path"
           codesign --verify --deep --strict --verbose=2 "$app_path"
+
+          # The outer --deep verification does not reliably diagnose a broken
+          # nested framework after Tauri copies resources. Verify Chromium as
+          # its own app and require it to carry the same release identity.
+          chromium_app="$app_path/Contents/Resources/chromium-runtime/Lattice Chromium.app"
+          test -d "$chromium_app"
+          codesign --verify --deep --strict --verbose=2 "$chromium_app"
+          outer_team="$(
+            codesign -dv --verbose=4 "$app_path" 2>&1 |
+              sed -n 's/^TeamIdentifier=//p'
+          )"
+          chromium_team="$(
+            codesign -dv --verbose=4 "$chromium_app" 2>&1 |
+              sed -n 's/^TeamIdentifier=//p'
+          )"
+          test -n "$outer_team"
+          test "$chromium_team" = "$outer_team"
+
           spctl --assess --type execute --verbose=4 "$app_path"
           xcrun stapler validate "$app_path"
 
