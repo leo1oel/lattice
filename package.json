@@ -1,7 +1,7 @@
 {
   "name": "research-writer",
   "private": true,
-  "version": "0.1.246",
+  "version": "0.1.247",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
