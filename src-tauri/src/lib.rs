@@ -1053,15 +1053,14 @@ async fn write_project_file(
     path: String,
     content: String,
     project_root: String,
-) -> Result<String, String> {
+    base_content: Option<String>,
+) -> Result<project::EditorWriteResult, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the file could be written.".to_string())?;
     run_blocking("Project file write", move || {
-        let transaction =
-            project::apply_transaction(&root, &format!("Edit {path}"), vec![(path, content)])?;
-        Ok(transaction.map(|record| record.id).unwrap_or_default())
+        project::apply_editor_transaction(&root, path, content, base_content)
     })
     .await
 }

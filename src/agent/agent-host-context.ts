@@ -49,6 +49,15 @@ export interface AgentHostContextSnapshot {
   version: 1;
   capturedAt: string;
   workspaceRoot: string;
+  presentationAuthoring: {
+    nativeExtension: ".slides.md";
+    nativeFormat: "lattice_reveal_markdown";
+    skill: "authoring-presentations";
+    defaultWhenOutputFormatUnspecified: true;
+    unsupportedPptx: true;
+    unsupportedHtml: true;
+    explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native";
+  };
   activeSurface: AgentHostSurface;
   editor?: {
     path: string;
@@ -86,6 +95,16 @@ function boundedSelection(value: string): { selection?: string; selectionOmitted
     selectionOmittedChars: normalized.length - MAX_SELECTION_LENGTH,
   };
 }
+
+const PRESENTATION_AUTHORING_CONTEXT: AgentHostContextSnapshot["presentationAuthoring"] = {
+  nativeExtension: ".slides.md",
+  nativeFormat: "lattice_reveal_markdown",
+  skill: "authoring-presentations",
+  defaultWhenOutputFormatUnspecified: true,
+  unsupportedPptx: true,
+  unsupportedHtml: true,
+  explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
+};
 
 export function buildAgentHostContext(input: {
   workspaceRoot: string;
@@ -130,6 +149,7 @@ export function buildAgentHostContext(input: {
       version: 1,
       capturedAt,
       workspaceRoot: input.workspaceRoot,
+      presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
       activeSurface: "paper",
       paper: {
         title: input.activePaper.title,
@@ -168,6 +188,7 @@ export function buildAgentHostContext(input: {
     version: 1,
     capturedAt,
     workspaceRoot: input.workspaceRoot,
+    presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
     activeSurface,
     ...(editor ? { editor } : {}),
     pdf,

@@ -145,6 +145,7 @@ import type { AgentHostSurface } from "../agent/agent-host-context";
 import type { CollabPeer, EditorCollabBinding, EditorCollabSession } from "../collab/collab-session";
 import { mergeTextIntoYText, peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
 import { collabEditorExtensions } from "../collab/collab-editor";
+import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
   EMPTY_EXTENSIONS,
@@ -209,14 +210,19 @@ function HtmlPreview({
   source,
   initialViewState,
   onViewState,
+  onLoadAsset,
 }: {
   path: string;
   source: string;
   initialViewState?: ScrollFileViewState;
   onViewState?: (state: ScrollFileViewState) => void;
+  onLoadAsset?: (path: string) => Promise<string | null>;
 }) {
   const { t } = useLingui();
   const [previewSource, setPreviewSource] = useState(source);
+  const [loadedProjectImages, setLoadedProjectImages] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const [scrollMetrics, setScrollMetrics] = useState({
     clientHeight: 0,
     scrollHeight: 0,
@@ -257,6 +263,42 @@ function HtmlPreview({
     const timer = window.setTimeout(() => setPreviewSource(source), 180);
     return () => window.clearTimeout(timer);
   }, [source]);
+
+  useEffect(() => {
+    if (!onLoadAsset) return;
+    const sourceDocument = new DOMParser().parseFromString(previewSource, "text/html");
+    const projectPaths = new Set<string>();
+    for (const image of sourceDocument.querySelectorAll<HTMLImageElement>("img[src]")) {
+      const target = image.getAttribute("src")?.trim() ?? "";
+      const rawPath = target.split(/[?#]/, 1)[0];
+      if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) continue;
+      let decoded: string;
+      try {
+        decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
+      } catch {
+        continue;
+      }
+      const normalized = normalizeDocRelativeAssetUrl(decoded, path);
+      if (normalized.startsWith("/") && normalized.length > 1) {
+        projectPaths.add(normalized.slice(1));
+      }
+    }
+    if (!projectPaths.size) return;
+
+    let cancelled = false;
+    for (const projectPath of projectPaths) {
+      void onLoadAsset(projectPath).then((dataUrl) => {
+        if (cancelled || !dataUrl) return;
+        setLoadedProjectImages((current) => {
+          if (current.get(projectPath) === dataUrl) return current;
+          const next = new Map(current);
+          next.set(projectPath, dataUrl);
+          return next;
+        });
+      }).catch(() => undefined);
+    }
+    return () => { cancelled = true; };
+  }, [onLoadAsset, path, previewSource]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<unknown>) => {
@@ -321,6 +363,22 @@ function HtmlPreview({
 
   const html = useMemo(() => {
     const document = new DOMParser().parseFromString(previewSource, "text/html");
+    for (const image of document.querySelectorAll<HTMLImageElement>("img[src]")) {
+      const target = image.getAttribute("src")?.trim() ?? "";
+      const rawPath = target.split(/[?#]/, 1)[0];
+      if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) continue;
+      let decoded: string;
+      try {
+        decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
+      } catch {
+        continue;
+      }
+      const normalized = normalizeDocRelativeAssetUrl(decoded, path);
+      const dataUrl = normalized.startsWith("/")
+        ? loadedProjectImages.get(normalized.slice(1))
+        : undefined;
+      if (dataUrl) image.setAttribute("src", dataUrl);
+    }
     for (const base of document.querySelectorAll("base")) base.remove();
     const isolatedBase = document.createElement("base");
     isolatedBase.href = "about:blank";
@@ -344,7 +402,7 @@ function HtmlPreview({
     scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const setType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data||event.data.type!==setType||typeof event.data.scrollTop!=="number")return;const root=document.scrollingElement||document.documentElement;root.scrollTop=event.data.scrollTop;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
     document.body.append(scrollbarBridge);
     return `<!doctype html>${document.documentElement.outerHTML}`;
-  }, [previewSource, t]);
+  }, [loadedProjectImages, path, previewSource, t]);
 
   const setScrollTop = (scrollTop: number) => {
     frameRef.current?.contentWindow?.postMessage({
@@ -3759,6 +3817,7 @@ export function DocumentCanvas(props: {
           source={props.source}
           initialViewState={props.getFileViewState?.(activeFile)?.html}
           onViewState={(html) => props.onFileViewState?.(activeFile, { html })}
+          onLoadAsset={props.onLoadReferenceImage}
         />
       )
       : <HtmlPreviewLoading />
@@ -4047,6 +4106,7 @@ export function DocumentCanvas(props: {
             source={secondarySource}
             initialViewState={props.getFileViewState?.(secondaryFile)?.html}
             onViewState={(html) => props.onFileViewState?.(secondaryFile, { html })}
+            onLoadAsset={props.onLoadReferenceImage}
           />
         )
         : <HtmlPreviewLoading />

@@ -17,6 +17,13 @@ describe("bundled presentation authoring skill", () => {
     expect(skill).toMatch(/^---\nname: authoring-presentations\n/);
     expect(skill).toContain("display-name: Presentation Authoring");
     expect(skill).toContain("description: Creates and edits Lattice Reveal.js presentations");
+    expect(skill).toContain("PPTX, PowerPoint, 演示文稿, or 幻灯片");
+  });
+
+  it("makes the native format the default without silently substituting exports", () => {
+    expect(skill).toContain("without naming an output format, create a descriptive `.slides.md` file");
+    expect(skill).toContain("Never create `.pptx` or HTML as a substitute");
+    expect(skill).toContain("does not author that external format");
   });
 
   it("documents the presentation dialect without drifting from the parser", () => {

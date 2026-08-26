@@ -126,6 +126,7 @@ import {
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf/pdf-bytes";
 import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion";
 import {
+  mergeTextIntoYText,
   peerInitials,
   saveCollabDisplayName,
   peerCursorLocationV2,
@@ -296,6 +297,13 @@ type RemoveReferenceResult = {
     before: string;
     after: string;
   }>;
+};
+
+type EditorWriteResult = {
+  content: string;
+  transactionId: string;
+  externalChangesMerged: boolean;
+  hadConflicts: boolean;
 };
 
 type ReferencePreviewCacheEntry = {
@@ -2310,6 +2318,7 @@ function App() {
   }, []);
 
   const diskMtimeRef = useRef<number | null>(null);
+  const secondaryMtimeRef = useRef<number | null>(null);
   const sourceRef = useRef(source);
   const savedSourceRef = useRef(savedSource);
   const secondarySourceRef = useRef(secondarySource);
@@ -2739,6 +2748,11 @@ function App() {
     v2WorkspaceCallbacks,
   });
 
+  const externalEditConflictMessage = useCallback(
+    (path: string) => t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }),
+    [t],
+  );
+
   const save = useCallback(async (): Promise<boolean> => {
     if (!project) return true;
     try {
@@ -2759,30 +2773,52 @@ function App() {
       let wroteSemanticSource = false;
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
+        let writeResult: EditorWriteResult | undefined;
         if (workspaceLease) {
-          await collabDiskWriteQueueRef.current.run(workspaceLease, primaryPath, () => (
+          writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, primaryPath, () => (
             mutationGeneration === collabPathMutationGeneration(primaryPath)
-              ? invoke("write_project_file", { path: primaryPath, content: primarySource, projectRoot: workspaceLease.projectRoot })
-              : Promise.resolve()
+              ? invoke<EditorWriteResult>("write_project_file", {
+                path: primaryPath,
+                content: primarySource,
+                baseContent: primarySavedSource,
+                projectRoot: workspaceLease.projectRoot,
+              })
+              : Promise.resolve(undefined)
           ));
         } else {
-          await invoke("write_project_file", {
+          writeResult = await invoke<EditorWriteResult>("write_project_file", {
             path: primaryPath,
             content: primarySource,
+            baseContent: primarySavedSource,
             projectRoot: project.root,
           });
         }
         if (mutationGeneration !== collabPathMutationGeneration(primaryPath)) return true;
+        const writtenSource = writeResult?.content ?? primarySource;
+        if (writtenSource !== primarySource) {
+          if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === primaryPath) {
+            mergeTextIntoYText(collabSessionRef.current.ytext, writtenSource);
+          }
+          sourceRef.current = writtenSource;
+          setSource(writtenSource);
+        }
+        if (writeResult?.hadConflicts) {
+          setWarning(externalEditConflictMessage(primaryPath));
+        }
         // Do NOT push the active buffer into Yjs here. It is already synced
         // character-by-character by yCollab. Re-publishing it as a full
         // delete+insert of the whole Y.Text on every autosave collapses remote
         // carets and bounces recompiles between peers (the "cursors freeze /
-        // PDF re-renders forever" bug). The disk write + savedSource are all the
-        // active file needs; non-active buffers below still push explicitly.
-        savedSourceRef.current = primarySource;
-        setSavedSource(primarySource);
+        // PDF re-renders forever" bug). Only a backend three-way merge is
+        // applied above because those external edits never reached Yjs.
+        savedSourceRef.current = writtenSource;
+        setSavedSource(writtenSource);
         if (activeCollabVersion === 2) await collabV2ControllerRef.current?.settled();
-        await markDiskMtime(primaryPath);
+        // Force the detector to inspect the next filesystem version. An Agent
+        // may finish another atomic write after the backend response but before
+        // a post-save stat; recording that newer mtime without reading it would
+        // hide the Agent edit indefinitely.
+        diskMtimeRef.current = -1;
         wroteTex = wroteTex || primaryPath.endsWith(".tex");
         wroteBib = wroteBib || primaryPath === project.manifest.primaryBibliography;
         wroteSemanticSource = /\.(?:md|mdx|tex)$/i.test(primaryPath);
@@ -2795,38 +2831,45 @@ function App() {
         const secondaryBinding = activeCollabVersion === 2
           ? await collabV2ControllerRef.current?.openSecondaryPath(secondaryPath)
           : null;
-        if (secondaryBinding && workspaceLease) {
-          await collabDiskWriteQueueRef.current.run(workspaceLease, secondaryPath, () => (
+        let writeResult: EditorWriteResult | undefined;
+        if (workspaceLease) {
+          writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, secondaryPath, () => (
             mutationGeneration === collabPathMutationGeneration(secondaryPath)
-              ? invoke("write_project_file", {
+              ? invoke<EditorWriteResult>("write_project_file", {
                 path: secondaryPath,
                 content: currentSecondarySource,
+                baseContent: currentSecondarySavedSource,
                 projectRoot: workspaceLease.projectRoot,
               })
-              : Promise.resolve()
+              : Promise.resolve(undefined)
           ));
-          await collabV2ControllerRef.current?.settled();
         } else {
-          // Offline/no-Awareness fallback: retain the sideloaded minimal-span
-          // publisher until this pane can acquire a live editor binding.
-          const published = await publishTextToCollabV2(
-            secondaryPath,
-            currentSecondarySource,
-            mutationGeneration,
-          );
-          if (!published && mutationGeneration === collabPathMutationGeneration(secondaryPath)) {
-            await invoke("write_project_file", {
-              path: secondaryPath,
-              content: currentSecondarySource,
-              projectRoot: project.root,
-            });
-          }
+          writeResult = await invoke<EditorWriteResult>("write_project_file", {
+            path: secondaryPath,
+            content: currentSecondarySource,
+            baseContent: currentSecondarySavedSource,
+            projectRoot: project.root,
+          });
         }
         if (mutationGeneration !== collabPathMutationGeneration(secondaryPath)) return true;
+        const writtenSource = writeResult?.content ?? currentSecondarySource;
+        if (activeCollabVersion === 2) {
+          if (secondaryBinding) mergeTextIntoYText(secondaryBinding.ytext, writtenSource);
+          else await publishTextToCollabV2(secondaryPath, writtenSource, mutationGeneration);
+          await collabV2ControllerRef.current?.settled();
+        }
+        if (writtenSource !== currentSecondarySource) {
+          secondarySourceRef.current = writtenSource;
+          setSecondarySource(writtenSource);
+        }
+        if (writeResult?.hadConflicts) {
+          setWarning(externalEditConflictMessage(secondaryPath));
+        }
         // The project-transition late-edit check runs in the same async turn
         // as this save, before React is guaranteed to commit the state setter.
-        secondarySavedRef.current = currentSecondarySource;
-        setSecondarySavedSource(currentSecondarySource);
+        secondarySavedRef.current = writtenSource;
+        setSecondarySavedSource(writtenSource);
+        secondaryMtimeRef.current = -1;
         wroteTex = wroteTex || secondaryPath.endsWith(".tex");
         wroteBib = wroteBib || secondaryPath === project.manifest.primaryBibliography;
         wroteSemanticSource = wroteSemanticSource || /\.(?:md|mdx|tex)$/i.test(secondaryPath);
@@ -2893,7 +2936,7 @@ function App() {
     activeCollabVersion,
     collabPathMutationGeneration,
     collabSession,
-    markDiskMtime,
+    externalEditConflictMessage,
     project,
     publishTextToCollabV2,
     refreshAfterSave,
@@ -2902,6 +2945,35 @@ function App() {
   useLayoutEffect(() => {
     saveBeforeProjectTransitionRef.current = save;
   }, [save]);
+
+  const acceptExternalText = useCallback(async (
+    path: string,
+    content: string,
+    pane: EditorPaneId,
+  ) => {
+    if (activeCollabVersion === 2) {
+      const controller = collabV2ControllerRef.current;
+      if (pane === "primary" && controller?.activePath === path) {
+        mergeTextIntoYText(controller.ytext, content);
+      } else if (pane === "secondary") {
+        const binding = await controller?.openSecondaryPath(path);
+        if (binding) mergeTextIntoYText(binding.ytext, content);
+      }
+    }
+    if (pane === "primary") {
+      if (activeFileRef.current !== path) return;
+      sourceRef.current = content;
+      savedSourceRef.current = content;
+      setSource(content);
+      setSavedSource(content);
+    } else {
+      if (secondaryFileRef.current !== path) return;
+      secondarySourceRef.current = content;
+      secondarySavedRef.current = content;
+      setSecondarySource(content);
+      setSecondarySavedSource(content);
+    }
+  }, [activeCollabVersion]);
 
   useLayoutEffect(() => {
     hasLateProjectTransitionEditRef.current = () => {
@@ -2936,8 +3008,6 @@ function App() {
       window.removeEventListener("pagehide", pageHide);
     };
   }, [browserHosted]);
-  const secondaryMtimeRef = useRef<number | null>(null);
-
   useEffect(() => {
     if (!project || !activeFile || activeAsset || activePaper) return;
     let cancelled = false;
@@ -2955,10 +3025,7 @@ function App() {
             if (sourceRef.current === savedSourceRef.current) {
               const content = await invoke<string>("read_project_file", { path: activeFile });
               if (!cancelled && content !== sourceRef.current) {
-                sourceRef.current = content;
-                savedSourceRef.current = content;
-                setSource(content);
-                setSavedSource(content);
+                await acceptExternalText(activeFile, content, "primary");
                 if (buildPreferences.autoBuildMode === "automatic") {
                   void compileRef.current();
                 }
@@ -2979,10 +3046,7 @@ function App() {
             if (secondarySourceRef.current !== secondarySavedRef.current) return;
             const content = await invoke<string>("read_project_file", { path: secondaryFile });
             if (cancelled || content === secondarySourceRef.current) return;
-            secondarySourceRef.current = content;
-            secondarySavedRef.current = content;
-            setSecondarySource(content);
-            setSecondarySavedSource(content);
+            await acceptExternalText(secondaryFile, content, "secondary");
             if (buildPreferences.autoBuildMode === "automatic") {
               void compileRef.current();
             }
@@ -2996,7 +3060,7 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeAsset, activeFile, activePaper, buildPreferences.autoBuildMode, project, secondaryFile]);
+  }, [acceptExternalText, activeAsset, activeFile, activePaper, buildPreferences.autoBuildMode, project, secondaryFile]);
 
   const pushNavigation = useCallback((path: string, line: number) => {
     if (navLock.current || !path) return;
@@ -3144,6 +3208,27 @@ function App() {
         setCanvasMode(keepDocumentMode);
         pushNavigation(path, line);
       }
+      try {
+        if (visualMarkdownFlushRef.current?.() === false) return;
+        if (sourceRef.current !== savedSourceRef.current) {
+          if (!(await save())) return;
+        } else {
+          const content = await invoke<string>("read_project_file", {
+            path,
+            projectRoot: project?.root,
+          });
+          if (
+            fileLoadGenerationRef.current === loadGeneration
+            && activeFileRef.current === path
+            && content !== sourceRef.current
+          ) {
+            await acceptExternalText(path, content, "primary");
+            await markDiskMtime(path);
+          }
+        }
+      } catch (reason) {
+        if (fileLoadGenerationRef.current === loadGeneration) setError(toMessage(reason));
+      }
       return;
     }
     const clearOpening = () => setPrimaryOpening((current) => (
@@ -3249,6 +3334,7 @@ function App() {
       pushNavigation(path, 1);
     }
   }, [
+    acceptExternalText,
     activeAsset,
     activeCollabVersion,
     activeFile,
@@ -3260,6 +3346,7 @@ function App() {
     flushAndCheckPrimaryDirty,
     focusedPane,
     loadFile,
+    markDiskMtime,
     project?.root,
     // Harmless here today only because `activeCollabVersion` is listed above and
     // is the sole value this callback's identity tracks — but that is a coincidence

@@ -87,13 +87,23 @@ vi.mock("./editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: (
 vi.mock("./editor/presentation/presentation-editor", () => ({
   PresentationEditor: (props: {
     path: string;
+    source: string;
+    onChange?: (source: string) => void;
     mode?: "source" | "split" | "preview";
   }) => (
     <div
       data-testid="presentation-editor-mock"
       data-path={props.path}
+      data-source={props.source}
       data-mode={props.mode ?? ""}
-    />
+    >
+      <button
+        data-testid="presentation-local-edit"
+        onClick={() => props.onChange?.(`${props.source}\nLocal note\n`)}
+      >
+        Edit presentation source
+      </button>
+    </div>
   ),
 }));
 vi.mock("./agent/use-synara-runtime", () => ({
@@ -2305,8 +2315,15 @@ describe("project workspace", () => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") {
         return (args as { path: string }).path === "report.html"
-          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
+          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
           : "# Notes";
+      }
+      if (command === "read_project_asset") {
+        return {
+          path: (args as { path: string }).path,
+          mimeType: "image/png",
+          base64: "iVBORw0KGgo=",
+        };
       }
       if (command === "write_project_file") return undefined;
       if (command === "list_papers" || command === "list_history") return [];
@@ -2332,6 +2349,12 @@ describe("project workspace", () => {
     expect(preview.getAttribute("srcdoc")).toContain('data-lattice-preview="fragment-navigation"');
     expect(preview.getAttribute("srcdoc")).toContain("target.scrollIntoView()");
     expect(preview.getAttribute("srcdoc")).toContain("lattice:html-preview-open-external");
+    await waitFor(() => expect(preview.getAttribute("srcdoc"))
+      .toContain('src="data:image/png;base64,iVBORw0KGgo="'));
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
+      path: "figures/figure1_feature_retention.png",
+      projectRoot: "/tmp/lattice-paper",
+    });
 
     await waitFor(() => expect(preview.contentDocument?.readyState).toBe("complete"));
     act(() => {
@@ -3383,6 +3406,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nNew result.",
+      baseContent: "\\documentclass{article}",
       projectRoot: "/tmp/lattice-paper",
     }));
     // The open file rides along so the backend can re-target the build on it
@@ -3435,6 +3459,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nIdle build.",
+      baseContent: "\\documentclass{article}",
       projectRoot: "/tmp/lattice-paper",
     }), { timeout: 2_500 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
@@ -5835,6 +5860,63 @@ describe("project workspace", () => {
     expect(document.querySelector(".dual-canvas")).not.toBeNull();
   });
 
+  it("reconciles an Agent-edited open presentation instead of saving its stale buffer", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const seed = "# Untitled presentation\n\n---\n\n# New slide\n";
+    const agentDeck = "# Native VLM\n\n---\n\n## Results\n";
+    const mergedDeck = `${agentDeck}\nLocal note\n`;
+    let diskContent = seed;
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "talk.slides.md", name: "Talk", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "talk.slides.md", path: "talk.slides.md", kind: "markdown", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return diskContent;
+      if (command === "write_project_file") {
+        diskContent = mergedDeck;
+        return {
+          content: mergedDeck,
+          transactionId: "editor-merge",
+          externalChangesMerged: true,
+          hadConflicts: false,
+        };
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const presentation = await screen.findByTestId("presentation-editor-mock");
+    expect(presentation).toHaveAttribute("data-source", seed);
+    fireEvent.click(screen.getByTestId("presentation-local-edit"));
+    diskContent = agentDeck;
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "talk.slides.md",
+      content: `${seed}\nLocal note\n`,
+      baseContent: seed,
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    await waitFor(() => expect(presentation).toHaveAttribute("data-source", mergedDeck));
+
+    const refreshedDeck = "# Agent revision after save\n";
+    diskContent = refreshedDeck;
+    fireEvent.click(await screen.findByRole("tab", { name: /talk\.slides\.md/ }));
+    await waitFor(() => expect(presentation).toHaveAttribute("data-source", refreshedDeck));
+  });
+
   it("opens a dropped project file in the editor pane under the pointer", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -7188,6 +7270,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nDraft change.",
+      baseContent: "\\documentclass{article}",
       projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
@@ -7586,6 +7669,7 @@ describe("project workspace", () => {
       ["write_project_file", {
         path: "draft.md",
         content: "# Private draft\nLocal only.",
+        baseContent: "# Private draft",
         projectRoot: "/tmp/notes",
       }],
     ]);

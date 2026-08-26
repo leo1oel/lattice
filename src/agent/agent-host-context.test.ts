@@ -53,6 +53,15 @@ describe("agent host context", () => {
       version: 1,
       capturedAt: "2026-08-14T10:00:00.000Z",
       workspaceRoot: "/tmp/paper",
+      presentationAuthoring: {
+        nativeExtension: ".slides.md",
+        nativeFormat: "lattice_reveal_markdown",
+        skill: "authoring-presentations",
+        defaultWhenOutputFormatUnspecified: true,
+        unsupportedPptx: true,
+        unsupportedHtml: true,
+        explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
+      },
       activeSurface: "editor",
       editor: {
         path: "main.tex",

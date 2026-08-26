@@ -2,7 +2,7 @@
 name: authoring-presentations
 display-name: Presentation Authoring
 short-description: Create clear Reveal.js slide decks in Lattice's supported Markdown format.
-description: Creates and edits Lattice Reveal.js presentations stored as .slides.md files. Use when a user asks to make or revise slides, a deck, presentation or PPT content, speaker notes, slide images, code examples, or presentation structure in Lattice.
+description: Creates and edits Lattice Reveal.js presentations stored as .slides.md files. Use when a user asks to make or revise slides, a deck, presentation, PPT, PPTX, PowerPoint, 演示文稿, or 幻灯片 content, speaker notes, slide images, code examples, or presentation structure in Lattice.
 ---
 
 # Authoring Lattice presentations
@@ -13,7 +13,10 @@ Treat the Lattice dialect in this skill as authoritative even when upstream Reve
 ## Work on the source deck
 
 - When the active editor path ends in `.slides.md`, read that file before planning or editing it.
-- When creating a deck, use a descriptive filename ending in `.slides.md` and place it where the user requested.
+- When a user asks for a presentation, PPT, PowerPoint, deck, slides, 演示文稿, or 幻灯片 without naming an output format, create a descriptive `.slides.md` file in Lattice's native Reveal.js Markdown format.
+- Never create `.pptx` or HTML as a substitute for a Lattice presentation.
+- If the user explicitly requests a real `.pptx`, PowerPoint, or standalone HTML deliverable, explain that Lattice's presentation editor does not author that external format; ask whether they want the native `.slides.md` deck instead.
+- When creating a native deck, use a descriptive filename ending in `.slides.md` and place it where the user requested.
 - Edit the `.slides.md` source instead of a generated PDF.
 - Preserve existing theme, transition, slide order, notes, image paths, and content outside the requested change unless changing them is necessary.
 - Make targeted edits for revision requests rather than rewriting the whole deck.

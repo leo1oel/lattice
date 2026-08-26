@@ -4259,6 +4259,75 @@ pub fn apply_transaction(
     apply_transaction_with_context(root, label, edits, context)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorWriteResult {
+    pub content: String,
+    pub transaction_id: String,
+    pub external_changes_merged: bool,
+    pub had_conflicts: bool,
+}
+
+/// Save an editor buffer against the exact disk contents it was loaded from.
+/// Agent and filesystem edits bypass React, so an ordinary last-writer-wins
+/// save can otherwise replace a complete external edit with the stale open
+/// buffer. A three-way merge preserves both sides, including explicit conflict
+/// markers when they touched the same span.
+pub fn apply_editor_transaction(
+    root: &Path,
+    path: String,
+    content: String,
+    base_content: Option<String>,
+) -> Result<EditorWriteResult, String> {
+    validate_transaction_path(&path)?;
+    let absolute = root.join(&path);
+    let current = if absolute.exists() {
+        Some(fs::read_to_string(&absolute).map_err(err)?)
+    } else if base_content.is_some() {
+        return Err(format!(
+            "Cannot save {path} because it was deleted outside the editor."
+        ));
+    } else {
+        None
+    };
+    let current_content = current.as_deref().unwrap_or_default();
+
+    let (next, external_changes_merged, had_conflicts) = match base_content {
+        Some(base) if current_content != base => {
+            if content == base || content == current_content {
+                (current_content.to_string(), true, false)
+            } else {
+                match diffy::MergeOptions::new().merge(&base, &content, current_content) {
+                    Ok(merged) => (merged, true, false),
+                    Err(conflicted) => (conflicted, true, true),
+                }
+            }
+        }
+        _ => (content, false, false),
+    };
+    let transaction = commit_transaction_changes(
+        root,
+        &format!("Edit {path}"),
+        if current.as_deref() == Some(next.as_str()) {
+            Vec::new()
+        } else {
+            vec![FileChange {
+                path,
+                before: current,
+                after: Some(next.clone()),
+            }]
+        },
+        HistoryContext::user("edit", "editor"),
+    )?;
+
+    Ok(EditorWriteResult {
+        content: next,
+        transaction_id: transaction.map(|record| record.id).unwrap_or_default(),
+        external_changes_merged,
+        had_conflicts,
+    })
+}
+
 pub fn apply_citation_transaction(
     root: &Path,
     label: &str,
@@ -6543,6 +6612,89 @@ mod tests {
         assert!(transaction_path(&root, &transaction.id).unwrap().exists());
         assert_eq!(restore.undo_of.as_deref(), Some(transaction.id.as_str()));
         assert_eq!(restore.kind.as_deref(), Some("restore"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn stale_clean_editor_buffer_keeps_external_agent_edit() {
+        let root = temp_root("editor-agent-replacement");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        let seed = "# Untitled presentation\n\n---\n\n# New slide\n";
+        let agent_deck = "# Native VLM\n\n---\n\n## Results\n\n![Result](figures/result.png)\n";
+        fs::write(root.join("talk.slides.md"), agent_deck).unwrap();
+
+        let result = apply_editor_transaction(
+            &root,
+            "talk.slides.md".to_string(),
+            seed.to_string(),
+            Some(seed.to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(result.content, agent_deck);
+        assert!(result.external_changes_merged);
+        assert!(!result.had_conflicts);
+        assert_eq!(
+            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
+            agent_deck
+        );
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn editor_save_merges_non_overlapping_local_and_agent_edits() {
+        let root = temp_root("editor-agent-merge");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        let base = "# Draft\n\nShared point\n";
+        let local = "# Draft\n\nShared point\n\nLocal note\n";
+        let agent = "# Finished deck\n\nShared point\n";
+        fs::write(root.join("talk.slides.md"), agent).unwrap();
+
+        let result = apply_editor_transaction(
+            &root,
+            "talk.slides.md".to_string(),
+            local.to_string(),
+            Some(base.to_string()),
+        )
+        .unwrap();
+
+        assert!(result.external_changes_merged);
+        assert!(!result.had_conflicts);
+        assert!(result.content.contains("# Finished deck"));
+        assert!(result.content.contains("Local note"));
+        assert_eq!(
+            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
+            result.content
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn editor_save_preserves_overlapping_edits_with_conflict_markers() {
+        let root = temp_root("editor-agent-conflict");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        let base = "# Draft title\n";
+        let local = "# Local title\n";
+        let agent = "# Agent title\n";
+        fs::write(root.join("talk.slides.md"), agent).unwrap();
+
+        let result = apply_editor_transaction(
+            &root,
+            "talk.slides.md".to_string(),
+            local.to_string(),
+            Some(base.to_string()),
+        )
+        .unwrap();
+
+        assert!(result.had_conflicts);
+        assert!(result.content.contains("<<<<<<<"));
+        assert!(result.content.contains("# Local title"));
+        assert!(result.content.contains("# Agent title"));
+        assert_eq!(
+            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
+            result.content
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

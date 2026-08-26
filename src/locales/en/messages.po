@@ -2254,6 +2254,10 @@ msgstr "Keep it on Overleaf"
 msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
 msgstr "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
 
+#: src/App.tsx
+msgid "Kept overlapping external edits in {path} with conflict markers."
+msgstr "Kept overlapping external edits in {path} with conflict markers."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
 msgstr "Label"

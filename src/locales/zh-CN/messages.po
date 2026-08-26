@@ -2254,6 +2254,10 @@ msgstr "在 Overleaf 上保留"
 msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
 msgstr "保持两边完全一致。如果删错了，Overleaf 自己的历史记录中仍保留该文件"
 
+#: src/App.tsx
+msgid "Kept overlapping external edits in {path} with conflict markers."
+msgstr "已在 {path} 中用冲突标记保留重叠的外部编辑。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
 msgstr "标签"
