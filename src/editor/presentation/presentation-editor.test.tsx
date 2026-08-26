@@ -140,6 +140,8 @@ describe("PresentationEditor", () => {
     });
     render(<Harness />);
     await waitFor(() => expect(revealMock.instances[0]?.initialize).toHaveBeenCalledOnce());
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    expect(revealMock.instances[0].layout).not.toHaveBeenCalled();
 
     fireEvent.pointerDown(screen.getByRole("button", { name: "Presentation style" }), {
       button: 0,
@@ -323,6 +325,57 @@ describe("PresentationEditor", () => {
       expect(image).toHaveAttribute("src", dataUrl);
     }
     expect(onLoadAsset).toHaveBeenCalledTimes(callsAfterLoad);
+  });
+
+  it("hydrates project images after the initially rendered nodes are replaced", async () => {
+    let finishLoading: ((dataUrl: string) => void) | undefined;
+    const onLoadAsset = vi.fn(() => new Promise<string>((resolve) => {
+      finishLoading = resolve;
+    }));
+    const { container } = render(
+      <Harness source="## Result\n\n![MMVP Phase Portrait](figures/mmvp.png)" onLoadAsset={onLoadAsset} />,
+    );
+    await waitFor(() => expect(onLoadAsset).toHaveBeenCalledWith("figures/mmvp.png"));
+
+    for (const image of container.querySelectorAll("img")) image.remove();
+    finishLoading?.("data:image/png;base64,YQ==");
+
+    await waitFor(() => {
+      const images = container.querySelectorAll<HTMLImageElement>("img");
+      expect(images).toHaveLength(2);
+      for (const image of images) {
+        expect(image).toHaveAttribute("src", "data:image/png;base64,YQ==");
+      }
+    });
+  });
+
+  it("loads each relative image path once for a multi-image deck", async () => {
+    const onLoadAsset = vi.fn(async (path: string) => (
+      `data:image/png;base64,${btoa(path)}`
+    ));
+    const source = [
+      "## MMVP",
+      "",
+      "![MMVP Phase Portrait](figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png)",
+      "",
+      "---",
+      "",
+      "## Retention",
+      "",
+      "![Caption Feature Retention](figures/figure1_feature_retention.png)",
+    ].join("\n");
+    const { container } = render(<Harness source={source} onLoadAsset={onLoadAsset} />);
+
+    await waitFor(() => expect(onLoadAsset).toHaveBeenCalledTimes(2));
+    expect(onLoadAsset).toHaveBeenCalledWith(
+      "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
+    );
+    expect(onLoadAsset).toHaveBeenCalledWith("figures/figure1_feature_retention.png");
+    await waitFor(() => {
+      const images = container.querySelectorAll<HTMLImageElement>("img");
+      expect(images).toHaveLength(4);
+      for (const image of images) expect(image.src).toMatch(/^data:image\/png;base64,/);
+    });
   });
 
   it("uses title and media layouts for common slide structures", () => {

@@ -154,6 +154,15 @@ function withLoadedProjectImages(
   return changed ? template.innerHTML : html;
 }
 
+function collectProjectImagePaths(html: string, documentPath: string, paths: Set<string>) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  for (const image of template.content.querySelectorAll<HTMLImageElement>("img[src]")) {
+    const projectPath = resolveProjectPath(documentPath, image.getAttribute("src") ?? "");
+    if (projectPath) paths.add(projectPath);
+  }
+}
+
 function safeExternalUrl(target: string): string | null {
   try {
     const url = new URL(target);
@@ -199,25 +208,38 @@ export function PresentationEditor(props: PresentationEditorProps) {
   const deck = useMemo(() => parsePresentation(deferredSource), [deferredSource]);
   const clampedSlide = Math.max(0, Math.min(slide, deck.slides.length - 1));
   const slideSummaries = useMemo(() => deck.slides.map(slideSummary), [deck.slides]);
-  const renderedSlides = useMemo(() => deck.slides.map((item, index) => ({
+  const slideMarkup = useMemo(() => deck.slides.map((item, index) => ({
     layout: index === 0 && /^\s*#\s+/m.test(item.body)
       ? "title"
       : slideSummaries[index].imageSource
         ? "media"
         : "default",
+    bodyHtml: markdownToHtml(item.body),
+    notesHtml: markdownToHtml(item.notes),
+  })), [deck.slides, slideSummaries]);
+  const projectImagePaths = useMemo(() => {
+    const paths = new Set<string>();
+    for (const slide of slideMarkup) {
+      collectProjectImagePaths(slide.bodyHtml, props.path, paths);
+      collectProjectImagePaths(slide.notesHtml, props.path, paths);
+    }
+    return [...paths];
+  }, [props.path, slideMarkup]);
+  const renderedSlides = useMemo(() => slideMarkup.map((item) => ({
+    layout: item.layout,
     bodyHtml: withLoadedProjectImages(
-      markdownToHtml(item.body),
+      item.bodyHtml,
       props.path,
       onLoadAsset,
       loadedProjectImages,
     ),
     notesHtml: withLoadedProjectImages(
-      markdownToHtml(item.notes),
+      item.notesHtml,
       props.path,
       onLoadAsset,
       loadedProjectImages,
     ),
-  })), [deck.slides, loadedProjectImages, onLoadAsset, props.path, slideSummaries]);
+  })), [loadedProjectImages, onLoadAsset, props.path, slideMarkup]);
   const shellRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const thumbnailListRef = useRef<HTMLDivElement>(null);
@@ -377,7 +399,9 @@ export function PresentationEditor(props: PresentationEditorProps) {
 
   useEffect(() => {
     if (mode === "source") return;
-    const frame = window.requestAnimationFrame(() => revealRef.current?.layout());
+    const frame = window.requestAnimationFrame(() => {
+      if (revealReadyRef.current) revealRef.current?.layout();
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [mode]);
 
@@ -386,7 +410,7 @@ export function PresentationEditor(props: PresentationEditorProps) {
     if (!stage || mode !== "split" || typeof ResizeObserver === "undefined") return;
     const fit = () => {
       setSplitRatio((current) => constrainSplitRatio(current));
-      revealRef.current?.layout();
+      if (revealReadyRef.current) revealRef.current?.layout();
     };
     const observer = new ResizeObserver(fit);
     observer.observe(stage);
@@ -399,7 +423,7 @@ export function PresentationEditor(props: PresentationEditorProps) {
     if (!workspace || mode === "source" || !thumbnailRailOpen || typeof ResizeObserver === "undefined") return;
     const fit = () => {
       setThumbnailRailWidth((current) => constrainThumbnailRailWidth(current));
-      revealRef.current?.layout();
+      if (revealReadyRef.current) revealRef.current?.layout();
     };
     const observer = new ResizeObserver(fit);
     observer.observe(workspace);
@@ -423,55 +447,46 @@ export function PresentationEditor(props: PresentationEditorProps) {
   }, [deck.slides.length, mode, thumbnailRailOpen]);
 
   useEffect(() => {
-    const root = shellRef.current;
-    if (!root || !onLoadAsset) return;
-    let cancelled = false;
-    for (const image of root.querySelectorAll<HTMLImageElement>("img[src]")) {
-      const original = image.dataset.presentationSource ?? image.getAttribute("src") ?? "";
-      const projectPath = resolveProjectPath(props.path, original);
-      if (!projectPath) continue;
+    if (!onLoadAsset) return;
+    const missingPaths = projectImagePaths.filter((projectPath) => {
       const loaded = loadedProjectImages.get(projectPath);
-      if (loaded?.loader === onLoadAsset) {
-        if (image.getAttribute("src") !== loaded.dataUrl) image.src = loaded.dataUrl;
-        continue;
-      }
-      image.dataset.presentationSource = original;
-      const expectedSource = image.getAttribute("src");
-      const isCurrent = () => (
-        !cancelled
-        && image.isConnected
-        && image.dataset.presentationSource === original
-        && image.getAttribute("src") === expectedSource
-      );
-      void (async () => {
-        for (const delay of PROJECT_IMAGE_RETRY_DELAYS_MS) {
-          if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
-          if (!isCurrent()) return;
-          try {
-            const dataUrl = await onLoadAsset(projectPath);
-            if (!isCurrent()) return;
-            if (!dataUrl) continue;
-            setLoadedProjectImages((current) => {
-              const existing = current.get(projectPath);
-              if (existing?.loader === onLoadAsset && existing.dataUrl === dataUrl) return current;
-              const next = new Map(current);
-              next.set(projectPath, { loader: onLoadAsset, dataUrl });
-              return next;
-            });
-            image.src = dataUrl;
-            window.requestAnimationFrame(() => revealRef.current?.layout());
-            return;
-          } catch {
-            // A project switch or tutorial reset can make the first read race
-            // the asset landing on disk. Retry the bounded sequence above.
-          }
+      return !loaded || loaded.loader !== onLoadAsset;
+    });
+    if (!missingPaths.length) return;
+    let cancelled = false;
+    void Promise.all(missingPaths.map(async (projectPath) => {
+      for (const delay of PROJECT_IMAGE_RETRY_DELAYS_MS) {
+        if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
+        if (cancelled) return null;
+        try {
+          const dataUrl = await onLoadAsset(projectPath);
+          if (cancelled) return null;
+          if (dataUrl) return [projectPath, dataUrl] as const;
+        } catch {
+          // A project switch or tutorial reset can make the first read race
+          // the asset landing on disk. Retry the bounded sequence above.
         }
-      })();
-    }
+      }
+      return null;
+    })).then((loadedImages) => {
+      if (cancelled) return;
+      const availableImages = loadedImages.filter((loaded) => loaded !== null);
+      if (!availableImages.length) return;
+      setLoadedProjectImages((current) => {
+        const next = new Map(current);
+        for (const [projectPath, dataUrl] of availableImages) {
+          next.set(projectPath, { loader: onLoadAsset, dataUrl });
+        }
+        return next;
+      });
+      window.requestAnimationFrame(() => {
+        if (revealReadyRef.current) revealRef.current?.layout();
+      });
+    });
     return () => {
       cancelled = true;
     };
-  }, [deck, loadedProjectImages, onLoadAsset, props.path]);
+  }, [loadedProjectImages, onLoadAsset, projectImagePaths]);
 
   const navigate = useCallback((nextSlide: number, moveCursor = false) => {
     const index = Math.max(0, Math.min(nextSlide, deck.slides.length - 1));

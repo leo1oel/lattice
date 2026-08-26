@@ -66,13 +66,15 @@ type DownloadEvent =
   | { event: "Progress"; data: { chunkLength: number } }
   | { event: "Finished" };
 
-/** Lazy-load the Tauri plugins so a browser/dev build doesn't crash on import. */
+/** Lazy-load the updater plugin so a browser/dev build doesn't crash on import. */
 async function loadUpdaterApis() {
-  const [updater, process] = await Promise.all([
-    import("@tauri-apps/plugin-updater"),
-    import("@tauri-apps/plugin-process"),
-  ]);
-  return { check: updater.check, relaunch: process.relaunch };
+  const updater = await import("@tauri-apps/plugin-updater");
+  return { check: updater.check };
+}
+
+async function restartAfterUpdate() {
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("restart_after_update");
 }
 
 /**
@@ -94,7 +96,7 @@ export type UpdaterApi = {
   errorKind: UpdateErrorKind | null;
   /** Check now. `silent` (default) never surfaces "up to date"/errors. */
   check: (silent?: boolean) => Promise<void>;
-  /** Download + install the pending update, then relaunch. Safe to call once. */
+  /** Download + install the pending update, then restart. Safe to call once. */
   install: () => Promise<void>;
   /** Hide the "available" banner without installing. */
   dismiss: () => void;
@@ -132,7 +134,6 @@ function useAppUpdater(options?: {
     installingRef.current = true;
     installFailedRef.current = false;
     try {
-      const { relaunch } = await loadUpdaterApis();
       setPhase("downloading");
       setProgress(0);
       let total = 0;
@@ -149,7 +150,13 @@ function useAppUpdater(options?: {
         }
       });
       setPhase("ready");
-      await relaunch();
+      // The visible workspace runs in bundled Chromium and reaches Tauri
+      // through a hidden bridge WebView. The process plugin only requests an
+      // event-loop restart; if that request stalls, the newly installed app is
+      // left on disk while the old process displays “Restarting…” forever.
+      // The app-owned command closes both child runtimes and takes Tauri's
+      // direct main-thread restart path instead.
+      await restartAfterUpdate();
     } catch (reason) {
       installingRef.current = false;
       installFailedRef.current = true;

@@ -4,8 +4,8 @@ import { addAppLog } from "./app-log-store";
 import { UpdateBanner, UpdaterProvider, useUpdater, type UpdaterApi } from "./app-updater";
 
 /**
- * `loadUpdaterApis` reaches both plugins through `import()` at call time, so the
- * seam the tests drive is the module itself rather than an injected client.
+ * The updater reaches Tauri through `import()` at call time, so the seam the
+ * tests drive is the modules themselves rather than an injected client.
  *
  * `tauriMissing` throws from the *property read*, which is what a browser/dev
  * build looks like from `loadUpdaterApis`'s side: the promise it returns
@@ -15,7 +15,7 @@ import { UpdateBanner, UpdaterProvider, useUpdater, type UpdaterApi } from "./ap
  */
 const plugins = vi.hoisted(() => ({
   check: vi.fn(),
-  relaunch: vi.fn(),
+  invoke: vi.fn(),
   tauriMissing: false,
 }));
 
@@ -26,10 +26,10 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
   },
 }));
 
-vi.mock("@tauri-apps/plugin-process", () => ({
-  get relaunch() {
-    if (plugins.tauriMissing) throw new Error("plugin-process unavailable");
-    return plugins.relaunch;
+vi.mock("@tauri-apps/api/core", () => ({
+  get invoke() {
+    if (plugins.tauriMissing) throw new Error("Tauri IPC unavailable");
+    return plugins.invoke;
   },
 }));
 
@@ -129,7 +129,7 @@ beforeEach(() => {
   localStorage.clear();
   plugins.tauriMissing = false;
   plugins.check.mockReset().mockResolvedValue(null);
-  plugins.relaunch.mockReset().mockResolvedValue(undefined);
+  plugins.invoke.mockReset().mockResolvedValue(undefined);
   vi.mocked(addAppLog).mockReset();
 });
 
@@ -310,7 +310,7 @@ describe("useUpdater / check", () => {
 });
 
 describe("useUpdater / install", () => {
-  it("walks download → install → ready and relaunches", async () => {
+  it("walks download → install → ready and restarts through the native app", async () => {
     const download = pausedDownload();
     offerUpdate({ downloadAndInstall: download.downloadAndInstall });
     const { result } = renderUpdater();
@@ -333,7 +333,7 @@ describe("useUpdater / install", () => {
 
     await act(async () => { download.finish(); });
     await waitFor(() => expect(result.current.phase).toBe("ready"));
-    expect(plugins.relaunch).toHaveBeenCalledOnce();
+    expect(plugins.invoke).toHaveBeenCalledWith("restart_after_update");
   });
 
   it("clamps progress at 1 when more arrives than was announced", async () => {
@@ -383,7 +383,7 @@ describe("useUpdater / install", () => {
       title: "Lattice update failed",
       toast: false,
     }));
-    expect(plugins.relaunch).not.toHaveBeenCalled();
+    expect(plugins.invoke).not.toHaveBeenCalled();
 
     // The in-flight guard has to be released on the way out, or "Update now"
     // is dead for the rest of the session after one transient failure.
@@ -412,7 +412,7 @@ describe("useUpdater / install", () => {
     await act(async () => { await result.current.install(); });
 
     expect(result.current.phase).toBe("idle");
-    expect(plugins.relaunch).not.toHaveBeenCalled();
+    expect(plugins.invoke).not.toHaveBeenCalled();
   });
 });
 

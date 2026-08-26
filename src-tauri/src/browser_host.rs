@@ -1066,7 +1066,7 @@ async fn open_browser_session(
             // A page that requests a token but never completes its WebSocket
             // handshake must not leave a hidden WebView alive indefinitely.
             tokio::time::sleep(SESSION_CONNECT_TIMEOUT).await;
-            let settlement = settle_browser_session(&sessions, &token, 0);
+            let settlement = settle_browser_session(&sessions, &token, 0, false);
             apply_session_settlement(&app, &sessions, settlement);
         });
     }
@@ -1412,6 +1412,7 @@ fn settle_browser_session(
     sessions: &Sessions,
     token: &str,
     visible_epoch: u64,
+    resume_parked_desktop: bool,
 ) -> SessionSettlement {
     let Ok(mut sessions) = sessions.lock() else {
         return SessionSettlement::Unchanged;
@@ -1423,6 +1424,13 @@ fn settle_browser_session(
         return SessionSettlement::Unchanged;
     }
     if let Some(desktop) = &session.desktop {
+        // A replacement Desktop peer makes the disconnected Desktop's grace
+        // timer stale. Only a Browser disconnect may resume a parked Desktop;
+        // otherwise every Desktop reload would schedule another reload five
+        // seconds later and loop forever.
+        if !resume_parked_desktop {
+            return SessionSettlement::Unchanged;
+        }
         if let Some(host) = &session.host {
             let _ = host
                 .sender
@@ -1519,7 +1527,12 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
             // A reload briefly replaces the browser socket. Preserve the host
             // across that gap, but retire it when the tab is actually gone.
             tokio::time::sleep(Duration::from_secs(5)).await;
-            let settlement = settle_browser_session(&sessions, &query.token, epoch);
+            let settlement = settle_browser_session(
+                &sessions,
+                &query.token,
+                epoch,
+                query.role == BridgeRole::Browser,
+            );
             apply_session_settlement(&app, &sessions, settlement);
         });
     }
@@ -1755,6 +1768,44 @@ mod tests {
     }
 
     #[test]
+    fn desktop_reconnect_cancels_the_disconnected_desktop_grace_timer() {
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "secret".to_string(),
+            session(true),
+        )])));
+        let (host_sender, mut host_messages) = mpsc::unbounded_channel();
+        let (desktop_sender, _desktop_messages) = mpsc::unbounded_channel();
+        let host_query = query(BridgeRole::Host);
+        let desktop_query = query(BridgeRole::Desktop);
+        assert!(register_peer(&sessions, &host_query, "host", host_sender).is_some());
+        assert!(register_peer(&sessions, &desktop_query, "desktop", desktop_sender).is_some());
+
+        let epoch = {
+            let mut sessions = sessions.lock().unwrap();
+            let session = sessions.get_mut("secret").unwrap();
+            session.desktop = None;
+            session.visible_epoch
+        };
+        let (reconnected_sender, mut reconnected_messages) = mpsc::unbounded_channel();
+        assert!(register_peer(
+            &sessions,
+            &desktop_query,
+            "desktop-reconnected",
+            reconnected_sender,
+        )
+        .is_some());
+        while host_messages.try_recv().is_ok() {}
+        while reconnected_messages.try_recv().is_ok() {}
+
+        assert!(matches!(
+            settle_browser_session(&sessions, "secret", epoch, false),
+            SessionSettlement::Unchanged
+        ));
+        assert!(host_messages.try_recv().is_err());
+        assert!(reconnected_messages.try_recv().is_err());
+    }
+
+    #[test]
     fn external_browser_parks_and_then_resumes_bundled_chromium() {
         let sessions = Arc::new(Mutex::new(HashMap::from([(
             "secret".to_string(),
@@ -1809,7 +1860,7 @@ mod tests {
         while host_messages.try_recv().is_ok() {}
         while reconnected_messages.try_recv().is_ok() {}
         assert!(matches!(
-            settle_browser_session(&sessions, "secret", epoch),
+            settle_browser_session(&sessions, "secret", epoch, true),
             SessionSettlement::ResumeDesktop(label) if label == "browser-test"
         ));
         assert!(matches!(
@@ -1937,13 +1988,13 @@ mod tests {
         )])));
 
         assert!(matches!(
-            settle_browser_session(&sessions, "current", 1),
+            settle_browser_session(&sessions, "current", 1, false),
             SessionSettlement::Unchanged
         ));
         assert!(reusable_entry_config(&sessions, PREFERRED_PORT, None).is_some());
 
         assert!(matches!(
-            settle_browser_session(&sessions, "current", 0),
+            settle_browser_session(&sessions, "current", 0, false),
             SessionSettlement::Expire(label) if label == "browser-test"
         ));
         assert!(reusable_entry_config(&sessions, PREFERRED_PORT, None).is_none());

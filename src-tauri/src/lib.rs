@@ -47,6 +47,17 @@ use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_opener::OpenerExt;
 
+const OVERLEAF_FULL_SYNC_MIN_GAP: std::time::Duration = std::time::Duration::from_secs(7);
+
+fn overleaf_full_sync_delay(
+    previous: Option<tokio::time::Instant>,
+    now: tokio::time::Instant,
+) -> std::time::Duration {
+    previous
+        .map(|started| (started + OVERLEAF_FULL_SYNC_MIN_GAP).saturating_duration_since(now))
+        .unwrap_or_default()
+}
+
 #[derive(Default)]
 struct OverleafRealtimeState {
     /// Advances whenever a connection is replaced or cancelled. A client that
@@ -94,11 +105,26 @@ impl OverleafRealtimeState {
 #[cfg(test)]
 mod realtime_generation_tests {
     use super::{
-        ensure_expected_project_root, project, prune_old_share_workspaces, OverleafRealtimeState,
+        ensure_expected_project_root, overleaf_full_sync_delay, project,
+        prune_old_share_workspaces, OverleafRealtimeState,
     };
     use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
+
+    #[test]
+    fn full_overleaf_syncs_cannot_exhaust_the_download_allowance() {
+        let now = tokio::time::Instant::now();
+
+        assert!(overleaf_full_sync_delay(None, now).is_zero());
+        assert_eq!(
+            overleaf_full_sync_delay(Some(now - std::time::Duration::from_secs(3)), now),
+            std::time::Duration::from_secs(4)
+        );
+        assert!(
+            overleaf_full_sync_delay(Some(now - std::time::Duration::from_secs(7)), now).is_zero()
+        );
+    }
 
     #[test]
     fn share_workspace_pruning_requires_an_owned_shared_project_manifest() {
@@ -343,6 +369,10 @@ struct AppState {
     roots: Mutex<HashMap<String, PathBuf>>,
     /// Resources owned by an open project rather than by the process.
     projects: Mutex<HashMap<PathBuf, Arc<ProjectResources>>>,
+    /// Process-wide backstop for Overleaf's ten-project-downloads-per-minute
+    /// limit. Frontend instances also debounce, but Chromium reloads, multiple
+    /// windows, and different projects still share the same account allowance.
+    overleaf_sync_started: tokio::sync::Mutex<Option<tokio::time::Instant>>,
     /// One-shot instruction left for a window that is being opened, taken by
     /// that window once during startup.
     ///
@@ -395,6 +425,7 @@ impl AppState {
         Self {
             roots: Mutex::new(roots),
             projects: Mutex::new(HashMap::new()),
+            overleaf_sync_started: tokio::sync::Mutex::new(None),
             pending_actions: Mutex::new(HashMap::new()),
         }
     }
@@ -3335,7 +3366,17 @@ async fn overleaf_sync(
     live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
     let project = state.project(Path::new(&project_root));
+    // Hold this guard until the write lease is ours. That admits only one
+    // waiter at a time while document-level realtime work continues during
+    // the cooldown, then records the actual full-download start.
+    let mut previous_sync = state.overleaf_sync_started.lock().await;
+    let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
+    if !delay.is_zero() {
+        tokio::time::sleep(delay).await;
+    }
     let _lease = project.overleaf_sync_lease.write().await;
+    *previous_sync = Some(tokio::time::Instant::now());
+    drop(previous_sync);
     let config = overleaf_config_dir(&app)?;
     let root = current_root(&state, &window)?;
     if root != Path::new(&project_root) {
@@ -3984,6 +4025,24 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn shutdown_child_runtimes(app: &tauri::AppHandle) {
+    app.state::<chromium::ChromiumRuntime>().shutdown();
+    app.state::<synara::SynaraRuntime>().shutdown();
+}
+
+/// Finish an installed update without relying on an event-loop restart
+/// request forwarded through the browser bridge. The direct main-thread path
+/// is why this command cannot return on success: it replaces this process.
+#[tauri::command]
+fn restart_after_update(app: tauri::AppHandle) -> Result<(), String> {
+    let restarting = app.clone();
+    app.run_on_main_thread(move || {
+        shutdown_child_runtimes(&restarting);
+        restarting.restart();
+    })
+    .map_err(|error| format!("Could not schedule the updated Lattice app to restart: {error}"))
+}
+
 pub fn run() {
     if run_cli() {
         return;
@@ -4117,6 +4176,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            restart_after_update,
             link_preview::link_preview,
             collab_credentials::put_collab_credential,
             collab_credentials::get_collab_credential,
@@ -4298,8 +4358,7 @@ pub fn run() {
         .expect("error while running tauri application");
     app.run(|app_handle, event| {
         if matches!(event, tauri::RunEvent::Exit) {
-            app_handle.state::<chromium::ChromiumRuntime>().shutdown();
-            app_handle.state::<synara::SynaraRuntime>().shutdown();
+            shutdown_child_runtimes(app_handle);
         }
         #[cfg(target_os = "macos")]
         if matches!(
