@@ -269,12 +269,20 @@ function syncArray(target: Y.Array<string>, desired: string[]): void {
   for (let index = target.length - 1; index >= 0; index--) {
     if (!wanted.has(target.get(index))) target.delete(index, 1);
   }
+  if (target.length === 0) {
+    if (desired.length > 0) target.insert(0, desired);
+    return;
+  }
+  const current = target.toArray();
   for (let index = 0; index < desired.length; index++) {
-    if (target.get(index) === desired[index]) continue;
-    const current = target.toArray();
+    if (current[index] === desired[index]) continue;
     const existing = current.indexOf(desired[index], index + 1);
-    if (existing >= 0) target.delete(existing, 1);
+    if (existing >= 0) {
+      target.delete(existing, 1);
+      current.splice(existing, 1);
+    }
     target.insert(index, [desired[index]]);
+    current.splice(index, 0, desired[index]);
   }
   if (target.length > desired.length) target.delete(desired.length, target.length - desired.length);
 }
@@ -669,6 +677,41 @@ function applySheetChanges(doc: Y.Doc, previousInput: SpreadsheetWorksheetData, 
   applyJsonMapChanges(mapAt(doc, next.data.id, "merges"), stableMerges(previous), stableMerges(next));
 }
 
+/** Apply sparse cell changes without walking the rest of a large worksheet. */
+export function applySpreadsheetCellChanges(
+  doc: Y.Doc,
+  sheet: SpreadsheetWorksheetData,
+  changes: Array<{
+    row: number;
+    column: number;
+    previous: SpreadsheetCellData | null;
+    next: SpreadsheetCellData | null;
+  }>,
+  origin: unknown = SPREADSHEET_LOCAL_ORIGIN,
+): boolean {
+  const stableChanges: Array<(typeof changes)[number] & { rowId: string; columnId: string }> = [];
+  for (const change of changes) {
+    const rowId = customId(sheet.rowData[change.row], SPREADSHEET_ROW_ID_FIELD);
+    const columnId = customId(sheet.columnData[change.column], SPREADSHEET_COLUMN_ID_FIELD);
+    if (!rowId || !columnId) return false;
+    stableChanges.push({ ...change, rowId, columnId });
+  }
+  const cells = mapAt<unknown>(doc, sheet.id, "cells");
+  doc.transact(() => {
+    for (const change of stableChanges) {
+      const previous = clone(change.previous ?? {}) as Record<string, unknown>;
+      const next = clone(change.next ?? {}) as Record<string, unknown>;
+      for (const field of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+        if (jsonEqual(previous[field], next[field]) && (field in previous) === (field in next)) continue;
+        const key = cellFieldKey(change.rowId, change.columnId, field);
+        if (field in next) cells.set(key, clone(next[field]));
+        else cells.delete(key);
+      }
+    }
+  }, origin);
+  return true;
+}
+
 /** Apply only local Univer changes, preserving newer remote fields in the Y.Doc. */
 export function reconcileSpreadsheetDocChanges(
   doc: Y.Doc,
@@ -751,4 +794,3 @@ export function replaceSpreadsheetDocFromSource(doc: Y.Doc, source: string, orig
   if (!parsed) throw new Error("Invalid .lattice-sheet document");
   reconcileSpreadsheetDoc(doc, parsed.workbook, origin);
 }
-

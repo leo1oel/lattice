@@ -59,6 +59,11 @@ type MockSheet = {
   getActiveRange(): MockRange;
   getActiveCell(): MockRange;
   getRange(rowOrNotation: number | string, column?: number): MockRange;
+  getSheet(): {
+    getCellRaw(row: number, column: number): SpreadsheetCellData | null;
+    getScrollLeftTopFromSnapshot(): { scrollTop: number; scrollLeft: number };
+  };
+  getZoom(): number;
   getMaxRows(): number;
   getMaxColumns(): number;
   highlightRanges: ReturnType<typeof vi.fn>;
@@ -70,9 +75,10 @@ type MockWorkbook = {
   permission: { setEditable: ReturnType<typeof vi.fn>; setReadOnly: ReturnType<typeof vi.fn> };
   sheet: MockSheet;
   getId(): string;
-  save(): SpreadsheetWorkbookData;
+  save: ReturnType<typeof vi.fn>;
   getWorkbookPermission(): MockWorkbook["permission"];
   getActiveSheet(): MockSheet;
+  getSheets(): MockSheet[];
   getSheetBySheetId(id: string): MockSheet | null;
   setActiveSheet: ReturnType<typeof vi.fn>;
 };
@@ -82,13 +88,23 @@ type MockSetRangeValuesParams = {
   cellValue: Record<string, Record<string, SpreadsheetCellData | null>>;
 };
 
+type MockCommandInfo = {
+  id: string;
+  type: number;
+  params?: {
+    unitId?: string;
+    subUnitId?: string;
+    cellValue?: Record<string, Record<string, SpreadsheetCellData | null>>;
+  };
+};
+
 type MockApi = {
   Event: Record<string, string>;
-  commandListener?: () => void;
+  commandListener?: (command: MockCommandInfo) => void;
   events: Map<string, Set<() => void>>;
   createWorkbook(data: SpreadsheetWorkbookData): MockWorkbook;
   disposeUnit: ReturnType<typeof vi.fn>;
-  onCommandExecuted(listener: () => void): { dispose(): void };
+  onCommandExecuted(listener: (command: MockCommandInfo) => void): { dispose(): void };
   addEvent(event: string, listener: () => void): { dispose(): void };
   executeCommand: ReturnType<typeof vi.fn>;
   syncExecuteCommand: ReturnType<typeof vi.fn>;
@@ -128,6 +144,14 @@ function makeWorkbook(data: SpreadsheetWorkbookData): MockWorkbook {
       getRange: (rowOrNotation, column) => mockRange(
         typeof rowOrNotation === "string" ? rowOrNotation : `${rowOrNotation}:${String(column)}`,
       ),
+      getSheet: () => ({
+        getCellRaw: (row, column) => snapshot.sheets[sheetId].cellData[row]?.[column] ?? null,
+        getScrollLeftTopFromSnapshot: () => ({
+          scrollTop: snapshot.sheets[sheetId].scrollTop,
+          scrollLeft: snapshot.sheets[sheetId].scrollLeft,
+        }),
+      }),
+      getZoom: () => snapshot.sheets[sheetId].zoomRatio,
       getMaxRows: () => snapshot.sheets[sheetId].rowCount,
       getMaxColumns: () => snapshot.sheets[sheetId].columnCount,
       highlightRanges: vi.fn(() => ({ dispose: vi.fn() })),
@@ -145,9 +169,10 @@ function makeWorkbook(data: SpreadsheetWorkbookData): MockWorkbook {
     permission,
     sheet,
     getId: () => snapshot.id,
-    save: () => clone(snapshot),
+    save: vi.fn(() => clone(snapshot)),
     getWorkbookPermission: () => permission,
     getActiveSheet: () => activeSheet,
+    getSheets: () => [...sheets.values()],
     getSheetBySheetId: (id) => sheets.get(id) ?? null,
     setActiveSheet: vi.fn((next: MockSheet) => {
       activeSheet = next;
@@ -206,8 +231,24 @@ function makeApi(): MockApi {
   return api;
 }
 
+function dispatchWorkbookMutation(
+  workbook: MockWorkbook,
+  cellValue?: Record<string, Record<string, SpreadsheetCellData | null>>,
+): void {
+  univerMock.api?.commandListener?.({
+    id: "sheet.mutation.set-range-values",
+    type: 2,
+    params: {
+      unitId: workbook.getId(),
+      subUnitId: workbook.sheet.getSheetId(),
+      cellValue,
+    },
+  });
+}
+
 vi.mock("@univerjs/core", () => ({
   BorderStyleTypes: { THIN: 1 },
+  CommandType: { COMMAND: 0, OPERATION: 1, MUTATION: 2 },
   DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY: "UNIVER_FORMULA_BAR",
   IConfirmService: Symbol("IConfirmService"),
   LocaleType: { EN_US: "enUS", ZH_CN: "zhCN" },
@@ -426,7 +467,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     sheet.mergeData = [{ startRow: 1, startColumn: 0, endRow: 1, endColumn: 1 }];
 
     await act(async () => {
-      univerMock.api?.commandListener?.();
+      dispatchWorkbookMutation(workbook);
       await Promise.resolve();
     });
     await waitFor(() => expect(onChange).toHaveBeenCalled());
@@ -459,13 +500,67 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     sheet.columnData = { 5: { w: 240 } };
 
     await act(async () => {
-      univerMock.api?.commandListener?.();
+      dispatchWorkbookMutation(workbook);
       await Promise.resolve();
     });
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(univerMock.workbooks.length).toBe(initialWorkbookCount);
     expect(univerMock.api?.disposeUnit).not.toHaveBeenCalled();
     view.unmount();
+  });
+
+  it("does not reconcile view-only Univer commands into the native file", async () => {
+    const file = createDefaultSpreadsheet("Scroll");
+    const onChange = vi.fn();
+    const view = render(
+      <SpreadsheetEditor
+        path="scroll.lattice-sheet"
+        source={serializeSpreadsheetFile(file.workbook)}
+        onChange={onChange}
+        onPersist={async () => true}
+      />,
+    );
+    const workbook = univerMock.workbooks[0];
+
+    await act(async () => {
+      univerMock.api?.commandListener?.({
+        id: "sheet.operation.set-scroll",
+        type: 1,
+        params: { unitId: workbook.getId() },
+      });
+      await Promise.resolve();
+    });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(workbook.save).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("writes sparse cell mutations without saving the whole Univer workbook", async () => {
+    const doc = new Y.Doc();
+    seedSpreadsheetDoc(doc);
+    const view = render(
+      <SpreadsheetEditor
+        path="large.lattice-sheet"
+        source=""
+        onChange={vi.fn()}
+        onPersist={async () => true}
+        collab={{ doc, awareness: null, user: null, canWrite: true }}
+      />,
+    );
+    const workbook = univerMock.workbooks[0];
+    workbook.save.mockClear();
+    workbook.data.sheets[workbook.sheet.getSheetId()].cellData[0] = { 0: { v: "fast", t: 1 } };
+
+    await act(async () => {
+      dispatchWorkbookMutation(workbook, { 0: { 0: { v: "fast", t: 1 } } });
+      await Promise.resolve();
+    });
+
+    expect(readSpreadsheet(doc, { range: "A1", include: ["values"] }).values).toEqual([["fast"]]);
+    expect(workbook.save).not.toHaveBeenCalled();
+    view.unmount();
+    doc.destroy();
   });
 
   it("exports the current workbook as a binary Excel file", async () => {
@@ -628,7 +723,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
 
     displayedSheet.name = "Changed";
     await act(async () => {
-      univerMock.api?.commandListener?.();
+      dispatchWorkbookMutation(univerMock.workbooks[univerMock.workbooks.length - 1]);
       await Promise.resolve();
     });
     await waitFor(() => expect(onChange).toHaveBeenCalled());
@@ -761,7 +856,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     sheet.cellData[0] = { 0: { v: "local", t: 1 } };
 
     await act(async () => {
-      univerMock.api?.commandListener?.();
+      dispatchWorkbookMutation(workbook, { 0: { 0: { v: "local", t: 1 } } });
       applySpreadsheetBatch(doc, {
         operations: [{ type: "set_values", range: "B1", values: [["remote"]] }],
       });

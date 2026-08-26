@@ -9,6 +9,7 @@ import * as Y from "yjs";
 import {
   BorderStyleTypes,
   ColorKit,
+  CommandType,
   DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
   IConfirmService,
   invertColorByMatrix,
@@ -45,12 +46,14 @@ import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
 import { a1Range, parseA1Range } from "./spreadsheet-operations";
 import type {
+  SpreadsheetCellData,
   SpreadsheetPresence,
   SpreadsheetPresenceUser,
   SpreadsheetWorkbookData,
 } from "./spreadsheet-types";
 import {
   SPREADSHEET_LOCAL_ORIGIN,
+  applySpreadsheetCellChanges,
   reconcileSpreadsheetDocChanges,
   replaceSpreadsheetDocFromSource,
   seedSpreadsheetDoc,
@@ -59,10 +62,12 @@ import {
 } from "./spreadsheet-yjs";
 
 const SERIALIZE_DEBOUNCE_MS = 300;
+const SERIALIZE_IDLE_TIMEOUT_MS = 1_000;
 const PRESENCE_THROTTLE_MS = 100;
 const SPREADSHEET_PRESENCE_FIELD = "spreadsheetPresence";
 const SPREADSHEET_AGENT_PRESENCE_FIELD = "spreadsheetAgentPresence";
 const SPREADSHEET_SOURCE = "Spreadsheet";
+const SET_RANGE_VALUES_MUTATION = "sheet.mutation.set-range-values";
 const SPREADSHEET_FORMULAS_MENU_ID = "lattice.spreadsheet.formulas";
 const SPREADSHEET_EXPORT_MENU_ID = "lattice.spreadsheet.export-xlsx";
 const SPREADSHEET_FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
@@ -646,17 +651,16 @@ function structureFingerprint(workbook: SpreadsheetWorkbookData): string {
 
 function workbookViewState(workbook: FWorkbook): SpreadsheetFileViewState {
   const activeSheet = workbook.getActiveSheet();
-  const snapshot = asWorkbookData(workbook.save());
   return {
     activeSheetId: activeSheet.getSheetId(),
     activeRange: activeSheet.getActiveRange()?.getA1Notation(),
     activeCell: activeSheet.getActiveCell()?.getA1Notation(),
-    sheets: Object.fromEntries(snapshot.sheetOrder.map((sheetId) => {
-      const sheet = snapshot.sheets[sheetId];
-      return [sheetId, {
-        zoomRatio: sheet.zoomRatio,
-        scrollTop: sheet.scrollTop,
-        scrollLeft: sheet.scrollLeft,
+    sheets: Object.fromEntries(workbook.getSheets().map((sheet) => {
+      const { scrollTop, scrollLeft } = sheet.getSheet().getScrollLeftTopFromSnapshot();
+      return [sheet.getSheetId(), {
+        zoomRatio: sheet.getZoom(),
+        scrollTop,
+        scrollLeft,
       }];
     })),
   };
@@ -703,6 +707,56 @@ function changedCells(
     }
   }
   return changed;
+}
+
+type LocalCellChange = {
+  row: number;
+  column: number;
+  previous: SpreadsheetCellData | null;
+  next: SpreadsheetCellData | null;
+};
+
+function localCellMutation(
+  id: string,
+  params: unknown,
+  workbook: FWorkbook,
+  snapshot: SpreadsheetWorkbookData,
+): { sheetId: string; changes: LocalCellChange[] } | null {
+  if (id !== SET_RANGE_VALUES_MUTATION || !isRecord(params)) return null;
+  const sheetId = params.subUnitId;
+  if (typeof sheetId !== "string" || !isRecord(params.cellValue)) return null;
+  const worksheet = workbook.getSheetBySheetId(sheetId);
+  const snapshotSheet = snapshot.sheets[sheetId];
+  if (!worksheet || !snapshotSheet) return null;
+  const changes: LocalCellChange[] = [];
+  for (const [rowKey, columns] of Object.entries(params.cellValue)) {
+    const row = Number(rowKey);
+    if (!Number.isSafeInteger(row) || row < 0 || row >= snapshotSheet.rowCount || !isRecord(columns)) return null;
+    for (const columnKey of Object.keys(columns)) {
+      const column = Number(columnKey);
+      if (!Number.isSafeInteger(column) || column < 0 || column >= snapshotSheet.columnCount) return null;
+      const previous = snapshotSheet.cellData[row]?.[column] ?? null;
+      const rawNext = worksheet.getSheet().getCellRaw(row, column);
+      const next = isRecord(rawNext) ? clone(rawNext) as SpreadsheetCellData : null;
+      // A new style ID requires the workbook style catalog from a full save.
+      if (!sameJson(previous?.s, next?.s)) return null;
+      if (!sameJson(previous, next)) changes.push({ row, column, previous, next });
+    }
+  }
+  return { sheetId, changes };
+}
+
+function updateSnapshotCells(sheet: SpreadsheetWorkbookData["sheets"][string], changes: LocalCellChange[]): void {
+  for (const { row, column, next } of changes) {
+    if (next) {
+      (sheet.cellData[row] ??= {})[column] = clone(next);
+      continue;
+    }
+    const cells = sheet.cellData[row];
+    if (!cells) continue;
+    delete cells[column];
+    if (Object.keys(cells).length === 0) delete sheet.cellData[row];
+  }
 }
 
 async function applyWorkbookPermission(workbook: FWorkbook, canWrite: boolean): Promise<void> {
@@ -937,6 +991,7 @@ function SpreadsheetEditorSurface({
   const exportExcelRef = useRef<() => void>(() => {});
   const permissionGenerationRef = useRef(0);
   const flushRef = useRef<() => void>(() => {});
+  const localSourceRef = useRef(source);
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
   const [overlayTick, setOverlayTick] = useState(0);
   const [functionsPanelOpen, setFunctionsPanelOpen] = useState(false);
@@ -1024,8 +1079,10 @@ function SpreadsheetEditorSurface({
   useEffect(() => {
     if (collab?.doc || !localDoc) return;
     if (!source.trim()) return;
+    if (source === localSourceRef.current) return;
     const current = spreadsheetDocContent(localDoc);
     if (source !== current) replaceSpreadsheetDocFromSource(localDoc, source);
+    localSourceRef.current = source;
   }, [collab?.doc, localDoc, source]);
 
   useEffect(() => {
@@ -1192,9 +1249,25 @@ function SpreadsheetEditorSurface({
     };
     doc.on("afterTransaction", onTransaction);
 
-    const commandListener = univerAPI.onCommandExecuted(() => {
+    const commandListener = univerAPI.onCommandExecuted((command) => {
       scheduleViewState();
+      const commandUnitId = (command.params as { unitId?: unknown } | undefined)?.unitId;
+      if (
+        command.type !== CommandType.MUTATION
+        || (commandUnitId !== undefined && commandUnitId !== workbook.getId())
+      ) return;
       if (applyingRemote || localSyncQueued || !canWriteRef.current) return;
+      const cellMutation = localCellMutation(command.id, command.params, workbook, renderedSnapshot);
+      if (cellMutation && applySpreadsheetCellChanges(
+        doc,
+        renderedSnapshot.sheets[cellMutation.sheetId],
+        cellMutation.changes,
+        SPREADSHEET_LOCAL_ORIGIN,
+      )) {
+        updateSnapshotCells(renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes);
+        if (remoteSyncQueued) applyRemoteSnapshot();
+        return;
+      }
       localSyncQueued = true;
       queueMicrotask(() => {
         localSyncQueued = false;
@@ -1266,20 +1339,42 @@ function SpreadsheetEditorSurface({
       return;
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const flush = () => {
+    let idle: number | null = null;
+    const usesIdleCallback = typeof window.requestIdleCallback === "function";
+    const cancelScheduled = () => {
       if (timer !== null) clearTimeout(timer);
       timer = null;
-      onChangeRef.current(spreadsheetDocContent(localDoc));
+      if (idle === null) return;
+      if (usesIdleCallback) window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+      idle = null;
+    };
+    const flush = () => {
+      cancelScheduled();
+      const content = spreadsheetDocContent(localDoc);
+      localSourceRef.current = content;
+      onChangeRef.current(content);
+    };
+    const flushWhenIdle = () => {
+      idle = null;
+      flush();
     };
     const onUpdate = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(flush, SERIALIZE_DEBOUNCE_MS);
+      cancelScheduled();
+      timer = setTimeout(() => {
+        timer = null;
+        // Canonical source generation still walks every row. Keep that work
+        // out of active typing and scrolling while preserving explicit flushes.
+        idle = usesIdleCallback
+          ? window.requestIdleCallback(flushWhenIdle, { timeout: SERIALIZE_IDLE_TIMEOUT_MS })
+          : window.setTimeout(flushWhenIdle, 0);
+      }, SERIALIZE_DEBOUNCE_MS);
     };
     localDoc.on("update", onUpdate);
-    flushRef.current = () => { if (timer !== null) flush(); };
+    flushRef.current = () => { if (timer !== null || idle !== null) flush(); };
     return () => {
       localDoc.off("update", onUpdate);
-      if (timer !== null) flush();
+      if (timer !== null || idle !== null) flush();
       flushRef.current = () => {};
     };
   }, [collab?.doc, localDoc]);

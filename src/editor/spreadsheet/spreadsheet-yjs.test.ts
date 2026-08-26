@@ -7,6 +7,7 @@ import {
   readSpreadsheet,
 } from "./spreadsheet-operations";
 import {
+  applySpreadsheetCellChanges,
   createDefaultSpreadsheet,
   parseSpreadsheetFile,
   reconcileSpreadsheetDoc,
@@ -141,6 +142,29 @@ describe("spreadsheet Yjs model", () => {
       ["local", null],
       [null, "remote"],
     ]);
+  });
+
+  it("applies sparse local cells by stable row ID and preserves remote fields", () => {
+    const doc = new Y.Doc();
+    seedSpreadsheetDoc(doc);
+    const previous = spreadsheetSnapshotFromDoc(doc);
+    const sheet = previous.sheets[previous.sheetOrder[0]];
+
+    applySpreadsheetBatch(doc, { operations: [
+      { type: "insert_rows", before: 1, count: 1 },
+      { type: "format_range", range: "A2", format: { bold: true } },
+    ] });
+    expect(applySpreadsheetCellChanges(doc, sheet, [{
+      row: 0,
+      column: 0,
+      previous: null,
+      next: { v: "local", t: 1 },
+    }])).toBe(true);
+
+    expect(readSpreadsheet(doc, { range: "A1:A2", include: ["values", "formats"] })).toMatchObject({
+      values: [[null], ["local"]],
+      formats: [[null], [{ bl: 1 }]],
+    });
   });
 
   it("applies a whole Agent batch as one transaction", () => {

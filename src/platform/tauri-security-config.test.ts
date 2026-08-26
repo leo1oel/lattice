@@ -152,7 +152,8 @@ describe("Tauri security boundary", () => {
     expect(rustApp).toContain("chromium_packaged");
     expect(browserHost).toContain(".open_url(url)?");
     expect(chromiumRuntime).toContain(".stdin(Stdio::piped())");
-    expect(chromiumRuntime).toContain("encode_open_url(url)");
+    expect(chromiumRuntime).toContain("self.send(&ShellMessage::OpenUrl { url })");
+    expect(chromiumRuntime).toContain("let message = encode_message(message)?");
     expect(chromiumRuntime).not.toContain(".arg(url)");
     expect(chromiumShell).toContain("sandbox: true");
     expect(chromiumShell).toContain("contextIsolation: true");
