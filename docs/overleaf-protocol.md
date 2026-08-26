@@ -33,6 +33,9 @@ invent a pin.**
 | [`katzper-michno/overleaf-sync-rs`](https://github.com/katzper-michno/overleaf-sync-rs) | **Unknown.** Older references may use the former owner path `km1chno/overleaf-sync-rs`, which redirects. | [`f884f07e`](https://github.com/katzper-michno/overleaf-sync-rs/tree/f884f07e06bd5b3750352fe845e956853025d5ab): [`olsync/src/overleaf_client.rs`](https://github.com/katzper-michno/overleaf-sync-rs/blob/f884f07e06bd5b3750352fe845e956853025d5ab/olsync/src/overleaf_client.rs), [`olsync/src/auth.rs`](https://github.com/katzper-michno/overleaf-sync-rs/blob/f884f07e06bd5b3750352fe845e956853025d5ab/olsync/src/auth.rs), [`socketio-client/src/client.py`](https://github.com/katzper-michno/overleaf-sync-rs/blob/f884f07e06bd5b3750352fe845e956853025d5ab/socketio-client/src/client.py). Still the default-branch head on 2026-07-30. | MIT | Secondary reference for session, project and sync request shapes. Not a crate or a vendored dependency. |
 | Official [`overleaf/overleaf`](https://github.com/overleaf/overleaf) server | **Unknown.** | [`28ad3b03`](https://github.com/overleaf/overleaf/tree/28ad3b03b71cb4311decdcb55c36b33ec10d72db), default-branch head verified 2026-07-30. Entry points: [`services/web/app/src/router.mjs`](https://github.com/overleaf/overleaf/blob/28ad3b03b71cb4311decdcb55c36b33ec10d72db/services/web/app/src/router.mjs), [`EditorRouter.mjs`](https://github.com/overleaf/overleaf/blob/28ad3b03b71cb4311decdcb55c36b33ec10d72db/services/web/app/src/Features/Editor/EditorRouter.mjs). | AGPL-3.0 | Authoritative evidence for Community Edition routes and payload handling. It does **not** prove Overleaf Cloud exposes an identical or stable contract. |
 
+The local-project upload contract was separately verified against official commit [`6323fddbd8e584b76cf42a65faa15600d5ff218f`](https://github.com/overleaf/overleaf/tree/6323fddbd8e584b76cf42a65faa15600d5ff218f) from 2026-06-17.
+The relevant evidence is [`UploadsRouter.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/UploadsRouter.mjs#L20-L28), [`ProjectUploadController.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/ProjectUploadController.mjs#L39-L77), and Overleaf's own [`use-project-uploader.tsx`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/frontend/js/features/project-list/hooks/use-project-uploader.tsx#L19-L95).
+
 One provenance gap has no candidate at all: `src/overleaf/ot-document.ts` says
 its client state mirrors the ShareJS client Overleaf uses, but no repository,
 version or commit for that reference was recorded. Keep it **unknown** rather
@@ -125,11 +128,17 @@ purpose.
   legacy project-list meta tags, including HTML entity decoding.
 - Mutating HTTP requests carry the CSRF value from the same authenticated
   origin.
+- Creating a project from local files uses `POST /project/new/upload` with
+  multipart fields `name` and `qqfile`; success is identified by the returned
+  `project_id`, not by a redirect.
+- The initial upload archive contains the same filtered file set as ordinary
+  synchronization, and local sync state is written only after Overleaf confirms
+  project creation.
 - A project ZIP is one downloaded snapshot. A later history version must never
   be recorded as the version that ZIP represents.
-- Per-file upload requires a valid folder id. The temporary anchor-folder
-  workaround and its cleanup are one compatibility path; replacing it needs a
-  tested root-folder-id path *and* a safe fallback.
+- Per-file upload requires the real root folder id returned by `joinProject`.
+  The realtime connect command persists it before announcing that the channel is live, and the first automatic sync waits for that result.
+  Upload paths are project-relative and must never contain `..`; Overleaf Cloud rejects traversal even when an older server happened to normalize it.
 
 ### Realtime transport
 

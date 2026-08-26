@@ -149,6 +149,14 @@ msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgstr "{installedProduct} 安装完成，但 Lattice 无法验证：\n"
 "{0}"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
+msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它。"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
+msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留这些文件。"
+
 #: src/project/navigator.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}。打开通知"
@@ -1104,6 +1112,12 @@ msgstr "无法在浏览器中打开文章"
 msgid "Could not open the Overleaf project"
 msgstr "无法打开该 Overleaf 项目"
 
+#. placeholder {0}: entry.path
+#. placeholder {1}: toMessage(reason)
+#: src/app/use-overleaf-workspace.ts
+msgid "Could not remove {0} from Overleaf: {1}"
+msgstr "无法从 Overleaf 删除 {0}：{1}"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not render page {pageNumber}. {pageError}"
 msgstr "无法渲染第 {pageNumber} 页。{pageError}"
@@ -1113,6 +1127,10 @@ msgstr "无法渲染第 {pageNumber} 页。{pageError}"
 msgid "Could not render these changes: {0}"
 msgstr "无法渲染这些更改：{0}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Could not upload the project to Overleaf"
+msgstr "无法将项目上传到 Overleaf"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t check for updates"
 msgstr "无法检查更新"
@@ -1120,6 +1138,10 @@ msgstr "无法检查更新"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "无法安装更新"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Create a new Overleaf project and keep this folder connected to it."
+msgstr "创建新的 Overleaf 项目，并让此文件夹与其保持连接。"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -1194,6 +1216,7 @@ msgstr "度"
 msgid "Delete"
 msgstr "删除"
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "同时在 Overleaf 上删除"
@@ -2640,6 +2663,10 @@ msgstr "新建文件夹"
 msgid "New name"
 msgstr "新名称"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "New Overleaf project name"
+msgstr "新 Overleaf 项目名称"
+
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
@@ -3290,6 +3317,10 @@ msgstr "项目恢复"
 msgid "Project restored."
 msgstr "项目已恢复。"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Project uploaded and connected to Overleaf."
+msgstr "项目已上传并连接到 Overleaf。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Proof"
 msgstr "证明"
@@ -3362,6 +3393,10 @@ msgstr "实部"
 msgid "Recent projects"
 msgstr "最近使用的项目"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Reconnect to Overleaf"
+msgstr "重新连接 Overleaf"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "引用"
@@ -3396,6 +3431,11 @@ msgstr "此预览中无法使用项目相对链接"
 msgid "Remove"
 msgstr "移除"
 
+#. placeholder {0}: known.length
+#: src/app/use-overleaf-workspace.ts
+msgid "Remove {0} files from the Overleaf project?"
+msgstr "从 Overleaf 项目中删除 {0} 个文件？"
+
 #. placeholder {0}: record.projectInstanceId
 #: src/collab/collab-dialog.tsx
 msgid "Remove {0} from recent shares"
@@ -3421,6 +3461,10 @@ msgstr "移除 {title}"
 msgid "Remove {word} from project dictionary"
 msgstr "从项目词典中移除 {word}"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Remove one file from the Overleaf project?"
+msgstr "从 Overleaf 项目中删除 1 个文件？"
+
 #. placeholder {0}: label.comment
 #: src/overleaf/overleaf-history.tsx
 msgid "Remove the \"{0}\" label"
@@ -3434,6 +3478,15 @@ msgstr "要从这个 Overleaf 版本上移除“{0}”标签吗？"
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
 msgstr "已移除"
+
+#. placeholder {0}: known.length
+#: src/app/use-overleaf-workspace.ts
+msgid "Removed {0} files from Overleaf"
+msgstr "已从 Overleaf 删除 {0} 个文件"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Removed one file from Overleaf"
+msgstr "已从 Overleaf 删除 1 个文件"
 
 #: src/settings/settings-dialog.tsx
 msgid "Removes .aux, .log, and other build leftovers from this project."
@@ -4575,9 +4628,34 @@ msgstr "更新参考文献条目以及整个项目中的每个 \\cite。"
 msgid "Updating…"
 msgstr "正在更新…"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload “{name}” to Overleaf and connect this folder?\n"
+"\n"
+"Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
+msgstr "将“{name}”上传到 Overleaf 并连接此文件夹？\n"
+"\n"
+"Lattice 会使用通常参与同步的文件创建一个新的 Overleaf 项目。Lattice 应用数据、保存的账户凭据、构建输出和 Git 历史记录仍保留在这台 Mac 上。"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload and connect"
+msgstr "上传并连接"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload this project to Overleaf"
+msgstr "将此项目上传到 Overleaf"
+
+#. placeholder {0}: publishName.trim()
+#: src/overleaf/overleaf-connect.tsx
+msgid "Uploading {0} to Overleaf… this can take a minute for large projects."
+msgstr "正在将 {0} 上传到 Overleaf…大型项目可能需要一分钟。"
+
 #: src/app/use-collab-v2-session.ts
 msgid "Uploading project files… {completed}/{total}"
 msgstr "正在上传项目文件… {completed}/{total}"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Uploading…"
+msgstr "正在上传…"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Upright text in math"
@@ -4795,8 +4873,8 @@ msgid "You are in a shared workspace. Leave share returns you to your previous p
 msgstr "你正在共享工作区中。“离开共享”会返回之前的项目；主持人会继续共享。"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "You can close this once the download finishes"
-msgstr "下载完成后即可关闭此面板"
+msgid "You can close this once the transfer finishes"
+msgstr "传输完成后即可关闭此面板"
 
 #: src/collab/collab-dialog.tsx
 msgid "You started this share. "
@@ -4825,6 +4903,10 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 msgstr "你还没有连接 Overleaf 账户。连接一次之后，你 Overleaf 账户下的所有项目都会显示在这里，随时可以在 Lattice 中打开。"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged."
+msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件和已有项目连接均未发生更改。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"

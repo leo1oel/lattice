@@ -16,6 +16,8 @@ import {
 } from "./visual-editor-block-controls";
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
+import { getParseHealth, resetParseHealth } from "../../open-knowledge-core/metrics/parse-health";
+import { parseWithFallback } from "../../open-knowledge-core/markdown/parse-with-fallback";
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
 const opener = vi.hoisted(() => ({ openUrl: vi.fn(async () => undefined) }));
 vi.mock("../../telemetry/app-notify", async (importOriginal) => ({
@@ -4376,11 +4378,45 @@ describe("VisualMarkdownEditor", () => {
     // making its own call from the round trip: this minimal document happens
     // to be lossless, a real PDF paper usually is not and locks to source
     // mode.
-    const source = "# UNIC\n\nBefore the break.\n\nvalue = {0|150|never closed\n\nAfter the break.\n";
+    const source = "# UNIC quiet fallback\n\nBefore the break.\n\nvalue = {0|150|never closed\n\nAfter the break.\n";
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     renderEditor(source);
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(surface.textContent).toContain("Before the break."));
     expect(surface.textContent).toContain("After the break.");
+    expect(consoleWarn.mock.calls.some((call) => String(call[0]).includes(
+      "editor-mdast-parse-failed",
+    ))).toBe(false);
+    consoleWarn.mockRestore();
+  });
+
+  it("records recovered malformed MDX without flooding the application log", () => {
+    resetParseHealth();
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const source = "Before\n\nbroken MDX\n\nAfter";
+
+    const parsed = parseWithFallback(source, {
+      parse: (markdown) => {
+        const offset = markdown.indexOf("broken MDX");
+        if (offset !== -1) {
+          const error = new Error("Malformed MDX") as Error & { position: { offset: number } };
+          error.position = { offset };
+          throw error;
+        }
+        return {
+          type: "doc",
+          content: markdown ? [{ type: "paragraph", content: [{ type: "text", text: markdown }] }] : [],
+        };
+      },
+    });
+
+    expect(parsed.content?.some((node) => node.type === "rawMdxFallback")).toBe(true);
+    expect(getParseHealth().parseFallback.blockLevel).toBeGreaterThan(0);
+    expect(consoleWarn.mock.calls.some((call) => String(call[0]).includes(
+      "mdx-block-fallback",
+    ))).toBe(false);
+    consoleWarn.mockRestore();
+    resetParseHealth();
   });
 
   it("pairs multiple inline latex spans across a misparsed emphasis run", () => {

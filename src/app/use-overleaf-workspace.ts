@@ -6,6 +6,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -137,6 +138,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafSyncSettledRef,
     resolveOverleafSyncRef,
   } = deps;
+  const { t } = useLingui();
 
   const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
   // The link is stored with the root it was fetched for, and only counts while
@@ -144,12 +146,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // render where `project` already holds the new root but this state still
   // holds the previous project's link; trusting the raw state in that window
   // sent auto-sync at the new, unlinked project ("Sync failed: This project is
-  // not linked to an Overleaf project.").
-  const [overleafLinkFor, setOverleafLinkFor] = useState<{ root: string; link: OverleafLink } | null>(null);
+  // not linked to an Overleaf project."). Keep inactive links too, so a paused
+  // link or a folder whose account is disconnected is not offered for upload
+  // as a second Overleaf project.
+  const [overleafLinkFor, setOverleafLinkFor] = useState<{
+    root: string;
+    link: OverleafLink;
+    active: boolean;
+  } | null>(null);
   const overleafLinkLoadGenerationRef = useRef(0);
-  const overleafLink = overleafLinkFor && overleafLinkFor.root === project?.root
-    ? overleafLinkFor.link
+  const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
+  const overleafLink = currentOverleafLink?.active
+    ? currentOverleafLink.link
     : null;
+  const overleafProjectLinked = currentOverleafLink !== null;
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(
@@ -200,16 +210,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   // ---- Overleaf bridge -----------------------------------------------------
 
-  /**
-   * A paused link reads as no link at all here, which is what everything
-   * downstream means by it: the toolbar cloud, auto-sync, the live channel,
-   * chat, collaborators and the comment threads should all be off. Settings
-   * reads the link itself, so it still sees the project and can resume it.
-   */
-  const activeLink = (link: OverleafLink | null | undefined) => (
-    link && !link.paused ? link : null
-  );
-
   // Know whether the open project is linked to an Overleaf project (cloned via
   // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
   useEffect(() => {
@@ -223,13 +223,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       invoke<OverleafLink | null>("overleaf_link"),
     ])
       .then(([status, link]) => {
-        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
-          ? activeLink(link)
-          : null;
         if (!cancelled && generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(active ? {
+          setOverleafLinkFor(link ? {
             root,
-            link: { ...active, host: active.host.trim() || status.host.trim() },
+            link: { ...link, host: link.host.trim() || status.host.trim() },
+            active: status.connected
+              && !link.paused
+              && overleafLinkMatchesSession(status.host, link.host),
           } : null);
         }
       })
@@ -260,12 +260,12 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           projectRef.current?.root !== root
           || generation !== overleafLinkLoadGenerationRef.current
         ) return;
-        const active = status.connected && link && overleafLinkMatchesSession(status.host, link.host)
-          ? activeLink(link)
-          : null;
-        setOverleafLinkFor(active ? {
+        setOverleafLinkFor(link ? {
           root,
-          link: { ...active, host: active.host.trim() || status.host.trim() },
+          link: { ...link, host: link.host.trim() || status.host.trim() },
+          active: status.connected
+            && !link.paused
+            && overleafLinkMatchesSession(status.host, link.host),
         } : null);
       })
       .catch(() => {
@@ -276,6 +276,50 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // The refs arrive through `deps`, so the lint rule cannot see that they are
     // `useRef` results with a stable identity; listing them changes nothing.
   }, [projectRef]);
+
+  const publishProjectToOverleaf = useCallback(async (projectName: string): Promise<boolean> => {
+    if (!project || overleafSyncingRef.current) return false;
+    const publishRoot = project.root;
+    const publishGeneration = projectOperationGenerationRef.current;
+    const stillCurrent = () => (
+      projectOperationGenerationRef.current === publishGeneration
+      && projectRef.current?.root === publishRoot
+    );
+    overleafSyncingRef.current = true;
+    setOverleafSyncing(true);
+    // Publishing mutates Overleaf and writes the local sync baseline. Give a
+    // project switch the same settlement gate as ordinary sync so the request
+    // cannot finish against a workspace the window has already left.
+    overleafSyncSettledRef.current = new Promise<void>((resolve) => {
+      resolveOverleafSyncRef.current = resolve;
+    });
+    const publish = save().then(async (saved) => {
+      if (!saved || !stillCurrent()) return false;
+      const link = await invoke<OverleafLink>("overleaf_publish_project", {
+        projectRoot: publishRoot,
+        projectName,
+      });
+      if (!stillCurrent()) return false;
+      setOverleafLinkFor({ root: publishRoot, link, active: true });
+      return true;
+    });
+    return publish.finally(() => {
+      overleafSyncingRef.current = false;
+      setOverleafSyncing(false);
+      const settle = resolveOverleafSyncRef.current;
+      resolveOverleafSyncRef.current = null;
+      overleafSyncSettledRef.current = null;
+      settle?.();
+    });
+  }, [
+    overleafSyncSettledRef,
+    overleafSyncingRef,
+    project,
+    projectOperationGenerationRef,
+    projectRef,
+    resolveOverleafSyncRef,
+    save,
+  ]);
 
   const openCurrentOverleafProject = useCallback(() => {
     if (!overleafLink) return;
@@ -323,10 +367,16 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     if (!known.length) return;
     if (!automatic && policy === "ask") {
       const names = known.map((entry) => entry.path).join(", ");
-      const removeThem = await confirmAction(
-        `${names} ${known.length === 1 ? "is" : "are"} gone here but still on Overleaf.\n\n`
-        + "Remove them from the Overleaf project too? Overleaf's history keeps them either way.",
-      );
+      const removeThem = await confirmAction({
+        title: known.length === 1
+          ? t`Remove one file from the Overleaf project?`
+          : t({ message: `Remove ${known.length} files from the Overleaf project?` }),
+        message: known.length === 1
+          ? t({ message: `${names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it.` })
+          : t({ message: `${names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them.` }),
+        confirmLabel: t`Delete on Overleaf too`,
+        destructive: true,
+      });
       if (!removeThem || !stillCurrent()) return;
     }
     for (const entry of known) {
@@ -339,15 +389,17 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         });
       } catch (reason) {
         if (stillCurrent()) {
-          setError(`Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}`);
+          setError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
         }
         return;
       }
     }
     if (stillCurrent() && !automatic) {
-      setNotice(`Removed ${known.length} file${known.length === 1 ? "" : "s"} from Overleaf too`);
+      setNotice(known.length === 1
+        ? t`Removed one file from Overleaf`
+        : t({ message: `Removed ${known.length} files from Overleaf` }), "Overleaf");
     }
-  }, [projectOperationGenerationRef, projectRef]);
+  }, [projectOperationGenerationRef, projectRef, t]);
 
   const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
     if (!project || overleafSyncingRef.current) return;
@@ -544,15 +596,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     sourceRef,
   ]);
 
-  // First open after launch pulls collaborators' Overleaf edits automatically.
-  useEffect(() => {
-    if (!overleafLink || !project?.root) return;
-    if (overleafAutoSyncedRoot.current === project.root) return;
-    overleafAutoSyncedRoot.current = project.root;
-    lastAutoSyncRef.current = Date.now();
-    void runOverleafSync({ auto: true });
-  }, [overleafLink, project?.root, runOverleafSync]);
-
   // Live mode keeps a linked project close to current without anyone pressing
   // anything. Asking Overleaf "has your history moved?" is a small JSON call,
   // so it can run every few seconds; the expensive full sync only follows when
@@ -657,6 +700,23 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     && overleafSyncMode === "live"
     && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.livePaths;
+
+  // First open after launch pulls collaborators' Overleaf edits automatically.
+  // Wait for joinProject to finish first: it records the root folder id that
+  // per-file uploads require, so the first sync cannot race the only source of
+  // that id when this project has local files to push. A terminal realtime
+  // error still falls back to ordinary sync, which can continue pulling.
+  useEffect(() => {
+    if (
+      !overleafLink
+      || !project?.root
+      || !["live", "error"].includes(overleafRealtime.status)
+    ) return;
+    if (overleafAutoSyncedRoot.current === project.root) return;
+    overleafAutoSyncedRoot.current = project.root;
+    lastAutoSyncRef.current = Date.now();
+    void runOverleafSync({ auto: true });
+  }, [overleafLink, overleafRealtime.status, project?.root, runOverleafSync]);
 
   // Who else is in the Overleaf project, and where. Two things the presence
   // hook cannot get anywhere else ride the same channel: our own connection
@@ -940,6 +1000,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   return {
     overleafLink,
+    overleafProjectLinked,
     overleafSyncing,
     overleafSyncMode,
     setOverleafSyncMode,
@@ -960,6 +1021,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     /** Read by callers that must reach the newest sync without re-subscribing. */
     overleafSyncRef,
     refreshOverleafLink,
+    publishProjectToOverleaf,
     runOverleafSync,
     settleRemoteDeletes,
     openCurrentOverleafProject,

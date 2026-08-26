@@ -65,6 +65,36 @@
 .overleaf-picker-modal .overleaf-waiting,
 .overleaf-picker-modal .overleaf-connect-row { margin-top: var(--space-2); }
 
+.overleaf-publish-card {
+  margin-bottom: var(--drawer-section-gap);
+  padding: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-panel);
+}
+.overleaf-publish-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tight);
+  margin-bottom: var(--space-5);
+}
+.overleaf-publish-copy strong {
+  color: var(--text-primary);
+  font-size: var(--type-label-size);
+}
+.overleaf-publish-copy span {
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+  line-height: 1.5;
+}
+.overleaf-publish-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.overleaf-publish-actions .ui-input { flex: 1 1 auto; min-width: 0; }
+.overleaf-publish-actions .ui-button { flex: none; }
+
 .overleaf-picker-controls { display: flex; align-items: center; gap: var(--space-6); }
 .overleaf-search { flex: 1 1 auto; }
 /* Keep the shared inline checkbox beside the search field. */

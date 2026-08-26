@@ -2349,6 +2349,27 @@ async fn overleaf_clone_project(
     Ok(root.to_string_lossy().to_string())
 }
 
+/// Publish the currently open local project to a new Overleaf project, then
+/// keep this same folder as its synchronized working copy.
+#[tauri::command]
+async fn overleaf_publish_project(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    project_name: String,
+) -> Result<overleaf::OverleafLink, String> {
+    let project = state.project(Path::new(&project_root));
+    let _lease = project.overleaf_sync_lease.write().await;
+    let config = overleaf_config_dir(&app)?;
+    let root = scoped_root(&state, &window, &project_root)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::publish_project(&config, &root, &project_name)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf upload stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 async fn overleaf_link(
     state: tauri::State<'_, AppState>,
@@ -2505,6 +2526,23 @@ async fn overleaf_rt_connect(
         client.shutdown();
         return Err("A newer Overleaf connection replaced this one.".to_string());
     }
+    // `joinProject` is the only source for the root folder id required by the
+    // REST uploader. Persist it before this command returns: the frontend marks
+    // the channel live on return, and its first automatic sync may start in the
+    // same render. The project lease serializes this write with any manual sync
+    // that was already under way.
+    let root_folder_id = client.project().root_folder_id.clone();
+    let permission = client.project().permission.as_str().to_string();
+    let _lease = project.overleaf_sync_lease.write().await;
+    if current_root(&state, &window)? != root {
+        return Err("The project changed before Overleaf could finish connecting.".to_string());
+    }
+    let metadata_root = root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::set_realtime_metadata(&metadata_root, &root_folder_id, &permission)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf metadata update stopped unexpectedly: {error}"))??;
     Ok(joined)
 }
 
@@ -4163,6 +4201,7 @@ pub fn run() {
             overleaf_disconnect,
             overleaf_list_projects,
             overleaf_clone_project,
+            overleaf_publish_project,
             overleaf_link,
             overleaf_probe,
             overleaf_rt_connect,

@@ -3673,6 +3673,7 @@ function App() {
   // loadFile and refreshProject, all of which are declared above.
   const {
     overleafLink,
+    overleafProjectLinked,
     overleafSyncing,
     overleafSyncMode,
     setOverleafSyncMode,
@@ -3692,6 +3693,7 @@ function App() {
     setConflictPath,
     overleafSyncRef,
     refreshOverleafLink,
+    publishProjectToOverleaf,
     runOverleafSync,
     settleRemoteDeletes,
     openCurrentOverleafProject,
@@ -7602,6 +7604,9 @@ function App() {
           setOverleafPickerOpen(false);
           void openClonedOverleafProject(root);
         }}
+        currentProject={!overleafProjectLinked && project ? { name: project.manifest.name } : null}
+        onPublish={publishProjectToOverleaf}
+        onConnectionChanged={refreshOverleafLink}
       />
     </Suspense>
   ) : null;

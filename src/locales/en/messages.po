@@ -149,6 +149,14 @@ msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
+msgstr "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
+
+#: src/app/use-overleaf-workspace.ts
+msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
+msgstr "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
+
 #: src/project/navigator.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
@@ -1104,6 +1112,12 @@ msgstr "Could not open the article in your browser"
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
 
+#. placeholder {0}: entry.path
+#. placeholder {1}: toMessage(reason)
+#: src/app/use-overleaf-workspace.ts
+msgid "Could not remove {0} from Overleaf: {1}"
+msgstr "Could not remove {0} from Overleaf: {1}"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not render page {pageNumber}. {pageError}"
 msgstr "Could not render page {pageNumber}. {pageError}"
@@ -1113,6 +1127,10 @@ msgstr "Could not render page {pageNumber}. {pageError}"
 msgid "Could not render these changes: {0}"
 msgstr "Could not render these changes: {0}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Could not upload the project to Overleaf"
+msgstr "Could not upload the project to Overleaf"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t check for updates"
 msgstr "Couldn’t check for updates"
@@ -1120,6 +1138,10 @@ msgstr "Couldn’t check for updates"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Create a new Overleaf project and keep this folder connected to it."
+msgstr "Create a new Overleaf project and keep this folder connected to it."
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -1194,6 +1216,7 @@ msgstr "Degree"
 msgid "Delete"
 msgstr "Delete"
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
@@ -2640,6 +2663,10 @@ msgstr "New folder"
 msgid "New name"
 msgstr "New name"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "New Overleaf project name"
+msgstr "New Overleaf project name"
+
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
@@ -3290,6 +3317,10 @@ msgstr "project restore"
 msgid "Project restored."
 msgstr "Project restored."
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Project uploaded and connected to Overleaf."
+msgstr "Project uploaded and connected to Overleaf."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Proof"
 msgstr "Proof"
@@ -3362,6 +3393,10 @@ msgstr "Real part"
 msgid "Recent projects"
 msgstr "Recent projects"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Reconnect to Overleaf"
+msgstr "Reconnect to Overleaf"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "Reference"
@@ -3396,6 +3431,11 @@ msgstr "Relative project links are unavailable in this preview"
 msgid "Remove"
 msgstr "Remove"
 
+#. placeholder {0}: known.length
+#: src/app/use-overleaf-workspace.ts
+msgid "Remove {0} files from the Overleaf project?"
+msgstr "Remove {0} files from the Overleaf project?"
+
 #. placeholder {0}: record.projectInstanceId
 #: src/collab/collab-dialog.tsx
 msgid "Remove {0} from recent shares"
@@ -3423,6 +3463,10 @@ msgstr "Remove {title}"
 msgid "Remove {word} from project dictionary"
 msgstr "Remove {word} from project dictionary"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Remove one file from the Overleaf project?"
+msgstr "Remove one file from the Overleaf project?"
+
 #. placeholder {0}: label.comment
 #: src/overleaf/overleaf-history.tsx
 msgid "Remove the \"{0}\" label"
@@ -3436,6 +3480,15 @@ msgstr "Remove the “{0}” label from this Overleaf version?"
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
 msgstr "removed"
+
+#. placeholder {0}: known.length
+#: src/app/use-overleaf-workspace.ts
+msgid "Removed {0} files from Overleaf"
+msgstr "Removed {0} files from Overleaf"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Removed one file from Overleaf"
+msgstr "Removed one file from Overleaf"
 
 #: src/settings/settings-dialog.tsx
 msgid "Removes .aux, .log, and other build leftovers from this project."
@@ -4579,9 +4632,34 @@ msgstr "Updates the bibliography entry and every \\cite occurrence across the pr
 msgid "Updating…"
 msgstr "Updating…"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload “{name}” to Overleaf and connect this folder?\n"
+"\n"
+"Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
+msgstr "Upload “{name}” to Overleaf and connect this folder?\n"
+"\n"
+"Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload and connect"
+msgstr "Upload and connect"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Upload this project to Overleaf"
+msgstr "Upload this project to Overleaf"
+
+#. placeholder {0}: publishName.trim()
+#: src/overleaf/overleaf-connect.tsx
+msgid "Uploading {0} to Overleaf… this can take a minute for large projects."
+msgstr "Uploading {0} to Overleaf… this can take a minute for large projects."
+
 #: src/app/use-collab-v2-session.ts
 msgid "Uploading project files… {completed}/{total}"
 msgstr "Uploading project files… {completed}/{total}"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Uploading…"
+msgstr "Uploading…"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Upright text in math"
@@ -4799,8 +4877,8 @@ msgid "You are in a shared workspace. Leave share returns you to your previous p
 msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "You can close this once the download finishes"
-msgstr "You can close this once the download finishes"
+msgid "You can close this once the transfer finishes"
+msgstr "You can close this once the transfer finishes"
 
 #: src/collab/collab-dialog.tsx
 msgid "You started this share. "
@@ -4829,6 +4907,10 @@ msgstr "your Overleaf account"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
 msgstr "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged."
+msgstr "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"

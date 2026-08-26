@@ -480,7 +480,9 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     });
     expect(savedSheet).not.toHaveProperty("defaultStyle");
     view.unmount();
-    expect(univerMock.disposed).toBe(1);
+    // Univer's nested React root must unmount after the outer React commit.
+    // Doing it synchronously here triggers React 19's nested-root race.
+    await waitFor(() => expect(univerMock.disposed).toBe(1));
   });
 
   it("preserves workbook instance without rebuild when resizing column width locally", async () => {

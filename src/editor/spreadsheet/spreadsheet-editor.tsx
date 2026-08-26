@@ -1311,7 +1311,12 @@ function SpreadsheetEditorSurface({
       doc.off("afterTransaction", onTransaction);
       apiRef.current = null;
       workbookRef.current = null;
-      univer.dispose();
+      // Univer owns a nested React root inside the host. Disposing it during
+      // this outer root's passive cleanup makes React 19 report a synchronous
+      // nested-root unmount race. Let the outer commit finish first; the host
+      // may be detached by then, but Univer can still release that root and its
+      // canvas resources on the next task.
+      setTimeout(() => univer.dispose(), 0);
     };
   }, [collab?.awareness, collab?.user, doc, i18n, interfaceLocale, path, setWorkbookPermission]);
 

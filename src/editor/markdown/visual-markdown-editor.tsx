@@ -301,7 +301,7 @@ function parseEditorMdastChildrenCached(text: string): CachedEditorMdast {
     // body so its non-emitting YAML node cannot shift every source/root pair;
     // ranges below add the envelope length back to the body-relative offsets.
     children = getMarkdownManager().parseToEditorMdast(body).children;
-  } catch (error) {
+  } catch {
     // The document itself opens through parse-with-fallback, which survives
     // MDX syntax errors, but this position probe uses the raw parser — a PDF
     // text-layer paper with an unclosed `{` throws here and was crashing the
@@ -310,10 +310,6 @@ function parseEditorMdastChildrenCached(text: string): CachedEditorMdast {
     // serialization), which is the right trade for a document that already
     // renders a rawMdxFallback block. Cached so one broken paper does not
     // re-throw on every caret move.
-    console.warn(JSON.stringify({
-      event: "editor-mdast-parse-failed",
-      reason: error instanceof Error ? error.message.slice(0, 200) : String(error),
-    }));
     children = [];
   }
   const entry = { text, children, sourceOffsetBase };

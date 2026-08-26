@@ -354,6 +354,36 @@ describe("Overleaf picker dialog", () => {
     expect(screen.queryByText("Thesis Draft")).not.toBeInTheDocument();
   });
 
+  it("uploads the current local project and keeps the dialog locked until it is linked", async () => {
+    mockConnectedPicker();
+    vi.mocked(confirm).mockResolvedValue(true);
+    let finishPublish: (published: boolean) => void = () => undefined;
+    const onPublish = vi.fn(() => new Promise<boolean>((resolve) => { finishPublish = resolve; }));
+    const onClose = vi.fn();
+    render(
+      <OverleafPickerDialog
+        open
+        currentProject={{ name: "Local Draft" }}
+        onPublish={onPublish}
+        onClose={onClose}
+        onCloned={vi.fn()}
+      />,
+    );
+    const name = await screen.findByRole("textbox", { name: "New Overleaf project name" });
+    expect(name).toHaveValue("Local Draft");
+    fireEvent.change(name, { target: { value: "Shared Draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Upload and connect" }));
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+    expect(vi.mocked(confirm).mock.calls[0]![0]).toContain("Lattice app data");
+    await waitFor(() => expect(onPublish).toHaveBeenCalledWith("Shared Draft"));
+    expect(await screen.findByText(/Uploading Shared Draft to Overleaf/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeDisabled();
+    expect(screen.getByLabelText("Search Overleaf projects")).toBeDisabled();
+    finishPublish(true);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
+
   it("hides archived projects until the checkbox is ticked", async () => {
     mockConnectedPicker();
     render(
@@ -575,6 +605,36 @@ describe("Overleaf picker dialog", () => {
     expect(await screen.findByText(/isn’t connected yet/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Connect to Overleaf/ }));
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
+  });
+
+  it("turns an expired project-list session into a guided reconnect state", async () => {
+    let listAttempts = 0;
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return connected;
+      if (command === "overleaf_list_projects") {
+        listAttempts += 1;
+        if (listAttempts === 1) {
+          throw new Error("Overleaf session expired. Reconnect in Settings → Overleaf.");
+        }
+        return projects;
+      }
+      if (command === "overleaf_begin_login") return undefined;
+      if (command === "overleaf_poll_login") return { status: "connected", session: connected };
+      if (command === "overleaf_disconnect") return undefined;
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(
+      <OverleafPickerDialog open onClose={vi.fn()} onCloned={vi.fn()} />,
+    );
+
+    expect(await screen.findByText(/Your Overleaf session has expired/)).toBeInTheDocument();
+    expect(screen.queryByText(/Reconnect in Settings/)).not.toBeInTheDocument();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_disconnect"));
+    fireEvent.click(screen.getByRole("button", { name: "Reconnect to Overleaf" }));
+
+    expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("overleaf_begin_login");
+    expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
   });
 
   it("keeps the disconnected state focused on standard sign-in", async () => {

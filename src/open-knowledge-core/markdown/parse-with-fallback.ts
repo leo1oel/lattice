@@ -95,7 +95,7 @@ export function parseRecursive(
     const payload = errorPayload(e);
     if (offset === undefined) {
       if (depth === 0) {
-        const perBlock = tryPerBlockFallback(source, parse, e, budget);
+        const perBlock = tryPerBlockFallback(source, parse, budget);
         if (perBlock) return perBlock;
       }
       incrementWholeDocFallback();
@@ -109,15 +109,10 @@ export function parseRecursive(
       return wholeDocRawText(source);
     }
 
+    // A block fallback is successful recovery, not an application warning.
+    // Keep the parse-health counter for diagnostics without routing every
+    // malformed paper fragment through the host's synchronous console logger.
     incrementBlockFallback();
-    console.warn(
-      JSON.stringify({
-        event: 'mdx-block-fallback',
-        offset,
-        reason: payload.message,
-        error: payload,
-      }),
-    );
 
     try {
       const region = findFallbackRegion(source, offset);
@@ -386,7 +381,6 @@ function splitSourceIntoBlocks(source: string): SourceBlock[] {
 function tryPerBlockFallback(
   source: string,
   parse: ParseFn,
-  originalErr: unknown,
   budget?: ParseBudget,
 ): JSONContent | null {
   const blocks = splitSourceIntoBlocks(source);
@@ -417,16 +411,6 @@ function tryPerBlockFallback(
     } catch (blockErr) {
       incrementBlockFallback();
       const blockMsg = (blockErr as Error)?.message?.slice(0, 200) ?? 'unknown block error';
-      const originalMsg = (originalErr as Error)?.message?.slice(0, 160) ?? 'unknown';
-      console.warn(
-        JSON.stringify({
-          event: 'mdx-block-fallback',
-          offset: block.start,
-          reason: `Per-block recovery after position-less error: ${originalMsg}`,
-          blockError: blockMsg,
-          blockErrorName: (blockErr as Error)?.name,
-        }),
-      );
       merged.push({
         type: 'rawMdxFallback',
         attrs: {

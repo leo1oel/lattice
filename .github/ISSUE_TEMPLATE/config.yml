@@ -1,22 +1,3 @@
-# Blank issues are disabled so every report arrives with the version, macOS
-# version, reproduction, and redaction confirmation the bug form requires.
-# Anything that is not a bug or a feature request belongs in one of the links
-# below.
-blank_issues_enabled: false
-contact_links:
-  - name: Question, idea, or "is this supposed to work like this?"
-    url: https://github.com/leo1oel/lattice/discussions
-    about: >-
-      Ask in Discussions. Usage questions, TeX setup trouble, workflow advice,
-      and half-formed ideas are all welcome there, and answers stay searchable
-      for the next person.
-  - name: Report a security vulnerability (private)
-    url: https://github.com/leo1oel/lattice/security/advisories/new
-    about: >-
-      Never file a security issue publicly. Use GitHub private vulnerability
-      reporting; the scope and response expectations are in SECURITY.md.
-  - name: Contributing guide
-    url: https://github.com/leo1oel/lattice/blob/main/CONTRIBUTING.md
-    about: >-
-      How to build Lattice, run the checks, and open a pull request — including
-      why you probably do not need to build the agent sidecar.
+# Keep the chooser focused while still allowing reports that do not fit one of
+# the structured forms. GitHub adds the security-policy entry automatically.
+blank_issues_enabled: true

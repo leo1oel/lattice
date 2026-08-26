@@ -4002,8 +4002,110 @@ describe("project workspace", () => {
     fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Open another Overleaf project" }));
     expect(await screen.findByLabelText("Open from Overleaf")).toBeInTheDocument();
+    expect(screen.queryByText("Upload this project to Overleaf")).not.toBeInTheDocument();
     expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here."))
       .toBeInTheDocument();
+  });
+
+  it("localizes confirmation and completion when removing a locally deleted Overleaf file", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
+    const snapshot = {
+      root: "/tmp/lattice-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-paper-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol-project",
+        projectName: "Overleaf paper",
+        host: "https://www.overleaf.com",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
+      }
+      if (command === "overleaf_sync") return {
+        pulled: [],
+        pushed: [],
+        merged: [],
+        conflicts: [],
+        deletedLocal: [],
+        skippedRemoteDeletes: ["results.lattice-sheet.bak"],
+        automaticRemoteDeletes: [],
+        readOnly: false,
+      };
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [{ id: "main-doc", path: "main.tex" }],
+        entities: [{
+          id: "backup-file",
+          path: "results.lattice-sheet.bak",
+          kind: "file",
+        }],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (
+        command === "overleaf_rt_disconnect"
+        || command === "overleaf_delete_entity"
+      ) return undefined;
+      if (command === "git_auto_commit") return null;
+      if (command === "harper_lint") return [];
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_rt_connect", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+    }));
+    const syncButton = await waitFor(() => {
+      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
+      expect(button).not.toBeNull();
+      expect(button).not.toBeDisabled();
+      return button!;
+    });
+    fireEvent.click(syncButton);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "从 Overleaf 项目中删除 1 个文件？",
+    });
+    expect(dialog).toHaveAccessibleDescription(
+      "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它。",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "同时在 Overleaf 上删除" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+      kind: "file",
+      entityId: "backup-file",
+    }));
+    await expectNotification(/已从 Overleaf 删除 1 个文件/);
   });
 
   it("silently removes legacy app-owned intermediates from Overleaf", async () => {

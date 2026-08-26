@@ -15,23 +15,19 @@
 //!   `first_name`, `last_name`).
 //! - `GET {host}/project/{id}/download/zip` returns the whole project as a
 //!   zip archive.
+//! - `POST {host}/project/new/upload` creates a project from a zip archive as
+//!   multipart fields `name` and `qqfile`. The JSON response carries the new
+//!   `project_id`; CSRF uses the same dashboard token as other mutations.
 //! - `POST {host}/project/{id}/upload?folder_id={folder}` uploads one file as
 //!   multipart: `name` (file name), `relativePath`, and the file part
 //!   `qqfile`. CSRF goes in the `X-Csrf-Token` header (plus `_csrf` query
 //!   param, mirroring overleaf-sync). `folder_id` is **required**: the server
 //!   reads it from the query string and answers 422 `folder_not_found` when
 //!   it is missing, so it cannot be omitted for root-level files.
-//! - The root folder id is only exposed over socket.io (`joinProject`), which
-//!   we do not speak. Instead every sync that uploads creates one uniquely
-//!   named temporary anchor folder at the project root via
-//!   `POST {host}/project/{id}/folder` (JSON `{ "name": ... }`, parent
-//!   defaults to root, response carries the new folder's `_id`), and uploads
-//!   with `folder_id=<anchor>` plus `relativePath=../<real/relative/path>`.
-//!   The server computes `Path.join('/', <anchor path>, relativePath)`, takes
-//!   its dirname and mkdirp's that — and `mkdirp('/')` is special-cased to
-//!   return the root folder — so files land at their real paths and missing
-//!   subfolders are created. The anchor is removed afterwards with
-//!   `DELETE {host}/project/{id}/folder/{anchor}`.
+//! - The root folder id is only exposed over socket.io (`joinProject`). The
+//!   realtime bridge records that id in the local link state, then REST uploads
+//!   use `folder_id=<root>` and the project-relative path verbatim. Overleaf
+//!   creates missing subfolders for nested relative paths.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -258,6 +254,10 @@ struct SyncState {
     host: String,
     project_id: String,
     project_name: String,
+    /// Root entity returned by realtime `joinProject`. Per-file REST uploads
+    /// require it; the ordinary project HTTP pages do not expose it.
+    #[serde(default)]
+    root_folder_id: Option<String>,
     #[serde(default)]
     last_sync: Option<String>,
     /// Newest history version seen on Overleaf at the last sync. Comparing a
@@ -978,6 +978,7 @@ pub fn adopt_project(
         host: session.host,
         project_id: project_id.to_string(),
         project_name: project_name.to_string(),
+        root_folder_id: None,
         last_sync: None,
         remote_version: None,
         permission: access_level.map(str::to_string),
@@ -1031,15 +1032,15 @@ fn conflict_copy_name(path: &str, stamp: &str) -> String {
 
 // ---- Uploads ----------------------------------------------------------------
 
-/// Uploads files into an Overleaf project. Nested paths need a real folder id
-/// as an anchor (see module docs), created lazily and removed afterwards.
+/// Uploads files into an Overleaf project using the root entity learned from
+/// realtime `joinProject`.
 struct Uploader<'a> {
     client: &'a reqwest::blocking::Client,
     host: &'a str,
     cookie: &'a str,
     csrf: &'a str,
     project_id: &'a str,
-    anchor_folder_id: Option<String>,
+    root_folder_id: &'a str,
 }
 
 impl<'a> Uploader<'a> {
@@ -1049,6 +1050,7 @@ impl<'a> Uploader<'a> {
         cookie: &'a str,
         csrf: &'a str,
         project_id: &'a str,
+        root_folder_id: &'a str,
     ) -> Self {
         Self {
             client,
@@ -1056,66 +1058,20 @@ impl<'a> Uploader<'a> {
             cookie,
             csrf,
             project_id,
-            anchor_folder_id: None,
+            root_folder_id,
         }
     }
 
-    fn ensure_anchor(&mut self) -> Result<String, String> {
-        if let Some(id) = &self.anchor_folder_id {
-            return Ok(id.clone());
-        }
-        let name = format!(
-            "__rw-sync-{}",
-            &uuid::Uuid::new_v4().simple().to_string()[..8]
-        );
-        let response = self
-            .client
-            .post(format!("{}/project/{}/folder", self.host, self.project_id))
-            .header(reqwest::header::COOKIE, self.cookie)
-            .header("X-Csrf-Token", self.csrf)
-            .header(reqwest::header::ACCEPT, "application/json")
-            .json(&serde_json::json!({ "name": name }))
-            .send()
-            .map_err(err)?;
-        check_authenticated(&response)?;
-        if !response.status().is_success() {
-            return Err(format!(
-                "Overleaf refused to create a sync folder ({}).",
-                response.status()
-            ));
-        }
-        let body: serde_json::Value = response.json().map_err(err)?;
-        let id = body
-            .get("_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| "Overleaf's folder response had no _id.".to_string())?
-            .to_string();
-        self.anchor_folder_id = Some(id.clone());
-        Ok(id)
-    }
-
-    fn upload(&mut self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
+    fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
         let file_name = rel.rsplit('/').next().unwrap_or(rel).to_string();
-        // Every upload needs a real `folder_id`: the server only resolves a
-        // destination folder when one is supplied (omitting it fails with
-        // `folder_not_found`, which is what broke root-level files in 0.1.89).
-        // We can't read the root folder's id over HTTP — Overleaf only sends
-        // it over socket.io — so we anchor on a folder we *can* create and let
-        // the server resolve the real destination: it computes
-        // `Path.join('/', <anchor path>, relativePath)`, takes the dirname and
-        // mkdirp's it, and `mkdirp('/')` is special-cased to the root folder.
-        // So `../main.tex` lands at the root and `../figures/plot.pdf` inside
-        // `figures`, creating it when missing.
-        let anchor = self.ensure_anchor()?;
         let request = self
             .client
             .post(format!("{}/project/{}/upload", self.host, self.project_id))
-            .query(&[("_csrf", self.csrf), ("folder_id", anchor.as_str())]);
-        let relative_path = format!("../{rel}");
+            .query(&[("_csrf", self.csrf), ("folder_id", self.root_folder_id)]);
         let part = reqwest::blocking::multipart::Part::bytes(bytes).file_name(file_name.clone());
         let form = reqwest::blocking::multipart::Form::new()
             .text("name", file_name)
-            .text("relativePath", relative_path)
+            .text("relativePath", rel.to_string())
             .part("qqfile", part);
         let response = request
             .header(reqwest::header::COOKIE, self.cookie)
@@ -1138,21 +1094,6 @@ impl<'a> Uploader<'a> {
             return Err(format!("Overleaf rejected the upload: {body}"));
         }
         Ok(())
-    }
-
-    /// Best-effort removal of the temporary anchor folder.
-    fn cleanup(&self) {
-        if let Some(id) = &self.anchor_folder_id {
-            let _ = self
-                .client
-                .delete(format!(
-                    "{}/project/{}/folder/{}",
-                    self.host, self.project_id, id
-                ))
-                .header(reqwest::header::COOKIE, self.cookie)
-                .header("X-Csrf-Token", self.csrf)
-                .send();
-        }
     }
 }
 
@@ -1253,6 +1194,155 @@ pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> 
     parse_projects_meta(&html)
 }
 
+/// Create a new Overleaf project from the current local files and make this
+/// folder its synchronized working copy.
+///
+/// The archive is built from the same filtered snapshot ordinary sync uses,
+/// so app state, credentials, build output and oversized files cannot leak
+/// through a broader export path. Overleaf creates the remote project from
+/// exactly that snapshot; recording it as the first common ancestor means an
+/// edit made locally while the upload is in flight is pushed by the next sync
+/// rather than mistaken for content already present remotely.
+pub fn publish_project(
+    config_dir: &Path,
+    root: &Path,
+    requested_name: &str,
+) -> Result<OverleafLink, String> {
+    if state_path(root).exists() {
+        return Err("This project is already linked to an Overleaf project.".to_string());
+    }
+    let project_name = sanitize_project_name(requested_name)?;
+    let LocalFiles { files, oversized } = read_local_files(root)?;
+    if !oversized.is_empty() {
+        return Err(format!(
+            "These files are too large for Overleaf: {}.",
+            oversized.join(", ")
+        ));
+    }
+    if files.is_empty() {
+        return Err("This project has no files that can be uploaded to Overleaf.".to_string());
+    }
+    let unresolved = files
+        .iter()
+        .filter_map(|(path, bytes)| {
+            std::str::from_utf8(bytes)
+                .is_ok_and(|text| text.contains(CONFLICT_MARKER))
+                .then_some(path.as_str())
+        })
+        .collect::<Vec<_>>();
+    if !unresolved.is_empty() {
+        return Err(format!(
+            "Resolve the conflict markers before publishing: {}.",
+            unresolved.join(", ")
+        ));
+    }
+
+    let archive = {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (path, bytes) in &files {
+            writer
+                .start_file(path, zip::write::SimpleFileOptions::default())
+                .map_err(|error| format!("Could not prepare {path} for Overleaf: {error}"))?;
+            writer
+                .write_all(bytes)
+                .map_err(|error| format!("Could not prepare {path} for Overleaf: {error}"))?;
+        }
+        writer
+            .finish()
+            .map_err(|error| format!("Could not finish the Overleaf archive: {error}"))?
+            .into_inner()
+    };
+
+    let session = load_session(config_dir)?;
+    let client = http_client(180)?;
+    let page = fetch_projects_page(&client, &session.host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let archive_name = format!("{project_name}.zip");
+    let part = reqwest::blocking::multipart::Part::bytes(archive)
+        .file_name(archive_name.clone())
+        .mime_str("application/zip")
+        .map_err(err)?;
+    let form = reqwest::blocking::multipart::Form::new()
+        .text("name", archive_name)
+        .part("qqfile", part);
+    let response = client
+        .post(format!("{}/project/new/upload", session.host))
+        .header(reqwest::header::COOKIE, &session.cookie)
+        .header("X-Csrf-Token", &csrf)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .multipart(form)
+        .send()
+        .map_err(|error| format!("Could not upload the project to Overleaf: {error}"))?;
+    check_authenticated(&response)?;
+    let status = response.status();
+    let body = response.text().unwrap_or_default();
+    let payload = serde_json::from_str::<serde_json::Value>(&body).ok();
+    let success = payload
+        .as_ref()
+        .and_then(|value| value.get("success"))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(status.is_success());
+    if !status.is_success() || !success {
+        let detail = payload
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(|value| value.as_str())
+            .unwrap_or(body.trim());
+        let detail = if detail.is_empty() {
+            "the server did not explain why"
+        } else {
+            detail
+        };
+        return Err(format!(
+            "Overleaf could not create the project ({status}): {detail}"
+        ));
+    }
+    let project_id = payload
+        .as_ref()
+        .and_then(|value| value.get("project_id"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Overleaf created the project but returned no project id.".to_string())?
+        .to_string();
+
+    let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, &project_id);
+    let state_files = files
+        .iter()
+        .map(|(path, bytes)| (path.clone(), sha256_hex(bytes)))
+        .collect();
+    let state = SyncState {
+        host: session.host.clone(),
+        project_id: project_id.clone(),
+        project_name: project_name.clone(),
+        root_folder_id: None,
+        last_sync: Some(now_iso()),
+        remote_version,
+        permission: Some("owner".to_string()),
+        files: state_files,
+        paused: false,
+    };
+    let finish_link = (|| {
+        for (path, bytes) in &files {
+            write_base_copy(root, path, bytes)?;
+        }
+        save_state(root, &state)
+    })();
+    if let Err(error) = finish_link {
+        return Err(format!(
+            "Overleaf created {}/project/{project_id}, but Lattice could not link this folder: {error}",
+            session.host
+        ));
+    }
+
+    Ok(OverleafLink {
+        project_id,
+        project_name,
+        host: session.host,
+        last_sync: state.last_sync,
+        paused: false,
+    })
+}
+
 /// Download a project and link it. `access_level` is what the dashboard said
 /// this account may do, so syncing respects it even before the realtime
 /// channel has a chance to confirm.
@@ -1311,6 +1401,7 @@ pub fn clone_project(
         host: session.host,
         project_id: project_id.to_string(),
         project_name: project_name.to_string(),
+        root_folder_id: None,
         last_sync: Some(now_iso()),
         remote_version,
         permission: access_level.map(str::to_string),
@@ -2684,6 +2775,30 @@ pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
     save_state(root, &state)
 }
 
+/// Record upload metadata available only from realtime `joinProject`.
+///
+/// This is persisted before the frontend treats the channel as live, so the
+/// first automatic sync can upload new files without racing the socket join.
+pub fn set_realtime_metadata(
+    root: &Path,
+    root_folder_id: &str,
+    permission: &str,
+) -> Result<(), String> {
+    let root_folder_id = root_folder_id.trim();
+    if root_folder_id.is_empty() {
+        return Err("Overleaf's project join returned no root folder id.".to_string());
+    }
+    let mut state = load_state(root)?;
+    if state.root_folder_id.as_deref() == Some(root_folder_id)
+        && state.permission.as_deref() == Some(permission)
+    {
+        return Ok(());
+    }
+    state.root_folder_id = Some(root_folder_id.to_string());
+    state.permission = Some(permission.to_string());
+    save_state(root, &state)
+}
+
 /// Keep the merge-base tree aligned with the hashes that will be persisted.
 ///
 /// Most successful paths now match the bytes on disk. A conflicted path is
@@ -2848,8 +2963,18 @@ pub fn sync(
         to_push
     };
 
-    let mut uploader = Uploader::new(&client, &host, &session.cookie, &csrf, &state.project_id);
-    let push_outcome = (|| {
+    if !to_push.is_empty() {
+        let root_folder_id = state.root_folder_id.as_deref().ok_or_else(|| {
+            "Overleaf is still preparing file uploads. Try syncing again in a moment.".to_string()
+        })?;
+        let uploader = Uploader::new(
+            &client,
+            &host,
+            &session.cookie,
+            &csrf,
+            &state.project_id,
+            root_folder_id,
+        );
         for path in &to_push {
             let bytes = merged_content
                 .get(path)
@@ -2860,10 +2985,7 @@ pub fn sync(
                 .upload(path, bytes)
                 .map_err(|e| format!("Failed to upload \"{path}\" to Overleaf: {e}"))?;
         }
-        Ok::<(), String>(())
-    })();
-    uploader.cleanup();
-    push_outcome?;
+    }
     result.pushed = to_push;
 
     // Record what both sides now agree on: this is the common ancestor the
@@ -3286,6 +3408,13 @@ mod tests {
                     )
                 } else if method == "GET" && path.ends_with("/download/zip") {
                     request.respond(tiny_http::Response::from_data(zip_bytes.clone()))
+                } else if method == "POST" && path == "/project/new/upload" {
+                    request.respond(
+                        tiny_http::Response::from_string(
+                            "{\"success\":true,\"project_id\":\"published-project-1\"}",
+                        )
+                        .with_header(json_header),
+                    )
                 } else if method == "POST" && path.ends_with("/upload") {
                     upload_count += 1;
                     if fail_upload_at == Some(upload_count) {
@@ -3428,6 +3557,7 @@ mod tests {
             host: "https://www.overleaf.com".to_string(),
             project_id: "proj-1".to_string(),
             project_name: "Attention Paper".to_string(),
+            root_folder_id: Some("root-folder-1".to_string()),
             last_sync: Some("2026-07-25T00:00:00Z".to_string()),
             remote_version: Some(42),
             permission: Some("readAndWrite".to_string()),
@@ -3454,6 +3584,27 @@ mod tests {
 
         set_paused(&root, false).unwrap();
         assert!(!project_link(&root).unwrap().unwrap().paused);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn realtime_metadata_records_the_root_folder_without_changing_the_sync_base() {
+        let root = temp_dir("realtime-metadata");
+        seed_linked_project(
+            &root,
+            "https://www.overleaf.com",
+            &[("main.tex", b"body")],
+            &[("main.tex", b"body")],
+        );
+        let before = load_state(&root).unwrap();
+
+        set_realtime_metadata(&root, "new-root-folder", "owner").unwrap();
+
+        let after = load_state(&root).unwrap();
+        assert_eq!(after.root_folder_id.as_deref(), Some("new-root-folder"));
+        assert_eq!(after.permission.as_deref(), Some("owner"));
+        assert_eq!(after.files, before.files);
+        assert_eq!(after.remote_version, before.remote_version);
         let _ = fs::remove_dir_all(root);
     }
 
@@ -3579,6 +3730,7 @@ mod tests {
                 host: host.to_string(),
                 project_id: "proj-1".to_string(),
                 project_name: "Test Project".to_string(),
+                root_folder_id: Some("root-folder-1".to_string()),
                 last_sync: Some("2026-07-01T00:00:00Z".to_string()),
                 remote_version: None,
                 permission: Some("readAndWrite".to_string()),
@@ -3623,6 +3775,7 @@ mod tests {
             host: "https://overleaf.example/project-path".to_string(),
             project_id: "proj-1".to_string(),
             project_name: "Test Project".to_string(),
+            root_folder_id: None,
             last_sync: None,
             remote_version: None,
             permission: None,
@@ -3845,6 +3998,61 @@ mod tests {
         );
     }
 
+    #[test]
+    fn publishes_local_project_and_records_the_uploaded_snapshot_as_its_base() {
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("main.tex", b"local body".as_slice())]),
+        );
+        let config = temp_dir("publish-config");
+        let root = temp_dir("publish-project");
+        write_session_file(&config, &server.base);
+        fs::create_dir_all(root.join("figures")).unwrap();
+        fs::create_dir_all(root.join(".research")).unwrap();
+        fs::write(root.join("main.tex"), b"local body").unwrap();
+        fs::write(root.join("figures/plot.pdf"), b"%PDF figure").unwrap();
+        fs::write(root.join("paper.pdf"), b"%PDF build output").unwrap();
+        fs::write(root.join(".research/private.json"), b"secret").unwrap();
+
+        let link = publish_project(&config, &root, "Local Paper").unwrap();
+
+        assert_eq!(link.project_id, "published-project-1");
+        assert_eq!(link.project_name, "Local Paper");
+        assert_eq!(link.host, server.base);
+        let request = server
+            .recorded()
+            .into_iter()
+            .find(|request| request.method == "POST" && request.url == "/project/new/upload")
+            .expect("project upload request");
+        assert_eq!(request.csrf_header.as_deref(), Some(CSRF));
+        assert_eq!(
+            request.cookie_header.as_deref(),
+            Some("overleaf_session2=fixture-cookie")
+        );
+        let body = request.body_text();
+        assert!(body.contains("name=\"name\""));
+        assert!(body.contains("Local Paper.zip"));
+        assert!(body.contains("name=\"qqfile\""));
+        assert!(body.contains("main.tex"));
+        assert!(body.contains("figures/plot.pdf"));
+        assert!(!body.contains("paper.pdf"));
+        assert!(!body.contains("private.json"));
+        assert!(!body.contains("secret"));
+
+        let state = load_state(&root).unwrap();
+        assert_eq!(state.permission.as_deref(), Some("owner"));
+        assert_eq!(state.files.len(), 2);
+        assert_eq!(
+            state.files.get("main.tex").map(String::as_str),
+            Some(sha256_hex(b"local body").as_str())
+        );
+        assert_eq!(
+            read_base_copy(&root, "main.tex").as_deref(),
+            Some("local body")
+        );
+        assert!(read_base_copy(&root, "figures/plot.pdf").is_none());
+    }
+
     // ---- clone -------------------------------------------------------------
 
     #[test]
@@ -4012,17 +4220,18 @@ mod tests {
         assert_eq!(uploads.len(), 1);
         let upload = &uploads[0];
         assert!(upload.url.starts_with("/project/proj-1/upload"));
-        // Root-level files need a real folder_id too — omitting it is what
-        // made Overleaf answer 422 folder_not_found. The anchor plus a `../`
-        // relative path resolves to the project root server-side.
-        assert!(upload.url.contains("folder_id=anchor-folder-1"));
+        // Root-level files use the root id learned from joinProject. Sending a
+        // temporary folder plus `../` is rejected by current Overleaf Cloud as
+        // path traversal.
+        assert!(upload.url.contains("folder_id=root-folder-1"));
         assert!(upload.url.contains(&format!("_csrf={CSRF}")));
         assert_eq!(upload.csrf_header.as_deref(), Some(CSRF));
         let body = upload.body_text();
         assert!(body.contains("name=\"qqfile\"; filename=\"main.tex\""));
         assert!(body.contains("locally edited body"));
         assert!(body.contains("name=\"relativePath\""));
-        assert!(body.contains("../main.tex"));
+        assert!(body.contains("\r\n\r\nmain.tex\r\n"));
+        assert!(!body.contains("../main.tex"));
 
         assert_eq!(
             state_files(&root).get("main.tex").unwrap(),
@@ -4359,7 +4568,7 @@ mod tests {
     }
 
     #[test]
-    fn overleaf_sync_pushes_local_new_nested_file_via_anchor_folder() {
+    fn overleaf_sync_pushes_local_new_nested_file_from_the_project_root() {
         let base = b"body".as_slice();
         let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
         let (root, result) = run_sync(
@@ -4373,28 +4582,24 @@ mod tests {
         assert_eq!(result.pushed, vec!["nested/new-chapter.tex"]);
 
         let recorded = server.recorded();
-        // Anchor folder created at project root with the csrf header.
+        // Uploading through the real root id requires no temporary folder.
         let folder_posts: Vec<_> = recorded
             .iter()
             .filter(|r| r.method == "POST" && r.url == "/project/proj-1/folder")
             .collect();
-        assert_eq!(folder_posts.len(), 1);
-        assert_eq!(folder_posts[0].csrf_header.as_deref(), Some(CSRF));
-        let folder_body = folder_posts[0].body_text();
-        assert!(folder_body.contains("__rw-sync-"));
-        assert!(!folder_body.contains("parent_folder_id"));
+        assert!(folder_posts.is_empty());
 
-        // Upload anchored at the temp folder, climbing back out with ../.
+        // The relative path is project-relative and contains no traversal.
         let uploads = server.uploads();
         assert_eq!(uploads.len(), 1);
-        assert!(uploads[0].url.contains("folder_id=anchor-folder-1"));
+        assert!(uploads[0].url.contains("folder_id=root-folder-1"));
         let body = uploads[0].body_text();
-        assert!(body.contains("../nested/new-chapter.tex"));
+        assert!(body.contains("nested/new-chapter.tex"));
+        assert!(!body.contains("../nested/new-chapter.tex"));
         assert!(body.contains("name=\"qqfile\"; filename=\"new-chapter.tex\""));
         assert!(body.contains("\\section{New}"));
 
-        // Anchor folder removed afterwards.
-        assert!(recorded
+        assert!(!recorded
             .iter()
             .any(|r| r.method == "DELETE" && r.url == "/project/proj-1/folder/anchor-folder-1"));
 
