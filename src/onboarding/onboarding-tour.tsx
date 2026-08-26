@@ -390,7 +390,7 @@ export function OnboardingTour(props: {
       id: "project-files",
       target: '[data-tour="project-panel"]',
       title: t`Everything for the paper lives in one folder`,
-      content: t`This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it`,
+      content: t`This folder contains the manuscript, notes, presentations, figures, boards, spreadsheets, and cited papers. Click a file to open it`,
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
@@ -462,6 +462,16 @@ export function OnboardingTour(props: {
       buttons: READING_BUTTONS,
       placement: "bottom-start",
       spotlightPadding: 5,
+    },
+    {
+      id: "presentation",
+      target: '[data-tour="canvas-tour-card-anchor"]',
+      spotlightTarget: '[data-tour="presentation-editor"]',
+      title: t`Turn research into a presentation`,
+      content: t`Write slides in Markdown and preview them live. Use --- to separate slides, Notes: for speaker notes, and the toolbar to style, present, or export`,
+      buttons: READING_BUTTONS,
+      placement: "top-end",
+      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
     },
     {
       id: "workspace-actions",
@@ -543,7 +553,7 @@ export function OnboardingTour(props: {
       id: "agent",
       target: '[data-tour="agent-panel"]',
       title: t`An agent that works across your project`,
-      content: t`Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools`,
+      content: t`Agent can read your manuscript, notes, papers, spreadsheets, and presentations. Ask it to draft text, verify a claim against a source, analyze results, or turn research into slides. The bundled presentation skill teaches it Lattice's slide format`,
       buttons: READING_BUTTONS,
       placement: "right-start",
     },
@@ -583,7 +593,8 @@ export function OnboardingTour(props: {
         [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
         [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },
         [TUTORIAL_STEPS.board]: { path: "attention-results.lattice-sheet", step: TUTORIAL_STEPS.spreadsheet },
-        [TUTORIAL_STEPS.spreadsheetTools]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
+        [TUTORIAL_STEPS.spreadsheetTools]: { path: "attention-talk.slides.md", step: TUTORIAL_STEPS.presentation },
+        [TUTORIAL_STEPS.presentation]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
       } as Record<number, { path: string; step: number }>)[event.index];
       if (fileTransition) {
         if (event.index === TUTORIAL_STEPS.markdownVisual) closeMarkdownSlashMenu();

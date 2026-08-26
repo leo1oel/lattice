@@ -289,8 +289,8 @@ msgid "Agent"
 msgstr "Agent"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools"
-msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools"
+msgid "Agent can read your manuscript, notes, papers, spreadsheets, and presentations. Ask it to draft text, verify a claim against a source, analyze results, or turn research into slides. The bundled presentation skill teaches it Lattice's slide format"
+msgstr "Agent can read your manuscript, notes, papers, spreadsheets, and presentations. Ask it to draft text, verify a claim against a source, analyze results, or turn research into slides. The bundled presentation skill teaches it Lattice's slide format"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -4565,8 +4565,8 @@ msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it"
-msgstr "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it"
+msgid "This folder contains the manuscript, notes, presentations, figures, boards, spreadsheets, and cited papers. Click a file to open it"
+msgstr "This folder contains the manuscript, notes, presentations, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 
 #: src/canvas/document-canvas.tsx
 msgid "This format cannot be rendered in the preview"
@@ -4678,6 +4678,10 @@ msgstr "Try again"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Try typing / in the visual editor"
 msgstr "Try typing / in the visual editor"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Turn research into a presentation"
+msgstr "Turn research into a presentation"
 
 #. placeholder {0}: index + 1
 #: src/onboarding/onboarding-tour.tsx
@@ -4993,6 +4997,10 @@ msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}
 #: src/editor/insert/insert-snippets.ts
 msgid "Wreath product"
 msgstr "Wreath product"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Write slides in Markdown and preview them live. Use --- to separate slides, Notes: for speaker notes, and the toolbar to style, present, or export"
+msgstr "Write slides in Markdown and preview them live. Use --- to separate slides, Notes: for speaker notes, and the toolbar to style, present, or export"
 
 #: src/settings/settings-dialog.tsx
 msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence"

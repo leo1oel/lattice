@@ -255,7 +255,12 @@ describe("PresentationEditor", () => {
     }));
   });
 
-  it("shows each directory title once and includes the slide image", async () => {
+  it("renders each directory item as a scaled copy of the slide", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
+      function getClientWidth(this: HTMLElement) {
+        return this.classList.contains("presentation-thumbnail-card") ? 136 : 0;
+      },
+    );
     const onLoadAsset = vi.fn(async () => "data:image/png;base64,YQ==");
     const source = [
       "## Next Slide",
@@ -274,9 +279,97 @@ describe("PresentationEditor", () => {
     const thumbnail = screen.getByRole("button", { name: "Slide 1: Next Slide" });
 
     expect(thumbnail.textContent?.match(/Next Slide/g)).toHaveLength(1);
-    const image = container.querySelector<HTMLImageElement>(".presentation-thumbnail-image");
-    expect(image).not.toBeNull();
-    await waitFor(() => expect(image).toHaveAttribute("src", "data:image/png;base64,YQ=="));
+    expect(thumbnail.querySelector(".presentation-thumbnail-canvas")).toBeInTheDocument();
+    expect(thumbnail.querySelector(".presentation-thumbnail-reveal")).toHaveAttribute("inert");
+    expect(container.querySelector<HTMLElement>(".presentation-thumbnail-list")?.style.getPropertyValue(
+      "--presentation-thumbnail-scale",
+    )).toBe("0.085");
+    const thumbnailSlide = thumbnail.querySelector<HTMLElement>(".presentation-slide-surface");
+    const previewSlide = container.querySelector<HTMLElement>(
+      ".presentation-preview .presentation-slide-surface",
+    );
+    expect(thumbnailSlide).toHaveAttribute("data-layout", "media");
+    expect(previewSlide).toHaveAttribute("data-layout", "media");
+    await waitFor(() => {
+      expect(thumbnailSlide?.querySelector("img")).toHaveAttribute("src", "data:image/png;base64,YQ==");
+      expect(previewSlide?.querySelector("img")).toHaveAttribute("src", "data:image/png;base64,YQ==");
+    });
+    expect(thumbnailSlide?.querySelector(".presentation-slide-content")?.innerHTML).toBe(
+      previewSlide?.querySelector(".presentation-slide-content")?.innerHTML,
+    );
+  });
+
+  it("keeps a loaded project image through later source renders", async () => {
+    const dataUrl = "data:image/png;base64,YQ==";
+    const onLoadAsset = vi.fn(async () => dataUrl);
+    const source = "## Result\n\n![Plot](figures/plot.png)\n\nInitial explanation.";
+    const { container } = render(<Harness source={source} onLoadAsset={onLoadAsset} />);
+
+    await waitFor(() => {
+      const images = container.querySelectorAll<HTMLImageElement>("img");
+      expect(images).toHaveLength(2);
+      for (const image of images) expect(image).toHaveAttribute("src", dataUrl);
+    });
+    const callsAfterLoad = onLoadAsset.mock.calls.length;
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Presentation Markdown source" }), {
+      target: { value: source.replace("Initial explanation.", "Updated explanation.") },
+    });
+
+    await waitFor(() => expect(container.querySelector(".presentation-preview")).toHaveTextContent(
+      "Updated explanation.",
+    ));
+    for (const image of container.querySelectorAll<HTMLImageElement>("img")) {
+      expect(image).toHaveAttribute("src", dataUrl);
+    }
+    expect(onLoadAsset).toHaveBeenCalledTimes(callsAfterLoad);
+  });
+
+  it("uses title and media layouts for common slide structures", () => {
+    const source = [
+      "# Opening",
+      "",
+      "A concise subtitle",
+      "",
+      "---",
+      "",
+      "## Result",
+      "",
+      "![Plot](figures/plot.png)",
+      "",
+      "The result improves on the baseline.",
+    ].join("\n");
+    const { container } = render(<Harness source={source} />);
+    const slides = container.querySelectorAll(".presentation-preview .reveal .slides > section");
+
+    expect(slides[0]).toHaveAttribute("data-layout", "title");
+    expect(slides[1]).toHaveAttribute("data-layout", "media");
+    expect(slides[1].querySelector(".presentation-slide-content")).not.toBeNull();
+  });
+
+  it("retries a transient project image miss", async () => {
+    const onLoadAsset = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue("data:image/png;base64,YQ==");
+    render(
+      <Harness
+        source="## Result\n\n![Plot](figures/plot.png)"
+        onLoadAsset={onLoadAsset}
+        initialViewState={{
+          slide: 0,
+          mode: "preview",
+          thumbnailRailOpen: false,
+          thumbnailRailWidth: 176,
+          splitRatio: 0.5,
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(onLoadAsset).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole("img", { name: "Plot" })).toHaveAttribute(
+      "src",
+      "data:image/png;base64,YQ==",
+    ));
   });
 
   it("resizes the slide directory with pointer and keyboard controls", async () => {
@@ -518,8 +611,10 @@ describe("PresentationEditor", () => {
       />,
     );
 
+    const preview = container.querySelector<HTMLElement>(".presentation-preview")!;
     expect(container.querySelector("script")).toBeNull();
-    expect(screen.getByText("Unsafe").closest("a")).not.toHaveAttribute("href");
+    expect(Array.from(preview.querySelectorAll("a")).find((link) => link.textContent === "Unsafe"))
+      .not.toHaveAttribute("href");
     await waitFor(() => expect(onLoadAsset).toHaveBeenCalledWith("figures/plot.png"));
     await waitFor(() => expect(screen.getByRole("img", { name: "Plot" })).toHaveAttribute(
       "src",

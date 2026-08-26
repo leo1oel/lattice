@@ -68,8 +68,18 @@ describe("onboarding tour", () => {
     expect(tools.content).toContain("export the spreadsheet as an .xlsx file");
     expect(tools.content).not.toContain("Agent");
 
+    const presentation = joyride.props!.steps[TUTORIAL_STEPS.presentation];
+    expect(presentation).toMatchObject({
+      id: "presentation",
+      spotlightTarget: '[data-tour="presentation-editor"]',
+    });
+    expect(presentation.content).toContain("Write slides in Markdown");
+    expect(presentation.content).toContain("Notes:");
+    expect(presentation.content).toContain("style, present, or export");
+
     const agent = joyride.props!.steps[TUTORIAL_STEPS.agent];
-    expect(agent.content).toContain("update the sample spreadsheet");
+    expect(agent.content).toContain("spreadsheets, and presentations");
+    expect(agent.content).toContain("bundled presentation skill");
   });
 
   it("explains collaboration, Overleaf sync, and the paper PDF actions at their controls", () => {
@@ -110,7 +120,7 @@ describe("onboarding tour", () => {
     expect(onStepIndexChange).toHaveBeenCalledWith(TUTORIAL_STEPS.paperActions);
   });
 
-  it("opens the sample sheet after the board and returns to the manuscript afterward", () => {
+  it("opens the sample sheet and presentation before returning to the manuscript", () => {
     const onSelectTutorialFile = vi.fn();
     const onStepIndexChange = vi.fn();
     render(
@@ -148,6 +158,17 @@ describe("onboarding tour", () => {
       action: "next",
       type: "step:after",
       index: TUTORIAL_STEPS.spreadsheetTools,
+    }));
+    expect(onSelectTutorialFile).toHaveBeenCalledWith(
+      "attention-talk.slides.md",
+      TUTORIAL_STEPS.presentation,
+    );
+
+    act(() => joyride.props!.onEvent({
+      status: "running",
+      action: "next",
+      type: "step:after",
+      index: TUTORIAL_STEPS.presentation,
     }));
     expect(onSelectTutorialFile).toHaveBeenCalledWith(
       "main.tex",

@@ -92,6 +92,8 @@ Reference project images relative to the deck's directory:
 Prefer project-local images over remote URLs so the deck remains local-first and portable.
 Confirm that every referenced local image exists, and never invent an asset path.
 Lattice resolves local Markdown images in the main preview and uses the first image when representing a slide in the navigator.
+Lattice automatically centers an opening `#` title slide and gives later slides with a Markdown image a balanced image-and-text layout.
+Keep one main image per slide so that automatic layout remains clear and predictable.
 
 Use fenced code blocks for source examples:
 

@@ -8,7 +8,7 @@ export const SAFE_URL_SCHEME_RE = new RegExp(`^(?:${SCHEME_ALT}|${PATH_PREFIX_AL
 export function isSafeUrl(url: string): boolean {
   const trimmed = url.trim();
   if (trimmed === '') return true;
-  return SAFE_URL_SCHEME_RE.test(trimmed);
+  return SAFE_URL_SCHEME_RE.test(trimmed) || isRelativeUrl(trimmed);
 }
 
 export function isRelativeUrl(url: string): boolean {

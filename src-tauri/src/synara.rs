@@ -2,6 +2,7 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
+use std::net::{Ipv4Addr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
@@ -69,6 +70,7 @@ struct BundledRuntimeManifest {
 #[derive(Debug, Deserialize)]
 struct PersistedServerRuntimeState {
     pid: u32,
+    port: u16,
     origin: String,
 }
 
@@ -98,6 +100,7 @@ pub struct SynaraRuntime {
     server_entry: PathBuf,
     bundled_skills_dir: PathBuf,
     home_dir: PathBuf,
+    preferred_port: Option<u16>,
     external_origin: Option<String>,
     version: Option<String>,
     revision: Option<String>,
@@ -134,12 +137,15 @@ impl SynaraRuntime {
         };
         let manifest = read_runtime_manifest(&runtime_root.join("manifest.json"));
         let home_dir = app.path().app_data_dir()?.join("synara");
+        let preferred_port = read_server_runtime_state(&home_dir.join(RUNTIME_STATE_RELATIVE_PATH))
+            .map(|runtime| runtime.port);
 
         Ok(Self {
             node_path: runtime_root.join("bin").join(executable_name),
             server_entry: runtime_root.join("server/dist/index.mjs"),
             bundled_skills_dir,
             home_dir,
+            preferred_port,
             external_origin,
             version: manifest
                 .as_ref()
@@ -286,9 +292,17 @@ impl SynaraRuntime {
         let shutdown_token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
 
         let mut command = Command::new(&self.node_path);
+        command.arg(&self.server_entry);
+        // Web storage is scoped to the complete iframe origin, including its
+        // port. Reuse the previous sidecar port when it is free so composer
+        // preferences such as the last model and effort survive app restarts;
+        // retain dynamic allocation as the safe fallback for port conflicts.
+        if let Some(port) = available_preferred_server_port(self.preferred_port) {
+            command.arg("--port").arg(port.to_string());
+        } else {
+            command.arg("--dynamic-port");
+        }
         command
-            .arg(&self.server_entry)
-            .arg("--dynamic-port")
             .current_dir(&self.home_dir)
             .env("NODE_ENV", "production")
             .env("SYNARA_MODE", "desktop")
@@ -503,6 +517,13 @@ fn read_server_runtime_state(path: &Path) -> Option<PersistedServerRuntimeState>
     serde_json::from_str(&raw).ok()
 }
 
+fn available_preferred_server_port(port: Option<u16>) -> Option<u16> {
+    let port = port.filter(|port| *port != 0)?;
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).ok()?;
+    drop(listener);
+    Some(port)
+}
+
 fn health_is_ready(client: &Client, origin: &str) -> bool {
     let Ok(response) = client.get(format!("{origin}/health")).send() else {
         return false;
@@ -568,8 +589,12 @@ fn terminate_process_tree(child: &mut Child) {
 
 #[cfg(test)]
 mod tests {
-    use super::{health_is_ready, read_runtime_manifest, startup_log_excerpt, StartupLogs};
+    use super::{
+        available_preferred_server_port, health_is_ready, read_runtime_manifest,
+        startup_log_excerpt, StartupLogs,
+    };
     use std::fs;
+    use std::net::{Ipv4Addr, TcpListener};
 
     #[test]
     fn reads_the_bundled_runtime_manifest() {
@@ -594,6 +619,23 @@ mod tests {
             .build()
             .expect("client");
         assert!(!health_is_ready(&client, "http://127.0.0.1:1"));
+    }
+
+    #[test]
+    fn reuses_an_available_preferred_port() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve port");
+        let port = listener.local_addr().expect("local address").port();
+        drop(listener);
+
+        assert_eq!(available_preferred_server_port(Some(port)), Some(port));
+    }
+
+    #[test]
+    fn rejects_an_occupied_preferred_port() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve port");
+        let port = listener.local_addr().expect("local address").port();
+
+        assert_eq!(available_preferred_server_port(Some(port)), None);
     }
 
     #[test]

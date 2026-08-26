@@ -47,6 +47,7 @@ const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.h
 const TUTORIAL_BOARD: &str = include_str!("../templates/tutorial/attention-map.tldr");
 const TUTORIAL_SPREADSHEET: &str =
     include_str!("../templates/tutorial/attention-results.lattice-sheet");
+const TUTORIAL_PRESENTATION: &str = include_str!("../templates/tutorial/attention-talk.slides.md");
 const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
 const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
 const TUTORIAL_FIGURE_ATTRIBUTION: &str =
@@ -400,7 +401,7 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     .map_err(err)?;
     fs::write(
         root.join(".research/tutorial.json"),
-        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 6\n}\n",
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 7\n}\n",
     )
     .map_err(err)?;
     fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
@@ -412,6 +413,7 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
         TUTORIAL_SPREADSHEET,
     )
     .map_err(err)?;
+    fs::write(root.join("attention-talk.slides.md"), TUTORIAL_PRESENTATION).map_err(err)?;
     fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
     fs::write(root.join("references.bib"), TUTORIAL_REFERENCES).map_err(err)?;
     install_tutorial_assets(&root)?;
@@ -6151,6 +6153,7 @@ mod tests {
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
         assert!(root.join("attention-results.lattice-sheet").is_file());
+        assert!(root.join("attention-talk.slides.md").is_file());
         let spreadsheet: serde_json::Value = serde_json::from_slice(
             &fs::read(root.join("attention-results.lattice-sheet")).unwrap(),
         )
@@ -6180,6 +6183,11 @@ mod tests {
         assert!(board_records
             .iter()
             .any(|record| record["id"] == "shape:context"));
+        let presentation = fs::read_to_string(root.join("attention-talk.slides.md")).unwrap();
+        assert!(presentation.contains("theme: lattice"));
+        assert!(presentation.contains("# Understanding Attention"));
+        assert!(presentation.contains("figures/multi-head-attention.png"));
+        assert!(presentation.contains("Notes:"));
         assert!(root.join("project.toml").is_file());
         assert!(root.join("references.bib").is_file());
         assert!(root.join("neurips.sty").is_file());
@@ -6189,7 +6197,10 @@ mod tests {
         assert!(root.join("figures/multi-head-attention.png").is_file());
         assert!(root.join("figures/attention-figure-2.pdf").is_file());
         assert!(root.join("figures/ATTRIBUTION.md").is_file());
-        assert!(root.join(".research/tutorial.json").is_file());
+        let tutorial_marker: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(".research/tutorial.json")).unwrap())
+                .unwrap();
+        assert_eq!(tutorial_marker["version"], 7);
         assert_eq!(read_manifest(&root).unwrap().venue, "tutorial");
         assert!(fs::read_to_string(root.join("main.tex"))
             .unwrap()
@@ -6203,11 +6214,16 @@ mod tests {
         );
 
         fs::write(root.join("notes.md"), "learner edit\n").unwrap();
+        fs::write(root.join("attention-talk.slides.md"), "learner edit\n").unwrap();
         fs::write(root.join("learner-file.txt"), "temporary\n").unwrap();
         assert_eq!(create_tutorial(&parent).unwrap(), root);
         assert_eq!(
             fs::read_to_string(root.join("notes.md")).unwrap(),
             TUTORIAL_NOTES
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("attention-talk.slides.md")).unwrap(),
+            TUTORIAL_PRESENTATION
         );
         assert!(!root.join("learner-file.txt").exists());
         assert!(fs::read(root.join("figures/attention-figure-2.pdf"))

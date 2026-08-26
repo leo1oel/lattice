@@ -83,6 +83,8 @@ export type PresentationEditorProps = {
 };
 
 type PresentationMode = PresentationFileViewState["mode"];
+type ProjectAssetLoader = NonNullable<PresentationEditorProps["onLoadAsset"]>;
+type LoadedProjectImage = { loader: ProjectAssetLoader; dataUrl: string };
 type RevealSlideChangedEvent = Event & { indexh?: number };
 
 const SOURCE_MIN_WIDTH = 240;
@@ -95,9 +97,12 @@ const THUMBNAIL_RAIL_MAX_WIDTH = 280;
 const WHEEL_NAVIGATION_THRESHOLD = 36;
 const WHEEL_NAVIGATION_COOLDOWN_MS = 320;
 const WHEEL_GESTURE_RESET_MS = 180;
-// This is a CSS custom-property name, not text shown to the user.
+const PROJECT_IMAGE_RETRY_DELAYS_MS = [0, 150, 500] as const;
+// These are CSS custom-property names, not text shown to the user.
 // eslint-disable-next-line lingui/no-unlocalized-strings
 const THUMBNAIL_RAIL_WIDTH_PROPERTY = "--presentation-thumbnail-width";
+// eslint-disable-next-line lingui/no-unlocalized-strings
+const THUMBNAIL_SCALE_PROPERTY = "--presentation-thumbnail-scale";
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -125,6 +130,28 @@ function resolveProjectPath(documentPath: string, target: string): string | null
     }
   }
   return parts.join("/") || null;
+}
+
+function withLoadedProjectImages(
+  html: string,
+  documentPath: string,
+  loader: PresentationEditorProps["onLoadAsset"],
+  loadedImages: ReadonlyMap<string, LoadedProjectImage>,
+): string {
+  if (!loader || loadedImages.size === 0) return html;
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  let changed = false;
+  for (const image of template.content.querySelectorAll<HTMLImageElement>("img[src]")) {
+    const original = image.dataset.presentationSource ?? image.getAttribute("src") ?? "";
+    const projectPath = resolveProjectPath(documentPath, original);
+    const loaded = projectPath ? loadedImages.get(projectPath) : undefined;
+    if (!loaded || loaded.loader !== loader) continue;
+    image.dataset.presentationSource = original;
+    image.src = loaded.dataUrl;
+    changed = true;
+  }
+  return changed ? template.innerHTML : html;
 }
 
 function safeExternalUrl(target: string): string | null {
@@ -165,12 +192,35 @@ export function PresentationEditor(props: PresentationEditorProps) {
   );
   const [slideEditing, setSlideEditing] = useState(false);
   const [slideDraft, setSlideDraft] = useState("");
+  const [loadedProjectImages, setLoadedProjectImages] = useState<Map<string, LoadedProjectImage>>(
+    () => new Map(),
+  );
   const deferredSource = useDeferredValue(props.source);
   const deck = useMemo(() => parsePresentation(deferredSource), [deferredSource]);
   const clampedSlide = Math.max(0, Math.min(slide, deck.slides.length - 1));
   const slideSummaries = useMemo(() => deck.slides.map(slideSummary), [deck.slides]);
+  const renderedSlides = useMemo(() => deck.slides.map((item, index) => ({
+    layout: index === 0 && /^\s*#\s+/m.test(item.body)
+      ? "title"
+      : slideSummaries[index].imageSource
+        ? "media"
+        : "default",
+    bodyHtml: withLoadedProjectImages(
+      markdownToHtml(item.body),
+      props.path,
+      onLoadAsset,
+      loadedProjectImages,
+    ),
+    notesHtml: withLoadedProjectImages(
+      markdownToHtml(item.notes),
+      props.path,
+      onLoadAsset,
+      loadedProjectImages,
+    ),
+  })), [deck.slides, loadedProjectImages, onLoadAsset, props.path, slideSummaries]);
   const shellRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const thumbnailListRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLElement>(null);
   const revealRootRef = useRef<HTMLDivElement>(null);
@@ -357,6 +407,21 @@ export function PresentationEditor(props: PresentationEditorProps) {
     return () => observer.disconnect();
   }, [constrainThumbnailRailWidth, mode, thumbnailRailOpen]);
 
+  useLayoutEffect(() => {
+    const list = thumbnailListRef.current;
+    if (!list || mode === "source" || !thumbnailRailOpen) return;
+    const fit = () => {
+      const card = list.querySelector<HTMLElement>(".presentation-thumbnail-card");
+      if (!card || card.clientWidth <= 0) return;
+      list.style.setProperty(THUMBNAIL_SCALE_PROPERTY, `${card.clientWidth / 1600}`);
+    };
+    fit();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [deck.slides.length, mode, thumbnailRailOpen]);
+
   useEffect(() => {
     const root = shellRef.current;
     if (!root || !onLoadAsset) return;
@@ -365,23 +430,48 @@ export function PresentationEditor(props: PresentationEditorProps) {
       const original = image.dataset.presentationSource ?? image.getAttribute("src") ?? "";
       const projectPath = resolveProjectPath(props.path, original);
       if (!projectPath) continue;
+      const loaded = loadedProjectImages.get(projectPath);
+      if (loaded?.loader === onLoadAsset) {
+        if (image.getAttribute("src") !== loaded.dataUrl) image.src = loaded.dataUrl;
+        continue;
+      }
       image.dataset.presentationSource = original;
       const expectedSource = image.getAttribute("src");
-      void onLoadAsset(projectPath).then((dataUrl) => {
-        if (
-          cancelled
-          || !dataUrl
-          || !image.isConnected
-          || image.dataset.presentationSource !== original
-          || image.getAttribute("src") !== expectedSource
-        ) return;
-        image.src = dataUrl;
-      }).catch(() => undefined);
+      const isCurrent = () => (
+        !cancelled
+        && image.isConnected
+        && image.dataset.presentationSource === original
+        && image.getAttribute("src") === expectedSource
+      );
+      void (async () => {
+        for (const delay of PROJECT_IMAGE_RETRY_DELAYS_MS) {
+          if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
+          if (!isCurrent()) return;
+          try {
+            const dataUrl = await onLoadAsset(projectPath);
+            if (!isCurrent()) return;
+            if (!dataUrl) continue;
+            setLoadedProjectImages((current) => {
+              const existing = current.get(projectPath);
+              if (existing?.loader === onLoadAsset && existing.dataUrl === dataUrl) return current;
+              const next = new Map(current);
+              next.set(projectPath, { loader: onLoadAsset, dataUrl });
+              return next;
+            });
+            image.src = dataUrl;
+            window.requestAnimationFrame(() => revealRef.current?.layout());
+            return;
+          } catch {
+            // A project switch or tutorial reset can make the first read race
+            // the asset landing on disk. Retry the bounded sequence above.
+          }
+        }
+      })();
     }
     return () => {
       cancelled = true;
     };
-  }, [deck, onLoadAsset, props.path]);
+  }, [deck, loadedProjectImages, onLoadAsset, props.path]);
 
   const navigate = useCallback((nextSlide: number, moveCursor = false) => {
     const index = Math.max(0, Math.min(nextSlide, deck.slides.length - 1));
@@ -746,6 +836,7 @@ export function PresentationEditor(props: PresentationEditorProps) {
   return (
     <div
       className={`presentation-editor presentation-theme-${deck.theme}`}
+      data-tour="presentation-editor"
       ref={shellRef}
     >
       <div className="presentation-toolbar">
@@ -854,13 +945,10 @@ export function PresentationEditor(props: PresentationEditorProps) {
               <strong>{t`Slides`}</strong>
               <span>{deck.slides.length}</span>
             </div>
-            <div className="presentation-thumbnail-list">
+            <div ref={thumbnailListRef} className="presentation-thumbnail-list">
               {deck.slides.map((item, index) => {
                 const summary = slideSummaries[index];
-                const thumbnailImageSource = summary.imageSource && (
-                  safeExternalUrl(summary.imageSource)
-                  || resolveProjectPath(props.path, summary.imageSource)
-                ) ? summary.imageSource : null;
+                const renderedSlide = renderedSlides[index];
                 return (
                   <ContextMenu key={`${item.start}-${index}`}>
                     <ContextMenuTrigger asChild>
@@ -873,25 +961,25 @@ export function PresentationEditor(props: PresentationEditorProps) {
                         onClick={() => navigate(index, true)}
                       >
                         <span className="presentation-thumbnail-number">{index + 1}</span>
-                        <span
-                          className="presentation-thumbnail-card"
-                          data-has-image={thumbnailImageSource ? "true" : undefined}
-                        >
-                          {thumbnailImageSource && (
-                            <img
-                              className="presentation-thumbnail-image"
-                              src={thumbnailImageSource}
-                              alt=""
-                              aria-hidden="true"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          )}
-                          <span className="presentation-thumbnail-copy">
-                            <strong>{summary.title}</strong>
-                            {summary.excerpt && (
-                              <small>{summary.excerpt}</small>
-                            )}
+                        <span className="presentation-thumbnail-card">
+                          <span
+                            className="presentation-thumbnail-canvas"
+                            aria-hidden="true"
+                          >
+                            <div
+                              className="reveal presentation-thumbnail-reveal"
+                              inert
+                            >
+                              <div className="slides">
+                                <section
+                                  className="present presentation-slide-surface presentation-thumbnail-slide"
+                                  data-layout={renderedSlide.layout}
+                                  dangerouslySetInnerHTML={{
+                                    __html: `<div class="presentation-slide-content">${renderedSlide.bodyHtml}</div>`,
+                                  }}
+                                />
+                              </div>
+                            </div>
                           </span>
                         </span>
                       </button>
@@ -1001,14 +1089,19 @@ export function PresentationEditor(props: PresentationEditorProps) {
               aria-label={t`Presentation preview`}
             >
               <div className="slides">
-                {deck.slides.map((item, index) => (
-                  <section
-                    key={`${item.start}-${index}`}
-                    dangerouslySetInnerHTML={{
-                      __html: `${markdownToHtml(item.body)}<aside class="notes">${markdownToHtml(item.notes)}</aside>`,
-                    }}
-                  />
-                ))}
+                {deck.slides.map((item, index) => {
+                  const renderedSlide = renderedSlides[index];
+                  return (
+                    <section
+                      className="presentation-slide-surface"
+                      key={`${item.start}-${index}`}
+                      data-layout={renderedSlide.layout}
+                      dangerouslySetInnerHTML={{
+                        __html: `<div class="presentation-slide-content">${renderedSlide.bodyHtml}</div><aside class="notes">${renderedSlide.notesHtml}</aside>`,
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
             {mode !== "source" && (

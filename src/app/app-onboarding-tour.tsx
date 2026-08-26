@@ -99,6 +99,8 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
                 void openTutorialDocument("attention-map.tldr", "source");
               } else if (nextStep === TUTORIAL_STEPS.spreadsheet || nextStep === TUTORIAL_STEPS.spreadsheetTools) {
                 void openTutorialDocument("attention-results.lattice-sheet", "source");
+              } else if (nextStep === TUTORIAL_STEPS.presentation) {
+                void openTutorialDocument("attention-talk.slides.md", "split");
               } else if (nextStep === TUTORIAL_STEPS.workspaceActions) {
                 void openTutorialDocument("main.tex", "split");
               } else if (nextStep === TUTORIAL_STEPS.paperBlog) {
