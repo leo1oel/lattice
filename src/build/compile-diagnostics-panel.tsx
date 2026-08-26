@@ -132,7 +132,7 @@ export function CompileDiagnosticsPanel(props: {
             <EmptyState
               align="start"
               density="compact"
-              description="Build failed without a captured log."
+              description="Build failed without a captured log"
             />
           )}
         </div>

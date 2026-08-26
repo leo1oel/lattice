@@ -4113,6 +4113,10 @@ fn normalize_source_path(relative: &str) -> Result<String, String> {
 }
 
 fn seed_content_for_path(path: &str) -> String {
+    if path.to_ascii_lowercase().ends_with(".slides.md") {
+        return "---\ntheme: lattice\ntransition: fade\n---\n\n# Untitled presentation\n\nAdd a subtitle or opening idea.\n\n---\n\n## Next slide\n\n- Add your key point\n- Use `---` to start another slide\n\nNotes:\nAdd speaker notes here.\n"
+            .to_string();
+    }
     match Path::new(path)
         .extension()
         .and_then(|extension| extension.to_str())
@@ -7106,6 +7110,19 @@ mod tests {
         assert!(delete_entry(&root, "references.bib").is_err());
         assert!(create_entry(&root, ".research/private.txt", "file").is_err());
         assert_eq!(create_entry(&root, "notes.md", "file").unwrap(), "notes.md");
+        assert_eq!(
+            create_entry(&root, "talk.slides.md", "file").unwrap(),
+            "talk.slides.md"
+        );
+        let presentation = fs::read_to_string(root.join("talk.slides.md")).unwrap();
+        assert!(presentation.contains("theme: lattice"));
+        assert!(presentation.contains("# Untitled presentation"));
+        assert!(presentation.contains("Notes:"));
+        assert!(collab_project_inventory_v2(&root)
+            .unwrap()
+            .files
+            .iter()
+            .any(|file| file.path == "talk.slides.md" && file.content_kind == "text"));
         assert_eq!(
             create_entry(&root, "supplement.html", "file").unwrap(),
             "supplement.html"

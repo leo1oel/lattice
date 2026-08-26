@@ -1,11 +1,11 @@
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { yCollab } from "y-codemirror.next";
-import type { EditorCollabSession } from "./collab-session";
+import type { EditorCollabBinding } from "./collab-session";
 
-export function collabEditorExtensions(session: EditorCollabSession): Extension[] {
+export function collabEditorExtensions(binding: EditorCollabBinding): Extension[] {
   return [
-    yCollab(session.ytext, session.provider.awareness, { undoManager: session.undoManager }),
+    yCollab(binding.ytext, binding.provider.awareness, { undoManager: binding.undoManager }),
     EditorView.theme({
       ".cm-selectionBackground": {
         backgroundColor: "color-mix(in srgb, #3d7af2 38%, transparent) !important",

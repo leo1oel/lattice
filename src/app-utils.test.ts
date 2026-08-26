@@ -9,6 +9,7 @@ import {
   dropDirectoryAt,
   dropEditorAt,
   isHarperProseFilePath,
+  isPresentationFilePath,
   isProjectSourceFilePath,
   isWindowDragExcluded,
   markdownFrontmatterEnd,
@@ -212,6 +213,13 @@ describe("window dragging", () => {
 });
 
 describe("editor file drops", () => {
+  it("recognizes presentation Markdown by its compound suffix", () => {
+    expect(isPresentationFilePath("talk.slides.md")).toBe(true);
+    expect(isPresentationFilePath("Deck.SLIDES.MD")).toBe(true);
+    expect(isPresentationFilePath("slides.md")).toBe(false);
+    expect(isPresentationFilePath("talk.md")).toBe(false);
+  });
+
   it("runs Harper only for prose source files", () => {
     expect(isHarperProseFilePath("main.tex")).toBe(true);
     expect(isHarperProseFilePath("notes.md")).toBe(true);

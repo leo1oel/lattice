@@ -41,13 +41,13 @@ export function TexSetupWizard(props: {
   };
 
   const installStageDetail: Record<TexInstallProgress["stage"], string> = {
-    downloading: t`Download time depends on your connection.`,
-    authorizing: t`Approve the macOS prompt to continue.`,
-    "installing-base": t`This step may take a minute.`,
-    "installing-packages": t`This is the longest step and can take up to 15 minutes.`,
-    "installing-tools": t`Installing uv for paper imports and bibliography tools.`,
-    verifying: t`Almost done.`,
-    complete: t`Setup is complete.`,
+    downloading: t`Download time depends on your connection`,
+    authorizing: t`Approve the macOS prompt to continue`,
+    "installing-base": t`This step may take a minute`,
+    "installing-packages": t`This is the longest step and can take up to 15 minutes`,
+    "installing-tools": t`Installing uv for paper imports and bibliography tools`,
+    verifying: t`Almost done`,
+    complete: t`Setup is complete`,
   };
   const [installing, setInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState<TexInstallProgress>({
@@ -136,11 +136,11 @@ export function TexSetupWizard(props: {
         <h2>{paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}</h2>
         {paperToolsOnly ? (
           <p>
-            {t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute." })}
+            {t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute" })}
           </p>
         ) : (
           <p>
-            {t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes.` })}
+            {t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes` })}
           </p>
         )}
 

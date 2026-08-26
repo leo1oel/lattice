@@ -140,6 +140,11 @@ export class CollabProjectControllerV2 {
   private fallbackAwareness = new Awareness(this.fallbackDoc);
   private activeClient?: CollabTextClientV2;
   private activePin: "main" | "secondary" = "main";
+  private secondaryClient?: CollabTextClientV2;
+  private secondaryPath?: string;
+  private secondaryUndoManager?: Y.UndoManager;
+  private secondaryOpenGeneration = 0;
+  private readonly secondaryBindingListeners = new Set<() => void>();
   private chatClient?: CollabTextClientV2;
   private readonly chatDocListeners = new Set<(doc: Y.Doc | null) => void>();
   private commentsClient?: CollabTextClientV2;
@@ -200,7 +205,12 @@ export class CollabProjectControllerV2 {
 
   /** Reconnects replace a client's transport and Awareness; follow the swap. */
   private onTransportReplaced(client: CollabTextClientV2): void {
-    if (this.destroyed || client.isDestroyed || client !== this.activeClient) return;
+    if (this.destroyed || client.isDestroyed) return;
+    if (client === this.secondaryClient) {
+      this.awarenessVersion += 1;
+      for (const listener of this.secondaryBindingListeners) listener();
+    }
+    if (client !== this.activeClient) return;
     const awareness = client.awareness ?? this.fallbackAwareness;
     if (this.provider.awareness === awareness) return;
     this.provider = { awareness };
@@ -733,6 +743,65 @@ export class CollabProjectControllerV2 {
     };
   }
 
+  /**
+   * Keep the document shown in the secondary pane alive and give its editor a
+   * path-specific Yjs binding. This deliberately does not activate the file:
+   * the primary pane remains the session's awareness/cursor owner.
+   */
+  async openSecondaryPath(path: string): Promise<{
+    doc: Y.Doc;
+    provider: { awareness: Awareness };
+    ytext: Y.Text;
+    undoManager: Y.UndoManager;
+  } | null> {
+    const generation = ++this.secondaryOpenGeneration;
+    const file = this.file(path);
+    if (!file || file.kind !== "text" || file.state !== "live") {
+      this.releaseSecondaryPath();
+      return null;
+    }
+    const ytext = await this.openPath(path, "secondary", { sideload: true });
+    if (generation !== this.secondaryOpenGeneration) return null;
+    const client = this.clients.get(file.fileId);
+    if (!client || client.isDestroyed) return null;
+    if (this.secondaryClient !== client) {
+      if (this.secondaryClient && !this.secondaryClient.isDestroyed) {
+        this.pool.unpin(this.secondaryClient, "secondary");
+      }
+      this.secondaryUndoManager?.destroy();
+      this.secondaryClient = client;
+      this.secondaryPath = path;
+      this.secondaryUndoManager = new Y.UndoManager(ytext);
+      this.pool.pin(client, "secondary");
+      this.awarenessVersion += 1;
+    }
+    this.secondaryPath = path;
+    const awareness = client.awareness;
+    if (!awareness || !this.secondaryUndoManager) return null;
+    return {
+      doc: client.doc,
+      provider: { awareness },
+      ytext,
+      undoManager: this.secondaryUndoManager,
+    };
+  }
+
+  releaseSecondaryPath(path?: string): void {
+    if (!this.secondaryClient || (path && path !== this.secondaryPath)) return;
+    this.secondaryOpenGeneration += 1;
+    if (!this.secondaryClient.isDestroyed) this.pool.unpin(this.secondaryClient, "secondary");
+    this.secondaryClient = undefined;
+    this.secondaryPath = undefined;
+    this.secondaryUndoManager?.destroy();
+    this.secondaryUndoManager = undefined;
+    this.awarenessVersion += 1;
+  }
+
+  subscribeSecondaryBindingChanges = (listener: () => void): (() => void) => {
+    this.secondaryBindingListeners.add(listener);
+    return () => this.secondaryBindingListeners.delete(listener);
+  };
+
   /** Same-file awareness peers merged with cross-file coordinator presence. */
   private pushPeers(): void {
     const onPeers = this.options.onPeers;
@@ -984,6 +1053,7 @@ export class CollabProjectControllerV2 {
     this.chatDocListeners.clear(); this.chatClient = undefined;
     for (const listener of this.commentsDocListeners) listener(null);
     this.commentsDocListeners.clear(); this.commentsClient = undefined;
+    this.secondaryUndoManager?.destroy(); this.secondaryUndoManager = undefined; this.secondaryClient = undefined; this.secondaryPath = undefined; this.secondaryBindingListeners.clear();
     for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.canWriteListeners.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
   }
 

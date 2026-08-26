@@ -172,7 +172,7 @@ describe("OverleafHistoryPanel", () => {
     const filesContainer = await filesContainerOf(body);
     fireEvent.click(within(filesContainer).getByRole("button", { name: /figs\/loss\.png/ }));
 
-    expect(await screen.findByText("Binary file changed.")).toBeInTheDocument();
+    expect(await screen.findByText("Binary file changed")).toBeInTheDocument();
   });
 
   it("restores the whole project only after confirmation", async () => {

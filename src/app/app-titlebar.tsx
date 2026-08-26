@@ -190,8 +190,8 @@ export function AppTitlebar(props: AppTitlebarProps) {
             </Tip>
           ) : (
             <Tip label={buildPreferences.autoBuildMode === "automatic"
-              ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild.`
-              : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild.`}
+              ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild`
+              : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild`}
             >
               <button
                 aria-label={t`Build`}

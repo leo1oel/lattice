@@ -18,16 +18,16 @@ msgid " (or switching projects) only disconnects you — the room keeps running 
 msgstr " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
 
 #: src/collab/collab-dialog.tsx
-msgid " ends it for everyone."
-msgstr " ends it for everyone."
+msgid " ends it for everyone"
+msgstr " ends it for everyone"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " et al."
 
 #: src/collab/collab-dialog.tsx
-msgid " if Build fails on a blank machine."
-msgstr " if Build fails on a blank machine."
+msgid " if Build fails on a blank machine"
+msgstr " if Build fails on a blank machine"
 
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
@@ -131,8 +131,8 @@ msgid "{count} TODO"
 msgstr "{count} TODO"
 
 #: src/settings/settings-dialog.tsx
-msgid "{detail} Find in project will stay lexical."
-msgstr "{detail} Find in project will stay lexical."
+msgid "{detail} Find in project will stay lexical"
+msgstr "{detail} Find in project will stay lexical"
 
 #: src/project/navigator.tsx
 msgid "{filtered} of {total} papers"
@@ -214,12 +214,12 @@ msgid "a over b"
 msgstr "a over b"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you."
-msgstr "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you."
+msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
+msgstr "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "A sync that finds a file missing here offers to remove it from Overleaf too."
-msgstr "A sync that finds a file missing here offers to remove it from Overleaf too."
+msgid "A sync that finds a file missing here offers to remove it from Overleaf too"
+msgstr "A sync that finds a file missing here offers to remove it from Overleaf too"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Abstract"
@@ -269,6 +269,10 @@ msgstr "Add comment"
 msgid "Add project term"
 msgstr "Add project term"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Add slide"
+msgstr "Add slide"
+
 #: src/project/navigator.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
@@ -285,8 +289,8 @@ msgid "Agent"
 msgstr "Agent"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
-msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools."
+msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools"
+msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, or update the sample spreadsheet. Skills and MCP servers add more tools"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -339,16 +343,16 @@ msgid "All levels"
 msgstr "All levels"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "All of your projects are archived or trashed. Tick “Show archived” to see them."
-msgstr "All of your projects are archived or trashed. Tick “Show archived” to see them."
+msgid "All of your projects are archived or trashed. Tick “Show archived” to see them"
+msgstr "All of your projects are archived or trashed. Tick “Show archived” to see them"
 
 #: src/settings/settings-dialog.tsx
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Almost done."
-msgstr "Almost done."
+msgid "Almost done"
+msgstr "Almost done"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Alpha"
@@ -393,12 +397,12 @@ msgid "Appearance"
 msgstr "Appearance"
 
 #: src/settings/settings-dialog.tsx
-msgid "Applies to the LaTeX source editor only."
-msgstr "Applies to the LaTeX source editor only."
+msgid "Applies to the LaTeX source editor only"
+msgstr "Applies to the LaTeX source editor only"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Approve the macOS prompt to continue."
-msgstr "Approve the macOS prompt to continue."
+msgid "Approve the macOS prompt to continue"
+msgstr "Approve the macOS prompt to continue"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Approximately equal"
@@ -477,8 +481,8 @@ msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
-msgstr "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes."
+msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
+msgstr "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installation progress"
@@ -523,8 +527,8 @@ msgstr "binary"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
-msgid "Binary file changed."
-msgstr "Binary file changed."
+msgid "Binary file changed"
+msgstr "Binary file changed"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Binomial"
@@ -548,8 +552,8 @@ msgid "Blog"
 msgstr "Blog"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Blog view gives you an illustrated overview before you read the full paper."
-msgstr "Blog view gives you an illustrated overview before you read the full paper."
+msgid "Blog view gives you an illustrated overview before you read the full paper"
+msgstr "Blog view gives you an illustrated overview before you read the full paper"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Bmatrix"
@@ -614,20 +618,20 @@ msgid "Build"
 msgstr "Build"
 
 #: src/app/app-titlebar.tsx
-msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild."
-msgstr "Build automatically · Command-S builds now. Shift-click for clean rebuild."
+msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild"
+msgstr "Build automatically · Command-S builds now. Shift-click for clean rebuild"
 
 #: src/app/app-titlebar.tsx
-msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
-msgstr "Build only when requested · Command-S builds now. Shift-click for clean rebuild."
+msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild"
+msgstr "Build only when requested · Command-S builds now. Shift-click for clean rebuild"
 
 #: src/App.tsx
 msgid "Build project"
 msgstr "Build project"
 
 #: src/pdf/pdf-viewer.tsx
-msgid "Build the project to preview the paper."
-msgstr "Build the project to preview the paper."
+msgid "Build the project to preview the paper"
+msgstr "Build the project to preview the paper"
 
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
@@ -757,8 +761,8 @@ msgid "Check spelling in prose"
 msgstr "Check spelling in prose"
 
 #: src/settings/settings-dialog.tsx
-msgid "Check your connection and try again."
-msgstr "Check your connection and try again."
+msgid "Check your connection and try again"
+msgstr "Check your connection and try again"
 
 #: src/project/navigator.tsx
 msgid "checked"
@@ -777,8 +781,8 @@ msgid "Checking…"
 msgstr "Checking…"
 
 #: src/settings/settings-dialog.tsx
-msgid "Checks English spelling and grammar as you type with Harper."
-msgstr "Checks English spelling and grammar as you type with Harper."
+msgid "Checks English spelling and grammar as you type with Harper"
+msgstr "Checks English spelling and grammar as you type with Harper"
 
 #: src/settings/settings-dialog.tsx
 msgid "Checks the tools Lattice needs to compile LaTeX"
@@ -793,12 +797,12 @@ msgid "Choose location"
 msgstr "Choose location"
 
 #: src/settings/settings-dialog.tsx
-msgid "Choose the language used for menus, settings, and help text."
-msgstr "Choose the language used for menus, settings, and help text."
+msgid "Choose the language used for menus, settings, and help text"
+msgstr "Choose the language used for menus, settings, and help text"
 
 #: src/settings/settings-dialog.tsx
-msgid "Choose the theme for Lattice on this device."
-msgstr "Choose the theme for Lattice on this device."
+msgid "Choose the theme for Lattice on this device"
+msgstr "Choose the theme for Lattice on this device"
 
 #: src/App.tsx
 msgid "Choose where to extract the project"
@@ -988,6 +992,10 @@ msgstr "Compile/PDF stays on each Mac. "
 msgid "Composition / ring"
 msgstr "Composition / ring"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Concave"
+msgstr "Concave"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "conference"
@@ -1038,8 +1046,8 @@ msgid "Connection failed"
 msgstr "Connection failed"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above."
-msgstr "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above."
+msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
+msgstr "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Contains as member"
@@ -1059,6 +1067,10 @@ msgstr "Continue?"
 #: src/editor/insert/insert-snippets.ts
 msgid "Contour integral"
 msgstr "Contour integral"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Convex"
+msgstr "Convex"
 
 #: src/collab/collab-dialog.tsx
 msgid "Copied"
@@ -1112,6 +1124,10 @@ msgstr "Could not open the article in your browser"
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Could not open the print dialog"
+msgstr "Could not open the print dialog"
+
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
 #: src/app/use-overleaf-workspace.ts
@@ -1140,8 +1156,8 @@ msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Create a new Overleaf project and keep this folder connected to it."
-msgstr "Create a new Overleaf project and keep this folder connected to it."
+msgid "Create a new Overleaf project and keep this folder connected to it"
+msgstr "Create a new Overleaf project and keep this folder connected to it"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -1154,8 +1170,8 @@ msgstr "created"
 
 #. placeholder {0}: venue.label
 #: src/project/project-dialogs.tsx
-msgid "Creates a {0} preprint template with bibliography and project brief."
-msgstr "Creates a {0} preprint template with bibliography and project brief."
+msgid "Creates a {0} preprint template with bibliography and project brief"
+msgstr "Creates a {0} preprint template with bibliography and project brief"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Creating an invite…"
@@ -1220,6 +1236,10 @@ msgstr "Delete"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Delete slide"
+msgstr "Delete slide"
 
 #: src/app/app-editor-panels.tsx
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
@@ -1370,13 +1390,13 @@ msgid "Download PDF"
 msgstr "Download PDF"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Download time depends on your connection."
-msgstr "Download time depends on your connection."
+msgid "Download time depends on your connection"
+msgstr "Download time depends on your connection"
 
 #. placeholder {0}: cloning.name
 #: src/overleaf/overleaf-connect.tsx
-msgid "Downloading {0} from Overleaf… this can take a minute for large projects."
-msgstr "Downloading {0} from Overleaf… this can take a minute for large projects."
+msgid "Downloading {0} from Overleaf… this can take a minute for large projects"
+msgstr "Downloading {0} from Overleaf… this can take a minute for large projects"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Downloading BasicTeX…"
@@ -1391,8 +1411,8 @@ msgid "Downloading update…"
 msgstr "Downloading update…"
 
 #: src/canvas/document-canvas.tsx
-msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
-msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it."
+msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
+msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 
 #: src/App.tsx
 msgid "Dual source view"
@@ -1403,8 +1423,8 @@ msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
-msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full."
+msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
+msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
 
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
@@ -1420,30 +1440,38 @@ msgstr "Edit and preview HTML"
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
+#: src/canvas/canvas-toolbar.tsx
+msgid "Edit and preview presentation"
+msgstr "Edit and preview presentation"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/navigator.tsx
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
-msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live."
+msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live"
+msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Edit main.tex on the left. The PDF on the right updates automatically."
-msgstr "Edit main.tex on the left. The PDF on the right updates automatically."
+msgid "Edit main.tex on the left. The PDF on the right updates automatically"
+msgstr "Edit main.tex on the left. The PDF on the right updates automatically"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Edit notes.md on the left and see the formatted result update live on the right."
-msgstr "Edit notes.md on the left and see the formatted result update live on the right."
+msgid "Edit notes.md on the left and see the formatted result update live on the right"
+msgstr "Edit notes.md on the left and see the formatted result update live on the right"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Edit presentation source"
+msgstr "Edit presentation source"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source"
@@ -1494,8 +1522,8 @@ msgid "Editor status"
 msgstr "Editor status"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Edits sync live with Overleaf."
-msgstr "Edits sync live with Overleaf."
+msgid "Edits sync live with Overleaf"
+msgstr "Edits sync live with Overleaf"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Element of"
@@ -1538,14 +1566,18 @@ msgstr "English"
 msgid "Enter a page number"
 msgstr "Enter a page number"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Enter a slide number"
+msgstr "Enter a slide number"
+
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "Enter a zoom percentage or scroll to zoom"
 
 #: src/collab/collab-dialog.tsx
-msgid "Enter your name so others can see who is editing."
-msgstr "Enter your name so others can see who is editing."
+msgid "Enter your name so others can see who is editing"
+msgstr "Enter your name so others can see who is editing"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Entry type"
@@ -1626,6 +1658,10 @@ msgstr "Export ZIP"
 #: src/project/navigator.tsx
 msgid "Expression of concern"
 msgstr "Expression of concern"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Fade"
+msgstr "Fade"
 
 #: src/settings/settings-dialog.tsx
 msgid "Feedback"
@@ -1879,6 +1915,10 @@ msgstr "Heart suit"
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Hide slide navigator"
+msgstr "Hide slide navigator"
+
 #: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "History views"
@@ -1896,8 +1936,8 @@ msgid "host"
 msgstr "host"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "HTML files render live here, so you can build interactive demos and figures."
-msgstr "HTML files render live here, so you can build interactive demos and figures."
+msgid "HTML files render live here, so you can build interactive demos and figures"
+msgstr "HTML files render live here, so you can build interactive demos and figures"
 
 #: src/canvas/document-canvas.tsx
 msgid "HTML preview for {path}"
@@ -2130,8 +2170,8 @@ msgid "Installing update…"
 msgstr "Installing update…"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Installing uv for paper imports and bibliography tools."
-msgstr "Installing uv for paper imports and bibliography tools."
+msgid "Installing uv for paper imports and bibliography tools"
+msgstr "Installing uv for paper imports and bibliography tools"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Integral"
@@ -2203,16 +2243,16 @@ msgid "Kappa"
 msgstr "Kappa"
 
 #: src/settings/settings-dialog.tsx
-msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it."
-msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it."
+msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
+msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake."
-msgstr "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake."
+msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
+msgstr "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
@@ -2263,29 +2303,33 @@ msgstr "Last, First and Last, First"
 msgid "latexmk -c then -g"
 msgstr "latexmk -c then -g"
 
-#: src/settings/settings-dialog.tsx
-msgid "Lattice checks in the background and installs updates on its own."
-msgstr "Lattice checks in the background and installs updates on its own."
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Lattice"
+msgstr "Lattice"
 
 #: src/settings/settings-dialog.tsx
-msgid "Lattice checks in the background; you decide when to install."
-msgstr "Lattice checks in the background; you decide when to install."
+msgid "Lattice checks in the background and installs updates on its own"
+msgstr "Lattice checks in the background and installs updates on its own"
 
 #: src/settings/settings-dialog.tsx
-msgid "Lattice closes the least recently used tab past this count."
-msgstr "Lattice closes the least recently used tab past this count."
+msgid "Lattice checks in the background; you decide when to install"
+msgstr "Lattice checks in the background; you decide when to install"
+
+#: src/settings/settings-dialog.tsx
+msgid "Lattice closes the least recently used tab past this count"
+msgstr "Lattice closes the least recently used tab past this count"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
-msgstr "Lattice downloads the full text, figures, and metadata and keeps them with the citation."
+msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation"
+msgstr "Lattice downloads the full text, figures, and metadata and keeps them with the citation"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
-msgstr "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute."
+msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute"
+msgstr "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute"
 
 #: src/settings/settings-dialog.tsx
-msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
-msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds."
+msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
+msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
 
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
@@ -2361,8 +2405,8 @@ msgid "Let's download one of them"
 msgstr "Let's download one of them"
 
 #: src/settings/settings-dialog.tsx
-msgid "Lets trusted projects run external tools during builds."
-msgstr "Lets trusted projects run external tools during builds."
+msgid "Lets trusted projects run external tools during builds"
+msgstr "Lets trusted projects run external tools during builds"
 
 #: src/settings/settings-dialog.tsx
 msgid "Light"
@@ -2402,20 +2446,20 @@ msgid "Live collaboration · just you"
 msgstr "Live collaboration · just you"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
-msgstr "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions."
+msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
+msgstr "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
 
 #: src/collab/collab-dialog.tsx
 msgid "Live collaboration view"
 msgstr "Live collaboration view"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Live editing is connected."
-msgstr "Live editing is connected."
+msgid "Live editing is connected"
+msgstr "Live editing is connected"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Live editing is unavailable; regular syncing continues."
-msgstr "Live editing is unavailable; regular syncing continues."
+msgid "Live editing is unavailable; regular syncing continues"
+msgstr "Live editing is unavailable; regular syncing continues"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live editing unavailable · syncing instead"
@@ -2550,6 +2594,10 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Midnight"
+msgstr "Midnight"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
@@ -2588,8 +2636,8 @@ msgid "modified"
 msgstr "modified"
 
 #: src/settings/settings-dialog.tsx
-msgid "Move this workspace back to a Lattice window on this Mac."
-msgstr "Move this workspace back to a Lattice window on this Mac."
+msgid "Move this workspace back to a Lattice window on this Mac"
+msgstr "Move this workspace back to a Lattice window on this Mac"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
@@ -2651,6 +2699,10 @@ msgstr "New board"
 msgid "New changes on Overleaf — click to bring them in"
 msgstr "New changes on Overleaf — click to bring them in"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "New document"
+msgstr "New document"
+
 #: src/project/navigator.tsx
 msgid "New file"
 msgstr "New file"
@@ -2666,6 +2718,10 @@ msgstr "New name"
 #: src/overleaf/overleaf-connect.tsx
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
+
+#: src/app/app-workspace-sidebar.tsx
+msgid "New presentation"
+msgstr "New presentation"
 
 #: src/project/project-dialogs.tsx
 msgid "New project"
@@ -2691,81 +2747,89 @@ msgstr "Next page"
 msgid "Next search result"
 msgstr "Next search result"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Next slide"
+msgstr "Next slide"
+
 #: src/App.tsx
 msgid "No"
 msgstr "No"
 
 #: src/history/history-drawer.tsx
-msgid "No changes match this filter."
-msgstr "No changes match this filter."
+msgid "No changes match this filter"
+msgstr "No changes match this filter"
 
 #: src/history/history-drawer.tsx
-msgid "No changes recorded yet."
-msgstr "No changes recorded yet."
+msgid "No changes recorded yet"
+msgstr "No changes recorded yet"
 
 #: src/history/versions-timeline.tsx
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "No comments yet. Select text in the editor and click Comment."
-msgstr "No comments yet. Select text in the editor and click Comment."
+msgid "No comments yet. Select text in the editor and click Comment"
+msgstr "No comments yet. Select text in the editor and click Comment"
 
 #: src/project/navigator.tsx
 msgid "No Crossref update metadata found"
 msgstr "No Crossref update metadata found"
 
 #: src/overleaf/overleaf-history.tsx
-msgid "No file changes recorded for this update."
-msgstr "No file changes recorded for this update."
+msgid "No file changes recorded for this update"
+msgstr "No file changes recorded for this update"
 
 #: src/overleaf/overleaf-history.tsx
-msgid "No history yet."
-msgstr "No history yet."
+msgid "No history yet"
+msgstr "No history yet"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
 
 #: src/telemetry/app-log.tsx
-msgid "No logs at this level."
-msgstr "No logs at this level."
+msgid "No logs at this level"
+msgstr "No logs at this level"
 
 #: src/telemetry/app-log.tsx
-msgid "No logs yet."
-msgstr "No logs yet."
+msgid "No logs yet"
+msgstr "No logs yet"
 
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
 
 #: src/editor/insert/insert-palette.tsx
-msgid "No matching snippets. Try fraction, implies, align*, or eqref."
-msgstr "No matching snippets. Try fraction, implies, align*, or eqref."
+msgid "No matching snippets. Try fraction, implies, align*, or eqref"
+msgstr "No matching snippets. Try fraction, implies, align*, or eqref"
 
 #: src/project/project-dialogs.tsx
-msgid "No other recent projects yet."
-msgstr "No other recent projects yet."
+msgid "No other recent projects yet"
+msgstr "No other recent projects yet"
 
 #: src/settings/settings-dialog.tsx
-msgid "No project terms added."
-msgstr "No project terms added."
+msgid "No project terms added"
+msgstr "No project terms added"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "No projects in this account yet. Create one on Overleaf and it will appear here."
-msgstr "No projects in this account yet. Create one on Overleaf and it will appear here."
+msgid "No projects in this account yet. Create one on Overleaf and it will appear here"
+msgstr "No projects in this account yet. Create one on Overleaf and it will appear here"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "No projects match your search."
-msgstr "No projects match your search."
+msgid "No projects match your search"
+msgstr "No projects match your search"
 
 #: src/canvas/document-outline.tsx
-msgid "No sections yet. Add a \\section{…} to start the outline."
-msgstr "No sections yet. Add a \\section{…} to start the outline."
+msgid "No sections yet. Add a \\section{…} to start the outline"
+msgstr "No sections yet. Add a \\section{…} to start the outline"
 
 #: src/history/versions-timeline.tsx
-msgid "No versions yet. Versions are saved automatically as you work, or press Save version."
-msgstr "No versions yet. Versions are saved automatically as you work, or press Save version."
+msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
+msgstr "No versions yet. Versions are saved automatically as you work, or press Save version"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "None"
+msgstr "None"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "North-east arrow"
@@ -2792,12 +2856,12 @@ msgid "Notes and drafts in Markdown"
 msgstr "Notes and drafts in Markdown"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Nothing is ever removed from the shared project from here. The two sides stay different."
-msgstr "Nothing is ever removed from the shared project from here. The two sides stay different."
+msgid "Nothing is ever removed from the shared project from here. The two sides stay different"
+msgstr "Nothing is ever removed from the shared project from here. The two sides stay different"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Nothing is sent or fetched until you resume."
-msgstr "Nothing is sent or fetched until you resume."
+msgid "Nothing is sent or fetched until you resume"
+msgstr "Nothing is sent or fetched until you resume"
 
 #: src/settings/settings-dialog.tsx
 msgid "Notify me (manual)"
@@ -2828,8 +2892,8 @@ msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
 #: src/settings/settings-dialog.tsx
-msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded."
-msgstr "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded."
+msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
+msgstr "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
 
 #: src/project/project-dialogs.tsx
 msgid "Official 2026 conference style"
@@ -2856,12 +2920,12 @@ msgid "Open a project from Overleaf"
 msgstr "Open a project from Overleaf"
 
 #: src/settings/settings-dialog.tsx
-msgid "Open a project to add its names, acronyms, and technical terms."
-msgstr "Open a project to add its names, acronyms, and technical terms."
+msgid "Open a project to add its names, acronyms, and technical terms"
+msgstr "Open a project to add its names, acronyms, and technical terms"
 
 #: src/settings/settings-dialog.tsx
-msgid "Open a project to manage Agent settings."
-msgstr "Open a project to manage Agent settings."
+msgid "Open a project to manage Agent settings"
+msgstr "Open a project to manage Agent settings"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open and sync Overleaf projects in Lattice"
@@ -2929,12 +2993,12 @@ msgid "Open on right"
 msgstr "Open on right"
 
 #: src/canvas/document-canvas.tsx
-msgid "Open or drag a file here."
-msgstr "Open or drag a file here."
+msgid "Open or drag a file here"
+msgstr "Open or drag a file here"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Open Papers to see the sources cited by this manuscript."
-msgstr "Open Papers to see the sources cited by this manuscript."
+msgid "Open Papers to see the sources cited by this manuscript"
+msgstr "Open Papers to see the sources cited by this manuscript"
 
 #: src/canvas/document-canvas.tsx
 msgid "Open PDF in browser"
@@ -2949,8 +3013,8 @@ msgid "Open settings"
 msgstr "Open settings"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Open the Agent tab to use Codex, Claude, or another provider."
-msgstr "Open the Agent tab to use Codex, Claude, or another provider."
+msgid "Open the Agent tab to use Codex, Claude, or another provider"
+msgstr "Open the Agent tab to use Codex, Claude, or another provider"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
@@ -2973,12 +3037,12 @@ msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
 
 #: src/settings/settings-dialog.tsx
-msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
-msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac."
+msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
+msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
 
 #: src/settings/settings-dialog.tsx
-msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes."
-msgstr "Open this workspace in your default browser. It returns to this window when the browser tab closes."
+msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
+msgstr "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 
 #: src/App.tsx
 msgid "OpenAlex search"
@@ -3030,8 +3094,8 @@ msgid "Overleaf projects"
 msgstr "Overleaf projects"
 
 #: src/overleaf/overleaf-history.tsx
-msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app."
-msgstr "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app."
+msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
+msgstr "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Overline"
@@ -3050,9 +3114,13 @@ msgstr "Paper actions"
 msgid "Paper content"
 msgstr "Paper content"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Paper style"
+msgstr "Paper style"
+
 #: src/onboarding/onboarding-tour.tsx
-msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
-msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft."
+msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
+msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 
 #: src/app/app-workspace-sidebar.tsx
 #: src/canvas/document-canvas.tsx
@@ -3077,8 +3145,8 @@ msgid "Partial derivative"
 msgstr "Partial derivative"
 
 #: src/project/navigator.tsx
-msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
-msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence."
+msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
+msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 
 #: src/App.tsx
 msgid "Paste clipboard image as figure"
@@ -3153,8 +3221,8 @@ msgid "Pi"
 msgstr "Pi"
 
 #: src/papers/bib-entry-dialog.tsx
-msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand."
-msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand."
+msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
+msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Piecewise definition"
@@ -3165,8 +3233,8 @@ msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
 
 #: src/settings/settings-dialog.tsx
-msgid "Plays quiet cues when a requested build or collaboration setup finishes."
-msgstr "Plays quiet cues when a requested build or collaboration setup finishes."
+msgid "Plays quiet cues when a requested build or collaboration setup finishes"
+msgstr "Plays quiet cues when a requested build or collaboration setup finishes"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
@@ -3215,6 +3283,10 @@ msgid "Preparing PDF preview…"
 msgstr "Preparing PDF preview…"
 
 #: src/canvas/document-canvas.tsx
+msgid "Preparing presentation editor"
+msgstr "Preparing presentation editor"
+
+#: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
 
@@ -3229,6 +3301,26 @@ msgstr "Preparing spreadsheet editor"
 #: src/agent/synara-loading-surface.tsx
 msgid "Preparing this workspace"
 msgstr "Preparing this workspace"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Present"
+msgstr "Present"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Presentation"
+msgstr "Presentation"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Presentation Markdown source"
+msgstr "Presentation Markdown source"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Presentation preview"
+msgstr "Presentation preview"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Presentation style"
+msgstr "Presentation style"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Preview"
@@ -3254,6 +3346,10 @@ msgstr "Preview of {path}"
 msgid "Preview PDF"
 msgstr "Preview PDF"
 
+#: src/canvas/canvas-toolbar.tsx
+msgid "Preview presentation"
+msgstr "Preview presentation"
+
 #: src/canvas/document-canvas.tsx
 msgid "previous"
 msgstr "previous"
@@ -3266,9 +3362,17 @@ msgstr "Previous page"
 msgid "Previous search result"
 msgstr "Previous search result"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Previous slide"
+msgstr "Previous slide"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "Prime"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Print / PDF"
+msgstr "Print / PDF"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
@@ -3491,8 +3595,8 @@ msgid "Removed one file from Overleaf"
 msgstr "Removed one file from Overleaf"
 
 #: src/settings/settings-dialog.tsx
-msgid "Removes .aux, .log, and other build leftovers from this project."
-msgstr "Removes .aux, .log, and other build leftovers from this project."
+msgid "Removes .aux, .log, and other build leftovers from this project"
+msgstr "Removes .aux, .log, and other build leftovers from this project"
 
 #: src/collab/collab-dialog.tsx
 msgid "Removing…"
@@ -3527,8 +3631,8 @@ msgid "renamed"
 msgstr "renamed"
 
 #: src/project/project-dialogs.tsx
-msgid "Renames the matching \\begin and \\end pair under the cursor."
-msgstr "Renames the matching \\begin and \\end pair under the cursor."
+msgid "Renames the matching \\begin and \\end pair under the cursor"
+msgstr "Renames the matching \\begin and \\end pair under the cursor"
 
 #: src/project/project-dialogs.tsx
 msgid "Renaming…"
@@ -3607,6 +3711,14 @@ msgstr "Resize editor and PDF preview"
 #: src/canvas/document-canvas.tsx
 msgid "Resize PDF pane"
 msgstr "Resize PDF pane"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Resize slide navigator"
+msgstr "Resize slide navigator"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Resize source and presentation preview"
+msgstr "Resize source and presentation preview"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
@@ -3813,16 +3925,16 @@ msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
 
 #: src/settings/settings-dialog.tsx
-msgid "Run the doctor to inspect this Mac’s TeX toolchain."
-msgstr "Run the doctor to inspect this Mac’s TeX toolchain."
+msgid "Run the doctor to inspect this Mac’s TeX toolchain"
+msgstr "Run the doctor to inspect this Mac’s TeX toolchain"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
 
 #: src/settings/settings-dialog.tsx
-msgid "Runs on-device; no text leaves this Mac."
-msgstr "Runs on-device; no text leaves this Mac."
+msgid "Runs on-device; no text leaves this Mac"
+msgstr "Runs on-device; no text leaves this Mac"
 
 #: src/collab/collab-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -3893,8 +4005,8 @@ msgid "Search"
 msgstr "Search"
 
 #: src/papers/literature-discovery-panel.tsx
-msgid "Search alphaXiv and OpenAlex to find related work before importing evidence."
-msgstr "Search alphaXiv and OpenAlex to find related work before importing evidence."
+msgid "Search alphaXiv and OpenAlex to find related work before importing evidence"
+msgstr "Search alphaXiv and OpenAlex to find related work before importing evidence"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Search by name, meaning, or command (alpha, implies, fraction…)"
@@ -3950,12 +4062,12 @@ msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
-msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser."
+msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
+msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 
 #: src/collab/collab-dialog.tsx
-msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
-msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them."
+msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
+msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Set minus"
@@ -3979,8 +4091,8 @@ msgid "Settings sections"
 msgstr "Settings sections"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Setup is complete."
-msgstr "Setup is complete."
+msgid "Setup is complete"
+msgstr "Setup is complete"
 
 #: src/App.tsx
 msgid "Share invite with a collaborator"
@@ -4018,6 +4130,10 @@ msgstr "Show outline"
 msgid "Show sidebar"
 msgstr "Show sidebar"
 
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Show slide navigator"
+msgstr "Show slide navigator"
+
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "Shows 300 recent entries; disk logs rotate"
@@ -4035,12 +4151,12 @@ msgid "Sigma"
 msgstr "Sigma"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac."
-msgstr "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac."
+msgid "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac"
+msgstr "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac."
-msgstr "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac."
+msgid "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac"
+msgstr "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign out"
@@ -4077,6 +4193,28 @@ msgstr "Skills"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Slide"
+msgstr "Slide"
+
+#. placeholder {0}: index + 1
+#. placeholder {1}: summary.title
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Slide {0}: {1}"
+msgstr "Slide {0}: {1}"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Slide navigation"
+msgstr "Slide navigation"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Slide number"
+msgstr "Slide number"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Slides"
+msgstr "Slides"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
@@ -4188,8 +4326,8 @@ msgid "Still not connected: {0}"
 msgstr "Still not connected: {0}"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again."
-msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again."
+msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
+msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
 #: src/app/app-titlebar.tsx
 msgid "Stop"
@@ -4300,8 +4438,8 @@ msgid "Sync mode"
 msgstr "Sync mode"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Sync only when you click the sync button."
-msgstr "Sync only when you click the sync button."
+msgid "Sync only when you click the sync button"
+msgstr "Sync only when you click the sync button"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
@@ -4333,8 +4471,8 @@ msgid "Tau"
 msgstr "Tau"
 
 #: src/settings/settings-dialog.tsx
-msgid "Terms Harper should accept in this project."
-msgstr "Terms Harper should accept in this project."
+msgid "Terms Harper should accept in this project"
+msgstr "Terms Harper should accept in this project"
 
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
@@ -4345,8 +4483,8 @@ msgid "Text in math"
 msgstr "Text in math"
 
 #: src/agent/synara-loading-surface.tsx
-msgid "The bundled Agent service could not start."
-msgstr "The bundled Agent service could not start."
+msgid "The bundled Agent service could not start"
+msgstr "The bundled Agent service could not start"
 
 #: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
@@ -4389,6 +4527,7 @@ msgstr "The worksheet and all of its contents will be removed and cannot be reco
 msgid "The worksheet and all of its contents will be removed."
 msgstr "The worksheet and all of its contents will be removed."
 
+#: src/editor/presentation/presentation-editor.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Theme"
 msgstr "Theme"
@@ -4426,16 +4565,16 @@ msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
-msgstr "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it."
+msgid "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it"
+msgstr "This folder contains the manuscript, notes, figures, boards, and cited papers. Click a file to open it"
 
 #: src/canvas/document-canvas.tsx
-msgid "This format cannot be rendered in the preview."
-msgstr "This format cannot be rendered in the preview."
+msgid "This format cannot be rendered in the preview"
+msgstr "This format cannot be rendered in the preview"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "This is the longest step and can take up to 15 minutes."
-msgstr "This is the longest step and can take up to 15 minutes."
+msgid "This is the longest step and can take up to 15 minutes"
+msgstr "This is the longest step and can take up to 15 minutes"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -4443,20 +4582,20 @@ msgid "This project syncs with “{0}”"
 msgstr "This project syncs with “{0}”"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac."
-msgstr "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac."
+msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
+msgstr "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
 
 #: src/collab/collab-dialog.tsx
-msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
-msgstr "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely."
+msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
+msgstr "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
 
 #: src/collab/collab-status.ts
 msgid "This shared project is closed"
 msgstr "This shared project is closed"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "This step may take a minute."
-msgstr "This step may take a minute."
+msgid "This step may take a minute"
+msgstr "This step may take a minute"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Three ways to look at a document"
@@ -4507,8 +4646,12 @@ msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
 #: src/history/versions-timeline.tsx
-msgid "Track versions of this project to see who changed what and roll back safely."
-msgstr "Track versions of this project to see who changed what and roll back safely."
+msgid "Track versions of this project to see who changed what and roll back safely"
+msgstr "Track versions of this project to see who changed what and roll back safely"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Transition"
+msgstr "Transition"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
@@ -4550,8 +4693,8 @@ msgid "Type"
 msgstr "Type"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
-msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images."
+msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
+msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 
 #: src/pdf/pdf-viewer.tsx
 #: src/settings/settings-dialog.tsx
@@ -4621,12 +4764,12 @@ msgid "updated {0}"
 msgstr "updated {0}"
 
 #: src/project/project-dialogs.tsx
-msgid "Updates every \\label and \\ref/\\cref occurrence across the project."
-msgstr "Updates every \\label and \\ref/\\cref occurrence across the project."
+msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
+msgstr "Updates every \\label and \\ref/\\cref occurrence across the project"
 
 #: src/project/project-dialogs.tsx
-msgid "Updates the bibliography entry and every \\cite occurrence across the project."
-msgstr "Updates the bibliography entry and every \\cite occurrence across the project."
+msgid "Updates the bibliography entry and every \\cite occurrence across the project"
+msgstr "Updates the bibliography entry and every \\cite occurrence across the project"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Updating…"
@@ -4650,8 +4793,8 @@ msgstr "Upload this project to Overleaf"
 
 #. placeholder {0}: publishName.trim()
 #: src/overleaf/overleaf-connect.tsx
-msgid "Uploading {0} to Overleaf… this can take a minute for large projects."
-msgstr "Uploading {0} to Overleaf… this can take a minute for large projects."
+msgid "Uploading {0} to Overleaf… this can take a minute for large projects"
+msgstr "Uploading {0} to Overleaf… this can take a minute for large projects"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Uploading project files… {completed}/{total}"
@@ -4670,24 +4813,24 @@ msgid "Upsilon"
 msgstr "Upsilon"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Use Edit for the source, Split for both, and Preview for the finished result."
-msgstr "Use Edit for the source, Split for both, and Preview for the finished result."
+msgid "Use Edit for the source, Split for both, and Preview for the finished result"
+msgstr "Use Edit for the source, Split for both, and Preview for the finished result"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
-msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file."
+msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
+msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
 
 #: src/project/navigator.tsx
-msgid "Use the + button to import this query if it isn't in your library yet."
-msgstr "Use the + button to import this query if it isn't in your library yet."
+msgid "Use the + button to import this query if it isn't in your library yet"
+msgstr "Use the + button to import this query if it isn't in your library yet"
 
 #: src/settings/settings-dialog.tsx
-msgid "Use the Build button or Command-S. Source changes are still saved automatically."
-msgstr "Use the Build button or Command-S. Source changes are still saved automatically."
+msgid "Use the Build button or Command-S. Source changes are still saved automatically"
+msgstr "Use the Build button or Command-S. Source changes are still saved automatically"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
-msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable."
+msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
+msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"
@@ -4751,8 +4894,8 @@ msgid "Version history is unavailable: {error}"
 msgstr "Version history is unavailable: {error}"
 
 #: src/history/versions-timeline.tsx
-msgid "Version history needs Git, which isn’t available on this Mac."
-msgstr "Version history needs Git, which isn’t available on this Mac."
+msgid "Version history needs Git, which isn’t available on this Mac"
+msgstr "Version history needs Git, which isn’t available on this Mac"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -4780,8 +4923,8 @@ msgid "View original PDF"
 msgstr "View original PDF"
 
 #: src/settings/settings-dialog.tsx
-msgid "Vim and Emacs keep their modal bindings inside the editor only."
-msgstr "Vim and Emacs keep their modal bindings inside the editor only."
+msgid "Vim and Emacs keep their modal bindings inside the editor only"
+msgstr "Vim and Emacs keep their modal bindings inside the editor only"
 
 #: src/canvas/document-canvas.tsx
 msgid "Vim mode"
@@ -4812,8 +4955,8 @@ msgid "Warning"
 msgstr "Warning"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
-msgstr "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time."
+msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"
+msgstr "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Weierstrass p"
@@ -4844,16 +4987,16 @@ msgid "Wrap in environment"
 msgstr "Wrap in environment"
 
 #: src/project/project-dialogs.tsx
-msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
-msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}."
+msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
+msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Wreath product"
 msgstr "Wreath product"
 
 #: src/settings/settings-dialog.tsx
-msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
-msgstr "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence."
+msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence"
+msgstr "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Xi"
@@ -4873,8 +5016,8 @@ msgid "You"
 msgstr "You"
 
 #: src/collab/collab-dialog.tsx
-msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
-msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing."
+msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing"
+msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"
@@ -4905,12 +5048,12 @@ msgid "your Overleaf account"
 msgstr "your Overleaf account"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
-msgstr "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice."
+msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice"
+msgstr "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged."
-msgstr "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged."
+msgid "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged"
+msgstr "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"
@@ -4919,6 +5062,10 @@ msgstr "Zeta"
 #: src/App.tsx
 msgid "ZIP archive"
 msgstr "ZIP archive"
+
+#: src/editor/presentation/presentation-editor.tsx
+msgid "Zoom"
+msgstr "Zoom"
 
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx

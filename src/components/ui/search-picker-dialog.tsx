@@ -127,7 +127,7 @@ function SearchPickerDialogForm(props: {
               {item.detail && <em className="picker-detail">{item.detail}</em>}
             </button>
           ))}
-          {!results.length && <EmptyState density="compact" description="No matches." />}
+          {!results.length && <EmptyState density="compact" description="No matches" />}
         </div>
       </div>
     </ModalDialog>

@@ -763,7 +763,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     });
 
     const dialog = await screen.findByRole("dialog", { name: "Delete worksheet?" });
-    expect(dialog).toHaveAccessibleDescription("The worksheet and all of its contents will be removed.");
+    expect(dialog).toHaveAccessibleDescription("The worksheet and all of its contents will be removed");
     expect(document.querySelector(".confirm-action-modal")).toHaveAttribute("data-destructive", "true");
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -802,7 +802,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     });
 
     const dialog = await screen.findByRole("dialog", { name: "要删除工作表吗？" });
-    expect(dialog).toHaveAccessibleDescription("该工作表及其所有内容都将被删除，且无法恢复。");
+    expect(dialog).toHaveAccessibleDescription("该工作表及其所有内容都将被删除，且无法恢复");
     expect(screen.getByRole("button", { name: "取消" })).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
     await expect(confirmation).resolves.toBe(true);

@@ -246,7 +246,7 @@ export function VersionsTimeline(props: {
   if (phase === "unavailable") {
     return (
       <p className="versions-note">
-        {t`Version history needs Git, which isn’t available on this Mac.`}
+        {t`Version history needs Git, which isn’t available on this Mac`}
       </p>
     );
   }
@@ -268,7 +268,7 @@ export function VersionsTimeline(props: {
   if (phase === "no-repo") {
     return (
       <div className="versions-empty">
-        <p>{t`Track versions of this project to see who changed what and roll back safely.`}</p>
+        <p>{t`Track versions of this project to see who changed what and roll back safely`}</p>
         {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
         <button
           type="button"
@@ -304,7 +304,7 @@ export function VersionsTimeline(props: {
             <span>{t`binary`}</span>
             {restoreButton}
           </div>
-          <p className="versions-binary">{t`Binary file changed.`}</p>
+          <p className="versions-binary">{t`Binary file changed`}</p>
         </div>
       );
     }
@@ -371,7 +371,7 @@ export function VersionsTimeline(props: {
       {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
       {!entries.length && (
         <p className="versions-note">
-          {t`No versions yet. Versions are saved automatically as you work, or press Save version.`}
+          {t`No versions yet. Versions are saved automatically as you work, or press Save version`}
         </p>
       )}
       <div className="versions-list">

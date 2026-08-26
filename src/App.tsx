@@ -212,6 +212,7 @@ import type {
   CanvasMode,
   EditorPaneId,
   DocumentViewMode,
+  PresentationFileViewState,
   SettingsTab,
   InsertSymbolCommand,
   DoctorReport,
@@ -228,6 +229,7 @@ import {
   dropEditorAt,
   editorPaneAt,
   isHtmlFilePath,
+  isPresentationFilePath,
   isPreviewableSourceFilePath,
   isProjectAssetFilePath,
   isProjectSourceFilePath,
@@ -827,6 +829,26 @@ function App() {
   }, [fileViewStateRoot, scheduleFileViewStatePersistence, viewStateEpoch]);
   const getFileViewState = useCallback((path: string) => viewStateRef.current.get(path), []);
   useEffect(() => flushFileViewStates, [flushFileViewStates]);
+  const [presentationPaneModesState, setPresentationPaneModesState] = useState<{
+    projectRoot: string | null;
+    modes: Partial<Record<string, PresentationFileViewState["mode"]>>;
+  }>({ projectRoot: null, modes: {} });
+  const presentationPaneModes = presentationPaneModesState.projectRoot === fileViewStateRoot
+    ? presentationPaneModesState.modes
+    : {};
+  const changePresentationPaneMode = useCallback((
+    path: string,
+    mode: PresentationFileViewState["mode"],
+  ) => {
+    if (!fileViewStateRoot) return;
+    setPresentationPaneModesState((current) => {
+      const modes = current.projectRoot === fileViewStateRoot ? current.modes : {};
+      if (modes[path] === mode) return current.projectRoot === fileViewStateRoot
+        ? current
+        : { projectRoot: fileViewStateRoot, modes };
+      return { projectRoot: fileViewStateRoot, modes: { ...modes, [path]: mode } };
+    });
+  }, [fileViewStateRoot]);
   const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
   const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
@@ -920,7 +942,7 @@ function App() {
               setLocalSemanticSearchStatus((current) => ({
                 ...current,
                 state: "error",
-                detail: "The local semantic index could not be checked.",
+                detail: "The local semantic index could not be checked",
               }));
             });
         }, 500);
@@ -935,7 +957,7 @@ function App() {
       setLocalSemanticSearchStatus((current) => ({
         ...current,
         state: "indexing",
-        detail: "Building an on-device index in the background.",
+        detail: "Building an on-device index in the background",
       }));
       void invoke<LocalSemanticSearchStatus>("semantic_search_start_index", { projectRoot })
         .then(acceptStatus)
@@ -1197,6 +1219,16 @@ function App() {
   const focusedDocumentPath = focusedPane === "secondary" && secondaryFile
     ? secondaryFile
     : activeFile;
+  const focusedPresentationDocument = !activePaper
+    && !focusedAsset
+    && isPresentationFilePath(focusedDocumentPath);
+  const focusedPresentationPaneMode = focusedPresentationDocument
+    && (canvasMode === "dual" || canvasMode === "columns")
+    ? presentationPaneModes[focusedDocumentPath] ?? "source"
+    : null;
+  const focusedPresentationToolbarMode = focusedPresentationPaneMode === "preview"
+    ? "pdf"
+    : focusedPresentationPaneMode ?? undefined;
   const insertTargetPath = focusedDocumentPath;
   const canInsert = canvasMode !== "pdf"
     && !activePaper
@@ -1430,6 +1462,7 @@ function App() {
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [boardCreateRequest, setBoardCreateRequest] = useState(0);
   const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
+  const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
   useSynaraNotificationBridge({
@@ -2756,19 +2789,38 @@ function App() {
       }
       if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryPath);
-        // Sideload: saving must not steal the session's active file (and its
-        // editor binding / awareness path) from the primary buffer.
-        const published = await publishTextToCollabV2(
-          secondaryPath,
-          currentSecondarySource,
-          mutationGeneration,
-        );
-        if (!published && mutationGeneration === collabPathMutationGeneration(secondaryPath)) {
-          await invoke("write_project_file", {
-            path: secondaryPath,
-            content: currentSecondarySource,
-            projectRoot: project.root,
-          });
+        // A visible secondary text editor has its own yCollab binding. Its
+        // Y.Text is already current, so saving mirrors that buffer to disk
+        // without replacing a concurrently edited shared span.
+        const secondaryBinding = activeCollabVersion === 2
+          ? await collabV2ControllerRef.current?.openSecondaryPath(secondaryPath)
+          : null;
+        if (secondaryBinding && workspaceLease) {
+          await collabDiskWriteQueueRef.current.run(workspaceLease, secondaryPath, () => (
+            mutationGeneration === collabPathMutationGeneration(secondaryPath)
+              ? invoke("write_project_file", {
+                path: secondaryPath,
+                content: currentSecondarySource,
+                projectRoot: workspaceLease.projectRoot,
+              })
+              : Promise.resolve()
+          ));
+          await collabV2ControllerRef.current?.settled();
+        } else {
+          // Offline/no-Awareness fallback: retain the sideloaded minimal-span
+          // publisher until this pane can acquire a live editor binding.
+          const published = await publishTextToCollabV2(
+            secondaryPath,
+            currentSecondarySource,
+            mutationGeneration,
+          );
+          if (!published && mutationGeneration === collabPathMutationGeneration(secondaryPath)) {
+            await invoke("write_project_file", {
+              path: secondaryPath,
+              content: currentSecondarySource,
+              projectRoot: project.root,
+            });
+          }
         }
         if (mutationGeneration !== collabPathMutationGeneration(secondaryPath)) return true;
         // The project-transition late-edit check runs in the same async turn
@@ -4898,19 +4950,16 @@ function App() {
     source,
   ]);
 
-  // Dual-pane secondary buffer is not yCollab-bound; push + save while sharing.
+  // The secondary yCollab binding publishes edits live; autosave only mirrors
+  // the settled buffer to disk and advances the local dirty-state baseline.
   useEffect(() => {
     if (!project || activeCollabVersion !== 2 || !secondaryFile) return;
     if (secondarySource === secondarySavedSource) return;
     const timer = window.setTimeout(() => {
-      void publishTextToCollabV2(secondaryFile, secondarySource)
-        .then((published) => {
-          if (published) setSecondarySavedSource(secondarySource);
-        })
-        .catch((reason) => setError(toMessage(reason)));
+      void save();
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [activeCollabVersion, project, publishTextToCollabV2, secondaryFile, secondarySavedSource, secondarySource]);
+  }, [activeCollabVersion, project, save, secondaryFile, secondarySavedSource, secondarySource]);
 
   const buildWhenLeavingEditor = useCallback(() => {
     if (activePaper) {
@@ -5260,6 +5309,7 @@ function App() {
         && zone === "left"
         && !activeAssetRef.current
         && activeFileRef.current
+        && !isPresentationFilePath(activeFileRef.current)
         && isPreviewableSourceFilePath(activeFileRef.current)
         ? [activeFileRef.current]
         : []),
@@ -5515,6 +5565,15 @@ function App() {
       if (!hasExistingPaneDivider) {
         setDualRatioResetGeneration((generation) => generation + 1);
       }
+      // A presentation's source/preview split belongs inside one file pane.
+      // Carrying it through a file drop creates a nested three-pane layout
+      // while Reveal is being remounted. Enter the new two-file layout in Edit;
+      // the focused pane can opt back into Split or Preview afterward.
+      for (const pane of [left, right]) {
+        if (pane.kind === "source" && isPresentationFilePath(pane.path)) {
+          changePresentationPaneMode(pane.path, "source");
+        }
+      }
       updateDualPreviews(left, right);
       setCanvasMode("dual");
       setFocusedPane(zone === "left" ? "primary" : "secondary");
@@ -5525,6 +5584,7 @@ function App() {
   }, [
     activeCollabVersion,
     canvasMode,
+    changePresentationPaneMode,
     dualPanePreview,
     loadFile,
     openProjectAsset,
@@ -8158,6 +8218,20 @@ function App() {
     );
   }
 
+  const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
+    (collabSession?.canWrite !== false && collabCanWrite)
+    && (
+      ignoreOverleaf
+      || overleafLink === null
+      || overleafRealtime.canWrite
+      || (
+        overleafRealtime.permission !== "unknown"
+        && overleafRealtime.entities.get(path)?.kind !== "doc"
+        && !Array.from(overleafDocPaths.values()).includes(path)
+      )
+    )
+  );
+
   return (
     <div
       className={`app-shell ${isFullscreen ? "fullscreen" : ""} ${browserHosted ? "browser-hosted" : ""}`}
@@ -8175,12 +8249,20 @@ function App() {
         canvasToolbar={(
         <CanvasToolbar
           mode={canvasMode}
-          selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
-          setMode={openDocumentMode}
+          selectedDocumentViewMode={focusedPresentationToolbarMode
+            ?? (focusedPanePreview ? "pdf" : undefined)}
+          setMode={focusedPresentationPaneMode ? (mode) => {
+            if (mode !== "source" && mode !== "split" && mode !== "pdf") return;
+            changePresentationPaneMode(
+              focusedDocumentPath,
+              mode === "pdf" ? "preview" : mode,
+            );
+          } : openDocumentMode}
           supportsDocumentViewModes={Boolean(activePaper)
             || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
           onSplit={
-            !activePaper
+            !isPresentationFilePath(focusedDocumentPath)
+            && !activePaper
             && (
               (Boolean(activeAsset) && canvasMode === "asset")
               || (
@@ -8198,8 +8280,11 @@ function App() {
             ? closeSplitView
             : undefined}
           markdown={Boolean(activePaper)
-            || (!focusedAsset && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
+            || (!focusedAsset
+              && !isPresentationFilePath(focusedDocumentPath)
+              && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
           html={!activePaper && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
+          presentation={focusedPresentationDocument}
           paperView={activePaper ? paperView : undefined}
           paperHasBlog={paperBlog !== null}
           paperHasFullText={Boolean(paperMarkdown)}
@@ -8362,6 +8447,7 @@ function App() {
               searchOpen={projectSearchOpen}
               boardCreateRequest={boardCreateRequest}
               spreadsheetCreateRequest={spreadsheetCreateRequest}
+              presentationCreateRequest={presentationCreateRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
@@ -8420,6 +8506,7 @@ function App() {
             setProjectFindHits={setProjectFindHits}
             setProjectFindOpen={setProjectFindOpen}
             setProjectSearchOpen={setProjectSearchOpen}
+            setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
             sidebarMode={sidebarMode}
             sidebarModeActionsRef={sidebarModeActionsRef}
@@ -8479,6 +8566,9 @@ function App() {
                 setCanvasMode("split");
               }
             }}
+            onPresentationModeChange={openDocumentMode}
+            presentationPaneModes={presentationPaneModes}
+            onPresentationPaneModeChange={changePresentationPaneMode}
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
@@ -8639,23 +8729,12 @@ function App() {
             interactivePreviewsEnabled={postStartupInteraction}
             collabSession={activePaper ? null : collabSession}
             collabReady={collabReady}
-            editorEditable={
-              (collabSession?.canWrite !== false && collabCanWrite)
-              && (
-                // Papers live under .research/, which Overleaf deliberately
-                // excludes from sync. Keep collaboration read grants above,
-                // but do not let an unrelated Overleaf document's permission
-                // turn the local Paper editor read-only.
-                activePaper !== null
-                || overleafLink === null
-                || overleafRealtime.canWrite
-                || (
-                  overleafRealtime.permission !== "unknown"
-                  && overleafRealtime.entities.get(activeFile)?.kind !== "doc"
-                  && !Array.from(overleafDocPaths.values()).includes(activeFile)
-                )
-              )
-            }
+            // Papers live under .research/, which Overleaf deliberately
+            // excludes from sync. Collaboration grants still apply to them.
+            editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
+            secondaryEditorEditable={secondaryFile
+              ? editorEditableForPath(secondaryFile)
+              : false}
             collabEditorKey={activePaper
               ? `paper:${activePaperPath}`
               : collabSession

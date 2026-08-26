@@ -37,14 +37,17 @@ export function mergeTextIntoYText(ytext: Y.Text, next: string): void {
 
 export type CollabStatus = "disconnected" | "connecting" | "synced" | "error";
 
-export type EditorCollabSession = {
-  host: string;
-  room: string;
+export type EditorCollabBinding = {
   doc: Y.Doc;
   provider: { awareness: import("y-protocols/awareness").Awareness };
-  activePath: string;
   ytext: Y.Text;
   undoManager: Y.UndoManager;
+};
+
+export type EditorCollabSession = EditorCollabBinding & {
+  host: string;
+  room: string;
+  activePath: string;
   setActivePath: (path: string, seedIfEmpty?: string) => Y.Text;
   fileCount: () => number;
   /** Flush pending workspace materialization before ending or switching sessions. */
@@ -66,6 +69,12 @@ export type EditorCollabSession = {
     awareness: import("y-protocols/awareness").Awareness | null;
     canWrite: boolean;
   } | null;
+  /** Pin and bind the text document displayed in the secondary editor pane. */
+  openSecondaryPath?: (path: string) => Promise<EditorCollabBinding | null>;
+  /** Release the secondary pane's pin without disturbing the primary binding. */
+  releaseSecondaryPath?: (path?: string) => void;
+  /** Rebind consumers when the secondary transport replaces its Awareness. */
+  subscribeSecondaryBindingChanges?: (listener: () => void) => () => void;
   /** Whether this actor may mutate the active collaborative document. */
   canWrite?: boolean;
   /** Observe live permission loss such as grant revocation. */

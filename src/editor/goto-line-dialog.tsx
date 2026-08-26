@@ -41,7 +41,7 @@ function GotoLineDialogForm(props: {
     <ModalDialog label="Go to line" onClose={props.onClose}>
       <PopIn className="modal goto-line-modal">
         <h2>Go to line</h2>
-        <p>Enter a line between 1 and {props.maxLine}.</p>
+        <p>Enter a line between 1 and {props.maxLine}</p>
         <label>
           Line
           <Input

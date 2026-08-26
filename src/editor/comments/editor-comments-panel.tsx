@@ -107,7 +107,7 @@ export function EditorCommentsPanel(props: {
             <EmptyState
               align="start"
               density="compact"
-              description={t`No comments yet. Select text in the editor and click Comment.`}
+              description={t`No comments yet. Select text in the editor and click Comment`}
             />
           )}
           {visible.map((comment) => {

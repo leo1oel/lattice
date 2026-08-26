@@ -206,7 +206,7 @@ export function AppLogsSettings() {
           </Select>
         </div>
         {visible.length === 0 ? (
-          <EmptyState align="start" density="compact" description={logs.length === 0 ? t`No logs yet.` : t`No logs at this level.`} />
+          <EmptyState align="start" density="compact" description={logs.length === 0 ? t`No logs yet` : t`No logs at this level`} />
         ) : (
           <ScrollArea className="app-log-scroll" viewportRef={logViewportRef} fadeEdges={false}>
             <pre className="app-log-text">{logText}</pre>

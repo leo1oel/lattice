@@ -122,7 +122,7 @@ describe("CollabChatPanel", () => {
 
     rerender(<CollabChatPanel messages={[]} selfId="host-1" onSend={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
-    expect(screen.getByText("No messages yet. Say something and everyone in the room sees it.")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet. Say something and everyone in the room sees it")).toBeInTheDocument();
   });
 
   it("continues following messages while the reader is near the bottom", () => {

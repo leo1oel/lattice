@@ -69,6 +69,8 @@ export default tseslint.config(
       "src/project/navigator.tsx",
       "src/canvas/canvas-toolbar.tsx",
       "src/canvas/document-canvas.tsx",
+      "src/editor/editor-languages.ts",
+      "src/editor/presentation/presentation-editor.tsx",
       "src/onboarding/onboarding-tour.tsx",
       "src/collab/collab-dialog.tsx",
       "src/build/tex-setup-wizard.tsx",

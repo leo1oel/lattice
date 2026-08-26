@@ -129,10 +129,10 @@ describe("FileDiffView", () => {
     const { rerender } = render(
       <FileDiffView change={{ path: "same.tex", before: "same", after: "same" }} />,
     );
-    expect(screen.getByText("No textual changes.")).toBeInTheDocument();
+    expect(screen.getByText("No textual changes")).toBeInTheDocument();
 
     rerender(<FileDiffView change={{ path: "empty.tex", before: null, after: "" }} />);
-    expect(screen.getByText("Empty file added.")).toBeInTheDocument();
+    expect(screen.getByText("Empty file added")).toBeInTheDocument();
     expect(screen.queryByTestId("pierre-file-diff")).not.toBeInTheDocument();
   });
 

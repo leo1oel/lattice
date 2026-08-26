@@ -124,7 +124,7 @@ describe("VersionsTimeline", () => {
     });
     render(<VersionsTimeline />);
     expect(
-      await screen.findByText("Version history needs Git, which isn’t available on this Mac."),
+      await screen.findByText("Version history needs Git, which isn’t available on this Mac"),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save version/ })).not.toBeInTheDocument();
   });
@@ -143,7 +143,7 @@ describe("VersionsTimeline", () => {
     render(<VersionsTimeline />);
 
     expect(
-      await screen.findByText("Track versions of this project to see who changed what and roll back safely."),
+      await screen.findByText("Track versions of this project to see who changed what and roll back safely"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Enable version tracking/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_init"));
@@ -239,7 +239,7 @@ describe("VersionsTimeline", () => {
 
     const body = await expandFirstEntry();
     fireEvent.click(within(body).getByRole("button", { name: /figs\/loss\.png/ }));
-    expect(await screen.findByText("Binary file changed.")).toBeInTheDocument();
+    expect(await screen.findByText("Binary file changed")).toBeInTheDocument();
   });
 
   it("restores a file only after confirmation and reports the change", async () => {

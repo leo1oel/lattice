@@ -1589,7 +1589,7 @@ export function PdfPreview({
           </div>
           <div className="pdf-zoom-controls" />
         </div>
-        <div className="pdf-placeholder"><FileText size={28} /><p>{t`Build the project to preview the paper.`}</p></div>
+        <div className="pdf-placeholder"><FileText size={28} /><p>{t`Build the project to preview the paper`}</p></div>
       </div>
     );
   }

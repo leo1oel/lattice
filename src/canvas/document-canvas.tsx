@@ -123,6 +123,8 @@ import type {
   EditorPosition,
   PaperSummary,
   CanvasMode,
+  DocumentViewMode,
+  PresentationFileViewState,
   EditorPaneId,
   InsertSymbolCommand,
   EditorKeymap,
@@ -130,6 +132,7 @@ import type {
 import {
   isHarperProseFilePath,
   isHtmlFilePath,
+  isPresentationFilePath,
   isPreviewableSourceFilePath,
   markdownFrontmatterEnd,
   PROJECT_FIGURE_DRAG_TYPE,
@@ -139,8 +142,8 @@ import {
   EXTERNAL_SCROLLBAR_TRACK_INSET,
 } from "../components/ui/external-scrollbar-geometry";
 import type { AgentHostSurface } from "../agent/agent-host-context";
-import type { CollabPeer, EditorCollabSession } from "../collab/collab-session";
-import { peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
+import type { CollabPeer, EditorCollabBinding, EditorCollabSession } from "../collab/collab-session";
+import { mergeTextIntoYText, peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
 import { collabEditorExtensions } from "../collab/collab-editor";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
@@ -153,6 +156,7 @@ import {
   markVisualMarkdownEditorWarmed,
   loadBoardEditorModule,
   loadPdfPreviewModule,
+  loadPresentationEditorModule,
   loadSpreadsheetEditorModule,
   loadVisualMarkdownEditorModule,
 } from "./canvas-lazy-modules";
@@ -168,6 +172,9 @@ const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({
 })));
 const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({
   default: module.SpreadsheetEditor,
+})));
+const PresentationEditor = lazy(() => loadPresentationEditorModule().then((module) => ({
+  default: module.PresentationEditor,
 })));
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
@@ -979,6 +986,12 @@ export function DocumentCanvas(props: {
   onPaperTextSelect: (value: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onViewMarkdownSource: () => void;
+  onPresentationModeChange: (mode: DocumentViewMode) => void;
+  presentationPaneModes: Partial<Record<string, PresentationFileViewState["mode"]>>;
+  onPresentationPaneModeChange: (
+    path: string,
+    mode: PresentationFileViewState["mode"],
+  ) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
   pdfBytes?: ArrayBuffer | null;
@@ -1076,6 +1089,7 @@ export function DocumentCanvas(props: {
   collabReady: boolean;
   collabEditorKey: string;
   editorEditable: boolean;
+  secondaryEditorEditable: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
@@ -1141,6 +1155,9 @@ export function DocumentCanvas(props: {
     onCommentFocusHandled,
     getFileViewState,
     onFileViewState,
+    onPresentationModeChange,
+    presentationPaneModes,
+    onPresentationPaneModeChange,
   } = props;
   const { i18n, t } = useLingui();
   const editorCommentLocalizationRef = useRef<EditorCommentLocalization>({
@@ -1280,7 +1297,19 @@ export function DocumentCanvas(props: {
       });
     });
   }, [activePaperBrowserUrl, t]);
-  const markdownDocument = Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md");
+  const presentationDocument = !props.activePaper && isPresentationFilePath(activeFile);
+  const presentationMode = props.mode === "source"
+    ? "source"
+    : props.mode === "split"
+      ? "split"
+      : props.mode === "pdf"
+        ? "preview"
+        : undefined;
+  const changePresentationMode = useCallback((nextMode: "source" | "split" | "preview") => {
+    onPresentationModeChange(nextMode === "preview" ? "pdf" : nextMode);
+  }, [onPresentationModeChange]);
+  const markdownDocument = (Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md"))
+    && !presentationDocument;
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
   const boardDocument = !props.activePaper && activeFile.toLocaleLowerCase().endsWith(".tldr");
   const spreadsheetDocument = !props.activePaper && isSpreadsheetPath(activeFile);
@@ -1673,6 +1702,39 @@ export function DocumentCanvas(props: {
     // yCollab against the live Awareness or remote carets silently freeze.
   }, [activeFile, collabReady, collabSession, collabSession?.awarenessVersion]);
   const collabLive = collabExtensions.length > 0;
+  const [secondaryCollabBinding, setSecondaryCollabBinding] = useState<{
+    session: EditorCollabSession;
+    path: string;
+    binding: EditorCollabBinding;
+  } | null>(null);
+  const [secondaryBindingVersion, setSecondaryBindingVersion] = useState(0);
+  useEffect(() => collabSession?.subscribeSecondaryBindingChanges?.(
+    () => setSecondaryBindingVersion((version) => version + 1),
+  ), [collabSession]);
+  useEffect(() => {
+    let disposed = false;
+    if (!collabSession || !collabReady || !secondaryFile || !collabSession.openSecondaryPath) {
+      if (!secondaryFile) collabSession?.releaseSecondaryPath?.();
+      return () => { disposed = true; };
+    }
+    void collabSession.openSecondaryPath(secondaryFile).then((binding) => {
+      if (!disposed) {
+        setSecondaryCollabBinding(binding ? { session: collabSession, path: secondaryFile, binding } : null);
+      }
+    }).catch(() => {
+      if (!disposed) setSecondaryCollabBinding(null);
+    });
+    return () => { disposed = true; };
+  }, [collabReady, collabSession, secondaryBindingVersion, secondaryFile]);
+  const secondaryCollabLive = collabReady
+    && secondaryCollabBinding?.session === collabSession
+    && secondaryCollabBinding.path === secondaryFile;
+  const secondaryCollabExtensions = useMemo(
+    () => secondaryCollabLive
+      ? collabEditorExtensions(secondaryCollabBinding.binding)
+      : EMPTY_EXTENSIONS,
+    [secondaryCollabBinding, secondaryCollabLive],
+  );
   // Lattice collab (v2) carets for the visual editor: the same awareness room
   // the source editor's yCollab binds, resolved to row/column against the live
   // Y.Text and shifted into preview coordinates like the Overleaf carets above.
@@ -1740,12 +1802,38 @@ export function DocumentCanvas(props: {
     return () => ytext.unobserve(syncPreviewSource);
   }, [activeFile, collabLive, collabSession, props.mode]);
 
+  useEffect(() => {
+    if (!secondaryCollabLive || !secondaryCollabBinding) return;
+    const { ytext } = secondaryCollabBinding.binding;
+    const syncSecondarySource = () => {
+      setSecondarySourceRef.current(ytext.toString());
+    };
+    ytext.observe(syncSecondarySource);
+    syncSecondarySource();
+    return () => ytext.unobserve(syncSecondarySource);
+  }, [secondaryCollabBinding, secondaryCollabLive]);
+
   // Stable callbacks. CodeMirrorHost reads handlers through refs, so identity
   // churn no longer forces a reconfigure (the old wrapper destroyed yCollab +
   // comment fields on any handler identity change) — kept stable regardless.
   const onPrimaryChange = useCallback((value: string) => {
     setSourceRef.current(value);
   }, []);
+  const onPrimaryPresentationChange = useCallback((value: string) => {
+    if (collabSession?.activePath === activeFileRefEditor.current) {
+      const current = collabSession.ytext.toString();
+      if (current !== value) {
+        // A preview control may have rendered just before a remote edit landed.
+        // Never replace that newer shared text from a stale presentation model.
+        if (current !== editorSource) {
+          setSourceRef.current(current);
+          return;
+        }
+        mergeTextIntoYText(collabSession.ytext, value);
+      }
+    }
+    setSourceRef.current(value);
+  }, [collabSession, editorSource]);
   const onPrimaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
     if (focusedPaneRef.current !== "primary") return;
     const range = viewUpdate.state.selection.main;
@@ -1759,8 +1847,18 @@ export function DocumentCanvas(props: {
     markdownCursorRevealRef.current?.();
   }, []);
   const onSecondaryChange = useCallback((value: string) => {
+    if (secondaryCollabBinding?.path === secondaryFileRefEditor.current) {
+      const current = secondaryCollabBinding.binding.ytext.toString();
+      if (current !== value) {
+        if (current !== secondarySource) {
+          setSecondarySourceRef.current(current);
+          return;
+        }
+        mergeTextIntoYText(secondaryCollabBinding.binding.ytext, value);
+      }
+    }
     setSecondarySourceRef.current(value);
-  }, []);
+  }, [secondaryCollabBinding, secondarySource]);
   const onSecondaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
     if (focusedPaneRef.current !== "secondary") return;
     const range = viewUpdate.state.selection.main;
@@ -1943,7 +2041,7 @@ export function DocumentCanvas(props: {
       setSelectionToolbarPosition(null);
       return;
     }
-    if (!props.editorEditable) return;
+    if (owner.pane === "secondary" ? !props.secondaryEditorEditable : !props.editorEditable) return;
     let before = "";
     let after = "";
     switch (action) {
@@ -1980,7 +2078,7 @@ export function DocumentCanvas(props: {
     });
     view.focus();
     updateSelectionToolbar(view, owner.path);
-  }, [openCommentComposer, props.editorEditable, updateSelectionToolbar]);
+  }, [openCommentComposer, props.editorEditable, props.secondaryEditorEditable, updateSelectionToolbar]);
 
   const saveCommentComposer = useCallback(() => {
     if (!commentComposer || !activeFile) return;
@@ -2160,6 +2258,7 @@ export function DocumentCanvas(props: {
             onPasteImageFile,
           ),
         ]),
+        ...secondaryCollabExtensions,
         linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, secondaryFile, view.state.doc), {
           delay: 150,
         }),
@@ -2178,7 +2277,7 @@ export function DocumentCanvas(props: {
     // tear down the entire secondary editor (language, linters, autocomplete)
     // per character in dual/split mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [editorSpellcheck, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
+    [editorSpellcheck, secondaryCollabExtensions, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
@@ -3632,6 +3731,25 @@ export function DocumentCanvas(props: {
       viewState={props.getFileViewState?.(props.activeAsset.path)}
       onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
     />
+  ) : presentationDocument ? (
+    <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
+      <PresentationEditor
+        key={activeFile}
+        path={activeFile}
+        source={props.source}
+        onChange={onPrimaryPresentationChange}
+        onPersist={props.onSave}
+        editable={props.editorEditable}
+        languageExtensions={primaryTextLanguageExtensions}
+        collabExtensions={collabExtensions}
+        mode={presentationMode}
+        onModeChange={presentationMode ? changePresentationMode : undefined}
+        initialViewState={props.getFileViewState?.(activeFile)?.presentation}
+        onViewState={(presentation) => props.onFileViewState?.(activeFile, { presentation })}
+        onLoadAsset={props.onLoadReferenceImage}
+        onOpenProjectPath={props.onOpenMarkdownPath}
+      />
+    </Suspense>
   ) : markdownDocument ? paperPreview : htmlDocument ? (
     props.interactivePreviewsEnabled
       ? (
@@ -3725,6 +3843,9 @@ export function DocumentCanvas(props: {
       </Suspense>
     );
   }
+  if (presentationDocument && props.mode !== "dual" && props.mode !== "columns") {
+    return preview;
+  }
   if (paperPdfActive) return paperPreview;
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
@@ -3754,6 +3875,34 @@ export function DocumentCanvas(props: {
           onViewState={(update) => props.onFileViewState?.(props.secondaryAsset!.path, update)}
         />
       </div>
+    ) : secondaryFile && isPresentationFilePath(secondaryFile) ? (
+      <div
+        className={`dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
+        data-editor-pane="secondary"
+        tabIndex={0}
+        onPointerDownCapture={focusSecondaryPane}
+        onFocusCapture={focusSecondaryPane}
+      >
+        <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
+          <PresentationEditor
+            key={secondaryFile}
+            path={secondaryFile}
+            source={secondarySource}
+            onChange={onSecondaryChange}
+            onPersist={props.onSave}
+            editable={props.secondaryEditorEditable}
+            active={focusedPane === "secondary"}
+            languageExtensions={secondaryTextLanguageExtensions}
+            collabExtensions={secondaryCollabExtensions}
+            mode={presentationPaneModes[secondaryFile] ?? "source"}
+            onModeChange={(mode) => onPresentationPaneModeChange(secondaryFile, mode)}
+            initialViewState={props.getFileViewState?.(secondaryFile)?.presentation}
+            onViewState={(presentation) => props.onFileViewState?.(secondaryFile, { presentation })}
+            onLoadAsset={props.onLoadReferenceImage}
+            onOpenProjectPath={props.onOpenMarkdownPath}
+          />
+        </Suspense>
+      </div>
     ) : secondaryFile?.toLocaleLowerCase().endsWith(".tldr") ? (
       <div
         className={`dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
@@ -3767,7 +3916,7 @@ export function DocumentCanvas(props: {
             key={secondaryFile}
             path={secondaryFile}
             source={secondarySource}
-            onChange={(next) => setSecondarySourceRef.current(next)}
+            onChange={onSecondaryChange}
             collab={boardCollabForPath(secondaryFile)}
             initialViewState={props.getFileViewState?.(secondaryFile)?.board}
             onViewState={(board) => props.onFileViewState?.(secondaryFile, { board })}
@@ -3789,7 +3938,7 @@ export function DocumentCanvas(props: {
             key={secondaryFile}
             path={secondaryFile}
             source={secondarySource}
-            onChange={(next) => setSecondarySourceRef.current(next)}
+            onChange={onSecondaryChange}
             onPersist={props.onSave}
             collab={spreadsheetCollabForPath(secondaryFile)}
             initialViewState={props.getFileViewState?.(secondaryFile)?.spreadsheet}
@@ -3822,6 +3971,7 @@ export function DocumentCanvas(props: {
           <CodeMirror
             className="code-editor-root"
             value={secondarySource}
+            editable={props.secondaryEditorEditable}
             extensions={secondaryEditorExtensions}
             onCreateEditor={(view) => {
               secondaryViewRef.current = view;
@@ -3844,15 +3994,34 @@ export function DocumentCanvas(props: {
         onFocus={focusSecondaryPane}
       >
         <Columns2 size={18} />
-        <p>{t`Open or drag a file here.`}</p>
+        <p>{t`Open or drag a file here`}</p>
       </div>
     );
-    const secondaryPreviewContent = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
+    const secondaryPreviewContent = secondaryFile && isPresentationFilePath(secondaryFile) ? (
+      <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
+        <PresentationEditor
+          key={secondaryFile}
+          path={secondaryFile}
+          source={secondarySource}
+          onChange={onSecondaryChange}
+          onPersist={props.onSave}
+          editable={props.secondaryEditorEditable}
+          active={focusedPane === "secondary"}
+          languageExtensions={secondaryTextLanguageExtensions}
+          collabExtensions={secondaryCollabExtensions}
+          mode="preview"
+          initialViewState={props.getFileViewState?.(secondaryFile)?.presentation}
+          onViewState={(presentation) => props.onFileViewState?.(secondaryFile, { presentation })}
+          onLoadAsset={props.onLoadReferenceImage}
+          onOpenProjectPath={props.onOpenMarkdownPath}
+        />
+      </Suspense>
+    ) : secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
       <SecondaryMarkdownPreview
         key={secondaryFile}
         path={secondaryFile}
         source={secondarySource}
-        onChange={(next) => setSecondarySourceRef.current(next)}
+        onChange={onSecondaryChange}
         onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
         onEditSource={props.onViewMarkdownSource}
         onOpenProjectPath={props.onOpenMarkdownPath}
@@ -3861,7 +4030,7 @@ export function DocumentCanvas(props: {
         macros={katexMacros}
         onImportAsset={props.onImportAsset}
         onLoadAsset={props.onLoadReferenceImage}
-        editable={props.editorEditable}
+        editable={props.secondaryEditorEditable}
         onSelectionMarkdown={(value) => setSelectionRef.current(value)}
         onCaretChange={(row, column) => {
           const line = row + 1;
@@ -3960,7 +4129,7 @@ export function DocumentCanvas(props: {
           onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
         />
       </div>
-    ) : boardDocument || spreadsheetDocument ? (
+    ) : boardDocument || spreadsheetDocument || presentationDocument ? (
       <div
         className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
         data-editor-pane="primary"
@@ -3976,8 +4145,26 @@ export function DocumentCanvas(props: {
           onFocusPane("primary");
         }}
       >
-        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : "spreadsheet-editor-root"} aria-busy="true" aria-label={boardDocument ? t`Preparing board editor` : t`Preparing spreadsheet editor`} />}>
-          {boardDocument ? (
+        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : spreadsheetDocument ? "spreadsheet-editor-root" : "presentation-editor"} aria-busy="true" aria-label={boardDocument ? t`Preparing board editor` : spreadsheetDocument ? t`Preparing spreadsheet editor` : t`Preparing presentation editor`} />}>
+          {presentationDocument ? (
+            <PresentationEditor
+              key={activeFile}
+              path={activeFile}
+              source={props.source}
+              onChange={onPrimaryPresentationChange}
+              onPersist={props.onSave}
+              editable={props.editorEditable}
+              active={focusedPane === "primary"}
+              languageExtensions={primaryTextLanguageExtensions}
+              collabExtensions={collabExtensions}
+              mode={presentationPaneModes[activeFile] ?? "source"}
+              onModeChange={(mode) => onPresentationPaneModeChange(activeFile, mode)}
+              initialViewState={props.getFileViewState?.(activeFile)?.presentation}
+              onViewState={(presentation) => props.onFileViewState?.(activeFile, { presentation })}
+              onLoadAsset={props.onLoadReferenceImage}
+              onOpenProjectPath={props.onOpenMarkdownPath}
+            />
+          ) : boardDocument ? (
             <BoardEditor
               key={activeFile}
               path={activeFile}
@@ -4400,7 +4587,7 @@ function ProjectAssetPreview({
       <div className="asset-preview-heading">
         <Image size={14} />
         <span>{asset.path}</span>
-        <small>{t`Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it.`}</small>
+        <small>{t`Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it`}</small>
         {asset.mimeType.startsWith("image/") && (
           <div className="asset-preview-zoom-controls">
             <Tip label={t`Zoom out`}>
@@ -4468,7 +4655,7 @@ function ProjectAssetPreview({
       >
         {asset.mimeType.startsWith("image/")
           ? <img src={url} alt={t({ message: `Preview of ${{ path: asset.path }}` })} style={{ zoom: scale }} />
-          : <div className="asset-preview-unsupported"><FileText size={28} /><p>{t`This format cannot be rendered in the preview.`}</p></div>}
+          : <div className="asset-preview-unsupported"><FileText size={28} /><p>{t`This format cannot be rendered in the preview`}</p></div>}
       </ScrollArea>
     </div>
   );

@@ -35,6 +35,10 @@ const MATERIAL_ICON_SPRITE = `
   <symbol id="lattice-material-spreadsheet" viewBox="0 0 24 24">
     <path fill="#43a047" d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2m0 4v3h4V7zm6 0v3h8V7zm-6 5v3h4v-3zm6 0v3h8v-3zm-6 5v2h4v-2zm6 0v2h8v-2z"/>
   </symbol>
+  <symbol id="lattice-material-presentation" viewBox="0 0 24 24">
+    <path fill="#7e57c2" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-6l3 3h-2.8L12 18.8 9.8 21H7l3-3H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2"/>
+    <path fill="#fff" d="M6 7h7v2H6zm0 4h12v2H6z" opacity=".9"/>
+  </symbol>
 </svg>`;
 
 const PDF_ICON: RemappedIcon = { name: "lattice-material-pdf", viewBox: "0 0 24 24" };
@@ -45,6 +49,7 @@ const BIBTEX_STYLE_ICON: RemappedIcon = { name: "lattice-material-bibtex-style",
 // Material Icons (Apache-2.0) edit/pencil glyph, recolored.
 const BOARD_ICON: RemappedIcon = { name: "lattice-material-board", viewBox: "0 0 24 24" };
 const SPREADSHEET_ICON: RemappedIcon = { name: "lattice-material-spreadsheet", viewBox: "0 0 24 24" };
+const PRESENTATION_ICON: RemappedIcon = { name: "lattice-material-presentation", viewBox: "0 0 24 24" };
 
 export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
   set: "complete",
@@ -75,5 +80,6 @@ export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
     eps: "file-tree-builtin-image",
     tldr: BOARD_ICON,
     "lattice-sheet": SPREADSHEET_ICON,
+    "slides.md": PRESENTATION_ICON,
   },
 };

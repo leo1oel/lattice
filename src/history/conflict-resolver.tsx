@@ -168,7 +168,7 @@ export function ConflictResolverDialog(props: {
         <h2>Resolve “{props.path}”</h2>
         <p>
           These spots were edited on both sides at once. Pick what the file should say at each
-          one; anything you skip keeps its markers so you can come back.
+          one; anything you skip keeps its markers so you can come back
         </p>
 
         {error && <InlineMessage level="error">{error}</InlineMessage>}
@@ -179,7 +179,7 @@ export function ConflictResolverDialog(props: {
           <div className="conflict-loading"><InfinityLoader size={16} /> Reading the file…</div>
         ) : total === 0 ? (
           <p className="conflict-empty">
-            Nothing left to decide — this file has no conflict markers.
+            Nothing left to decide — this file has no conflict markers
           </p>
         ) : stage === "edit" ? (
           <div className="conflict-pierre-surface" data-stage="edit" inert={saving || undefined}>

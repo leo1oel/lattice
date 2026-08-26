@@ -64,6 +64,7 @@ function confirmationCopy(options: ConfirmActionOptions, defaults: {
       ? defaults.destructiveDescription
       : defaults.continueDescription;
   }
+  description = description.replace(/[.。]$/, "");
   return { title, description, confirmLabel, destructive };
 }
 

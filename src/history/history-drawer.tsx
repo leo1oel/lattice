@@ -474,7 +474,7 @@ export function HistoryDrawer(props: {
                 );
               })}
               {!visibleHistory.length && (
-                <EmptyState description={props.history.length ? t`No changes match this filter.` : t`No changes recorded yet.`} />
+                <EmptyState description={props.history.length ? t`No changes match this filter` : t`No changes recorded yet`} />
               )}
             </div>
           </>

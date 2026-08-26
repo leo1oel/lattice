@@ -221,7 +221,7 @@ export function ProjectFindDialog(props: {
               align="start"
               density="compact"
               title={`No results for “${query.trim()}”`}
-              description="Try a shorter phrase or different terms."
+              description="Try a shorter phrase or different terms"
               actions={<Button size="compact" variant="secondary" onClick={clearSearch}>Clear search</Button>}
             />
           )}

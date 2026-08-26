@@ -236,7 +236,7 @@ export function OverleafHistoryPanel(props: {
   return (
     <div className="overleaf-history-panel">
       <p className="drawer-copy">
-        {t`Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app.`}
+        {t`Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app`}
       </p>
 
       {history.error && <InlineMessage level="error" className="overleaf-history-inline">{history.error}</InlineMessage>}
@@ -245,7 +245,7 @@ export function OverleafHistoryPanel(props: {
         <p className="overleaf-history-loading"><InfinityLoader size={13} /> {t`Loading Overleaf's history…`}</p>
       )}
       {!history.loading && !history.updates.length && !history.error && (
-        <p className="overleaf-history-empty">{t`No history yet.`}</p>
+        <p className="overleaf-history-empty">{t`No history yet`}</p>
       )}
 
       <div className="overleaf-history-list">
@@ -376,7 +376,7 @@ export function OverleafHistoryPanel(props: {
                       )}
                       {filesError && <InlineMessage level="error" className="overleaf-history-inline">{filesError}</InlineMessage>}
                       {files && !files.length && !filesLoading && (
-                        <p className="overleaf-history-note">{t`No file changes recorded for this update.`}</p>
+                        <p className="overleaf-history-note">{t`No file changes recorded for this update`}</p>
                       )}
                       {files && files.length > 0 && (
                         <div className="overleaf-history-files">
@@ -443,7 +443,7 @@ export function OverleafHistoryPanel(props: {
                                 <strong>{activePath}</strong>
                                 <span>{t`binary`}</span>
                               </div>
-                              <p className="overleaf-history-binary">{t`Binary file changed.`}</p>
+                              <p className="overleaf-history-binary">{t`Binary file changed`}</p>
                             </div>
                           )}
                           {diffChunks && (

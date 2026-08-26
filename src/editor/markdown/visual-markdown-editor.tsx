@@ -109,7 +109,8 @@ import {
   parseTableSpanLayoutMarker,
   tableSpanLayoutForPmTable,
 } from "../../open-knowledge-core/extensions/table-fidelity";
-import { DocumentHeadingRail, documentHeadingItems } from "./document-heading-rail";
+import { documentHeadingItems } from "./document-heading-items";
+import { DocumentHeadingRail } from "./document-heading-rail";
 
 const EMPTY_MACROS: Record<string, string> = {};
 const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";

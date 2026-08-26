@@ -122,7 +122,7 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void): Overl
         setHint(
           result.detail
             ? t`Still not connected: ${result.detail}`
-            : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again.`,
+            : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
         );
       }
       timer.current = setTimeout(() => void pollForLogin(), 1500);
@@ -290,14 +290,14 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
     connectionKnown && status?.connected && link && overleafLinkMatchesSession(status.host, link.host),
   );
   const syncModeDescription = props.syncMode === "manual"
-    ? t`Sync only when you click the sync button.`
+    ? t`Sync only when you click the sync button`
     : props.channel === "connecting"
       ? t`Connecting live editing…`
       : props.channel === "error"
-        ? t`Live editing is unavailable; regular syncing continues.`
+        ? t`Live editing is unavailable; regular syncing continues`
         : props.channel === "live"
-          ? t`Live editing is connected.`
-          : t`Edits sync live with Overleaf.`;
+          ? t`Live editing is connected`
+          : t`Edits sync live with Overleaf`;
 
   return (
     <div className="settings-section">
@@ -351,7 +351,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
               <Cloud size={15} /> {t`Connect to Overleaf`}
             </MotionButton>
             <p className="overleaf-hint">
-              {t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you.`}
+              {t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
             </p>
           </div>
         )
@@ -371,17 +371,17 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
             </strong>
             <small>
               {loadError
-                ? t`Connection status is unavailable. This project remains linked to ${linkedHost}; try checking the connection again above.`
+                ? t`Connection status is unavailable. This project remains linked to ${linkedHost}; try checking the connection again above`
                 : loading || !status
                   ? t`Checking the connection to ${linkedHost}…`
                 : !status.connected
                 ? link.paused
-                  ? t`Sign in to ${linkedHost}, then resume syncing when you are ready. Local files stay on this Mac.`
-                  : t`Sign in to resume syncing and live editing on ${linkedHost}. Local files stay on this Mac.`
+                  ? t`Sign in to ${linkedHost}, then resume syncing when you are ready. Local files stay on this Mac`
+                  : t`Sign in to resume syncing and live editing on ${linkedHost}. Local files stay on this Mac`
                 : !connectedToLinkedHost
-                  ? t`This project uses ${linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac.`
+                  ? t`This project uses ${linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac`
                 : link.paused
-                ? t`Nothing is sent or fetched until you resume.`
+                ? t`Nothing is sent or fetched until you resume`
                 : link.lastSync ? t`Last synced ${relativeTime(link.lastSync)}` : t`Not synced yet`}
             </small>
           </div>
@@ -420,10 +420,10 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
         <SettingsRow
           label={t`When you delete a file here`}
           description={props.remoteDelete === "ask"
-            ? t`A sync that finds a file missing here offers to remove it from Overleaf too.`
+            ? t`A sync that finds a file missing here offers to remove it from Overleaf too`
             : props.remoteDelete === "always"
-              ? t`Keeps both sides identical. Overleaf's own history still has the file if it was a mistake.`
-              : t`Nothing is ever removed from the shared project from here. The two sides stay different.`}
+              ? t`Keeps both sides identical. Overleaf's own history still has the file if it was a mistake`
+              : t`Nothing is ever removed from the shared project from here. The two sides stay different`}
         >
           <Select
             value={props.remoteDelete}
@@ -674,11 +674,11 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
           <>
             {reconnectRequired ? (
               <InlineMessage level="warning" className="overleaf-inline">
-                {t`Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged.`}
+                {t`Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged`}
               </InlineMessage>
             ) : (
               <p>
-                {t`Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice.`}
+                {t`Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice`}
               </p>
             )}
             {login.pending ? (
@@ -698,7 +698,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
               <section className="overleaf-publish-card">
                 <div className="overleaf-publish-copy">
                   <strong>{t`Upload this project to Overleaf`}</strong>
-                  <span>{t`Create a new Overleaf project and keep this folder connected to it.`}</span>
+                  <span>{t`Create a new Overleaf project and keep this folder connected to it`}</span>
                 </div>
                 <div className="overleaf-publish-actions">
                   <Input
@@ -765,10 +765,10 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
             {!projectsError && projects !== null && visible.length === 0 && (
               <p className="overleaf-empty">
                 {projects.length === 0
-                  ? t`No projects in this account yet. Create one on Overleaf and it will appear here.`
+                  ? t`No projects in this account yet. Create one on Overleaf and it will appear here`
                   : query
-                    ? t`No projects match your search.`
-                    : t`All of your projects are archived or trashed. Tick “Show archived” to see them.`}
+                    ? t`No projects match your search`
+                    : t`All of your projects are archived or trashed. Tick “Show archived” to see them`}
               </p>
             )}
             {!projectsError && projects !== null && visible.length > 0 && (
@@ -831,13 +831,13 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
             {cloning && (
               <div className="overleaf-progress">
                 <InfinityLoader size={15} />
-                <span>{t`Downloading ${cloning.name} from Overleaf… this can take a minute for large projects.`}</span>
+                <span>{t`Downloading ${cloning.name} from Overleaf… this can take a minute for large projects`}</span>
               </div>
             )}
             {publishing && (
               <div className="overleaf-progress">
                 <InfinityLoader size={15} />
-                <span>{t`Uploading ${publishName.trim()} to Overleaf… this can take a minute for large projects.`}</span>
+                <span>{t`Uploading ${publishName.trim()} to Overleaf… this can take a minute for large projects`}</span>
               </div>
             )}
           </>

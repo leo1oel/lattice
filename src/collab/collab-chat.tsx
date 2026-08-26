@@ -112,7 +112,7 @@ export function CollabChatPanel(props: {
     <>
       <p className="drawer-copy">
         Visible to everyone currently in this share. History lives in the session itself, so
-        anyone who joins later sees what was already said.
+        anyone who joins later sees what was already said
       </p>
 
       <div
@@ -130,7 +130,7 @@ export function CollabChatPanel(props: {
         }}
       >
         {!props.messages.length && (
-          <p className="git-empty">No messages yet. Say something and everyone in the room sees it.</p>
+          <p className="git-empty">No messages yet. Say something and everyone in the room sees it</p>
         )}
         {props.messages.map((message, index) => {
           // One name above a run of messages reads as a conversation rather

@@ -177,7 +177,7 @@ export function OverleafCommentsPanel(props: {
     const anchor = props.anchors.get(thread.id);
     const path = anchor ? props.pathForDoc(anchor.docId) : null;
     const working = busy === thread.id;
-    const orphanTitle = "Its span was deleted from the document, so Overleaf can't say which file to act on.";
+    const orphanTitle = "Its span was deleted from the document, so Overleaf can't say which file to act on";
     return (
       <article
         className={`overleaf-thread${thread.resolved ? " resolved" : ""}`}
@@ -197,20 +197,20 @@ export function OverleafCommentsPanel(props: {
           </button>
         ) : (
           <p className="overleaf-thread-orphaned">
-            Its text was deleted from the document — Overleaf can no longer say where it was.
+            Its text was deleted from the document — Overleaf can no longer say where it was
           </p>
         )}
 
         <div className="overleaf-thread-messages">
           {thread.messages.map((message) => renderMessage(thread, message, working))}
           {!thread.messages.length && (
-            <p className="overleaf-thread-empty">This comment has no text yet.</p>
+            <p className="overleaf-thread-empty">This comment has no text yet</p>
           )}
         </div>
 
         {thread.resolved && (
           <p className="overleaf-thread-resolved">
-            Resolved{thread.resolvedBy ? ` by ${thread.resolvedBy}` : ""}.
+            Resolved{thread.resolvedBy ? ` by ${thread.resolvedBy}` : ""}
           </p>
         )}
 
@@ -299,7 +299,7 @@ export function OverleafCommentsPanel(props: {
     <>
       <p className="drawer-copy">
         The same comments as the review panel on Overleaf. Replies, resolutions and deletions
-        show up on both sides straight away.
+        show up on both sides straight away
       </p>
 
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
@@ -336,7 +336,7 @@ export function OverleafCommentsPanel(props: {
         {!props.loading && !visible.length && !props.error && (
           <p className="git-empty">
             No comments{showResolved ? "" : " open"} in this project. Comments made on Overleaf
-            appear here as they are written.
+            appear here as they are written
           </p>
         )}
 

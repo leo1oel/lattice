@@ -71,7 +71,7 @@ export function ManuscriptChecklistPanel(props: {
           onClose={props.onClose}
         />
         <p className="drawer-copy">
-          Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits.
+          Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits
         </p>
         <div className="checklist-rows">
           <BudgetRow

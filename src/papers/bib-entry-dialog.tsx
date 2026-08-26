@@ -162,7 +162,7 @@ export function BibEntryDialog(props: {
         />
         {editing && (
           <p className="drawer-copy">
-            {t`Pick a venue to set its canonical name and entry type, or edit any field by hand.`}
+            {t`Pick a venue to set its canonical name and entry type, or edit any field by hand`}
           </p>
         )}
         <div className="bib-entry-form">

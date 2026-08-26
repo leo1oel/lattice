@@ -451,6 +451,8 @@ type ProjectFileTreeProps = {
   boardCreateRequest?: number;
   /** Incrementing signal from the header "New spreadsheet" button. */
   spreadsheetCreateRequest?: number;
+  /** Incrementing signal from the header "New presentation" button. */
+  presentationCreateRequest?: number;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -1165,6 +1167,14 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     beginInlineCreate("", "file", "lattice-sheet");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
   }, [spreadsheetCreateRequest]);
+  const presentationCreateRequest = props.presentationCreateRequest ?? 0;
+  const handledPresentationCreateRequestRef = useRef(presentationCreateRequest);
+  useEffect(() => {
+    if (presentationCreateRequest === handledPresentationCreateRequestRef.current) return;
+    handledPresentationCreateRequestRef.current = presentationCreateRequest;
+    beginInlineCreate("", "file", "slides.md");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
+  }, [presentationCreateRequest]);
   const renderContextMenu = (
     item: PierreContextMenuItem,
     context: PierreContextMenuOpenContext,
@@ -1318,6 +1328,7 @@ export function Navigator(props: {
   onSearchOpenChange: (open: boolean) => void;
   boardCreateRequest?: number;
   spreadsheetCreateRequest?: number;
+  presentationCreateRequest?: number;
   files: FileNode[];
   gitStatus: GitFileStatus[];
   activeFile: string;
@@ -1430,6 +1441,7 @@ export function Navigator(props: {
           searchOpen={props.searchOpen}
           boardCreateRequest={props.boardCreateRequest}
           spreadsheetCreateRequest={props.spreadsheetCreateRequest}
+          presentationCreateRequest={props.presentationCreateRequest}
           onSearchOpenChange={props.onSearchOpenChange}
           files={props.files}
           gitStatus={props.gitStatus}
@@ -1578,13 +1590,13 @@ export function Navigator(props: {
           {!props.papers.length && (
             <div className="papers-empty-state">
               <strong>{t`Add your first paper`}</strong>
-              <p>{t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence.`}</p>
+              <p>{t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence`}</p>
             </div>
           )}
           {!!props.papers.length && !filteredPapers.length && (
             <div className="papers-empty-state">
               <strong>{t`No matching papers`}</strong>
-              <p>{t`Use the + button to import this query if it isn't in your library yet.`}</p>
+              <p>{t`Use the + button to import this query if it isn't in your library yet`}</p>
             </div>
           )}
           {!!props.papers.length && (

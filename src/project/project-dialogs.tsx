@@ -140,7 +140,7 @@ export function CreateProjectDialog(props: {
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>{t`Create a research project`}</h2>
         <p>
-          {t`Creates a ${venue.label} preprint template with bibliography and project brief.`}
+          {t`Creates a ${venue.label} preprint template with bibliography and project brief`}
         </p>
         <label>
           {t`Project name`}
@@ -200,12 +200,12 @@ export function RenameDialog(props: {
           ? t`Rename environment`
           : t`Wrap in environment`;
   const copy = props.target.kind === "label"
-      ? t`Updates every \\label and \\ref/\\cref occurrence across the project.`
+      ? t`Updates every \\label and \\ref/\\cref occurrence across the project`
       : props.target.kind === "citation"
-        ? t`Updates the bibliography entry and every \\cite occurrence across the project.`
+        ? t`Updates the bibliography entry and every \\cite occurrence across the project`
         : props.target.kind === "environment"
-          ? t`Renames the matching \\begin and \\end pair under the cursor.`
-          : t`Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}.`;
+          ? t`Renames the matching \\begin and \\end pair under the cursor`
+          : t`Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}`;
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -280,7 +280,7 @@ export function ProjectMenu(props: {
         </DropdownMenuItem>
       ))}
       {!alternatives.length && (
-        <p className="px-2 py-1.5 text-xs text-muted-foreground">{t`No other recent projects yet.`}</p>
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{t`No other recent projects yet`}</p>
       )}
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={props.onOpen}>

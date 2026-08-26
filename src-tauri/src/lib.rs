@@ -3792,6 +3792,22 @@ fn set_window_background(window: tauri::WebviewWindow, dark: bool) -> Result<(),
     }
 }
 
+/// Print the invoking native webview. Browser-hosted workspaces use the
+/// visible browser's print API instead, because this command would target the
+/// hidden bridge webview rather than the user's document.
+#[tauri::command]
+async fn print_webview(window: tauri::WebviewWindow) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        macos_window::print_webview(&window).await
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        Err("Native printing is not available on this platform.".to_string())
+    }
+}
+
 #[tauri::command]
 fn align_traffic_lights(
     window: tauri::WebviewWindow,
@@ -4272,6 +4288,7 @@ pub fn run() {
             start_tex_install,
             start_tex_dependency_install,
             set_window_background,
+            print_webview,
             align_traffic_lights,
             sample_screen_color,
             synara::synara_runtime_status,

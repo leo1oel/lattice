@@ -10,7 +10,7 @@ describe("shared UI patterns", () => {
     render(
       <SettingsSectionHeader
         title="Appearance"
-        description="Preferences for this Mac."
+        description="Preferences for this Mac"
         actions={<button type="button">Reset</button>}
       />,
     );
@@ -20,9 +20,9 @@ describe("shared UI patterns", () => {
   });
 
   it("renders an empty state without imposing a heading when none is needed", () => {
-    render(<EmptyState description="No results." density="compact" />);
+    render(<EmptyState description="No results" density="compact" />);
 
-    expect(screen.getByText("No results.")).toBeInTheDocument();
+    expect(screen.getByText("No results")).toBeInTheDocument();
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 });

@@ -40,7 +40,7 @@ import {
   LARGE_MARKDOWN_PREVIEW_THRESHOLD,
   markdownPreviewSyncPolicy,
 } from "./markdown-preview-sync-policy";
-import { documentHeadingItems } from "./document-heading-rail";
+import { documentHeadingItems } from "./document-heading-items";
 
 afterEach(() => {
   cleanup();

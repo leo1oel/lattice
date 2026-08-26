@@ -119,6 +119,9 @@ section, frame height, confirmations, and notifications.
 | Diff code | 11 / 18 | 400 | source changes and conflict previews |
 | Diff metadata | 10 / 14 | 500 | line numbers and compact change statistics |
 
+Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
+Punctuation inside multi-sentence copy remains.
+
 ## Geometry
 
 - Spacing follows the 2px scale defined by `--space-*`. Distances inside a

@@ -498,19 +498,19 @@ export function SettingsDialog(props: {
               ? t`New versions install automatically`
               : t`You’ll be notified when a new version is ready`;
   const updateDetail = updater.phase === "error"
-    ? (updater.error ?? t`Check your connection and try again.`)
+    ? (updater.error ?? t`Check your connection and try again`)
     : updater.mode === "auto"
-      ? t`Lattice checks in the background and installs updates on its own.`
-      : t`Lattice checks in the background; you decide when to install.`;
+      ? t`Lattice checks in the background and installs updates on its own`
+      : t`Lattice checks in the background; you decide when to install`;
   // The row description has to hold one line at the settings content width, so
   // the full pitch (Apple's model, nothing downloaded) rides the off state —
   // where the switch is still being weighed — and every state that also reports
   // index progress carries the short form of the same promise.
-  const semanticSearchPrivacy = t`Runs on-device; no text leaves this Mac.`;
+  const semanticSearchPrivacy = t`Runs on-device; no text leaves this Mac`;
   const semanticSearchDetail = (() => {
     const status = props.localSemanticSearchStatus;
     if (!props.localSemanticSearchEnabled) {
-      return t`Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded.`;
+      return t`Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded`;
     }
     if (status.state === "indexing") {
       return status.totalChunks
@@ -524,7 +524,7 @@ export function SettingsDialog(props: {
     }
     if (status.state === "unavailable" || status.state === "error") {
       const detail = status.detail ?? t`The local model is unavailable.`;
-      return t`${detail} Find in project will stay lexical.`;
+      return t`${detail} Find in project will stay lexical`;
     }
     return semanticSearchPrivacy;
   })();
@@ -622,7 +622,7 @@ export function SettingsDialog(props: {
               <div className="synara-settings-state">
                 {props.synaraRuntime.state === "ready" ? (
                   <EmptyState
-                    description={t`Open a project to manage Agent settings.`}
+                    description={t`Open a project to manage Agent settings`}
                   />
                 ) : (
                   <SynaraLoadingSurface
@@ -641,7 +641,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Language`}>
                   <SettingsRow
                     label={t`Interface language`}
-                    description={t`Choose the language used for menus, settings, and help text.`}
+                    description={t`Choose the language used for menus, settings, and help text`}
                   >
                     <Select
                       value={props.appearance.interfaceLanguage}
@@ -662,7 +662,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Theme`}>
                   <SettingsRow
                     label={t`Color theme`}
-                    description={t`Choose the theme for Lattice on this device.`}
+                    description={t`Choose the theme for Lattice on this device`}
                   >
                     <Select
                       value={props.themePreference}
@@ -681,7 +681,7 @@ export function SettingsDialog(props: {
                   <SettingsRow
                     htmlFor="editor-font-size"
                     label={t`Editor font size`}
-                    description={t`Applies to the LaTeX source editor only.`}
+                    description={t`Applies to the LaTeX source editor only`}
                   >
                     <div className="settings-row-slider">
                       <input id="editor-font-size" type="range" min="10" max="24" step="1" value={props.appearance.editorFontSize} onChange={(event) => props.setAppearance({ ...props.appearance, editorFontSize: Number(event.target.value) })} />
@@ -692,7 +692,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Feedback`}>
                   <SwitchField
                     label={t`Interface sounds`}
-                    description={t`Plays quiet cues when a requested build or collaboration setup finishes.`}
+                    description={t`Plays quiet cues when a requested build or collaboration setup finishes`}
                     checked={props.appearance.interfaceSounds}
                     onChange={(interfaceSounds) => props.setAppearance({
                       ...props.appearance,
@@ -703,7 +703,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Browser`}>
                   <SwitchField
                     label={t`Start browser access after login`}
-                    description={t`Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it.`}
+                    description={t`Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it`}
                     checked={browserAccessEnabled}
                     disabled={browserAccessLoading}
                     onChange={(enabled) => { void updateBrowserAccess(enabled); }}
@@ -711,10 +711,10 @@ export function SettingsDialog(props: {
                   <SettingsRow
                     label={browserOutsideChromium ? t`Open desktop app` : t`Open in browser`}
                     description={browserOutsideChromium
-                      ? t`Move this workspace back to a Lattice window on this Mac.`
+                      ? t`Move this workspace back to a Lattice window on this Mac`
                       : props.bundledChromium
-                        ? t`Open this workspace in your default browser. It returns to this window when the browser tab closes.`
-                        : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac.`}
+                        ? t`Open this workspace in your default browser. It returns to this window when the browser tab closes`
+                        : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac`}
                   >
                     {browserOutsideChromium ? (
                       <Button
@@ -751,7 +751,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Editing`}>
                   <SettingsRow
                     label={t`Editor keymap`}
-                    description={t`Vim and Emacs keep their modal bindings inside the editor only.`}
+                    description={t`Vim and Emacs keep their modal bindings inside the editor only`}
                   >
                     <Select
                       value={props.appearance.editorKeymap}
@@ -775,7 +775,7 @@ export function SettingsDialog(props: {
                   <SettingsRow
                     htmlFor="max-open-tabs"
                     label={t`Max open tabs`}
-                    description={t`Lattice closes the least recently used tab past this count.`}
+                    description={t`Lattice closes the least recently used tab past this count`}
                   >
                     <div className="settings-row-slider">
                       <input id="max-open-tabs" type="range" min="1" max={MAX_OPEN_TABS} step="1" value={props.appearance.maxOpenTabs} onChange={(event) => props.setAppearance({ ...props.appearance, maxOpenTabs: Number(event.target.value) })} />
@@ -794,7 +794,7 @@ export function SettingsDialog(props: {
                 <SettingsGroup title={t`Spelling`}>
                   <SwitchField
                     label={t`Check spelling in prose`}
-                    description={t`Checks English spelling and grammar as you type with Harper.`}
+                    description={t`Checks English spelling and grammar as you type with Harper`}
                     checked={props.appearance.editorSpellcheck}
                     onChange={(checked) => props.setAppearance({
                         ...props.appearance,
@@ -805,8 +805,8 @@ export function SettingsDialog(props: {
                     className="settings-project-dictionary-row"
                     label={t`Project dictionary`}
                     description={props.project
-                      ? t`Terms Harper should accept in this project.`
-                      : t`Open a project to add its names, acronyms, and technical terms.`}
+                      ? t`Terms Harper should accept in this project`
+                      : t`Open a project to add its names, acronyms, and technical terms`}
                   >
                     <div className="settings-project-dictionary">
                       <form className="settings-project-dictionary-form" onSubmit={addProjectSpellingWord}>
@@ -841,7 +841,7 @@ export function SettingsDialog(props: {
                           ))}
                         </div>
                       ) : (
-                        <p className="settings-project-dictionary-empty">{t`No project terms added.`}</p>
+                        <p className="settings-project-dictionary-empty">{t`No project terms added`}</p>
                       )}
                     </div>
                   </SettingsRow>
@@ -850,8 +850,8 @@ export function SettingsDialog(props: {
                   <SettingsRow
                     label={t`Automatic build`}
                     description={props.buildPreferences.autoBuildMode === "automatic"
-                      ? t`Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds.`
-                      : t`Use the Build button or Command-S. Source changes are still saved automatically.`}
+                      ? t`Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds`
+                      : t`Use the Build button or Command-S. Source changes are still saved automatically`}
                   >
                     <Select value={props.buildPreferences.autoBuildMode} onValueChange={(value) => props.setBuildPreferences({ autoBuildMode: value as AutoBuildMode })}>
                       <SelectTrigger size="form" aria-label={t`Automatic build`}><SelectValue /></SelectTrigger>
@@ -863,7 +863,7 @@ export function SettingsDialog(props: {
                   </SettingsRow>
                   <SettingsRow
                     label={t`Auxiliary files`}
-                    description={t`Removes .aux, .log, and other build leftovers from this project.`}
+                    description={t`Removes .aux, .log, and other build leftovers from this project`}
                   >
                     <Button
                       size="compact"
@@ -877,7 +877,7 @@ export function SettingsDialog(props: {
                   <>
                     <SettingsRow
                       label={t`Compile engine`}
-                      description={t`XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence.`}
+                      description={t`XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence`}
                     >
                       <Select
                         value={props.project.manifest.engine ?? "pdf"}
@@ -893,7 +893,7 @@ export function SettingsDialog(props: {
                     </SettingsRow>
                     <SwitchField
                       label={t`Allow external commands`}
-                      description={t`Lets trusted projects run external tools during builds.`}
+                      description={t`Lets trusted projects run external tools during builds`}
                       checked={props.project.manifest.trusted}
                       onChange={(trusted) => props.onUpdateManifest({ trusted })}
                     />
@@ -987,7 +987,7 @@ export function SettingsDialog(props: {
                       <EmptyState
                         align="start"
                         density="compact"
-                        description={t`Run the doctor to inspect this Mac’s TeX toolchain.`}
+                        description={t`Run the doctor to inspect this Mac’s TeX toolchain`}
                       />
                       <div className="settings-api-actions">
                         <Button onClick={props.onOpenTexSetup}>

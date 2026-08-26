@@ -69,7 +69,7 @@ export function ReferencesPanel(props: {
         <EmptyState
           align="start"
           density="compact"
-          description="No occurrences found."
+          description="No occurrences found"
         />
       )}
     </section>

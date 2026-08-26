@@ -84,6 +84,18 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
 vi.mock("./editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("./editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
+vi.mock("./editor/presentation/presentation-editor", () => ({
+  PresentationEditor: (props: {
+    path: string;
+    mode?: "source" | "split" | "preview";
+  }) => (
+    <div
+      data-testid="presentation-editor-mock"
+      data-path={props.path}
+      data-mode={props.mode ?? ""}
+    />
+  ),
+}));
 vi.mock("./agent/use-synara-runtime", () => ({
   useSynaraRuntime: (enabled: boolean) => {
     synaraHook.enabledCalls.push(enabled);
@@ -555,7 +567,7 @@ describe("welcome screen", () => {
     expect(synaraHook.enabledCalls).not.toContain(true);
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
-    expect(screen.getByText("Open a project to manage Agent settings.")).toBeInTheDocument();
+    expect(screen.getByText("Open a project to manage Agent settings")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
   });
 
@@ -751,7 +763,7 @@ describe("welcome screen", () => {
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "设置分区" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "外观" })).toBeInTheDocument();
-    expect(screen.getByText("选择菜单、设置和帮助文字所使用的语言。")).toBeInTheDocument();
+    expect(screen.getByText("选择菜单、设置和帮助文字所使用的语言")).toBeInTheDocument();
     expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
 
     fireEvent.click(screen.getByRole("button", { name: "关闭设置" }));
@@ -4003,7 +4015,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Open another Overleaf project" }));
     expect(await screen.findByLabelText("Open from Overleaf")).toBeInTheDocument();
     expect(screen.queryByText("Upload this project to Overleaf")).not.toBeInTheDocument();
-    expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here."))
+    expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here"))
       .toBeInTheDocument();
   });
 
@@ -4096,7 +4108,7 @@ describe("project workspace", () => {
       name: "从 Overleaf 项目中删除 1 个文件？",
     });
     expect(dialog).toHaveAccessibleDescription(
-      "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它。",
+      "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它",
     );
     fireEvent.click(screen.getByRole("button", { name: "同时在 Overleaf 上删除" }));
 
@@ -5729,6 +5741,98 @@ describe("project workspace", () => {
       .toContain("Entry(EntryType");
     expect(document.querySelector(".source-editor")).not.toHaveClass("file-drop-active");
     expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+  });
+
+  it("keeps a presentation stable and view-switchable after a file is dropped beside it", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "talk.slides.md", path: "talk.slides.md", kind: "markdown", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = (args as { path: string }).path;
+        return path === "talk.slides.md" ? "# Talk\n\n---\n\n# Results\n" : `content:${path}`;
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("talk.slides.md"));
+    await screen.findByTestId("presentation-editor-mock");
+    const presentation = () => screen.getByTestId("presentation-editor-mock");
+    const documentView = () => within(screen.getByRole("tablist", { name: "Document view" }));
+    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
+    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "split"));
+
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 1000,
+      width: 1000,
+      top: 0,
+      bottom: 700,
+      height: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const notes = await findProjectTreeItem("notes.md");
+    fireEvent.pointerDown(notes, {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(window, {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerUp(window, {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 45,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector(".dual-canvas")).not.toBeNull();
+      expect(presentation()).toHaveAttribute("data-mode", "source");
+      expect(presentation().closest("[data-editor-pane='secondary']")).not.toBeNull();
+      expect(document.querySelector(
+        ".source-editor[data-editor-pane='primary'] .cm-content",
+      )).toHaveTextContent("content:notes.md");
+    });
+
+    fireEvent.pointerDown(presentation());
+    expect(documentView().getByRole("tab", { name: "Edit" }))
+      .toHaveAttribute("aria-selected", "true");
+    fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
+    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "preview"));
+    expect(document.querySelector(".dual-canvas")).not.toBeNull();
+    expect(document.querySelector(
+      ".source-editor[data-editor-pane='primary'] .cm-content",
+    )).toHaveTextContent("content:notes.md");
+
+    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
+    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "split"));
+    expect(document.querySelector(".dual-canvas")).not.toBeNull();
   });
 
   it("opens a dropped project file in the editor pane under the pointer", async () => {
@@ -8169,7 +8273,11 @@ describe("project workspace", () => {
 
     renderApp();
     await screen.findByLabelText("Project files");
-    fireEvent.click(screen.getByRole("button", { name: "New board" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New board" }));
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput).toHaveValue("untitled");
     fireEvent.input(nameInput, { target: { value: "sketch" } });
@@ -8207,7 +8315,11 @@ describe("project workspace", () => {
 
     renderApp();
     await screen.findByLabelText("Project files");
-    fireEvent.click(screen.getByRole("button", { name: "New spreadsheet" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New spreadsheet" }));
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput).toHaveValue("untitled");
     fireEvent.input(nameInput, { target: { value: "results" } });
@@ -8220,6 +8332,47 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .not.toBeInTheDocument();
+  });
+
+  it("creates a presentation from the header button with an inline name", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "# Talk\n";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
+      if (command === "create_project_entry") return (args as { path: string }).path;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByLabelText("Project files");
+    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New presentation" }));
+    const nameInput = await findProjectTreeRenameInput();
+    expect(nameInput).toHaveValue("untitled");
+    fireEvent.input(nameInput, { target: { value: "talk" } });
+    fireEvent.keyDown(nameInput, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
+      path: "talk.slides.md",
+      kind: "file",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    expect(await screen.findByTestId("presentation-editor-mock")).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
   });
 
   it("lets the Agent create and open a board or spreadsheet through the host bridge", async () => {

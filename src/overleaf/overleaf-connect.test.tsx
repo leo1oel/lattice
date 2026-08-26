@@ -95,14 +95,14 @@ describe("Overleaf settings section", () => {
 
     expect(syncMode).toHaveTextContent("Live sync");
     expect(syncMode.closest("[data-slot='settings-row']")?.querySelector(".ui-settings-row-description"))
-      .toHaveTextContent("Edits sync live with Overleaf.");
+      .toHaveTextContent("Edits sync live with Overleaf");
     fireEvent.pointerDown(syncMode, { button: 0, ctrlKey: false, pointerType: "mouse" });
     fireEvent.click(await screen.findByRole("option", { name: "Manual" }));
     expect(onSyncModeChange).toHaveBeenCalledWith("manual");
     rerender(<OverleafSettingsSection projectRoot="/tmp/project" syncMode="manual" onSyncModeChange={onSyncModeChange} channel="off" channelDetail={null} remoteDelete="ask" onRemoteDeleteChange={onRemoteDeleteChange} onLinkChanged={() => {}} />);
     expect(screen.getByRole("combobox", { name: "Sync mode" }).closest("[data-slot='settings-row']")
       ?.querySelector(".ui-settings-row-description"))
-      .toHaveTextContent("Sync only when you click the sync button.");
+      .toHaveTextContent("Sync only when you click the sync button");
     expect(deletionBehavior).toHaveTextContent("Ask before deleting");
     fireEvent.pointerDown(deletionBehavior, { button: 0, ctrlKey: false, pointerType: "mouse" });
     fireEvent.click(await screen.findByRole("option", { name: "Delete on Overleaf too" }));
@@ -216,7 +216,7 @@ describe("Overleaf settings section", () => {
         onLinkChanged={() => {}}
       />,
     );
-    const unavailable = await screen.findByText("Live editing is unavailable; regular syncing continues.");
+    const unavailable = await screen.findByText("Live editing is unavailable; regular syncing continues");
     expect(unavailable).toHaveAttribute("title", "the websocket was refused");
     rerender(
       <OverleafSettingsSection
@@ -230,7 +230,7 @@ describe("Overleaf settings section", () => {
         onLinkChanged={() => {}}
       />,
     );
-    expect(screen.getByText("Live editing is connected.")).toBeInTheDocument();
+    expect(screen.getByText("Live editing is connected")).toBeInTheDocument();
   });
 
   it("surfaces disconnect and lets the user reconnect", async () => {

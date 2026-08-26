@@ -162,7 +162,7 @@ describe("Overleaf chat panel", () => {
 
     rerender(<OverleafChatPanel {...props} messages={[]} />);
     expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
-    expect(screen.getByText("No messages yet. Say something and everyone in the project sees it.")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet. Say something and everyone in the project sees it")).toBeInTheDocument();
   });
 
   it("continues following messages while the reader is near the bottom", () => {

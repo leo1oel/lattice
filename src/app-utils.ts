@@ -85,6 +85,10 @@ export function isHtmlFilePath(path: string): boolean {
   return fileExtension(path) === "html";
 }
 
+export function isPresentationFilePath(path: string): boolean {
+  return path.replace(/\\/g, "/").toLocaleLowerCase().endsWith(".slides.md");
+}
+
 export function isPreviewableSourceFilePath(path: string): boolean {
   return ["tex", "md", "html"].includes(fileExtension(path));
 }

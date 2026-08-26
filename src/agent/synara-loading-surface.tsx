@@ -25,7 +25,7 @@ export function SynaraLoadingSurface(props: {
         </strong>
         <span>
           {failed
-            ? props.runtime.message || t`The bundled Agent service could not start.`
+            ? props.runtime.message || t`The bundled Agent service could not start`
             : props.preparingWorkspace
               ? t`Restoring the conversation surface…`
               : t`Warming the local service…`}

@@ -36,9 +36,9 @@ export function OverleafChangesPanel(props: {
   const sorted = [...props.changes].sort((a, b) => a.position - b.position);
   const actionable = props.canAct && props.documentOpen;
   const disabledTitle = !props.documentOpen
-    ? "Open the file this suggestion is in first."
+    ? "Open the file this suggestion is in first"
     : !props.canAct
-      ? "This account cannot accept or reject suggestions here."
+      ? "This account cannot accept or reject suggestions here"
       : undefined;
 
   const run = async (action: () => Promise<void>) => {
@@ -109,7 +109,7 @@ export function OverleafChangesPanel(props: {
     <>
       <p className="drawer-copy">
         Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the
-        suggested text into ordinary text; rejecting undoes it. Both sides see the result at once.
+        suggested text into ordinary text; rejecting undoes it. Both sides see the result at once
       </p>
 
       {props.error && <InlineMessage level="error" className="overleaf-change-inline">{props.error}</InlineMessage>}
@@ -142,7 +142,7 @@ export function OverleafChangesPanel(props: {
         {!sorted.length && !props.error && (
           <p className="git-empty">
             No suggestions in this document
-            {props.documentOpen ? "" : " — open it to see any it has"}.
+            {props.documentOpen ? "" : " — open it to see any it has"}
           </p>
         )}
         {sorted.map(renderChange)}

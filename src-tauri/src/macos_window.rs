@@ -448,6 +448,31 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
     });
 }
 
+/// Open the native print panel for the invoking WKWebView.
+///
+/// JavaScript's `window.print()` is a silent no-op in WKWebView, so the
+/// presentation editor prepares its print-only DOM and asks AppKit to print the
+/// same web view. The operation runs on the WebKit/AppKit thread and the IPC
+/// request stays pending until the user prints or cancels.
+pub async fn print_webview(window: &tauri::WebviewWindow) -> Result<bool, String> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    window
+        .with_webview(move |webview| unsafe {
+            use objc2_app_kit::NSPrintInfo;
+            use objc2_web_kit::WKWebView;
+
+            let view = &*webview.inner().cast::<WKWebView>();
+            let print_info = NSPrintInfo::sharedPrintInfo();
+            let operation = view.printOperationWithPrintInfo(&print_info);
+            operation.setShowsPrintPanel(true);
+            let _ = sender.send(operation.runOperation());
+        })
+        .map_err(|error| format!("Could not prepare the print dialog: {error}"))?;
+    receiver
+        .await
+        .map_err(|_| "The print dialog closed unexpectedly.".to_string())
+}
+
 fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
     let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
     format!(

@@ -6,8 +6,16 @@
  * survive editor remounts, so a revisited file is parsed with its language on
  * the first frame instead of being reconfigured a moment later.
  */
-import { LanguageDescription, LanguageSupport, StreamLanguage, type StreamParser } from "@codemirror/language";
+import {
+  HighlightStyle,
+  LanguageDescription,
+  LanguageSupport,
+  StreamLanguage,
+  syntaxHighlighting,
+  type StreamParser,
+} from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
+import { tags } from "@lezer/highlight";
 import { bibtex } from "codemirror-lang-bib";
 import { isHtmlFilePath } from "../app-utils";
 
@@ -61,6 +69,20 @@ const gitignoreParser: StreamParser<GitignoreParserState> = {
 const GITIGNORE_EXTENSIONS: Extension[] = [
   new LanguageSupport(StreamLanguage.define(gitignoreParser)),
 ];
+// These are CSS custom-property references consumed by CodeMirror, not text
+// shown to the user.
+/* eslint-disable lingui/no-unlocalized-strings */
+const markdownHighlightStyle = HighlightStyle.define([
+  { tag: tags.heading, color: "var(--syntax-function)", fontWeight: "600" },
+  { tag: [tags.link, tags.url], color: "var(--syntax-variable-special)" },
+  { tag: [tags.monospace, tags.string], color: "var(--syntax-string)" },
+  { tag: tags.quote, color: "var(--syntax-comment-doc)", fontStyle: "italic" },
+  { tag: tags.meta, color: "var(--syntax-keyword)" },
+  { tag: tags.contentSeparator, color: "var(--syntax-bracket)" },
+  { tag: tags.strong, fontWeight: "700" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+]);
+/* eslint-enable lingui/no-unlocalized-strings */
 let markdownExtensionsPromise: Promise<Extension[]> | null = null;
 let htmlExtensionsPromise: Promise<Extension[]> | null = null;
 
@@ -68,7 +90,10 @@ function loadMarkdownExtensions(): Promise<Extension[]> {
   markdownExtensionsPromise ??= Promise.all([
     import("@codemirror/lang-markdown"),
     import("@codemirror/language-data"),
-  ]).then(([{ markdown }, { languages }]) => [markdown({ codeLanguages: languages })]);
+  ]).then(([{ markdown }, { languages }]) => [
+    markdown({ codeLanguages: languages }),
+    syntaxHighlighting(markdownHighlightStyle),
+  ]);
   return markdownExtensionsPromise;
 }
 

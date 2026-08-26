@@ -422,11 +422,11 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**770 packages.**
+**771 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 614 |
+| `MIT` | 615 |
 | `ISC` | 64 |
 | `Apache-2.0` | 32 |
 | `BSD-3-Clause` | 24 |
@@ -518,7 +518,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (77 distinct texts across 770 packages)
+### License texts (77 distinct texts across 771 packages)
 
 #### 1. MIT (+2 other declarations) — 275 package(s), from `LICENSE`
 
@@ -819,17 +819,18 @@ MIT License
     SOFTWARE
 ```
 
-#### 5. MIT — 47 package(s), from `LICENSE.txt`
+#### 5. MIT — 48 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
-`@jridgewell/gen-mapping@0.3.13`, `@jridgewell/remapping@2.3.5`, `@jridgewell/resolve-uri@3.1.2`, `@jridgewell/sourcemap-codec@1.5.5`, `@jridgewell/trace-mapping@0.3.31`, `@messageformat/date-skeleton@1.1.0`, `@messageformat/parser@5.1.1`, `@vimeo/player@2.30.4`, `@wendellhu/redi@1.1.1`, `archiver-utils@2.1.0`, `archiver-utils@3.0.4`, `archiver@5.3.2`, `async@3.2.6`, `color-convert@2.0.1`, `compress-commons@4.1.2`, `core-util-is@1.0.3`, `crc32-stream@4.0.3`, `crelt@1.0.7`, `csstype@3.2.3`, `emoji-regex@8.0.0`, `fdir@6.5.0`, `iconv-lite@0.6.3`, `immediate@3.0.6`, `lazystream@1.0.1`, `linkifyjs@4.3.3`, `magic-string@0.30.21`, `numfmt@3.2.6`, `orderedmap@2.1.1`, `parse5@7.3.0`, `prosemirror-changeset@2.4.1`, `prosemirror-commands@1.7.1`, `prosemirror-dropcursor@1.8.3`, `prosemirror-gapcursor@1.4.1`, `prosemirror-history@1.5.0`, `prosemirror-keymap@1.2.3`, `prosemirror-model@1.25.11`, `prosemirror-schema-list@1.5.1`, `prosemirror-state@1.4.4`, `prosemirror-tables@1.8.5`, `prosemirror-transform@1.12.0`, `prosemirror-view@1.42.2`, `rope-sequence@1.3.4`, `scroll@3.0.1`, `setimmediate@1.0.5`, `style-mod@4.1.3`, `w3c-keyname@2.2.8`, `zip-stream@4.1.1`
+`@jridgewell/gen-mapping@0.3.13`, `@jridgewell/remapping@2.3.5`, `@jridgewell/resolve-uri@3.1.2`, `@jridgewell/sourcemap-codec@1.5.5`, `@jridgewell/trace-mapping@0.3.31`, `@messageformat/date-skeleton@1.1.0`, `@messageformat/parser@5.1.1`, `@vimeo/player@2.30.4`, `@wendellhu/redi@1.1.1`, `archiver-utils@2.1.0`, `archiver-utils@3.0.4`, `archiver@5.3.2`, `async@3.2.6`, `color-convert@2.0.1`, `compress-commons@4.1.2`, `core-util-is@1.0.3`, `crc32-stream@4.0.3`, `crelt@1.0.7`, `csstype@3.2.3`, `emoji-regex@8.0.0`, `fdir@6.5.0`, `iconv-lite@0.6.3`, `immediate@3.0.6`, `lazystream@1.0.1`, `linkifyjs@4.3.3`, `magic-string@0.30.21`, `numfmt@3.2.6`, `orderedmap@2.1.1`, `parse5@7.3.0`, `prosemirror-changeset@2.4.1`, `prosemirror-commands@1.7.1`, `prosemirror-dropcursor@1.8.3`, `prosemirror-gapcursor@1.4.1`, `prosemirror-history@1.5.0`, `prosemirror-keymap@1.2.3`, `prosemirror-model@1.25.11`, `prosemirror-schema-list@1.5.1`, `prosemirror-state@1.4.4`, `prosemirror-tables@1.8.5`, `prosemirror-transform@1.12.0`, `prosemirror-view@1.42.2`, `reveal.js@6.0.1`, `rope-sequence@1.3.4`, `scroll@3.0.1`, `setimmediate@1.0.5`, `style-mod@4.1.3`, `w3c-keyname@2.2.8`, `zip-stream@4.1.1`
 
 </details>
 
-Copyright notices (30):
+Copyright notices (31):
 
 ```text
+Copyright (C) 2011-2026 Hakim El Hattab, http://hakim.se, and reveal.js contributors
 Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
 Copyright (C) 2015-2017 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
 Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin>

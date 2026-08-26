@@ -259,7 +259,7 @@ export function InsertPalette(props: {
             </section>
           ))}
           {!sections.length && (
-            <EmptyState description={t`No matching snippets. Try fraction, implies, align*, or eqref.`} />
+            <EmptyState description={t`No matching snippets. Try fraction, implies, align*, or eqref`} />
           )}
         </div>
       </ScrollArea>

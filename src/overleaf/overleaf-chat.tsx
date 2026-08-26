@@ -110,7 +110,7 @@ export function OverleafChatPanel(props: {
     <>
       <p className="drawer-copy">
         The same conversation as the chat panel in {props.projectName || "this project"} on
-        Overleaf. Messages appear on both sides as they are sent.
+        Overleaf. Messages appear on both sides as they are sent
       </p>
 
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
@@ -133,7 +133,7 @@ export function OverleafChatPanel(props: {
           <p className="git-empty"><InfinityLoader size={13} /> Loading the conversation…</p>
         )}
         {!props.loading && !props.messages.length && !props.error && (
-          <p className="git-empty">No messages yet. Say something and everyone in the project sees it.</p>
+          <p className="git-empty">No messages yet. Say something and everyone in the project sees it</p>
         )}
         {props.messages.map((message, index) => {
           // One name above a run of messages reads as a conversation rather

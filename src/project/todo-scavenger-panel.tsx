@@ -18,12 +18,12 @@ export function TodoScavengerPanel(props: {
         />
         <p className="drawer-copy">
           Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\todo`.
-          Click a hit to jump; the active unsaved buffer is included.
+          Click a hit to jump; the active unsaved buffer is included
         </p>
         <div className="project-replace-preview-summary">
           {props.hits.length
             ? `${props.hits.length} marker${props.hits.length === 1 ? "" : "s"}`
-            : "No TODO markers found."}
+            : "No TODO markers found"}
         </div>
         <ul className="project-replace-hits todo-hits">
           {props.hits.map((hit) => (

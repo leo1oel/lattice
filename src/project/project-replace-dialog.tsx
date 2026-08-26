@@ -54,7 +54,7 @@ export function ProjectReplaceDialog(props: {
           title="Find & replace in project"
           onClose={props.onClose}
         />
-        <p className="drawer-copy">Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history.</p>
+        <p className="drawer-copy">Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history</p>
         <label>
           Find
           <SearchField
@@ -98,7 +98,7 @@ export function ProjectReplaceDialog(props: {
             <div className="project-replace-preview-summary">
               {preview.replacements
                 ? `${preview.replacements} match${preview.replacements === 1 ? "" : "es"} in ${preview.files} file${preview.files === 1 ? "" : "s"}${preview.matches.length < preview.replacements ? " (showing first 200)" : ""}`
-                : "No matches found."}
+                : "No matches found"}
             </div>
             {preview.matches.length > 0 && (
               <ul className="project-replace-hits">

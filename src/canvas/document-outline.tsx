@@ -59,7 +59,7 @@ export function DocumentOutline(props: {
         <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
           ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={props.onSelect} />
-          : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline.`}</p>}
+          : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline`}</p>}
       </PopoverContent>
     </Popover>
   );

@@ -120,7 +120,7 @@ function QuickOpenDialogForm(props: {
             </button>
           ))}
           {!results.length && (
-            <EmptyState density="compact" description="No matching files." />
+            <EmptyState density="compact" description="No matching files" />
           )}
         </div>
       </div>

@@ -16,6 +16,8 @@ import {
   Bot,
   FolderTree,
   Library,
+  Plus,
+  Presentation,
   Search,
   Shapes,
   Shield,
@@ -27,6 +29,7 @@ import { Tip } from "../components/icon-tip";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -126,6 +129,7 @@ export type AppWorkspaceSidebarProps = {
   setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
   setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
+  setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
   setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
   sidebarMode: "agent" | "project" | "papers";
   sidebarModeActionsRef: RefObject<HTMLDivElement | null>;
@@ -161,6 +165,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     setProjectFindHits,
     setProjectFindOpen,
     setProjectSearchOpen,
+    setPresentationCreateRequest,
     setSpreadsheetCreateRequest,
     sidebarMode,
     sidebarModeActionsRef,
@@ -194,22 +199,31 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
           <div ref={sidebarModeActionsRef} className="sidebar-mode-actions">
             {sidebarMode === "project" && (
               <>
-                <Tip label={t`New spreadsheet`}>
-                  <button
-                    aria-label={t`New spreadsheet`}
-                    onClick={() => setSpreadsheetCreateRequest((request) => request + 1)}
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button aria-label={t`New document`} title={t`New document`}>
+                      <Plus size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={6}
+                    onCloseAutoFocus={(event) => event.preventDefault()}
                   >
-                    <Table2 size={13} />
-                  </button>
-                </Tip>
-                <Tip label={t`New board`}>
-                  <button
-                    aria-label={t`New board`}
-                    onClick={() => setBoardCreateRequest((request) => request + 1)}
-                  >
-                    <Shapes size={13} />
-                  </button>
-                </Tip>
+                    <DropdownMenuItem onSelect={() => setPresentationCreateRequest((request) => request + 1)}>
+                      <Presentation />
+                      {t`New presentation`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setSpreadsheetCreateRequest((request) => request + 1)}>
+                      <Table2 />
+                      {t`New spreadsheet`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setBoardCreateRequest((request) => request + 1)}>
+                      <Shapes />
+                      {t`New board`}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Tip label={t`Find in project`}>
                   <button
                     aria-label={t`Find in project`}

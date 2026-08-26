@@ -327,7 +327,7 @@ describe("design token contract", () => {
     // resizer and the vendor component write the property on the element, and an
     // inline value beats every selector there is.
     const FOREIGN =
-      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|data-code|data-error-wrapper|trees-|diffs-|katex|shiki|react-joyride|spreadsheet-univer-host|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
+      /cm-|data-slot|data-type=|data-lattice|data-virtualizer|data-unmodified|data-code|data-error-wrapper|trees-|diffs-|katex|shiki|reveal|react-joyride|spreadsheet-univer-host|:host|prefers-reduced-motion|reordering-tabs|split-canvas|data-file-tree|\brow-(?:cite|delete|edit-bib)\b/
 
     const offenders: string[] = []
     for (const { file, rules } of sources) {

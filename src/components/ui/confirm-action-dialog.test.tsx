@@ -63,10 +63,10 @@ describe("ConfirmActionProvider", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" });
     expect(dialog).toBeInTheDocument();
-    expect(dialog).toHaveAccessibleDescription("This action cannot be undone.");
+    expect(dialog).toHaveAccessibleDescription("This action cannot be undone");
     expect(document.querySelector(".modal-backdrop"))
       .toHaveClass("confirm-action-backdrop");
-    expect(screen.getByText("This action cannot be undone.")).toBeInTheDocument();
+    expect(screen.getByText("This action cannot be undone")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     expect(confirm).not.toHaveBeenCalled();
 
@@ -89,7 +89,7 @@ describe("ConfirmActionProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Request choice" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Remove this bibliography entry?" });
-    expect(dialog).toHaveAccessibleDescription("It is cited in two places.");
+    expect(dialog).toHaveAccessibleDescription("It is cited in two places");
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Keep citations" }));
 

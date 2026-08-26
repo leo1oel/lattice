@@ -1271,6 +1271,26 @@ describe("v2 project chat doc", () => {
     controller.destroy();
   });
 
+  it("binds a secondary text document without stealing the primary editor", async () => {
+    const { controller } = await setupChatTest({
+      permission: "host",
+      liveFiles: [{ fileId: "slides-file", path: "talk.slides.md" }],
+    });
+    await controller.openPath("paper.md");
+    controller.ytext.insert(0, "# Paper\n");
+    const primaryDoc = controller.doc;
+
+    const secondary = await controller.openSecondaryPath("talk.slides.md");
+    expect(secondary).not.toBeNull();
+    expect(secondary!.doc).not.toBe(primaryDoc);
+    expect(controller.activePath).toBe("paper.md");
+    secondary!.ytext.insert(0, "# Talk\n");
+    expect(controller.ytext.toString()).toBe("# Paper\n");
+
+    controller.releaseSecondaryPath("talk.slides.md");
+    controller.destroy();
+  });
+
   it("survives pool eviction pressure from many sideloaded files", async () => {
     const { controller } = await setupChatTest({ permission: "host" });
     const doc = await controller.openChatDoc();

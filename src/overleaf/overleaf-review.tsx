@@ -39,32 +39,32 @@ const GROUPS: { kind: OverleafChangeKind; title: string; blurb: string }[] = [
   {
     kind: "conflict",
     title: "Needs your decision",
-    blurb: "Edited on both sides in the same place. Applying marks the spots in the file so you can choose.",
+    blurb: "Edited on both sides in the same place. Applying marks the spots in the file so you can choose",
   },
   {
     kind: "incoming",
     title: "Coming from Overleaf",
-    blurb: "Changed there, untouched here.",
+    blurb: "Changed there, untouched here",
   },
   {
     kind: "merge",
     title: "Combines automatically",
-    blurb: "Both sides edited different parts, so the two sets of edits join.",
+    blurb: "Both sides edited different parts, so the two sets of edits join",
   },
   {
     kind: "outgoing",
     title: "Going to Overleaf",
-    blurb: "Changed here, untouched there.",
+    blurb: "Changed here, untouched there",
   },
   {
     kind: "deleteLocal",
     title: "Removed on Overleaf",
-    blurb: "Deleted there and unchanged here, so it goes away locally too.",
+    blurb: "Deleted there and unchanged here, so it goes away locally too",
   },
   {
     kind: "skippedRemoteDelete",
     title: "Left alone",
-    blurb: "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to.",
+    blurb: "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to",
   },
 ];
 
@@ -227,10 +227,10 @@ export function OverleafReviewDialog(props: {
               {loading
                 ? "Comparing this project with Overleaf…"
                 : total === 0
-                  ? "Everything already matches Overleaf."
+                  ? "Everything already matches Overleaf"
                   : `${total} file${total === 1 ? "" : "s"} would change`
                     + (conflicts ? ` · ${conflicts} need${conflicts === 1 ? "s" : ""} your decision` : "")
-                    + ". Nothing has been written yet."}
+                    + ". Nothing has been written yet"}
             </p>
           </div>
           <ReloadButton
@@ -256,7 +256,7 @@ export function OverleafReviewDialog(props: {
             <div className="overleaf-review-list">
               {grouped.length === 0 && !error && (
                 <p className="overleaf-review-empty">
-                  No differences. You can close this window.
+                  No differences. You can close this window
                 </p>
               )}
               {grouped.map((group) => (
@@ -321,8 +321,8 @@ export function OverleafReviewDialog(props: {
               ) : (
                 <p className="overleaf-review-empty">
                   {total === 0
-                    ? "Nothing to show."
-                    : "Only binary files would change; line-by-line review is unavailable."}
+                    ? "Nothing to show"
+                    : "Only binary files would change; line-by-line review is unavailable"}
                 </p>
               )}
             </div>

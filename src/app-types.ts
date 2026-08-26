@@ -81,6 +81,14 @@ export type BoardFileViewState = {
   camera: { x: number; y: number; z: number };
 };
 
+export type PresentationFileViewState = {
+  slide: number;
+  mode: "source" | "split" | "preview";
+  thumbnailRailOpen?: boolean;
+  thumbnailRailWidth?: number;
+  splitRatio?: number;
+};
+
 export type ScrollFileViewState = {
   scrollTop: number;
   scrollLeft?: number;
@@ -100,6 +108,7 @@ export type FileViewState = {
   spreadsheet?: SpreadsheetFileViewState;
   pdf?: PdfFileViewState;
   board?: BoardFileViewState;
+  presentation?: PresentationFileViewState;
   image?: ImageFileViewState;
   html?: ScrollFileViewState;
   visualMarkdown?: ScrollFileViewState;

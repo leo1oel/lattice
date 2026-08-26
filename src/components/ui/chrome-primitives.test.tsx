@@ -198,7 +198,7 @@ describe("shared chrome primitives", () => {
         <SettingsRow
           htmlFor="interface-size"
           label="Interface size"
-          description="Scales every panel."
+          description="Scales every panel"
         >
           <input id="interface-size" type="range" />
         </SettingsRow>

@@ -242,7 +242,7 @@ export function CollabDialog(props: {
             />
           </label>
           {!live && !nameReady ? (
-            <p className="collab-help collab-name-help">{t`Enter your name so others can see who is editing.`}</p>
+            <p className="collab-help collab-name-help">{t`Enter your name so others can see who is editing`}</p>
           ) : null}
         </div>
 
@@ -452,17 +452,17 @@ export function CollabDialog(props: {
                 </div>
                 {props.role === "guest" ? (
                   <p className="collab-help">
-                    {t({ message: "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing." })}
+                    {t({ message: "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing" })}
                   </p>
                 ) : (
                   <>
                     <p className="collab-help">
                       {localHost
-                        ? t`This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely.`
-                        : t`Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them.`}
+                        ? t`This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely`
+                        : t`Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them`}
                     </p>
                     <p className="collab-help">
-                      {t`You started this share. `}<strong>{t`Leave share`}</strong>{t({ message: " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. " })}<strong>{t`Stop sharing`}</strong>{t` ends it for everyone.`}
+                      {t`You started this share. `}<strong>{t`Leave share`}</strong>{t({ message: " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. " })}<strong>{t`Stop sharing`}</strong>{t` ends it for everyone`}
                     </p>
                   </>
                 )}
@@ -472,7 +472,7 @@ export function CollabDialog(props: {
                     <Button size="compact" variant="ghost" className="collab-inline-link" onClick={props.onInstallTex}>
                       {t`Install LaTeX tools`}
                     </Button>
-                    {t` if Build fails on a blank machine.`}
+                    {t` if Build fails on a blank machine`}
                   </p>
                 ) : null}
               </>

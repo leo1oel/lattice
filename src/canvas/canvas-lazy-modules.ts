@@ -31,3 +31,5 @@ export const markVisualMarkdownEditorWarmed = () => {
 export const loadBoardEditorModule = () => import("../editor/board/board-editor");
 
 export const loadSpreadsheetEditorModule = () => import("../editor/spreadsheet/spreadsheet-editor");
+
+export const loadPresentationEditorModule = () => import("../editor/presentation/presentation-editor");
