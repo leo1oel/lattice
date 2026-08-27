@@ -1236,6 +1236,10 @@ msgstr "Degree"
 msgid "Delete"
 msgstr "Delete"
 
+#: src/App.tsx
+msgid "Delete {count} selected items from this project?"
+msgstr "Delete {count} selected items from this project?"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
@@ -3165,6 +3169,7 @@ msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in projec
 msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 
 #: src/App.tsx
+#: src/project/navigator.tsx
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 

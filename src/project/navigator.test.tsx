@@ -59,12 +59,13 @@ function baseProps(): NavigatorProps {
     onBeginFigureDrag: vi.fn(),
     onBeginFileDrag: vi.fn(),
     onCreateEntry: vi.fn(async (path: string) => path),
-    onDeleteEntry: vi.fn(),
+    onDeleteEntries: vi.fn(),
     onRenameEntry: vi.fn(async (path: string) => path),
     onMoveEntries: vi.fn(async (paths: string[]) => paths),
     onError: vi.fn(),
     onReveal: vi.fn(),
     onImportAssets: vi.fn(),
+    onPasteImage: vi.fn(),
     assetDropTarget: null,
     assetImporting: false,
     onPaper: vi.fn(),
@@ -276,5 +277,90 @@ describe("Navigator / project tree", () => {
 
     await waitFor(() => expect(treeItem("main.tex")).not.toBeNull());
     expect(treeItem("sections/intro.tex")).toBeNull();
+  });
+
+  it("keeps a command-clicked multi-selection when the newest file opens", async () => {
+    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    let rerenderWith: (next: Partial<NavigatorProps>) => void = () => undefined;
+    const onFile = vi.fn((path: string) => rerenderWith({ activeFile: path }));
+    ({ rerenderWith } = renderNavigator({ mode: "project", onFile }));
+    const main = await waitFor(() => {
+      const item = treeItem("main.tex");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+    const intro = await waitFor(() => {
+      const item = treeItem("sections/intro.tex");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+
+    fireEvent.click(main);
+    fireEvent.click(intro, { metaKey: true });
+
+    await waitFor(() => {
+      expect(main).toHaveAttribute("data-item-selected", "true");
+      expect(intro).toHaveAttribute("data-item-selected", "true");
+    });
+  });
+
+  it("deletes the selected files as one action", async () => {
+    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    let rerenderWith: (next: Partial<NavigatorProps>) => void = () => undefined;
+    const onFile = vi.fn((path: string) => rerenderWith({ activeFile: path }));
+    const onDeleteEntries = vi.fn();
+    ({ rerenderWith } = renderNavigator({ mode: "project", onFile, onDeleteEntries }));
+    const main = await waitFor(() => {
+      const item = treeItem("main.tex");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+    const intro = await waitFor(() => {
+      const item = treeItem("sections/intro.tex");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+    fireEvent.click(main);
+    fireEvent.click(intro, { metaKey: true });
+
+    fireEvent.contextMenu(intro);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() => expect(onDeleteEntries).toHaveBeenCalledWith([
+      "main.tex",
+      "sections/intro.tex",
+    ]));
+  });
+
+  it("pastes a clipboard image into the directory chosen in the context menu", async () => {
+    const onPasteImage = vi.fn();
+    renderNavigator({ mode: "project", onPasteImage });
+    const folder = await waitFor(() => {
+      const item = treeItem("sections/");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+
+    fireEvent.contextMenu(folder);
+    fireEvent.click(await screen.findByRole("menuitem", {
+      name: "Paste clipboard image as figure",
+    }));
+
+    await waitFor(() => expect(onPasteImage).toHaveBeenCalledWith("sections"));
+  });
+
+  it("pastes a clipboard image into the selected directory with Command-V", async () => {
+    const onPasteImage = vi.fn();
+    renderNavigator({ mode: "project", onPasteImage });
+    const folder = await waitFor(() => {
+      const item = treeItem("sections/");
+      expect(item).not.toBeNull();
+      return item!;
+    });
+
+    fireEvent.click(folder);
+    fireEvent.keyDown(folder, { key: "v", metaKey: true });
+
+    expect(onPasteImage).toHaveBeenCalledWith("sections");
   });
 });

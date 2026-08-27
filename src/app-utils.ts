@@ -252,7 +252,8 @@ function trimDirectoryPath(path: string): string {
  */
 export function dropDirectoryAt(position: { x: number; y: number }): string | null {
   const scale = window.devicePixelRatio || 1;
-  const element = deepestElementFromPoint(position.x / scale, position.y / scale);
+  const point = { x: position.x / scale, y: position.y / scale };
+  const element = deepestElementFromPoint(point.x, point.y);
   const explicit = closestAcrossShadow(element, "[data-drop-directory]") as HTMLElement | null;
   const explicitPath = explicit?.dataset.dropDirectory;
   if (explicitPath) return trimDirectoryPath(explicitPath);
@@ -266,9 +267,42 @@ export function dropDirectoryAt(position: { x: number; y: number }): string | nu
       ? trimDirectoryPath(row.dataset.itemPath)
       : trimDirectoryPath(row.dataset.itemParentPath ?? "");
   }
+  // During a native Finder drag, WKWebView can report the tree host or its
+  // scroll background even though the pointer is visibly over a row. Recover
+  // the virtualized row from its rendered bounds before treating the drop as
+  // a project-root drop.
+  const projectSection = closestAcrossShadow(element, ".project-section");
+  const treeHost = (
+    closestAcrossShadow(element, "file-tree-container.lattice-file-tree")
+    ?? projectSection?.querySelector("file-tree-container.lattice-file-tree")
+  ) as HTMLElement | null;
+  const treeRoot = treeHost?.shadowRoot;
+  const containsPoint = (candidate: Element) => {
+    const bounds = candidate.getBoundingClientRect();
+    return bounds.width > 0
+      && bounds.height > 0
+      && point.x >= bounds.left
+      && point.x <= bounds.right
+      && point.y >= bounds.top
+      && point.y <= bounds.bottom;
+  };
+  const boundedSegment = Array.from(
+    treeRoot?.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]") ?? [],
+  ).find(containsPoint);
+  const boundedSegmentPath = boundedSegment?.dataset.itemFlattenedSubitem;
+  if (boundedSegmentPath?.endsWith("/")) return trimDirectoryPath(boundedSegmentPath);
+  const boundedRow = Array.from(
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS selector, not UI copy.
+    treeRoot?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [],
+  ).find(containsPoint);
+  if (boundedRow?.dataset.itemPath) {
+    return boundedRow.dataset.itemType === "folder"
+      ? trimDirectoryPath(boundedRow.dataset.itemPath)
+      : trimDirectoryPath(boundedRow.dataset.itemParentPath ?? "");
+  }
   // Scoped to the file-tree section: the sidebar also hosts the Papers list,
   // where a stray drop should not silently import into the project root.
-  return closestAcrossShadow(element, ".project-section") ? "" : null;
+  return projectSection ? "" : null;
 }
 
 export function editorPaneAt(

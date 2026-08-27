@@ -1236,6 +1236,10 @@ msgstr "度"
 msgid "Delete"
 msgstr "删除"
 
+#: src/App.tsx
+msgid "Delete {count} selected items from this project?"
+msgstr "要从此项目中删除选中的 {count} 个项目吗？"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
@@ -3165,6 +3169,7 @@ msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in projec
 msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项目证据"
 
 #: src/App.tsx
+#: src/project/navigator.tsx
 msgid "Paste clipboard image as figure"
 msgstr "将剪贴板图像粘贴为插图"
 

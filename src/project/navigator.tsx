@@ -14,6 +14,7 @@ import {
   BookMarked,
   BookOpen,
   Check,
+  ClipboardPaste,
   Copy,
   Download,
   FilePlus,
@@ -465,11 +466,12 @@ type ProjectFileTreeProps = {
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
-  onDeleteEntry: (path: string) => void;
+  onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
+  onPasteImage: (targetDirectory: string) => void;
   onError: (message: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
@@ -800,6 +802,17 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       ?? null,
     [model],
   );
+  const pasteImageIntoSelection = () => {
+    const selectedPath = model.getSelectedPaths().at(-1) ?? "";
+    const normalizedPath = fromPierrePath(selectedPath);
+    const selectedNode = treeRef.current.nodes.get(selectedPath);
+    const targetDirectory = selectedNode && isDirectoryNode(selectedNode)
+      ? normalizedPath
+      : normalizedPath.includes("/")
+        ? normalizedPath.slice(0, normalizedPath.lastIndexOf("/"))
+        : "";
+    propsRef.current.onPasteImage(targetDirectory);
+  };
   useLayoutEffect(() => {
     propsRef.current = props;
     treeRef.current = tree;
@@ -821,12 +834,21 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   useEffect(() => {
     syncingSelectionRef.current = true;
     try {
-      for (const selected of model.getSelectedPaths()) {
-        if (selected !== activePath) model.getItem(selected)?.deselect();
+      const selectedPaths = model.getSelectedPaths();
+      // Opening the newest member of a Command/Shift selection re-renders App
+      // with that file as active. Keep the rest selected so the next drag or
+      // delete remains a batch; external navigation to an unselected file
+      // still replaces the tree selection.
+      if (!activePath || !selectedPaths.includes(activePath)) {
+        for (const selected of selectedPaths) {
+          if (selected !== activePath) model.getItem(selected)?.deselect();
+        }
+        if (activePath) {
+          const item = model.getItem(activePath);
+          if (item && !item.isSelected()) item.select();
+        }
       }
       if (activePath) {
-        const item = model.getItem(activePath);
-        if (item && !item.isSelected()) item.select();
         model.focusPath(activePath);
         model.scrollToPath(activePath, { focus: false, offset: "nearest" });
       }
@@ -1181,14 +1203,22 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   ) => {
     const path = fromPierrePath(item.path);
     const pendingCreation = pendingCreationsRef.current.has(path);
+    const selectedPaths = model.getSelectedPaths();
+    const deletionPaths = normalizePointerDraggedPaths(
+      selectedPaths.includes(item.path) ? selectedPaths : [item.path],
+    ).map(fromPierrePath);
     const targetDirectory = item.kind === "directory"
       ? path
       : path.includes("/")
         ? path.slice(0, path.lastIndexOf("/"))
         : "";
-    const protectedEntry = props.protectedPaths.some(
-      (protectedPath) => protectedPath === path || protectedPath.startsWith(`${path}/`),
-    );
+    const protectedEntry = deletionPaths.some((deletedPath) => (
+      props.protectedPaths.some(
+        (protectedPath) => (
+          protectedPath === deletedPath || protectedPath.startsWith(`${deletedPath}/`)
+        ),
+      )
+    ));
     const menuLeft = context.anchorRect.right + 4;
     const menuTop = context.anchorRect.top;
     // Pierre normally mounts this menu inside the tree's Shadow DOM. Portal it
@@ -1234,13 +1264,21 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           <FolderOpen size={14} />{t`Show in Finder`}
         </button>
         {item.kind === "directory" && (
-          <button
-            role="menuitem"
-            disabled={props.assetImporting}
-            onClick={() => closeThen(context, () => props.onImportAssets(path))}
-          >
-            <ImagePlus size={14} />{t`Import images here`}
-          </button>
+          <Fragment>
+            <button
+              role="menuitem"
+              disabled={props.assetImporting}
+              onClick={() => closeThen(context, () => props.onImportAssets(path))}
+            >
+              <ImagePlus size={14} />{t`Import images here`}
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => closeThen(context, () => props.onPasteImage(path))}
+            >
+              <ClipboardPaste size={14} />{t`Paste clipboard image as figure`}
+            </button>
+          </Fragment>
         )}
         {!protectedEntry && (
           <DestructiveButton
@@ -1248,10 +1286,13 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
             role="menuitem"
             iconSize={14}
             onClick={() => closeThen(context, () => {
-              if (!clearPendingCreation(path)) props.onDeleteEntry(path);
+              const persistedPaths = deletionPaths.filter(
+                (deletedPath) => !clearPendingCreation(deletedPath),
+              );
+              if (persistedPaths.length) props.onDeleteEntries(persistedPaths);
             })}
           >
-            {pendingCreation ? t`Cancel creation` : t`Delete`}
+            {pendingCreation && deletionPaths.length === 1 ? t`Cancel creation` : t`Delete`}
           </DestructiveButton>
         )}
       </div>,
@@ -1262,7 +1303,24 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="project-file-tree-surface" aria-label={t`Project files`}>
+        <div
+          className="project-file-tree-surface"
+          aria-label={t`Project files`}
+          onKeyDownCapture={(event) => {
+            if (
+              event.key.toLocaleLowerCase() !== "v"
+              || !(event.metaKey || event.ctrlKey)
+              || event.altKey
+              || event.nativeEvent.composedPath().some((target) => (
+                target instanceof HTMLInputElement
+                || target instanceof HTMLTextAreaElement
+                || (target instanceof HTMLElement && target.isContentEditable)
+              ))
+            ) return;
+            event.preventDefault();
+            pasteImageIntoSelection();
+          }}
+        >
           <FileTree
             className="lattice-file-tree"
             model={model}
@@ -1342,12 +1400,13 @@ export function Navigator(props: {
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
-  onDeleteEntry: (path: string) => void;
+  onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
   onError: (message: string) => void;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
+  onPasteImage: (targetDirectory: string) => void;
   assetDropTarget: string | null;
   assetImporting: boolean;
   onPaper: (paper: PaperSummary) => void;
@@ -1454,11 +1513,12 @@ export function Navigator(props: {
           onBeginFigureDrag={props.onBeginFigureDrag}
           onBeginFileDrag={props.onBeginFileDrag}
           onCreateEntry={props.onCreateEntry}
-          onDeleteEntry={props.onDeleteEntry}
+          onDeleteEntries={props.onDeleteEntries}
           onRenameEntry={props.onRenameEntry}
           onMoveEntries={props.onMoveEntries}
           onReveal={props.onReveal}
           onImportAssets={props.onImportAssets}
+          onPasteImage={props.onPasteImage}
           onError={props.onError}
           assetDropTarget={props.assetDropTarget}
           assetImporting={props.assetImporting}

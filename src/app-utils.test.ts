@@ -122,6 +122,46 @@ describe("dropDirectoryAt", () => {
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("figures/results");
   });
 
+  it("falls back to row geometry when native dragging hides the shadow hit target", () => {
+    const navigator = document.createElement("aside");
+    navigator.className = "navigator";
+    const section = document.createElement("div");
+    section.className = "navigator-section project-section";
+    const host = document.createElement("file-tree-container");
+    host.className = "lattice-file-tree";
+    const shadowRoot = host.attachShadow({ mode: "open" });
+    const row = document.createElement("button");
+    row.dataset.itemType = "folder";
+    row.dataset.itemPath = "figures/";
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
+      bottom: 72,
+      height: 32,
+      left: 10,
+      right: 210,
+      top: 40,
+      width: 200,
+      x: 10,
+      y: 40,
+      toJSON: () => ({}),
+    });
+    const background = document.createElement("div");
+    shadowRoot.append(row, background);
+    section.append(host);
+    navigator.append(section);
+    document.body.append(navigator);
+
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => host),
+    });
+    Object.defineProperty(shadowRoot, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => background),
+    });
+
+    expect(dropDirectoryAt({ x: 50, y: 60 })).toBe("figures");
+  });
+
   it("targets a file row's parent folder and falls back to the project root", () => {
     const navigator = document.createElement("aside");
     navigator.className = "navigator";

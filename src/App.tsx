@@ -6769,20 +6769,31 @@ function App() {
     }
   }, [activeFile, openProjectAsset, openProjectFile, project, source]);
 
-  const deleteProjectEntry = useCallback(async (path: string) => {
-    if (!await confirmAction(`Delete “${path}” from this project?`)) return;
+  const deleteProjectEntries = useCallback(async (requestedPaths: string[]) => {
+    const paths = [...new Set(requestedPaths.map((path) => path.replace(/[\\/]+$/, "")))]
+      .filter((path, _index, candidates) => !candidates.some(
+        (candidate) => candidate !== path && path.startsWith(`${candidate}/`),
+      ));
+    if (!paths.length) return;
+    const path = paths[0];
+    const confirmation = paths.length === 1
+      ? `Delete “${path}” from this project?`
+      : t({ message: `Delete ${{ count: paths.length }} selected items from this project?` });
+    if (!await confirmAction(confirmation)) return;
     try {
-      const v2 = collabV2ControllerRef.current;
-      if (activeCollabVersion === 2 && v2) {
-        await v2.delete(path, {
-          rename: async () => { throw new Error("Unexpected rename during delete"); },
-          delete: (localPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, localPath, () => invoke("delete_project_entry", { path: localPath, projectRoot })),
-        });
-      } else await invoke("delete_project_entry", { path, projectRoot: project?.root });
+      for (const path of paths) {
+        const v2 = collabV2ControllerRef.current;
+        if (activeCollabVersion === 2 && v2) {
+          await v2.delete(path, {
+            rename: async () => { throw new Error("Unexpected rename during delete"); },
+            delete: (localPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, localPath, () => invoke("delete_project_entry", { path: localPath, projectRoot })),
+          });
+        } else await invoke("delete_project_entry", { path, projectRoot: project?.root });
+      }
       invalidateFileViewStateCallbacks();
-      removedFileViewStatePathsRef.current.push(path);
+      removedFileViewStatePathsRef.current.push(...paths);
       for (const storedPath of viewStateRef.current.keys()) {
-        if (storedPath === path || storedPath.startsWith(`${path}/`)) {
+        if (paths.some((path) => storedPath === path || storedPath.startsWith(`${path}/`))) {
           viewStateRef.current.delete(storedPath);
         }
       }
@@ -6792,17 +6803,19 @@ function App() {
         // Structural deletes do not pass through `save()`, so handle the
         // remote side now instead of waiting for an unrelated later sync.
         await settleRemoteDeletes(
-          [path],
+          paths,
           project.root,
           projectOperationGenerationRef.current,
         );
       }
       await refreshHistory();
-      if (activeFile === path || activeFile.startsWith(`${path}/`)) {
+      if (paths.some((path) => activeFile === path || activeFile.startsWith(`${path}/`))) {
         const rootDocument = snapshot.manifest.rootDocuments.find((document) => document.isDefault)
           ?? snapshot.manifest.rootDocuments[0];
         if (rootDocument) await loadFile(rootDocument.path);
-      } else if (activeAsset?.path === path || activeAsset?.path.startsWith(`${path}/`)) {
+      } else if (activeAsset && paths.some(
+        (path) => activeAsset.path === path || activeAsset.path.startsWith(`${path}/`),
+      )) {
         setActiveAsset(null);
         setCanvasMode("split");
       }
@@ -6813,7 +6826,6 @@ function App() {
     activeAsset,
     activeCollabVersion,
     activeFile,
-    collabSession,
     invalidateFileViewStateCallbacks,
     loadFile,
     overleafLink,
@@ -6822,6 +6834,7 @@ function App() {
     refreshProject,
     scheduleFileViewStatePersistence,
     settleRemoteDeletes,
+    t,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
@@ -7181,11 +7194,10 @@ function App() {
     return true;
   }, [importClipboardImageFile]);
 
-  const pasteClipboardImage = useCallback(async () => {
-    if (!project || !activeFile?.endsWith(".tex")) {
-      setError("Open a .tex file before pasting a figure.");
-      return;
-    }
+  const importSystemClipboardImage = useCallback(async (
+    targetDirectory: string,
+  ): Promise<string | null> => {
+    if (!project) return null;
     try {
       const { readImage } = await import("@tauri-apps/plugin-clipboard-manager");
       const image = await readImage();
@@ -7193,26 +7205,37 @@ function App() {
       const rgba = await image.rgba();
       const base64 = await rgbaImageToPngBase64(rgba, size.width, size.height);
       const path = await invoke<string>("import_clipboard_image", {
-        targetDirectory: "figures",
+        targetDirectory,
         fileName: clipboardImageFileName("image/png"),
         base64Data: base64,
         projectRoot: project.root,
       });
       await refreshProject();
       // After setError(null): a share failure must remain visible.
-      await shareCreatedFileWithCollabV2(path, "binary");
-      setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-      setFigureDropRequest({
-        id: crypto.randomUUID(),
-        paths: [path],
-        clientX: -1,
-        clientY: -1,
-      });
       setError(null);
+      await shareCreatedFileWithCollabV2(path, "binary");
+      return path;
     } catch (reason) {
       setError(toMessage(reason) || "No image found on the clipboard.");
+      return null;
     }
-  }, [activeFile, project, refreshProject, shareCreatedFileWithCollabV2]);
+  }, [project, refreshProject, shareCreatedFileWithCollabV2]);
+
+  const pasteClipboardImage = useCallback(async () => {
+    if (!project || !activeFile?.endsWith(".tex")) {
+      setError("Open a .tex file before pasting a figure.");
+      return;
+    }
+    const path = await importSystemClipboardImage("figures");
+    if (!path) return;
+    setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+    setFigureDropRequest({
+      id: crypto.randomUUID(),
+      paths: [path],
+      clientX: -1,
+      clientY: -1,
+    });
+  }, [activeFile, importSystemClipboardImage, project]);
 
   const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
     setBibEntryResolving(true);
@@ -8576,12 +8599,13 @@ function App() {
               onBeginFigureDrag={beginProjectFigureDrag}
               onBeginFileDrag={beginProjectFileDrag}
               onCreateEntry={createProjectEntry}
-              onDeleteEntry={deleteProjectEntry}
+              onDeleteEntries={deleteProjectEntries}
               onRenameEntry={renameProjectEntry}
               onMoveEntries={moveProjectEntries}
               onError={setError}
               onReveal={revealProjectItem}
               onImportAssets={chooseProjectAssets}
+              onPasteImage={(targetDirectory) => void importSystemClipboardImage(targetDirectory)}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
               onPaper={(paper) => void openPaper(paper).then((opened) => {
