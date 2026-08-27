@@ -235,12 +235,14 @@ function htmlSourceFromDataUrl(dataUrl: string): string | null {
 function HtmlPreview({
   path,
   source,
+  sourceEditorView,
   initialViewState,
   onViewState,
   onLoadAsset,
 }: {
   path: string;
   source: string;
+  sourceEditorView?: EditorView | null;
   initialViewState?: HtmlFileViewState;
   onViewState?: (state: HtmlFileViewState) => void;
   onLoadAsset?: (path: string) => Promise<string | null>;
@@ -451,12 +453,37 @@ function HtmlPreview({
     return `<!doctype html>${document.documentElement.outerHTML}`;
   }, [loadedProjectResources, path, previewSource, t]);
 
-  const setScrollTop = (scrollTop: number) => {
+  const setScrollTop = useCallback((scrollTop: number) => {
     frameRef.current?.contentWindow?.postMessage({
       type: HTML_PREVIEW_SET_SCROLL_TOP,
       scrollTop,
     }, "*");
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!sourceEditorView) return;
+    const scroller = sourceEditorView.scrollDOM;
+    let frame = 0;
+    const followSource = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const sourceRange = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        const previewMetrics = scrollMetricsRef.current;
+        const previewRange = Math.max(
+          0,
+          previewMetrics.scrollHeight - previewMetrics.clientHeight,
+        );
+        if (sourceRange <= 0 || previewRange <= 0) return;
+        setScrollTop(previewRange * clamp(scroller.scrollTop / sourceRange, 0, 1));
+      });
+    };
+    scroller.addEventListener("scroll", followSource, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", followSource);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [setScrollTop, sourceEditorView]);
 
   const setPreviewZoom = useCallback((nextScale: number) => {
     frameRef.current?.contentWindow?.postMessage({
@@ -3928,6 +3955,7 @@ export function DocumentCanvas(props: {
           key={activeFile}
           path={activeFile}
           source={props.source}
+          sourceEditorView={props.mode === "split" ? primaryScrollbarView : null}
           initialViewState={props.getFileViewState?.(activeFile)?.html}
           onViewState={(html) => props.onFileViewState?.(activeFile, { html })}
           onLoadAsset={props.onLoadReferenceImage}

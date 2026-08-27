@@ -2472,6 +2472,18 @@ describe("project workspace", () => {
       "*",
     );
 
+    Object.defineProperties(editor.scrollDOM, {
+      clientHeight: { configurable: true, value: 600 },
+      scrollHeight: { configurable: true, value: 2600 },
+    });
+    editor.scrollDOM.scrollTop = 1000;
+    postMessage.mockClear();
+    fireEvent.scroll(editor.scrollDOM);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
+      { type: "lattice:html-preview-set-scroll-top", scrollTop: 1700 },
+      "*",
+    ));
+
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({

@@ -248,6 +248,7 @@ export function PresentationEditor(props: PresentationEditorProps) {
   const revealRootRef = useRef<HTMLDivElement>(null);
   const revealRef = useRef<InstanceType<typeof Reveal> | null>(null);
   const revealReadyRef = useRef(false);
+  const revealRefreshFramesRef = useRef<number[]>([]);
   const editorRef = useRef<EditorView | null>(null);
   const deckRef = useRef(deck);
   const activeRef = useRef(props.active !== false);
@@ -282,6 +283,34 @@ export function PresentationEditor(props: PresentationEditorProps) {
     modeChangeRef.current = changeMode;
     slideRef.current = clampedSlide;
   }, [changeMode, clampedSlide, deck, mode, props.active]);
+
+  const cancelRevealRefresh = useCallback(() => {
+    for (const frame of revealRefreshFramesRef.current) {
+      window.cancelAnimationFrame(frame);
+    }
+    revealRefreshFramesRef.current = [];
+  }, []);
+
+  const scheduleRevealRefresh = useCallback(() => {
+    cancelRevealRefresh();
+    const firstFrame = window.requestAnimationFrame(() => {
+      revealRefreshFramesRef.current = [];
+      const reveal = revealRef.current;
+      if (!reveal || !revealReadyRef.current) return;
+      // React owns the slide DOM while Reveal owns its navigation classes and
+      // geometry. Reconcile both after a hidden preview becomes visible or an
+      // asynchronously loaded asset replaces the rendered markup.
+      reveal.sync();
+      reveal.slide(slideRef.current);
+      reveal.layout();
+      const secondFrame = window.requestAnimationFrame(() => {
+        revealRefreshFramesRef.current = [];
+        if (revealRef.current === reveal && revealReadyRef.current) reveal.layout();
+      });
+      revealRefreshFramesRef.current = [secondFrame];
+    });
+    revealRefreshFramesRef.current = [firstFrame];
+  }, [cancelRevealRefresh]);
 
   const editorExtensions = useMemo(() => [
     ...(props.languageExtensions ?? []),
@@ -367,7 +396,7 @@ export function PresentationEditor(props: PresentationEditorProps) {
       });
       reveal.sync();
       reveal.slide(slideRef.current);
-      reveal.layout();
+      if (modeRef.current !== "source") reveal.layout();
     }).catch(() => {
       // The source editor remains usable if WebKit cannot initialize Reveal.
     });
@@ -387,9 +416,8 @@ export function PresentationEditor(props: PresentationEditorProps) {
     const reveal = revealRef.current;
     if (!reveal || !revealReadyRef.current) return;
     reveal.configure({ transition: deck.transition });
-    reveal.sync();
-    reveal.slide(clampedSlide);
-  }, [clampedSlide, deck]);
+    scheduleRevealRefresh();
+  }, [clampedSlide, deck.transition, renderedSlides, scheduleRevealRefresh]);
 
   useEffect(() => {
     const reveal = revealRef.current;
@@ -398,18 +426,19 @@ export function PresentationEditor(props: PresentationEditorProps) {
   }, [props.active]);
 
   useEffect(() => {
-    if (mode === "source") return;
-    const frame = window.requestAnimationFrame(() => {
-      if (revealReadyRef.current) revealRef.current?.layout();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [mode]);
+    if (mode === "source") {
+      cancelRevealRefresh();
+      return;
+    }
+    scheduleRevealRefresh();
+    return cancelRevealRefresh;
+  }, [cancelRevealRefresh, mode, scheduleRevealRefresh]);
 
   useEffect(() => {
     const stage = stageRef.current;
-    if (!stage || mode !== "split" || typeof ResizeObserver === "undefined") return;
+    if (!stage || mode === "source" || typeof ResizeObserver === "undefined") return;
     const fit = () => {
-      setSplitRatio((current) => constrainSplitRatio(current));
+      if (mode === "split") setSplitRatio((current) => constrainSplitRatio(current));
       if (revealReadyRef.current) revealRef.current?.layout();
     };
     const observer = new ResizeObserver(fit);
@@ -478,9 +507,6 @@ export function PresentationEditor(props: PresentationEditorProps) {
           next.set(projectPath, { loader: onLoadAsset, dataUrl });
         }
         return next;
-      });
-      window.requestAnimationFrame(() => {
-        if (revealReadyRef.current) revealRef.current?.layout();
       });
     });
     return () => {
@@ -671,13 +697,13 @@ export function PresentationEditor(props: PresentationEditorProps) {
       // requestFullscreen must run in the click's user-activation task. The
       // source-to-preview switch is flushed by present() before this call.
       await preview.requestFullscreen();
-      revealRef.current?.layout();
+      scheduleRevealRefresh();
       revealRootRef.current?.focus();
     } catch {
       // Fullscreen can be denied by WebKit or system policy; editing continues.
       restoreTemporaryMode();
     }
-  }, []);
+  }, [scheduleRevealRefresh]);
 
   const startPrint = useCallback(async (restoreMode: PresentationMode | null = null) => {
     const shell = shellRef.current;
@@ -764,19 +790,20 @@ export function PresentationEditor(props: PresentationEditorProps) {
         fullscreenRestoreModeRef.current = null;
         if (restoreMode) modeChangeRef.current(restoreMode);
       }
-      revealRef.current?.layout();
+      scheduleRevealRefresh();
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  }, [scheduleRevealRefresh]);
 
   useEffect(() => () => {
+    cancelRevealRefresh();
     fullscreenRestoreModeRef.current = null;
     thumbnailResizeCleanupRef.current?.();
     splitResizeCleanupRef.current?.();
     printRestoreModeRef.current = null;
     printCleanupRef.current?.();
-  }, []);
+  }, [cancelRevealRefresh]);
 
   const onPreviewClick = (event: ReactMouseEvent<HTMLElement>) => {
     const anchor = (event.target as Element).closest("a");

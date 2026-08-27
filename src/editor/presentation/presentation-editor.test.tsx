@@ -160,6 +160,20 @@ describe("PresentationEditor", () => {
     expect(revealMock.instances[0].sync).toHaveBeenCalledOnce();
   });
 
+  it("resynchronizes Reveal after a hidden preview becomes visible", async () => {
+    const { rerender } = render(<Harness mode="source" />);
+    await waitFor(() => expect(revealMock.instances[0]?.initialize).toHaveBeenCalledOnce());
+    await waitFor(() => expect(revealMock.instances[0]?.sync).toHaveBeenCalled());
+    const reveal = revealMock.instances[0];
+    reveal.sync.mockClear();
+    reveal.layout.mockClear();
+
+    rerender(<Harness mode="split" />);
+
+    await waitFor(() => expect(reveal.sync).toHaveBeenCalled());
+    await waitFor(() => expect(reveal.layout).toHaveBeenCalled());
+  });
+
   it("does not leave pointer focus on the presentation style trigger when its menu closes", async () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "Presentation style" });
@@ -336,6 +350,9 @@ describe("PresentationEditor", () => {
       <Harness source="## Result\n\n![MMVP Phase Portrait](figures/mmvp.png)" onLoadAsset={onLoadAsset} />,
     );
     await waitFor(() => expect(onLoadAsset).toHaveBeenCalledWith("figures/mmvp.png"));
+    const reveal = revealMock.instances[0];
+    await waitFor(() => expect(reveal?.sync).toHaveBeenCalled());
+    reveal.sync.mockClear();
 
     for (const image of container.querySelectorAll("img")) image.remove();
     finishLoading?.("data:image/png;base64,YQ==");
@@ -347,6 +364,7 @@ describe("PresentationEditor", () => {
         expect(image).toHaveAttribute("src", "data:image/png;base64,YQ==");
       }
     });
+    await waitFor(() => expect(reveal.sync).toHaveBeenCalled());
   });
 
   it("loads each relative image path once for a multi-image deck", async () => {
