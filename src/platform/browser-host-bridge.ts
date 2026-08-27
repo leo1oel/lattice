@@ -1,8 +1,8 @@
-import { Channel } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decodeBridgeValue, encodeBridgeValue } from "./browser-runtime";
 
 const CHANNEL_PREFIX = "__CHANNEL__:";
+const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
 
 interface HostConfig {
   token: string;
@@ -59,23 +59,46 @@ export function startBrowserHostBridge(config: HostConfig): void {
       }).catch(() => undefined);
     }
   };
-  const reviveChannels = (value: unknown): unknown => {
+  const reviveChannels = (value: unknown, callbackIds: Set<number>): unknown => {
     if (typeof value === "string" && value.startsWith(CHANNEL_PREFIX)) {
-      const callbackId = Number(value.slice(CHANNEL_PREFIX.length));
-      return new Channel((payload) => forwardCallback(callbackId, payload));
+      const browserCallbackId = Number(value.slice(CHANNEL_PREFIX.length));
+      if (!Number.isSafeInteger(browserCallbackId) || browserCallbackId < 0) return value;
+      let hostCallbackId = 0;
+      hostCallbackId = internals.transformCallback((payload) => {
+        // A Tauri Channel callback carries its own { index, message } ordering
+        // envelope. Passing it through another Channel consumes that envelope
+        // in the hidden WebView, so the visible Channel receives the message as
+        // an envelope, queues it under index `undefined`, and never calls its
+        // onmessage handler. Proxy the serialized callback itself instead.
+        forwardCallback(browserCallbackId, payload);
+        if (payload && typeof payload === "object" && "end" in payload) {
+          internals.unregisterCallback(hostCallbackId);
+          callbackIds.delete(hostCallbackId);
+        }
+      });
+      callbackIds.add(hostCallbackId);
+      const serialize = () => `${CHANNEL_PREFIX}${hostCallbackId}`;
+      return {
+        [IPC_SERIALIZE_KEY]: serialize,
+        toJSON: serialize,
+      };
     }
-    if (Array.isArray(value)) return value.map(reviveChannels);
+    if (Array.isArray(value)) return value.map((child) => reviveChannels(child, callbackIds));
     if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return value;
     if (value && typeof value === "object") {
       return Object.fromEntries(
-        Object.entries(value).map(([key, child]) => [key, reviveChannels(child)]),
+        Object.entries(value).map(([key, child]) => [key, reviveChannels(child, callbackIds)]),
       );
     }
     return value;
   };
 
   const handleInvoke = async (message: InvokeMessage) => {
-    const args = reviveChannels(decodeBridgeValue(message.args as never)) as Record<string, unknown>;
+    const channelCallbackIds = new Set<number>();
+    const args = reviveChannels(
+      decodeBridgeValue(message.args as never),
+      channelCallbackIds,
+    ) as Record<string, unknown>;
     const options = decodeBridgeValue(message.options as never);
     const generation = browserGeneration;
     let hostEventCallback: number | undefined;
@@ -126,6 +149,7 @@ export function startBrowserHostBridge(config: HostConfig): void {
       }
     } catch (error) {
       if (hostEventCallback !== undefined) internals.unregisterCallback(hostEventCallback);
+      for (const callbackId of channelCallbackIds) internals.unregisterCallback(callbackId);
       send({
         type: "response",
         id: message.id,
