@@ -48,6 +48,10 @@ import type {
  */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
 
+function isTransientOverleafTransportFailure(reason: unknown): boolean {
+  return toMessage(reason).toLowerCase().includes("could not reach overleaf");
+}
+
 /**
  * Everything the Overleaf bridge borrows from App. Deliberately explicit: the
  * bridge sits in the middle of App's save/build/collaboration wiring, and an
@@ -172,6 +176,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  const overleafTransportRetryRef = useRef(false);
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
@@ -207,6 +212,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const OVERLEAF_CHANNEL_SYNC_GAP_MS = 30_000;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
+
+  useEffect(() => {
+    overleafTransportRetryRef.current = false;
+  }, [project?.root]);
 
   // ---- Overleaf bridge -----------------------------------------------------
 
@@ -428,6 +437,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         live: overleafLivePathsRef.current,
       });
       if (!stillCurrent()) return;
+      overleafTransportRetryRef.current = false;
       // PDF inspection generates contact sheets and page renders under this
       // app-owned folder. Old versions uploaded them as project files; remove
       // that legacy folder silently and never mix it into the user's ordinary
@@ -556,7 +566,17 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       }).catch(() => {});
       if (stillCurrent()) refreshOverleafLink();
     } catch (reason) {
-      if (stillCurrent()) trace.fail(reason);
+      if (stillCurrent()) {
+        if (options?.auto && isTransientOverleafTransportFailure(reason)) {
+          // The live loop retries on its normal, rate-limited cadence. Retrying
+          // immediately risks another 429, while raising a toast for a brief
+          // background outage interrupts work even when the next pass recovers.
+          overleafTransportRetryRef.current = true;
+          trace.note(toMessage(reason));
+        } else {
+          trace.fail(reason);
+        }
+      }
     } finally {
       overleafSyncingRef.current = false;
       setOverleafSyncing(false);
@@ -619,7 +639,17 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         if (!overleafSyncingRef.current) {
           const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
           wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
-          if (!stopped && !probe.versionKnown) {
+          const minimumSyncGap = overleafChannelLiveRef.current
+            ? OVERLEAF_CHANNEL_SYNC_GAP_MS
+            : OVERLEAF_MIN_SYNC_GAP_MS;
+          if (
+            !stopped
+            && overleafTransportRetryRef.current
+            && Date.now() - lastAutoSyncRef.current >= minimumSyncGap
+          ) {
+            lastAutoSyncRef.current = Date.now();
+            await overleafSyncRef.current({ auto: true });
+          } else if (!stopped && !probe.versionKnown) {
             // No change signal: fall back to syncing on a slow clock rather
             // than downloading the project over and over.
             if (Date.now() - lastAutoSyncRef.current >= OVERLEAF_BLIND_POLL_MS) {

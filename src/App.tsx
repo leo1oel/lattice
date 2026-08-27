@@ -990,6 +990,7 @@ function App() {
   const [cleaning, setCleaning] = useState(false);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const referencePreviewCache = useRef(new Map<string, ReferencePreviewCacheEntry>());
+  const [referencePreviewGeneration, setReferencePreviewGeneration] = useState(0);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
   const [savedPaperMarkdown, setSavedPaperMarkdown] = useState("");
@@ -1835,15 +1836,16 @@ function App() {
       }
       if (event.data?.type === SYNARA_OPEN_REVIEW) {
         // The embedded chat has no diff surface of its own. A file row carries
-        // its path and opens in the editor; the bare Review button opens the
-        // drawer pinned to that turn's checkpoint diff — the working tree may
-        // already be clean (undo, saved version) and would review nothing.
+        // its path and opens in the host's native file surface; the bare Review
+        // button opens the drawer pinned to that turn's checkpoint diff — the
+        // working tree may already be clean (undo, saved version) and would
+        // review nothing.
         const filePath = synaraProjectRelativeFilePath(
           event.data.filePath,
           projectRef.current?.root,
         );
         if (filePath) {
-          void openProjectFileRef.current(filePath);
+          openMarkdownProjectPathRef.current(filePath);
           return;
         }
         const threadId = typeof event.data.threadId === "string" ? event.data.threadId.trim() : "";
@@ -5884,9 +5886,31 @@ function App() {
     referencePreviewCache.current.clear();
   }, [project?.root, references]);
 
+  useEffect(() => {
+    const projectRoot = project?.root;
+    if (!projectRoot) return;
+    let stopped = false;
+    let unlisten: (() => void) | null = null;
+    void listen<{ root: string }>("project-fs-changed", (event) => {
+      if (stopped || event.payload.root !== projectRoot) return;
+      // Relative images can be replaced without changing their path or the
+      // surrounding HTML/Markdown. Invalidate both the cached bytes and the
+      // loader identity so an already-mounted preview asks for them again.
+      referencePreviewCache.current.clear();
+      setReferencePreviewGeneration((current) => current + 1);
+    }).then((dispose) => {
+      if (stopped) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      stopped = true;
+      unlisten?.();
+    };
+  }, [project?.root]);
+
   const loadReferenceImage = useCallback((path: string) => {
     const projectRoot = project?.root ?? "";
-    const key = `${projectRoot}\0${path}`;
+    const key = `${projectRoot}\0${referencePreviewGeneration}\0${path}`;
     const cached = referencePreviewCache.current.get(key);
     if (cached) {
       referencePreviewCache.current.delete(key);
@@ -5922,7 +5946,7 @@ function App() {
     referencePreviewCache.current.set(key, entry);
     trimReferencePreviewCache(referencePreviewCache.current);
     return preview;
-  }, [project?.root]);
+  }, [project?.root, referencePreviewGeneration]);
 
   const openProjectAssetFromClick = useCallback((path: string) => {
     if (suppressedFigureClick.current === path) {

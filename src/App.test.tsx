@@ -43,6 +43,9 @@ const webviewApi = vi.hoisted(() => ({
       | { type: "leave" };
   }) => void),
 }));
+const tauriEventApi = vi.hoisted(() => ({
+  handlers: new Map<string, Set<(event: { payload: unknown }) => void>>(),
+}));
 const synaraHook = vi.hoisted(() => ({
   runtime: {
     state: "ready",
@@ -72,8 +75,22 @@ vi.mock("@tauri-apps/api/webview", () => ({
   }),
 }));
 // Unmocked, every `listen` reaches for Tauri's IPC bridge and rejects, which
-// jsdom reports as an unhandled rejection for each runtime listener.
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
+// jsdom reports as an unhandled rejection for each runtime listener. Retaining
+// the handlers also lets filesystem tests exercise the real event path.
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (
+    event: string,
+    handler: (event: { payload: unknown }) => void,
+  ) => {
+    const handlers = tauriEventApi.handlers.get(event) ?? new Set();
+    handlers.add(handler);
+    tauriEventApi.handlers.set(event, handlers);
+    return () => {
+      handlers.delete(handler);
+      if (!handlers.size) tauriEventApi.handlers.delete(event);
+    };
+  }),
+}));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn(), open: vi.fn(), save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: vi.fn(),
@@ -198,6 +215,7 @@ beforeEach(() => {
   browserRuntime.hosted = false;
   browserRuntime.bundled = false;
   webviewApi.dragDropHandler = null;
+  tauriEventApi.handlers.clear();
   synaraHook.runtime = {
     state: "ready",
     origin: "http://127.0.0.1:4173",
@@ -264,6 +282,12 @@ describe("collaboration status mapping", () => {
  */
 async function expectNotification(pattern: RegExp) {
   await waitFor(() => expect(formatAppLogs()).toMatch(pattern));
+}
+
+function emitTauriEvent(event: string, payload: unknown) {
+  act(() => {
+    tauriEventApi.handlers.get(event)?.forEach((handler) => handler({ payload }));
+  });
 }
 
 describe("panel layout", () => {
@@ -2311,6 +2335,7 @@ describe("project workspace", () => {
         { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
       ],
     };
+    let imageBase64 = "iVBORw0KGgo=";
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") {
@@ -2322,7 +2347,7 @@ describe("project workspace", () => {
         return {
           path: (args as { path: string }).path,
           mimeType: "image/png",
-          base64: "iVBORw0KGgo=",
+          base64: imageBase64,
         };
       }
       if (command === "write_project_file") return undefined;
@@ -2355,6 +2380,15 @@ describe("project workspace", () => {
       path: "figures/figure1_feature_retention.png",
       projectRoot: "/tmp/lattice-paper",
     });
+
+    imageBase64 = "bmV3LWltYWdl";
+    await switchSidebarMode("Agent");
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Agent" }))
+      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(tauriEventApi.handlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
+    emitTauriEvent("project-fs-changed", { root: "/tmp/lattice-paper" });
+    await waitFor(() => expect(preview.getAttribute("srcdoc"))
+      .toContain('src="data:image/png;base64,bmV3LWltYWdl"'));
 
     const zoomMessages = vi.spyOn(preview.contentWindow!, "postMessage");
     expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("100");
@@ -2684,7 +2718,18 @@ describe("project workspace", () => {
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "read_project_file") {
+        const path = (args as { path?: string } | undefined)?.path;
+        if (path?.endsWith(".png")) {
+          throw new Error("This is a binary or unsupported file and cannot be opened in the source editor.");
+        }
+        return "\\documentclass{article}";
+      }
+      if (command === "read_project_asset") return {
+        path: (args as { path: string }).path,
+        mimeType: "image/png",
+        base64: "iVBORw0KGgo=",
+      };
       if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
       if (command === "list_papers") return [{
         arxivId: "1706.03762",
@@ -2760,6 +2805,23 @@ describe("project workspace", () => {
       expect.objectContaining({ path: "sections/intro.tex" }),
     ));
     expect(screen.queryByRole("tab", { name: "Changes" })).not.toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:open-review",
+          filePath: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
+        },
+      }));
+    });
+    expect(await screen.findByAltText(
+      "Preview of figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
+    )).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
+      path: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
+    });
 
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
@@ -4110,6 +4172,117 @@ describe("project workspace", () => {
     expect(screen.queryByText("Upload this project to Overleaf")).not.toBeInTheDocument();
     expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here"))
       .toBeInTheDocument();
+  });
+
+  it("silently retries a transient automatic Overleaf outage but reports it for manual sync", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
+    const snapshot = {
+      root: "/tmp/lattice-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "overleaf-paper-id",
+        name: "Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const transportFailure = new Error(
+      "Could not reach Overleaf: error sending request for url (https://www.overleaf.com/project)",
+    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1_000_000);
+    const scheduledTimeouts = vi.spyOn(window, "setTimeout");
+    let syncCount = 0;
+    let failSync = true;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "harper_lint") return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol-project",
+        projectName: "Overleaf paper",
+        host: "https://www.overleaf.com",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
+      }
+      if (command === "overleaf_sync") {
+        syncCount += 1;
+        if (failSync) throw transportFailure;
+        return {
+          pulled: [],
+          pushed: [],
+          merged: [],
+          conflicts: [],
+          deletedLocal: [],
+          skippedRemoteDeletes: [],
+          automaticRemoteDeletes: [],
+          readOnly: false,
+        };
+      }
+      if (command === "overleaf_probe") {
+        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [{ id: "main-doc", path: "main.tex" }],
+        entities: [],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (command === "overleaf_rt_disconnect") return undefined;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(syncCount).toBe(1));
+    await waitFor(() => expect(formatAppLogs()).toMatch(/Could not reach Overleaf/));
+    expect(getVisibleAppToastIds()
+      .map((id) => getAppLogEntry(id))
+      .filter((entry) => entry?.source === "Overleaf"))
+      .toHaveLength(0);
+
+    failSync = false;
+    vi.setSystemTime(1_030_000);
+    const poll = [...scheduledTimeouts.mock.calls]
+      .reverse()
+      .find(([, delay]) => delay === 3_000)?.[0];
+    scheduledTimeouts.mockRestore();
+    expect(poll).toBeTypeOf("function");
+    act(() => { (poll as () => void)(); });
+    await waitFor(() => expect(syncCount).toBe(2));
+    expect(getVisibleAppToastIds()
+      .map((id) => getAppLogEntry(id))
+      .filter((entry) => entry?.source === "Overleaf"))
+      .toHaveLength(0);
+
+    const syncButton = await waitFor(() => {
+      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
+      expect(button).not.toBeNull();
+      expect(button).not.toBeDisabled();
+      return button!;
+    });
+    failSync = true;
+    fireEvent.click(syncButton);
+
+    await waitFor(() => expect(syncCount).toBe(3));
+    await expectNotification(/Sync failed[\s\S]*Could not reach Overleaf/);
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
   });
 
   it("localizes confirmation and completion when removing a locally deleted Overleaf file", async () => {
