@@ -83,11 +83,13 @@ describe("Tauri security boundary", () => {
     expect(csp["media-src"]).toEqual(["'self'", "data:", "blob:", "http:", "https:"]);
     expect(csp["font-src"]).toEqual(["'self'", "data:"]);
     // React/Tiptap write inline styles. Authored HTML preview srcdoc frames run
-    // scripts at a sandboxed null origin, so unsafe-inline is required; eval is
-    // not. The assertion above prevents Tauri's generated hashes from silently
+    // scripts at a sandboxed null origin, so unsafe-inline is required; HTTPS
+    // lets those previews load libraries such as Plotly without giving their
+    // scripts a same-origin path back into Lattice. Eval remains disallowed.
+    // The assertion above prevents Tauri's generated hashes from silently
     // overriding that compatibility source in production packages.
     expect(csp["style-src"]).toEqual(["'self'", "'unsafe-inline'"]);
-    expect(csp["script-src"]).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(csp["script-src"]).toEqual(["'self'", "'unsafe-inline'", "https:"]);
   });
 
   it("keeps project-window permissions tied to observed API callers", () => {
