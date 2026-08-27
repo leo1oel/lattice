@@ -1,8 +1,11 @@
 import { Sequence } from "remotion";
 import { ACCENT_TEXT, CTA_URL, FG, FONT_DISPLAY, MUTED, displayVars } from "./constants";
-import { KNIT_TITLE_AT, LatticeKnit } from "./KnitIcon";
+import { KNIT_DURATION_FRAMES, KNIT_TITLE_AT, LatticeKnit } from "./KnitIcon";
 import { Stage } from "./Stage";
 import { TextReveal } from "./TextReveal";
+
+const TITLE_REVEAL_FRAMES = 48;
+const TAGLINE_REVEAL_FRAMES = 16;
 
 /**
  * The text cards. Whole lines, arriving fast — no word-by-word building.
@@ -10,7 +13,7 @@ import { TextReveal } from "./TextReveal";
  * The opening brand word uses `focus` (tracking collapse): remocn
  * tracking-in without the bounce. SceneMotion moves the screen underneath.
  */
-export const TitleCard: React.FC = () => (
+export const TitleCard: React.FC<{ settled?: boolean }> = ({ settled = false }) => (
   <Stage glowAt="44%">
     <div
       style={{
@@ -30,7 +33,7 @@ export const TitleCard: React.FC = () => (
           gap: 24,
         }}
       >
-        <Sequence name="Icon" layout="none">
+        <Sequence from={settled ? -KNIT_DURATION_FRAMES : 0} name="Icon" layout="none">
           <LatticeKnit size={108} />
         </Sequence>
         <div style={{ willChange: "transform" }}>
@@ -42,14 +45,18 @@ export const TitleCard: React.FC = () => (
               overflow: "visible",
             }}
           >
-            <Sequence from={KNIT_TITLE_AT} name="Title" layout="none">
+            <Sequence
+              from={settled ? -TITLE_REVEAL_FRAMES : KNIT_TITLE_AT}
+              name="Title"
+              layout="none"
+            >
               <TextReveal
                 text="Lattice"
                 style="focus"
                 fontSize={96}
                 color={FG}
                 fontWeight={600}
-                duration={48}
+                duration={TITLE_REVEAL_FRAMES}
                 align="start"
                 startTracking={0.1}
                 tracking={-0.01}
@@ -60,14 +67,18 @@ export const TitleCard: React.FC = () => (
             </Sequence>
           </div>
           <div style={{ position: "relative", width: 560, height: 40, marginTop: 6 }}>
-            <Sequence from={KNIT_TITLE_AT + 22} name="Tagline" layout="none">
+            <Sequence
+              from={settled ? -TAGLINE_REVEAL_FRAMES : KNIT_TITLE_AT + 22}
+              name="Tagline"
+              layout="none"
+            >
               <TextReveal
                 text="Everything your paper needs, in one place."
                 style="rise"
                 fontSize={24}
                 color={MUTED}
                 fontWeight={500}
-                duration={16}
+                duration={TAGLINE_REVEAL_FRAMES}
                 align="start"
               />
             </Sequence>

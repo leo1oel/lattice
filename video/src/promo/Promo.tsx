@@ -1,4 +1,6 @@
 import { linearTiming, TransitionSeries } from "@remotion/transitions";
+import { useCurrentFrame } from "remotion";
+import { TitleCard } from "./Cards";
 import { FULL, PART_FOUR, PART_ONE, PART_THREE, PART_TWO } from "./film";
 import { SceneMotion } from "./SceneMotion";
 import { Soundtrack } from "./Soundtrack";
@@ -57,12 +59,19 @@ const Series: React.FC<{ section: Section }> = ({ section }) => (
 
 /** Only the full film carries sound: the part previews start at frame 0 of
  *  their own section, so the cue frames would not line up. */
-export const Promo: React.FC = () => (
-  <>
-    <Series section={FULL} />
-    <Soundtrack />
-  </>
-);
+export const Promo: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  return (
+    <>
+      <Series section={FULL} />
+      <Soundtrack />
+      {/* Sharing clients commonly use frame zero as the thumbnail. Keep that
+          one frame as a complete cover without removing the animated intro. */}
+      {frame === 0 ? <TitleCard settled /> : null}
+    </>
+  );
+};
 export const PartOne: React.FC = () => <Series section={PART_ONE} />;
 export const PartTwo: React.FC = () => <Series section={PART_TWO} />;
 export const PartThree: React.FC = () => <Series section={PART_THREE} />;
