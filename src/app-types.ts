@@ -99,6 +99,10 @@ export type ImageFileViewState = ScrollFileViewState & {
   scale: number;
 };
 
+export type HtmlFileViewState = ScrollFileViewState & {
+  scale: number;
+};
+
 /**
  * Per-user view state only. These values are stored in Lattice's local app
  * settings and must never be serialized into project files or shared Y.Docs.
@@ -110,7 +114,7 @@ export type FileViewState = {
   board?: BoardFileViewState;
   presentation?: PresentationFileViewState;
   image?: ImageFileViewState;
-  html?: ScrollFileViewState;
+  html?: HtmlFileViewState;
   visualMarkdown?: ScrollFileViewState;
 };
 

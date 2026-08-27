@@ -20,11 +20,16 @@ import { getParseHealth, resetParseHealth } from "../../open-knowledge-core/metr
 import { parseWithFallback } from "../../open-knowledge-core/markdown/parse-with-fallback";
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
 const opener = vi.hoisted(() => ({ openUrl: vi.fn(async () => undefined) }));
+const clipboard = vi.hoisted(() => ({
+  readText: vi.fn(async () => ""),
+  writeText: vi.fn(async () => undefined),
+}));
 vi.mock("../../telemetry/app-notify", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../telemetry/app-notify")>()),
   notifyError: notifications.error,
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: opener.openUrl }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => clipboard);
 import {
   exactVisualSourceRanges,
   restoreUnchangedBlocks,
@@ -46,6 +51,8 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   opener.openUrl.mockClear();
+  clipboard.readText.mockClear();
+  clipboard.writeText.mockClear();
   Reflect.deleteProperty(document, "elementsFromPoint");
 });
 
@@ -1255,7 +1262,7 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(flush?.()).toBe(true));
   });
 
-  it("keeps blocking ownership changes after a visual publication is rejected", () => {
+  it("allows ownership changes after a rejected draft has been preserved", () => {
     const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
     render(
       <VisualMarkdownEditor
@@ -1278,7 +1285,7 @@ describe("VisualMarkdownEditor", () => {
     act(() => { second = flush?.() ?? true; });
 
     expect(first).toBe(false);
-    expect(second).toBe(false);
+    expect(second).toBe(true);
   });
 
   it("publishes a pending edit for the previous file when the path switches", async () => {
@@ -1916,6 +1923,36 @@ describe("VisualMarkdownEditor", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("accepts an agent edit without mistaking passive editor normalization for a draft", async () => {
+    notifications.error.mockClear();
+    const original = "## Scope\n- **Measures**: Initial result\n";
+    const onChange = vi.fn(() => true);
+    const { rerender } = renderEditor(original, onChange);
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("Initial result"));
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => {
+      editor.view.dispatch(editor.state.tr
+        .insertText("Passive ", 1)
+        .setMeta("preventUpdate", true));
+    });
+    expect(surface).toHaveTextContent("Passive");
+
+    rerender(
+      <VisualMarkdownEditor
+        text="## Scope\n- **Measures**: Agent revision\n"
+        activePath="notes.md"
+        onChangeMarkdown={() => true}
+        onUndo={() => false}
+        onRedo={() => false}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("Agent revision"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(notifications.error).not.toHaveBeenCalled();
+  });
+
   it("keeps a BOM and final-newline envelope pristine and writes one exact CAS update on edit", async () => {
     const { onChange } = renderEditor("\uFEFFHello\n");
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1942,8 +1979,14 @@ describe("VisualMarkdownEditor", () => {
     );
     await waitFor(() => expect(notifications.error).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("Shared canonical"));
-    // The rejected draft rides the notification's Copy button, whole.
-    expect(notifications.error.mock.calls.at(-1)![2].copyText).toBe("Conflicting");
+    const options = notifications.error.mock.calls.at(-1)![2];
+    // The ordinary Copy action remains an error-report action. The rejected
+    // document has an explicit label so nobody mistakes one payload for the other.
+    expect(options.copyText).toBeUndefined();
+    expect(options.primaryAction.label).toBe("Copy draft");
+    await options.primaryAction.onClick();
+    expect(clipboard.writeText).toHaveBeenCalledWith("Conflicting");
+    expect(options.secondaryAction.label).toBe("Restore draft and retry");
   });
 
   it("shows an accessible contextual toolbar for a text selection", async () => {
@@ -4783,9 +4826,12 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(notifications.error).toHaveBeenCalled());
     await waitFor(() => expect(surface).toHaveTextContent("Remote canonical"));
     const options = notifications.error.mock.calls.at(-1)![2];
-    expect(options.copyText).toBe("完整的本地草稿");
+    expect(options.copyText).toBeUndefined();
     expect(options.timeoutMs).toBe(0);
-    act(() => { void options.primaryAction.onClick(); });
+    expect(options.primaryAction.label).toBe("Copy draft");
+    await options.primaryAction.onClick();
+    expect(clipboard.writeText).toHaveBeenCalledWith("完整的本地草稿");
+    act(() => { void options.secondaryAction.onClick(); });
     expect(surface).toHaveTextContent("完整的本地草稿");
   });
 

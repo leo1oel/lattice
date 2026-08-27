@@ -19695,7 +19695,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@ungap/structured-clone@1.3.3`, `zod-to-json-schema@3.25.2`
+`@ungap/structured-clone@1.3.4`, `zod-to-json-schema@3.25.2`
 
 </details>
 

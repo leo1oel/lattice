@@ -1084,6 +1084,10 @@ msgstr "复制"
 msgid "Copy all"
 msgstr "全部复制"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Copy draft"
+msgstr "复制草稿"
+
 #: src/collab/collab-dialog.tsx
 msgid "Copy invite"
 msgstr "复制邀请"
@@ -1942,6 +1946,14 @@ msgstr "HTML 文件会在这里实时渲染，可用于制作交互式演示和�
 #: src/canvas/document-canvas.tsx
 msgid "HTML preview for {path}"
 msgstr "{path} 的 HTML 预览"
+
+#: src/canvas/document-canvas.tsx
+msgid "HTML zoom controls"
+msgstr "HTML 缩放控件"
+
+#: src/canvas/document-canvas.tsx
+msgid "HTML zoom percentage"
+msgstr "HTML 缩放百分比"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
@@ -3327,6 +3339,7 @@ msgid "Presentation style"
 msgstr "演示文稿样式"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Preview"
 msgstr "预览"
 
@@ -3770,6 +3783,10 @@ msgstr "把 {0} 恢复到这个版本"
 #: src/history/versions-timeline.tsx
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "要把 {path} 恢复到这个版本吗？你当前的文件将被覆盖。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Restore draft and retry"
+msgstr "恢复草稿并重试"
 
 #: src/history/versions-timeline.tsx
 msgid "Restore file"
@@ -4519,6 +4536,10 @@ msgstr "所需工具"
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
+msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
 msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
@@ -4563,6 +4584,10 @@ msgstr "三级标题"
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "This document changed in the same place"
+msgstr "此文档的同一位置已被修改"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, presentations, figures, boards, spreadsheets, and cited papers. Click a file to open it"

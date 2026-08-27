@@ -115,8 +115,8 @@ import type {
   WordCount,
   EditorViewState,
   FileViewState,
+  HtmlFileViewState,
   ImageFileViewState,
-  ScrollFileViewState,
   AssetPreview,
   FigureDropRequest,
   EditorNavigation,
@@ -198,6 +198,9 @@ function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdow
 const HTML_PREVIEW_OPEN_EXTERNAL = "lattice:html-preview-open-external";
 const HTML_PREVIEW_SCROLL = "lattice:html-preview-scroll";
 const HTML_PREVIEW_SET_SCROLL_TOP = "lattice:html-preview-set-scroll-top";
+const HTML_PREVIEW_SET_ZOOM = "lattice:html-preview-set-zoom";
+const HTML_PREVIEW_MIN_SCALE = 0.5;
+const HTML_PREVIEW_MAX_SCALE = 2;
 
 const HTML_PREVIEW_SCROLLBAR_STYLES = `
 @media (pointer: fine) {
@@ -214,8 +217,8 @@ function HtmlPreview({
 }: {
   path: string;
   source: string;
-  initialViewState?: ScrollFileViewState;
-  onViewState?: (state: ScrollFileViewState) => void;
+  initialViewState?: HtmlFileViewState;
+  onViewState?: (state: HtmlFileViewState) => void;
   onLoadAsset?: (path: string) => Promise<string | null>;
 }) {
   const { t } = useLingui();
@@ -231,7 +234,12 @@ function HtmlPreview({
   const scrollMetricsRef = useRef(scrollMetrics);
   const [scrollbarHovering, setScrollbarHovering] = useState(false);
   const [scrolling, setScrolling] = useState(false);
+  const [scale, setScale] = useState(initialViewState?.scale ?? 1);
+  const scaleRef = useRef(scale);
+  const [zoomDraft, setZoomDraft] = useState("100");
+  const [zoomEditing, setZoomEditing] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const zoomLabelRef = useRef<HTMLLabelElement | null>(null);
   const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onViewStateRef = useRef(onViewState);
   const [initialScrollTop] = useState(initialViewState?.scrollTop ?? 0);
@@ -239,6 +247,7 @@ function HtmlPreview({
   // top of the document. Editing an HTML file therefore threw away the reading
   // position every time typing paused. Carry it across the reload.
   const restoreScrollTopRef = useRef(initialScrollTop);
+  const scrollRangeRef = useRef(initialViewState?.scrollRange ?? 0);
   const awaitingInitialRestoreRef = useRef(initialScrollTop > 0);
   const dragRef = useRef<{
     pointerId: number;
@@ -256,8 +265,24 @@ function HtmlPreview({
     scrollMetricsRef.current = scrollMetrics;
   }, [scrollMetrics]);
   useLayoutEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+  useLayoutEffect(() => {
     onViewStateRef.current = onViewState;
   }, [onViewState]);
+
+  const updateScale = (next: number | ((current: number) => number)) => {
+    setScale((current) => clamp(
+      typeof next === "function" ? next(current) : next,
+      HTML_PREVIEW_MIN_SCALE,
+      HTML_PREVIEW_MAX_SCALE,
+    ));
+  };
+  const commitZoomDraft = () => {
+    const percent = Number(zoomDraft.trim().replace(/%$/, ""));
+    if (Number.isFinite(percent) && percent > 0) updateScale(percent / 100);
+    setZoomEditing(false);
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewSource(source), 180);
@@ -326,9 +351,11 @@ function HtmlPreview({
         }
         if (!awaitingInitialRestoreRef.current) {
           restoreScrollTopRef.current = data.scrollTop;
+          scrollRangeRef.current = Math.max(0, data.scrollHeight - data.clientHeight);
           onViewStateRef.current?.({
+            scale: scaleRef.current,
             scrollTop: data.scrollTop,
-            scrollRange: Math.max(0, data.scrollHeight - data.clientHeight),
+            scrollRange: scrollRangeRef.current,
           });
         }
         setScrolling(true);
@@ -355,6 +382,7 @@ function HtmlPreview({
       if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
       const metrics = scrollMetricsRef.current;
       onViewStateRef.current?.({
+        scale: scaleRef.current,
         scrollTop: restoreScrollTopRef.current,
         scrollRange: Math.max(0, metrics.scrollHeight - metrics.clientHeight),
       });
@@ -399,7 +427,7 @@ function HtmlPreview({
     document.body.append(fragmentNavigation);
     const scrollbarBridge = document.createElement("script");
     scrollbarBridge.dataset.latticePreview = "scrollbar-bridge";
-    scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const setType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data||event.data.type!==setType||typeof event.data.scrollTop!=="number")return;const root=document.scrollingElement||document.documentElement;root.scrollTop=event.data.scrollTop;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
+    scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const scrollType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};const zoomType=${JSON.stringify(HTML_PREVIEW_SET_ZOOM)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data)return;const root=document.scrollingElement||document.documentElement;if(event.data.type===scrollType&&typeof event.data.scrollTop==="number")root.scrollTop=event.data.scrollTop;else if(event.data.type===zoomType&&typeof event.data.scale==="number"&&event.data.scale>0)document.documentElement.style.zoom=String(event.data.scale);else return;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
     document.body.append(scrollbarBridge);
     return `<!doctype html>${document.documentElement.outerHTML}`;
   }, [loadedProjectImages, path, previewSource, t]);
@@ -410,6 +438,22 @@ function HtmlPreview({
       scrollTop,
     }, "*");
   };
+
+  const setPreviewZoom = useCallback((nextScale: number) => {
+    frameRef.current?.contentWindow?.postMessage({
+      type: HTML_PREVIEW_SET_ZOOM,
+      scale: nextScale,
+    }, "*");
+  }, []);
+
+  useEffect(() => {
+    setPreviewZoom(scale);
+    onViewStateRef.current?.({
+      scale,
+      scrollTop: restoreScrollTopRef.current,
+      scrollRange: scrollRangeRef.current,
+    });
+  }, [scale, setPreviewZoom]);
 
   const scrollToThumbOffset = (thumbOffset: number) => {
     const availableTrack = Math.max(
@@ -429,6 +473,12 @@ function HtmlPreview({
     event.preventDefault();
     setScrollTop(scrollGeometry.scrollTop + event.deltaY);
   });
+  useNonPassiveWheel(zoomLabelRef, (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.deltaY) return;
+    updateScale((current) => Number((current + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(1)));
+  });
 
   return (
     <div className="html-preview" data-tour="document-preview">
@@ -440,9 +490,53 @@ function HtmlPreview({
         referrerPolicy="no-referrer"
         srcDoc={html}
         onLoad={() => {
+          setPreviewZoom(scaleRef.current);
           if (restoreScrollTopRef.current > 0) setScrollTop(restoreScrollTopRef.current);
         }}
       />
+      <div className="asset-preview-zoom-controls html-preview-zoom-controls" role="group" aria-label={t`HTML zoom controls`}>
+        <Tip label={t`Zoom out`}>
+          <button
+            type="button"
+            disabled={scale <= HTML_PREVIEW_MIN_SCALE}
+            onClick={() => updateScale((current) => Number((current - 0.1).toFixed(1)))}
+          >
+            <ZoomOut size={14} aria-hidden="true" />
+          </button>
+        </Tip>
+        <label
+          ref={zoomLabelRef}
+          className="asset-preview-zoom-value"
+          title={t`Enter a zoom percentage or scroll to zoom`}
+        >
+          <input
+            aria-label={t`HTML zoom percentage`}
+            inputMode="decimal"
+            value={zoomEditing ? zoomDraft : String(Math.round(scale * 100))}
+            onFocus={(event) => {
+              const input = event.currentTarget;
+              setZoomEditing(true);
+              setZoomDraft(String(Math.round(scale * 100)));
+              requestAnimationFrame(() => input.select());
+            }}
+            onChange={(event) => setZoomDraft(event.target.value)}
+            onBlur={commitZoomDraft}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+          />
+          <span aria-hidden="true">%</span>
+        </label>
+        <Tip label={t`Zoom in`}>
+          <button
+            type="button"
+            disabled={scale >= HTML_PREVIEW_MAX_SCALE}
+            onClick={() => updateScale((current) => Number((current + 0.1).toFixed(1)))}
+          >
+            <ZoomIn size={14} aria-hidden="true" />
+          </button>
+        </Tip>
+      </div>
       <div
         ref={scrollbarRef}
         aria-hidden="true"

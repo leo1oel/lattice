@@ -173,7 +173,7 @@ describe("local file view state persistence", () => {
         board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
       },
       "report.html": {
-        html: { scrollTop: 840, scrollRange: 3200 },
+        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
       },
       "notes.md": {
         visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
@@ -203,7 +203,7 @@ describe("local file view state persistence", () => {
         board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
       },
       "report.html": {
-        html: { scrollTop: 840, scrollRange: 3200 },
+        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
       },
       "notes.md": {
         visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
@@ -219,12 +219,14 @@ describe("local file view state persistence", () => {
           text: { cursor: 12, scrollTop: 50 },
           pdf: { page: "two", scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 },
         },
+        "legacy.html": { html: { scrollTop: 300, scrollRange: 900 } },
         "broken.tex": { text: { cursor: -1, scrollTop: "top" } },
       },
     }));
 
     expect(loadFileViewStates("/papers/alpha")).toEqual({
       "main.tex": { text: { cursor: 12, scrollTop: 50 } },
+      "legacy.html": { html: { scale: 1, scrollTop: 300, scrollRange: 900 } },
     });
   });
 

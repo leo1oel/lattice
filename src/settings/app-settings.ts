@@ -14,6 +14,7 @@ import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, EDITOR_FONT_OPTIONS, resolveFontV
 import type {
   BoardFileViewState,
   FileViewState,
+  HtmlFileViewState,
   ImageFileViewState,
   PdfFileViewState,
   ScrollFileViewState,
@@ -427,6 +428,14 @@ function normalizeImageFileViewState(value: unknown): ImageFileViewState | null 
   return scroll && scale !== null && scale > 0 ? { ...scroll, scale } : null;
 }
 
+function normalizeHtmlFileViewState(value: unknown): HtmlFileViewState | null {
+  const scroll = normalizeScrollFileViewState(value);
+  const candidate = settingsRecord(value);
+  const scale = finiteNumber(candidate?.scale);
+  if (!scroll || (candidate?.scale !== undefined && (scale === null || scale <= 0))) return null;
+  return { ...scroll, scale: scale ?? 1 };
+}
+
 function normalizeFileViewState(value: unknown): FileViewState | null {
   const candidate = settingsRecord(value);
   if (!candidate) return null;
@@ -437,7 +446,7 @@ function normalizeFileViewState(value: unknown): FileViewState | null {
   const pdf = normalizePdfFileViewState(candidate.pdf);
   const board = normalizeBoardFileViewState(candidate.board);
   const image = normalizeImageFileViewState(candidate.image);
-  const html = normalizeScrollFileViewState(candidate.html);
+  const html = normalizeHtmlFileViewState(candidate.html);
   const visualMarkdown = normalizeScrollFileViewState(candidate.visualMarkdown);
   const normalized: FileViewState = {
     ...(cursor !== null && cursor >= 0 && textScrollTop !== null && textScrollTop >= 0

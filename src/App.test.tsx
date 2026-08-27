@@ -2356,6 +2356,15 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     });
 
+    const zoomMessages = vi.spyOn(preview.contentWindow!, "postMessage");
+    expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("100");
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("110");
+    expect(zoomMessages).toHaveBeenCalledWith(
+      { type: "lattice:html-preview-set-zoom", scale: 1.1 },
+      "*",
+    );
+
     await waitFor(() => expect(preview.contentDocument?.readyState).toBe("complete"));
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {
@@ -2375,6 +2384,7 @@ describe("project workspace", () => {
     fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
     expect(document.querySelector(".source-editor .cm-editor")).not.toBeNull();
     expect(await screen.findByTitle("HTML preview for report.html")).toBeInTheDocument();
+    expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("110");
     expect(screen.getByRole("separator", { name: "Resize editor and HTML preview" })).toBeInTheDocument();
 
     const editorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
@@ -3510,6 +3520,64 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     })), { timeout: 3_500 });
     expect(interfaceSounds.play).not.toHaveBeenCalled();
+  });
+
+  it("accepts an agent edit in an open Markdown preview and still switches files", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "methods.md", name: "Methods", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "methods.md", path: "methods.md", kind: "markdown", children: [] },
+        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["methods.md", "notes.md"],
+      activeFile: "methods.md",
+      activeTab: "methods.md",
+      secondaryFile: "",
+      focusedPane: "primary",
+      canvasMode: "pdf",
+      documentMode: "pdf",
+      paperView: "blog",
+      tabRecency: ["methods.md", "notes.md"],
+    });
+    const sources: Record<string, string> = {
+      "methods.md": "## Scope\n- **Measures**: Initial result\n",
+      "notes.md": "# Notes",
+    };
+    let mtimeMs = 1;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return sources[(args as { path: string }).path] ?? "";
+      if (command === "stat_project_file") return { exists: true, mtimeMs };
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(screen.getByRole("textbox", {
+      name: "Markdown document editor",
+    })).toHaveTextContent("Initial result"));
+    sources["methods.md"] = "## Scope\n- **Measures**: Agent revision\n";
+    mtimeMs = 2;
+
+    await waitFor(() => expect(screen.getByRole("textbox", {
+      name: "Markdown document editor",
+    })).toHaveTextContent("Agent revision"), { timeout: 4_000 });
+    expect(screen.queryByText("This document changed in the same place")).not.toBeInTheDocument();
+
+    fireEvent.click(await findProjectTreeItem("notes.md"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /notes\.md/ }))
+      .toHaveAttribute("aria-selected", "true"));
   });
 
   it("lists a work that is only cited but does not offer to open it", async () => {

@@ -10,7 +10,7 @@ import {
 } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Extension, posToDOMRect, type NodeViewProps } from "@tiptap/core";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getMarkdownManager, parseVisualMarkdown, visualEditorExtensions } from "./visual-markdown-schema";
 import { SourceDirtyObserver } from "./visual-source-dirty-observer";
@@ -2630,7 +2630,12 @@ function CompleteVisualMarkdownEditor({
     // WebKit can deliver the final composition transaction during blur. Do
     // not hand document ownership to another path until compositionend has
     // made that transaction publishable by the current editor.
-    if (conflictDraftRef.current != null || composing.current) return false;
+    if (composing.current) return false;
+    // A failed publication blocks the first ownership change so its recovery
+    // notification can appear. Once the rejected draft has been preserved,
+    // holding every later close or file switch hostage only strands the user
+    // on this document; the explicit Copy/Restore actions remain available.
+    if (conflictDraftRef.current != null) return true;
     if (localUpdateTimer.current) clearTimeout(localUpdateTimer.current);
     if (localUpdateMaxTimer.current) clearTimeout(localUpdateMaxTimer.current);
     localUpdateTimer.current = null;
@@ -3191,21 +3196,18 @@ function CompleteVisualMarkdownEditor({
   const reconcileCanonical = useCallback((canonical: string) => {
     if (!editor || editor.isDestroyed || canonical === acceptedMarkdown.current) return;
     const base = acceptedMarkdown.current;
+    // Parser/serializer formatting drift is not authorship. Only an actual
+    // pending editor transaction (or an already preserved rejection) can be a
+    // local draft when an Agent or collaborator replaces the canonical text.
+    const hasPendingDraft = conflictDraftRef.current != null || pendingLocalUpdate.current != null;
     const draft = conflictDraftRef.current
-      ?? preserveMarkdownEnvelope(
-        serializeMarkdown(editor, base, undefined, activePathRef.current),
-        base,
-      );
-    // A document the parser cannot round-trip serializes back into something
-    // unlike its own source, and the surface is read-only for exactly that
-    // reason — so the difference is the round trip's drift, not the reader's
-    // work. Counting it as an unsaved draft reported a conflict to someone who
-    // had not typed a character, most visibly the moment a share connected and
-    // swapped the document underneath them. Only a document known to be lossy
-    // is discounted: an undetermined one keeps its draft, so a writer demoted
-    // to read-only mid-edit does not lose theirs.
-    const hasLocalDraft = draft !== base
-      && (conflictDraftRef.current != null || eligibilityRepresentedExactly.current !== false);
+      ?? (hasPendingDraft
+        ? preserveMarkdownEnvelope(
+          serializeMarkdown(editor, base, undefined, activePathRef.current),
+          base,
+        )
+        : base);
+    const hasLocalDraft = hasPendingDraft && draft !== base;
     if (hasLocalDraft) {
       const rebased = rebaseMarkdownDraft(base, draft, canonical);
       if (rebased != null && changeRef.current(rebased, canonical)) {
@@ -3228,19 +3230,23 @@ function CompleteVisualMarkdownEditor({
   /**
    * A failed publish is an error like any other, so it belongs in the app's
    * notifications rather than wedged into the document as a red bar the reader
-   * has to scroll past. The toast keeps both ways out of it — the draft on the
-   * clipboard, and restoring it — and stays until it is answered.
+   * has to scroll past. Its ordinary Copy action remains a useful error report;
+   * the rejected document has a separately labelled Copy draft action so the
+   * two payloads cannot be mistaken for each other.
    */
   useEffect(() => {
     if (conflictDraft == null) return;
     const key = `visual-conflict:${activePath}`;
-    notifyError("Preview", "This document changed in the same place", {
-      detail: "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again.",
-      copyText: conflictDraft,
+    notifyError(t`Preview`, t`This document changed in the same place`, {
+      detail: t`The shared version is shown. Your visual draft was kept — copy it, or restore it and try again.`,
       timeoutMs: 0,
       dedupeKey: key,
       primaryAction: {
-        label: "Restore draft and retry",
+        label: t`Copy draft`,
+        onClick: () => writeText(conflictDraft),
+      },
+      secondaryAction: {
+        label: t`Restore draft and retry`,
         onClick: () => {
           if (editor && !editor.isDestroyed) {
             setMarkdownWithoutHistory(editor, conflictDraft, activePathRef.current);
@@ -3249,14 +3255,13 @@ function CompleteVisualMarkdownEditor({
           setConflictDraft(null);
         },
       },
-      ...(onEditSource ? { secondaryAction: { label: "Edit Markdown source", onClick: onEditSource } } : {}),
       onDismiss: () => {
         conflictDraftRef.current = null;
         setConflictDraft(null);
       },
     });
     return () => dismissAppToastByDedupeKey(key);
-  }, [activePath, conflictDraft, editor, onEditSource]);
+  }, [activePath, conflictDraft, editor, t]);
 
   useEffect(() => {
     if (!editor) return;

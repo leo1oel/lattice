@@ -1084,6 +1084,10 @@ msgstr "Copy"
 msgid "Copy all"
 msgstr "Copy all"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Copy draft"
+msgstr "Copy draft"
+
 #: src/collab/collab-dialog.tsx
 msgid "Copy invite"
 msgstr "Copy invite"
@@ -1942,6 +1946,14 @@ msgstr "HTML files render live here, so you can build interactive demos and figu
 #: src/canvas/document-canvas.tsx
 msgid "HTML preview for {path}"
 msgstr "HTML preview for {path}"
+
+#: src/canvas/document-canvas.tsx
+msgid "HTML zoom controls"
+msgstr "HTML zoom controls"
+
+#: src/canvas/document-canvas.tsx
+msgid "HTML zoom percentage"
+msgstr "HTML zoom percentage"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
@@ -3327,6 +3339,7 @@ msgid "Presentation style"
 msgstr "Presentation style"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Preview"
 msgstr "Preview"
 
@@ -3772,6 +3785,10 @@ msgstr "Restore {0} to this version"
 #: src/history/versions-timeline.tsx
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "Restore {path} to this version? Your current file will be overwritten."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Restore draft and retry"
+msgstr "Restore draft and retry"
 
 #: src/history/versions-timeline.tsx
 msgid "Restore file"
@@ -4523,6 +4540,10 @@ msgstr "The required tools"
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
+msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
 msgstr "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -4567,6 +4588,10 @@ msgstr "Third-level heading"
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "This document changed in the same place"
+msgstr "This document changed in the same place"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, presentations, figures, boards, spreadsheets, and cited papers. Click a file to open it"
