@@ -3897,7 +3897,19 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     let svg = path
         .extension()
         .is_some_and(|value| value.eq_ignore_ascii_case("svg"));
-    if !path.is_file() || (!svg && classify_regular_file(&path)? == ContentKind::Text) {
+    // Project-local HTML can be an authored iframe inside another HTML preview.
+    // Return it through this byte-oriented command so the frontend can embed it
+    // in the same opaque-origin sandbox instead of exposing a filesystem URL.
+    let html = path
+        .extension()
+        .is_some_and(|value| value.eq_ignore_ascii_case("html"));
+    if !path.is_file() {
+        return Err("Choose a binary project file or an HTML preview resource.".to_string());
+    }
+    let content_kind = (!svg).then(|| classify_regular_file(&path)).transpose()?;
+    if (html && content_kind != Some(ContentKind::Text))
+        || (!svg && !html && content_kind == Some(ContentKind::Text))
+    {
         return Err("Choose a binary project file.".to_string());
     }
     let size = fs::metadata(&path).map_err(err)?.len();
@@ -4009,6 +4021,7 @@ fn asset_mime_type(path: &Path) -> Option<&'static str> {
         Some("webp") => Some("image/webp"),
         Some("pdf") => Some("application/pdf"),
         Some("eps") => Some("application/postscript"),
+        Some("html") => Some("text/html"),
         _ => None,
     }
 }
@@ -7696,6 +7709,19 @@ mod tests {
         assert_eq!(preview.path, "figures/result.png");
         assert_eq!(preview.mime_type, "image/png");
         assert_eq!(preview.base64, "iVBORw0KGgo=");
+        let html = root.join("figures/chart.html");
+        fs::write(
+            &html,
+            "<!doctype html><script>Plotly.newPlot('chart', [], {})</script>",
+        )
+        .unwrap();
+        let preview = read_asset(&root, "figures/chart.html").unwrap();
+        assert_eq!(preview.path, "figures/chart.html");
+        assert_eq!(preview.mime_type, "text/html");
+        assert_eq!(
+            STANDARD.decode(&preview.base64).unwrap(),
+            fs::read(&html).unwrap()
+        );
         assert_eq!(
             prepare_latex_figure(&root, "figures/result.png").unwrap(),
             "figures/result.png"

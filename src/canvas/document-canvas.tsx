@@ -208,6 +208,30 @@ const HTML_PREVIEW_SCROLLBAR_STYLES = `
   html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 }`;
 
+function htmlPreviewProjectPath(target: string, documentPath: string): string | null {
+  const rawPath = target.trim().split(/[?#]/, 1)[0];
+  if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
+  } catch {
+    return null;
+  }
+  const normalized = normalizeDocRelativeAssetUrl(decoded, documentPath);
+  return normalized.startsWith("/") && normalized.length > 1 ? normalized.slice(1) : null;
+}
+
+function htmlSourceFromDataUrl(dataUrl: string): string | null {
+  const prefix = "data:text/html;base64,";
+  if (!dataUrl.startsWith(prefix)) return null;
+  try {
+    const binary = atob(dataUrl.slice(prefix.length));
+    return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+  } catch {
+    return null;
+  }
+}
+
 function HtmlPreview({
   path,
   source,
@@ -223,7 +247,7 @@ function HtmlPreview({
 }) {
   const { t } = useLingui();
   const [previewSource, setPreviewSource] = useState(source);
-  const [loadedProjectImages, setLoadedProjectImages] = useState<Map<string, string>>(
+  const [loadedProjectResources, setLoadedProjectResources] = useState<Map<string, string>>(
     () => new Map(),
   );
   const [scrollMetrics, setScrollMetrics] = useState({
@@ -294,19 +318,12 @@ function HtmlPreview({
     const sourceDocument = new DOMParser().parseFromString(previewSource, "text/html");
     const projectPaths = new Set<string>();
     for (const image of sourceDocument.querySelectorAll<HTMLImageElement>("img[src]")) {
-      const target = image.getAttribute("src")?.trim() ?? "";
-      const rawPath = target.split(/[?#]/, 1)[0];
-      if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) continue;
-      let decoded: string;
-      try {
-        decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
-      } catch {
-        continue;
-      }
-      const normalized = normalizeDocRelativeAssetUrl(decoded, path);
-      if (normalized.startsWith("/") && normalized.length > 1) {
-        projectPaths.add(normalized.slice(1));
-      }
+      const projectPath = htmlPreviewProjectPath(image.getAttribute("src") ?? "", path);
+      if (projectPath) projectPaths.add(projectPath);
+    }
+    for (const frame of sourceDocument.querySelectorAll<HTMLIFrameElement>("iframe[src]")) {
+      const projectPath = htmlPreviewProjectPath(frame.getAttribute("src") ?? "", path);
+      if (projectPath?.toLocaleLowerCase().endsWith(".html")) projectPaths.add(projectPath);
     }
     if (!projectPaths.size) return;
 
@@ -314,7 +331,7 @@ function HtmlPreview({
     for (const projectPath of projectPaths) {
       void onLoadAsset(projectPath).then((dataUrl) => {
         if (cancelled || !dataUrl) return;
-        setLoadedProjectImages((current) => {
+        setLoadedProjectResources((current) => {
           if (current.get(projectPath) === dataUrl) return current;
           const next = new Map(current);
           next.set(projectPath, dataUrl);
@@ -392,20 +409,22 @@ function HtmlPreview({
   const html = useMemo(() => {
     const document = new DOMParser().parseFromString(previewSource, "text/html");
     for (const image of document.querySelectorAll<HTMLImageElement>("img[src]")) {
-      const target = image.getAttribute("src")?.trim() ?? "";
-      const rawPath = target.split(/[?#]/, 1)[0];
-      if (!rawPath || rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) continue;
-      let decoded: string;
-      try {
-        decoded = decodeURIComponent(rawPath).replace(/\\/g, "/");
-      } catch {
-        continue;
-      }
-      const normalized = normalizeDocRelativeAssetUrl(decoded, path);
-      const dataUrl = normalized.startsWith("/")
-        ? loadedProjectImages.get(normalized.slice(1))
-        : undefined;
+      const projectPath = htmlPreviewProjectPath(image.getAttribute("src") ?? "", path);
+      const dataUrl = projectPath ? loadedProjectResources.get(projectPath) : undefined;
       if (dataUrl) image.setAttribute("src", dataUrl);
+    }
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>("iframe[src]")) {
+      const projectPath = htmlPreviewProjectPath(frame.getAttribute("src") ?? "", path);
+      const dataUrl = projectPath ? loadedProjectResources.get(projectPath) : undefined;
+      const embeddedHtml = dataUrl ? htmlSourceFromDataUrl(dataUrl) : null;
+      if (embeddedHtml == null) continue;
+      frame.removeAttribute("src");
+      frame.srcdoc = embeddedHtml;
+      // The outer preview is already opaque-origin sandboxed. Reassert the
+      // boundary on authored child frames so they cannot opt themselves into
+      // same-origin access while retaining interactive Plotly scripts.
+      frame.setAttribute("sandbox", "allow-scripts");
+      frame.setAttribute("referrerpolicy", "no-referrer");
     }
     for (const base of document.querySelectorAll("base")) base.remove();
     const isolatedBase = document.createElement("base");
@@ -430,7 +449,7 @@ function HtmlPreview({
     scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const scrollType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};const zoomType=${JSON.stringify(HTML_PREVIEW_SET_ZOOM)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data)return;const root=document.scrollingElement||document.documentElement;if(event.data.type===scrollType&&typeof event.data.scrollTop==="number")root.scrollTop=event.data.scrollTop;else if(event.data.type===zoomType&&typeof event.data.scale==="number"&&event.data.scale>0)document.documentElement.style.zoom=String(event.data.scale);else return;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
     document.body.append(scrollbarBridge);
     return `<!doctype html>${document.documentElement.outerHTML}`;
-  }, [loadedProjectImages, path, previewSource, t]);
+  }, [loadedProjectResources, path, previewSource, t]);
 
   const setScrollTop = (scrollTop: number) => {
     frameRef.current?.contentWindow?.postMessage({

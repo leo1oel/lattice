@@ -10,6 +10,9 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
   if (asset.mimeType.startsWith("image/")) {
     return `data:${asset.mimeType};base64,${asset.base64}`;
   }
+  if (asset.mimeType === "text/html") {
+    return `data:text/html;base64,${asset.base64}`;
+  }
   if (asset.mimeType !== "application/pdf") return null;
 
   // Keep PDF.js out of startup for the common image-preview path. The legacy

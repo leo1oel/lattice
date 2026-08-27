@@ -2332,6 +2332,7 @@ describe("project workspace", () => {
       },
       files: [
         { name: "report.html", path: "report.html", kind: "html", children: [] },
+        { name: "chart.html", path: "figures/chart.html", kind: "html", children: [] },
         { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
       ],
     };
@@ -2340,10 +2341,17 @@ describe("project workspace", () => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") {
         return (args as { path: string }).path === "report.html"
-          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
+          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><iframe src='figures/chart.html' title='Plot'></iframe><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
           : "# Notes";
       }
       if (command === "read_project_asset") {
+        if ((args as { path: string }).path === "figures/chart.html") {
+          return {
+            path: "figures/chart.html",
+            mimeType: "text/html",
+            base64: btoa("<!doctype html><html><body><div id='plot'></div><script>Plotly.newPlot('plot', [], {})</script></body></html>"),
+          };
+        }
         return {
           path: (args as { path: string }).path,
           mimeType: "image/png",
@@ -2378,6 +2386,14 @@ describe("project workspace", () => {
       .toContain('src="data:image/png;base64,iVBORw0KGgo="'));
     expect(invoke).toHaveBeenCalledWith("read_project_asset", {
       path: "figures/figure1_feature_retention.png",
+      projectRoot: "/tmp/lattice-paper",
+    });
+    await waitFor(() => expect(preview.getAttribute("srcdoc"))
+      .toContain("Plotly.newPlot"));
+    expect(preview.getAttribute("srcdoc")).not.toContain('src="figures/chart.html"');
+    expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
+      path: "figures/chart.html",
       projectRoot: "/tmp/lattice-paper",
     });
 
