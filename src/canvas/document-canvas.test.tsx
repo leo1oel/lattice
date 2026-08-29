@@ -276,6 +276,23 @@ describe("DocumentCanvas / mode", () => {
     expect(container.querySelector(".split-canvas")).toBeNull();
   });
 
+  it("embeds standalone data HTML frames inside the sandboxed HTML preview", async () => {
+    const embeddedPlot = btoa(
+      "<!doctype html><html><body><div id='plot'></div><script>window.inlinePlotReady=true</script></body></html>",
+    );
+    renderCanvas({
+      mode: "pdf",
+      activeFile: "presentation.html",
+      source: `<iframe src="data:text/html;charset=utf-8;base64,${embeddedPlot}" title="Plot"></iframe>`,
+      interactivePreviewsEnabled: true,
+    });
+
+    const preview = await screen.findByTitle<HTMLIFrameElement>("HTML preview for presentation.html");
+    expect(preview.getAttribute("srcdoc")).not.toContain("data:text/html");
+    expect(preview.getAttribute("srcdoc")).toContain("window.inlinePlotReady=true");
+    expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
+  });
+
   it("shows editor and preview either side of a resizer in split mode", async () => {
     const { container } = renderCanvas({ mode: "split" });
 

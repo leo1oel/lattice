@@ -222,10 +222,16 @@ function htmlPreviewProjectPath(target: string, documentPath: string): string | 
 }
 
 function htmlSourceFromDataUrl(dataUrl: string): string | null {
-  const prefix = "data:text/html;base64,";
-  if (!dataUrl.startsWith(prefix)) return null;
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return null;
+  const metadata = dataUrl.slice(0, comma).split(";");
+  if (metadata.shift()?.toLocaleLowerCase() !== "data:text/html") return null;
+  const payload = dataUrl.slice(comma + 1);
   try {
-    const binary = atob(dataUrl.slice(prefix.length));
+    if (!metadata.some((part) => part.toLocaleLowerCase() === "base64")) {
+      return decodeURIComponent(payload);
+    }
+    const binary = atob(payload);
     return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
   } catch {
     return null;
@@ -416,9 +422,11 @@ function HtmlPreview({
       if (dataUrl) image.setAttribute("src", dataUrl);
     }
     for (const frame of document.querySelectorAll<HTMLIFrameElement>("iframe[src]")) {
-      const projectPath = htmlPreviewProjectPath(frame.getAttribute("src") ?? "", path);
+      const source = frame.getAttribute("src") ?? "";
+      const projectPath = htmlPreviewProjectPath(source, path);
       const dataUrl = projectPath ? loadedProjectResources.get(projectPath) : undefined;
-      const embeddedHtml = dataUrl ? htmlSourceFromDataUrl(dataUrl) : null;
+      const embeddedHtml = htmlSourceFromDataUrl(source)
+        ?? (dataUrl ? htmlSourceFromDataUrl(dataUrl) : null);
       if (embeddedHtml == null) continue;
       frame.removeAttribute("src");
       frame.srcdoc = embeddedHtml;
