@@ -27,6 +27,9 @@ const MATERIALIZATION_INDEX_PATH: &str = ".research/cache/materialization-index-
 /// Inventory classification reads at most this many bytes. Larger files are
 /// visible but conservatively binary/unknown, avoiding unbounded scans.
 const MAX_CLASSIFIED_TEXT_BYTES: u64 = 8 * 1024 * 1024;
+/// Standalone HTML often embeds Plotly or image data and legitimately exceeds
+/// the general text-scan limit. Keep its local editor/preview path bounded too.
+const MAX_LOCAL_HTML_BYTES: u64 = 32 * 1024 * 1024;
 const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncheckpoints/\ncache/\n";
 const MAX_HISTORY_ENTRIES: usize = 100;
 const MAX_CHECKPOINTS_PER_SESSION: usize = 100;
@@ -47,7 +50,6 @@ const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.h
 const TUTORIAL_BOARD: &str = include_str!("../templates/tutorial/attention-map.tldr");
 const TUTORIAL_SPREADSHEET: &str =
     include_str!("../templates/tutorial/attention-results.lattice-sheet");
-const TUTORIAL_PRESENTATION: &str = include_str!("../templates/tutorial/attention-talk.slides.md");
 const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
 const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
 const TUTORIAL_FIGURE_ATTRIBUTION: &str =
@@ -401,7 +403,7 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     .map_err(err)?;
     fs::write(
         root.join(".research/tutorial.json"),
-        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 7\n}\n",
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 8\n}\n",
     )
     .map_err(err)?;
     fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
@@ -413,7 +415,6 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
         TUTORIAL_SPREADSHEET,
     )
     .map_err(err)?;
-    fs::write(root.join("attention-talk.slides.md"), TUTORIAL_PRESENTATION).map_err(err)?;
     fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
     fs::write(root.join("references.bib"), TUTORIAL_REFERENCES).map_err(err)?;
     install_tutorial_assets(&root)?;
@@ -1233,7 +1234,12 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     // One read serves classification and content; this used to read the file
     // twice (a full classify_regular_file pass, then the content pass).
     let metadata = fs::symlink_metadata(&path).map_err(err)?;
-    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
+    let maximum = if is_html_path(&path) {
+        MAX_LOCAL_HTML_BYTES
+    } else {
+        MAX_CLASSIFIED_TEXT_BYTES
+    };
+    if !metadata.file_type().is_file() || metadata.len() > maximum {
         return Err(
             "This is a binary or unsupported file and cannot be opened in the source editor."
                 .to_string(),
@@ -3900,17 +3906,9 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     // Project-local HTML can be an authored iframe inside another HTML preview.
     // Return it through this byte-oriented command so the frontend can embed it
     // in the same opaque-origin sandbox instead of exposing a filesystem URL.
-    let html = path
-        .extension()
-        .is_some_and(|value| value.eq_ignore_ascii_case("html"));
+    let html = is_html_path(&path);
     if !path.is_file() {
         return Err("Choose a binary project file or an HTML preview resource.".to_string());
-    }
-    let content_kind = (!svg).then(|| classify_regular_file(&path)).transpose()?;
-    if (html && content_kind != Some(ContentKind::Text))
-        || (!svg && !html && content_kind == Some(ContentKind::Text))
-    {
-        return Err("Choose a binary project file.".to_string());
     }
     let size = fs::metadata(&path).map_err(err)?.len();
     if size > 50 * 1024 * 1024 {
@@ -3918,11 +3916,21 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
             "This figure is too large to preview inside Lattice (50 MB maximum).".to_string(),
         );
     }
+    if html && size > MAX_LOCAL_HTML_BYTES {
+        return Err("This HTML file is too large to open (32 MB maximum).".to_string());
+    }
+    let bytes = fs::read(&path).map_err(err)?;
+    let content_kind = classify_file_bytes(&bytes);
+    if (html && content_kind != ContentKind::Text)
+        || (!svg && !html && size <= MAX_CLASSIFIED_TEXT_BYTES && content_kind == ContentKind::Text)
+    {
+        return Err("Choose a binary project file.".to_string());
+    }
     let mime_type = asset_mime_type(&path).unwrap_or("application/octet-stream");
     Ok(AssetPreview {
         path: relative.replace('\\', "/"),
         mime_type: mime_type.to_string(),
-        base64: STANDARD.encode(fs::read(&path).map_err(err)?),
+        base64: STANDARD.encode(bytes),
     })
 }
 
@@ -5608,13 +5616,38 @@ fn classify_file_bytes(bytes: &[u8]) -> ContentKind {
     }
 }
 
-fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
-    let metadata = fs::symlink_metadata(path).map_err(err)?;
-    if !metadata.file_type().is_file() || metadata.len() > MAX_CLASSIFIED_TEXT_BYTES {
+fn is_html_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("html"))
+}
+
+fn classify_regular_file_with_limit(
+    path: &Path,
+    metadata: &fs::Metadata,
+    maximum: u64,
+) -> Result<ContentKind, String> {
+    if !metadata.file_type().is_file() || metadata.len() > maximum {
         return Ok(ContentKind::Binary);
     }
     let bytes = fs::read(path).map_err(err)?;
     Ok(classify_file_bytes(&bytes))
+}
+
+fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
+    let metadata = fs::symlink_metadata(path).map_err(err)?;
+    classify_regular_file_with_limit(path, &metadata, MAX_CLASSIFIED_TEXT_BYTES)
+}
+
+fn classify_project_tree_file(path: &Path, metadata: &fs::Metadata) -> Result<ContentKind, String> {
+    classify_regular_file_with_limit(
+        path,
+        metadata,
+        if is_html_path(path) {
+            MAX_LOCAL_HTML_BYTES
+        } else {
+            MAX_CLASSIFIED_TEXT_BYTES
+        },
+    )
 }
 
 /// (mtime, len) → kind memo consulted by `scan_files`. The frontend polls
@@ -5630,12 +5663,12 @@ static CLASSIFY_CACHE: LazyLock<Mutex<HashMap<PathBuf, ClassifyCacheEntry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 const CLASSIFY_CACHE_MAX_ENTRIES: usize = 65_536;
 
-fn classify_regular_file_cached(
+fn classify_project_tree_file_cached(
     path: &Path,
     metadata: &fs::Metadata,
 ) -> Result<ContentKind, String> {
     let Ok(modified) = metadata.modified() else {
-        return classify_regular_file(path);
+        return classify_project_tree_file(path, metadata);
     };
     let len = metadata.len();
     if let Some((cached_mtime, cached_len, kind)) = CLASSIFY_CACHE.lock().unwrap().get(path) {
@@ -5643,7 +5676,7 @@ fn classify_regular_file_cached(
             return Ok(*kind);
         }
     }
-    let kind = classify_regular_file(path)?;
+    let kind = classify_project_tree_file(path, metadata)?;
     let mut cache = CLASSIFY_CACHE.lock().unwrap();
     if cache.len() >= CLASSIFY_CACHE_MAX_ENTRIES {
         cache.clear();
@@ -5767,7 +5800,7 @@ fn scan_files_with_visibility(
                     children,
                 });
             } else if file_type.is_file() {
-                let content_kind = classify_regular_file_cached(&path, &metadata)?;
+                let content_kind = classify_project_tree_file_cached(&path, &metadata)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
@@ -6235,7 +6268,7 @@ mod tests {
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
         assert!(root.join("attention-results.lattice-sheet").is_file());
-        assert!(root.join("attention-talk.slides.md").is_file());
+        assert!(!root.join("attention-talk.slides.md").exists());
         let spreadsheet: serde_json::Value = serde_json::from_slice(
             &fs::read(root.join("attention-results.lattice-sheet")).unwrap(),
         )
@@ -6265,11 +6298,6 @@ mod tests {
         assert!(board_records
             .iter()
             .any(|record| record["id"] == "shape:context"));
-        let presentation = fs::read_to_string(root.join("attention-talk.slides.md")).unwrap();
-        assert!(presentation.contains("theme: lattice"));
-        assert!(presentation.contains("# Understanding Attention"));
-        assert!(presentation.contains("figures/multi-head-attention.png"));
-        assert!(presentation.contains("Notes:"));
         assert!(root.join("project.toml").is_file());
         assert!(root.join("references.bib").is_file());
         assert!(root.join("neurips.sty").is_file());
@@ -6282,7 +6310,7 @@ mod tests {
         let tutorial_marker: serde_json::Value =
             serde_json::from_slice(&fs::read(root.join(".research/tutorial.json")).unwrap())
                 .unwrap();
-        assert_eq!(tutorial_marker["version"], 7);
+        assert_eq!(tutorial_marker["version"], 8);
         assert_eq!(read_manifest(&root).unwrap().venue, "tutorial");
         assert!(fs::read_to_string(root.join("main.tex"))
             .unwrap()
@@ -6296,17 +6324,18 @@ mod tests {
         );
 
         fs::write(root.join("notes.md"), "learner edit\n").unwrap();
-        fs::write(root.join("attention-talk.slides.md"), "learner edit\n").unwrap();
+        fs::write(
+            root.join("attention-talk.slides.md"),
+            "stale tutorial deck\n",
+        )
+        .unwrap();
         fs::write(root.join("learner-file.txt"), "temporary\n").unwrap();
         assert_eq!(create_tutorial(&parent).unwrap(), root);
         assert_eq!(
             fs::read_to_string(root.join("notes.md")).unwrap(),
             TUTORIAL_NOTES
         );
-        assert_eq!(
-            fs::read_to_string(root.join("attention-talk.slides.md")).unwrap(),
-            TUTORIAL_PRESENTATION
-        );
+        assert!(!root.join("attention-talk.slides.md").exists());
         assert!(!root.join("learner-file.txt").exists());
         assert!(fs::read(root.join("figures/attention-figure-2.pdf"))
             .unwrap()
@@ -6396,6 +6425,40 @@ mod tests {
             b"\xef\xbb\xbfhello\r\n"
         );
         assert!(read_file(&root, "nul.txt").is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn oversized_html_stays_editable_locally_and_binary_for_collaboration() {
+        let root = temp_root("oversized-html");
+        let mut html = b"<!doctype html><html><body>".to_vec();
+        html.resize(MAX_CLASSIFIED_TEXT_BYTES as usize + 1, b'x');
+        html.extend_from_slice(b"</body></html>\n");
+        fs::write(root.join("presentation.html"), &html).unwrap();
+
+        let project_files = scan_project_tree(&root).unwrap();
+        let node = project_files
+            .iter()
+            .find(|node| node.path == "presentation.html")
+            .unwrap();
+        assert_eq!(node.kind, "text");
+        assert_eq!(node.content_kind, "text");
+        assert_eq!(
+            read_file(&root, "presentation.html").unwrap().as_bytes(),
+            html
+        );
+
+        let preview = read_asset(&root, "presentation.html").unwrap();
+        assert_eq!(preview.mime_type, "text/html");
+        assert_eq!(STANDARD.decode(preview.base64).unwrap(), html);
+
+        let collaboration = collab_project_inventory_v2(&root).unwrap();
+        let shared = collaboration
+            .files
+            .iter()
+            .find(|file| file.path == "presentation.html")
+            .unwrap();
+        assert_eq!(shared.content_kind, "binary");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -8156,14 +8219,14 @@ mod tests {
         fs::write(&file, "text\n").unwrap();
         let metadata = fs::symlink_metadata(&file).unwrap();
         assert_eq!(
-            classify_regular_file_cached(&file, &metadata).unwrap(),
+            classify_project_tree_file_cached(&file, &metadata).unwrap(),
             ContentKind::Text
         );
         // A rewrite changes (mtime, len), so the cached kind must not stick.
         fs::write(&file, b"a\0b".as_slice()).unwrap();
         let metadata = fs::symlink_metadata(&file).unwrap();
         assert_eq!(
-            classify_regular_file_cached(&file, &metadata).unwrap(),
+            classify_project_tree_file_cached(&file, &metadata).unwrap(),
             ContentKind::Binary
         );
         fs::remove_dir_all(parent).unwrap();

@@ -1471,7 +1471,6 @@ function App() {
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [boardCreateRequest, setBoardCreateRequest] = useState(0);
   const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
-  const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
   useSynaraNotificationBridge({
@@ -8581,7 +8580,6 @@ function App() {
               searchOpen={projectSearchOpen}
               boardCreateRequest={boardCreateRequest}
               spreadsheetCreateRequest={spreadsheetCreateRequest}
-              presentationCreateRequest={presentationCreateRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
@@ -8641,7 +8639,6 @@ function App() {
             setProjectFindHits={setProjectFindHits}
             setProjectFindOpen={setProjectFindOpen}
             setProjectSearchOpen={setProjectSearchOpen}
-            setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
             sidebarMode={sidebarMode}
             sidebarModeActionsRef={sidebarModeActionsRef}

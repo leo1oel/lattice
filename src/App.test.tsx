@@ -2331,8 +2331,15 @@ describe("project workspace", () => {
         trusted: false,
       },
       files: [
-        { name: "report.html", path: "report.html", kind: "html", children: [] },
-        { name: "chart.html", path: "figures/chart.html", kind: "html", children: [] },
+        {
+          name: "report.html",
+          path: "report.html",
+          kind: "text",
+          contentKind: "text",
+          size: 8 * 1024 * 1024 + 1,
+          children: [],
+        },
+        { name: "chart.html", path: "figures/chart.html", kind: "text", contentKind: "text", children: [] },
         { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
       ],
     };
@@ -8630,6 +8637,7 @@ describe("project workspace", () => {
       button: 0,
       pointerType: "mouse",
     });
+    expect(screen.queryByRole("menuitem", { name: "New presentation" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("menuitem", { name: "New board" }));
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput).toHaveValue("untitled");
@@ -8685,47 +8693,6 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .not.toBeInTheDocument();
-  });
-
-  it("creates a presentation from the header button with an inline name", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "# Talk\n";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_project_entry") return (args as { path: string }).path;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
-
-    renderApp();
-    await screen.findByLabelText("Project files");
-    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
-      button: 0,
-      pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "New presentation" }));
-    const nameInput = await findProjectTreeRenameInput();
-    expect(nameInput).toHaveValue("untitled");
-    fireEvent.input(nameInput, { target: { value: "talk" } });
-    fireEvent.keyDown(nameInput, { key: "Enter" });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
-      path: "talk.slides.md",
-      kind: "file",
-      projectRoot: "/tmp/lattice-paper",
-    }));
-    expect(await screen.findByTestId("presentation-editor-mock")).toBeInTheDocument();
-    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
   });
 
   it("lets the Agent create and open a board or spreadsheet through the host bridge", async () => {

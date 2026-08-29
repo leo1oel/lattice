@@ -17,7 +17,6 @@ import {
   FolderTree,
   Library,
   Plus,
-  Presentation,
   Search,
   Shapes,
   Shield,
@@ -129,7 +128,6 @@ export type AppWorkspaceSidebarProps = {
   setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
   setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
-  setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
   setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
   sidebarMode: "agent" | "project" | "papers";
   sidebarModeActionsRef: RefObject<HTMLDivElement | null>;
@@ -165,7 +163,6 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     setProjectFindHits,
     setProjectFindOpen,
     setProjectSearchOpen,
-    setPresentationCreateRequest,
     setSpreadsheetCreateRequest,
     sidebarMode,
     sidebarModeActionsRef,
@@ -210,10 +207,6 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                     sideOffset={6}
                     onCloseAutoFocus={(event) => event.preventDefault()}
                   >
-                    <DropdownMenuItem onSelect={() => setPresentationCreateRequest((request) => request + 1)}>
-                      <Presentation />
-                      {t`New presentation`}
-                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setSpreadsheetCreateRequest((request) => request + 1)}>
                       <Table2 />
                       {t`New spreadsheet`}
