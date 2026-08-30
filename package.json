@@ -159,7 +159,7 @@
     "remark-rehype": "^11.1.2",
     "remark-stringify": "^11.0.0",
     "rxjs": "7.8.2",
-    "shadow-plugin": "^1.2.7",
+    "shadow-plugin": "^2.1.0",
     "tailwind-merge": "^3.6.0",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.3.3",
