@@ -86,7 +86,8 @@ export type OverleafWorkspaceDeps = {
   saveGeneration: number;
   collabSession: EditorCollabSession | null;
   collabName: string;
-  publishTextToCollabV2: (path: string, content: string) => Promise<boolean>;
+  /** Runs prepare → canonical Catalog/Yjs apply → exact-byte commit for an active Share. */
+  runSharedOverleafSync: () => Promise<OverleafSyncResult>;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
   loadFile: (
@@ -132,7 +133,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     saveGeneration,
     collabSession,
     collabName,
-    publishTextToCollabV2,
+    runSharedOverleafSync,
     save,
     compile,
     loadFile,
@@ -432,10 +433,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     try {
       if (!(await save())) return;
       if (!stillCurrent()) return;
-      const result = await invoke<OverleafSyncResult>("overleaf_sync", {
-        projectRoot: syncRoot,
-        live: overleafLivePathsRef.current,
-      });
+      const sharedSync = collabSession !== null;
+      const result = sharedSync
+        ? await runSharedOverleafSync()
+        : await invoke<OverleafSyncResult>("overleaf_sync", {
+            projectRoot: syncRoot,
+            live: overleafLivePathsRef.current,
+          });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
       // PDF inspection generates contact sheets and page renders under this
@@ -510,28 +514,17 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
         if (!stillCurrent()) return;
-        if (activeFile && changedOnDisk.has(activeFile)) {
-          await loadFile(activeFile, {
+        // Navigation is allowed while the network-bound sync is running. Use
+        // the file that is active now, not the one captured when sync began,
+        // so an incoming replacement cannot leave the newly opened editor on
+        // stale bytes.
+        const currentActiveFile = activeFileRef.current;
+        if (currentActiveFile && changedOnDisk.has(currentActiveFile)) {
+          await loadFile(currentActiveFile, {
             expectedProjectRoot: syncRoot,
             projectGeneration: syncGeneration,
           });
           if (!stillCurrent()) return;
-        }
-        // Files arriving from Overleaf haven't touched the live share, so a
-        // Lattice collaborator would never see them without this push. Only
-        // paths already in the v2 catalog can update — brand-new files stay
-        // local until the share is restarted (no v2 create-entry API yet).
-        if (collabSession && changedOnDisk.size) {
-          for (const path of changedOnDisk) {
-            if (!stillCurrent()) return;
-            try {
-              const content = await invoke<string>("read_project_file", { path });
-              if (!stillCurrent()) return;
-              await publishTextToCollabV2(path, content);
-            } catch {
-              // Binary or unreadable files must not stop the rest.
-            }
-          }
         }
         if (!stillCurrent()) return;
         await compile();
@@ -588,15 +581,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // The refs arrive through `deps`, so the lint rule cannot see that they are
     // `useRef` results with a stable identity; listing them changes nothing at
     // runtime. They are listed anyway so this callback stops carrying a standing
-    // exhaustive-deps warning — while it did, `publishTextToCollabV2` went
-    // missing here without anything flagging it, and the next genuine omission
-    // would have hidden the same way. `publishTextToCollabV2` must stay listed:
-    // its identity tracks `activeCollabVersion` (see its definition), so a
-    // closure captured before the share existed publishes nothing, for the whole
-    // share — the Overleaf-pulled files below would land on disk and never reach
-    // a single Lattice collaborator.
+    // exhaustive-deps warning, making the next genuine omission easier to miss.
   }, [
-    activeFile,
+    activeFileRef,
     collabName,
     collabSession,
     compile,
@@ -606,10 +593,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     project,
     projectOperationGenerationRef,
     projectRef,
-    publishTextToCollabV2,
     refreshOverleafLink,
     refreshProject,
     resolveOverleafSyncRef,
+    runSharedOverleafSync,
     save,
     savedSourceRef,
     settleRemoteDeletes,

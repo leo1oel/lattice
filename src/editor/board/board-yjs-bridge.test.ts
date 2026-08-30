@@ -29,6 +29,7 @@ import {
   createBoardStore,
   parseBoardRecords,
   pruneUnusedAssets,
+  replaceBoardDocFromSource,
   seedBoardRecords,
   serializeBoard,
 } from "./board-yjs-bridge";
@@ -218,6 +219,27 @@ describe("boardDocContent", () => {
     const out = boardDocContent(doc);
     expect(out).toContain(createShapeId("second"));
     expect(doc.getText(BOARD_CONTENT_KEY).toString()).not.toContain(createShapeId("second"));
+  });
+});
+
+describe("replaceBoardDocFromSource", () => {
+  it("reconciles changed, added, and removed records through the board CRDT", () => {
+    const original = createStore();
+    original.put([makeGeoShape("kept"), makeGeoShape("removed")]);
+    const doc = new Y.Doc();
+    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(original.allRecords()));
+    seedBoardRecords(doc);
+
+    const incoming = createStore();
+    incoming.put([makeGeoShape("kept", 42), makeGeoShape("added", 7)]);
+    replaceBoardDocFromSource(doc, serializeBoard(incoming.allRecords()));
+
+    const records = parseBoardRecords(boardDocContent(doc))!;
+    expect(records.find((record) => record.id === createShapeId("kept")))
+      .toMatchObject({ x: 42 });
+    expect(records.find((record) => record.id === createShapeId("added")))
+      .toMatchObject({ x: 7 });
+    expect(records.some((record) => record.id === createShapeId("removed"))).toBe(false);
   });
 });
 

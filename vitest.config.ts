@@ -56,6 +56,10 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "collab-server/**", ".tmp/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],
+    // Several suites mount the complete app or visual Markdown editor. Running
+    // those memory-heavy files beside each other on a high-core machine starves
+    // their async UI assertions and makes unrelated tests fail nondeterministically.
+    maxWorkers: 1,
     // Room for the slowest test to finish on a loaded machine rather than a
     // quiet one; the per-assertion wait is set alongside it in test-setup.ts.
     testTimeout: 20_000,

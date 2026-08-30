@@ -68,10 +68,18 @@ describe("onboarding tour", () => {
     expect(tools.content).toContain("export the spreadsheet as an .xlsx file");
     expect(tools.content).not.toContain("Agent");
 
+    const presentation = joyride.props!.steps[TUTORIAL_STEPS.presentation];
+    expect(presentation).toMatchObject({
+      id: "presentation",
+      target: '[data-tour="new-document"]',
+    });
+    expect(presentation.content).toContain("choose New presentation");
+    expect(presentation.content).toContain("full Open Slide editor");
+    expect(presentation.content).toContain("collaboration and Overleaf");
+
     const agent = joyride.props!.steps[TUTORIAL_STEPS.agent];
-    expect(agent.content).toContain("papers, and spreadsheets");
-    expect(agent.content).not.toContain("presentation");
-    expect(agent.content).not.toContain("slides");
+    expect(agent.content).toContain("Open Slide presentations");
+    expect(agent.content).toContain("build slides");
   });
 
   it("explains collaboration, Overleaf sync, and the paper PDF actions at their controls", () => {

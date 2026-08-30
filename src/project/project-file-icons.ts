@@ -54,6 +54,9 @@ const PRESENTATION_ICON: RemappedIcon = { name: "lattice-material-presentation",
 export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
   set: "complete",
   spriteSheet: MATERIAL_ICON_SPRITE,
+  byFileName: {
+    "index.tsx": PRESENTATION_ICON,
+  },
   byFileExtension: {
     pdf: PDF_ICON,
     tex: TEX_ICON,
@@ -80,6 +83,5 @@ export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
     eps: "file-tree-builtin-image",
     tldr: BOARD_ICON,
     "lattice-sheet": SPREADSHEET_ICON,
-    "slides.md": PRESENTATION_ICON,
   },
 };

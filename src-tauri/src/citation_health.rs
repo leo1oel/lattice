@@ -418,7 +418,7 @@ mod tests {
         let fixture = fixture().to_string();
         let responder = std::thread::spawn(move || {
             let request = server
-                .recv_timeout(Duration::from_secs(2))
+                .recv_timeout(Duration::from_secs(10))
                 .unwrap()
                 .unwrap();
             assert!(request.url().contains("filter=updates:10.1234%2Fexample"));

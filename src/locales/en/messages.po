@@ -269,10 +269,6 @@ msgstr "Add comment"
 msgid "Add project term"
 msgstr "Add project term"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Add slide"
-msgstr "Add slide"
-
 #: src/project/navigator.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
@@ -289,8 +285,8 @@ msgid "Agent"
 msgstr "Agent"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, analyze results, or revise files across the project"
-msgstr "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, analyze results, or revise files across the project"
+msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
+msgstr "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -992,10 +988,6 @@ msgstr "Compile/PDF stays on each Mac. "
 msgid "Composition / ring"
 msgstr "Composition / ring"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Concave"
-msgstr "Concave"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "conference"
@@ -1068,10 +1060,6 @@ msgstr "Continue?"
 msgid "Contour integral"
 msgstr "Contour integral"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Convex"
-msgstr "Convex"
-
 #: src/collab/collab-dialog.tsx
 msgid "Copied"
 msgstr "Copied"
@@ -1128,10 +1116,6 @@ msgstr "Could not open the article in your browser"
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Could not open the print dialog"
-msgstr "Could not open the print dialog"
-
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
 #: src/app/use-overleaf-workspace.ts
@@ -1158,6 +1142,10 @@ msgstr "Couldn’t check for updates"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Create a native Open Slide presentation"
+msgstr "Create a native Open Slide presentation"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
@@ -1244,10 +1232,6 @@ msgstr "Delete {count} selected items from this project?"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Delete slide"
-msgstr "Delete slide"
 
 #: src/app/app-editor-panels.tsx
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
@@ -1448,10 +1432,6 @@ msgstr "Edit and preview HTML"
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit and preview presentation"
-msgstr "Edit and preview presentation"
-
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/navigator.tsx
 msgid "Edit bibliography entry"
@@ -1476,10 +1456,6 @@ msgstr "Edit Markdown"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit notes.md on the left and see the formatted result update live on the right"
 msgstr "Edit notes.md on the left and see the formatted result update live on the right"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit presentation source"
-msgstr "Edit presentation source"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source"
@@ -1574,10 +1550,6 @@ msgstr "English"
 msgid "Enter a page number"
 msgstr "Enter a page number"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Enter a slide number"
-msgstr "Enter a slide number"
-
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -1666,10 +1638,6 @@ msgstr "Export ZIP"
 #: src/project/navigator.tsx
 msgid "Expression of concern"
 msgstr "Expression of concern"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Fade"
-msgstr "Fade"
 
 #: src/settings/settings-dialog.tsx
 msgid "Feedback"
@@ -1922,10 +1890,6 @@ msgstr "Heart suit"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Hide slide navigator"
-msgstr "Hide slide navigator"
 
 #: src/history/history-drawer.tsx
 msgid "History views"
@@ -2323,10 +2287,6 @@ msgstr "Last, First and Last, First"
 msgid "latexmk -c then -g"
 msgstr "latexmk -c then -g"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Lattice"
-msgstr "Lattice"
-
 #: src/settings/settings-dialog.tsx
 msgid "Lattice checks in the background and installs updates on its own"
 msgstr "Lattice checks in the background and installs updates on its own"
@@ -2614,10 +2574,6 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Midnight"
-msgstr "Midnight"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
@@ -2739,6 +2695,10 @@ msgstr "New name"
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "New presentation"
+msgstr "New presentation"
+
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
@@ -2762,10 +2722,6 @@ msgstr "Next page"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "Next search result"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Next slide"
-msgstr "Next slide"
 
 #: src/App.tsx
 msgid "No"
@@ -2842,10 +2798,6 @@ msgstr "No sections yet. Add a \\section{…} to start the outline"
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
 msgstr "No versions yet. Versions are saved automatically as you work, or press Save version"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "None"
-msgstr "None"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "North-east arrow"
@@ -3028,6 +2980,18 @@ msgstr "Open project history"
 msgid "Open settings"
 msgstr "Open settings"
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Open Slide could not start"
+msgstr "Open Slide could not start"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Open Slide editor for {deckId}"
+msgstr "Open Slide editor for {deckId}"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
+msgstr "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "Open the Agent tab to use Codex, Claude, or another provider"
@@ -3101,6 +3065,10 @@ msgstr "Overleaf comments and chat"
 msgid "Overleaf comments and chat · {count} waiting"
 msgstr "Overleaf comments and chat · {count} waiting"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
+msgstr "Overleaf doesn’t support live editing for this file, so it will use regular sync."
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
@@ -3129,10 +3097,6 @@ msgstr "Paper actions"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "Paper content"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Paper style"
-msgstr "Paper style"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
@@ -3300,10 +3264,6 @@ msgid "Preparing PDF preview…"
 msgstr "Preparing PDF preview…"
 
 #: src/canvas/document-canvas.tsx
-msgid "Preparing presentation editor"
-msgstr "Preparing presentation editor"
-
-#: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
 
@@ -3318,26 +3278,6 @@ msgstr "Preparing spreadsheet editor"
 #: src/agent/synara-loading-surface.tsx
 msgid "Preparing this workspace"
 msgstr "Preparing this workspace"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Present"
-msgstr "Present"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation"
-msgstr "Presentation"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation Markdown source"
-msgstr "Presentation Markdown source"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation preview"
-msgstr "Presentation preview"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation style"
-msgstr "Presentation style"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
@@ -3364,10 +3304,6 @@ msgstr "Preview of {path}"
 msgid "Preview PDF"
 msgstr "Preview PDF"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Preview presentation"
-msgstr "Preview presentation"
-
 #: src/canvas/document-canvas.tsx
 msgid "previous"
 msgstr "previous"
@@ -3380,17 +3316,9 @@ msgstr "Previous page"
 msgid "Previous search result"
 msgstr "Previous search result"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Previous slide"
-msgstr "Previous slide"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "Prime"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Print / PDF"
-msgstr "Print / PDF"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
@@ -3729,14 +3657,6 @@ msgstr "Resize editor and PDF preview"
 #: src/canvas/document-canvas.tsx
 msgid "Resize PDF pane"
 msgstr "Resize PDF pane"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Resize slide navigator"
-msgstr "Resize slide navigator"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Resize source and presentation preview"
-msgstr "Resize source and presentation preview"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
@@ -4152,10 +4072,6 @@ msgstr "Show outline"
 msgid "Show sidebar"
 msgstr "Show sidebar"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Show slide navigator"
-msgstr "Show slide navigator"
-
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "Shows 300 recent entries; disk logs rotate"
@@ -4215,28 +4131,6 @@ msgstr "Skills"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide"
-msgstr "Slide"
-
-#. placeholder {0}: index + 1
-#. placeholder {1}: summary.title
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide {0}: {1}"
-msgstr "Slide {0}: {1}"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide navigation"
-msgstr "Slide navigation"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide number"
-msgstr "Slide number"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slides"
-msgstr "Slides"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
@@ -4333,6 +4227,14 @@ msgstr "Start tracking versions"
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
 msgstr "Starting Agent"
+
+#: src/canvas/document-canvas.tsx
+msgid "Starting Open Slide"
+msgstr "Starting Open Slide"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Starting Open Slide…"
+msgstr "Starting Open Slide…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
@@ -4553,7 +4455,6 @@ msgstr "The worksheet and all of its contents will be removed and cannot be reco
 msgid "The worksheet and all of its contents will be removed."
 msgstr "The worksheet and all of its contents will be removed."
 
-#: src/editor/presentation/presentation-editor.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Theme"
 msgstr "Theme"
@@ -4601,6 +4502,10 @@ msgstr "This folder contains the manuscript, notes, figures, boards, spreadsheet
 #: src/canvas/document-canvas.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "This format cannot be rendered in the preview"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "This is not a native Open Slide deck."
+msgstr "This is not a native Open Slide deck."
 
 #: src/build/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes"
@@ -4678,10 +4583,6 @@ msgstr "Top-level section heading"
 #: src/history/versions-timeline.tsx
 msgid "Track versions of this project to see who changed what and roll back safely"
 msgstr "Track versions of this project to see who changed what and roll back safely"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Transition"
-msgstr "Transition"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
@@ -5092,10 +4993,6 @@ msgstr "Zeta"
 #: src/App.tsx
 msgid "ZIP archive"
 msgstr "ZIP archive"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Zoom"
-msgstr "Zoom"
 
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx

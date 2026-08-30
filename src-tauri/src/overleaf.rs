@@ -29,13 +29,15 @@
 //!   use `folder_id=<root>` and the project-relative path verbatim. Overleaf
 //!   creates missing subfolders for nested relative paths.
 
+use crate::project_fs::ProjectDir;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 const DEFAULT_HOST: &str = "https://www.overleaf.com";
 const SESSION_FILE: &str = "overleaf-session.json";
@@ -153,6 +155,44 @@ pub struct OverleafSyncResult {
     /// the project. Everything incoming still landed.
     #[serde(default)]
     pub read_only: bool,
+}
+
+/// A Catalog/Yjs-owned file supplied to staged sync. Disk is deliberately not
+/// consulted for these files.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafAuthoritativeEntry {
+    pub path: String,
+    pub kind: String,
+    pub base64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafPreparedAction {
+    pub action_id: String,
+    pub path: String,
+    pub kind: String,
+    pub before_base64: Option<String>,
+    pub after_base64: Option<String>,
+    pub binary: bool,
+    pub outgoing: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafPreparedSync {
+    pub plan_id: String,
+    pub actions: Vec<OverleafPreparedAction>,
+    pub result: OverleafSyncResult,
+    pub remote_version: Option<i64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverleafAcceptedAction {
+    pub action_id: String,
+    pub base64: Option<String>,
 }
 
 /// What a pending sync would do to one file, computed without touching disk.
@@ -720,11 +760,9 @@ fn local_disk_path(root: &Path, rel: &str) -> PathBuf {
 }
 
 fn write_local_file(root: &Path, rel: &str, bytes: &[u8]) -> Result<(), String> {
-    let path = local_disk_path(root, rel);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
-    fs::write(&path, bytes).map_err(|e| format!("Could not write {rel}: {e}"))
+    ProjectDir::open(root)
+        .and_then(|project| project.atomic_write(rel, bytes))
+        .map_err(|error| format!("Could not write {rel}: {error}"))
 }
 
 // ---- Three-way merge -------------------------------------------------------
@@ -2566,6 +2604,125 @@ struct SyncPlan {
     files: BTreeMap<String, String>,
 }
 
+const PREPARED_PLAN_TTL: Duration = Duration::from_secs(120);
+const MAX_PREPARED_PLANS: usize = 8;
+const MAX_PREPARED_BYTES: usize = 128 * 1024 * 1024;
+
+#[derive(Clone)]
+enum PreparedRole {
+    Push,
+    Pull,
+    Merge,
+    ConflictMain,
+    ConflictCopy,
+    Delete,
+}
+
+#[derive(Clone)]
+struct StoredAction {
+    path: String,
+    kind: String,
+    binary: bool,
+    role: PreparedRole,
+}
+
+struct StoredPlan {
+    created: Instant,
+    bytes: usize,
+    root: PathBuf,
+    host: String,
+    project_id: String,
+    state_digest: String,
+    state: SyncState,
+    remote_version: Option<i64>,
+    remote: BTreeMap<String, Vec<u8>>,
+    local: BTreeMap<String, Vec<u8>>,
+    planned_files: BTreeMap<String, String>,
+    actions: BTreeMap<String, StoredAction>,
+    result: OverleafSyncResult,
+}
+
+#[derive(Default)]
+struct PreparedStore {
+    plans: BTreeMap<String, StoredPlan>,
+}
+
+fn prepared_store() -> &'static Mutex<PreparedStore> {
+    static STORE: OnceLock<Mutex<PreparedStore>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(PreparedStore::default()))
+}
+
+fn state_digest(state: &SyncState) -> Result<String, String> {
+    serde_json::to_vec(state)
+        .map(|bytes| sha256_hex(&bytes))
+        .map_err(err)
+}
+
+fn canonical_root(root: &Path) -> Result<PathBuf, String> {
+    root.canonicalize()
+        .map_err(|e| format!("Could not resolve project root: {e}"))
+}
+
+fn validate_inventory_path(path: &str) -> Result<(), String> {
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.ends_with('/')
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || path.contains('\\')
+    {
+        return Err(format!("Invalid authoritative inventory path: {path}"));
+    }
+    Ok(())
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
+fn decode_base64(value: &str, path: &str) -> Result<Vec<u8>, String> {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(value)
+        .map_err(|_| format!("Invalid base64 for {path}"))?;
+    if bytes.len() as u64 > MAX_SYNC_FILE_BYTES {
+        return Err(format!("{path} exceeds Overleaf's sync size limit"));
+    }
+    Ok(bytes)
+}
+
+fn insert_prepared_plan(id: String, plan: StoredPlan) -> Result<(), String> {
+    if plan.bytes > MAX_PREPARED_BYTES {
+        return Err("The shared project is too large to stage for Overleaf sync.".to_string());
+    }
+    let mut store = prepared_store()
+        .lock()
+        .expect("prepared sync store poisoned");
+    let now = Instant::now();
+    store
+        .plans
+        .retain(|_, existing| now.duration_since(existing.created) <= PREPARED_PLAN_TTL);
+    store.plans.insert(id, plan);
+    loop {
+        let total: usize = store.plans.values().map(|plan| plan.bytes).sum();
+        if store.plans.len() <= MAX_PREPARED_PLANS && total <= MAX_PREPARED_BYTES {
+            break;
+        }
+        let Some(oldest) = store
+            .plans
+            .iter()
+            .min_by_key(|(_, plan)| plan.created)
+            .map(|(id, _)| id.clone())
+        else {
+            break;
+        };
+        store.plans.remove(&oldest);
+    }
+    Ok(())
+}
+
 /// Decide what a sync would do. Reads base copies from disk, writes nothing.
 ///
 /// `live` holds paths the realtime channel is currently editing. Those are
@@ -2797,6 +2954,477 @@ pub fn set_realtime_metadata(
     state.root_folder_id = Some(root_folder_id.to_string());
     state.permission = Some(permission.to_string());
     save_state(root, &state)
+}
+
+/// Prepare a Share-safe sync from the Catalog/Yjs snapshot supplied by the
+/// caller. This performs network reads and base-copy reads, but no writes.
+pub fn prepare_sync(
+    config_dir: &Path,
+    root: &Path,
+    authoritative_inventory: &[OverleafAuthoritativeEntry],
+    live: &BTreeSet<String>,
+) -> Result<OverleafPreparedSync, String> {
+    let session = load_session(config_dir)?;
+    let mut state = load_state(root)?;
+    if state.paused {
+        return Err(PAUSED.to_string());
+    }
+    let loaded_state_digest = state_digest(&state)?;
+    state.files.retain(|path, _| !is_excluded(path));
+    let host = sync_host(&state, &session)?;
+    let root = canonical_root(root)?;
+
+    let mut local = BTreeMap::new();
+    let mut local_kinds = BTreeMap::new();
+    let mut skipped_large = Vec::new();
+    for entry in authoritative_inventory {
+        validate_inventory_path(&entry.path)?;
+        if is_excluded(&entry.path) {
+            continue;
+        }
+        if !matches!(
+            entry.kind.as_str(),
+            "text" | "binary" | "board" | "spreadsheet"
+        ) {
+            return Err(format!(
+                "Invalid catalog kind for {}: {}",
+                entry.path, entry.kind
+            ));
+        }
+        if local.contains_key(&entry.path) {
+            return Err(format!(
+                "Duplicate authoritative inventory path: {}",
+                entry.path
+            ));
+        }
+        let bytes = {
+            use base64::Engine as _;
+            base64::engine::general_purpose::STANDARD
+                .decode(&entry.base64)
+                .map_err(|_| format!("Invalid base64 for {}", entry.path))?
+        };
+        if bytes.len() as u64 > MAX_SYNC_FILE_BYTES {
+            skipped_large.push(entry.path.clone());
+            continue;
+        }
+        local_kinds.insert(entry.path.clone(), entry.kind.clone());
+        local.insert(entry.path.clone(), bytes);
+    }
+
+    let client = http_client(30)?;
+    let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
+    let RemoteFiles {
+        files: remote,
+        automatic_remote_deletes,
+    } = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let plan = plan_sync(&root, &state, &remote, &local, live, &sync_stamp())?;
+
+    let mut result = OverleafSyncResult {
+        pulled: plan.pull.iter().map(|(path, _)| path.clone()).collect(),
+        merged: plan.merge.iter().map(|(path, _)| path.clone()).collect(),
+        deleted_local: plan.delete_local.clone(),
+        skipped_large,
+        automatic_remote_deletes,
+        skipped_remote_deletes: plan.skipped_remote_deletes.clone(),
+        read_only: !permits_writing(state.permission.as_deref()),
+        ..Default::default()
+    };
+    let mut actions = BTreeMap::new();
+    let mut public_actions = Vec::new();
+    let conflict_copy_kinds = plan
+        .conflict
+        .iter()
+        .filter_map(|conflict| {
+            local_kinds
+                .get(&conflict.path)
+                .map(|kind| (conflict.local_copy.clone(), kind.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut add_action = |path: String,
+                          kind: &str,
+                          before: Option<&[u8]>,
+                          after: Option<&[u8]>,
+                          role: PreparedRole| {
+        let action_id = uuid::Uuid::new_v4().to_string();
+        let outgoing = matches!(&role, PreparedRole::Push);
+        let binary = local_kinds
+            .get(&path)
+            .or_else(|| conflict_copy_kinds.get(&path))
+            .is_some_and(|kind| kind == "binary")
+            || before.is_some_and(|bytes| displayable_text(bytes).is_none())
+            || after.is_some_and(|bytes| displayable_text(bytes).is_none());
+        let public = OverleafPreparedAction {
+            action_id: action_id.clone(),
+            path,
+            kind: kind.to_string(),
+            before_base64: before.map(encode_base64),
+            after_base64: after.map(encode_base64),
+            binary,
+            outgoing,
+        };
+        public_actions.push(public.clone());
+        actions.insert(
+            action_id,
+            StoredAction {
+                path: public.path,
+                kind: public.kind,
+                binary: public.binary,
+                role,
+            },
+        );
+    };
+    for path in &plan.push {
+        add_action(
+            path.clone(),
+            "write",
+            remote.get(path).map(Vec::as_slice),
+            local.get(path).map(Vec::as_slice),
+            PreparedRole::Push,
+        );
+    }
+    for (path, bytes) in &plan.pull {
+        add_action(
+            path.clone(),
+            if local.contains_key(path) {
+                "write"
+            } else {
+                "create"
+            },
+            local.get(path).map(Vec::as_slice),
+            Some(bytes),
+            PreparedRole::Pull,
+        );
+    }
+    for (path, bytes) in &plan.merge {
+        add_action(
+            path.clone(),
+            "write",
+            local.get(path).map(Vec::as_slice),
+            Some(bytes),
+            PreparedRole::Merge,
+        );
+    }
+    for conflict in &plan.conflict {
+        add_action(
+            conflict.local_copy.clone(),
+            "create",
+            None,
+            Some(&conflict.local),
+            PreparedRole::ConflictCopy,
+        );
+        add_action(
+            conflict.path.clone(),
+            "write",
+            Some(&conflict.local),
+            Some(&conflict.resolved),
+            PreparedRole::ConflictMain,
+        );
+        result.conflicts.push(OverleafConflict {
+            path: conflict.path.clone(),
+            local_copy: conflict.local_copy.clone(),
+            markers: conflict.markers,
+        });
+    }
+    for path in &plan.delete_local {
+        add_action(
+            path.clone(),
+            "delete",
+            local.get(path).map(Vec::as_slice),
+            None,
+            PreparedRole::Delete,
+        );
+    }
+    public_actions.sort_by(|a, b| a.path.cmp(&b.path).then_with(|| a.kind.cmp(&b.kind)));
+    let bytes =
+        remote.values().map(Vec::len).sum::<usize>() + local.values().map(Vec::len).sum::<usize>();
+    let plan_id = uuid::Uuid::new_v4().to_string();
+    let stored = StoredPlan {
+        created: Instant::now(),
+        bytes,
+        root,
+        host,
+        project_id: state.project_id.clone(),
+        state_digest: loaded_state_digest,
+        state,
+        remote_version,
+        remote,
+        local,
+        planned_files: plan.files,
+        actions,
+        result: result.clone(),
+    };
+    insert_prepared_plan(plan_id.clone(), stored)?;
+    Ok(OverleafPreparedSync {
+        plan_id,
+        actions: public_actions,
+        result,
+        remote_version,
+    })
+}
+
+/// Commit a prepared sync after the frontend has first applied accepted
+/// incoming actions to Catalog/Yjs. Project files are never read or written.
+pub fn commit_prepared_sync(
+    config_dir: &Path,
+    root: &Path,
+    prepared_plan_id: &str,
+    accepted_actions: &[OverleafAcceptedAction],
+) -> Result<OverleafSyncResult, String> {
+    let plan = {
+        let mut store = prepared_store()
+            .lock()
+            .expect("prepared sync store poisoned");
+        store
+            .plans
+            .remove(prepared_plan_id)
+            .ok_or_else(|| "Unknown or expired prepared sync plan.".to_string())?
+    };
+    if plan.created.elapsed() > PREPARED_PLAN_TTL {
+        return Err("Unknown or expired prepared sync plan.".to_string());
+    }
+    if canonical_root(root)? != plan.root {
+        return Err("Prepared sync belongs to a different project root.".to_string());
+    }
+    let current_state = load_state(root)?;
+    if state_digest(&current_state)? != plan.state_digest {
+        return Err("Overleaf sync state changed after preparation.".to_string());
+    }
+    let session = load_session(config_dir)?;
+    if sync_host(&current_state, &session)? != plan.host
+        || current_state.project_id != plan.project_id
+    {
+        return Err("Prepared sync belongs to a different Overleaf project.".to_string());
+    }
+
+    let mut accepted = BTreeMap::<String, Option<Vec<u8>>>::new();
+    for item in accepted_actions {
+        let action = plan
+            .actions
+            .get(&item.action_id)
+            .ok_or_else(|| format!("Unknown prepared action: {}", item.action_id))?;
+        if accepted.contains_key(&item.action_id) {
+            return Err(format!("Duplicate prepared action: {}", item.action_id));
+        }
+        let bytes = match action.kind.as_str() {
+            "delete" if item.base64.is_none() => None,
+            "delete" => return Err("Delete actions must not include bytes.".to_string()),
+            _ => Some(decode_base64(
+                item.base64
+                    .as_deref()
+                    .ok_or_else(|| "Create/write actions require canonical bytes.".to_string())?,
+                &action.path,
+            )?),
+        };
+        accepted.insert(item.action_id.clone(), bytes);
+    }
+    for id in accepted.keys() {
+        let action = &plan.actions[id];
+        if !matches!(&action.role, PreparedRole::ConflictMain) {
+            continue;
+        }
+        let local_copy = plan
+            .result
+            .conflicts
+            .iter()
+            .find(|conflict| conflict.path == action.path)
+            .map(|conflict| conflict.local_copy.as_str())
+            .ok_or_else(|| "Prepared conflict action is incomplete.".to_string())?;
+        let copy_accepted = plan.actions.iter().any(|(copy_id, candidate)| {
+            candidate.path == local_copy
+                && matches!(&candidate.role, PreparedRole::ConflictCopy)
+                && accepted.contains_key(copy_id)
+        });
+        if !copy_accepted {
+            return Err(format!(
+                "Conflict copy must be accepted before replacing {}.",
+                action.path
+            ));
+        }
+    }
+
+    let client = http_client(30)?;
+    let page = fetch_projects_page(&client, &plan.host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let writable = permits_writing(plan.state.permission.as_deref());
+    let mut uploads: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    let held_back: BTreeSet<String> = accepted
+        .iter()
+        .filter_map(|(id, bytes)| {
+            let action = &plan.actions[id];
+            if action.binary {
+                return None;
+            }
+            bytes
+                .as_ref()
+                .and_then(|value| std::str::from_utf8(value).ok())
+                .filter(|text| text.contains(CONFLICT_MARKER))
+                .map(|_| action.path.clone())
+        })
+        .collect();
+    for (id, bytes) in &accepted {
+        let action = &plan.actions[id];
+        if writable
+            && !held_back.contains(&action.path)
+            && matches!(
+                &action.role,
+                PreparedRole::Push | PreparedRole::Pull | PreparedRole::Merge
+            )
+        {
+            let bytes = bytes.as_ref().expect("validated action bytes");
+            if plan.remote.get(&action.path) != Some(bytes) {
+                uploads.insert(action.path.clone(), bytes.clone());
+            }
+        }
+    }
+
+    if !uploads.is_empty()
+        && plan.remote_version.is_some()
+        && fetch_remote_version(&client, &plan.host, &session.cookie, &plan.project_id)
+            != plan.remote_version
+    {
+        let mut result = OverleafSyncResult {
+            read_only: !writable,
+            ..Default::default()
+        };
+        result.skipped_large = plan.result.skipped_large;
+        result.automatic_remote_deletes = plan.result.automatic_remote_deletes;
+        return Ok(result);
+    }
+    if !uploads.is_empty() {
+        let folder = plan.state.root_folder_id.as_deref().ok_or_else(|| {
+            "Overleaf is still preparing file uploads. Try syncing again in a moment.".to_string()
+        })?;
+        let uploader = Uploader::new(
+            &client,
+            &plan.host,
+            &session.cookie,
+            &csrf,
+            &plan.project_id,
+            folder,
+        );
+        for (path, bytes) in &uploads {
+            uploader
+                .upload(path, bytes.clone())
+                .map_err(|e| format!("Failed to upload \"{path}\" to Overleaf: {e}"))?;
+        }
+    }
+
+    let mut next_files = plan.state.files.clone();
+    let controlled: BTreeSet<String> = plan
+        .actions
+        .values()
+        .filter(|a| !matches!(a.role, PreparedRole::ConflictCopy))
+        .map(|a| a.path.clone())
+        .collect();
+    for (path, hash) in &plan.planned_files {
+        if !controlled.contains(path) {
+            next_files.insert(path.clone(), hash.clone());
+        }
+    }
+    for path in plan.state.files.keys() {
+        if !plan.planned_files.contains_key(path) && !controlled.contains(path) {
+            next_files.remove(path);
+        }
+    }
+
+    let mut result = OverleafSyncResult {
+        read_only: !writable,
+        skipped_large: plan.result.skipped_large,
+        automatic_remote_deletes: plan.result.automatic_remote_deletes,
+        skipped_remote_deletes: plan.result.skipped_remote_deletes,
+        ..Default::default()
+    };
+    let mut bases = BTreeMap::<String, Vec<u8>>::new();
+    for (id, bytes) in accepted {
+        let action = &plan.actions[&id];
+        match &action.role {
+            PreparedRole::Push => {
+                if writable && !held_back.contains(&action.path) {
+                    let canonical = bytes.expect("validated action bytes");
+                    next_files.insert(action.path.clone(), sha256_hex(&canonical));
+                    bases.insert(action.path.clone(), canonical);
+                    result.pushed.push(action.path.clone());
+                }
+            }
+            PreparedRole::Pull => {
+                let canonical = bytes.expect("validated action bytes");
+                result.pulled.push(action.path.clone());
+                if held_back.contains(&action.path) {
+                    if let Some(remote) = plan.remote.get(&action.path) {
+                        next_files.insert(action.path.clone(), sha256_hex(remote));
+                        bases.insert(action.path.clone(), remote.clone());
+                    }
+                } else if writable || plan.remote.get(&action.path) == Some(&canonical) {
+                    next_files.insert(action.path.clone(), sha256_hex(&canonical));
+                    bases.insert(action.path.clone(), canonical);
+                } else if let Some(remote) = plan.remote.get(&action.path) {
+                    next_files.insert(action.path.clone(), sha256_hex(remote));
+                    bases.insert(action.path.clone(), remote.clone());
+                }
+            }
+            PreparedRole::Merge => {
+                result.merged.push(action.path.clone());
+                if held_back.contains(&action.path) {
+                    next_files.remove(&action.path);
+                } else if writable {
+                    let canonical = bytes.expect("validated action bytes");
+                    next_files.insert(action.path.clone(), sha256_hex(&canonical));
+                    bases.insert(action.path.clone(), canonical);
+                } else {
+                    next_files.remove(&action.path);
+                }
+            }
+            PreparedRole::ConflictMain => {
+                let remote = plan.remote.get(&action.path).cloned().unwrap_or_default();
+                next_files.insert(action.path.clone(), sha256_hex(&remote));
+                bases.insert(action.path.clone(), remote);
+                if let Some(conflict) = plan.result.conflicts.iter().find(|c| c.path == action.path)
+                {
+                    result.conflicts.push(conflict.clone());
+                }
+            }
+            PreparedRole::ConflictCopy => {}
+            PreparedRole::Delete => {
+                next_files.remove(&action.path);
+                result.deleted_local.push(action.path.clone());
+            }
+        }
+    }
+    for (path, bytes) in &uploads {
+        next_files.insert(path.clone(), sha256_hex(bytes));
+        bases.insert(path.clone(), bytes.clone());
+    }
+    for (path, hash) in &next_files {
+        if bases.contains_key(path) {
+            continue;
+        }
+        if let Some(bytes) = plan
+            .remote
+            .get(path)
+            .filter(|b| sha256_hex(b) == *hash)
+            .or_else(|| plan.local.get(path).filter(|b| sha256_hex(b) == *hash))
+        {
+            bases.insert(path.clone(), bytes.clone());
+        }
+    }
+    for (path, bytes) in bases {
+        write_base_copy(root, &path, &bytes)?;
+    }
+    let mut state = plan.state;
+    state.files = next_files;
+    state.last_sync = Some(now_iso());
+    state.remote_version = if uploads.is_empty() {
+        plan.remote_version
+    } else {
+        None
+    };
+    save_state(root, &state)?;
+    result.pushed = uploads.keys().cloned().collect();
+    result.pulled.sort();
+    result.merged.sort();
+    result.deleted_local.sort();
+    result.conflicts.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(result)
 }
 
 /// Keep the merge-base tree aligned with the hashes that will be persisted.
@@ -3843,6 +4471,266 @@ mod tests {
 
     fn state_remote_version(root: &Path) -> Option<i64> {
         load_state(root).unwrap().remote_version
+    }
+
+    fn authoritative(path: &str, bytes: &[u8]) -> OverleafAuthoritativeEntry {
+        OverleafAuthoritativeEntry {
+            path: path.to_string(),
+            kind: if std::str::from_utf8(bytes).is_ok() {
+                "text"
+            } else {
+                "binary"
+            }
+            .to_string(),
+            base64: encode_base64(bytes),
+        }
+    }
+
+    #[test]
+    fn staged_prepare_is_side_effect_free_and_commit_uses_reconciled_bytes() {
+        let base = b"base body".as_slice();
+        let remote = b"remote body".as_slice();
+        let canonical = b"remote body\npeer note".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", remote)]));
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", base)], &[("main.tex", base)]);
+        let state_before = fs::read(state_path(&root)).unwrap();
+        let base_before = read_base_copy(&root, "main.tex").unwrap();
+
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", base)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+
+        assert_eq!(read_local(&root, "main.tex").unwrap(), base);
+        assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), base_before);
+        let action = prepared
+            .actions
+            .iter()
+            .find(|action| action.path == "main.tex")
+            .unwrap();
+        assert!(!action.outgoing);
+
+        let result = commit_prepared_sync(
+            &config,
+            &root,
+            &prepared.plan_id,
+            &[OverleafAcceptedAction {
+                action_id: action.action_id.clone(),
+                base64: Some(encode_base64(canonical)),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(result.pulled, vec!["main.tex"]);
+        assert!(server.uploads()[0].body_text().contains("peer note"));
+        assert_eq!(
+            state_files(&root).get("main.tex"),
+            Some(&sha256_hex(canonical))
+        );
+        assert_eq!(
+            read_base_copy(&root, "main.tex").unwrap(),
+            "remote body\npeer note"
+        );
+        // Staged sync never treats disk as authoritative or rewrites it itself.
+        assert_eq!(read_local(&root, "main.tex").unwrap(), base);
+    }
+
+    #[test]
+    fn staged_deferred_delete_preserves_the_baseline() {
+        let base = b"keep me".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[]));
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", base)], &[("main.tex", base)]);
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", base)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        assert_eq!(prepared.actions[0].kind, "delete");
+
+        let result = commit_prepared_sync(&config, &root, &prepared.plan_id, &[]).unwrap();
+
+        assert!(result.deleted_local.is_empty());
+        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), "keep me");
+    }
+
+    #[test]
+    fn staged_plans_are_one_use_and_validate_actions_and_state() {
+        let base = b"base".as_slice();
+        let remote = b"remote".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", remote)]));
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", base)], &[("main.tex", base)]);
+        assert!(commit_prepared_sync(&config, &root, "missing-plan", &[])
+            .unwrap_err()
+            .contains("Unknown or expired"));
+
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", base)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let action = &prepared.actions[0];
+        let accepted = OverleafAcceptedAction {
+            action_id: action.action_id.clone(),
+            base64: action.after_base64.clone(),
+        };
+        assert!(commit_prepared_sync(
+            &config,
+            &root,
+            &prepared.plan_id,
+            &[accepted.clone(), accepted],
+        )
+        .unwrap_err()
+        .contains("Duplicate"));
+        assert!(commit_prepared_sync(&config, &root, &prepared.plan_id, &[])
+            .unwrap_err()
+            .contains("Unknown or expired"));
+
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", base)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let mut state = load_state(&root).unwrap();
+        state.last_sync = Some("changed-after-prepare".to_string());
+        save_state(&root, &state).unwrap();
+        assert!(commit_prepared_sync(&config, &root, &prepared.plan_id, &[])
+            .unwrap_err()
+            .contains("state changed"));
+    }
+
+    #[test]
+    fn staged_commit_stands_down_when_remote_history_moves() {
+        let base = b"base".as_slice();
+        let local = b"local edit".as_slice();
+        let server = start_server_versioned(
+            projects_page_html(),
+            build_zip(&[("main.tex", base)]),
+            vec![11, 12],
+        );
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", local)], &[("main.tex", base)]);
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", local)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let action = prepared
+            .actions
+            .iter()
+            .find(|action| action.outgoing)
+            .unwrap();
+        let result = commit_prepared_sync(
+            &config,
+            &root,
+            &prepared.plan_id,
+            &[OverleafAcceptedAction {
+                action_id: action.action_id.clone(),
+                base64: Some(encode_base64(local)),
+            }],
+        )
+        .unwrap();
+
+        assert!(result.pushed.is_empty());
+        assert!(server.uploads().is_empty());
+        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
+    }
+
+    #[test]
+    fn staged_conflict_requires_the_local_copy_before_the_main_replacement() {
+        let base = b"base body".as_slice();
+        let local = b"local edit".as_slice();
+        let remote = b"remote edit".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", remote)]));
+        let (config, root) =
+            seed_preview_project(&server, &[("main.tex", local)], &[("main.tex", base)]);
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[authoritative("main.tex", local)],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let main = prepared
+            .actions
+            .iter()
+            .find(|action| action.path == "main.tex")
+            .unwrap();
+
+        let error = commit_prepared_sync(
+            &config,
+            &root,
+            &prepared.plan_id,
+            &[OverleafAcceptedAction {
+                action_id: main.action_id.clone(),
+                base64: main.after_base64.clone(),
+            }],
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Conflict copy must be accepted"));
+        assert!(server.uploads().is_empty());
+        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
+    }
+
+    #[test]
+    fn staged_partial_upload_failure_does_not_advance_state() {
+        let base_a = b"base a".as_slice();
+        let base_b = b"base b".as_slice();
+        let local_a = b"local a".as_slice();
+        let local_b = b"local b".as_slice();
+        let server = start_server_versioned_with_upload_failure(
+            projects_page_html(),
+            build_zip(&[("a.tex", base_a), ("b.tex", base_b)]),
+            vec![11],
+            Some(2),
+        );
+        let (config, root) = seed_preview_project(
+            &server,
+            &[("a.tex", local_a), ("b.tex", local_b)],
+            &[("a.tex", base_a), ("b.tex", base_b)],
+        );
+        let prepared = prepare_sync(
+            &config,
+            &root,
+            &[
+                authoritative("a.tex", local_a),
+                authoritative("b.tex", local_b),
+            ],
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let accepted = prepared
+            .actions
+            .iter()
+            .map(|action| OverleafAcceptedAction {
+                action_id: action.action_id.clone(),
+                base64: action.after_base64.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        assert!(commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted).is_err());
+        assert_eq!(server.uploads().len(), 2);
+        let state = state_files(&root);
+        assert_eq!(state.get("a.tex"), Some(&sha256_hex(base_a)));
+        assert_eq!(state.get("b.tex"), Some(&sha256_hex(base_b)));
+        assert_eq!(read_base_copy(&root, "a.tex").unwrap(), "base a");
+        assert_eq!(read_base_copy(&root, "b.tex").unwrap(), "base b");
     }
 
     #[test]

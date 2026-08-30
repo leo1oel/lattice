@@ -67,7 +67,6 @@ type CanvasToolbarProps = {
   onCloseSplit?: () => void;
   markdown: boolean;
   html: boolean;
-  presentation?: boolean;
   paperView?: "blog" | "fulltext";
   paperHasBlog?: boolean;
   paperHasFullText?: boolean;
@@ -142,9 +141,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               {
                 value: "source",
                 label: t`Edit`,
-                title: props.presentation
-                  ? t`Edit presentation source`
-                  : props.markdown
+                title: props.markdown
                     ? t`Edit Markdown`
                     : props.html
                       ? t`Edit HTML`
@@ -153,9 +150,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               {
                 value: "split",
                 label: t`Split`,
-                title: props.presentation
-                  ? t`Edit and preview presentation`
-                  : props.markdown
+                title: props.markdown
                     ? t`Edit and preview Markdown`
                     : props.html
                       ? t`Edit and preview HTML`
@@ -164,9 +159,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               {
                 value: "pdf",
                 label: t`Preview`,
-                title: props.presentation
-                  ? t`Preview presentation`
-                  : props.markdown
+                title: props.markdown
                     ? t`Preview Markdown`
                     : props.html
                       ? t`Preview HTML`

@@ -17,6 +17,7 @@ import {
   FolderTree,
   Library,
   Plus,
+  Presentation,
   Search,
   Shapes,
   Shield,
@@ -128,6 +129,7 @@ export type AppWorkspaceSidebarProps = {
   setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
   setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
+  setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
   setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
   sidebarMode: "agent" | "project" | "papers";
   sidebarModeActionsRef: RefObject<HTMLDivElement | null>;
@@ -163,6 +165,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     setProjectFindHits,
     setProjectFindOpen,
     setProjectSearchOpen,
+    setPresentationCreateRequest,
     setSpreadsheetCreateRequest,
     sidebarMode,
     sidebarModeActionsRef,
@@ -198,7 +201,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
               <>
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
-                    <button aria-label={t`New document`} title={t`New document`}>
+                    <button aria-label={t`New document`} title={t`New document`} data-tour="new-document">
                       <Plus size={14} />
                     </button>
                   </DropdownMenuTrigger>
@@ -214,6 +217,10 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                     <DropdownMenuItem onSelect={() => setBoardCreateRequest((request) => request + 1)}>
                       <Shapes />
                       {t`New board`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPresentationCreateRequest((request) => request + 1)}>
+                      <Presentation />
+                      {t`New presentation`}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

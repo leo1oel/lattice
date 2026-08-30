@@ -11,6 +11,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { activateAppLocale } from "../i18n";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -231,6 +232,18 @@ function mountProject(projectRoot: string) {
 }
 
 describe("connection ownership", () => {
+  it("explains the regular-sync fallback in the selected language", async () => {
+    const { result } = mount("presentation.html");
+    await waitFor(() => expect(result.current.detail).toBe(
+      "Overleaf doesn’t support live editing for this file, so it will use regular sync.",
+    ));
+
+    await act(async () => activateAppLocale("zh-CN"));
+    await waitFor(() => expect(result.current.detail).toBe(
+      "Overleaf 不支持实时编辑此文件，将改用常规同步。",
+    ));
+  });
+
   it("uses an explicit global disconnect when live mode is disabled without a root", async () => {
     renderHook(() => useOverleafRealtime({
       enabled: false,

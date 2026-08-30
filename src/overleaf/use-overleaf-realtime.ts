@@ -12,6 +12,7 @@
  * channel is an improvement on syncing, never a replacement for it.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { OtDesyncError, OtDocument } from "./ot-document";
@@ -237,6 +238,7 @@ export function useOverleafRealtime(options: {
   readCaret: () => number;
   onNotice: (message: string) => void;
 }): OverleafRealtime {
+  const { t } = useLingui();
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
   const [liveFile, setLiveFile] = useState(false);
@@ -976,10 +978,7 @@ export function useOverleafRealtime(options: {
     const id = activeDocId;
     // Only text documents Overleaf tracks can be edited live; anything else
     // (figures, files added since we joined) keeps going through syncing.
-    if (!id) {
-      setDetail(`${options.activeFile} is not a document Overleaf tracks, so it syncs instead.`);
-      return;
-    }
+    if (!id) return;
     let cancelled = false;
     const pendingUpdates: DocUpdateEvent[] = [];
     const pendingByDocument = joiningUpdates.current;
@@ -1216,7 +1215,9 @@ export function useOverleafRealtime(options: {
 
   return {
     status,
-    detail,
+    detail: options.documents && status === "live" && options.activeFile && !activeDocId
+      ? t`Overleaf doesn’t support live editing for this file, so it will use regular sync.`
+      : detail,
     liveFile,
     livePaths,
     docId: openDoc?.id ?? null,

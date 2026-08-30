@@ -4,7 +4,7 @@ import type { CatalogFileV2, CatalogV2, ProjectLifecycle } from "../../protocol/
 import { CollabControlErrorV2, CollabControlV2Client, type PresenceEntryV2 } from "./collab-control-v2";
 import type { CollabCredentialStore } from "./collab-credentials";
 import { CollabTextDurableStoreV2, type TextNamespaceV2 } from "./collab-text-v2-store";
-import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, isClientDestroyedErrorV2, type ReconnectPolicyV2, type TextDurabilityStateV2, type TextTransportFactoryV2 } from "./collab-text-v2";
+import { CollabTextClientV2, CollabTextProviderPoolV2, createYPartyTransportV2, isClientDestroyedErrorV2, type CollabTextPinV2, type ReconnectPolicyV2, type TextDurabilityStateV2, type TextTransportFactoryV2 } from "./collab-text-v2";
 import type { CollabDiagnosticSinkV2 } from "./collab-diagnostics-v2";
 import { CollabBinaryV2Client, type BinaryReplaceResult } from "./collab-binary-v2";
 import { formatCollabInvitationV2 } from "./collab-invitation-v2";
@@ -53,6 +53,17 @@ export type CollabLocalMutationsV2 = {
   writeBinaryConflict?(path: string, bytes: Uint8Array, projectRoot: string): Promise<void>;
 };
 export type CollabMaterializeResultV2 = { rootPath: string; openPath: string; textCount: number; binaryCount: number; fileCount: number };
+export const EXTERNAL_TEXT_SNAPSHOT_ORIGIN_V2 = Symbol("v2-external-text-snapshot");
+export type SideloadedTextIdentityV2 = { projectInstanceId: string; fileId: string; documentEpoch: number };
+export type SideloadedTextBindingV2 = {
+  readonly bindingId: string; readonly identity: SideloadedTextIdentityV2; readonly doc: Y.Doc; readonly ytext: Y.Text;
+  readonly version: number; readonly canWrite: boolean; readonly durabilityState: TextDurabilityStateV2;
+  subscribeCanWrite(listener: (canWrite: boolean) => void): () => void;
+  subscribeDurability(listener: (state: TextDurabilityStateV2) => void): () => void;
+  applyExternalDocument(update: (doc: Y.Doc) => void, expectedVersion?: number): number;
+  applyExternalText(text: string, expectedVersion?: number): number;
+  release(): void;
+};
 
 /** Tree-level difference between two catalog snapshots, as seen by a peer. */
 export type CatalogDeltaV2 = {
@@ -139,8 +150,9 @@ export class CollabProjectControllerV2 {
   private readonly fallbackDoc = new Y.Doc();
   private fallbackAwareness = new Awareness(this.fallbackDoc);
   private activeClient?: CollabTextClientV2;
-  private activePin: "main" | "secondary" = "main";
+  private activePin?: CollabTextPinV2;
   private secondaryClient?: CollabTextClientV2;
+  private secondaryPin?: CollabTextPinV2;
   private secondaryPath?: string;
   private secondaryUndoManager?: Y.UndoManager;
   private secondaryOpenGeneration = 0;
@@ -148,6 +160,10 @@ export class CollabProjectControllerV2 {
   private chatClient?: CollabTextClientV2;
   private readonly chatDocListeners = new Set<(doc: Y.Doc | null) => void>();
   private commentsClient?: CollabTextClientV2;
+  private chatPin?: CollabTextPinV2;
+  private commentsPin?: CollabTextPinV2;
+  private readonly sideloadedBindings = new Set<SideloadedTextBindingV2>();
+  private readonly sideloadedCanWriteRefresh = new Set<() => void>();
   private readonly commentsDocListeners = new Set<(doc: Y.Doc | null) => void>();
   private destroyed = false;
   private cancelPeerRefresh?: () => void;
@@ -290,7 +306,8 @@ export class CollabProjectControllerV2 {
     // Pinned for the whole session: an unpinned clean client is fair game for
     // pool eviction, which would silently kill the chat panel under >capacity
     // open-file pressure.
-    this.pool.pin(client, "chat");
+    this.chatPin?.release();
+    this.chatPin = this.pool.pin(client, "chat");
     this.chatClient = client;
     for (const listener of this.chatDocListeners) listener(client.doc);
     return client.doc;
@@ -336,7 +353,8 @@ export class CollabProjectControllerV2 {
     const file = this.file(EDITOR_COMMENTS_PATH);
     const client = file ? this.clients.get(file.fileId) : undefined;
     if (!client || client.isDestroyed) return null;
-    this.pool.pin(client, "comments");
+    this.commentsPin?.release();
+    this.commentsPin = this.pool.pin(client, "comments");
     this.commentsClient = client;
     for (const listener of this.commentsDocListeners) listener(client.doc);
     return client.doc;
@@ -364,6 +382,7 @@ export class CollabProjectControllerV2 {
     this.assertLiveController();
     this.catalogValue = catalog;
     this.catalogOffline = false;
+    for (const refresh of this.sideloadedCanWriteRefresh) refresh();
     this.reconcileDiskObservers();
     this.options.onCatalog?.(catalog);
     this.setStatus(catalog.lifecycle === "importing" ? "importing" : catalog.lifecycle === "closed" ? "closed" : "syncing");
@@ -595,10 +614,9 @@ export class CollabProjectControllerV2 {
     if (this.materializeContext) this.attachDiskObserver(file, client, this.materializeContext.lease, this.materializeContext.callbacks);
     if (!options.sideload && (options.activateIf?.() ?? true)) {
       const previousClient = this.activeClient;
-      const previousPin = this.activePin;
-      this.pool.pin(client, pin);
-      if (previousClient && (previousClient !== client || previousPin !== pin)) this.pool.unpin(previousClient, previousPin);
-      this.activeClient = client; this.activePin = pin; this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
+      if (previousClient !== client) { this.activePin?.release(); this.activePin = this.pool.pin(client, pin); }
+      else if (!this.activePin) this.activePin = this.pool.pin(client, pin);
+      this.activeClient = client; this.activePath = path; this.ytext = client.doc.getText("content"); this.undoManager.destroy(); this.undoManager = new Y.UndoManager(this.ytext); this.provider = { awareness: client.awareness ?? this.fallbackAwareness }; this.awarenessVersion += 1; this.announcePresence(previousClient, client, path);
       this.emitCanWrite();
       if (!this.firstFileOpened) { this.firstFileOpened = true; const now = (this.options.now ?? Date.now)(); this.options.diagnostics?.({ name: "first_file_open", at: now, durationMs: now - this.startedAt, fileId: file.fileId }); }
     }
@@ -658,6 +676,64 @@ export class CollabProjectControllerV2 {
     } finally {
       if (this.openingClients.get(openingKey) === opening) this.openingClients.delete(openingKey);
     }
+  }
+
+  /** Opens a text document for a managed workspace without changing the primary editor binding or presence. */
+  async openSideloadedText(path: string, bindingId: string): Promise<SideloadedTextBindingV2> {
+    this.assertLiveController();
+    if (!bindingId) throw new Error("A binding id is required");
+    const file = this.file(path);
+    if (!file || file.kind === "binary" || file.state !== "live") throw new Error("Text-family file is unavailable");
+    await this.openPath(path, "secondary", { sideload: true });
+    this.assertLiveController();
+    const client = this.clients.get(file.fileId);
+    const current = this.fileById(file.fileId);
+    if (!client || client.isDestroyed || !current || current.state !== "live" || current.documentEpoch !== file.documentEpoch) throw new Error("File changed while opening");
+
+    const pin = this.pool.pin(client, bindingId);
+    const identity = Object.freeze({ projectInstanceId: this.options.projectInstanceId, fileId: file.fileId, documentEpoch: file.documentEpoch });
+    const ytext = client.doc.getText("content");
+    let released = false; let version = 0;
+    const canWriteListeners = new Set<(value: boolean) => void>();
+    const onUpdate = () => { version += 1; };
+    client.doc.on("update", onUpdate);
+    const isCurrent = () => {
+      const catalogFile = this.fileById(identity.fileId);
+      return !released && !this.destroyed && !client.isDestroyed && !client.isStopped && (this.options.permission ?? "write") !== "read" && !!catalogFile && catalogFile.state === "live" && catalogFile.documentEpoch === identity.documentEpoch;
+    };
+    const refreshCanWrite = () => { const value = isCurrent(); for (const listener of canWriteListeners) listener(value); };
+    this.sideloadedCanWriteRefresh.add(refreshCanWrite);
+    const offState = client.subscribeState(refreshCanWrite);
+    const binding: SideloadedTextBindingV2 = {
+      bindingId, identity, doc: client.doc, ytext,
+      get version() { return version; },
+      get canWrite() { return isCurrent(); },
+      get durabilityState() { return client.durabilityState; },
+      subscribeCanWrite(listener) { canWriteListeners.add(listener); listener(isCurrent()); return () => canWriteListeners.delete(listener); },
+      subscribeDurability(listener) { if (released) { listener(client.durabilityState); return () => undefined; } return client.subscribeState(listener); },
+      applyExternalDocument: (update, expectedVersion) => {
+        if (!isCurrent()) throw new Error("Sideloaded text binding is no longer writable");
+        if (expectedVersion !== undefined && expectedVersion !== version) throw new Error("Sideloaded text binding version is stale");
+        update(client.doc);
+        return version;
+      },
+      applyExternalText: (text, expectedVersion) => {
+        if (!isCurrent()) throw new Error("Sideloaded text binding is no longer writable");
+        if (expectedVersion !== undefined && expectedVersion !== version) throw new Error("Sideloaded text binding version is stale");
+        const before = ytext.toString();
+        let start = 0; const limit = Math.min(before.length, text.length);
+        while (start < limit && before.charCodeAt(start) === text.charCodeAt(start)) start += 1;
+        let oldEnd = before.length; let newEnd = text.length;
+        while (oldEnd > start && newEnd > start && before.charCodeAt(oldEnd - 1) === text.charCodeAt(newEnd - 1)) { oldEnd -= 1; newEnd -= 1; }
+        if (start !== oldEnd || start !== newEnd) client.doc.transact(() => { if (oldEnd > start) ytext.delete(start, oldEnd - start); if (newEnd > start) ytext.insert(start, text.slice(start, newEnd)); }, EXTERNAL_TEXT_SNAPSHOT_ORIGIN_V2);
+        return version;
+      },
+      release: () => {
+        if (released) return; released = true; pin.release(); offState(); this.sideloadedCanWriteRefresh.delete(refreshCanWrite); client.doc.off("update", onUpdate); canWriteListeners.clear(); this.sideloadedBindings.delete(binding);
+      },
+    };
+    this.sideloadedBindings.add(binding);
+    return binding;
   }
 
   /**
@@ -765,14 +841,12 @@ export class CollabProjectControllerV2 {
     const client = this.clients.get(file.fileId);
     if (!client || client.isDestroyed) return null;
     if (this.secondaryClient !== client) {
-      if (this.secondaryClient && !this.secondaryClient.isDestroyed) {
-        this.pool.unpin(this.secondaryClient, "secondary");
-      }
+      this.secondaryPin?.release();
       this.secondaryUndoManager?.destroy();
       this.secondaryClient = client;
       this.secondaryPath = path;
       this.secondaryUndoManager = new Y.UndoManager(ytext);
-      this.pool.pin(client, "secondary");
+      this.secondaryPin = this.pool.pin(client, "secondary");
       this.awarenessVersion += 1;
     }
     this.secondaryPath = path;
@@ -789,7 +863,7 @@ export class CollabProjectControllerV2 {
   releaseSecondaryPath(path?: string): void {
     if (!this.secondaryClient || (path && path !== this.secondaryPath)) return;
     this.secondaryOpenGeneration += 1;
-    if (!this.secondaryClient.isDestroyed) this.pool.unpin(this.secondaryClient, "secondary");
+    this.secondaryPin?.release(); this.secondaryPin = undefined;
     this.secondaryClient = undefined;
     this.secondaryPath = undefined;
     this.secondaryUndoManager?.destroy();
@@ -1050,9 +1124,11 @@ export class CollabProjectControllerV2 {
     // Best-effort leave so our entry does not linger until the server TTL.
     if (this.control) void this.leavePresence().catch(() => undefined);
     for (const listener of this.chatDocListeners) listener(null);
-    this.chatDocListeners.clear(); this.chatClient = undefined;
+    this.chatDocListeners.clear(); this.chatClient = undefined; this.chatPin?.release(); this.chatPin = undefined;
     for (const listener of this.commentsDocListeners) listener(null);
-    this.commentsDocListeners.clear(); this.commentsClient = undefined;
+    this.commentsDocListeners.clear(); this.commentsClient = undefined; this.commentsPin?.release(); this.commentsPin = undefined;
+    for (const binding of [...this.sideloadedBindings]) binding.release();
+    this.activePin?.release(); this.activePin = undefined; this.secondaryPin?.release(); this.secondaryPin = undefined;
     this.secondaryUndoManager?.destroy(); this.secondaryUndoManager = undefined; this.secondaryClient = undefined; this.secondaryPath = undefined; this.secondaryBindingListeners.clear();
     for (const detach of this.diskObservers.values()) detach(); this.diskObservers.clear(); for (const client of this.clients.values()) client.destroy(); this.clients.clear(); this.canWriteListeners.clear(); this.undoManager.destroy(); this.fallbackAwareness.destroy(); this.fallbackDoc.destroy();
   }

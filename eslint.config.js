@@ -11,11 +11,15 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "tools/open-slide-runtime/**/*.mjs"],
     languageOptions: {
       globals: {
+        Buffer: "readonly",
+        URL: "readonly",
+        clearTimeout: "readonly",
         console: "readonly",
         process: "readonly",
+        setTimeout: "readonly",
       },
     },
   },
@@ -70,7 +74,7 @@ export default tseslint.config(
       "src/canvas/canvas-toolbar.tsx",
       "src/canvas/document-canvas.tsx",
       "src/editor/editor-languages.ts",
-      "src/editor/presentation/presentation-editor.tsx",
+      "src/editor/presentation/open-slide-workspace.tsx",
       "src/onboarding/onboarding-tour.tsx",
       "src/collab/collab-dialog.tsx",
       "src/build/tex-setup-wizard.tsx",

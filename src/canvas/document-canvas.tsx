@@ -123,8 +123,6 @@ import type {
   EditorPosition,
   PaperSummary,
   CanvasMode,
-  DocumentViewMode,
-  PresentationFileViewState,
   EditorPaneId,
   InsertSymbolCommand,
   EditorKeymap,
@@ -132,7 +130,7 @@ import type {
 import {
   isHarperProseFilePath,
   isHtmlFilePath,
-  isPresentationFilePath,
+  isOpenSlideDeckPath,
   isPreviewableSourceFilePath,
   markdownFrontmatterEnd,
   PROJECT_FIGURE_DRAG_TYPE,
@@ -157,7 +155,7 @@ import {
   markVisualMarkdownEditorWarmed,
   loadBoardEditorModule,
   loadPdfPreviewModule,
-  loadPresentationEditorModule,
+  loadOpenSlideWorkspaceModule,
   loadSpreadsheetEditorModule,
   loadVisualMarkdownEditorModule,
 } from "./canvas-lazy-modules";
@@ -174,8 +172,8 @@ const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({
 const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({
   default: module.SpreadsheetEditor,
 })));
-const PresentationEditor = lazy(() => loadPresentationEditorModule().then((module) => ({
-  default: module.PresentationEditor,
+const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({
+  default: module.OpenSlideWorkspace,
 })));
 
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
@@ -1169,6 +1167,7 @@ function useOptionalKeymapExtensions(
 }
 
 export function DocumentCanvas(props: {
+  projectRoot: string;
   mode: CanvasMode;
   dualPreviewPanes?: { primary: boolean; secondary: boolean };
   /** Whether some pane still holds an editor a PDF double-click can jump into. */
@@ -1192,12 +1191,9 @@ export function DocumentCanvas(props: {
   onPaperTextSelect: (value: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onViewMarkdownSource: () => void;
-  onPresentationModeChange: (mode: DocumentViewMode) => void;
-  presentationPaneModes: Partial<Record<string, PresentationFileViewState["mode"]>>;
-  onPresentationPaneModeChange: (
-    path: string,
-    mode: PresentationFileViewState["mode"],
-  ) => void;
+  onOpenSlideMutation: import("../editor/presentation/open-slide-workspace").OpenSlideWorkspaceProps["onMutation"];
+  onOpenSlideContext?: import("../editor/presentation/open-slide-workspace").OpenSlideWorkspaceProps["onContext"];
+  onOpenSlideError?: (message: string) => void;
   pdfUrl: string | null;
   pdfBase64: string | null;
   pdfBytes?: ArrayBuffer | null;
@@ -1361,9 +1357,6 @@ export function DocumentCanvas(props: {
     onCommentFocusHandled,
     getFileViewState,
     onFileViewState,
-    onPresentationModeChange,
-    presentationPaneModes,
-    onPresentationPaneModeChange,
   } = props;
   const { i18n, t } = useLingui();
   const editorCommentLocalizationRef = useRef<EditorCommentLocalization>({
@@ -1503,17 +1496,7 @@ export function DocumentCanvas(props: {
       });
     });
   }, [activePaperBrowserUrl, t]);
-  const presentationDocument = !props.activePaper && isPresentationFilePath(activeFile);
-  const presentationMode = props.mode === "source"
-    ? "source"
-    : props.mode === "split"
-      ? "split"
-      : props.mode === "pdf"
-        ? "preview"
-        : undefined;
-  const changePresentationMode = useCallback((nextMode: "source" | "split" | "preview") => {
-    onPresentationModeChange(nextMode === "preview" ? "pdf" : nextMode);
-  }, [onPresentationModeChange]);
+  const presentationDocument = !props.activePaper && isOpenSlideDeckPath(activeFile);
   const markdownDocument = (Boolean(props.activePaper) || activeFile.toLocaleLowerCase().endsWith(".md"))
     && !presentationDocument;
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
@@ -2025,21 +2008,6 @@ export function DocumentCanvas(props: {
   const onPrimaryChange = useCallback((value: string) => {
     setSourceRef.current(value);
   }, []);
-  const onPrimaryPresentationChange = useCallback((value: string) => {
-    if (collabSession?.activePath === activeFileRefEditor.current) {
-      const current = collabSession.ytext.toString();
-      if (current !== value) {
-        // A preview control may have rendered just before a remote edit landed.
-        // Never replace that newer shared text from a stale presentation model.
-        if (current !== editorSource) {
-          setSourceRef.current(current);
-          return;
-        }
-        mergeTextIntoYText(collabSession.ytext, value);
-      }
-    }
-    setSourceRef.current(value);
-  }, [collabSession, editorSource]);
   const onPrimaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
     if (focusedPaneRef.current !== "primary") return;
     const range = viewUpdate.state.selection.main;
@@ -3937,25 +3905,6 @@ export function DocumentCanvas(props: {
       viewState={props.getFileViewState?.(props.activeAsset.path)}
       onViewState={(update) => props.onFileViewState?.(props.activeAsset!.path, update)}
     />
-  ) : presentationDocument ? (
-    <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
-      <PresentationEditor
-        key={activeFile}
-        path={activeFile}
-        source={props.source}
-        onChange={onPrimaryPresentationChange}
-        onPersist={props.onSave}
-        editable={props.editorEditable}
-        languageExtensions={primaryTextLanguageExtensions}
-        collabExtensions={collabExtensions}
-        mode={presentationMode}
-        onModeChange={presentationMode ? changePresentationMode : undefined}
-        initialViewState={props.getFileViewState?.(activeFile)?.presentation}
-        onViewState={(presentation) => props.onFileViewState?.(activeFile, { presentation })}
-        onLoadAsset={props.onLoadReferenceImage}
-        onOpenProjectPath={props.onOpenMarkdownPath}
-      />
-    </Suspense>
   ) : markdownDocument ? paperPreview : htmlDocument ? (
     props.interactivePreviewsEnabled
       ? (
@@ -4052,7 +4001,20 @@ export function DocumentCanvas(props: {
     );
   }
   if (presentationDocument && props.mode !== "dual" && props.mode !== "columns") {
-    return preview;
+    return (
+      <Suspense fallback={<div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />}>
+        <OpenSlideWorkspace
+          key={activeFile}
+          projectRoot={props.projectRoot}
+          path={activeFile}
+          source={props.source}
+          editable={props.editorEditable}
+          onMutation={props.onOpenSlideMutation}
+          onContext={props.onOpenSlideContext}
+          onError={props.onOpenSlideError}
+        />
+      </Suspense>
+    );
   }
   if (paperPdfActive) return paperPreview;
   if (props.mode === "source") return editor;
@@ -4083,7 +4045,7 @@ export function DocumentCanvas(props: {
           onViewState={(update) => props.onFileViewState?.(props.secondaryAsset!.path, update)}
         />
       </div>
-    ) : secondaryFile && isPresentationFilePath(secondaryFile) ? (
+    ) : secondaryFile && isOpenSlideDeckPath(secondaryFile) ? (
       <div
         className={`dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
         data-editor-pane="secondary"
@@ -4091,23 +4053,17 @@ export function DocumentCanvas(props: {
         onPointerDownCapture={focusSecondaryPane}
         onFocusCapture={focusSecondaryPane}
       >
-        <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
-          <PresentationEditor
+        <Suspense fallback={<div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />}>
+          <OpenSlideWorkspace
             key={secondaryFile}
+            projectRoot={props.projectRoot}
             path={secondaryFile}
             source={secondarySource}
-            onChange={onSecondaryChange}
-            onPersist={props.onSave}
             editable={props.secondaryEditorEditable}
             active={focusedPane === "secondary"}
-            languageExtensions={secondaryTextLanguageExtensions}
-            collabExtensions={secondaryCollabExtensions}
-            mode={presentationPaneModes[secondaryFile] ?? "source"}
-            onModeChange={(mode) => onPresentationPaneModeChange(secondaryFile, mode)}
-            initialViewState={props.getFileViewState?.(secondaryFile)?.presentation}
-            onViewState={(presentation) => props.onFileViewState?.(secondaryFile, { presentation })}
-            onLoadAsset={props.onLoadReferenceImage}
-            onOpenProjectPath={props.onOpenMarkdownPath}
+            onMutation={props.onOpenSlideMutation}
+            onContext={props.onOpenSlideContext}
+            onError={props.onOpenSlideError}
           />
         </Suspense>
       </div>
@@ -4205,26 +4161,7 @@ export function DocumentCanvas(props: {
         <p>{t`Open or drag a file here`}</p>
       </div>
     );
-    const secondaryPreviewContent = secondaryFile && isPresentationFilePath(secondaryFile) ? (
-      <Suspense fallback={<div className="presentation-editor" aria-busy="true" aria-label={t`Preparing presentation editor`} />}>
-        <PresentationEditor
-          key={secondaryFile}
-          path={secondaryFile}
-          source={secondarySource}
-          onChange={onSecondaryChange}
-          onPersist={props.onSave}
-          editable={props.secondaryEditorEditable}
-          active={focusedPane === "secondary"}
-          languageExtensions={secondaryTextLanguageExtensions}
-          collabExtensions={secondaryCollabExtensions}
-          mode="preview"
-          initialViewState={props.getFileViewState?.(secondaryFile)?.presentation}
-          onViewState={(presentation) => props.onFileViewState?.(secondaryFile, { presentation })}
-          onLoadAsset={props.onLoadReferenceImage}
-          onOpenProjectPath={props.onOpenMarkdownPath}
-        />
-      </Suspense>
-    ) : secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
+    const secondaryPreviewContent = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
       <SecondaryMarkdownPreview
         key={secondaryFile}
         path={secondaryFile}
@@ -4354,24 +4291,18 @@ export function DocumentCanvas(props: {
           onFocusPane("primary");
         }}
       >
-        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : spreadsheetDocument ? "spreadsheet-editor-root" : "presentation-editor"} aria-busy="true" aria-label={boardDocument ? t`Preparing board editor` : spreadsheetDocument ? t`Preparing spreadsheet editor` : t`Preparing presentation editor`} />}>
+        <Suspense fallback={<div className={boardDocument ? "board-editor-root" : spreadsheetDocument ? "spreadsheet-editor-root" : "open-slide-status"} aria-busy="true" aria-label={boardDocument ? t`Preparing board editor` : spreadsheetDocument ? t`Preparing spreadsheet editor` : t`Starting Open Slide`} />}>
           {presentationDocument ? (
-            <PresentationEditor
+            <OpenSlideWorkspace
               key={activeFile}
+              projectRoot={props.projectRoot}
               path={activeFile}
               source={props.source}
-              onChange={onPrimaryPresentationChange}
-              onPersist={props.onSave}
               editable={props.editorEditable}
               active={focusedPane === "primary"}
-              languageExtensions={primaryTextLanguageExtensions}
-              collabExtensions={collabExtensions}
-              mode={presentationPaneModes[activeFile] ?? "source"}
-              onModeChange={(mode) => onPresentationPaneModeChange(activeFile, mode)}
-              initialViewState={props.getFileViewState?.(activeFile)?.presentation}
-              onViewState={(presentation) => props.onFileViewState?.(activeFile, { presentation })}
-              onLoadAsset={props.onLoadReferenceImage}
-              onOpenProjectPath={props.onOpenMarkdownPath}
+              onMutation={props.onOpenSlideMutation}
+              onContext={props.onOpenSlideContext}
+              onError={props.onOpenSlideError}
             />
           ) : boardDocument ? (
             <BoardEditor

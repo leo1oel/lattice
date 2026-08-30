@@ -81,14 +81,6 @@ export type BoardFileViewState = {
   camera: { x: number; y: number; z: number };
 };
 
-export type PresentationFileViewState = {
-  slide: number;
-  mode: "source" | "split" | "preview";
-  thumbnailRailOpen?: boolean;
-  thumbnailRailWidth?: number;
-  splitRatio?: number;
-};
-
 export type ScrollFileViewState = {
   scrollTop: number;
   scrollLeft?: number;
@@ -112,7 +104,6 @@ export type FileViewState = {
   spreadsheet?: SpreadsheetFileViewState;
   pdf?: PdfFileViewState;
   board?: BoardFileViewState;
-  presentation?: PresentationFileViewState;
   image?: ImageFileViewState;
   html?: HtmlFileViewState;
   visualMarkdown?: ScrollFileViewState;
@@ -376,6 +367,34 @@ export type OverleafSyncResult = {
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
   readOnly?: boolean;
+};
+
+export type OverleafAuthoritativeEntry = {
+  path: string;
+  kind: "text" | "binary" | "board" | "spreadsheet";
+  base64: string;
+};
+
+export type OverleafPreparedAction = {
+  actionId: string;
+  path: string;
+  kind: "create" | "write" | "delete";
+  beforeBase64: string | null;
+  afterBase64: string | null;
+  binary: boolean;
+  outgoing: boolean;
+};
+
+export type OverleafPreparedSync = {
+  planId: string;
+  actions: OverleafPreparedAction[];
+  result: OverleafSyncResult;
+  remoteVersion: number | null;
+};
+
+export type OverleafAcceptedAction = {
+  actionId: string;
+  base64?: string;
 };
 
 // ---- Git version timeline ------------------------------------------------

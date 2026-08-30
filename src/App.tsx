@@ -66,6 +66,11 @@ import { AppProjectSearchDialogs, AppSearchDialogs } from "./app/app-search-dial
 import { AppTitlebar } from "./app/app-titlebar";
 import { AppWorkspaceSidebar } from "./app/app-workspace-sidebar";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
+import type {
+  OpenSlideContext,
+  OpenSlideMutation,
+  OpenSlideSyncOperation,
+} from "./editor/presentation/open-slide-bridge";
 import { AvatarGroup } from "./components/ui/avatar-group";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
@@ -138,7 +143,11 @@ import { collabCredentialStore } from "./collab/collab-credentials";
 import { loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
-import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2 } from "./collab/collab-project-v2";
+import {
+  CollabProjectControllerV2,
+  type CollabMaterializeCallbacksV2,
+  type SideloadedTextBindingV2,
+} from "./collab/collab-project-v2";
 import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
@@ -213,10 +222,14 @@ import type {
   CanvasMode,
   EditorPaneId,
   DocumentViewMode,
-  PresentationFileViewState,
   SettingsTab,
   InsertSymbolCommand,
   DoctorReport,
+  OverleafAcceptedAction,
+  OverleafAuthoritativeEntry,
+  OverleafPreparedAction,
+  OverleafPreparedSync,
+  OverleafSyncResult,
 } from "./app-types";
 import {
   applyProjectPathChanges,
@@ -230,7 +243,7 @@ import {
   dropEditorAt,
   editorPaneAt,
   isHtmlFilePath,
-  isPresentationFilePath,
+  isOpenSlideDeckPath,
   isPreviewableSourceFilePath,
   isProjectAssetFilePath,
   isProjectSourceFilePath,
@@ -305,6 +318,66 @@ type EditorWriteResult = {
   externalChangesMerged: boolean;
   hadConflicts: boolean;
 };
+
+type TextMergeResult = {
+  content: string;
+  hadConflicts: boolean;
+};
+
+function base64ToBytes(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
+async function collabBindingContent(
+  binding: SideloadedTextBindingV2,
+  kind: OverleafAuthoritativeEntry["kind"],
+): Promise<string> {
+  if (kind === "board") {
+    return (await import("./editor/board/board-yjs-bridge")).boardDocContent(binding.doc);
+  }
+  if (kind === "spreadsheet") {
+    return (await import("./editor/spreadsheet/spreadsheet-yjs")).spreadsheetDocContent(binding.doc);
+  }
+  return binding.ytext.toString();
+}
+
+async function applyStructuredCollabContent(
+  binding: SideloadedTextBindingV2,
+  kind: "board" | "spreadsheet",
+  content: string,
+  version: number,
+): Promise<void> {
+  if (kind === "board") {
+    const { replaceBoardDocFromSource } = await import("./editor/board/board-yjs-bridge");
+    binding.applyExternalDocument((doc) => replaceBoardDocFromSource(doc, content), version);
+  } else {
+    const { replaceSpreadsheetDocFromSource } = await import("./editor/spreadsheet/spreadsheet-yjs");
+    binding.applyExternalDocument((doc) => replaceSpreadsheetDocFromSource(doc, content), version);
+  }
+}
+
+async function withSideloadedText<T>(
+  controller: CollabProjectControllerV2,
+  path: string,
+  bindingId: string,
+  operation: (binding: SideloadedTextBindingV2) => Promise<T>,
+): Promise<T> {
+  const binding = await controller.openSideloadedText(path, bindingId);
+  try {
+    return await operation(binding);
+  } finally {
+    binding.release();
+  }
+}
+
+function projectFileMimeType(path: string): string {
+  const extension = path.split(".").at(-1)?.toLocaleLowerCase();
+  if (extension === "png") return "image/png";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "webp") return "image/webp";
+  if (extension === "pdf") return "application/pdf";
+  return "application/octet-stream";
+}
 
 type ReferencePreviewCacheEntry = {
   promise: Promise<string | null>;
@@ -837,26 +910,6 @@ function App() {
   }, [fileViewStateRoot, scheduleFileViewStatePersistence, viewStateEpoch]);
   const getFileViewState = useCallback((path: string) => viewStateRef.current.get(path), []);
   useEffect(() => flushFileViewStates, [flushFileViewStates]);
-  const [presentationPaneModesState, setPresentationPaneModesState] = useState<{
-    projectRoot: string | null;
-    modes: Partial<Record<string, PresentationFileViewState["mode"]>>;
-  }>({ projectRoot: null, modes: {} });
-  const presentationPaneModes = presentationPaneModesState.projectRoot === fileViewStateRoot
-    ? presentationPaneModesState.modes
-    : {};
-  const changePresentationPaneMode = useCallback((
-    path: string,
-    mode: PresentationFileViewState["mode"],
-  ) => {
-    if (!fileViewStateRoot) return;
-    setPresentationPaneModesState((current) => {
-      const modes = current.projectRoot === fileViewStateRoot ? current.modes : {};
-      if (modes[path] === mode) return current.projectRoot === fileViewStateRoot
-        ? current
-        : { projectRoot: fileViewStateRoot, modes };
-      return { projectRoot: fileViewStateRoot, modes: { ...modes, [path]: mode } };
-    });
-  }, [fileViewStateRoot]);
   const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
   const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
@@ -1228,16 +1281,6 @@ function App() {
   const focusedDocumentPath = focusedPane === "secondary" && secondaryFile
     ? secondaryFile
     : activeFile;
-  const focusedPresentationDocument = !activePaper
-    && !focusedAsset
-    && isPresentationFilePath(focusedDocumentPath);
-  const focusedPresentationPaneMode = focusedPresentationDocument
-    && (canvasMode === "dual" || canvasMode === "columns")
-    ? presentationPaneModes[focusedDocumentPath] ?? "source"
-    : null;
-  const focusedPresentationToolbarMode = focusedPresentationPaneMode === "preview"
-    ? "pdf"
-    : focusedPresentationPaneMode ?? undefined;
   const insertTargetPath = focusedDocumentPath;
   const canInsert = canvasMode !== "pdf"
     && !activePaper
@@ -1471,6 +1514,8 @@ function App() {
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [boardCreateRequest, setBoardCreateRequest] = useState(0);
   const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
+  const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
+  const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const synaraIframeRef = useRef<HTMLIFrameElement>(null);
   const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
   useSynaraNotificationBridge({
@@ -1661,6 +1706,7 @@ function App() {
           selection,
           selectionSource,
           selectionImage: agentSelectionImage,
+          presentation: openSlideContext,
           activeSurface: agentActiveSurface,
         })
       : null,
@@ -1671,6 +1717,7 @@ function App() {
       activePaper,
       canvasMode,
       editorPosition,
+      openSlideContext,
       paperView,
       pdfPageCount,
       pdfPageNumber,
@@ -3805,6 +3852,281 @@ function App() {
     displayName: collabName,
   });
 
+  const runSharedOverleafSync = useCallback(async (): Promise<OverleafSyncResult> => {
+    const controller = collabV2ControllerRef.current;
+    const lease = collabWorkspaceLeaseRef.current;
+    const projectRoot = projectRef.current?.root;
+    if (
+      activeCollabVersion !== 2
+      || !controller
+      || !lease?.isCurrent()
+      || !projectRoot
+      || collabSessionRef.current !== controller
+    ) {
+      throw new Error("The shared project changed before Overleaf sync could start.");
+    }
+    if (!collabCanWrite || controller.canWrite === false) {
+      throw new Error("This shared project is read-only.");
+    }
+
+    await controller.settled();
+    await controller.flush();
+    await controller.refetchCatalog();
+    assertCollabWorkspaceLease(lease);
+
+    const local = v2WorkspaceCallbacks(lease);
+    const localMutations = {
+      rename: local.rename!,
+      delete: local.delete!,
+      writeBinaryConflict: (path: string, bytes: Uint8Array, root: string) => (
+        local.writeBytes(path, bytes, root)
+      ),
+    };
+    const textDecoder = new TextDecoder("utf-8", { fatal: true });
+    const textEncoder = new TextEncoder();
+    const setOpenBuffer = (path: string, content: string) => {
+      if (activeFileRef.current === path) {
+        sourceRef.current = content;
+        savedSourceRef.current = content;
+        setSource(content);
+        setSavedSource(content);
+      }
+      if (secondaryFileRef.current === path) {
+        secondarySourceRef.current = content;
+        secondarySavedRef.current = content;
+        setSecondarySource(content);
+        setSecondarySavedSource(content);
+      }
+    };
+    const catalogKindForNewPath = (action: OverleafPreparedAction): OverleafAuthoritativeEntry["kind"] => {
+      const lower = action.path.toLocaleLowerCase("en-US");
+      if (action.binary) return "binary";
+      if (lower.endsWith(".tldr")) return "board";
+      if (lower.endsWith(".lattice-sheet")) return "spreadsheet";
+      return "text";
+    };
+
+    const inventory: OverleafAuthoritativeEntry[] = [];
+    for (const file of controller.catalogFiles().filter((entry) => entry.state === "live")) {
+      assertCollabWorkspaceLease(lease);
+      if (file.kind === "binary") {
+        inventory.push({
+          path: file.path,
+          kind: file.kind,
+          base64: bytesToBase64(await controller.downloadBinary(file.path)),
+        });
+        continue;
+      }
+      await withSideloadedText(
+        controller,
+        file.path,
+        `overleaf-inventory:${crypto.randomUUID()}`,
+        async (binding) => {
+          inventory.push({
+            path: file.path,
+            kind: file.kind,
+            base64: bytesToBase64(textEncoder.encode(await collabBindingContent(binding, file.kind))),
+          });
+        },
+      );
+    }
+
+    const prepared = await invoke<OverleafPreparedSync>("overleaf_prepare_sync", {
+      projectRoot,
+      authoritativeInventory: inventory,
+      live: [],
+    });
+    const acceptedActions: OverleafAcceptedAction[] = [];
+    const acceptedPaths = new Set<string>();
+    const deferred = new Set<string>();
+    let concurrentTextConflicts = false;
+
+    for (const action of prepared.actions) {
+      assertCollabWorkspaceLease(lease);
+      const file = controller.catalogFiles().find((entry) => (
+        entry.path === action.path && entry.state === "live"
+      ));
+
+      // Catalog deletion and a Yjs edit cannot be one atomic operation. Keep
+      // remote deletions pending while a Share is live rather than deleting a
+      // peer's edit in the gap between an equality check and the tree update.
+      if (action.kind === "delete") {
+        deferred.add(action.path);
+        continue;
+      }
+      const conflict = prepared.result.conflicts.find((item) => item.path === action.path);
+      if (conflict && !acceptedPaths.has(conflict.localCopy)) {
+        deferred.add(action.path);
+        continue;
+      }
+
+      if (action.outgoing) {
+        if (!file) {
+          deferred.add(action.path);
+          continue;
+        }
+        if (file.kind === "binary") {
+          acceptedActions.push({
+            actionId: action.actionId,
+            base64: bytesToBase64(await controller.downloadBinary(action.path)),
+          });
+          acceptedPaths.add(action.path);
+        } else {
+          await withSideloadedText(
+            controller,
+            action.path,
+            `overleaf-outgoing:${action.actionId}`,
+            async (binding) => {
+              acceptedActions.push({
+                actionId: action.actionId,
+                base64: bytesToBase64(textEncoder.encode(await collabBindingContent(binding, file.kind))),
+              });
+              acceptedPaths.add(action.path);
+            },
+          );
+        }
+        continue;
+      }
+
+      const afterBase64 = action.afterBase64;
+      if (!afterBase64) {
+        deferred.add(action.path);
+        continue;
+      }
+
+      if (action.kind === "create") {
+        if (file) {
+          deferred.add(action.path);
+          continue;
+        }
+        const kind = catalogKindForNewPath(action);
+        if (kind === "binary") {
+          const bytes = base64ToBytes(afterBase64);
+          await controller.create(action.path, kind);
+          await controller.replaceBinary(
+            action.path,
+            bytes,
+            projectFileMimeType(action.path),
+            localMutations,
+          );
+          await local.writeBytes(action.path, bytes, projectRoot);
+        } else {
+          const content = textDecoder.decode(base64ToBytes(afterBase64));
+          await controller.create(action.path, kind, { seedText: content });
+          await local.writeText(action.path, content, projectRoot);
+          setOpenBuffer(action.path, content);
+        }
+        acceptedActions.push({ actionId: action.actionId, base64: afterBase64 });
+        acceptedPaths.add(action.path);
+        continue;
+      }
+
+      if (!file || (action.binary !== (file.kind === "binary"))) {
+        deferred.add(action.path);
+        continue;
+      }
+      if (file.kind === "binary") {
+        const current = await controller.downloadBinary(action.path);
+        if (bytesToBase64(current) !== action.beforeBase64) {
+          deferred.add(action.path);
+          continue;
+        }
+        const replacement = base64ToBytes(afterBase64);
+        await controller.replaceBinary(
+          action.path,
+          replacement,
+          projectFileMimeType(action.path),
+          localMutations,
+        );
+        await local.writeBytes(action.path, replacement, projectRoot);
+        acceptedActions.push({ actionId: action.actionId, base64: afterBase64 });
+        acceptedPaths.add(action.path);
+        continue;
+      }
+
+      const collabKind = file.kind;
+      await withSideloadedText(
+        controller,
+        action.path,
+        `overleaf-incoming:${action.actionId}`,
+        async (binding) => {
+          if (collabKind === "text") {
+            const base = action.beforeBase64
+              ? textDecoder.decode(base64ToBytes(action.beforeBase64))
+              : "";
+            const edited = textDecoder.decode(base64ToBytes(afterBase64));
+            let canonical = binding.ytext.toString();
+            for (let attempt = 0; attempt < 4; attempt += 1) {
+              const version = binding.version;
+              const merged = await invoke<TextMergeResult>("merge_project_text", {
+                base,
+                edited,
+                current: binding.ytext.toString(),
+              });
+              try {
+                binding.applyExternalText(merged.content, version);
+                canonical = binding.ytext.toString();
+                concurrentTextConflicts = concurrentTextConflicts || merged.hadConflicts;
+                break;
+              } catch {
+                if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${action.path}.`);
+              }
+            }
+            await local.writeText(action.path, canonical, projectRoot);
+            setOpenBuffer(action.path, canonical);
+            acceptedActions.push({
+              actionId: action.actionId,
+              base64: bytesToBase64(textEncoder.encode(canonical)),
+            });
+            acceptedPaths.add(action.path);
+            return;
+          }
+
+          const current = await collabBindingContent(binding, collabKind);
+          if (bytesToBase64(textEncoder.encode(current)) !== action.beforeBase64) {
+            deferred.add(action.path);
+            return;
+          }
+          const replacement = textDecoder.decode(base64ToBytes(afterBase64));
+          const version = binding.version;
+          try {
+            await applyStructuredCollabContent(binding, collabKind, replacement, version);
+          } catch {
+            deferred.add(action.path);
+            return;
+          }
+          const canonical = await collabBindingContent(binding, collabKind);
+          await local.writeText(action.path, canonical, projectRoot);
+          setOpenBuffer(action.path, canonical);
+          acceptedActions.push({
+            actionId: action.actionId,
+            base64: bytesToBase64(textEncoder.encode(canonical)),
+          });
+          acceptedPaths.add(action.path);
+        },
+      );
+    }
+
+    await controller.settled();
+    await controller.flush();
+    assertCollabWorkspaceLease(lease);
+    const result = await invoke<OverleafSyncResult>("overleaf_commit_prepared_sync", {
+      projectRoot,
+      preparedPlanId: prepared.planId,
+      acceptedActions,
+    });
+    if (concurrentTextConflicts) {
+      setWarning("Overleaf and a Lattice collaborator changed the same lines; both versions were kept with conflict markers.", "Overleaf");
+    } else if (deferred.size) {
+      setWarning(`Overleaf changes were deferred while this Share was changing: ${[...deferred].join(", ")}.`, "Overleaf");
+    }
+    return result;
+  }, [
+    activeCollabVersion,
+    collabCanWrite,
+    v2WorkspaceCallbacks,
+  ]);
+
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
   // (presence, chat, comment threads, tracked changes) live in
@@ -3868,7 +4190,7 @@ function App() {
     saveGeneration,
     collabSession,
     collabName,
-    publishTextToCollabV2,
+    runSharedOverleafSync,
     save,
     compile,
     loadFile,
@@ -3878,6 +4200,229 @@ function App() {
     overleafSyncSettledRef,
     resolveOverleafSyncRef,
   });
+
+  const openSlideOverleafTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (openSlideOverleafTimerRef.current !== null) {
+      window.clearTimeout(openSlideOverleafTimerRef.current);
+    }
+  }, []);
+  const scheduleOpenSlideOverleafSync = useCallback(() => {
+    if (!overleafLink || overleafSyncMode !== "live") return;
+    if (openSlideOverleafTimerRef.current !== null) {
+      window.clearTimeout(openSlideOverleafTimerRef.current);
+    }
+    openSlideOverleafTimerRef.current = window.setTimeout(() => {
+      openSlideOverleafTimerRef.current = null;
+      void overleafSyncRef.current({ auto: true }).catch((reason) => setError(toMessage(reason)));
+    }, 750);
+  }, [overleafLink, overleafSyncMode, overleafSyncRef]);
+
+  const applyOpenSlideMutation = useCallback(async (
+    mutation: OpenSlideMutation,
+  ): Promise<OpenSlideSyncOperation[]> => {
+    const projectRoot = projectRef.current?.root;
+    if (!projectRoot) throw new Error("The project closed before the Open Slide edit could be saved.");
+    if (collabSessionRef.current?.canWrite === false || !collabCanWrite) {
+      throw new Error("This shared project is read-only.");
+    }
+    const controller = activeCollabVersion === 2 ? collabV2ControllerRef.current : null;
+    const lease = controller ? collabWorkspaceLeaseRef.current : null;
+    if (controller && !lease?.isCurrent()) {
+      throw new Error("The shared project changed before the Open Slide edit could be saved.");
+    }
+    const local = lease ? v2WorkspaceCallbacks(lease) : null;
+    const localMutations = local?.rename && local.delete
+      ? { rename: local.rename, delete: local.delete }
+      : null;
+    let canonicalText: string | undefined;
+    let canonicalBase64: string | undefined;
+    let hadConflicts = false;
+
+    if (mutation.kind === "delete") {
+      const shared = controller?.catalogFiles().find((file) => (
+        file.path === mutation.path && file.state === "live"
+      ));
+      if (controller && shared && localMutations) {
+        await controller.delete(mutation.path, localMutations);
+      } else {
+        await invoke("delete_project_entry", { path: mutation.path, projectRoot });
+      }
+    } else if (mutation.text !== undefined) {
+      const previous = mutation.previousText ?? "";
+      if (controller?.hasTextPath(mutation.path) && lease) {
+        await withSideloadedText(
+          controller,
+          mutation.path,
+          `open-slide:${mutation.id}:${crypto.randomUUID()}`,
+          async (binding) => {
+            for (let attempt = 0; attempt < 4; attempt += 1) {
+              const version = binding.version;
+              const merged = await invoke<TextMergeResult>("merge_project_text", {
+                base: previous,
+                edited: mutation.text,
+                current: binding.ytext.toString(),
+              });
+              try {
+                binding.applyExternalText(merged.content, version);
+                canonicalText = binding.ytext.toString();
+                hadConflicts = hadConflicts || merged.hadConflicts;
+                break;
+              } catch {
+                if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${mutation.path}.`);
+              }
+            }
+            let written = await collabDiskWriteQueueRef.current.run<EditorWriteResult>(
+              lease,
+              mutation.path,
+              () => invoke<EditorWriteResult>("write_project_file", {
+                path: mutation.path,
+                content: canonicalText,
+                baseContent: mutation.previousText,
+                projectRoot,
+              }),
+            );
+            hadConflicts = hadConflicts || written.hadConflicts;
+            if (written.content !== canonicalText) {
+              for (let attempt = 0; attempt < 4; attempt += 1) {
+                const version = binding.version;
+                const merged = await invoke<TextMergeResult>("merge_project_text", {
+                  base: canonicalText,
+                  edited: written.content,
+                  current: binding.ytext.toString(),
+                });
+                try {
+                  binding.applyExternalText(merged.content, version);
+                  canonicalText = binding.ytext.toString();
+                  hadConflicts = hadConflicts || merged.hadConflicts;
+                  break;
+                } catch {
+                  if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${mutation.path}.`);
+                }
+              }
+              written = await collabDiskWriteQueueRef.current.run<EditorWriteResult>(
+                lease,
+                mutation.path,
+                () => invoke<EditorWriteResult>("write_project_file", {
+                  path: mutation.path,
+                  content: canonicalText,
+                  projectRoot,
+                }),
+              );
+              canonicalText = written.content;
+            }
+          },
+        );
+      } else if (controller) {
+        await controller.create(mutation.path, "text", { seedText: mutation.text });
+        canonicalText = mutation.text;
+        await collabDiskWriteQueueRef.current.run(
+          lease!,
+          mutation.path,
+          () => invoke("write_project_file", {
+            path: mutation.path,
+            content: canonicalText,
+            projectRoot,
+          }),
+        );
+      } else {
+        const written = await invoke<EditorWriteResult>("write_project_file", {
+          path: mutation.path,
+          content: mutation.text,
+          baseContent: mutation.kind === "write" ? mutation.previousText : undefined,
+          projectRoot,
+        });
+        canonicalText = written.content;
+        hadConflicts = written.hadConflicts;
+      }
+    } else if (mutation.base64 !== undefined) {
+      const bytes = Uint8Array.from(atob(mutation.base64), (character) => character.charCodeAt(0));
+      if (controller && lease && local) {
+        const existing = controller.catalogFiles().find((file) => (
+          file.path === mutation.path && file.state === "live"
+        ));
+        if (!existing) await controller.create(mutation.path, "binary");
+        const extension = mutation.path.split(".").at(-1)?.toLocaleLowerCase();
+        const mime = extension === "png"
+          ? "image/png"
+          : extension === "jpg" || extension === "jpeg"
+            ? "image/jpeg"
+            : extension === "webp"
+              ? "image/webp"
+              : extension === "pdf"
+                ? "application/pdf"
+                : "application/octet-stream";
+        await controller.replaceBinary(mutation.path, bytes, mime, {
+          rename: localMutations!.rename,
+          delete: localMutations!.delete,
+          writeBinaryConflict: (path, conflictBytes, root) => (
+            local.writeBytes(path, conflictBytes, root)
+          ),
+        });
+        await local.writeBytes(mutation.path, bytes, projectRoot);
+      } else {
+        await invoke("write_project_bytes", {
+          path: mutation.path,
+          base64Data: mutation.base64,
+          projectRoot,
+        });
+      }
+      canonicalBase64 = mutation.base64;
+    } else {
+      throw new Error(`Open Slide sent an incomplete edit for ${mutation.path}.`);
+    }
+
+    if (canonicalText !== undefined) {
+      if (activeFileRef.current === mutation.path) {
+        sourceRef.current = canonicalText;
+        savedSourceRef.current = canonicalText;
+        setSource(canonicalText);
+        setSavedSource(canonicalText);
+      }
+      if (secondaryFileRef.current === mutation.path) {
+        secondarySourceRef.current = canonicalText;
+        secondarySavedRef.current = canonicalText;
+        setSecondarySource(canonicalText);
+        setSecondarySavedSource(canonicalText);
+      }
+    }
+    if (hadConflicts) {
+      setWarning(`Open Slide and another editor changed the same lines in ${mutation.path}; Lattice kept both with conflict markers.`);
+    }
+    const snapshot = await refreshProject();
+    await refreshHistory();
+    if (mutation.kind === "delete" && activeFileRef.current === mutation.path) {
+      const replacement = flattenProjectPaths(snapshot.files).find((candidate) => (
+        candidate !== mutation.path && isProjectSourceFilePath(candidate)
+      ));
+      if (replacement) await loadFile(replacement, { restoreView: false });
+      else {
+        activeFileRef.current = "";
+        sourceRef.current = "";
+        savedSourceRef.current = "";
+        setActiveFile("");
+        setSource("");
+        setSavedSource("");
+      }
+    }
+    scheduleOpenSlideOverleafSync();
+    return mutation.kind === "delete"
+      ? [{ path: mutation.path, kind: "delete" }]
+      : [{
+          path: mutation.path,
+          kind: mutation.kind,
+          ...(canonicalText !== undefined ? { text: canonicalText } : { base64: canonicalBase64 }),
+        }];
+  }, [
+    activeCollabVersion,
+    collabCanWrite,
+    collabDiskWriteQueueRef,
+    loadFile,
+    refreshHistory,
+    refreshProject,
+    scheduleOpenSlideOverleafSync,
+    v2WorkspaceCallbacks,
+  ]);
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const allEditorComments = useMemo(
@@ -5397,7 +5942,7 @@ function App() {
         && zone === "left"
         && !activeAssetRef.current
         && activeFileRef.current
-        && !isPresentationFilePath(activeFileRef.current)
+        && !isOpenSlideDeckPath(activeFileRef.current)
         && isPreviewableSourceFilePath(activeFileRef.current)
         ? [activeFileRef.current]
         : []),
@@ -5653,15 +6198,6 @@ function App() {
       if (!hasExistingPaneDivider) {
         setDualRatioResetGeneration((generation) => generation + 1);
       }
-      // A presentation's source/preview split belongs inside one file pane.
-      // Carrying it through a file drop creates a nested three-pane layout
-      // while Reveal is being remounted. Enter the new two-file layout in Edit;
-      // the focused pane can opt back into Split or Preview afterward.
-      for (const pane of [left, right]) {
-        if (pane.kind === "source" && isPresentationFilePath(pane.path)) {
-          changePresentationPaneMode(pane.path, "source");
-        }
-      }
       updateDualPreviews(left, right);
       setCanvasMode("dual");
       setFocusedPane(zone === "left" ? "primary" : "secondary");
@@ -5672,7 +6208,6 @@ function App() {
   }, [
     activeCollabVersion,
     canvasMode,
-    changePresentationPaneMode,
     dualPanePreview,
     loadFile,
     openProjectAsset,
@@ -6369,20 +6904,28 @@ function App() {
     secondarySource,
   ]);
 
-  const createProjectEntry = useCallback(async (path: string, kind: "file" | "folder") => {
+  const createProjectEntry = useCallback(async (
+    path: string,
+    kind: "file" | "folder" | "presentation",
+  ) => {
     try {
-      const createdPath = await invoke<string>("create_project_entry", {
-        path,
-        kind,
-        projectRoot: project?.root,
-      });
+      const createdPath = kind === "presentation"
+        ? await invoke<string>("create_open_slide_deck", {
+            deckId: path,
+            projectRoot: project?.root,
+          })
+        : await invoke<string>("create_project_entry", {
+            path,
+            kind,
+            projectRoot: project?.root,
+          });
       removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
         removedFileViewStatePathsRef.current,
         createdPath,
       );
       await refreshProject();
       await refreshHistory();
-      if (kind === "file") {
+      if (kind !== "folder") {
         // Mid-share creates must join the v2 catalog before loadFile, so the
         // editor binds the shared doc instead of a local-only file.
         await shareCreatedFileWithCollabV2(
@@ -6774,6 +7317,10 @@ function App() {
         (candidate) => candidate !== path && path.startsWith(`${candidate}/`),
       ));
     if (!paths.length) return;
+    const wasDeleted = (candidate: string | null | undefined) => Boolean(
+      candidate
+      && paths.some((path) => candidate === path || candidate.startsWith(`${path}/`)),
+    );
     const path = paths[0];
     const confirmation = paths.length === 1
       ? `Delete “${path}” from this project?`
@@ -6789,15 +7336,97 @@ function App() {
           });
         } else await invoke("delete_project_entry", { path, projectRoot: project?.root });
       }
+
+      // A successful disk deletion authoritatively retires every UI reference
+      // to that path, including files removed through a deleted directory.
+      // Do this before refresh awaits so autosave cannot recreate a deleted
+      // open buffer and a background tab cannot later reopen a missing file.
+      const deletedActiveFile = wasDeleted(activeFile);
+      const deletedSecondaryFile = wasDeleted(secondaryFile);
+      const deletedActiveAsset = wasDeleted(activeAsset?.path);
+      const deletedSecondaryAsset = wasDeleted(secondaryAsset?.path);
+      const remainingTabs = openTabsRef.current.filter((tab) => !wasDeleted(tab));
+      openTabsRef.current = remainingTabs;
+      setOpenTabs(remainingTabs);
+      tabRecency.current = tabRecency.current.filter((tab) => !wasDeleted(tab));
+      closedTabsRef.current = closedTabsRef.current.filter((tab) => !wasDeleted(tab));
+      setNavStack((entries) => entries.filter((entry) => !wasDeleted(entry.path)));
+      setViewRestore((request) => request && wasDeleted(request.path) ? null : request);
+      setEditorNavigation((request) => request && wasDeleted(request.path) ? null : request);
+
+      if (deletedActiveFile) {
+        fileLoadGenerationRef.current += 1;
+        collabDetachRef.current?.();
+        collabDetachRef.current = null;
+        activeFileRef.current = "";
+        sourceRef.current = "";
+        savedSourceRef.current = "";
+        setPrimaryOpening(null);
+        setActiveFile("");
+        setSource("");
+        setSavedSource("");
+      }
+      if (deletedActiveAsset) {
+        activeAssetRef.current = null;
+        setActiveAsset(null);
+      }
+      if (deletedSecondaryFile || deletedSecondaryAsset) {
+        secondaryFileLoadGenerationRef.current += 1;
+        secondaryFileRef.current = null;
+        secondarySourceRef.current = "";
+        secondarySavedRef.current = "";
+        secondaryAssetRef.current = null;
+        setSecondaryFile(null);
+        setSecondarySource("");
+        setSecondarySavedSource("");
+        setSecondaryAsset(null);
+        setFocusedPane("primary");
+        if (
+          (canvasMode === "dual" || canvasMode === "columns")
+          && !deletedActiveFile
+          && !deletedActiveAsset
+        ) {
+          const nextMode = activeAsset
+            ? "asset"
+            : dualPanePreview?.primaryPath === activeFile
+              ? "pdf"
+              : "source";
+          if (nextMode !== "asset") documentModeRef.current = nextMode;
+          setCanvasMode(nextMode);
+          setDualPanePreview(null);
+        }
+      }
+      setDualPanePreview((preview) => {
+        if (!preview) return null;
+        const primaryPath = preview.primaryPath && !wasDeleted(preview.primaryPath)
+          ? preview.primaryPath
+          : null;
+        const secondaryPath = preview.secondaryPath && !wasDeleted(preview.secondaryPath)
+          ? preview.secondaryPath
+          : null;
+        return primaryPath || secondaryPath ? { ...preview, primaryPath, secondaryPath } : null;
+      });
       invalidateFileViewStateCallbacks();
       removedFileViewStatePathsRef.current.push(...paths);
       for (const storedPath of viewStateRef.current.keys()) {
-        if (paths.some((path) => storedPath === path || storedPath.startsWith(`${path}/`))) {
-          viewStateRef.current.delete(storedPath);
-        }
+        if (wasDeleted(storedPath)) viewStateRef.current.delete(storedPath);
       }
       scheduleFileViewStatePersistence();
       const snapshot = await refreshProject();
+      if (deletedActiveFile && !activeAsset && !activePaper) {
+        const livePaths = new Set(flattenProjectPaths(snapshot.files));
+        const rootDocument = snapshot.manifest.rootDocuments.find((document) => (
+          document.isDefault && livePaths.has(document.path) && !wasDeleted(document.path)
+        )) ?? snapshot.manifest.rootDocuments.find((document) => (
+          livePaths.has(document.path) && !wasDeleted(document.path)
+        ));
+        const replacement = rootDocument?.path
+          ?? remainingTabs.find((tab) => livePaths.has(tab) && isProjectSourceFilePath(tab))
+          ?? [...livePaths].find(isProjectSourceFilePath);
+        if (replacement) await loadFile(replacement);
+      } else if (deletedActiveAsset) {
+        setCanvasMode("split");
+      }
       if (overleafLink && project) {
         // Structural deletes do not pass through `save()`, so handle the
         // remote side now instead of waiting for an unrelated later sync.
@@ -6808,16 +7437,6 @@ function App() {
         );
       }
       await refreshHistory();
-      if (paths.some((path) => activeFile === path || activeFile.startsWith(`${path}/`))) {
-        const rootDocument = snapshot.manifest.rootDocuments.find((document) => document.isDefault)
-          ?? snapshot.manifest.rootDocuments[0];
-        if (rootDocument) await loadFile(rootDocument.path);
-      } else if (activeAsset && paths.some(
-        (path) => activeAsset.path === path || activeAsset.path.startsWith(`${path}/`),
-      )) {
-        setActiveAsset(null);
-        setCanvasMode("split");
-      }
     } catch (reason) {
       setError(toMessage(reason));
     }
@@ -6825,6 +7444,9 @@ function App() {
     activeAsset,
     activeCollabVersion,
     activeFile,
+    activePaper,
+    canvasMode,
+    dualPanePreview,
     invalidateFileViewStateCallbacks,
     loadFile,
     overleafLink,
@@ -6832,6 +7454,8 @@ function App() {
     refreshHistory,
     refreshProject,
     scheduleFileViewStatePersistence,
+    secondaryAsset,
+    secondaryFile,
     settleRemoteDeletes,
     t,
   ]);
@@ -8382,19 +9006,12 @@ function App() {
         canvasToolbar={(
         <CanvasToolbar
           mode={canvasMode}
-          selectedDocumentViewMode={focusedPresentationToolbarMode
-            ?? (focusedPanePreview ? "pdf" : undefined)}
-          setMode={focusedPresentationPaneMode ? (mode) => {
-            if (mode !== "source" && mode !== "split" && mode !== "pdf") return;
-            changePresentationPaneMode(
-              focusedDocumentPath,
-              mode === "pdf" ? "preview" : mode,
-            );
-          } : openDocumentMode}
+          selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
+          setMode={openDocumentMode}
           supportsDocumentViewModes={Boolean(activePaper)
             || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
           onSplit={
-            !isPresentationFilePath(focusedDocumentPath)
+            !isOpenSlideDeckPath(focusedDocumentPath)
             && !activePaper
             && (
               (Boolean(activeAsset) && canvasMode === "asset")
@@ -8414,10 +9031,8 @@ function App() {
             : undefined}
           markdown={Boolean(activePaper)
             || (!focusedAsset
-              && !isPresentationFilePath(focusedDocumentPath)
               && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
           html={!activePaper && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
-          presentation={focusedPresentationDocument}
           paperView={activePaper ? paperView : undefined}
           paperHasBlog={paperBlog !== null}
           paperHasFullText={Boolean(paperMarkdown)}
@@ -8580,6 +9195,7 @@ function App() {
               searchOpen={projectSearchOpen}
               boardCreateRequest={boardCreateRequest}
               spreadsheetCreateRequest={spreadsheetCreateRequest}
+              presentationCreateRequest={presentationCreateRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
@@ -8639,6 +9255,7 @@ function App() {
             setProjectFindHits={setProjectFindHits}
             setProjectFindOpen={setProjectFindOpen}
             setProjectSearchOpen={setProjectSearchOpen}
+            setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
             sidebarMode={sidebarMode}
             sidebarModeActionsRef={sidebarModeActionsRef}
@@ -8667,6 +9284,7 @@ function App() {
           <span className="canvas-tour-card-anchor" data-tour="canvas-tour-card-anchor" aria-hidden="true" />
           <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing editor`} />}>
           <DocumentCanvas
+            projectRoot={project.root}
             mode={canvasMode}
             dualPreviewPanes={dualPreviewPanes}
             canRevealPdfSource={canRevealPdfSource}
@@ -8698,9 +9316,9 @@ function App() {
                 setCanvasMode("split");
               }
             }}
-            onPresentationModeChange={openDocumentMode}
-            presentationPaneModes={presentationPaneModes}
-            onPresentationPaneModeChange={changePresentationPaneMode}
+            onOpenSlideMutation={applyOpenSlideMutation}
+            onOpenSlideContext={setOpenSlideContext}
+            onOpenSlideError={setError}
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}

@@ -1,2 +1,5 @@
-export { PresentationEditor, type PresentationEditorProps } from "./presentation-editor";
-export * from "./presentation-model";
+export {
+  OpenSlideWorkspace,
+  type OpenSlideWorkspaceProps,
+} from "./open-slide-workspace";
+export type { OpenSlideMutation, OpenSlideSyncOperation } from "./open-slide-bridge";

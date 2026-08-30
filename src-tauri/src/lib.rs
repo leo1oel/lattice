@@ -22,6 +22,7 @@ mod overleaf;
 mod overleaf_rt;
 mod papers;
 mod pdf_fonts;
+mod presentation;
 mod project;
 mod project_fs;
 mod semantic_search;
@@ -1055,15 +1056,10 @@ async fn read_project_file(
     path: String,
     project_root: Option<String>,
 ) -> Result<String, String> {
-    // Only a caller that pinned a project takes its lease; an unpinned read is
-    // a best-effort convenience and must not queue behind a sync.
-    let project = project_root
-        .as_deref()
-        .map(|root| state.project(Path::new(root)));
-    let _lease = match &project {
-        Some(project) => Some(project.overleaf_sync_lease.read().await),
-        None => None,
-    };
+    // Overleaf replaces incoming files atomically, so navigation can safely
+    // see either complete version without waiting behind the network-bound
+    // full-sync write lease. Writes still take that lease: only reads bypass
+    // it, and the pinned root check below still rejects stale project work.
     let root = current_root(&state, &window)?;
     if project_root
         .as_deref()
@@ -1094,6 +1090,11 @@ async fn write_project_file(
         project::apply_editor_transaction(&root, path, content, base_content)
     })
     .await
+}
+
+#[tauri::command]
+fn merge_project_text(base: String, edited: String, current: String) -> project::TextMergeResult {
+    project::merge_text_snapshots(&base, &edited, &current)
 }
 
 #[tauri::command]
@@ -1448,6 +1449,23 @@ async fn create_project_entry(
     tauri::async_runtime::spawn_blocking(move || project::create_entry(&root, &path, &kind))
         .await
         .map_err(|error| format!("File creation stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn create_open_slide_deck(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    deck_id: String,
+    project_root: String,
+) -> Result<String, String> {
+    let project = state.project(Path::new(&project_root));
+    let _lease = project.overleaf_sync_lease.read().await;
+    let _mutation = project.structural_mutation.lock().await;
+    let root = scoped_root(&state, &window, &project_root)
+        .map_err(|_| "The project changed before the slide deck could be created.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || project::create_open_slide_deck(&root, &deck_id))
+        .await
+        .map_err(|error| format!("Slide deck creation stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]
@@ -3391,6 +3409,63 @@ async fn overleaf_sync(
         .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
 }
 
+/// Prepare a full sync from the Share catalog's authoritative snapshot.
+/// Nothing mutates until the frontend has applied the returned actions to Yjs
+/// and calls `overleaf_commit_prepared_sync` with the exact accepted bytes.
+#[tauri::command]
+async fn overleaf_prepare_sync(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>,
+    live: Option<Vec<String>>,
+) -> Result<overleaf::OverleafPreparedSync, String> {
+    let project = state.project(Path::new(&project_root));
+    let mut previous_sync = state.overleaf_sync_started.lock().await;
+    let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
+    if !delay.is_zero() {
+        tokio::time::sleep(delay).await;
+    }
+    let _lease = project.overleaf_sync_lease.write().await;
+    *previous_sync = Some(tokio::time::Instant::now());
+    drop(previous_sync);
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state, &window)?;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before Overleaf sync could start.".to_string());
+    }
+    let live = live_paths(live);
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::prepare_sync(&config, &root, &authoritative_inventory, &live)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf sync preparation stopped unexpectedly: {error}"))?
+}
+
+#[tauri::command]
+async fn overleaf_commit_prepared_sync(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    prepared_plan_id: String,
+    accepted_actions: Vec<overleaf::OverleafAcceptedAction>,
+) -> Result<overleaf::OverleafSyncResult, String> {
+    let project = state.project(Path::new(&project_root));
+    let _lease = project.overleaf_sync_lease.write().await;
+    let config = overleaf_config_dir(&app)?;
+    let root = current_root(&state, &window)?;
+    if root != Path::new(&project_root) {
+        return Err("The project changed before Overleaf sync could finish.".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::commit_prepared_sync(&config, &root, &prepared_plan_id, &accepted_actions)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf sync commit stopped unexpectedly: {error}"))?
+}
+
 #[tauri::command]
 async fn list_pdf_annotations(
     state: tauri::State<'_, AppState>,
@@ -4028,6 +4103,7 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
 fn shutdown_child_runtimes(app: &tauri::AppHandle) {
     app.state::<chromium::ChromiumRuntime>().shutdown();
     app.state::<synara::SynaraRuntime>().shutdown();
+    app.state::<presentation::PresentationRuntime>().shutdown();
 }
 
 /// Finish an installed update without relying on an event-loop restart
@@ -4119,6 +4195,7 @@ pub fn run() {
             app.manage(browser_host::BrowserHost::default());
             app.manage(chromium::ChromiumRuntime::default());
             app.manage(synara::SynaraRuntime::new(app)?);
+            app.manage(presentation::PresentationRuntime::new(app)?);
             let background = browser_host_launch();
             let chromium_packaged = !background
                 && app
@@ -4204,6 +4281,7 @@ pub fn run() {
             read_project_file,
             stat_project_file,
             write_project_file,
+            merge_project_text,
             list_citation_keys,
             list_citations,
             read_bib_entry,
@@ -4228,6 +4306,7 @@ pub fn run() {
             semantic_search_cancel,
             semantic_search_project,
             create_project_entry,
+            create_open_slide_deck,
             delete_project_entry,
             rename_project_entry,
             move_project_entry,
@@ -4318,6 +4397,8 @@ pub fn run() {
             overleaf_clone_target,
             overleaf_set_paused,
             overleaf_sync,
+            overleaf_prepare_sync,
+            overleaf_commit_prepared_sync,
             list_pdf_annotations,
             save_pdf_annotations,
             list_editor_comments,
@@ -4353,6 +4434,10 @@ pub fn run() {
             synara::synara_runtime_status,
             synara::synara_ensure_ready,
             synara::synara_open_skills_folder,
+            presentation::presentation_ensure_ready,
+            presentation::presentation_release,
+            presentation::presentation_refresh_native_workspace,
+            presentation::presentation_runtime_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application");

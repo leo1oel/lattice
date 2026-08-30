@@ -2,9 +2,9 @@
 /**
  * Aggregate the third-party license notices for everything Lattice ships.
  *
- * Lattice is distributed as a single application bundle that contains three
+ * Lattice is distributed as a single application bundle that contains four
  * independent dependency closures, and the MIT/BSD families — which is most of
- * all three — require their copyright notice to travel with the binary:
+ * all four — require their copyright notice to travel with the binary:
  *
  *   1. npm      the production closure of the root package.json, i.e. what can
  *               end up in the web assets.
@@ -12,6 +12,8 @@
  *               linked into the Rust binary.
  *   3. sidecar  the surviving node_modules of the Synara agent runtime staged
  *               into src-tauri/synara-runtime/ and bundled as a Tauri resource.
+ *   4. slides   the Open Slide/Vite runtime staged into
+ *               src-tauri/presentation-runtime/ and bundled as a Tauri resource.
  *
  * Everything here is read off disk from the *installed* packages — the
  * `license` field of each package.json plus the LICENSE/COPYING/NOTICE files
@@ -49,6 +51,8 @@ const BEGIN = "<!-- BEGIN GENERATED NOTICES — do not edit below this line -->"
 const END = "<!-- END GENERATED NOTICES -->";
 const SIDECAR_BEGIN = "<!-- notices:begin:sidecar -->";
 const SIDECAR_END = "<!-- notices:end:sidecar -->";
+const PRESENTATION_BEGIN = "<!-- notices:begin:presentation-runtime -->";
+const PRESENTATION_END = "<!-- notices:end:presentation-runtime -->";
 
 const args = new Set(process.argv.slice(2));
 const checkMode = args.has("--check");
@@ -151,7 +155,11 @@ function readNoticeText(path) {
   }
   // Strip BOM and normalise line endings so the same license checked out on
   // Windows and macOS lands in the same group.
-  const text = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  const text = raw
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+$/gm, "")
+    .trim();
   // A few packages ship an empty LICENSE placeholder; that is not a notice.
   return text.length > 0 ? text : null;
 }
@@ -403,6 +411,7 @@ function collectCrates() {
   } catch (error) {
     throw new Error(
       `cargo metadata failed — the crates closure cannot be generated.\n${error.stderr || error.message}`,
+      { cause: error },
     );
   }
   const metadata = JSON.parse(raw);
@@ -454,7 +463,7 @@ function collectCrates() {
 // ---------------------------------------------------------------------------
 
 /**
- * Unlike the other two closures this one is a directory of files we literally
+ * Unlike the first two closures this one is a directory of files we literally
  * copy into the app bundle, so it is scanned rather than graph-walked: whatever
  * is on disk under server/node_modules is what ships, including anything a
  * package vendored inside itself.
@@ -492,7 +501,7 @@ function collectSidecar() {
   // The notices prepare-synara-sidecar.mjs already stages by hand. Everything in
   // that directory counts — the names it writes (`Node-LICENSE.txt`,
   // `Synara-MIT.txt`) do not match the LICENSE/COPYING shape used elsewhere.
-  let staged = [];
+  let staged;
   try {
     staged = readdirSync(join(runtimeRoot, "licenses"), { withFileTypes: true })
       .filter((entry) => entry.isFile())
@@ -502,6 +511,35 @@ function collectSidecar() {
     staged = [];
   }
   return { available: true, entries, staged };
+}
+
+// ---------------------------------------------------------------------------
+// Closure 4 — the staged Open Slide presentation runtime
+// ---------------------------------------------------------------------------
+
+function collectPresentationRuntime() {
+  const runtimeRoot = join(projectRoot, "src-tauri/presentation-runtime");
+  const modulesRoot = join(runtimeRoot, "node_modules");
+  if (!isFile(join(runtimeRoot, "package.json"))) {
+    return { available: false, entries: [] };
+  }
+  const entries = [];
+  const seen = new Set();
+  for (const dir of collectNestedPackageRoots(modulesRoot).sort()) {
+    const pkg = readJson(join(dir, "package.json"));
+    if (!pkg?.name || !pkg?.version) continue;
+    const id = `${pkg.name}@${pkg.version}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    entries.push(makeEntry({
+      closure: "presentation-runtime",
+      name: pkg.name,
+      version: pkg.version,
+      declared: declaredNpmLicense(pkg),
+      dir,
+    }));
+  }
+  return { available: true, entries };
 }
 
 // ---------------------------------------------------------------------------
@@ -920,12 +958,12 @@ function sliceSection(content, begin, end) {
   return content.slice(start, stop + end.length);
 }
 
-function buildBlock({ npm, crates, sidecar }) {
-  const all = [...npm.entries, ...crates.entries, ...sidecar.entries];
+function buildBlock({ npm, crates, sidecar, presentation }) {
+  const all = [...npm.entries, ...crates.entries, ...sidecar.entries, ...presentation.entries];
 
   // The findings and gap lists are split per scope rather than aggregated
-  // across all three closures, because the sidecar can only be scanned where it
-  // has been staged. Aggregating would make every section of this file depend
+  // across every closure, because the bundled runtimes can only be scanned where they
+  // have been staged. Aggregating would make every section of this file depend
   // on that, and --check would fail for everyone building without the runtime.
   // The most serious sidecar finding is written up by hand above the generated
   // boundary anyway, which is the more prominent place for it.
@@ -941,6 +979,12 @@ function buildBlock({ npm, crates, sidecar }) {
     : { markdown: "", flagged: [] };
   const sidecarUnresolved = sidecar.available
     ? renderUnresolved(sidecar.entries, { heading: "###", scope: "the Synara sidecar" })
+    : { markdown: "", missingField: [], missingText: [] };
+  const presentationFindings = presentation.available
+    ? renderFindings(presentation.entries, { heading: "###", scope: "Open Slide runtime" })
+    : { markdown: "", flagged: [] };
+  const presentationUnresolved = presentation.available
+    ? renderUnresolved(presentation.entries, { heading: "###", scope: "the Open Slide runtime" })
     : { markdown: "", missingField: [], missingText: [] };
 
   const npmExtras = [];
@@ -1036,15 +1080,35 @@ function buildBlock({ npm, crates, sidecar }) {
         ].join("\n"),
     SIDECAR_END,
     "",
+    PRESENTATION_BEGIN,
+    presentation.available
+      ? renderClosure({
+          title: "Open Slide presentation runtime (bundled Tauri resource)",
+          blurb:
+            "`scripts/prepare-presentation-runtime.mjs` installs the pinned Open Slide and Vite production closure into `src-tauri/presentation-runtime/`, which `tauri.conf.json` bundles whole. The staged directory is scanned directly, so this section describes exactly what is distributed.",
+          entries: presentation.entries,
+          extras: [presentationFindings.markdown, presentationUnresolved.markdown],
+        })
+      : [
+          "## Open Slide presentation runtime (bundled Tauri resource)",
+          "",
+          "> **INCOMPLETE — stage the presentation runtime before release.**",
+          ">",
+          "> Run `pnpm prepare:presentation` and then `pnpm notices` to attribute the",
+          "> Open Slide and Vite packages bundled with the application.",
+          "",
+        ].join("\n"),
+    PRESENTATION_END,
+    "",
     END,
   ];
 
   return {
     block: parts.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n",
-    findings: { flagged: [...findings.flagged, ...sidecarFindings.flagged] },
+    findings: { flagged: [...findings.flagged, ...sidecarFindings.flagged, ...presentationFindings.flagged] },
     unresolved: {
-      missingField: [...unresolved.missingField, ...sidecarUnresolved.missingField],
-      missingText: [...unresolved.missingText, ...sidecarUnresolved.missingText],
+      missingField: [...unresolved.missingField, ...sidecarUnresolved.missingField, ...presentationUnresolved.missingField],
+      missingText: [...unresolved.missingText, ...sidecarUnresolved.missingText, ...presentationUnresolved.missingText],
     },
     all,
   };
@@ -1058,9 +1122,10 @@ const started = Date.now();
 const npm = collectNpm();
 const crates = collectCrates();
 const sidecar = collectSidecar();
+const presentation = collectPresentationRuntime();
 
 const existing = readFileSync(noticesPath, "utf8");
-let { block, findings, unresolved, all } = buildBlock({ npm, crates, sidecar });
+let { block, findings, unresolved, all } = buildBlock({ npm, crates, sidecar, presentation });
 
 // A vendored notice exists precisely because the package does not ship it. If
 // the file has gone missing the app is distributing that dependency with no
@@ -1093,6 +1158,16 @@ if (!sidecar.available) {
     }
   }
 }
+if (!presentation.available) {
+  const previous = sliceSection(existing, PRESENTATION_BEGIN, PRESENTATION_END);
+  if (previous && !previous.includes("INCOMPLETE — stage the presentation runtime")) {
+    const start = block.indexOf(PRESENTATION_BEGIN);
+    const stop = block.indexOf(PRESENTATION_END);
+    if (start !== -1 && stop > start) {
+      block = block.slice(0, start) + previous + block.slice(stop + PRESENTATION_END.length);
+    }
+  }
+}
 
 const existingBlock = sliceSection(existing, BEGIN, END);
 const preamble = existingBlock ? existing.slice(0, existing.indexOf(BEGIN)) : `${existing.trimEnd()}\n\n`;
@@ -1105,6 +1180,11 @@ log(
   sidecar.available
     ? `synara sidecar         ${String(sidecar.entries.length).padStart(4)} packages`
     : `synara sidecar          n/a  — src-tauri/synara-runtime/ is not staged${sidecarCarriedOver ? " (previous section kept)" : ""}`,
+);
+log(
+  presentation.available
+    ? `presentation runtime    ${String(presentation.entries.length).padStart(4)} packages`
+    : "presentation runtime     n/a  — src-tauri/presentation-runtime/ is not staged",
 );
 log(`total                  ${String(all.length).padStart(4)} packages, ${Date.now() - started} ms`);
 

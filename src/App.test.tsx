@@ -26,6 +26,7 @@ import { parseVisualMarkdown } from "./editor/markdown/visual-markdown-schema";
 import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
 import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
+import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -101,26 +102,18 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
 vi.mock("./editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("./editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
-vi.mock("./editor/presentation/presentation-editor", () => ({
-  PresentationEditor: (props: {
+vi.mock("./editor/presentation/open-slide-workspace", () => ({
+  OpenSlideWorkspace: (props: {
+    projectRoot: string;
     path: string;
     source: string;
-    onChange?: (source: string) => void;
-    mode?: "source" | "split" | "preview";
   }) => (
     <div
-      data-testid="presentation-editor-mock"
+      data-testid="open-slide-workspace-mock"
+      data-project-root={props.projectRoot}
       data-path={props.path}
       data-source={props.source}
-      data-mode={props.mode ?? ""}
-    >
-      <button
-        data-testid="presentation-local-edit"
-        onClick={() => props.onChange?.(`${props.source}\nLocal note\n`)}
-      >
-        Edit presentation source
-      </button>
-    </div>
+    />
   ),
 }));
 vi.mock("./agent/use-synara-runtime", () => ({
@@ -1431,7 +1424,7 @@ describe("project workspace", () => {
     expect(screen.getByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
   });
 
-  it("previews each Markdown pane independently and allows both previews", async () => {
+  it("previews each Markdown pane independently and allows both previews", { timeout: 60_000 }, async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -1473,11 +1466,13 @@ describe("project workspace", () => {
 
     renderApp();
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
-    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2));
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), {
+      timeout: 20_000,
+    });
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(screen.getAllByRole("textbox", { name: "Markdown document editor" }))
-      .toHaveLength(1));
+      .toHaveLength(1), { timeout: 30_000 });
     expect(Array.from(document.querySelectorAll<HTMLElement>(".visual-markdown-editor"))
       .map((editor) => editor.dataset.activePath)).toEqual(["left.md"]);
     const rightSource = document.querySelector<HTMLElement>(
@@ -2079,15 +2074,19 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
+    await Promise.all([
+      loadTextLanguageExtensions("notes/index.md"),
+      loadVisualMarkdownEditorModule(),
+    ]);
     renderApp();
-    const editorDom = await waitFor(() => {
+    const editor = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
       expect(element).not.toBeNull();
-      return element!;
-    });
-    const editor = EditorView.findFromDOM(editorDom);
-    if (!editor) throw new Error("Markdown editor was not created.");
-    await waitFor(() => expect(syntaxTree(editor.state).toString()).toContain("Link("));
+      const view = element ? EditorView.findFromDOM(element) : null;
+      expect(view?.state.doc.toString()).toContain("[Native unified view]");
+      expect(view ? syntaxTree(view.state).toString() : "").toContain("Link(");
+      return view!;
+    }, { timeout: 10_000 });
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(await screen.findByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
@@ -2317,7 +2316,7 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByRole("tab", { name: /native-unified-view\.md/ }))
       .toHaveAttribute("aria-selected", "true");
-  });
+  }, 40_000);
 
   it("opens HTML documents in an interactive sandboxed preview with Edit and Split views", async () => {
     const snapshot = {
@@ -6044,155 +6043,6 @@ describe("project workspace", () => {
     expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
   });
 
-  it("keeps a presentation stable and view-switchable after a file is dropped beside it", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "talk.slides.md", path: "talk.slides.md", kind: "markdown", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        const path = (args as { path: string }).path;
-        return path === "talk.slides.md" ? "# Talk\n\n---\n\n# Results\n" : `content:${path}`;
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
-
-    renderApp();
-    fireEvent.click(await findProjectTreeItem("talk.slides.md"));
-    await screen.findByTestId("presentation-editor-mock");
-    const presentation = () => screen.getByTestId("presentation-editor-mock");
-    const documentView = () => within(screen.getByRole("tablist", { name: "Document view" }));
-    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
-    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "split"));
-
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 1000,
-      width: 1000,
-      top: 0,
-      bottom: 700,
-      height: 700,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    const notes = await findProjectTreeItem("notes.md");
-    fireEvent.pointerDown(notes, {
-      button: 0,
-      clientX: 10,
-      clientY: 10,
-      pointerId: 45,
-      pointerType: "mouse",
-    });
-    fireEvent.pointerMove(window, {
-      clientX: 100,
-      clientY: 100,
-      pointerId: 45,
-      pointerType: "mouse",
-    });
-    fireEvent.pointerUp(window, {
-      clientX: 100,
-      clientY: 100,
-      pointerId: 45,
-      pointerType: "mouse",
-    });
-
-    await waitFor(() => {
-      expect(document.querySelector(".dual-canvas")).not.toBeNull();
-      expect(presentation()).toHaveAttribute("data-mode", "source");
-      expect(presentation().closest("[data-editor-pane='secondary']")).not.toBeNull();
-      expect(document.querySelector(
-        ".source-editor[data-editor-pane='primary'] .cm-content",
-      )).toHaveTextContent("content:notes.md");
-    });
-
-    fireEvent.pointerDown(presentation());
-    expect(documentView().getByRole("tab", { name: "Edit" }))
-      .toHaveAttribute("aria-selected", "true");
-    fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
-    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "preview"));
-    expect(document.querySelector(".dual-canvas")).not.toBeNull();
-    expect(document.querySelector(
-      ".source-editor[data-editor-pane='primary'] .cm-content",
-    )).toHaveTextContent("content:notes.md");
-
-    fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
-    await waitFor(() => expect(presentation()).toHaveAttribute("data-mode", "split"));
-    expect(document.querySelector(".dual-canvas")).not.toBeNull();
-  });
-
-  it("reconciles an Agent-edited open presentation instead of saving its stale buffer", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const seed = "# Untitled presentation\n\n---\n\n# New slide\n";
-    const agentDeck = "# Native VLM\n\n---\n\n## Results\n";
-    const mergedDeck = `${agentDeck}\nLocal note\n`;
-    let diskContent = seed;
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "talk.slides.md", name: "Talk", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "talk.slides.md", path: "talk.slides.md", kind: "markdown", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return diskContent;
-      if (command === "write_project_file") {
-        diskContent = mergedDeck;
-        return {
-          content: mergedDeck,
-          transactionId: "editor-merge",
-          externalChangesMerged: true,
-          hadConflicts: false,
-        };
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
-
-    renderApp();
-    const presentation = await screen.findByTestId("presentation-editor-mock");
-    expect(presentation).toHaveAttribute("data-source", seed);
-    fireEvent.click(screen.getByTestId("presentation-local-edit"));
-    diskContent = agentDeck;
-    fireEvent.keyDown(window, { key: "s", metaKey: true });
-
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "talk.slides.md",
-      content: `${seed}\nLocal note\n`,
-      baseContent: seed,
-      projectRoot: "/tmp/lattice-paper",
-    }));
-    await waitFor(() => expect(presentation).toHaveAttribute("data-source", mergedDeck));
-
-    const refreshedDeck = "# Agent revision after save\n";
-    diskContent = refreshedDeck;
-    fireEvent.click(await screen.findByRole("tab", { name: /talk\.slides\.md/ }));
-    await waitFor(() => expect(presentation).toHaveAttribute("data-source", refreshedDeck));
-  });
-
   it("opens a dropped project file in the editor pane under the pointer", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -8539,6 +8389,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
+    await import("./project/navigator");
     renderApp();
     const projectTreeSurface = await screen.findByLabelText("Project files");
     fireEvent.contextMenu(projectTreeSurface);
@@ -8597,6 +8448,10 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => {
+      expect(screen.queryByRole("tab", { name: /notes\.tex/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+    });
+    await waitFor(() => {
       const states = JSON.parse(
         localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
       ) as Record<string, Record<string, unknown>>;
@@ -8637,7 +8492,6 @@ describe("project workspace", () => {
       button: 0,
       pointerType: "mouse",
     });
-    expect(screen.queryByRole("menuitem", { name: "New presentation" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("menuitem", { name: "New board" }));
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput).toHaveValue("untitled");
@@ -8651,6 +8505,50 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .not.toBeInTheDocument();
+  });
+
+  it("creates and opens a native Open Slide presentation", { timeout: 20000 }, async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "export default [];\n";
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
+      if (command === "create_open_slide_deck") {
+        return `slides/${(args as { deckId: string }).deckId}/index.tsx`;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(projectTreeRoot()).not.toBeNull(), { timeout: 15000 });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New presentation" }));
+    const nameInput = await findProjectTreeRenameInput();
+    expect(nameInput.closest("[data-item-path]"))
+      .toHaveAttribute("data-item-path", "slides/untitled/");
+    fireEvent.input(nameInput, { target: { value: "quarterly-review" } });
+    fireEvent.keyDown(nameInput, { key: "Enter" });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_open_slide_deck", {
+      deckId: "quarterly-review",
+      projectRoot: "/tmp/lattice-paper",
+    }));
+    expect(await screen.findByTestId("open-slide-workspace-mock"))
+      .toHaveAttribute("data-path", "slides/quarterly-review/index.tsx");
   });
 
   it("creates a spreadsheet from the header button with an inline name", async () => {

@@ -452,6 +452,8 @@ type ProjectFileTreeProps = {
   boardCreateRequest?: number;
   /** Incrementing signal from the header "New spreadsheet" button. */
   spreadsheetCreateRequest?: number;
+  /** Incrementing signal from the header "New presentation" button. */
+  presentationCreateRequest?: number;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -463,7 +465,7 @@ type ProjectFileTreeProps = {
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
-  onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
+  onCreateEntry: (path: string, kind: "file" | "folder" | "presentation") => Promise<string>;
   onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
@@ -634,7 +636,10 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
   const treeRef = useRef(tree);
   const modelRef = useRef<ReturnType<typeof useFileTree>["model"] | null>(null);
   const syncingSelectionRef = useRef(false);
-  const pendingCreationsRef = useRef(new Map<string, { kind: "file" | "folder"; extension?: string }>());
+  const pendingCreationsRef = useRef(new Map<string, {
+    kind: "file" | "folder" | "presentation";
+    extension?: string;
+  }>());
   const pendingCleanupTimersRef = useRef(new Map<string, number>());
   const pointerTreeDragRef = useRef<PointerTreeDragSession | null>(null);
   const suppressTreeClickRef = useRef(false);
@@ -653,11 +658,12 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     if (!pending) return false;
     pendingCreationsRef.current.delete(normalizedPath);
     const currentModel = modelRef.current;
-    const modelPath = pending.kind === "folder"
+    const directoryDraft = pending.kind === "folder" || pending.kind === "presentation";
+    const modelPath = directoryDraft
       ? toPierreDirectoryPath(normalizedPath)
       : normalizedPath;
     if (currentModel?.getItem(modelPath)) {
-      currentModel.remove(modelPath, pending.kind === "folder" ? { recursive: true } : undefined);
+      currentModel.remove(modelPath, directoryDraft ? { recursive: true } : undefined);
     }
     return true;
   }, []);
@@ -676,10 +682,17 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     if (pending.extension && !/\.[^./\\]+$/.test(destination.split("/").at(-1) ?? "")) {
       destination = `${destination}.${pending.extension}`;
     }
+    const creationPath = pending.kind === "presentation"
+      ? destination.replace(/^slides\//, "")
+      : destination;
     void propsRef.current
-      .onCreateEntry(destination, pending.kind)
+      .onCreateEntry(creationPath, pending.kind)
       .then((createdPath) => {
         const currentModel = modelRef.current;
+        if (pending.kind === "presentation") {
+          currentModel?.resetPaths(treeRef.current.paths);
+          return;
+        }
         const optimisticPath = isFolder
           ? toPierreDirectoryPath(destination)
           : destination;
@@ -891,7 +904,13 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
                 // Pierre treats an unchanged rename as a no-op and therefore
                 // skips onRename. Enter still means "create".
                 const pending = pendingCreationsRef.current.get(path);
-                if (pending) persistPendingCreation(path, path, pending.kind === "folder");
+                if (pending) {
+                  persistPendingCreation(
+                    path,
+                    path,
+                    pending.kind === "folder" || pending.kind === "presentation",
+                  );
+                }
               }, { capture: true });
             }
             return;
@@ -1139,7 +1158,11 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     context.close({ restoreFocus: false });
     afterMenuClose(action);
   };
-  const beginInlineCreate = (targetDirectory: string, kind: "file" | "folder", extension?: string) => {
+  const beginInlineCreate = (
+    targetDirectory: string,
+    kind: "file" | "folder" | "presentation",
+    extension?: string,
+  ) => {
     // A context-menu click blurs any previous draft. Remove that draft before
     // choosing a placeholder so a canceled creation never leaks into the next
     // name as "untitled-2".
@@ -1150,14 +1173,15 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     let suffix = 1;
     let basename = "untitled";
     let placeholderPath = directory ? `${directory}/${basename}` : basename;
-    let modelPath = kind === "folder"
+    const directoryDraft = kind === "folder" || kind === "presentation";
+    let modelPath = directoryDraft
       ? toPierreDirectoryPath(placeholderPath)
       : placeholderPath;
     while (model.getItem(modelPath)) {
       suffix += 1;
       basename = `untitled-${suffix}`;
       placeholderPath = directory ? `${directory}/${basename}` : basename;
-      modelPath = kind === "folder"
+      modelPath = directoryDraft
         ? toPierreDirectoryPath(placeholderPath)
         : placeholderPath;
     }
@@ -1166,7 +1190,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     pendingCreationsRef.current.set(placeholderPath, { kind, extension });
     if (!model.startRenaming(modelPath, { removeIfCanceled: true })) {
       pendingCreationsRef.current.delete(placeholderPath);
-      model.remove(modelPath, kind === "folder" ? { recursive: true } : undefined);
+      model.remove(modelPath, directoryDraft ? { recursive: true } : undefined);
     }
   };
   // Header actions (e.g. "New board") request an inline creation at the root
@@ -1187,6 +1211,14 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     beginInlineCreate("", "file", "lattice-sheet");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
   }, [spreadsheetCreateRequest]);
+  const presentationCreateRequest = props.presentationCreateRequest ?? 0;
+  const handledPresentationCreateRequestRef = useRef(presentationCreateRequest);
+  useEffect(() => {
+    if (presentationCreateRequest === handledPresentationCreateRequestRef.current) return;
+    handledPresentationCreateRequestRef.current = presentationCreateRequest;
+    beginInlineCreate("slides", "presentation");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- beginInlineCreate reads live refs/model
+  }, [presentationCreateRequest]);
   const renderContextMenu = (
     item: PierreContextMenuItem,
     context: PierreContextMenuOpenContext,
@@ -1376,6 +1408,7 @@ export function Navigator(props: {
   onSearchOpenChange: (open: boolean) => void;
   boardCreateRequest?: number;
   spreadsheetCreateRequest?: number;
+  presentationCreateRequest?: number;
   files: FileNode[];
   gitStatus: GitFileStatus[];
   activeFile: string;
@@ -1388,7 +1421,7 @@ export function Navigator(props: {
   onAsset: (path: string) => void;
   onBeginFigureDrag: (path: string, label: string, event: React.PointerEvent) => void;
   onBeginFileDrag: (path: string, label: string, event: React.PointerEvent) => void;
-  onCreateEntry: (path: string, kind: "file" | "folder") => Promise<string>;
+  onCreateEntry: (path: string, kind: "file" | "folder" | "presentation") => Promise<string>;
   onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
@@ -1489,6 +1522,7 @@ export function Navigator(props: {
           searchOpen={props.searchOpen}
           boardCreateRequest={props.boardCreateRequest}
           spreadsheetCreateRequest={props.spreadsheetCreateRequest}
+          presentationCreateRequest={props.presentationCreateRequest}
           onSearchOpenChange={props.onSearchOpenChange}
           files={props.files}
           gitStatus={props.gitStatus}

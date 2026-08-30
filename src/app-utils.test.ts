@@ -8,8 +8,9 @@ import {
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
+  deckIdFromOpenSlidePath,
   isHarperProseFilePath,
-  isPresentationFilePath,
+  isOpenSlideDeckPath,
   isProjectSourceFilePath,
   isWindowDragExcluded,
   markdownFrontmatterEnd,
@@ -253,11 +254,12 @@ describe("window dragging", () => {
 });
 
 describe("editor file drops", () => {
-  it("recognizes presentation Markdown by its compound suffix", () => {
-    expect(isPresentationFilePath("talk.slides.md")).toBe(true);
-    expect(isPresentationFilePath("Deck.SLIDES.MD")).toBe(true);
-    expect(isPresentationFilePath("slides.md")).toBe(false);
-    expect(isPresentationFilePath("talk.md")).toBe(false);
+  it("recognizes only native Open Slide deck entry paths", () => {
+    expect(isOpenSlideDeckPath("slides/research-update/index.tsx")).toBe(true);
+    expect(isOpenSlideDeckPath("slides\\research-update\\index.tsx")).toBe(true);
+    expect(deckIdFromOpenSlidePath("slides/research-update/index.tsx")).toBe("research-update");
+    expect(isOpenSlideDeckPath("slides/research_update/index.tsx")).toBe(false);
+    expect(isOpenSlideDeckPath("slides/research-update/notes.tsx")).toBe(false);
   });
 
   it("runs Harper only for prose source files", () => {

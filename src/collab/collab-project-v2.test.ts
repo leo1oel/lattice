@@ -1274,21 +1274,69 @@ describe("v2 project chat doc", () => {
   it("binds a secondary text document without stealing the primary editor", async () => {
     const { controller } = await setupChatTest({
       permission: "host",
-      liveFiles: [{ fileId: "slides-file", path: "talk.slides.md" }],
+      liveFiles: [{ fileId: "deck-file", path: "slides/research-update/index.tsx" }],
     });
     await controller.openPath("paper.md");
     controller.ytext.insert(0, "# Paper\n");
     const primaryDoc = controller.doc;
 
-    const secondary = await controller.openSecondaryPath("talk.slides.md");
+    const secondary = await controller.openSecondaryPath("slides/research-update/index.tsx");
     expect(secondary).not.toBeNull();
     expect(secondary!.doc).not.toBe(primaryDoc);
     expect(controller.activePath).toBe("paper.md");
     secondary!.ytext.insert(0, "# Talk\n");
     expect(controller.ytext.toString()).toBe("# Paper\n");
 
-    controller.releaseSecondaryPath("talk.slides.md");
+    controller.releaseSecondaryPath("slides/research-update/index.tsx");
     controller.destroy();
+  });
+
+  it("holds multiple managed text bindings without stealing primary state and rejects stale writes", async () => {
+    const { controller } = await setupChatTest({
+      permission: "host",
+      liveFiles: [{ fileId: "deck-file", path: "slides/research-update/index.tsx" }],
+    });
+    await controller.openPath("paper.md");
+    const primary = { path: controller.activePath, ytext: controller.ytext, undo: controller.undoManager, awareness: controller.provider.awareness };
+    const first = await controller.openSideloadedText("slides/research-update/index.tsx", "open-slide:preview");
+    const second = await controller.openSideloadedText("slides/research-update/index.tsx", "open-slide:outline");
+    expect(first.doc).toBe(second.doc);
+    expect(controller.activePath).toBe(primary.path);
+    expect(controller.ytext).toBe(primary.ytext);
+    expect(controller.undoManager).toBe(primary.undo);
+    expect(controller.provider.awareness).toBe(primary.awareness);
+
+    const origin = vi.fn();
+    first.doc.on("afterTransaction", (transaction) => origin(transaction.origin));
+    const version = first.version;
+    expect(first.applyExternalText("# Talk\n", version)).toBeGreaterThan(version);
+    expect(second.ytext.toString()).toBe("# Talk\n");
+    second.ytext.insert(second.ytext.length, "remote");
+    expect(() => first.applyExternalText("stale", version)).toThrow("version is stale");
+    expect(origin.mock.calls.some(([value]) => typeof value === "symbol" && String(value).includes("external-text-snapshot"))).toBe(true);
+
+    first.release(); first.release();
+    expect(second.canWrite).toBe(true);
+    const controllerCatalog = (controller as unknown as { catalogValue: CatalogV2 }).catalogValue;
+    const catalogFile = controllerCatalog.files.find((file) => file.fileId === "deck-file")!;
+    catalogFile.state = "tombstoned";
+    expect(second.canWrite).toBe(false);
+    expect(() => second.applyExternalText("deleted")).toThrow("no longer writable");
+    catalogFile.state = "live"; catalogFile.documentEpoch = 2;
+    expect(second.canWrite).toBe(false);
+    second.release();
+    controller.destroy();
+  });
+
+  it("fails managed writes closed for readers and cleans bindings up on destroy", async () => {
+    const { controller } = await setupChatTest({ permission: "read" });
+    const binding = await controller.openSideloadedText("paper.md", "open-slide:readonly");
+    expect(binding.canWrite).toBe(false);
+    expect(() => binding.applyExternalText("blocked")).toThrow("no longer writable");
+    controller.destroy();
+    expect(binding.canWrite).toBe(false);
+    expect(() => binding.applyExternalText("destroyed")).toThrow("no longer writable");
+    binding.release();
   });
 
   it("survives pool eviction pressure from many sideloaded files", async () => {

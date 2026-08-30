@@ -272,6 +272,42 @@ export function boardDocContent(doc: Y.Doc, schema: TLSchema = getBoardSchema())
   return serializeBoard(records, schema);
 }
 
+/** Reconcile an external .tldr snapshot through the same field-level CRDT patches as the editor. */
+export function replaceBoardDocFromSource(
+  doc: Y.Doc,
+  source: string,
+  schema: TLSchema = getBoardSchema(),
+): void {
+  const incoming = parseBoardRecords(source, schema);
+  if (!incoming) throw new Error("Invalid .tldr document");
+  const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
+  const generations = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY);
+  const patches = doc.getMap<unknown>(BOARD_RECORD_PATCHES_KEY);
+  const next = new Map<string, TLRecord>(incoming.map((record) => [record.id, record]));
+  doc.transact(() => {
+    for (const [id, current] of yRecords) {
+      const replacement = next.get(id);
+      const generation = generations.get(id) ?? LEGACY_RECORD_GENERATION;
+      if (replacement) {
+        writeRecordPatches(current, replacement, generation, patches);
+        next.delete(id);
+      } else {
+        yRecords.delete(id);
+        clearRecordPatches(id, generation, patches);
+        generations.delete(id);
+      }
+    }
+    for (const record of next.values()) {
+      generations.set(record.id, crypto.randomUUID());
+      yRecords.set(record.id, record);
+    }
+    const meta = doc.getMap<unknown>(BOARD_META_KEY);
+    meta.set("formatVersion", BOARD_BRIDGE_FORMAT_VERSION);
+    meta.set("initialized", true);
+    meta.set("schema", schema.serialize());
+  }, BOARD_LOCAL_ORIGIN);
+}
+
 function migratedBoardRecords(doc: Y.Doc, schema: TLSchema): TLRecord[] | null {
   const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
   const generations = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY);

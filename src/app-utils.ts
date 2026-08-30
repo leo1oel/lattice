@@ -68,6 +68,7 @@ export function overleafLinkMatchesSession(sessionHost: string, linkHost: string
 
 const PROJECT_SOURCE_EXTENSIONS = new Set([
   "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
+  "tsx", "ts", "jsx", "js",
 ]);
 const PROJECT_ASSET_EXTENSIONS = new Set(["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"]);
 
@@ -85,8 +86,15 @@ export function isHtmlFilePath(path: string): boolean {
   return fileExtension(path) === "html";
 }
 
-export function isPresentationFilePath(path: string): boolean {
-  return path.replace(/\\/g, "/").toLocaleLowerCase().endsWith(".slides.md");
+export function deckIdFromOpenSlidePath(path: string): string | null {
+  const match = /^slides\/([a-z0-9]+(?:-[a-z0-9]+)*)\/index\.tsx$/i.exec(
+    path.replace(/\\/g, "/"),
+  );
+  return match?.[1] ?? null;
+}
+
+export function isOpenSlideDeckPath(path: string): boolean {
+  return deckIdFromOpenSlidePath(path) !== null;
 }
 
 export function isPreviewableSourceFilePath(path: string): boolean {

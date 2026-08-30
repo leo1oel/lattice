@@ -54,12 +54,13 @@ describe("agent host context", () => {
       capturedAt: "2026-08-14T10:00:00.000Z",
       workspaceRoot: "/tmp/paper",
       presentationAuthoring: {
-        nativeExtension: ".slides.md",
-        nativeFormat: "lattice_reveal_markdown",
+        nativeEntryPattern: "slides/<deck-id>/index.tsx",
+        nativeFormat: "open_slide_tsx",
         skill: "authoring-presentations",
         defaultWhenOutputFormatUnspecified: true,
         unsupportedPptx: true,
-        unsupportedHtml: true,
+        supportsHtmlExport: true,
+        supportsPdfExport: true,
         explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
       },
       activeSurface: "editor",
@@ -71,6 +72,44 @@ describe("agent host context", () => {
         selection: "related work",
       },
       pdf: { page: 3, pageCount: 8 },
+    });
+  });
+
+  it("shares the live Open Slide page and inspector selection for the open deck", () => {
+    expect(buildAgentHostContext({
+      workspaceRoot: "/tmp/paper",
+      activeFile: "slides/research-update/index.tsx",
+      secondaryFile: null,
+      editorPosition: null,
+      activePaper: null,
+      canvasMode: "source",
+      paperView: "blog",
+      pdfPage: 1,
+      pdfPageCount: null,
+      selection: "",
+      selectionSource: null,
+      presentation: {
+        slideId: "research-update",
+        pageIndex: 2,
+        pageNumber: 3,
+        totalPages: 8,
+        slideTitle: "Research update",
+        view: "slides",
+        pagePath: "slides/research-update/index.tsx",
+        selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
+        updatedAt: "2026-08-30T12:00:00.000Z",
+      },
+      activeSurface: "editor",
+    }).presentation).toEqual({
+      slideId: "research-update",
+      pageIndex: 2,
+      pageNumber: 3,
+      totalPages: 8,
+      slideTitle: "Research update",
+      view: "slides",
+      pagePath: "slides/research-update/index.tsx",
+      selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
+      updatedAt: "2026-08-30T12:00:00.000Z",
     });
   });
 

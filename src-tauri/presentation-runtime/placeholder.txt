@@ -1,0 +1,1 @@
+Run `pnpm prepare:presentation` to stage the managed Open Slide runtime here.

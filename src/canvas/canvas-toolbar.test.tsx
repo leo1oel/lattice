@@ -106,33 +106,6 @@ describe("CanvasToolbar insert action", () => {
 });
 
 describe("CanvasToolbar document views", () => {
-  it("uses the standard document-view switcher for presentations", () => {
-    const setMode = vi.fn();
-    render(
-      <CanvasToolbar
-        {...baseProps}
-        activePath="talk.slides.md"
-        presentation
-        setMode={setMode}
-      />,
-    );
-
-    expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute(
-      "title",
-      "Edit presentation source",
-    );
-    expect(screen.getByRole("tab", { name: "Split" })).toHaveAttribute(
-      "title",
-      "Edit and preview presentation",
-    );
-    expect(screen.getByRole("tab", { name: "Preview" })).toHaveAttribute(
-      "title",
-      "Preview presentation",
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
-    expect(setMode).toHaveBeenCalledWith("pdf");
-  });
-
   it("presents two editable panes as Edit rather than source-and-preview Split", () => {
     render(<CanvasToolbar {...baseProps} mode="dual" />);
     expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");

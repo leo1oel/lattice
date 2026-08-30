@@ -8,8 +8,8 @@ import {
 } from "./editor-languages";
 
 describe("editor languages", () => {
-  it("parses and theme-highlights presentation Markdown", async () => {
-    const extensions = await loadTextLanguageExtensions("talk.slides.md");
+  it("parses and theme-highlights Markdown", async () => {
+    const extensions = await loadTextLanguageExtensions("notes.md");
     const state = EditorState.create({
       doc: "# Opening\n\n**Result**\n",
       extensions,
@@ -17,6 +17,6 @@ describe("editor languages", () => {
 
     expect(syntaxTree(state).toString()).toContain("ATXHeading1");
     expect(highlightingFor(state, [tags.heading])).toEqual(expect.any(String));
-    expect(immediateTextLanguageExtensions("another.slides.md")).toBe(extensions);
+    expect(immediateTextLanguageExtensions("another.md")).toBe(extensions);
   });
 });

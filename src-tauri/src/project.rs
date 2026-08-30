@@ -2845,7 +2845,7 @@ pub(crate) fn searchable_text_path(path: &str) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_lowercase)
             .as_deref(),
-        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html")
+        Some("tex" | "bib" | "sty" | "cls" | "md" | "txt" | "html" | "tsx" | "ts" | "jsx" | "js")
     )
 }
 
@@ -2944,6 +2944,62 @@ pub fn create_entry(root: &Path, relative: &str, kind: &str) -> Result<String, S
         }
         _ => unreachable!(),
     }
+}
+
+/// Create a native open-slide deck as one undoable project transaction.
+pub fn create_open_slide_deck(root: &Path, deck_id: &str) -> Result<String, String> {
+    let valid_id = !deck_id.is_empty()
+        && deck_id != ".research"
+        && deck_id.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        });
+    if !valid_id {
+        return Err("Deck ids must use kebab-case letters and numbers.".to_string());
+    }
+
+    let deck_directory = format!("slides/{deck_id}");
+    let entry = format!("{deck_directory}/index.tsx");
+    if root.join(&deck_directory).exists() {
+        return Err("A slide deck already exists with that id.".to_string());
+    }
+
+    let seed = r#"import type { Page, SlideMeta } from '@open-slide/core';
+
+const Cover: Page = () => (
+  <div
+    style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#f7f7f5',
+      color: '#171717',
+    }}
+  >
+    <h1 style={{ fontSize: 144, letterSpacing: '-0.04em' }}>Untitled deck</h1>
+  </div>
+);
+
+export const meta: SlideMeta = { title: 'Untitled deck' };
+export default [Cover] satisfies Page[];
+"#;
+
+    if let Err(error) = apply_transaction(
+        root,
+        &format!("Create open-slide deck {deck_id}"),
+        vec![(entry.clone(), seed.to_string())],
+    ) {
+        // atomic_write may have made these parents before a later history
+        // failure. Remove only empty directories, preserving concurrent work.
+        let _ = fs::remove_dir(root.join(&deck_directory));
+        let _ = fs::remove_dir(root.join("slides"));
+        return Err(error);
+    }
+    Ok(entry)
 }
 
 pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<String, String> {
@@ -3466,6 +3522,7 @@ fn source_mime_type(path: &Path) -> Option<&'static str> {
     {
         Some("md") => Some("text/markdown"),
         Some("html") => Some("text/html"),
+        Some("tsx" | "ts" | "jsx" | "js") => Some("text/javascript"),
         Some("tex" | "sty" | "cls") => Some("text/x-tex"),
         Some("bib" | "bst" | "txt") => Some("text/plain"),
         _ => None,
@@ -4112,6 +4169,10 @@ fn is_supported_source(path: &Path) -> bool {
                 | "bst"
                 | "tldr"
                 | "lattice-sheet"
+                | "tsx"
+                | "ts"
+                | "jsx"
+                | "js"
         )
     )
 }
@@ -4123,23 +4184,19 @@ fn normalize_source_path(relative: &str) -> Result<String, String> {
         Some(extension)
             if matches!(
                 extension.to_ascii_lowercase().as_str(),
-                "tex" | "bib" | "md" | "sty" | "cls" | "txt" | "html" | "tldr" | "lattice-sheet"
+                "tex" | "bib" | "md" | "sty" | "cls" | "txt" | "html" | "tldr" | "lattice-sheet" | "tsx" | "ts" | "jsx" | "js"
             ) =>
         {
             Ok(path.to_string_lossy().to_string())
         }
         _ => Err(
-            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tldr, or .lattice-sheet."
+            "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
                 .to_string(),
         ),
     }
 }
 
 fn seed_content_for_path(path: &str) -> String {
-    if path.to_ascii_lowercase().ends_with(".slides.md") {
-        return "---\ntheme: lattice\ntransition: fade\n---\n\n# Untitled presentation\n\nAdd a subtitle or opening idea.\n\n---\n\n## Next slide\n\n- Add your key point\n- Use `---` to start another slide\n\nNotes:\nAdd speaker notes here.\n"
-            .to_string();
-    }
     match Path::new(path)
         .extension()
         .and_then(|extension| extension.to_str())
@@ -4149,7 +4206,9 @@ fn seed_content_for_path(path: &str) -> String {
         Some("bib") => "% Bibliography\n".to_string(),
         Some("md") => "# Notes\n".to_string(),
         Some("sty" | "cls") => "% Package\n".to_string(),
-        Some("txt" | "html" | "tldr" | "lattice-sheet") => String::new(),
+        Some("txt" | "html" | "tldr" | "lattice-sheet" | "tsx" | "ts" | "jsx" | "js") => {
+            String::new()
+        }
         _ => "% New LaTeX file\n".to_string(),
     }
 }
@@ -4289,6 +4348,41 @@ pub struct EditorWriteResult {
     pub had_conflicts: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextMergeResult {
+    pub content: String,
+    pub had_conflicts: bool,
+}
+
+/// Merge one Open Slide or other external edit against the exact content it
+/// observed, without touching disk. Shared projects use this before updating
+/// Y.Text so the collaboration document remains the authoritative first write.
+pub fn merge_text_snapshots(base: &str, edited: &str, current: &str) -> TextMergeResult {
+    if edited == base || edited == current {
+        return TextMergeResult {
+            content: current.to_string(),
+            had_conflicts: false,
+        };
+    }
+    if current == base {
+        return TextMergeResult {
+            content: edited.to_string(),
+            had_conflicts: false,
+        };
+    }
+    match diffy::MergeOptions::new().merge(base, edited, current) {
+        Ok(content) => TextMergeResult {
+            content,
+            had_conflicts: false,
+        },
+        Err(content) => TextMergeResult {
+            content,
+            had_conflicts: true,
+        },
+    }
+}
+
 /// Save an editor buffer against the exact disk contents it was loaded from.
 /// Agent and filesystem edits bypass React, so an ordinary last-writer-wins
 /// save can otherwise replace a complete external edit with the stale open
@@ -4315,14 +4409,8 @@ pub fn apply_editor_transaction(
 
     let (next, external_changes_merged, had_conflicts) = match base_content {
         Some(base) if current_content != base => {
-            if content == base || content == current_content {
-                (current_content.to_string(), true, false)
-            } else {
-                match diffy::MergeOptions::new().merge(&base, &content, current_content) {
-                    Ok(merged) => (merged, true, false),
-                    Err(conflicted) => (conflicted, true, true),
-                }
-            }
+            let merged = merge_text_snapshots(&base, &content, current_content);
+            (merged.content, true, merged.had_conflicts)
         }
         _ => (content, false, false),
     };
@@ -5242,7 +5330,7 @@ fn todo_source_path(path: &str) -> bool {
             .and_then(|extension| extension.to_str())
             .map(str::to_lowercase)
             .as_deref(),
-        Some("tex" | "md")
+        Some("tex" | "md" | "tsx" | "ts" | "jsx" | "js")
     )
 }
 
@@ -6268,7 +6356,6 @@ mod tests {
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
         assert!(root.join("attention-results.lattice-sheet").is_file());
-        assert!(!root.join("attention-talk.slides.md").exists());
         let spreadsheet: serde_json::Value = serde_json::from_slice(
             &fs::read(root.join("attention-results.lattice-sheet")).unwrap(),
         )
@@ -6324,18 +6411,12 @@ mod tests {
         );
 
         fs::write(root.join("notes.md"), "learner edit\n").unwrap();
-        fs::write(
-            root.join("attention-talk.slides.md"),
-            "stale tutorial deck\n",
-        )
-        .unwrap();
         fs::write(root.join("learner-file.txt"), "temporary\n").unwrap();
         assert_eq!(create_tutorial(&parent).unwrap(), root);
         assert_eq!(
             fs::read_to_string(root.join("notes.md")).unwrap(),
             TUTORIAL_NOTES
         );
-        assert!(!root.join("attention-talk.slides.md").exists());
         assert!(!root.join("learner-file.txt").exists());
         assert!(fs::read(root.join("figures/attention-figure-2.pdf"))
             .unwrap()
@@ -6695,24 +6776,24 @@ mod tests {
     fn stale_clean_editor_buffer_keeps_external_agent_edit() {
         let root = temp_root("editor-agent-replacement");
         fs::create_dir_all(root.join(".research/history")).unwrap();
-        let seed = "# Untitled presentation\n\n---\n\n# New slide\n";
-        let agent_deck = "# Native VLM\n\n---\n\n## Results\n\n![Result](figures/result.png)\n";
-        fs::write(root.join("talk.slides.md"), agent_deck).unwrap();
+        let seed = "# Draft\n\nInitial notes\n";
+        let agent_draft = "# Native VLM\n\n## Results\n\n![Result](figures/result.png)\n";
+        fs::write(root.join("draft.md"), agent_draft).unwrap();
 
         let result = apply_editor_transaction(
             &root,
-            "talk.slides.md".to_string(),
+            "draft.md".to_string(),
             seed.to_string(),
             Some(seed.to_string()),
         )
         .unwrap();
 
-        assert_eq!(result.content, agent_deck);
+        assert_eq!(result.content, agent_draft);
         assert!(result.external_changes_merged);
         assert!(!result.had_conflicts);
         assert_eq!(
-            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
-            agent_deck
+            fs::read_to_string(root.join("draft.md")).unwrap(),
+            agent_draft
         );
         assert!(history(&root).unwrap().is_empty());
         fs::remove_dir_all(root).unwrap();
@@ -6725,11 +6806,11 @@ mod tests {
         let base = "# Draft\n\nShared point\n";
         let local = "# Draft\n\nShared point\n\nLocal note\n";
         let agent = "# Finished deck\n\nShared point\n";
-        fs::write(root.join("talk.slides.md"), agent).unwrap();
+        fs::write(root.join("draft.md"), agent).unwrap();
 
         let result = apply_editor_transaction(
             &root,
-            "talk.slides.md".to_string(),
+            "draft.md".to_string(),
             local.to_string(),
             Some(base.to_string()),
         )
@@ -6740,7 +6821,7 @@ mod tests {
         assert!(result.content.contains("# Finished deck"));
         assert!(result.content.contains("Local note"));
         assert_eq!(
-            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
+            fs::read_to_string(root.join("draft.md")).unwrap(),
             result.content
         );
         fs::remove_dir_all(root).unwrap();
@@ -6753,11 +6834,11 @@ mod tests {
         let base = "# Draft title\n";
         let local = "# Local title\n";
         let agent = "# Agent title\n";
-        fs::write(root.join("talk.slides.md"), agent).unwrap();
+        fs::write(root.join("draft.md"), agent).unwrap();
 
         let result = apply_editor_transaction(
             &root,
-            "talk.slides.md".to_string(),
+            "draft.md".to_string(),
             local.to_string(),
             Some(base.to_string()),
         )
@@ -6768,7 +6849,7 @@ mod tests {
         assert!(result.content.contains("# Local title"));
         assert!(result.content.contains("# Agent title"));
         assert_eq!(
-            fs::read_to_string(root.join("talk.slides.md")).unwrap(),
+            fs::read_to_string(root.join("draft.md")).unwrap(),
             result.content
         );
         fs::remove_dir_all(root).unwrap();
@@ -7354,19 +7435,16 @@ mod tests {
         assert!(delete_entry(&root, "references.bib").is_err());
         assert!(create_entry(&root, ".research/private.txt", "file").is_err());
         assert_eq!(create_entry(&root, "notes.md", "file").unwrap(), "notes.md");
+        assert_eq!(create_entry(&root, "draft.md", "file").unwrap(), "draft.md");
         assert_eq!(
-            create_entry(&root, "talk.slides.md", "file").unwrap(),
-            "talk.slides.md"
+            fs::read_to_string(root.join("draft.md")).unwrap(),
+            "# Notes\n"
         );
-        let presentation = fs::read_to_string(root.join("talk.slides.md")).unwrap();
-        assert!(presentation.contains("theme: lattice"));
-        assert!(presentation.contains("# Untitled presentation"));
-        assert!(presentation.contains("Notes:"));
         assert!(collab_project_inventory_v2(&root)
             .unwrap()
             .files
             .iter()
-            .any(|file| file.path == "talk.slides.md" && file.content_kind == "text"));
+            .any(|file| file.path == "draft.md" && file.content_kind == "text"));
         assert_eq!(
             create_entry(&root, "supplement.html", "file").unwrap(),
             "supplement.html"
@@ -7380,6 +7458,88 @@ mod tests {
             .iter()
             .any(|node| node.path == "supplement.html"));
         assert!(create_entry(&root, "binary.exe", "file").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn open_slide_decks_are_transactional_native_tsx_sources() {
+        let parent = temp_root("open-slide-deck");
+        let root = create(&parent, "paper").unwrap();
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::create_dir_all(root.join("themes")).unwrap();
+        fs::create_dir_all(root.join("slides")).unwrap();
+        fs::write(root.join("open-slide.config.ts"), "export default {};\n").unwrap();
+        fs::write(root.join("slides/.folders.json"), "{}\n").unwrap();
+
+        assert_eq!(
+            create_open_slide_deck(&root, "research-update-2").unwrap(),
+            "slides/research-update-2/index.tsx"
+        );
+        let entry = fs::read_to_string(root.join("slides/research-update-2/index.tsx")).unwrap();
+        assert!(entry.contains("import type { Page, SlideMeta } from '@open-slide/core'"));
+        assert!(entry.contains("export const meta: SlideMeta"));
+        assert!(entry.contains("export default [Cover] satisfies Page[]"));
+        assert!(!root.join("slides/research-update-2/notes.md").exists());
+        assert_eq!(history(&root).unwrap().len(), 1);
+
+        let inventory = collab_project_inventory_v2(&root).unwrap();
+        assert!(inventory.files.iter().any(|file| {
+            file.path == "slides/research-update-2/index.tsx" && file.content_kind == "text"
+        }));
+        assert!(inventory
+            .files
+            .iter()
+            .any(|file| { file.path == "open-slide.config.ts" && file.content_kind == "text" }));
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn open_slide_deck_rejects_invalid_ids_and_conflicts() {
+        let parent = temp_root("open-slide-invalid");
+        let root = create(&parent, "paper").unwrap();
+        for invalid in [
+            "",
+            ".research",
+            "../escape",
+            "deck/name",
+            "Deck",
+            "deck_name",
+            "-deck",
+            "deck-",
+            "deck--name",
+        ] {
+            assert!(create_open_slide_deck(&root, invalid).is_err(), "{invalid}");
+        }
+
+        create_open_slide_deck(&root, "existing").unwrap();
+        assert!(create_open_slide_deck(&root, "existing").is_err());
+        assert_eq!(history(&root).unwrap().len(), 1);
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn native_script_sources_remain_text_without_admitting_binary_content() {
+        let parent = temp_root("native-script-inventory");
+        let root = create(&parent, "paper").unwrap();
+        for extension in ["tsx", "ts", "jsx", "js"] {
+            fs::write(
+                root.join(format!("source.{extension}")),
+                "export default 1;\n",
+            )
+            .unwrap();
+        }
+        fs::write(root.join("binary.tsx"), b"export\0binary").unwrap();
+
+        let inventory = collab_project_inventory_v2(&root).unwrap();
+        for extension in ["tsx", "ts", "jsx", "js"] {
+            assert!(inventory.files.iter().any(|file| {
+                file.path == format!("source.{extension}") && file.content_kind == "text"
+            }));
+        }
+        assert!(inventory
+            .files
+            .iter()
+            .any(|file| file.path == "binary.tsx" && file.content_kind == "binary"));
         fs::remove_dir_all(parent).unwrap();
     }
 

@@ -269,10 +269,6 @@ msgstr "添加评论"
 msgid "Add project term"
 msgstr "添加项目术语"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Add slide"
-msgstr "添加幻灯片"
-
 #: src/project/navigator.tsx
 msgid "Add your first paper"
 msgstr "添加第一篇论文"
@@ -289,8 +285,8 @@ msgid "Agent"
 msgstr "智能助手"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, and spreadsheets. Ask it to draft text, verify a claim against a source, analyze results, or revise files across the project"
-msgstr "智能助手可以读取你的稿件、笔记、论文和电子表格。你可以让它起草文本、对照来源核查论断、分析结果，或修改项目中的文件"
+msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
+msgstr "Agent 可以读取你的论文、笔记、文献、电子表格和 Open Slide 演示文稿。你可以让它起草文本、根据来源核实论点、分析结果、制作幻灯片，或修改项目中的文件"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -992,10 +988,6 @@ msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
 msgid "Composition / ring"
 msgstr "复合 / 环运算"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Concave"
-msgstr "凹面"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "会议"
@@ -1068,10 +1060,6 @@ msgstr "要继续吗？"
 msgid "Contour integral"
 msgstr "环路积分"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Convex"
-msgstr "凸面"
-
 #: src/collab/collab-dialog.tsx
 msgid "Copied"
 msgstr "已复制"
@@ -1128,10 +1116,6 @@ msgstr "无法在浏览器中打开文章"
 msgid "Could not open the Overleaf project"
 msgstr "无法打开该 Overleaf 项目"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Could not open the print dialog"
-msgstr "无法打开打印对话框"
-
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
 #: src/app/use-overleaf-workspace.ts
@@ -1158,6 +1142,10 @@ msgstr "无法检查更新"
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "无法安装更新"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Create a native Open Slide presentation"
+msgstr "创建原生 Open Slide 演示文稿"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
@@ -1244,10 +1232,6 @@ msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "同时在 Overleaf 上删除"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Delete slide"
-msgstr "删除幻灯片"
 
 #: src/app/app-editor-panels.tsx
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
@@ -1448,10 +1432,6 @@ msgstr "编辑并预览 HTML"
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit and preview presentation"
-msgstr "编辑并预览演示文稿"
-
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/navigator.tsx
 msgid "Edit bibliography entry"
@@ -1476,10 +1456,6 @@ msgstr "编辑 Markdown"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit notes.md on the left and see the formatted result update live on the right"
 msgstr "在左侧编辑 notes.md，右侧会实时更新排版结果"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit presentation source"
-msgstr "编辑演示文稿源码"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source"
@@ -1574,10 +1550,6 @@ msgstr "英文"
 msgid "Enter a page number"
 msgstr "输入页码"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Enter a slide number"
-msgstr "输入幻灯片页码"
-
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -1666,10 +1638,6 @@ msgstr "导出 ZIP"
 #: src/project/navigator.tsx
 msgid "Expression of concern"
 msgstr "关注声明"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Fade"
-msgstr "淡入淡出"
 
 #: src/settings/settings-dialog.tsx
 msgid "Feedback"
@@ -1922,10 +1890,6 @@ msgstr "红桃"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "隐藏侧边栏"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Hide slide navigator"
-msgstr "收起幻灯片目录"
 
 #: src/history/history-drawer.tsx
 msgid "History views"
@@ -2323,10 +2287,6 @@ msgstr "姓, 名 and 姓, 名"
 msgid "latexmk -c then -g"
 msgstr "先运行 latexmk -c，再运行 -g"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Lattice"
-msgstr "Lattice"
-
 #: src/settings/settings-dialog.tsx
 msgid "Lattice checks in the background and installs updates on its own"
 msgstr "Lattice 会在后台检查并自动安装更新"
@@ -2614,10 +2574,6 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Midnight"
-msgstr "午夜"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "最小值"
@@ -2739,6 +2695,10 @@ msgstr "新名称"
 msgid "New Overleaf project name"
 msgstr "新 Overleaf 项目名称"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "New presentation"
+msgstr "新建演示文稿"
+
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
@@ -2762,10 +2722,6 @@ msgstr "下一页"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "下一个搜索结果"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Next slide"
-msgstr "下一张幻灯片"
 
 #: src/App.tsx
 msgid "No"
@@ -2842,10 +2798,6 @@ msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
 msgstr "暂无版本。版本会在你工作时自动保存，你也可以点击“保存版本”"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "None"
-msgstr "无"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "North-east arrow"
@@ -3028,6 +2980,18 @@ msgstr "打开项目历史"
 msgid "Open settings"
 msgstr "打开设置"
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Open Slide could not start"
+msgstr "Open Slide 无法启动"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Open Slide editor for {deckId}"
+msgstr "{deckId} 的 Open Slide 编辑器"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
+msgstr "打开 + 菜单并选择「新建演示文稿」。Lattice 会在 slides/ 下创建文稿，并打开完整的 Open Slide 编辑器。你既可以自己编辑，也可以让 Agent 创建和修改；协作与 Overleaf 会让演示文稿文件保持同步"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商"
@@ -3101,6 +3065,10 @@ msgstr "Overleaf 评论与聊天"
 msgid "Overleaf comments and chat · {count} waiting"
 msgstr "Overleaf 评论与聊天 · {count} 条待处理"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
+msgstr "Overleaf 不支持实时编辑此文件，将改用常规同步。"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 项目操作"
@@ -3129,10 +3097,6 @@ msgstr "论文操作"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "论文内容"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Paper style"
-msgstr "纸张风格"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
@@ -3300,10 +3264,6 @@ msgid "Preparing PDF preview…"
 msgstr "正在准备 PDF 预览…"
 
 #: src/canvas/document-canvas.tsx
-msgid "Preparing presentation editor"
-msgstr "正在准备演示文稿编辑器"
-
-#: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"
 msgstr "正在准备预览…"
 
@@ -3318,26 +3278,6 @@ msgstr "正在准备电子表格编辑器"
 #: src/agent/synara-loading-surface.tsx
 msgid "Preparing this workspace"
 msgstr "正在准备此工作区"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Present"
-msgstr "放映"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation"
-msgstr "演示文稿"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation Markdown source"
-msgstr "演示文稿 Markdown 源码"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation preview"
-msgstr "演示文稿预览"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Presentation style"
-msgstr "演示文稿样式"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
@@ -3364,10 +3304,6 @@ msgstr "{path} 的预览"
 msgid "Preview PDF"
 msgstr "预览 PDF"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Preview presentation"
-msgstr "预览演示文稿"
-
 #: src/canvas/document-canvas.tsx
 msgid "previous"
 msgstr "上一个"
@@ -3380,17 +3316,9 @@ msgstr "上一页"
 msgid "Previous search result"
 msgstr "上一个搜索结果"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Previous slide"
-msgstr "上一张幻灯片"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "撇号"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Print / PDF"
-msgstr "打印 / PDF"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
@@ -3727,14 +3655,6 @@ msgstr "调整编辑器与 PDF 预览大小"
 #: src/canvas/document-canvas.tsx
 msgid "Resize PDF pane"
 msgstr "调整 PDF 窗格大小"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Resize slide navigator"
-msgstr "调整幻灯片目录宽度"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Resize source and presentation preview"
-msgstr "调整源码与演示预览的宽度"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
@@ -4150,10 +4070,6 @@ msgstr "显示大纲"
 msgid "Show sidebar"
 msgstr "显示侧边栏"
 
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Show slide navigator"
-msgstr "展开幻灯片目录"
-
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
@@ -4213,28 +4129,6 @@ msgstr "Skills"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "跳过教程"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide"
-msgstr "滑动"
-
-#. placeholder {0}: index + 1
-#. placeholder {1}: summary.title
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide {0}: {1}"
-msgstr "第 {0} 张：{1}"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide navigation"
-msgstr "幻灯片翻页"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slide number"
-msgstr "幻灯片页码"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Slides"
-msgstr "幻灯片"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
@@ -4331,6 +4225,14 @@ msgstr "开始追踪版本"
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
 msgstr "正在启动智能助手"
+
+#: src/canvas/document-canvas.tsx
+msgid "Starting Open Slide"
+msgstr "正在启动 Open Slide"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Starting Open Slide…"
+msgstr "正在启动 Open Slide…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
@@ -4549,7 +4451,6 @@ msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
 msgid "The worksheet and all of its contents will be removed."
 msgstr "该工作表及其所有内容都将被删除。"
 
-#: src/editor/presentation/presentation-editor.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Theme"
 msgstr "主题"
@@ -4597,6 +4498,10 @@ msgstr "这个文件夹包含稿件、笔记、图片、画板、电子表格和
 #: src/canvas/document-canvas.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "此格式无法在预览中渲染"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "This is not a native Open Slide deck."
+msgstr "这不是原生 Open Slide 演示文稿。"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes"
@@ -4674,10 +4579,6 @@ msgstr "顶级章节标题"
 #: src/history/versions-timeline.tsx
 msgid "Track versions of this project to see who changed what and roll back safely"
 msgstr "追踪此项目的版本，即可看到谁改了什么，并安全地回退"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Transition"
-msgstr "切换效果"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
@@ -5088,10 +4989,6 @@ msgstr "泽塔"
 #: src/App.tsx
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
-
-#: src/editor/presentation/presentation-editor.tsx
-msgid "Zoom"
-msgstr "缩放"
 
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx

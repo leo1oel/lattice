@@ -1,8 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
-import * as Y from "yjs";
-import { Awareness } from "y-protocols/awareness";
 import type { AssetPreview, FileViewState } from "../app-types";
 import { DocumentCanvas } from "./document-canvas";
 
@@ -48,45 +46,38 @@ vi.mock("./canvas-lazy-modules", () => {
       data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
     />
   );
-  const PresentationEditor = (props: {
+  const OpenSlideWorkspace = (props: {
+    projectRoot: string;
     path: string;
     source: string;
     active?: boolean;
     editable?: boolean;
-    languageExtensions?: unknown[];
-    collabExtensions?: unknown[];
-    mode?: "source" | "split" | "preview";
-    onChange?: (source: string) => void;
-    onModeChange?: (mode: "source" | "split" | "preview") => void;
-    initialViewState?: { slide: number; mode: string };
-    onViewState?: (state: { slide: number; mode: "source" | "split" | "preview" }) => void;
+    onMutation: (mutation: {
+      id: number;
+      path: string;
+      kind: "write";
+      text: string;
+      previousText: string;
+    }) => Promise<unknown>;
   }) => (
     <div
-      data-testid="presentation-editor"
+      data-testid="open-slide-workspace"
+      data-project-root={props.projectRoot}
       data-path={props.path}
       data-source={props.source}
       data-active={String(props.active ?? true)}
       data-editable={String(props.editable ?? true)}
-      data-language-extensions={String(props.languageExtensions?.length ?? 0)}
-      data-collab-extensions={String(props.collabExtensions?.length ?? 0)}
-      data-mode={props.mode ?? ""}
-      data-restored-slide={String(props.initialViewState?.slide ?? "")}
-      data-restored-mode={props.initialViewState?.mode ?? ""}
     >
       <button
         type="button"
-        data-testid="presentation-view-state"
-        onClick={() => props.onViewState?.({ slide: 2, mode: "preview" })}
-      />
-      <button
-        type="button"
-        data-testid="presentation-mode-change"
-        onClick={() => props.onModeChange?.("preview")}
-      />
-      <button
-        type="button"
-        data-testid="presentation-source-change"
-        onClick={() => props.onChange?.("# Shared change\n")}
+        data-testid="open-slide-mutation"
+        onClick={() => void props.onMutation({
+          id: 1,
+          path: props.path,
+          kind: "write",
+          text: "export default [];\n",
+          previousText: props.source,
+        })}
       />
     </div>
   );
@@ -95,7 +86,7 @@ vi.mock("./canvas-lazy-modules", () => {
     loadVisualMarkdownEditorModule: async () => ({ VisualMarkdownEditor: editorStub("visual-markdown-editor") }),
     loadBoardEditorModule: async () => ({ BoardEditor: editorStub("board-editor") }),
     loadSpreadsheetEditorModule: async () => ({ SpreadsheetEditor: editorStub("spreadsheet-editor") }),
-    loadPresentationEditorModule: async () => ({ PresentationEditor }),
+    loadOpenSlideWorkspaceModule: async () => ({ OpenSlideWorkspace }),
     // Reported as warmed so DeferredVisualMarkdownEditor skips its one-frame
     // placeholder; the deferral is a paint concern, not canvas behaviour.
     isVisualMarkdownEditorWarmed: () => true,
@@ -112,6 +103,7 @@ type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 
 function baseProps(): CanvasProps {
   return {
+    projectRoot: "/tmp/project",
     mode: "source",
     source: "\\section{Intro}\n",
     activeFile: "main.tex",
@@ -128,9 +120,7 @@ function baseProps(): CanvasProps {
     onPaperTextSelect: vi.fn(),
     onContextSurfaceActivate: vi.fn(),
     onViewMarkdownSource: vi.fn(),
-    onPresentationModeChange: vi.fn(),
-    presentationPaneModes: {},
-    onPresentationPaneModeChange: vi.fn(),
+    onOpenSlideMutation: vi.fn(async () => []),
     pdfUrl: null,
     pdfBase64: null,
     activePaper: null,
@@ -383,109 +373,41 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(screen.queryByTestId("pdf-preview")).toBeNull();
   });
 
-  it("gives a .slides.md file its presentation workspace and follows the canvas view", async () => {
-    const onFileViewState = vi.fn();
-    const onPresentationModeChange = vi.fn();
+  it("hosts a native Open Slide deck as the complete presentation workspace", async () => {
+    const onOpenSlideMutation = vi.fn(async () => []);
     const { container } = renderCanvas({
       mode: "source",
-      activeFile: "talk.slides.md",
-      source: "# Talk\n",
-      getFileViewState: () => ({ presentation: { slide: 1, mode: "preview" } }),
-      onFileViewState,
-      onPresentationModeChange,
+      activeFile: "slides/research-update/index.tsx",
+      source: "export default [];\n",
+      onOpenSlideMutation,
     });
 
-    const presentation = await screen.findByTestId("presentation-editor");
-    expect(presentation.dataset.path).toBe("talk.slides.md");
-    expect(presentation.dataset.restoredSlide).toBe("1");
-    expect(presentation.dataset.restoredMode).toBe("preview");
-    expect(presentation.dataset.mode).toBe("source");
+    const presentation = await screen.findByTestId("open-slide-workspace");
+    expect(presentation.dataset.projectRoot).toBe("/tmp/project");
+    expect(presentation.dataset.path).toBe("slides/research-update/index.tsx");
     expect(sourceEditor(container)).toBeNull();
-
-    fireEvent.click(screen.getByTestId("presentation-view-state"));
-    expect(onFileViewState).toHaveBeenCalledWith("talk.slides.md", {
-      presentation: { slide: 2, mode: "preview" },
-    });
-
-    fireEvent.click(screen.getByTestId("presentation-mode-change"));
-    expect(onPresentationModeChange).toHaveBeenCalledWith("pdf");
+    fireEvent.click(screen.getByTestId("open-slide-mutation"));
+    expect(onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({
+      path: "slides/research-update/index.tsx",
+      kind: "write",
+    }));
   });
 
-  it("keeps a presentation inside the secondary pane", async () => {
-    const onPresentationPaneModeChange = vi.fn();
+  it("keeps a native Open Slide deck inside the secondary pane", async () => {
     const { container } = renderCanvas({
       mode: "dual",
       activeFile: "main.tex",
-      secondaryFile: "talk.slides.md",
-      secondarySource: "# Talk\n",
+      secondaryFile: "slides/research-update/index.tsx",
+      secondarySource: "export default [];\n",
       focusedPane: "secondary",
       secondaryEditorEditable: false,
-      presentationPaneModes: { "talk.slides.md": "preview" },
-      onPresentationPaneModeChange,
     });
 
-    const presentation = await screen.findByTestId("presentation-editor");
+    const presentation = await screen.findByTestId("open-slide-workspace");
     expect(presentation.dataset.active).toBe("true");
     expect(presentation.dataset.editable).toBe("false");
-    expect(presentation.dataset.mode).toBe("preview");
-    await waitFor(() => expect(Number(presentation.dataset.languageExtensions)).toBeGreaterThan(0));
-    expect(container.querySelector("[data-editor-pane='secondary'] [data-testid='presentation-editor']"))
+    expect(container.querySelector("[data-editor-pane='secondary'] [data-testid='open-slide-workspace']"))
       .not.toBeNull();
-
-    fireEvent.click(screen.getByTestId("presentation-mode-change"));
-    expect(onPresentationPaneModeChange).toHaveBeenCalledWith("talk.slides.md", "preview");
-  });
-
-  it("binds a secondary presentation to its own collaborative text and permission", async () => {
-    const doc = new Y.Doc();
-    const ytext = doc.getText("content");
-    ytext.insert(0, "# Talk\n");
-    const awareness = new Awareness(doc);
-    const undoManager = new Y.UndoManager(ytext);
-    const binding = { doc, ytext, undoManager, provider: { awareness } };
-    const openSecondaryPath = vi.fn(async () => binding);
-    const collabSession = {
-      ...binding,
-      host: "collab.example",
-      room: "room",
-      activePath: "main.tex",
-      setActivePath: vi.fn(),
-      fileCount: () => 2,
-      destroy: vi.fn(),
-      openSecondaryPath,
-      releaseSecondaryPath: vi.fn(),
-    } as unknown as CanvasProps["collabSession"];
-
-    const view = renderCanvas({
-      mode: "dual",
-      activeFile: "main.tex",
-      secondaryFile: "talk.slides.md",
-      secondarySource: "# Talk\n",
-      focusedPane: "secondary",
-      collabSession,
-      collabReady: true,
-      secondaryEditorEditable: true,
-      presentationPaneModes: { "talk.slides.md": "preview" },
-    });
-
-    const presentation = await screen.findByTestId("presentation-editor");
-    await waitFor(() => expect(Number(presentation.dataset.collabExtensions)).toBeGreaterThan(0));
-    expect(presentation.dataset.editable).toBe("true");
-    expect(openSecondaryPath).toHaveBeenCalledWith("talk.slides.md");
-
-    fireEvent.click(screen.getByTestId("presentation-source-change"));
-    expect(ytext.toString()).toBe("# Shared change\n");
-    ytext.doc!.transact(() => {
-      ytext.delete(0, ytext.length);
-      ytext.insert(0, "# Remote change\n");
-    }, "remote-test");
-    fireEvent.click(screen.getByTestId("presentation-source-change"));
-    expect(ytext.toString()).toBe("# Remote change\n");
-
-    view.unmount();
-    undoManager.destroy();
-    awareness.destroy();
-    doc.destroy();
   });
 
   it("keeps a board inside its pane when a second editor is open", async () => {

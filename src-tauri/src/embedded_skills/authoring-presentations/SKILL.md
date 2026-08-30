@@ -1,160 +1,173 @@
 ---
 name: authoring-presentations
 display-name: Presentation Authoring
-short-description: Create clear Reveal.js slide decks in Lattice's supported Markdown format.
-description: Creates and edits Lattice Reveal.js presentations stored as .slides.md files. Use when a user asks to make or revise slides, a deck, presentation, PPT, PPTX, PowerPoint, 演示文稿, or 幻灯片 content, speaker notes, slide images, code examples, or presentation structure in Lattice.
+short-description: Create and edit native Open Slide decks in Lattice.
+description: Creates and edits Open Slide presentations stored as React and TypeScript under slides/<deck-id>/. Use when a user asks for slides, decks, presentations, PPT, PPTX, PowerPoint, 演示文稿, or 幻灯片 content, speaker notes, visuals, transitions, or presentation structure in Lattice.
 ---
 
 # Authoring Lattice presentations
 
-Create and revise `.slides.md` decks that render correctly in Lattice's Reveal.js presentation editor.
-Treat the Lattice dialect in this skill as authoritative even when upstream Reveal.js supports additional HTML, attributes, configuration, or plugins.
+Create and revise native Open Slide decks inside the current Lattice project.
+Lattice hosts Open Slide directly, so the deck source, editor, presenter mode, comments, assets, design controls, and HTML or PDF export all use Open Slide's native behavior.
 
-## Work on the source deck
+## Work on the native deck
 
-- When the active editor path ends in `.slides.md`, read that file before planning or editing it.
-- When a user asks for a presentation, PPT, PowerPoint, deck, slides, 演示文稿, or 幻灯片 without naming an output format, create a descriptive `.slides.md` file in Lattice's native Reveal.js Markdown format.
-- Never create `.pptx` or HTML as a substitute for a Lattice presentation.
-- If the user explicitly requests a real `.pptx`, PowerPoint, or standalone HTML deliverable, explain that Lattice's presentation editor does not author that external format; ask whether they want the native `.slides.md` deck instead.
-- When creating a native deck, use a descriptive filename ending in `.slides.md` and place it where the user requested.
-- Edit the `.slides.md` source instead of a generated PDF.
-- Preserve existing theme, transition, slide order, notes, image paths, and content outside the requested change unless changing them is necessary.
-- Make targeted edits for revision requests rather than rewriting the whole deck.
-- Never claim to have visually inspected or exported a deck unless the relevant tool or app action was actually used.
+- A deck id is a short, descriptive kebab-case directory name such as `attention-results`.
+- The entry file is always `slides/<deck-id>/index.tsx`.
+- Deck-local images, videos, and fonts belong under `slides/<deck-id>/assets/`.
+- Assets reused by multiple decks belong under the project-root `assets/` directory and are imported through `@assets/...`.
+- Themes belong under the project-root `themes/` directory.
+- Speaker notes stay in the entry module's exported `notes` array.
+- Do not create an alternate slide source, a separate notes file, or a Lattice-specific manifest.
+- Do not add dependencies or modify `package.json` for ordinary deck authoring.
+- The managed runtime uses the fixed directories above and deliberately does not execute `open-slide.config.ts`.
+- Do not edit another deck or shared assets unless the request requires it.
+- Preserve existing page order, notes, metadata, design tokens, transitions, and assets outside the requested change.
 
-## Use the supported file format
+When the Lattice host context contains `presentation`, treat it as the live Open Slide cursor for the current turn.
+Use `presentation.pagePath`, `pageIndex`, and `pageNumber` to resolve references such as “this slide,” and use `presentation.selection.line` and `column` as the source handle for references such as “this heading.”
+Re-check the current host context on every turn that uses such a reference because the user can navigate or select another element between turns.
 
-Deck metadata is optional and may appear once at the very beginning:
+When the user asks for a presentation without naming an output format, create or edit a native Open Slide deck.
+If the user explicitly requests `.pptx`, explain that Lattice does not author PowerPoint files and offer the native deck or Open Slide's HTML or PDF export instead.
 
-```markdown
----
-theme: lattice
-transition: fade
----
+## Use the file contract
 
-# Presentation title
+Each entry module default-exports a non-empty array of zero-prop React page components in presentation order.
+Keep helper components and constants in the same `index.tsx` file so Open Slide's inspector can edit source locations reliably.
 
-Subtitle or opening idea
+```tsx
+import type { DesignSystem, Page, SlideMeta } from '@open-slide/core';
+
+export const design: DesignSystem = {
+  palette: { bg: '#0f172a', text: '#f8fafc', accent: '#fbbf24' },
+  fonts: {
+    display: '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif',
+    body: '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif',
+  },
+  typeScale: { hero: 168, body: 40 },
+  radius: 12,
+};
+
+const Cover: Page = () => (
+  <div
+    style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      padding: '0 160px',
+      background: 'var(--osd-bg)',
+      color: 'var(--osd-text)',
+      fontFamily: 'var(--osd-font-body)',
+    }}
+  >
+    <h1
+      style={{
+        margin: 0,
+        fontFamily: 'var(--osd-font-display)',
+        fontSize: 'var(--osd-size-hero)',
+        lineHeight: 1.05,
+      }}
+    >
+      The Big Idea
+    </h1>
+  </div>
+);
+
+export const notes = [
+  'Introduce the question before showing the result.',
+];
+
+export const meta: SlideMeta = {
+  title: 'The Big Idea',
+  createdAt: '2026-05-16T12:00:00Z',
+};
+
+export default [Cover] satisfies Page[];
 ```
 
-The supported themes are exactly `lattice`, `paper`, and `midnight`.
-The supported transitions are exactly `none`, `fade`, `slide`, `convex`, `concave`, and `zoom`.
-Use `lattice` and `fade` by default when creating a deck unless the user requests another supported style.
+Set `meta.createdAt` once when creating a deck, using the current ISO 8601 timestamp as a plain string literal.
+The `notes` array is index-aligned with the exported pages, and an entry may be `undefined` when that page has no notes.
+Set `meta.theme` only when the deck follows a matching `themes/<id>.md` theme.
 
-Separate horizontal slides with a line containing only `---`:
+## Design for the fixed canvas
 
-```markdown
-## Motivation
+Every page uses a fixed 1920 × 1080 canvas that Open Slide scales to the available surface.
+The root element of every page must fill `100% × 100%`.
+Use absolute pixel values for typography, spacing, and fixed geometry, and never depend on page scrolling.
 
-- First point
-- Second point
+- Keep content 100–160px from the canvas edges.
+- Use roughly 140–200px for hero titles, 80–120px for section headings, 56–80px for page headings, 32–44px for body text, and 22–28px for labels.
+- Keep each page focused on one idea, with at most five short bullets.
+- Split crowded content into more pages instead of shrinking body text below 28px or hiding overflow.
+- Verify the vertical budget: content height plus gaps and top and bottom padding must not exceed 1080px.
 
----
+Default new decks to an exported `DesignSystem` so users can tune the palette, fonts, type scale, and radius in Open Slide's Design panel.
+Use `var(--osd-bg)`, `var(--osd-text)`, `var(--osd-accent)`, `var(--osd-font-display)`, `var(--osd-font-body)`, `var(--osd-size-hero)`, `var(--osd-size-body)`, and `var(--osd-radius)` in visual styles.
+Keep the design object as a literal without spreads or helper calls so the Design panel can update it.
 
-## Method
+## Use assets and native primitives
 
-Explain the method here.
+Import deck-local assets as modules:
+
+```tsx
+import hero from './assets/hero.jpg';
+
+<img src={hero} alt="Attention map" style={{ width: 960, height: 540, objectFit: 'cover' }} />
 ```
 
-A separator inside a fenced code block is code and does not start a new slide.
-Lattice presentations are a flat sequence of horizontal slides, so do not create vertical slide stacks.
+Import a reusable global asset through the alias:
 
-Put speaker notes at the end of a slide after a line containing exactly `Notes:`:
-
-```markdown
-## Result
-
-Accuracy improved across all evaluated settings.
-
-Notes:
-Explain the evaluation setup before discussing the result.
-Mention the main limitation if the audience asks about generalization.
+```tsx
+import logo from '@assets/logos/lattice.svg';
 ```
 
-Content after `Notes:` belongs to the notes and is not visible on the slide.
-Use the exact capitalization `Notes:` and keep all visible slide content before it.
+When a specific user-owned image is required but unavailable, use `ImagePlaceholder` with a concrete content hint instead of inventing an asset.
+Do not use placeholders for decoration or generic stock imagery.
 
-## Prefer portable Markdown
+Use `Steps` and direct-child `Step` elements only when the order of ideas matters:
 
-Use ordinary Markdown and GitHub Flavored Markdown for:
+```tsx
+import { Step, Steps } from '@open-slide/core';
 
-- Headings, paragraphs, emphasis, strong text, and strikethrough.
-- Ordered and unordered lists.
-- Blockquotes, links, and autolinks.
-- Tables and task lists when they remain readable at presentation size.
-- Inline code and fenced code blocks with a language identifier.
-- Markdown images with useful alternative text.
-
-Reference project images relative to the deck's directory:
-
-```markdown
-![Attention map](figures/attention-map.png)
-![Result with spaces](<figures/Main Result.png>)
+<Steps>
+  <h2>The framing appears immediately.</h2>
+  <Step><p>The first consequence appears next.</p></Step>
+  <Step><p>The conclusion appears last.</p></Step>
+</Steps>
 ```
 
-Prefer project-local images over remote URLs so the deck remains local-first and portable.
-Confirm that every referenced local image exists, and never invent an asset path.
-Lattice resolves local Markdown images in the main preview and uses the first image when representing a slide in the navigator.
-Lattice automatically centers an opening `#` title slide and gives later slides with a Markdown image a balanced image-and-text layout.
-Keep one main image per slide so that automatic layout remains clear and predictable.
+Non-`Step` children appear immediately, and every `Step` must be a direct child of `Steps`.
+Pages reached from the overview or by backward navigation appear fully revealed, so the complete composition must remain readable.
 
-Use fenced code blocks for source examples:
+Use `useSlidePageNumber()` for a dynamic page-number footer rather than hardcoding the current page or total.
+Use one restrained `SlideTransition` family across a deck, or omit transitions entirely.
+Use `MorphElement` only for the same visual object across adjacent pages, with a stable id and deterministic geometry.
 
-````markdown
-```python
-scores = query @ keys.T
-attention = softmax(scores, axis=-1)
-```
-````
+## Keep inspector edits independent
 
-Keep code short enough to read without horizontal scrolling or tiny text.
-
-## Stay inside Lattice's Reveal.js subset
-
-Do not use arbitrary `<style>` or `<script>` blocks, inline CSS, custom classes, or JavaScript.
-Do not use raw Reveal.js section attributes such as `data-background`, `data-transition`, or `data-auto-animate`.
-Do not use Markdown-plugin attribute comments such as `<!-- .element: ... -->` or `<!-- .slide: ... -->`.
-Do not promise fragments, incremental bullet reveals, vertical slides, custom backgrounds, per-slide transitions, custom themes, layout helper classes, or extra Reveal.js plugins.
-Do not add iframes, autoplay media, CDN dependencies, or third-party presentation scripts.
-When a request requires an unsupported feature, explain the limitation briefly and approximate it with headings, lists, tables, code, and images, or ask before choosing a different source format.
-
-## Build a useful deck
-
-1. Identify the audience, purpose, desired length, source material, and whether the task is creation or revision.
-2. Inspect the existing deck and relevant project assets before changing source.
-3. Give each slide one clear job in the narrative, and order the slides so each one motivates the next.
-4. Put the claim, question, or takeaway in the heading when possible.
-5. Prefer concise visible content and move supporting detail, caveats, and delivery cues into `Notes:`.
-6. Use a figure, table, or compact code example only when it explains the point more clearly than prose.
-7. Preserve factual uncertainty, citations, terminology, numbers, and equations from the user's source material.
-8. Split slides that are likely to overflow instead of shrinking their content or packing them with text.
-9. Re-read the complete file after editing and check the deck structure before reporting completion.
-
-For research presentations, a useful default narrative is motivation, question, approach, evidence, limitations, and takeaway.
-Adapt that structure to the user's material instead of forcing every deck into the same template.
+For repeated cards, tiles, logos, or diagram nodes, define one helper component in `index.tsx` and instantiate each item explicitly.
+Do not render inspector-editable repeated visuals by mapping a data array because every rendered instance would share one source location.
+Ordinary literal `<li>` elements are already independent and do not need a helper component.
 
 ## Validate before finishing
 
-Check all of the following:
+- Confirm that `slides/<deck-id>/index.tsx` default-exports a non-empty `Page[]`.
+- Confirm that every page root fills the 1920 × 1080 canvas and all visible content fits without scrolling or cropping.
+- Confirm that `notes` remains aligned with the exported pages.
+- Confirm that every imported asset exists under the deck's `assets/` directory or the project-root `assets/` directory.
+- Confirm that no dependency, unrelated deck, alternate slide source, or generated export was added.
+- Re-read the changed page and the exports after editing.
+- Never claim to have visually inspected, presented, or exported the deck unless the corresponding app action or tool was actually used.
 
-- The filename ends in `.slides.md`.
-- Frontmatter, when present, is the first block and contains only supported values for `theme` and `transition`.
-- Every intended slide boundary is a standalone `---` line outside fenced code.
-- Every notes block begins with the exact standalone marker `Notes:`.
-- Local image paths resolve relative to the deck and point to existing files.
-- The source contains no unsupported Reveal.js attributes, scripts, custom CSS, or plugin syntax.
-- Headings, lists, tables, images, and code are concise enough for a 16:9 slide.
-- The revised deck still preserves content the user did not ask to change.
-
-Use Lattice's **Present** action for fullscreen playback and **Print / PDF** for export through the system print dialog.
-Do not instruct the user to add `?print-pdf`, run DeckTape, start a web server, or install browser automation for a Lattice deck.
+Open Slide provides live editing, thumbnails, comments, asset management, design controls, presenter view, fullscreen navigation, speaker notes, and HTML or PDF export inside Lattice.
+Do not instruct the user to run a separate Vite server or `npx @open-slide/cli` for a Lattice project.
 
 ## Upstream references
 
-- Reveal.js Markdown: <https://revealjs.com/markdown/>
-- Reveal.js speaker notes: <https://revealjs.com/speaker-view/>
-- Reveal.js transitions: <https://revealjs.com/transitions/>
-- Reveal.js PDF export: <https://revealjs.com/pdf-export/>
-- Official Reveal.js repository: <https://github.com/hakimel/reveal.js>
+- Open Slide repository: <https://github.com/1weiho/open-slide>
+- Open Slide package: <https://www.npmjs.com/package/@open-slide/core>
 
-These references describe upstream Reveal.js, whose full feature set is broader than the Lattice subset documented above.
+Use Open Slide's native TypeScript and React contract when upstream behavior is required.

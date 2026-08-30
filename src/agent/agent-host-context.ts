@@ -20,6 +20,23 @@ export interface AgentHostSelectionImage {
   mimeType: "image/jpeg" | "image/png";
 }
 
+export interface AgentPresentationContext {
+  slideId: string;
+  pageIndex: number;
+  pageNumber: number;
+  totalPages: number;
+  slideTitle: string;
+  view: "slides" | "assets";
+  pagePath: string;
+  selection: {
+    line: number;
+    column: number;
+    tagName: string;
+    text: string;
+  } | null;
+  updatedAt: string;
+}
+
 /** Resolve an explicitly selected Markdown image block to its project file. */
 export function selectedMarkdownImageProjectPath(
   selection: string,
@@ -50,12 +67,13 @@ export interface AgentHostContextSnapshot {
   capturedAt: string;
   workspaceRoot: string;
   presentationAuthoring: {
-    nativeExtension: ".slides.md";
-    nativeFormat: "lattice_reveal_markdown";
+    nativeEntryPattern: "slides/<deck-id>/index.tsx";
+    nativeFormat: "open_slide_tsx";
     skill: "authoring-presentations";
     defaultWhenOutputFormatUnspecified: true;
     unsupportedPptx: true;
-    unsupportedHtml: true;
+    supportsHtmlExport: true;
+    supportsPdfExport: true;
     explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native";
   };
   activeSurface: AgentHostSurface;
@@ -68,6 +86,7 @@ export interface AgentHostContextSnapshot {
     selectionOmittedChars?: number;
     selectionImage?: AgentHostSelectionImage;
   };
+  presentation?: AgentPresentationContext;
   pdf?: {
     page: number;
     pageCount: number | null;
@@ -97,12 +116,13 @@ function boundedSelection(value: string): { selection?: string; selectionOmitted
 }
 
 const PRESENTATION_AUTHORING_CONTEXT: AgentHostContextSnapshot["presentationAuthoring"] = {
-  nativeExtension: ".slides.md",
-  nativeFormat: "lattice_reveal_markdown",
+  nativeEntryPattern: "slides/<deck-id>/index.tsx",
+  nativeFormat: "open_slide_tsx",
   skill: "authoring-presentations",
   defaultWhenOutputFormatUnspecified: true,
   unsupportedPptx: true,
-  unsupportedHtml: true,
+  supportsHtmlExport: true,
+  supportsPdfExport: true,
   explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
 };
 
@@ -119,6 +139,7 @@ export function buildAgentHostContext(input: {
   selection: string;
   selectionSource: AgentHostSurface | null;
   selectionImage?: (AgentHostSelectionImage & { source: AgentHostSurface }) | null;
+  presentation?: AgentPresentationContext | null;
   activeSurface: AgentHostSurface;
   now?: () => Date;
 }): AgentHostContextSnapshot {
@@ -183,6 +204,10 @@ export function buildAgentHostContext(input: {
 
   const activeSurface: AgentHostSurface =
     input.activeSurface === "pdf" ? "pdf" : "editor";
+  const presentation = input.presentation
+    && [input.activeFile, input.secondaryFile].includes(input.presentation.pagePath)
+    ? input.presentation
+    : null;
   return {
     type: LATTICE_HOST_CONTEXT,
     version: 1,
@@ -191,6 +216,7 @@ export function buildAgentHostContext(input: {
     presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
     activeSurface,
     ...(editor ? { editor } : {}),
+    ...(presentation ? { presentation } : {}),
     pdf,
   };
 }
