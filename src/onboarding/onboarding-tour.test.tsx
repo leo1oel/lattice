@@ -68,18 +68,65 @@ describe("onboarding tour", () => {
     expect(tools.content).toContain("export the spreadsheet as an .xlsx file");
     expect(tools.content).not.toContain("Agent");
 
+    const presentationCreate = joyride.props!.steps[TUTORIAL_STEPS.presentationCreate];
+    expect(presentationCreate).toMatchObject({
+      id: "presentation-create",
+      target: '[data-tour="new-document"]',
+      title: "Create with the + menu",
+    });
+    expect(presentationCreate.content).toContain("presentation, spreadsheet, or board");
+    expect(presentationCreate.content).not.toContain("tutorial already includes");
+
     const presentation = joyride.props!.steps[TUTORIAL_STEPS.presentation];
     expect(presentation).toMatchObject({
       id: "presentation",
-      target: '[data-tour="new-document"]',
+      spotlightTarget: '[data-tour="open-slide-workspace"]',
+      title: "Edit an Open Slide presentation",
     });
-    expect(presentation.content).toContain("choose New presentation");
-    expect(presentation.content).toContain("full Open Slide editor");
-    expect(presentation.content).toContain("collaboration and Overleaf");
+    expect(presentation.content).toContain("thumbnail rail");
+    expect(presentation.content).toContain("Inspect or Design");
+    expect(presentation.content).toContain("Present to show it");
+    expect(presentation.content).toContain("React and TSX");
 
     const agent = joyride.props!.steps[TUTORIAL_STEPS.agent];
     expect(agent.content).toContain("Open Slide presentations");
     expect(agent.content).toContain("build slides");
+  });
+
+  it("opens the editable tutorial deck and returns to the manuscript afterward", () => {
+    const onSelectTutorialFile = vi.fn();
+    render(
+      <OnboardingTour
+        active
+        stepIndex={TUTORIAL_STEPS.presentationCreate}
+        onStepIndexChange={vi.fn()}
+        onSkip={vi.fn()}
+        onComplete={vi.fn()}
+        onSelectTutorialFile={onSelectTutorialFile}
+      />,
+    );
+
+    act(() => joyride.props!.onEvent({
+      status: "running",
+      action: "next",
+      type: "step:after",
+      index: TUTORIAL_STEPS.presentationCreate,
+    }));
+    expect(onSelectTutorialFile).toHaveBeenCalledWith(
+      "slides/understanding-attention/index.tsx",
+      TUTORIAL_STEPS.presentation,
+    );
+
+    act(() => joyride.props!.onEvent({
+      status: "running",
+      action: "next",
+      type: "step:after",
+      index: TUTORIAL_STEPS.presentation,
+    }));
+    expect(onSelectTutorialFile).toHaveBeenCalledWith(
+      "main.tex",
+      TUTORIAL_STEPS.viewModes,
+    );
   });
 
   it("explains collaboration, Overleaf sync, and the paper PDF actions at their controls", () => {

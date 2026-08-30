@@ -395,13 +395,23 @@ export function OnboardingTour(props: {
       placement: "right-start",
     },
     {
-      id: "presentation",
+      id: "presentation-create",
       target: '[data-tour="new-document"]',
-      title: t`Create a native Open Slide presentation`,
-      content: t`Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync`,
+      title: t`Create with the + menu`,
+      content: t`Use + to create a presentation, spreadsheet, or board`,
       buttons: READING_BUTTONS,
       placement: "bottom-end",
       spotlightPadding: 5,
+    },
+    {
+      id: "presentation",
+      target: '[data-tour="canvas-tour-card-anchor"]',
+      spotlightTarget: '[data-tour="open-slide-workspace"]',
+      title: t`Edit an Open Slide presentation`,
+      content: t`This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source`,
+      buttons: READING_BUTTONS,
+      placement: "top-end",
+      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
     },
     {
       id: "view-modes",
@@ -588,6 +598,11 @@ export function OnboardingTour(props: {
     } else if (event.action === ACTIONS.NEXT || event.action === ACTIONS.CLOSE) {
       const fileTransition = ({
         [TUTORIAL_STEPS.welcome]: { path: "main.tex", step: TUTORIAL_STEPS.latex },
+        [TUTORIAL_STEPS.presentationCreate]: {
+          path: "slides/understanding-attention/index.tsx",
+          step: TUTORIAL_STEPS.presentation,
+        },
+        [TUTORIAL_STEPS.presentation]: { path: "main.tex", step: TUTORIAL_STEPS.viewModes },
         [TUTORIAL_STEPS.viewModes]: { path: "notes.md", step: TUTORIAL_STEPS.markdown },
         [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
         [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },

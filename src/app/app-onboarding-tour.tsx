@@ -8,6 +8,7 @@ import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { markTutorialSeen } from "../settings/app-settings";
 import { TUTORIAL_STEPS } from "../onboarding/onboarding-steps";
 import { setNotice } from "./notify";
+import { isOpenSlideDeckPath } from "../app-utils";
 import type { CanvasMode, EditorPaneId } from "../app-types";
 
 const OnboardingTour = lazy(() =>
@@ -63,11 +64,16 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
             active
             stepIndex={tutorialStep}
             onSelectTutorialFile={(path, nextStep) => {
-              const mode: CanvasMode = path.endsWith(".html")
-                ? "pdf"
-                : path.endsWith(".tldr") || path.endsWith(".lattice-sheet")
-                  ? "source"
-                  : "split";
+              let mode: CanvasMode = "split";
+              if (
+                isOpenSlideDeckPath(path)
+                || path.endsWith(".tldr")
+                || path.endsWith(".lattice-sheet")
+              ) {
+                mode = "source";
+              } else if (path.endsWith(".html")) {
+                mode = "pdf";
+              }
               void openProjectFile(path).then(() => {
                 setCanvasMode(mode);
                 setTutorialStep(nextStep);
@@ -90,6 +96,10 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
                 setTutorialStep(nextStep);
               };
               if (nextStep === TUTORIAL_STEPS.latex) {
+                void openTutorialDocument("main.tex", "split");
+              } else if (nextStep === TUTORIAL_STEPS.presentation) {
+                void openTutorialDocument("slides/understanding-attention/index.tsx", "source");
+              } else if (nextStep === TUTORIAL_STEPS.viewModes) {
                 void openTutorialDocument("main.tex", "split");
               } else if (nextStep === TUTORIAL_STEPS.markdown || nextStep === TUTORIAL_STEPS.markdownVisual) {
                 void openTutorialDocument("notes.md", "split");

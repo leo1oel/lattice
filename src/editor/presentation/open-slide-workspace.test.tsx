@@ -73,6 +73,7 @@ describe("OpenSlideWorkspace", () => {
       "src",
       `${runtime.sessionUrl}&next=%2Fs%2Fresearch-update`,
     );
+    expect(frame.closest('[data-tour="open-slide-workspace"]')).not.toBeNull();
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
       `${runtime.origin}/__lattice/access`,
       expect.objectContaining({

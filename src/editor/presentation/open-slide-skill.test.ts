@@ -21,5 +21,8 @@ describe("bundled Open Slide authoring skill", () => {
     expect(skill).toContain("1920 × 1080");
     expect(skill).toContain('display: \'"Inter Variable", Inter');
     expect(skill).toContain('body: \'"Inter Variable", Inter');
+    expect(skill).toContain("import katex from 'katex'");
+    expect(skill).toContain("katex.renderToString");
+    expect(skill).toContain("throwOnError: false");
   });
 });

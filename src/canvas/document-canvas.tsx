@@ -4002,7 +4002,7 @@ export function DocumentCanvas(props: {
   }
   if (presentationDocument && props.mode !== "dual" && props.mode !== "columns") {
     return (
-      <Suspense fallback={<div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />}>
+      <Suspense fallback={<div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} data-tour="open-slide-workspace" />}>
         <OpenSlideWorkspace
           key={activeFile}
           projectRoot={props.projectRoot}

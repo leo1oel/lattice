@@ -257,25 +257,25 @@ export function OpenSlideWorkspace({
   }, [active, onContext, onError, onMutation, runtime]);
 
   if (!deckId) {
-    return <div className="open-slide-status" role="alert">{t`This is not a native Open Slide deck.`}</div>;
+    return <div className="open-slide-status" role="alert" data-tour="open-slide-workspace">{t`This is not a native Open Slide deck.`}</div>;
   }
   if (startupError) {
     return (
-      <div className="open-slide-status" role="alert">
+      <div className="open-slide-status" role="alert" data-tour="open-slide-workspace">
         <strong>{t`Open Slide could not start`}</strong>
         <span>{startupError}</span>
       </div>
     );
   }
   if (!runtime?.sessionUrl) {
-    return <div className="open-slide-status" role="status">{t`Starting Open Slide…`}</div>;
+    return <div className="open-slide-status" role="status" data-tour="open-slide-workspace">{t`Starting Open Slide…`}</div>;
   }
   // Open Slide owns this application route.
   // eslint-disable-next-line lingui/no-unlocalized-strings
   const next = `/s/${encodeURIComponent(deckId)}`;
   const separator = runtime.sessionUrl.includes("?") ? "&" : "?";
   return (
-    <div className="open-slide-workspace">
+    <div className="open-slide-workspace" data-tour="open-slide-workspace">
       <iframe
         className="open-slide-frame"
         src={`${runtime.sessionUrl}${separator}next=${encodeURIComponent(next)}`}

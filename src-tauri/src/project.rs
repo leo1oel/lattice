@@ -50,6 +50,8 @@ const TUTORIAL_HTML: &str = include_str!("../templates/tutorial/attention-demo.h
 const TUTORIAL_BOARD: &str = include_str!("../templates/tutorial/attention-map.tldr");
 const TUTORIAL_SPREADSHEET: &str =
     include_str!("../templates/tutorial/attention-results.lattice-sheet");
+const TUTORIAL_PRESENTATION: &str =
+    include_str!("../templates/tutorial/slides/understanding-attention/index.tsx");
 const TUTORIAL_TOML: &str = include_str!("../templates/tutorial/project.toml");
 const TUTORIAL_REFERENCES: &str = include_str!("../templates/tutorial/references.bib");
 const TUTORIAL_FIGURE_ATTRIBUTION: &str =
@@ -403,7 +405,7 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     .map_err(err)?;
     fs::write(
         root.join(".research/tutorial.json"),
-        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 8\n}\n",
+        "{\n  \"id\": \"understanding-attention\",\n  \"version\": 9\n}\n",
     )
     .map_err(err)?;
     fs::write(root.join("main.tex"), TUTORIAL_MAIN).map_err(err)?;
@@ -413,6 +415,12 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     fs::write(
         root.join("attention-results.lattice-sheet"),
         TUTORIAL_SPREADSHEET,
+    )
+    .map_err(err)?;
+    fs::create_dir_all(root.join("slides/understanding-attention")).map_err(err)?;
+    fs::write(
+        root.join("slides/understanding-attention/index.tsx"),
+        TUTORIAL_PRESENTATION,
     )
     .map_err(err)?;
     fs::write(root.join("project.toml"), TUTORIAL_TOML).map_err(err)?;
@@ -6356,6 +6364,12 @@ mod tests {
         assert!(root.join("attention-demo.html").is_file());
         assert!(root.join("attention-map.tldr").is_file());
         assert!(root.join("attention-results.lattice-sheet").is_file());
+        let presentation =
+            fs::read_to_string(root.join("slides/understanding-attention/index.tsx")).unwrap();
+        assert_eq!(presentation, TUTORIAL_PRESENTATION);
+        assert!(presentation.contains("export default [Cover, AttentionFlow]"));
+        assert!(presentation.contains("katex.renderToString"));
+        assert!(!presentation.contains("EditingPaths"));
         let spreadsheet: serde_json::Value = serde_json::from_slice(
             &fs::read(root.join("attention-results.lattice-sheet")).unwrap(),
         )
@@ -6397,7 +6411,7 @@ mod tests {
         let tutorial_marker: serde_json::Value =
             serde_json::from_slice(&fs::read(root.join(".research/tutorial.json")).unwrap())
                 .unwrap();
-        assert_eq!(tutorial_marker["version"], 8);
+        assert_eq!(tutorial_marker["version"], 9);
         assert_eq!(read_manifest(&root).unwrap().venue, "tutorial");
         assert!(fs::read_to_string(root.join("main.tex"))
             .unwrap()

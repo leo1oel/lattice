@@ -526,6 +526,14 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
           find: /^lucide-react$/,
           replacement: path.join(RUNTIME_ROOT, "lucide-open-slide.mjs"),
         },
+        {
+          find: /^katex$/,
+          replacement: path.join(RUNTIME_ROOT, "node_modules/katex/dist/katex.mjs"),
+        },
+        {
+          find: /^katex\/dist\/katex\.min\.css$/,
+          replacement: path.join(RUNTIME_ROOT, "node_modules/katex/dist/katex.min.css"),
+        },
         ...Object.entries(config.resolve?.alias ?? {}).map(([find, replacement]) => ({ find, replacement })),
       ],
     },

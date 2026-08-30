@@ -12,6 +12,28 @@ const VERSION: &str = "1.19.1";
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 
+fn startup_error_message(fallback: &str, stderr: &str) -> String {
+    let detail = stderr
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("Error ") || line.contains("ERR_"))
+        .or_else(|| stderr.lines().map(str::trim).find(|line| !line.is_empty()));
+    format!("Open Slide startup failed: {}", detail.unwrap_or(fallback))
+}
+
+fn collect_startup_stderr(
+    stderr_thread: Option<std::thread::JoinHandle<()>>,
+    captured: &Mutex<String>,
+) -> String {
+    if let Some(thread) = stderr_thread {
+        let _ = thread.join();
+    }
+    captured
+        .lock()
+        .map(|output| output.clone())
+        .unwrap_or_default()
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresentationInfo {
@@ -409,13 +431,21 @@ impl PresentationRuntime {
             let _ = std::fs::remove_dir_all(&shadow);
             return Err("Open Slide did not expose readiness output".into());
         };
-        if let Some(stderr) = child.stderr.take() {
+        let startup_stderr = Arc::new(Mutex::new(String::new()));
+        let mut stderr_thread = child.stderr.take().map(|stderr| {
+            let captured = Arc::clone(&startup_stderr);
             std::thread::spawn(move || {
                 for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     log::warn!(target: "lattice::presentation", "{line}");
+                    if let Ok(mut output) = captured.lock() {
+                        if output.len() < 8 * 1024 {
+                            output.push_str(&line);
+                            output.push('\n');
+                        }
+                    }
                 }
-            });
-        }
+            })
+        });
         let (sender, receiver) = std::sync::mpsc::sync_channel(1);
         std::thread::spawn(move || {
             let mut line = String::new();
@@ -430,12 +460,17 @@ impl PresentationRuntime {
             Ok(Err(error)) => {
                 stop_child(&mut child);
                 let _ = std::fs::remove_dir_all(&shadow);
-                return Err(format!("Open Slide startup failed: {error}"));
+                let stderr = collect_startup_stderr(stderr_thread.take(), &startup_stderr);
+                return Err(startup_error_message(&error, &stderr));
             }
             Err(_) => {
                 stop_child(&mut child);
                 let _ = std::fs::remove_dir_all(&shadow);
-                return Err("Open Slide did not become ready within 30 seconds.".into());
+                let stderr = collect_startup_stderr(stderr_thread.take(), &startup_stderr);
+                return Err(startup_error_message(
+                    "Open Slide did not become ready within 30 seconds.",
+                    &stderr,
+                ));
             }
         };
         let ready: ReadyLine = match serde_json::from_str(line.trim()) {
@@ -443,7 +478,8 @@ impl PresentationRuntime {
             Err(error) => {
                 stop_child(&mut child);
                 let _ = std::fs::remove_dir_all(&shadow);
-                return Err(format!("Open Slide startup failed: {error}"));
+                let stderr = collect_startup_stderr(stderr_thread.take(), &startup_stderr);
+                return Err(startup_error_message(&error.to_string(), &stderr));
             }
         };
         if !ready.ready || ready.control_token != control_token || ready.version != VERSION {
@@ -621,8 +657,23 @@ pub async fn presentation_refresh_native_workspace(
 
 #[cfg(test)]
 mod tests {
-    use super::PresentationRuntime;
+    use super::{startup_error_message, PresentationRuntime};
     use std::path::Path;
+
+    #[test]
+    fn startup_errors_prefer_the_child_process_cause() {
+        let stderr = "node:internal/modules/package_json_reader:301\n\
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@open-slide/core'\n\
+Node.js v24.20.0\n";
+        assert_eq!(
+            startup_error_message("EOF while parsing a value", stderr),
+            "Open Slide startup failed: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@open-slide/core'"
+        );
+        assert_eq!(
+            startup_error_message("EOF while parsing a value", ""),
+            "Open Slide startup failed: EOF while parsing a value"
+        );
+    }
 
     #[test]
     fn only_canonical_directories_are_projects() {

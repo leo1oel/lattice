@@ -1143,10 +1143,6 @@ msgstr "无法检查更新"
 msgid "Couldn’t install the update"
 msgstr "无法安装更新"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Create a native Open Slide presentation"
-msgstr "创建原生 Open Slide 演示文稿"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
 msgstr "创建新的 Overleaf 项目，并让此文件夹与其保持连接"
@@ -1154,6 +1150,10 @@ msgstr "创建新的 Overleaf 项目，并让此文件夹与其保持连接"
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "创建研究项目"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Create with the + menu"
+msgstr "用 + 创建内容"
 
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
@@ -1423,6 +1423,10 @@ msgstr ".bib 中的每个条目都会显示在这里。含 arXiv ID 的条目可
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Edit"
 msgstr "编辑"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Edit an Open Slide presentation"
+msgstr "编辑 Open Slide 演示文稿"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit and preview HTML"
@@ -2989,10 +2993,6 @@ msgid "Open Slide editor for {deckId}"
 msgstr "{deckId} 的 Open Slide 编辑器"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
-msgstr "打开 + 菜单并选择「新建演示文稿」。Lattice 会在 slides/ 下创建文稿，并打开完整的 Open Slide 编辑器。你既可以自己编辑，也可以让 Agent 创建和修改；协作与 Overleaf 会让演示文稿文件保持同步"
-
-#: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商"
 
@@ -4499,6 +4499,10 @@ msgstr "这个文件夹包含稿件、笔记、图片、画板、电子表格和
 msgid "This format cannot be rendered in the preview"
 msgstr "此格式无法在预览中渲染"
 
+#: src/onboarding/onboarding-tour.tsx
+msgid "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
+msgstr "这是一份真实可编辑的 Open Slide 演示文稿。用缩略图栏浏览页面，用「检查」或「设计」编辑，再用「演示」展示。Agent 也可以修改它的 React 和 TSX 源码。"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
 msgstr "这不是原生 Open Slide 演示文稿。"
@@ -4738,6 +4742,10 @@ msgstr "公式中的正体文字"
 #: src/editor/insert/insert-snippets.ts
 msgid "Upsilon"
 msgstr "宇普西龙"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Use + to create a presentation, spreadsheet, or board"
+msgstr "用 + 可以创建演示文稿、电子表格或画板"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use Edit for the source, Split for both, and Preview for the finished result"

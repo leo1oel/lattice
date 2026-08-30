@@ -1143,10 +1143,6 @@ msgstr "Couldn’t check for updates"
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Create a native Open Slide presentation"
-msgstr "Create a native Open Slide presentation"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
 msgstr "Create a new Overleaf project and keep this folder connected to it"
@@ -1154,6 +1150,10 @@ msgstr "Create a new Overleaf project and keep this folder connected to it"
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "Create a research project"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Create with the + menu"
+msgstr "Create with the + menu"
 
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
@@ -1423,6 +1423,10 @@ msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Edit"
 msgstr "Edit"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Edit an Open Slide presentation"
+msgstr "Edit an Open Slide presentation"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit and preview HTML"
@@ -2989,10 +2993,6 @@ msgid "Open Slide editor for {deckId}"
 msgstr "Open Slide editor for {deckId}"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
-msgstr "Open the + menu and choose New presentation. Lattice creates a deck under slides/ and opens the full Open Slide editor. You can edit it yourself or ask Agent to build and revise it, while collaboration and Overleaf keep the deck files in sync"
-
-#: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "Open the Agent tab to use Codex, Claude, or another provider"
 
@@ -4503,6 +4503,10 @@ msgstr "This folder contains the manuscript, notes, figures, boards, spreadsheet
 msgid "This format cannot be rendered in the preview"
 msgstr "This format cannot be rendered in the preview"
 
+#: src/onboarding/onboarding-tour.tsx
+msgid "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
+msgstr "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
 msgstr "This is not a native Open Slide deck."
@@ -4742,6 +4746,10 @@ msgstr "Upright text in math"
 #: src/editor/insert/insert-snippets.ts
 msgid "Upsilon"
 msgstr "Upsilon"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Use + to create a presentation, spreadsheet, or board"
+msgstr "Use + to create a presentation, spreadsheet, or board"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use Edit for the source, Split for both, and Preview for the finished result"

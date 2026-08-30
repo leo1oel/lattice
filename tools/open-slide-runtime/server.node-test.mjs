@@ -12,6 +12,16 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
+import katex from "katex";
+
+test("typesets bundled KaTeX formulas without throwing", () => {
+  const html = katex.renderToString(
+    String.raw`\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V`,
+    { displayMode: true, throwOnError: false, strict: false },
+  );
+  assert.match(html, /katex-display/);
+  assert.match(html, /mfrac/);
+});
 
 test("uses Inter Variable throughout the Open Slide editor stylesheet", () => {
   const source = `@import "@fontsource-variable/geist";

@@ -124,6 +124,31 @@ Import a reusable global asset through the alias:
 import logo from '@assets/logos/lattice.svg';
 ```
 
+Render mathematical notation with the KaTeX package bundled by Lattice.
+Open Slide does not interpret `$...$`, `\\(...\\)`, or a LaTeX string on its own, so never place raw LaTeX in JSX and expect it to typeset itself.
+
+```tsx
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
+const Formula = ({ latex, display = true }: { latex: string; display?: boolean }) => (
+  <span
+    aria-label={latex}
+    dangerouslySetInnerHTML={{
+      __html: katex.renderToString(latex, {
+        displayMode: display,
+        throwOnError: false,
+        strict: false,
+      }),
+    }}
+  />
+);
+```
+
+Keep `throwOnError: false` so an invalid expression remains visible as an error instead of blanking the page.
+Use `String.raw` for formulas containing backslashes, for example `<Formula latex={String.raw`\\frac{QK^T}{\\sqrt{d_k}}`} />`.
+KaTeX is lazy: decks without formulas do not load it.
+
 When a specific user-owned image is required but unavailable, use `ImagePlaceholder` with a concrete content hint instead of inventing an asset.
 Do not use placeholders for decoration or generic stock imagery.
 
