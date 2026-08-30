@@ -25,14 +25,24 @@ jobs:
       - name: Prepare version-specific release notes
         id: release-notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           notes_path="$RUNNER_TEMP/release-notes.md"
           previous_tag=""
-          if previous_tag="$(
-            git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null
-          )"; then
+          while IFS= read -r candidate; do
+            if git rev-parse --verify --quiet "$candidate^{commit}" >/dev/null && \
+               git merge-base --is-ancestor "$candidate" "${GITHUB_REF_NAME}^"; then
+              previous_tag="$candidate"
+              break
+            fi
+          done < <(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name'
+          )
+          if [[ -n "$previous_tag" ]]; then
             range="$previous_tag..$GITHUB_REF_NAME"
           else
             range="$GITHUB_REF_NAME"

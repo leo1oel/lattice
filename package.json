@@ -14,7 +14,7 @@
     "prepare:synara": "node scripts/prepare-synara-sidecar.mjs",
     "prepare:synara:dev": "node scripts/prepare-synara-sidecar.mjs --allow-dirty",
     "prepare:chromium": "node scripts/prepare-chromium-runtime.mjs",
-    "prepare:presentation": "node scripts/prepare-presentation-runtime.mjs",
+    "prepare:presentation": "node scripts/prepare-presentation-runtime.mjs && node scripts/sign-presentation-runtime.mjs",
     "prepare:runtime": "pnpm prepare:synara && pnpm prepare:presentation",
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "check": "mise run check",
