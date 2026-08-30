@@ -196,82 +196,6 @@
   cursor: not-allowed;
 }
 
-.ui-badge {
-  min-width: 0;
-  height: var(--badge-height);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-icon);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  background: var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  line-height: var(--type-micro-line-height);
-  font-weight: var(--type-micro-weight);
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.ui-badge[data-size="compact"] {
-  height: var(--badge-height-compact);
-  padding-inline: var(--space-2);
-}
-
-.ui-badge[data-tone="accent"] {
-  background: var(--control-active-soft);
-  color: var(--control-active);
-}
-
-.ui-badge[data-tone="success"] {
-  background: var(--status-success-soft);
-  color: var(--status-success);
-}
-
-.ui-badge[data-tone="warning"] {
-  background: var(--status-warning-soft);
-  color: var(--status-warning);
-}
-
-.ui-badge[data-tone="danger"] {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-}
-
-.ui-switch {
-  width: var(--control-width-switch);
-  height: var(--control-height-switch);
-  margin: 0;
-  padding: var(--space-1);
-  border: 0;
-  border-radius: var(--radius-pill);
-  outline: none;
-  background: var(--control-off-surface);
-  flex: none;
-  cursor: pointer;
-  transition: background-color var(--duration-base) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
-}
-
-.ui-switch[aria-checked="true"] {
-  background: var(--control-on-surface);
-}
-
-.ui-switch:disabled {
-  opacity: var(--control-disabled-opacity);
-  cursor: not-allowed;
-}
-
-.ui-switch-thumb {
-  width: var(--control-size-switch-thumb);
-  height: var(--control-size-switch-thumb);
-  border-radius: var(--radius-pill);
-  background: var(--control-thumb-surface);
-  display: block;
-  transform-origin: center;
-}
-
 /* A switch field is one instance of the settings row, so both share the same
    metrics rather than drifting apart. */
 .ui-switch-field,
@@ -432,32 +356,6 @@
   align-items: center;
   gap: var(--space-2);
 }
-
-/* Inline counterpart of `.app-toast`: same icon set, same status colours, same
-   division of labour — the icon carries the level so the text can stay legible
-   prose rather than a wall of red. Layout (margins, placement) belongs to the
-   feature that renders it. */
-.ui-inline-message {
-  min-width: 0;
-  margin: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
-  font-weight: var(--type-caption-weight);
-  overflow-wrap: anywhere;
-}
-/* Optically centred on the first line rather than sitting on top of it, and
-   derived so it stays centred if the caption metrics move. */
-.ui-inline-message > svg { flex: none; margin-top: calc((var(--type-caption-line-height) - 13px) / 2); }
-.ui-inline-message > span { min-width: 0; }
-.ui-inline-message.error { color: var(--text-primary); }
-.ui-inline-message.info > svg { color: var(--status-info); }
-.ui-inline-message.success > svg { color: var(--status-success); }
-.ui-inline-message.warning > svg { color: var(--status-warning); }
-.ui-inline-message.error > svg { color: var(--status-danger); }
 
 .ui-empty-state {
   min-width: 0;

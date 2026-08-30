@@ -11,6 +11,7 @@ import {
 } from "./menu-surface";
 import { Checkbox } from "./checkbox";
 import { CheckboxField } from "./checkbox-field";
+import { InlineMessage } from "./inline-message";
 import { Input } from "./input";
 import { rowClassName } from "./row";
 import {
@@ -59,17 +60,38 @@ describe("shared chrome primitives", () => {
   it("renders a semantic badge without feature-owned geometry", () => {
     render(<Badge tone="success">Connected</Badge>);
 
-    expect(screen.getByText("Connected")).toHaveAttribute("data-tone", "success");
+    const badge = screen.getByText("Connected");
+    expect(badge).toHaveAttribute("data-tone", "success");
+    expect(badge).toHaveClass("ui-badge");
+    expect(badge.classList.length).toBeGreaterThan(1);
   });
 
   it("exposes switch state and reports the requested next value", () => {
     const onChange = vi.fn();
-    render(<Switch checked={false} label="Enable server" onChange={onChange} />);
+    const { rerender } = render(
+      <Switch checked={false} label="Enable server" onChange={onChange} />,
+    );
 
     const control = screen.getByRole("switch", { name: "Enable server" });
     expect(control).toHaveAttribute("aria-checked", "false");
+    const uncheckedClasses = control.className;
     fireEvent.click(control);
     expect(onChange).toHaveBeenCalledWith(true);
+
+    rerender(<Switch checked label="Enable server" onChange={onChange} />);
+    expect(control.className).not.toBe(uncheckedClasses);
+    expect(control.querySelector(".ui-switch-thumb")?.classList.length)
+      .toBeGreaterThan(1);
+  });
+
+  it("keeps inline-message levels semantic while styling each owned element", () => {
+    render(<InlineMessage level="warning">Needs attention</InlineMessage>);
+
+    const message = screen.getByRole("status");
+    expect(message).toHaveClass("ui-inline-message", "warning");
+    expect(message.classList.length).toBeGreaterThan(2);
+    expect(message.querySelector("svg")?.getAttribute("class")).toBeTruthy();
+    expect(message.querySelector("span")?.getAttribute("class")).toBeTruthy();
   });
 
   it("keeps checked, mixed, and labelled checkbox states in one native control", () => {

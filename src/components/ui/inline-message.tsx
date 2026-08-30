@@ -1,7 +1,47 @@
 import { CheckCircle2, CircleAlert, Info } from "lucide-react";
 import { type ReactNode } from "react";
+import * as stylex from "@stylexjs/stylex";
 import { cn } from "@/lib/utils";
-import "./chrome.css";
+import { uiTokens } from "./stylex-tokens.stylex";
+
+const styles = stylex.create({
+  root: {
+    alignItems: "flex-start",
+    color: uiTokens.textSecondary,
+    display: "flex",
+    fontSize: uiTokens.typeCaptionSize,
+    fontWeight: uiTokens.typeCaptionWeight,
+    gap: uiTokens.space3,
+    lineHeight: uiTokens.typeCaptionLineHeight,
+    margin: 0,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
+  errorText: {
+    color: uiTokens.textPrimary,
+  },
+  icon: {
+    flexBasis: "auto",
+    flexGrow: 0,
+    flexShrink: 0,
+    marginTop: "calc((var(--type-caption-line-height) - 13px) / 2)",
+  },
+  infoIcon: {
+    color: uiTokens.statusInfo,
+  },
+  successIcon: {
+    color: uiTokens.statusSuccess,
+  },
+  warningIcon: {
+    color: uiTokens.statusWarning,
+  },
+  errorIcon: {
+    color: uiTokens.statusDanger,
+  },
+  copy: {
+    minWidth: 0,
+  },
+});
 
 /**
  * The one shape for a message that stays where it is.
@@ -39,14 +79,26 @@ export function InlineMessage({
   children: ReactNode;
 }) {
   const Icon = INLINE_MESSAGE_ICON[level];
+  const rootStyleProps = stylex.props(
+    styles.root,
+    level === "error" && styles.errorText,
+  );
+  const iconStyle = {
+    info: styles.infoIcon,
+    success: styles.successIcon,
+    warning: styles.warningIcon,
+    error: styles.errorIcon,
+  }[level];
+
   return (
     <p
-      className={cn("ui-inline-message", level, className)}
+      {...rootStyleProps}
+      className={cn("ui-inline-message", level, rootStyleProps.className, className)}
       // Failures interrupt; everything else is polite. Matches `AppToast`.
       role={level === "error" ? "alert" : "status"}
     >
-      <Icon size={13} aria-hidden="true" />
-      <span>{children}</span>
+      <Icon {...stylex.props(styles.icon, iconStyle)} size={13} aria-hidden="true" />
+      <span {...stylex.props(styles.copy)}>{children}</span>
     </p>
   );
 }

@@ -5,6 +5,7 @@ import { defineConfig, type Plugin } from "vite";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
+import stylex from "@stylexjs/unplugin";
 import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
@@ -134,6 +135,10 @@ const manualChunkName = (id: string) => {
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
+    // StyleX must transform source before the React plugin to preserve Fast
+    // Refresh. CSS layers let it coexist with Tailwind during the PoC; the
+    // unplugin appends the extracted atomic rules to the existing CSS asset.
+    stylex.vite({ useCSSLayers: true }),
     // React Compiler auto-memoizes components it can prove safe, and silently
     // skips the rest (e.g. anything the react-hooks lint still flags), so it is
     // safe to enable across the app before every warning is cleaned up.

@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 import babel from "@rolldown/plugin-babel";
 import { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
+import stylex from "@stylexjs/unplugin";
 
 export default defineConfig({
   // The suite runs the compiled output, the same as the app: vite.config.ts
@@ -27,6 +28,10 @@ export default defineConfig({
   // Babel applies presets right-to-left: Lingui macros must expand first so the
   // compiler sees ordinary React rather than macro-generated components.
   plugins: [
+    // Keep tests on the same build-time StyleX transform as production. Without
+    // it, compile-only APIs such as defineConsts correctly reject runtime use.
+    // Vitest needs only the transform, not the Vite adapter's CSS/HMR server.
+    stylex.raw({ useCSSLayers: true }, { framework: "vite" }),
     lingui(),
     babel({
       presets: [

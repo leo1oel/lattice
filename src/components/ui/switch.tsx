@@ -5,9 +5,45 @@ import {
   useMotionValue,
   useReducedMotion,
 } from "motion/react";
+import * as stylex from "@stylexjs/stylex";
 import { PRESS_SPRING, SETTLE_SPRING } from "@/components/ui/motion-values";
 import { cn } from "@/lib/utils";
-import "./chrome.css";
+import { uiTokens } from "./stylex-tokens.stylex";
+
+const styles = stylex.create({
+  root: {
+    backgroundColor: uiTokens.controlOffSurface,
+    borderRadius: uiTokens.radiusPill,
+    borderStyle: "none",
+    cursor: "pointer",
+    flexBasis: "auto",
+    flexGrow: 0,
+    flexShrink: 0,
+    height: uiTokens.controlHeightSwitch,
+    margin: 0,
+    outline: "none",
+    padding: uiTokens.space1,
+    transitionDuration: uiTokens.switchTransitionDuration,
+    transitionProperty: "background-color, opacity",
+    transitionTimingFunction: uiTokens.switchTransitionTiming,
+    width: uiTokens.controlWidthSwitch,
+  },
+  checked: {
+    backgroundColor: uiTokens.controlOnSurface,
+  },
+  disabled: {
+    cursor: "not-allowed",
+    opacity: uiTokens.controlDisabledOpacity,
+  },
+  thumb: {
+    backgroundColor: uiTokens.controlThumbSurface,
+    borderRadius: uiTokens.radiusPill,
+    display: "block",
+    height: uiTokens.controlSizeSwitchThumb,
+    transformOrigin: "center",
+    width: uiTokens.controlSizeSwitchThumb,
+  },
+});
 
 export type SwitchProps = {
   checked: boolean;
@@ -31,6 +67,12 @@ export function Switch({
   const x = useMotionValue(checked ? 10 : 0);
   const scaleX = useMotionValue(1);
   const previous = useRef(checked);
+  const rootStyleProps = stylex.props(
+    styles.root,
+    checked && styles.checked,
+    disabled && styles.disabled,
+  );
+  const thumbStyleProps = stylex.props(styles.thumb);
 
   useEffect(() => {
     if (previous.current === checked) return;
@@ -47,20 +89,25 @@ export function Switch({
 
   return (
     <button
+      {...rootStyleProps}
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
       data-slot="switch"
-      className={cn("ui-switch", className)}
+      className={cn("ui-switch", rootStyleProps.className, className)}
       onClick={() => onChange(!checked)}
       onPointerDown={() => squash(1.18)}
       onPointerUp={() => squash(1)}
       onPointerLeave={() => squash(1)}
       onPointerCancel={() => squash(1)}
     >
-      <motion.span className="ui-switch-thumb" style={{ x, scaleX }} />
+      <motion.span
+        {...thumbStyleProps}
+        className={cn("ui-switch-thumb", thumbStyleProps.className)}
+        style={{ x, scaleX }}
+      />
     </button>
   );
 }

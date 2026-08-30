@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import stylex from "@stylexjs/eslint-plugin";
 import lingui from "eslint-plugin-lingui";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -39,6 +40,7 @@ export default tseslint.config(
       },
     },
     plugins: {
+      "@stylexjs": stylex,
       lingui,
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
@@ -57,6 +59,14 @@ export default tseslint.config(
       // This compiler optimization diagnostic duplicates exhaustive-deps at
       // very high volume in App; keep correctness rules authoritative.
       "react-hooks/preserve-manual-memoization": "off",
+      "@stylexjs/enforce-extension": ["error", { themeFileExtension: ".stylex.ts" }],
+      "@stylexjs/no-conflicting-props": "error",
+      "@stylexjs/no-legacy-contextual-styles": "error",
+      "@stylexjs/no-lookahead-selectors": "error",
+      "@stylexjs/no-nonstandard-styles": "error",
+      "@stylexjs/no-unused": "error",
+      "@stylexjs/valid-shorthands": "error",
+      "@stylexjs/valid-styles": "error",
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
