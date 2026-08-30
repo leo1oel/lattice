@@ -1,0 +1,808 @@
+{
+  "upstream": "https://github.com/inkeep/open-knowledge",
+  "commit": "c234a9c6c85b9a911094f0840d77953db41545e6",
+  "sourceRoot": "packages/core/src",
+  "note": "Every local core file is reviewed in place. Hashes are Git blob IDs; upstream is null for Lattice-only files, and differing IDs are intentional three-way overrides.",
+  "files": {
+    "LICENSE": {
+      "upstream": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "vendored": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7"
+    },
+    "bridge/doc-boundary-space.ts": {
+      "upstream": "01ef76a9f522b91564ec8b27bd3ac0863bdbf389",
+      "vendored": "8fb428b90e84a9a7e4e0b809d53bab99ed6e0800"
+    },
+    "bridge/normalize.ts": {
+      "upstream": "dcc5b06907ba3378a8803f658f999948e3eb03d6",
+      "vendored": "01ac80099c0133d998efe7f722f750d19c6c7997"
+    },
+    "bridge/parse-equivalence.ts": {
+      "upstream": "9e5ad7dd42ecda74ae136cf114660bc7ddd2379c",
+      "vendored": "9e5ad7dd42ecda74ae136cf114660bc7ddd2379c"
+    },
+    "bridge/pm-structural-equivalence.ts": {
+      "upstream": "4f7b79587db82e4c67421684410465d9e7274a17",
+      "vendored": "bb53e7c7cd11b78d5d087a1fdaef84f933637124"
+    },
+    "bridge/structural-freshness.ts": {
+      "upstream": "59c699482a99c893f9522fc5055bb21564bd72d9",
+      "vendored": "59c699482a99c893f9522fc5055bb21564bd72d9"
+    },
+    "bridge/subsequence.ts": {
+      "upstream": "dca64414166ed8d35a5d155cba8cfd052f598fdf",
+      "vendored": "af20de1e2bf7cf20196c529164114f536aeb3c74"
+    },
+    "bridge/tolerance-telemetry.ts": {
+      "upstream": "c42403fd1391b2cf4d55242d034ec1ce5c519956",
+      "vendored": "c42403fd1391b2cf4d55242d034ec1ce5c519956"
+    },
+    "comments/leaf-text.ts": {
+      "upstream": "56cf9ce601d93754e7ad8124e5b73bff16adbfc5",
+      "vendored": "3630749e660bde0b1d5a1d8a38266f414ccb6318"
+    },
+    "comments/passage-match.test.ts": {
+      "upstream": "c0e7f9275b2225958bcb2e48450e9bfaf86e461d",
+      "vendored": "c0e7f9275b2225958bcb2e48450e9bfaf86e461d"
+    },
+    "comments/passage-match.ts": {
+      "upstream": "515acda21ba78e4ff831e228bb14562e6501ed1c",
+      "vendored": "515acda21ba78e4ff831e228bb14562e6501ed1c"
+    },
+    "constants/activity.test.ts": {
+      "upstream": "15cb02e4228324f6ee28954e64cce0269f0e9b24",
+      "vendored": "15cb02e4228324f6ee28954e64cce0269f0e9b24"
+    },
+    "constants/activity.ts": {
+      "upstream": "dbb7c097eb36185d358a043fbae6f7acb78cb873",
+      "vendored": "dbb7c097eb36185d358a043fbae6f7acb78cb873"
+    },
+    "constants/cc1.test.ts": {
+      "upstream": "0e6f312c6291260354322f6a63d151e0b90d8fc6",
+      "vendored": "0e6f312c6291260354322f6a63d151e0b90d8fc6"
+    },
+    "constants/cc1.ts": {
+      "upstream": "a3f091ba6b8f8a21dde6a80b8b963932e69a75b4",
+      "vendored": "a3f091ba6b8f8a21dde6a80b8b963932e69a75b4"
+    },
+    "constants/code-languages.test.ts": {
+      "upstream": "679c4459cad0240cb60ebbe4cd80efac8e70bb13",
+      "vendored": "679c4459cad0240cb60ebbe4cd80efac8e70bb13"
+    },
+    "constants/code-languages.ts": {
+      "upstream": "294e14e86dffac6d3c4e8095db2bb97990555805",
+      "vendored": "294e14e86dffac6d3c4e8095db2bb97990555805"
+    },
+    "constants/doc-extensions.ts": {
+      "upstream": "972f97d7c39fe72a4ca51d5582706ca3518f3b71",
+      "vendored": "972f97d7c39fe72a4ca51d5582706ca3518f3b71"
+    },
+    "constants/embedded-host.test.ts": {
+      "upstream": "58edc67efd253739980d9aa32d3e3197e39100c3",
+      "vendored": "58edc67efd253739980d9aa32d3e3197e39100c3"
+    },
+    "constants/embedded-host.ts": {
+      "upstream": "194614fba8f0b768a4a79be6e44bfc6a3035629a",
+      "vendored": "194614fba8f0b768a4a79be6e44bfc6a3035629a"
+    },
+    "constants/mcp.ts": {
+      "upstream": "7adf7fcc5447a04213d3c368eaa37a2443daea51",
+      "vendored": "7adf7fcc5447a04213d3c368eaa37a2443daea51"
+    },
+    "constants/preview-embed-starters.test.ts": {
+      "upstream": "1a90dc8e3fe74513ef0ce0d4713ed629253f8db4",
+      "vendored": "1a90dc8e3fe74513ef0ce0d4713ed629253f8db4"
+    },
+    "constants/preview-embed-starters.ts": {
+      "upstream": "4d1652b2261ba82584512add9870d018151b498a",
+      "vendored": "4d1652b2261ba82584512add9870d018151b498a"
+    },
+    "constants/preview-theme-tokens.ts": {
+      "upstream": "bd9085408b52b9cb0e9149de890ea6053ed23e41",
+      "vendored": "bd31c12ffdc7e3585929865feac7c150456e0190"
+    },
+    "constants/upload.test.ts": {
+      "upstream": "7befb2eb12fedd2aed35a57f63f40d3ebdd939fa",
+      "vendored": "7befb2eb12fedd2aed35a57f63f40d3ebdd939fa"
+    },
+    "constants/upload.ts": {
+      "upstream": "213082957a882286cab7147eef2fc063c468348f",
+      "vendored": "213082957a882286cab7147eef2fc063c468348f"
+    },
+    "extensions/blockquote-fidelity.ts": {
+      "upstream": "cd70a22de0f78f36b8d602880c081bab08a94a14",
+      "vendored": "cd70a22de0f78f36b8d602880c081bab08a94a14"
+    },
+    "extensions/code-block-fidelity.ts": {
+      "upstream": "4adb0d846ba5899f337dcfaf1aa4047f7060dd6b",
+      "vendored": "4adb0d846ba5899f337dcfaf1aa4047f7060dd6b"
+    },
+    "extensions/code-mark-fidelity.ts": {
+      "upstream": "e57d8e1e94903d1373daaa686a57ad7dea3a5177",
+      "vendored": "e57d8e1e94903d1373daaa686a57ad7dea3a5177"
+    },
+    "extensions/comment-block.ts": {
+      "upstream": "60c12b5ebdb53313b34aa8cf260dbe5c575e9cb3",
+      "vendored": "60c12b5ebdb53313b34aa8cf260dbe5c575e9cb3"
+    },
+    "extensions/comment-mark.ts": {
+      "upstream": "307e72db7be87ede7171baff9f6410993c2a7a97",
+      "vendored": "307e72db7be87ede7171baff9f6410993c2a7a97"
+    },
+    "extensions/doc-fidelity.ts": {
+      "upstream": "71275b88bc41b043fee21d857da738594c8d930a",
+      "vendored": "71275b88bc41b043fee21d857da738594c8d930a"
+    },
+    "extensions/emphasis-fidelity.test.ts": {
+      "upstream": "c5219347c41d60883a8006f9d8df836be9b3369f",
+      "vendored": "c5219347c41d60883a8006f9d8df836be9b3369f"
+    },
+    "extensions/emphasis-fidelity.ts": {
+      "upstream": "9c2738ecd2e59619e2fb233e238591c60b666cb4",
+      "vendored": "9c2738ecd2e59619e2fb233e238591c60b666cb4"
+    },
+    "extensions/escape-mark.ts": {
+      "upstream": "132cc99d57027f9e2653f6c421ee27e6aa5cd28b",
+      "vendored": "132cc99d57027f9e2653f6c421ee27e6aa5cd28b"
+    },
+    "extensions/footnote-definition.ts": {
+      "upstream": "6054de33f70117c977d859f41b3cb4f55a2b4c89",
+      "vendored": "6054de33f70117c977d859f41b3cb4f55a2b4c89"
+    },
+    "extensions/footnote-reference.test.ts": {
+      "upstream": "9dca9539dfadebb6a3159376c93b2fc3ba4a53b2",
+      "vendored": "9dca9539dfadebb6a3159376c93b2fc3ba4a53b2"
+    },
+    "extensions/footnote-reference.ts": {
+      "upstream": "e83762d1104c9b3eacda1a4b5cf666ecd81890c0",
+      "vendored": "e83762d1104c9b3eacda1a4b5cf666ecd81890c0"
+    },
+    "extensions/frontmatter.test.ts": {
+      "upstream": "71e3936c292f156319733d5c99d3f5634e387ce1",
+      "vendored": "71e3936c292f156319733d5c99d3f5634e387ce1"
+    },
+    "extensions/frontmatter.ts": {
+      "upstream": "8f609e235f5bd470e90c8e3e7ee18a982ffc655d",
+      "vendored": "8f609e235f5bd470e90c8e3e7ee18a982ffc655d"
+    },
+    "extensions/hard-break-fidelity.ts": {
+      "upstream": "10369a715ef1affc4939e1c93c5a41d4291762c6",
+      "vendored": "10369a715ef1affc4939e1c93c5a41d4291762c6"
+    },
+    "extensions/heading-fidelity.ts": {
+      "upstream": "d10f1d01c820712fef3cc1184e041ab274ae28ab",
+      "vendored": "d10f1d01c820712fef3cc1184e041ab274ae28ab"
+    },
+    "extensions/html-block-fidelity.ts": {
+      "upstream": "7aa368f662f58f3fd5280feb7b473088c3041647",
+      "vendored": "3e5501a6dc36992a7e1294b732aae63081263fbd"
+    },
+    "extensions/image-reference-fidelity.ts": {
+      "upstream": "e892700b4296319768d8fd45e6c3230782ac8405",
+      "vendored": "e892700b4296319768d8fd45e6c3230782ac8405"
+    },
+    "extensions/image-src-fidelity.ts": {
+      "upstream": "9af744f2895292bd209c27c11f5d24405d329557",
+      "vendored": "9af744f2895292bd209c27c11f5d24405d329557"
+    },
+    "extensions/input-rule-text.test.ts": {
+      "upstream": "232bced2a539c6949d921e4d54cb0f430269e451",
+      "vendored": "232bced2a539c6949d921e4d54cb0f430269e451"
+    },
+    "extensions/input-rule-text.ts": {
+      "upstream": "a33203fabebeeb92f1be2baa9887c95662a4ebed",
+      "vendored": "e6dc804e565c69401b31812f309df2b682e258c6"
+    },
+    "extensions/jsx-component.test.ts": {
+      "upstream": "059c34f668fb3a616a66f7dd407b78df3b448f0d",
+      "vendored": "059c34f668fb3a616a66f7dd407b78df3b448f0d"
+    },
+    "extensions/jsx-component.ts": {
+      "upstream": "f03cc9da83386f6bf1e5f778c26058051724ac6a",
+      "vendored": "c2e679b1f3e32f0c7d0be1601d610a2d091c6b07"
+    },
+    "extensions/jsx-inline.ts": {
+      "upstream": "7201cf8ca05a8876187e4c177edd35a3ae4c2cb3",
+      "vendored": "7201cf8ca05a8876187e4c177edd35a3ae4c2cb3"
+    },
+    "extensions/link-fidelity.test.ts": {
+      "upstream": "a3a45792e39fcaf1caa3c4bdd127ef7ffd2f361b",
+      "vendored": "a3a45792e39fcaf1caa3c4bdd127ef7ffd2f361b"
+    },
+    "extensions/link-fidelity.ts": {
+      "upstream": "b93cd344fcb0db7919ad97a1a6643d7178f356b4",
+      "vendored": "d30ad431c5e849a00988cb331040c68e9be561fd"
+    },
+    "extensions/link-ref-def-fidelity.ts": {
+      "upstream": "0a99698c3e0398d6d543bc41ae809b0ccad454b6",
+      "vendored": "0a99698c3e0398d6d543bc41ae809b0ccad454b6"
+    },
+    "extensions/list-boundary-merge.ts": {
+      "upstream": "478ea74fe9a5e56f3bbe613f08c0bd8a3b35adbb",
+      "vendored": "d7e31686f489664a49b1ba4e7f8f74706268ef97"
+    },
+    "extensions/list.test.ts": {
+      "upstream": "e9ba459778ef1a41f619a48247a54c6249299e8d",
+      "vendored": "cd25810ced2260f6b2ab8882279a484b391af6c2"
+    },
+    "extensions/list.ts": {
+      "upstream": "984d84859aa24ec1b8cb61ec678155a5329591a5",
+      "vendored": "984d84859aa24ec1b8cb61ec678155a5329591a5"
+    },
+    "extensions/marked-inline-leaf-schema.test.ts": {
+      "upstream": "ed3b86690e1cdce93e50a225c1e4deaad8ec071f",
+      "vendored": "3e51a36c33332ab5e93f12ef400b0c314f66585a"
+    },
+    "extensions/math-inline.ts": {
+      "upstream": "26b1944b3f3f8d56282aaf543e30e9d4f1e82d7e",
+      "vendored": "ad95c287e603bd9bb8092d7ccba1faf9602e45c0"
+    },
+    "extensions/plain-text-clipboard.ts": {
+      "upstream": "0a7f3db38e8f4b016424f39c848ff44c7c5eb007",
+      "vendored": "0a7f3db38e8f4b016424f39c848ff44c7c5eb007"
+    },
+    "extensions/raw-mdx-fallback.ts": {
+      "upstream": "99e6592ccae177bd58e56386e351661d213a62e0",
+      "vendored": "99e6592ccae177bd58e56386e351661d213a62e0"
+    },
+    "extensions/shared.test.ts": {
+      "upstream": "09cdeefaf686f21ff6bdcfffd16a98b8661123ce",
+      "vendored": "1a425d31c3bb86a3ed51dee4e5d339b8ee7fb591"
+    },
+    "extensions/shared.ts": {
+      "upstream": "43895f0a4866ded9f9240d96e2873f286cd434fb",
+      "vendored": "fc24652dc0b4f493cc16bf657807401a14b5b781"
+    },
+    "extensions/source-literal-mark.test.ts": {
+      "upstream": "9833a7ae50aa4961706eb3a03780b7780b3af7ac",
+      "vendored": "9833a7ae50aa4961706eb3a03780b7780b3af7ac"
+    },
+    "extensions/source-literal-mark.ts": {
+      "upstream": "f0715a241564fd41f4f2e0a1561c24bf6e8c4a21",
+      "vendored": "f0715a241564fd41f4f2e0a1561c24bf6e8c4a21"
+    },
+    "extensions/strike-fidelity.ts": {
+      "upstream": "88a6e2db2788bcbb4598b4f71d82c71ad43c059c",
+      "vendored": "88a6e2db2788bcbb4598b4f71d82c71ad43c059c"
+    },
+    "extensions/table-fidelity.ts": {
+      "upstream": "fdaefc11644039c8ccab207c4210f4d648ffc8f9",
+      "vendored": "457a98e261303b8d292e6c3f59078a1eba1f266f"
+    },
+    "extensions/thematic-break-fidelity.test.ts": {
+      "upstream": "29cf6c4af7bd35a7732c46a617ff7c056687ae4e",
+      "vendored": "29cf6c4af7bd35a7732c46a617ff7c056687ae4e"
+    },
+    "extensions/thematic-break-fidelity.ts": {
+      "upstream": "bfde18b6c93938cfa7bdbd10047c259ff5d282ac",
+      "vendored": "bfde18b6c93938cfa7bdbd10047c259ff5d282ac"
+    },
+    "extensions/underline-fidelity.ts": {
+      "upstream": "48af5a0d727db7f621598fab18fa01b99987a0b5",
+      "vendored": "48af5a0d727db7f621598fab18fa01b99987a0b5"
+    },
+    "extensions/wiki-link-embed.test.ts": {
+      "upstream": "c6cd976727d6645ad86587666f16227031e632a1",
+      "vendored": "c6cd976727d6645ad86587666f16227031e632a1"
+    },
+    "extensions/wiki-link-embed.ts": {
+      "upstream": "0d7fc56d8d154aa8958b28bfffb1c3e31ecf2fd4",
+      "vendored": "0d7fc56d8d154aa8958b28bfffb1c3e31ecf2fd4"
+    },
+    "extensions/wiki-link.test.ts": {
+      "upstream": "ea403b110e8c0839d34d395c2e2b00b1ddabab67",
+      "vendored": "ea403b110e8c0839d34d395c2e2b00b1ddabab67"
+    },
+    "extensions/wiki-link.ts": {
+      "upstream": "ffed47524d1ea6e06f7ddc849d72e93e7e28784d",
+      "vendored": "ffed47524d1ea6e06f7ddc849d72e93e7e28784d"
+    },
+    "handoff/claude-url.ts": {
+      "upstream": "fba8410286929fb32ddca2543a11f20c48e2e985",
+      "vendored": "fba8410286929fb32ddca2543a11f20c48e2e985"
+    },
+    "handoff/codex-url.ts": {
+      "upstream": "008b6afcd5609afd3f6ccf427173175cb6d98b12",
+      "vendored": "008b6afcd5609afd3f6ccf427173175cb6d98b12"
+    },
+    "handoff/cursor-url.ts": {
+      "upstream": "473c9df20e547fda808accb0728e1507937a29a2",
+      "vendored": "473c9df20e547fda808accb0728e1507937a29a2"
+    },
+    "handoff/index.ts": {
+      "upstream": "68e90c4119a6c264a920fb02a2f6cad1ed78d31d",
+      "vendored": "f4badcb7e2bac463319e28181a9e9b563c88bff1"
+    },
+    "handoff/prompt-composer.ts": {
+      "upstream": "ff5c8111c448f538f63caa73fb015043161931a5",
+      "vendored": "ff5c8111c448f538f63caa73fb015043161931a5"
+    },
+    "handoff/terminal-launch.ts": {
+      "upstream": "8a98b1b178c9f48dd07d00952e9a280a8411bfcf",
+      "vendored": "8a98b1b178c9f48dd07d00952e9a280a8411bfcf"
+    },
+    "handoff/types.ts": {
+      "upstream": "e2d7fb56fc04a48072340e67d12f143f77cfb566",
+      "vendored": "e2d7fb56fc04a48072340e67d12f143f77cfb566"
+    },
+    "index.ts": {
+      "upstream": "affd2bb8ac0458e536cce0d3efa37dd0115aad44",
+      "vendored": "1cbca2f1fca7a95eb66a4792bbf56fc5d91ae47c"
+    },
+    "markdown/autolink-promotion.ts": {
+      "upstream": "7745bb11c93e7003711a5a1459ee2de3387cd4af",
+      "vendored": "7745bb11c93e7003711a5a1459ee2de3387cd4af"
+    },
+    "markdown/autolink-void-html-guard.ts": {
+      "upstream": "6c1fe5fcea188c48b6dbe9166474b75b500197d3",
+      "vendored": "6c1fe5fcea188c48b6dbe9166474b75b500197d3"
+    },
+    "markdown/backslash-escape-guard.ts": {
+      "upstream": "69f415f4b501368ccf15bd1045ef335a877833ec",
+      "vendored": "69f415f4b501368ccf15bd1045ef335a877833ec"
+    },
+    "markdown/callout-transformer.ts": {
+      "upstream": "a363dfd54f884b15d51fe8ebf0a4cc029b2d74d9",
+      "vendored": "83d47404a0ac4922c079f3e1ebc4398b54c9ddfc"
+    },
+    "markdown/code-fence.ts": {
+      "upstream": "4499dbc92c8c5e146c596713c467d3b88e25edf6",
+      "vendored": "9807a7e828ec9ad32abad2e1983bb16f7cf0755e"
+    },
+    "markdown/comment-promoter.ts": {
+      "upstream": "6e3c6d0883acf5911f12f6761464ced1b570e21b",
+      "vendored": "24f20f51a39d7e9b86369378b92d78fd6c076270"
+    },
+    "markdown/dedent-block-jsx-close.ts": {
+      "upstream": "b6299a94862af1ad78804601de306bb8fbfd80e9",
+      "vendored": "ece5c02a19380b99aa6b61119f85a1d22d2fefe5"
+    },
+    "markdown/details-accordion-promoter.ts": {
+      "upstream": "acd398aa6d97bde3846745ad6400bef864f7221a",
+      "vendored": "54774764acf2c309f07b9e94529063c8bf29a524"
+    },
+    "markdown/div-align-promoter.ts": {
+      "upstream": "ba9b563848b61273398c44e3697ba3edce6c0ff7",
+      "vendored": "43ecdc709a235c6c4697f34f2971dfb73f993fb6"
+    },
+    "markdown/doc-edge-blank-runs.ts": {
+      "upstream": "22b26e8b443312057fecbc7d519fed47ee653412",
+      "vendored": "e12972c852fd304a320e144704d4e564e3096ee3"
+    },
+    "markdown/empty-task-item.ts": {
+      "upstream": "70eecbfa2a60bb3da4b5cd6641cd49598c38b4b7",
+      "vendored": "70eecbfa2a60bb3da4b5cd6641cd49598c38b4b7"
+    },
+    "markdown/entity-ref-guard.ts": {
+      "upstream": "5a3996fbff439b3e04729f8cb6e300a789570505",
+      "vendored": "5a3996fbff439b3e04729f8cb6e300a789570505"
+    },
+    "markdown/fence-regions.ts": {
+      "upstream": "4513da9bb4453161a52b48f40514ba11a9b4c8a3",
+      "vendored": "6d3f3643e4216148513d755eec436152455ff991"
+    },
+    "markdown/fixtures/commonmark/.gitkeep": {
+      "upstream": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "vendored": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "markdown/fixtures/frontmatter/.gitkeep": {
+      "upstream": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "vendored": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "markdown/fixtures/gfm/examples.json": {
+      "upstream": "f31ed99f0c21fb185c95bd743b508bba4fde1c99",
+      "vendored": "f31ed99f0c21fb185c95bd743b508bba4fde1c99"
+    },
+    "markdown/fixtures/index.ts": {
+      "upstream": "6931623c7f257dadd7a26b8e14fe8cb5993433f0",
+      "vendored": "997d574253cb6ae730b2cc163ed9834343d06702"
+    },
+    "markdown/fixtures/mdx/built-ins.json": {
+      "upstream": "76aa0d3a60d31922730f37f84b6641e312df26b9",
+      "vendored": "76aa0d3a60d31922730f37f84b6641e312df26b9"
+    },
+    "markdown/fixtures/mdx/crash-taxonomy.json": {
+      "upstream": "c0bf802dd5d02d0c845fae22c9e80b993752bf93",
+      "vendored": "c0bf802dd5d02d0c845fae22c9e80b993752bf93"
+    },
+    "markdown/fixtures/mdx/indented-jsx.json": {
+      "upstream": "f03c7029d0f1401479343e98637f69f21d3ea4cc",
+      "vendored": "f03c7029d0f1401479343e98637f69f21d3ea4cc"
+    },
+    "markdown/fixtures/mdx/large-embed.json": {
+      "upstream": "01036f029fc6ad93fce6deddfc6833cca49dc315",
+      "vendored": "01036f029fc6ad93fce6deddfc6833cca49dc315"
+    },
+    "markdown/fixtures/ng-pinned/.gitkeep": {
+      "upstream": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "vendored": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "markdown/fixtures/ng-pinned/component-blocks-v2.json": {
+      "upstream": "a9c1f4d2d55c1a2c4040ca13ede6815d9a5d3538",
+      "vendored": "a9c1f4d2d55c1a2c4040ca13ede6815d9a5d3538"
+    },
+    "markdown/fixtures/perf/generate.test.ts": {
+      "upstream": null,
+      "vendored": "7c2d1ef017612f87863afa920fc821e7947d1213"
+    },
+    "markdown/fixtures/perf/generate.ts": {
+      "upstream": "daa3ef82b111f2af4c1ee9e9aeed1ef2a6b73055",
+      "vendored": "51be5b47849e03c5b08c0501fed28e6fb339b493"
+    },
+    "markdown/fixtures/regression/prd-6955-before.md": {
+      "upstream": "a39c2d54c237f533df2322cf8ad02faeef1647c1",
+      "vendored": "e82d2d988ef9899b42dcc82c4ef12e22663322f6"
+    },
+    "markdown/fixtures/regression/prd-6955-corrupted-triplicated.md": {
+      "upstream": "c14508175e2ececc9da91757984129970fd3aeee",
+      "vendored": "93bf6caa624e179c8dcb9c92509838b70a3ece3b"
+    },
+    "markdown/fixtures/wiki-links/.gitkeep": {
+      "upstream": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "vendored": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "markdown/highlight-promoter.ts": {
+      "upstream": "e56707b48c85e7a13a01e946c436f18297275ede",
+      "vendored": "ee6d25fda5a131e2059c5ebcf65efefd67304a9b"
+    },
+    "markdown/image-promoter.ts": {
+      "upstream": "994eb691728421f21457c173596c9c83b4c875c3",
+      "vendored": "706fa9afbcd48879efea7d6b078f85ed7e958460"
+    },
+    "markdown/indented-code-promoter.ts": {
+      "upstream": "2d88561970d4d5ecc64f6035479093e0a8b24520",
+      "vendored": "2d88561970d4d5ecc64f6035479093e0a8b24520"
+    },
+    "markdown/index.ts": {
+      "upstream": "ec1ac1b7eb3028c1dd803fa0a0d1e4a491199e34",
+      "vendored": "ec643dfd36d7f421d549c6b330c66ce672fbbde6"
+    },
+    "markdown/interior-blank-runs.ts": {
+      "upstream": "f6d95ac98e375f7dd1777e5c47aee0a7f7fce43c",
+      "vendored": "f6d95ac98e375f7dd1777e5c47aee0a7f7fce43c"
+    },
+    "markdown/latex-math-promoter.ts": {
+      "upstream": null,
+      "vendored": "503c83d2dda57cfa2a1cd4643ba04b88adfead6b"
+    },
+    "markdown/math-promoter.ts": {
+      "upstream": "bd79424c7a2789e08a69bb0a77b6586c9cd4aa45",
+      "vendored": "a5b511f25cef6ae140f6fdfba8628bdb4c23dba5"
+    },
+    "markdown/mdast-augmentation.ts": {
+      "upstream": "721c1c7f1f3ab625ff6e380bd29c82149fbb6e0f",
+      "vendored": "902f6079c6f4615978c22a34c75151affc6dbb88"
+    },
+    "markdown/mdast-to-hast-handlers.ts": {
+      "upstream": "00fbc00351fd02c2e28ea509b80ccc98d110c6c2",
+      "vendored": "e4e21916a8112d0de9433057a90f1bf58b09a220"
+    },
+    "markdown/mdast-to-html.ts": {
+      "upstream": "df788a80d3e704688443767196a424d1bdcc4155",
+      "vendored": "8ce2b249280cee01ad9599ffc533d58ef5cb7426"
+    },
+    "markdown/merged-walker.ts": {
+      "upstream": "fa3cfcd86f1f620a1856a47917aaa0f1c6fc308a",
+      "vendored": "170644172c2240ac9615bb5f919ffc8fad7906c6"
+    },
+    "markdown/mermaid-promoter.ts": {
+      "upstream": "17ed2b8297e59cbdcdfc12ae70c1ae2550e3dc25",
+      "vendored": "1a897fca8f5f09e382008045eb9ef59a7408ec76"
+    },
+    "markdown/parse-with-fallback.ts": {
+      "upstream": "4aa0490c43399456c2daae6077a9372752f73581",
+      "vendored": "3afa1ccf06ad5993e909be5682675bb5f8405978"
+    },
+    "markdown/pipeline.ts": {
+      "upstream": "55736041c0f0eb2f66280a26a17bca1c97abd3db",
+      "vendored": "cd9381943181ac19136174389e3e18cc191476ca"
+    },
+    "markdown/position-aware-join.ts": {
+      "upstream": "ccf06e94d33834d25e4d144a26c6290be3c42303",
+      "vendored": "91cdf658f4e16d26d7ce0650c24bf76e96f19889"
+    },
+    "markdown/position-slice.ts": {
+      "upstream": "e5b4c9eba1fd9c8aeac40f600770ea84e27e24af",
+      "vendored": "fc3ea4fb991441829b911ac5ec23898aa7c4da9b"
+    },
+    "markdown/promoter-position.ts": {
+      "upstream": "f0a36038521ab902ed7f7a73464e1acb8edf1de3",
+      "vendored": "f0a36038521ab902ed7f7a73464e1acb8edf1de3"
+    },
+    "markdown/ref-def-hoist.ts": {
+      "upstream": "519a12a14c8c7d694adde1b34855410139e8be0d",
+      "vendored": "519a12a14c8c7d694adde1b34855410139e8be0d"
+    },
+    "markdown/remark-mdx-agnostic.ts": {
+      "upstream": "499eeb5e9038222f193db9e6390b5cda9cea8f7c",
+      "vendored": "499eeb5e9038222f193db9e6390b5cda9cea8f7c"
+    },
+    "markdown/resolve-image-url.ts": {
+      "upstream": "0389575acbe5b59d8571a0571ef66c0e3019b3b3",
+      "vendored": "cf2c9da8ec81565819656068e9f1d8b4b1f57dd6"
+    },
+    "markdown/safe-url.ts": {
+      "upstream": "8be632ba4b2ef543c2ee8295df34f493878a31ed",
+      "vendored": "53ab111badc3b609935682b337e44131a193918b"
+    },
+    "markdown/serialize-helpers.ts": {
+      "upstream": "93798cf830ca68bb23d7967994c816064d4a7d4c",
+      "vendored": "7cac5b0422718f6c10ab45c269e58c954cb9f715"
+    },
+    "markdown/single-dollar-math-promoter.ts": {
+      "upstream": "8c08b7a04b649333aee59c99d56d6c95311c90d0",
+      "vendored": "94c7d0b254a80a8ee01b7b96745b4debcea3d3d2"
+    },
+    "markdown/strip-trailing-edge.ts": {
+      "upstream": "2cd5a08ab68155add84ff729ac9dc7a9a91deaf3",
+      "vendored": "2cd5a08ab68155add84ff729ac9dc7a9a91deaf3"
+    },
+    "markdown/table-cell-flatten.ts": {
+      "upstream": "48a434f4e7bb4fd3bc95e0f899da87cf622be832",
+      "vendored": "48a434f4e7bb4fd3bc95e0f899da87cf622be832"
+    },
+    "markdown/to-markdown-handlers.ts": {
+      "upstream": "83d4af672089e45604549ef271e131cdb0bb199e",
+      "vendored": "9fb3469670a8f6cbc7407668bfaa467cfa4274a9"
+    },
+    "markdown/underline-promoter.ts": {
+      "upstream": "6e6d734006919f5ad7cac4e5034fa89e425ab0a8",
+      "vendored": "0f1b0f27d1222d1a0860f73bbdfd6de88c18a594"
+    },
+    "markdown/unknown-mdast-guard.ts": {
+      "upstream": "932d7d2a8f7787c4dfeb860e7b22e766f9a0d965",
+      "vendored": "d6f8d1ed3c402aafedfefdf4ddee10f3954ca599"
+    },
+    "markdown/void-br-promoter.ts": {
+      "upstream": "a0aecd43047f93a4ebc11f4beadce68853d2627b",
+      "vendored": "a0aecd43047f93a4ebc11f4beadce68853d2627b"
+    },
+    "markdown/whitespace-char-ref.ts": {
+      "upstream": "ac9f5239b17069859926256fec69528916abe395",
+      "vendored": "d578476a787c2860596131a882e00726299c8b83"
+    },
+    "markdown/wiki-link-micromark.ts": {
+      "upstream": "afd9936fe233aea57db68504fdd160c3928bce5d",
+      "vendored": "6dad262004ed921818c9dc4a7f348dc07e829511"
+    },
+    "markdown/zero-emission-blocks.ts": {
+      "upstream": "78fc0100cf238d4913f9cc86f8fa134d0ac77c9e",
+      "vendored": "78fc0100cf238d4913f9cc86f8fa134d0ac77c9e"
+    },
+    "metrics/parse-health.ts": {
+      "upstream": "551116251d29ad27db53801f219fb9b93066bc03",
+      "vendored": "551116251d29ad27db53801f219fb9b93066bc03"
+    },
+    "registry/built-ins.ts": {
+      "upstream": "bf96e81b42795218d0a116565a76c2dba22c3989",
+      "vendored": "fadad7c0e8573b3fdc6878a0dd0c94a84f606b7f"
+    },
+    "registry/canonical-compat.test.ts": {
+      "upstream": "4cccee1effedd513562049dc9138e991e516ec6e",
+      "vendored": "5e5258307542d826d4bb904e8ead82609131f069"
+    },
+    "registry/index.ts": {
+      "upstream": "2d9df5c0067400737dc5dee21ac436d7a50f017c",
+      "vendored": "2d9df5c0067400737dc5dee21ac436d7a50f017c"
+    },
+    "registry/registry.test.ts": {
+      "upstream": "91c7af0a1561896247848b6113c1fd2f0bb688e5",
+      "vendored": "d6fc1cbddfb42984d30e1860722e0b924aa21165"
+    },
+    "registry/types.ts": {
+      "upstream": "66843c886505425c85a9d3571a2cb7e90b71a3e7",
+      "vendored": "66843c886505425c85a9d3571a2cb7e90b71a3e7"
+    },
+    "registry/wiki-embed-compat.test.ts": {
+      "upstream": "4a00bdc612af11b25b6bec89687130592790b464",
+      "vendored": "4a00bdc612af11b25b6bec89687130592790b464"
+    },
+    "schemas/api/_envelope.ts": {
+      "upstream": "dc44c494e2e110e37f02b66a0627ae14ee952945",
+      "vendored": "dc44c494e2e110e37f02b66a0627ae14ee952945"
+    },
+    "schemas/api/_shared.ts": {
+      "upstream": "5cfb7af8ab286db08197e9f21cbcc822d8da5914",
+      "vendored": "72b3efbfff3b932f26a73f856d7e540d75cf7798"
+    },
+    "schemas/api/link-preview.ts": {
+      "upstream": "30e461096abdc7cdc78cee25e7214a72efbbffa1",
+      "vendored": "30e461096abdc7cdc78cee25e7214a72efbbffa1"
+    },
+    "schemas/api/share.ts": {
+      "upstream": "99757fa610ce9feb05408f3911b221269a33df7d",
+      "vendored": "99757fa610ce9feb05408f3911b221269a33df7d"
+    },
+    "search/workspace-search.category-caps.test.ts": {
+      "upstream": "5565d678c0bd5521e3b13c8ef1963ee2939ffd85",
+      "vendored": "5565d678c0bd5521e3b13c8ef1963ee2939ffd85"
+    },
+    "search/workspace-search.filename-quota.test.ts": {
+      "upstream": "553502557cbb3c2bea7462eea2c66dc26d5f1996",
+      "vendored": "553502557cbb3c2bea7462eea2c66dc26d5f1996"
+    },
+    "search/workspace-search.incremental.test.ts": {
+      "upstream": "f1b25056a8ffdf8003a5bab987a353f488cae6e6",
+      "vendored": "f1b25056a8ffdf8003a5bab987a353f488cae6e6"
+    },
+    "search/workspace-search.non-latin.test.ts": {
+      "upstream": "317e3131468d485f462ee001fcdda8b3b293a319",
+      "vendored": "3f6cd8ade41302b9ebf108fb6720d028d69c8852"
+    },
+    "search/workspace-search.semantic.test.ts": {
+      "upstream": "50642a5a977ffefc0a01aaaf91d76d41281e04e3",
+      "vendored": "50642a5a977ffefc0a01aaaf91d76d41281e04e3"
+    },
+    "search/workspace-search.test.ts": {
+      "upstream": "61a214d3d2376e1114cbe926a2a94f3b0443e020",
+      "vendored": "61a214d3d2376e1114cbe926a2a94f3b0443e020"
+    },
+    "search/workspace-search.tier-ranking.test.ts": {
+      "upstream": "07b3431054b422b389e1ac0459d4fa81560639f4",
+      "vendored": "07b3431054b422b389e1ac0459d4fa81560639f4"
+    },
+    "search/workspace-search.ts": {
+      "upstream": "a9072338ad7037ca4f34bb6e58e15dcb40f3bef5",
+      "vendored": "b2c6bc7eea2223534b9e1afe2e584a6c66c62e31"
+    },
+    "types/awareness.test.ts": {
+      "upstream": "77f3e9a271d7bfd44781916d6d272269d75e213c",
+      "vendored": "77f3e9a271d7bfd44781916d6d272269d75e213c"
+    },
+    "types/awareness.ts": {
+      "upstream": "175ce2c3320e80f9f85342750e2e70c8c0f482bf",
+      "vendored": "175ce2c3320e80f9f85342750e2e70c8c0f482bf"
+    },
+    "utils/apply-by-prefix-suffix.test.ts": {
+      "upstream": "6eb43a8f52d239103c69ef82ff306e7585e501ca",
+      "vendored": "6eb43a8f52d239103c69ef82ff306e7585e501ca"
+    },
+    "utils/apply-by-prefix-suffix.ts": {
+      "upstream": "05d289fc53bd2d96ff5694783af908ff786dda6a",
+      "vendored": "05d289fc53bd2d96ff5694783af908ff786dda6a"
+    },
+    "utils/asset-href.test.ts": {
+      "upstream": "7f56e1f02030cac8ab55891e68f73ced5e473fac",
+      "vendored": "7f56e1f02030cac8ab55891e68f73ced5e473fac"
+    },
+    "utils/asset-href.ts": {
+      "upstream": "09091c3569a99d3ac80ba96493694e2403cbcaa7",
+      "vendored": "09091c3569a99d3ac80ba96493694e2403cbcaa7"
+    },
+    "utils/chunked-insert.test.ts": {
+      "upstream": "8d3625375d225ed116ad48397cef394d64fd7727",
+      "vendored": "8d3625375d225ed116ad48397cef394d64fd7727"
+    },
+    "utils/chunked-insert.ts": {
+      "upstream": "216344ca285349476dd8758fff6e9ba3935d27f6",
+      "vendored": "216344ca285349476dd8758fff6e9ba3935d27f6"
+    },
+    "utils/code-fence-tracker.test.ts": {
+      "upstream": "06c28abb966b02eeb588de9643db109712ae9649",
+      "vendored": "06c28abb966b02eeb588de9643db109712ae9649"
+    },
+    "utils/code-fence-tracker.ts": {
+      "upstream": "c71dea1d6e7aadd370288ba2a6adf95be1d0fc51",
+      "vendored": "c71dea1d6e7aadd370288ba2a6adf95be1d0fc51"
+    },
+    "utils/doc-name.ts": {
+      "upstream": null,
+      "vendored": "c98887bb325853502deb138ac8e5dd2288ab88d6"
+    },
+    "utils/embed-url-rewrite.test.ts": {
+      "upstream": "4f473be833f805d37c3d5b082916e31fc5f80dc0",
+      "vendored": "4f473be833f805d37c3d5b082916e31fc5f80dc0"
+    },
+    "utils/embed-url-rewrite.ts": {
+      "upstream": "d78dce0b7fedff1bf89b30bc4db2320973459ac7",
+      "vendored": "d78dce0b7fedff1bf89b30bc4db2320973459ac7"
+    },
+    "utils/extension.ts": {
+      "upstream": "bc99d3e71db82eb3062e5f8cf432ce2e8faeedee",
+      "vendored": "bc99d3e71db82eb3062e5f8cf432ce2e8faeedee"
+    },
+    "utils/file-size.test.ts": {
+      "upstream": "29a337b0b78461aaa01479d1f1c69a50834fb8ed",
+      "vendored": "29a337b0b78461aaa01479d1f1c69a50834fb8ed"
+    },
+    "utils/file-size.ts": {
+      "upstream": "cc4a87714a917beecb276adc96e68cc457841acf",
+      "vendored": "cc4a87714a917beecb276adc96e68cc457841acf"
+    },
+    "utils/heading-scan.test.ts": {
+      "upstream": "4e41cbda29062b9ec4ba75ab73412504782a37a4",
+      "vendored": "4e41cbda29062b9ec4ba75ab73412504782a37a4"
+    },
+    "utils/heading-scan.ts": {
+      "upstream": "576b5197a0ef0da8910014bb534b7ebc44ed065c",
+      "vendored": "576b5197a0ef0da8910014bb534b7ebc44ed065c"
+    },
+    "utils/link-targets.test.ts": {
+      "upstream": "d578894cf8b2e2915048d5bd94314cb4deb39593",
+      "vendored": "d578894cf8b2e2915048d5bd94314cb4deb39593"
+    },
+    "utils/link-targets.ts": {
+      "upstream": "557fb322a51f5eab3e2ab60e42ced53b0b193409",
+      "vendored": "557fb322a51f5eab3e2ab60e42ced53b0b193409"
+    },
+    "utils/loom-embed.test.ts": {
+      "upstream": "98f33ed4a16fdcc4c9cc4e894f9ad978043e1f4f",
+      "vendored": "98f33ed4a16fdcc4c9cc4e894f9ad978043e1f4f"
+    },
+    "utils/loom-embed.ts": {
+      "upstream": "164724bad5a01de1cc87ac501675d9867a97caa7",
+      "vendored": "164724bad5a01de1cc87ac501675d9867a97caa7"
+    },
+    "utils/path-resolve.test.ts": {
+      "upstream": "5ea9519fab4a8e47aa7dbcf9c18a8ef0b5731f77",
+      "vendored": "5ea9519fab4a8e47aa7dbcf9c18a8ef0b5731f77"
+    },
+    "utils/path-resolve.ts": {
+      "upstream": "932758bc730ec0128c8a31a83d1e63edc80bb63a",
+      "vendored": "932758bc730ec0128c8a31a83d1e63edc80bb63a"
+    },
+    "utils/pdf-anchor.ts": {
+      "upstream": "65bec3a972a9aa8b5e48490add42c596b62eff52",
+      "vendored": "65bec3a972a9aa8b5e48490add42c596b62eff52"
+    },
+    "utils/resolve-internal-href.test.ts": {
+      "upstream": "cbd8731c1a25d523e197452df808976ed45fdb7e",
+      "vendored": "cbd8731c1a25d523e197452df808976ed45fdb7e"
+    },
+    "utils/resolve-internal-href.ts": {
+      "upstream": "455064f7ea42e289536524350b166a38e5a48bac",
+      "vendored": "455064f7ea42e289536524350b166a38e5a48bac"
+    },
+    "utils/sanitize-folder-name.test.ts": {
+      "upstream": "3d0ccd28003ca4352fee5aa93a75a9b5dc4ebc2d",
+      "vendored": "3d0ccd28003ca4352fee5aa93a75a9b5dc4ebc2d"
+    },
+    "utils/sanitize-folder-name.ts": {
+      "upstream": "e3ea126f89496f9906bd2508542cfa31c3f8c96f",
+      "vendored": "e3ea126f89496f9906bd2508542cfa31c3f8c96f"
+    },
+    "utils/sleep.test.ts": {
+      "upstream": "fa2ab91740c3ed0a48fe30b40d49938f147fcdd6",
+      "vendored": "fa2ab91740c3ed0a48fe30b40d49938f147fcdd6"
+    },
+    "utils/sleep.ts": {
+      "upstream": "fb2bd5a4ed93bd2f7b8c99ad2547b2ed519e15c9",
+      "vendored": "fb2bd5a4ed93bd2f7b8c99ad2547b2ed519e15c9"
+    },
+    "utils/slug.test.ts": {
+      "upstream": "9a746de6071d3c9840d2218ffb42c632a4a8cf64",
+      "vendored": "9a746de6071d3c9840d2218ffb42c632a4a8cf64"
+    },
+    "utils/slug.ts": {
+      "upstream": "ad5b71426f5061aae0e8ce6ac12df1d657d2ff1e",
+      "vendored": "ad5b71426f5061aae0e8ce6ac12df1d657d2ff1e"
+    },
+    "utils/tag-rollup.test.ts": {
+      "upstream": "0309b4964fd2263c77927bf85b49733f1e0eea19",
+      "vendored": "0309b4964fd2263c77927bf85b49733f1e0eea19"
+    },
+    "utils/tag-rollup.ts": {
+      "upstream": "4c19c2d3e1dc5e5b7516aaf3747618def569c235",
+      "vendored": "4a3b5523f8ee757f56951860929e968b560abd43"
+    },
+    "utils/vimeo-embed.test.ts": {
+      "upstream": "c03366fd0873e1e9c72eb6b3cd938eedc90da1d9",
+      "vendored": "c03366fd0873e1e9c72eb6b3cd938eedc90da1d9"
+    },
+    "utils/vimeo-embed.ts": {
+      "upstream": "c0fad5a738eff40117dcca4d59f275b4593b0c32",
+      "vendored": "c0fad5a738eff40117dcca4d59f275b4593b0c32"
+    },
+    "utils/youtube-embed.test.ts": {
+      "upstream": "e0f8551a7e54b2d6ac08a044f5d12e23b84f90af",
+      "vendored": "e0f8551a7e54b2d6ac08a044f5d12e23b84f90af"
+    },
+    "utils/youtube-embed.ts": {
+      "upstream": "e4d1e70b17e730a10754980d44b4fd697cd95853",
+      "vendored": "e4d1e70b17e730a10754980d44b4fd697cd95853"
+    },
+    "vendor-globals.d.ts": {
+      "upstream": null,
+      "vendored": "89d0fa0849b6f5ddef9a52a2ecefa3e7afaefd01"
+    }
+  }
+}

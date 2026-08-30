@@ -48,6 +48,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Maximize2,
   RefreshCcw,
   ZoomIn,
   ZoomOut,
@@ -56,6 +57,7 @@ import type { default as MermaidNS } from 'mermaid';
 import { type ComponentProps, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Button } from '@ok-app/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@ok-app/components/ui/dialog';
 import { cn } from '@ok-app/lib/utils.ts';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
 
@@ -87,6 +89,13 @@ interface MermaidProps {
    * codefenced fences, which derive the binding from `useJsxComponentHost()`.
    */
   editBinding?: MermaidSourceBinding;
+  /**
+   * Renders the toolbar's expand control and receives its click. The host
+   * decides whether the diagram is expandable and owns the lightbox state;
+   * `MermaidLightbox` passes no handler to its own inner `MermaidView`, so a
+   * dialog can never nest another one.
+   */
+  onExpand?: () => void;
 }
 
 interface RenderState {
@@ -97,6 +106,33 @@ interface RenderState {
 const MERMAID_ZOOM_MIN = 0.5;
 const MERMAID_ZOOM_MAX = 4;
 const MERMAID_ZOOM_STEP = 0.25;
+
+/**
+ * Compensate Panzoom's `maxScale` so it caps zoom relative to the SVG's
+ * natural (viewBox) size, not its fit-shrunk painted size. Given `MERMAID_ZOOM_MAX`
+ * as the "max multiple of natural size" intent, a fit-shrunk diagram
+ * (`paintedWidth < viewBoxWidth`) needs a proportionally larger `maxScale`
+ * so the user can still zoom to `MERMAID_ZOOM_MAX * natural`. Diagrams that
+ * paint at or above natural size keep the raw `MERMAID_ZOOM_MAX` floor.
+ */
+export function compensatedMaxScale(paintedWidth: number, viewBoxWidth: number): number {
+  if (viewBoxWidth <= 0 || paintedWidth <= 0) return MERMAID_ZOOM_MAX;
+  const displayScale = paintedWidth / viewBoxWidth;
+  return Math.max(MERMAID_ZOOM_MAX, MERMAID_ZOOM_MAX / displayScale);
+}
+
+/**
+ * The lightbox mounts a second canvas over the same chart. It must stay
+ * read-only even inside an editable JSX host (two live edit surfaces would
+ * race their commits), and handing it a binding rather than relying on the
+ * host context also enables the whole-viewport wheel-pan the standalone-doc
+ * surface gets — the dialog owns its viewport the same way.
+ */
+const LIGHTBOX_VIEW_BINDING: MermaidSourceBinding = {
+  canEdit: false,
+  commitChart: () => {},
+};
+
 const MERMAID_PAN_STEP = 48;
 const MERMAID_PAN_ANIMATE_MS = 200;
 const MERMAID_PAN_EASING = 'ease-out';
@@ -271,7 +307,7 @@ const CANVAS_CONTAINED_EVENTS = [
   'keypress',
 ] as const;
 
-export function MermaidView({ chart = '', className, editBinding }: MermaidProps) {
+export function MermaidView({ chart = '', className, editBinding, onExpand }: MermaidProps) {
   const [state, setState] = useState<RenderState>({ status: 'rendering', error: '' });
   // Bumped to re-run the canvas-creation effect after a lazy-import
   // failure so a later chart edit retries the load (the module-level
@@ -335,6 +371,7 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
   const editorRef = useRef<MermaidWysiwygEditor | null>(null);
   const viewRef = useRef<MermaidCanvasView | null>(null);
   const panzoomRef = useRef<PanzoomObject | null>(null);
+  const maxScaleObsRef = useRef<ResizeObserver | null>(null);
   const loadFailedRef = useRef(false);
 
   const hasChart = Boolean(chart.trim());
@@ -410,7 +447,7 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
           // A newer render may have replaced the SVG while Panzoom loaded.
           if (canvasRef.current?.querySelector('svg') !== svgElement) return;
           panzoomRef.current?.destroy();
-          panzoomRef.current = Panzoom(svgElement, {
+          const panzoom = Panzoom(svgElement, {
             canvas: true,
             cursor: 'default',
             maxScale: MERMAID_ZOOM_MAX,
@@ -419,10 +456,76 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
             step: MERMAID_ZOOM_STEP,
             touchAction: 'auto',
           });
+          panzoomRef.current = panzoom;
+          maxScaleObsRef.current?.disconnect();
+          maxScaleObsRef.current = null;
+          if (viewBox && viewBox.width > 0) {
+            const vbW = viewBox.width;
+            // `getBoundingClientRect().width` is transform-inclusive, so
+            // measuring it AFTER the user has zoomed would fold the zoom
+            // factor into `displayScale` and re-introduce the bug this
+            // compensation exists to solve. The initial call runs right
+            // after Panzoom mounts (no transform yet) so bounding-rect is
+            // fine; the ResizeObserver callback reads `contentRect.width`
+            // instead — untransformed content box.
+            const applyMaxScale = (width: number) => {
+              if (disposed || panzoomRef.current !== panzoom) return;
+              if (width <= 0) return;
+              try {
+                panzoom.setOptions({
+                  maxScale: compensatedMaxScale(width, vbW),
+                });
+              } catch (err) {
+                console.warn('[Mermaid] maxScale compensation failed:', err);
+              }
+            };
+            applyMaxScale(svgElement.getBoundingClientRect().width);
+            if (typeof ResizeObserver !== 'undefined') {
+              const ro = new ResizeObserver((entries) => {
+                const width = entries[0]?.contentRect.width ?? 0;
+                applyMaxScale(width);
+              });
+              ro.observe(svgElement);
+              maxScaleObsRef.current = ro;
+            }
+          }
         })
         .catch((err) => {
           console.warn('[Mermaid] panzoom setup failed:', err);
         });
+    }
+
+    // Surfaces that own their whole viewport — the standalone `.mmd` doc
+    // and the lightbox, both of which arrive with an explicit binding — get
+    // wheel-pan: a two-finger trackpad scroll should pan the canvas, not do
+    // nothing. Codefenced fences deliberately skip this so a wheel over an
+    // inline diagram scrolls the enclosing page. Bound once per mount (not per
+    // render) so re-renders don't accumulate listeners; reads
+    // panzoomRef.current on each event so it always targets the current
+    // Panzoom instance (attachPanzoom destroys+replaces it every render).
+    if (editBindingRef.current) {
+      const scrollContainer = canvasRef.current;
+      if (scrollContainer) {
+        const onWheel = (e: WheelEvent) => {
+          const pz = panzoomRef.current;
+          if (!pz) return;
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            pz.zoomWithWheel(e);
+            return;
+          }
+          e.preventDefault();
+          // Scale-compensate: pan translates in element-local units, which
+          // panzoom then scales when it applies transform. Dividing by the
+          // current scale keeps a two-finger swipe tracking the fingers 1:1
+          // at every zoom level.
+          const scale = typeof pz.getScale === 'function' ? pz.getScale() : 1;
+          const denom = scale > 0 ? scale : 1;
+          pz.pan(-e.deltaX / denom, -e.deltaY / denom, { relative: true });
+        };
+        scrollContainer.addEventListener('wheel', onWheel, { passive: false });
+        offs.push(() => scrollContainer.removeEventListener('wheel', onWheel));
+      }
     }
 
     Promise.all([loadMermaid(), loadWysiwyg()])
@@ -476,6 +579,8 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
       for (const off of offs) off();
       panzoomRef.current?.destroy();
       panzoomRef.current = null;
+      maxScaleObsRef.current?.disconnect();
+      maxScaleObsRef.current = null;
       view?.destroy();
       editorRef.current = null;
       viewRef.current = null;
@@ -548,12 +653,10 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
       className={cn(
         'mermaid',
         showCanvas &&
-          cn(
-            'mermaid-ready flex h-full min-h-64 w-full overflow-hidden rounded-md border border-border/60 bg-background',
-            className,
-          ),
+          'mermaid-ready flex h-full min-h-64 w-full overflow-hidden rounded-md border border-border/60 bg-background',
         state.status === 'error' && 'mermaid-error',
         state.status === 'rendering' && 'mermaid-rendering',
+        className,
       )}
       data-component-type="mermaid"
       title={state.status === 'error' ? state.error : undefined}
@@ -594,16 +697,60 @@ export function MermaidView({ chart = '', className, editBinding }: MermaidProps
         )}
       >
         <div ref={canvasRef} className="ok-mermaid-svg flex min-h-0 flex-1" />
-        {showCanvas && <MermaidViewControls panzoomRef={panzoomRef} />}
+        {showCanvas && <MermaidViewControls panzoomRef={panzoomRef} onExpand={onExpand} />}
       </div>
     </div>
   );
 }
 
+/**
+ * Full-screen diagram viewer. Reusing `MermaidView` as the body is what buys
+ * pan/zoom, theming, and live CRDT chart updates for free. Hosts keep this
+ * mounted and drive `open` — closing by unmounting would skip Radix's exit
+ * animation.
+ */
+export function MermaidLightbox({
+  chart,
+  open,
+  onOpenChange,
+}: {
+  chart: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useLingui();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="h-[calc(100dvh-5rem)] w-[calc(100dvw-5rem)] max-w-none gap-0 p-2 pt-10 duration-200 sm:max-w-none"
+        // A wider zoom travel than the dialog default, so opening reads as
+        // the inline diagram growing into the modal. The enter/exit scale
+        // vars feed tw-animate-css's keyframes; inline style wins over the
+        // default zoom-in-95 class without fighting tailwind-merge.
+        style={{ '--tw-enter-scale': '0.92', '--tw-exit-scale': '0.92' } as React.CSSProperties}
+      >
+        <DialogTitle className="sr-only">{t`Mermaid diagram`}</DialogTitle>
+        {/* The canvas silently ignores edit gestures here (read-only binding),
+            so say the mode out loud rather than letting ignored clicks read
+            as a bug. Sits in the top band `pt-10` reserves, which also keeps
+            the dialog's bare close button off the canvas. */}
+        <span className="absolute top-2 left-3 flex h-7 items-center text-xs text-muted-foreground">
+          {t`View only`}
+        </span>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <MermaidView chart={chart} editBinding={LIGHTBOX_VIEW_BINDING} className="min-h-0" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MermaidViewControls({
   panzoomRef,
+  onExpand,
 }: {
   panzoomRef: React.RefObject<PanzoomObject | null>;
+  onExpand?: () => void;
 }) {
   const { t } = useLingui();
   const reducedMotion = useReducedMotion();
@@ -615,6 +762,7 @@ function MermaidViewControls({
     panDown: t`Pan down`,
     panLeft: t`Pan left`,
     panRight: t`Pan right`,
+    expand: t`Expand diagram`,
     toolbar: t`Mermaid diagram controls`,
   } as const;
 
@@ -636,7 +784,18 @@ function MermaidViewControls({
       role="toolbar"
       aria-label={labels.toolbar}
     >
-      <span aria-hidden="true" />
+      {onExpand ? (
+        <Button
+          {...buttonProps}
+          title={labels.expand}
+          aria-label={labels.expand}
+          onClick={onExpand}
+        >
+          <Maximize2 className="size-4" aria-hidden="true" />
+        </Button>
+      ) : (
+        <span aria-hidden="true" />
+      )}
       <Button
         {...buttonProps}
         title={labels.panUp}

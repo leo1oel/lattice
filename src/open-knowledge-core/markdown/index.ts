@@ -729,8 +729,8 @@ function buildMdastToPmHandlers(
       }
       const children = state.all(node).flat();
       const mark = m.link.create({
-        href: '',
-        title: null,
+        href: node.data?.resolvedUrl ?? '',
+        title: node.data?.resolvedTitle ?? null,
         linkStyle: node.referenceType ?? 'shortcut',
         refLabel: node.label ?? node.identifier ?? null,
       });

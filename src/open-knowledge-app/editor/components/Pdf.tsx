@@ -210,17 +210,11 @@ export function Pdf(props: PdfProps) {
     (async () => {
       try {
         const pdfjs = await loadPdfjs();
-        // `isEvalSupported: false` — defense-in-depth for hosts deployed
-        // under a CSP without `unsafe-eval`. The default lets PDF.js use
-        // `new Function()` for optimized CMap processing; the `false` path
-        // is functionally equivalent at slightly higher CPU cost. Every
-        // other media canonical avoids eval-adjacent code paths; PDF
-        // should match. The `as` cast widens past pdfjs's overload
-        // ambiguity (`{url}` matches the URL-shorthand overload first).
-        const doc = await pdfjs.getDocument({
-          url: docUrl,
-          isEvalSupported: false,
-        } as Parameters<typeof pdfjs.getDocument>[0]).promise;
+        // No `isEvalSupported: false` here: pdf.js removed the `new Function`
+        // font/operator-compilation path — and the option that opted out of it
+        // — in mozilla/pdf.js#18015, so there is no eval left to harden.
+        const task = pdfjs.getDocument({ url: docUrl });
+        const doc = await task.promise;
         if (cancelled) {
           await doc.loadingTask.destroy();
           return;
@@ -238,6 +232,9 @@ export function Pdf(props: PdfProps) {
         if (cancelled) return;
         setPages(meta);
       } catch (err) {
+        // Tearing down mid-load rejects the promise being awaited above, so
+        // this guard is what keeps an unmounting viewer from painting a load
+        // error. It has to stay first in the block.
         if (cancelled) return;
         setError(err instanceof Error ? err.message : t`Failed to load PDF`);
         setLoading(false);
@@ -246,11 +243,12 @@ export function Pdf(props: PdfProps) {
 
     return () => {
       cancelled = true;
-      // Release worker state + decoded page trees + font caches.
-      // `destroy()` returns a Promise, but we don't await it — React's
-      // cleanup function is sync, and the destroy is fire-and-forget.
+      // pdfjs-dist v4's in-flight loadingTask.destroy() rejects an internal
+      // worker promise outside the public task promise. Wait until the
+      // document has resolved before tearing it down; the cancelled guard
+      // above performs the same cleanup when resolution lands after unmount.
       if (activeDoc) {
-        void activeDoc.loadingTask.destroy();
+        void activeDoc.loadingTask.destroy().catch(() => {});
         activeDoc = null;
       }
       docRef.current = null;

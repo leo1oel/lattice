@@ -51,19 +51,27 @@ export const CONFIG_DOC_NAMES = Object.freeze([
 export type ConfigDocName = (typeof CONFIG_DOC_NAMES)[number];
 
 /**
- * Managed-artifact (skill / template) synthetic doc-name namespaces.
+ * Managed-artifact synthetic doc-name namespaces.
  *
  * Unlike config docs (a bounded frozen set), managed-artifact names are OPEN —
- * one synthetic doc per skill/template — so membership is PREFIX-based, not
- * set-membership. The grammar is identical to the client URL fragment in
+ * one synthetic doc per skill — so membership is PREFIX-based, not set-
+ * membership. The grammar is identical to the client URL fragment in
  * `app/src/lib/doc-hash.ts` (`__skill__/<scope>/<name>`) so a deep link and the
  * server doc name are the same string.
  *
- * Managed-artifact docs are a THIRD doc class distinct from system/config docs:
- * they are excluded from the document tree / search / create-page (like
- * system+config docs) BUT the observer bridge runs for them (unlike config docs,
- * which are Y.Text-only) so they get full WYSIWYG+source editing. See
- * `server/src/managed-artifact-persistence.ts`.
+ * Live managed-artifact docs (global + external skills) are a THIRD doc class
+ * distinct from system/config docs: they are excluded from the document tree /
+ * search / create-page (like system+config docs) BUT the observer bridge runs
+ * for them (unlike config docs, which are Y.Text-only) so they get full
+ * WYSIWYG+source editing. See `server/src/managed-artifact-persistence.ts`.
+ *
+ * `MANAGED_ARTIFACT_PREFIX_TEMPLATE` is a reserved-name TOMBSTONE, not a live
+ * namespace: templates are ordinary content docs at `<folder>/.ok/templates/
+ * <name>` now. The prefix is still matched by the classifiers below so a stale
+ * `__template__/…` name keeps the reserved-name gates (tree exclusion, create-
+ * page refusal, persistence quarantine), but `parseManagedArtifactName`
+ * deliberately does NOT resolve it — `parseLegacyTemplateDocName` decodes it
+ * only for the navigation redirect to the content doc.
  */
 export const MANAGED_ARTIFACT_PREFIX_SKILL = '__skill__/';
 export const MANAGED_ARTIFACT_PREFIX_TEMPLATE = '__template__/';
@@ -91,10 +99,15 @@ export const MANAGED_ARTIFACT_PREFIX_EXTSKILL = '__extskill__/';
 export const MANAGED_ARTIFACT_SCOPES = ['project', 'global'] as const;
 export type ManagedArtifactScope = (typeof MANAGED_ARTIFACT_SCOPES)[number];
 
-/** True when `name` is a skill, template, or editable-unmanaged-skill synthetic
- *  doc name. All three are managed-artifact-CLASS docs: editable content docs
- *  hidden from the Files tree, with custom persistence (the observer bridge runs
- *  so WYSIWYG works). Only `__extskill__/` writes OUTSIDE the project boundary. */
+/** True when `name` is a skill, editable-unmanaged-skill, or stale template
+ *  synthetic doc name. Skills (`__skill__/`, `__extskill__/`) are live managed-
+ *  artifact-CLASS docs: editable content docs hidden from the Files tree, with
+ *  custom persistence (the observer bridge runs so WYSIWYG works). Only
+ *  `__extskill__/` writes OUTSIDE the project boundary. `__template__/` is a
+ *  reserved-name TOMBSTONE — still matched here so the reserved-name gates hold
+ *  (tree exclusion, create-page refusal, persistence quarantine), but it no
+ *  longer resolves (`parseManagedArtifactName` returns null); templates are
+ *  ordinary content docs. */
 export function isManagedArtifactDocName(name: string): boolean {
   return (
     name.startsWith(MANAGED_ARTIFACT_PREFIX_SKILL) ||
@@ -334,20 +347,22 @@ export function parseProjectSkillBundleDoc(docName: string): ParsedProjectSkillB
  * global store qualifies. Returns null for anything else.
  */
 export type ParsedGlobalSkillBundleDoc =
-  | { name: string; kind: 'skill'; rel: null }
-  | { name: string; kind: 'reference'; rel: string };
+  | { name: string; kind: 'skill'; rel: null; host: string | null }
+  | { name: string; kind: 'reference'; rel: string; host: string | null };
 
 const GLOBAL_SKILL_BUNDLE_DOC_RE = /^__skill__\/global\/([^/]+)(?:\/(references\/.+))?$/;
 
 export function parseGlobalSkillBundleDoc(docName: string): ParsedGlobalSkillBundleDoc | null {
   const match = GLOBAL_SKILL_BUNDLE_DOC_RE.exec(docName);
   if (!match) return null;
-  const name = match[1] as string;
+  // A `@<host>` qualifier (non-default same-named bundle) splits off so every
+  // consumer matches the SKILL's real name; `host` says which bundle it is.
+  const { name, host } = splitSkillHostQualifier(match[1] as string);
   const tail = match[2];
-  if (tail === undefined) return { name, kind: 'skill', rel: null };
+  if (tail === undefined) return { name, kind: 'skill', rel: null, host };
   // `references/<rel>` — `rel` is the bundle-relative ext-less path; the regex
   // `.+` already guarantees it is non-empty.
-  return { name, kind: 'reference', rel: tail.slice('references/'.length) };
+  return { name, kind: 'reference', rel: tail.slice('references/'.length), host };
 }
 
 /**
@@ -359,10 +374,30 @@ export function parseGlobalSkillBundleDoc(docName: string): ParsedGlobalSkillBun
  * to the bare `__skill__/project/<name>` opens a phantom empty doc and desyncs
  * delete / move, so this distinction is load-bearing.
  */
-export function skillLiveDocName(scope: ManagedArtifactScope, name: string): string {
+export function skillLiveDocName(scope: ManagedArtifactScope, name: string, host?: string): string {
   return scope === 'project'
     ? projectSkillContentDocName(name)
-    : `${MANAGED_ARTIFACT_PREFIX_SKILL}${scope}/${name}`;
+    : `${MANAGED_ARTIFACT_PREFIX_SKILL}${scope}/${name}${host ? `@${host}` : ''}`;
+}
+
+/**
+ * Optional HOST qualifier on a GLOBAL managed skill doc name:
+ * `__skill__/global/<name>@<host>` addresses the same-named bundle living in
+ * that host's user root (`~/.cursor/skills/<name>`, …) rather than the by-name
+ * default. Without it, two distinct-content global bundles sharing a name
+ * collapsed onto ONE doc: both sidebar rows opened one tab, the watcher fed
+ * both files into it, and persistence wrote back only to the precedence
+ * winner — edits made on the other row silently landed in the wrong bundle.
+ * The by-name default bundle keeps its unqualified name, so single-bundle
+ * skills (the overwhelming case) keep a stable identity. `@` cannot appear in
+ * a skill name (`SKILL_NAME_REGEX` is `[a-z0-9-]+`), so the split is
+ * unambiguous.
+ */
+export function splitSkillHostQualifier(segment: string): { name: string; host: string | null } {
+  const at = segment.indexOf('@');
+  if (at < 0) return { name: segment, host: null };
+  const host = segment.slice(at + 1);
+  return { name: segment.slice(0, at), host: host === '' ? null : host };
 }
 
 /**
@@ -379,26 +414,35 @@ export function skillFileLiveDocName(
   scope: ManagedArtifactScope,
   name: string,
   rel: string,
+  host?: string,
 ): string {
   const relNoExt = stripMdExt(rel);
   return scope === 'project'
     ? `${LEGACY_SKILL_STORE_ROOT}/${name}/${relNoExt}`
-    : `${MANAGED_ARTIFACT_PREFIX_SKILL}${scope}/${name}/${relNoExt}`;
+    : `${MANAGED_ARTIFACT_PREFIX_SKILL}${scope}/${name}${host ? `@${host}` : ''}/${relNoExt}`;
 }
 
 /**
- * Parsed managed-artifact doc name. The two kinds are addressed DIFFERENTLY:
- *  - skill: `__skill__/<scope>/<name>` — `scope` ∈ {global, project}; the
- *    skill folder lives under `<scope-root>/.ok/skills/<name>/`.
- *  - template: `__template__/<folderRel>/<name>` — `folder` is the
- *    project-root-relative folder owning the template (`''` = project root,
- *    may be nested like `notes/sub`); the template lives at
- *    `<folder>/.ok/templates/<name>.md`. Templates have NO global/project
- *    scope — they are folder-local with leaf→root inheritance.
+ * Parsed managed-artifact doc name. Only skills carry a synthetic managed name:
+ * `__skill__/<scope>/<name>` — `scope` ∈ {global, project}; the skill folder
+ * lives under `<scope-root>/.ok/skills/<name>/`. `rel` is a bundle-relative file
+ * path into the skill dir, or `null` for the bare SKILL.md doc.
+ *
+ * Templates are ordinary content docs addressed by their content-relative path
+ * (`parseTemplateContentDocName`); a stale `__template__/…` name is a reserved
+ * tombstone this parser deliberately does NOT resolve, so it can never reach the
+ * content branch. `parseLegacyTemplateDocName` decodes such a name for the
+ * navigation redirect that forwards an old deep link to its content doc.
  */
-export type ParsedManagedArtifactName =
-  | { kind: 'skill'; scope: ManagedArtifactScope; name: string; rel: string | null }
-  | { kind: 'template'; folder: string; name: string };
+export type ParsedManagedArtifactName = {
+  kind: 'skill';
+  scope: ManagedArtifactScope;
+  name: string;
+  /** Host qualifier for a non-default same-named GLOBAL bundle (see
+   *  {@link splitSkillHostQualifier}); null for the ordinary unqualified doc. */
+  host: string | null;
+  rel: string | null;
+};
 
 /** Percent-decode each `/`-separated segment; returns `''` unchanged. */
 function decodeManagedSegments(encoded: string): string {
@@ -414,10 +458,15 @@ function decodeManagedSegments(encoded: string): string {
 }
 
 /**
- * Parse `__skill__/<scope>/<name>` or `__template__/<folderRel>/<name>`. Returns
- * null when the prefix is unknown, the skill scope is invalid, or the name is
- * empty. The client decodes the same names via `docNameFromHash`
+ * Parse `__skill__/<scope>/<name>`. Returns null when the prefix is not a skill
+ * name (including a `__template__/…` tombstone), the skill scope is invalid, or
+ * the name is empty. The client decodes the same names via `docNameFromHash`
  * (`app/src/lib/doc-hash.ts`) then this parser. Segments are percent-decoded.
+ *
+ * `__template__/…` intentionally returns null: templates are content docs, so a
+ * stale synthetic name must NOT resolve to a live artifact here — that is what
+ * keeps it a tombstone. The navigation redirect reads it via
+ * `parseLegacyTemplateDocName` instead.
  */
 export function parseManagedArtifactName(name: string): ParsedManagedArtifactName | null {
   if (name.startsWith(MANAGED_ARTIFACT_PREFIX_SKILL)) {
@@ -433,51 +482,87 @@ export function parseManagedArtifactName(name: string): ParsedManagedArtifactNam
     // (`__skill__/<scope>/<name>`), so existing callers are unchanged.
     const decoded = decodeManagedSegments(encoded);
     const nameEnd = decoded.indexOf('/');
-    const skillName = nameEnd < 0 ? decoded : decoded.slice(0, nameEnd);
-    if (!skillName) return null;
+    const segment = nameEnd < 0 ? decoded : decoded.slice(0, nameEnd);
+    if (!segment) return null;
     const rel = nameEnd < 0 ? null : decoded.slice(nameEnd + 1);
-    return { kind: 'skill', scope, name: skillName, rel };
-  }
-  if (name.startsWith(MANAGED_ARTIFACT_PREFIX_TEMPLATE)) {
-    // Folder-addressed: split on the LAST slash — everything before is the
-    // (possibly empty, possibly nested) folder, the last segment is the name.
-    const rest = name.slice(MANAGED_ARTIFACT_PREFIX_TEMPLATE.length);
-    if (!rest) return null;
-    const lastSlash = rest.lastIndexOf('/');
-    const encodedName = lastSlash < 0 ? rest : rest.slice(lastSlash + 1);
-    if (!encodedName) return null;
-    const encodedFolder = lastSlash < 0 ? '' : rest.slice(0, lastSlash);
-    return {
-      kind: 'template',
-      folder: decodeManagedSegments(encodedFolder),
-      name: decodeManagedSegments(encodedName),
-    };
+    const { name: skillName, host } = splitSkillHostQualifier(segment);
+    if (!skillName) return null;
+    return { kind: 'skill', scope, name: skillName, host, rel };
   }
   return null;
 }
 
 // A content link target / doc name that points at a template's file on disk
 // (`<folder>/.ok/templates/<name>[.md]`); folder = everything before
-// `.ok/templates/` (empty at the project root).
-const TEMPLATE_FILE_TARGET_RE = /^(?:(.+)\/)?\.ok\/templates\/([^/]+?)(?:\.mdx?)?$/;
+// `.ok/templates/` (empty at the project root). Consumed by the content-name
+// shape parser below. `.md` only — a template IS a `.md` leaf (the content
+// filter admits nothing else under `.ok/templates/`), so a `.mdx`-suffixed
+// target is not a template reference and must fall through.
+const TEMPLATE_FILE_TARGET_RE = /^(?:(.+)\/)?\.ok\/templates\/([^/]+?)(?:\.md)?$/;
 
 /**
- * Map a content link target / doc name that points at a template FILE on disk to
- * its managed-artifact doc name (`__template__/<folderRel>/<name>`). Returns null
- * when the target isn't a template file path. Shared by the client link resolver
- * and the server link index, so a doc→template link resolves to the same artifact
- * identity in both places (click-through + backlinks).
- *
- * Project skills are NOT rewritten here — they are real content docs
- * (`.ok/skills/<name>/SKILL`) and resolve through the normal page index. Global
- * skills live under `<home>/.ok/skills`, outside contentDir, unreachable from a
- * content link.
+ * A template's identity — its owning folder (project-root-relative, `''` at the
+ * project root, may be nested like `notes/sub`) and bare name. The content-name
+ * shape parser and the legacy synthetic-name parser both resolve to this.
  */
-export function managedArtifactDocNameFromContentTarget(target: string): string | null {
-  const template = TEMPLATE_FILE_TARGET_RE.exec(target);
-  if (template) {
-    const folder = (template[1] ?? '').replace(/^\/+|\/+$/g, '');
-    return `${MANAGED_ARTIFACT_PREFIX_TEMPLATE}${folder ? `${folder}/` : ''}${template[2]}`;
-  }
-  return null;
+export type ParsedTemplateName = { folder: string; name: string };
+
+/**
+ * The CONTENT doc name for a folder-local template
+ * (`<folderRel>/.ok/templates/<name>`, ext-less). `folderRel` is the
+ * project-root-relative owning folder (`''` at the project root, may be nested
+ * like `notes/sub`); `name` is the bare template name (the on-disk file is
+ * `<name>.md`, but content docs are addressed ext-less).
+ *
+ * Names are RAW — no percent-encoding. A folder containing spaces round-trips
+ * the generic doc-name hash layer like any other spaced content doc, so the
+ * percent-encoding the synthetic `__template__/…` namespace used is unnecessary
+ * here.
+ */
+export function templateContentDocName(folderRel: string, name: string): string {
+  const folder = folderRel.replace(/^\/+|\/+$/g, '');
+  return folder ? `${folder}/.ok/templates/${name}` : `.ok/templates/${name}`;
+}
+
+/**
+ * Parse a CONTENT doc name that addresses a template leaf
+ * (`<folder>/.ok/templates/<name>`) into its owning folder + bare name, or null
+ * when the name is not a single-leaf template path. A path with a subdirectory
+ * under `.ok/templates/` (e.g. `<folder>/.ok/templates/sub/x`) returns null —
+ * templates are single leaves, never nested. The inverse of
+ * {@link templateContentDocName}.
+ *
+ * Shape-only: the leaf is NOT checked against the template-name grammar, so a
+ * name that would fail validation still parses. Name validation lives at the
+ * HTTP write layer, not in the doc-name grammar.
+ */
+export function parseTemplateContentDocName(docName: string): ParsedTemplateName | null {
+  const match = TEMPLATE_FILE_TARGET_RE.exec(docName);
+  if (!match) return null;
+  return { folder: (match[1] ?? '').replace(/^\/+|\/+$/g, ''), name: match[2] as string };
+}
+
+/**
+ * Parse a stale SYNTHETIC template doc name (`__template__/<folderRel>/<name>`)
+ * into its folder + name, percent-DECODING each segment, or null when the name
+ * is not a synthetic template name (e.g. an ordinary content doc name).
+ *
+ * The synthetic namespace percent-encoded its segments, so decoding is required
+ * to recover the RAW folder/name a content doc uses — a raw-only reader would
+ * forward an encoded stale name to a literally-encoded content doc. For the
+ * navigation redirect that forwards an old `__template__/…` deep link to its
+ * content doc; new code addresses templates by their content name.
+ */
+export function parseLegacyTemplateDocName(name: string): ParsedTemplateName | null {
+  if (!name.startsWith(MANAGED_ARTIFACT_PREFIX_TEMPLATE)) return null;
+  const rest = name.slice(MANAGED_ARTIFACT_PREFIX_TEMPLATE.length);
+  if (!rest) return null;
+  const lastSlash = rest.lastIndexOf('/');
+  const encodedName = lastSlash < 0 ? rest : rest.slice(lastSlash + 1);
+  if (!encodedName) return null;
+  const encodedFolder = lastSlash < 0 ? '' : rest.slice(0, lastSlash);
+  return {
+    folder: decodeManagedSegments(encodedFolder),
+    name: decodeManagedSegments(encodedName),
+  };
 }

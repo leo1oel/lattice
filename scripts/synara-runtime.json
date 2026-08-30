@@ -4,5 +4,5 @@
   "branch": "amp/lattice-v0.7.3-sync",
   "revision": "d03c1c51fb8420d1f0d399d2526800a09505a4a3",
   "sourceDirectory": "../synara-v073-sync",
-  "nodeVersion": "24.13.0"
+  "nodeVersion": "24.20.0"
 }

@@ -1,4 +1,4 @@
-import { autoUpdate, computePosition, flip, hide, offset, shift } from '@floating-ui/dom';
+import { autoUpdate, computePosition, flip, hide, offset, shift, size } from '@floating-ui/dom';
 import { posToDOMRect } from '@tiptap/core';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
@@ -6,8 +6,13 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import { useRef, useState } from 'react';
 import { CommentBubbleButton } from '@ok-app/comments/CommentBubbleButton';
 import { Separator } from '@ok-app/components/ui/separator';
+import {
+  deriveEditorClipOptions,
+  deriveEditorShiftOptions,
+  deriveEditorSizeOptions,
+  SELECTION_SURFACE_GAP_PX,
+} from '../utils/editor-visible-region';
 import { BlockTypeSelector } from './BlockTypeSelector';
-import { deriveEditorClipOptions } from './bubble-menu-clip';
 import { shouldShowBubbleMenu } from './bubble-menu-state';
 import { FileBubbleButtons, isFileNodeSelected } from './FileBubbleButtons';
 import { FootnoteBubbleButton } from './FootnoteBubbleButton';
@@ -57,8 +62,17 @@ export function BubbleMenuBar({
 
   // Clips placement to the editor's visible content region and hides the bar
   // when the selection scrolls behind the toolbar / bottom composer / footer —
-  // see bubble-menu-clip.ts for why the viewport alone is the wrong boundary.
+  // see editor-visible-region.ts for why the viewport alone is the wrong boundary.
   const clipOptions = deriveEditorClipOptions(editor);
+  // The clamp that keeps the bar inside that region. The boundary alone only
+  // detects the overflow.
+  const shiftOptions = deriveEditorShiftOptions(editor);
+  // The clamp can only place a bar that FITS. This bar is the widest surface
+  // anchored in the pane (~450px with every control up), so against a pane
+  // narrowed by a docked terminal it overhangs from any coordinate — see
+  // `deriveEditorSizeOptions`. Capping its width is what leaves the clamp
+  // something it can satisfy; `flex-wrap` below is what the cap costs.
+  const sizeOptions = deriveEditorSizeOptions(editor);
 
   const onShow = () => {
     const popup = menuRef.current;
@@ -68,7 +82,21 @@ export function BubbleMenuBar({
       computePosition(virtualEl, popup, {
         placement: 'top',
         strategy: 'fixed',
-        middleware: [offset(8), flip(clipOptions), shift({ padding: 8 }), hide(clipOptions)],
+        middleware: [
+          offset(SELECTION_SURFACE_GAP_PX),
+          flip(clipOptions),
+          shift(shiftOptions),
+          // After the clamp, which is the same RELATIVE slot tiptap's plugin
+          // fixes `size` in — after the clamp, before `hide`. The full chains
+          // still differ in where `offset` runs, which is what
+          // `pendingOffsetPx` below compensates for; `deriveEditorSizeOptions`
+          // is indifferent to that because it measures the region rather than
+          // reading floating-ui's position-dependent `availableWidth`.
+          // `size()` resets the pass when it narrows the bar, so the clamp
+          // above re-runs against the width it actually has.
+          size(sizeOptions),
+          hide(clipOptions),
+        ],
       })
         .then(({ x, y, middlewareData }) => {
           if (popup.isConnected) {
@@ -81,8 +109,12 @@ export function BubbleMenuBar({
             popup.style.visibility = middlewareData.hide?.referenceHidden ? 'hidden' : 'visible';
           }
         })
-        .catch(() => {
-          // Position calculation failed (e.g., detached element) — autoUpdate will retry
+        .catch((error: unknown) => {
+          // computePosition is deferred third-party work, so teardown can win
+          // the race. Live popups need a diagnostic; autoUpdate will retry.
+          if (popup.isConnected) {
+            console.warn('[bubble-menu] computePosition failed', error);
+          }
         });
     });
   };
@@ -105,20 +137,37 @@ export function BubbleMenuBar({
       appendTo={() => editorDocument.body}
       shouldShow={shouldShowBubbleMenu}
       updateDelay={250}
-      // flip/shift/hide mirror the autoUpdate loop above: the plugin runs its
-      // own computePosition on editor transactions (remote CRDT edits
-      // included), so both paths must agree on clipping and on when the
-      // selection counts as occluded — the plugin applies `referenceHidden`
-      // itself.
+      // flip/shift/size/hide mirror the autoUpdate loop above: the plugin runs
+      // its own computePosition on editor transactions (remote CRDT edits
+      // included), so both paths must agree on clipping, on the clamp that
+      // keeps the bar inside the clip region, on the width cap that leaves the
+      // clamp something it can place, and on when the selection counts as
+      // occluded — the plugin applies `referenceHidden` itself.
+      //
+      // `placement` and `offset` are stated rather than inherited from the
+      // plugin's defaults because `pendingOffsetPx` below compensates for this
+      // chain applying its gap AFTER the clamp — that compensation is only
+      // correct while the gap matches the loop's, so both paths name it.
       options={{
         onShow,
         onHide,
         strategy: 'fixed',
+        placement: 'top',
+        offset: SELECTION_SURFACE_GAP_PX,
         flip: clipOptions,
-        shift: { padding: 8 },
+        shift: deriveEditorShiftOptions(editor, {
+          pendingOffsetPx: SELECTION_SURFACE_GAP_PX,
+        }),
+        size: sizeOptions,
         hide: clipOptions,
       }}
-      className="z-50 flex items-center gap-0.5 rounded-lg border bg-background p-1 shadow-md"
+      // `flex-wrap` is the cap's other half: `max-width` alone bounds the box,
+      // not the row inside it, so a nowrap bar would keep painting its tail
+      // controls past a pane-width cap and nothing would have changed on
+      // screen. Wrapping spends height — which the clamp already bounds — to
+      // keep every control reachable, rather than scrolling them behind an
+      // affordance nobody would look for on a toolbar.
+      className="z-50 flex flex-wrap items-center gap-0.5 rounded-lg border bg-background p-1 shadow-md"
     >
       {commentOnly ? (
         <CommentBubbleButton key={`${tooltipKey}-comment`} />

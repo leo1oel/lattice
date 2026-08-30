@@ -2,10 +2,11 @@
 /**
  * Vendor the Open Knowledge editor UI (app layer) into src/open-knowledge-app/.
  *
- * Mirrors the pinned upstream clone at ~/.cache/research-writer/open-knowledge
- * (see LOCK file for the exact commit). Files listed in MANIFEST are copied
- * verbatim from packages/app/src/, with ONLY these deterministic import-specifier
- * rewrites (no other edits — do not hand-edit vendored files):
+ * Reads the pinned revision from the upstream clone at
+ * ~/.cache/research-writer/open-knowledge (see the lock for the exact commit).
+ * Files listed in MANIFEST are copied from packages/app/src/ with deterministic
+ * import and host-adaptation rewrites. Three-way-merged Lattice overrides are
+ * recorded explicitly in the lock and protected from later regeneration.
  *
  *   '@/…'                      -> '@ok-app/…'   (upstream app alias -> vendored tree)
  *   '@inkeep/open-knowledge-core' -> '@ok-core' (local vendored core barrel)
@@ -17,25 +18,26 @@
  * the manifest and are never overwritten by this script. Each carries a
  * "Local seam — not upstream code" header.
  *
- * Usage: node scripts/vendor-open-knowledge.mjs [--check|--lock-only]
+ * Usage: node scripts/vendor-open-knowledge.mjs [--check|--lock-only] [--revision=<ref>]
  *   --check:     verify vendored files match upstream+rewrites without writing.
  *   --lock-only: rewrite the LOCK (commit + hashes) without touching vendored
- *                files. Use after moving the pin by 3-way merge rather than by
- *                regeneration, so the lock records the new upstream baseline
- *                while local edits stay in place (they then show as --check
- *                DRIFT, which is the intended signal).
+ *                files. Use after moving the pin by three-way merge: differing
+ *                files become locked Lattice overrides instead of permanent
+ *                false-positive drift.
+ *   --revision:  resolve this ref in the upstream clone instead of the commit
+ *                already recorded in the lock. Required when moving the pin.
  */
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const UPSTREAM = path.join(homedir(), ".cache/research-writer/open-knowledge");
-const SRC = path.join(UPSTREAM, "packages/app/src");
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const DEST = path.join(REPO, "src/open-knowledge-app");
 const LOCK = path.join(REPO, "open-knowledge-app.lock.json");
+const SOURCE_ROOT = "packages/app/src";
 
 /** Files copied verbatim (modulo import rewrites) from packages/app/src/. */
 const MANIFEST = [
@@ -74,7 +76,6 @@ const MANIFEST = [
   "editor/bubble-menu/FootnoteBubbleButton.tsx",
   "editor/bubble-menu/LinkEditPopover.tsx",
   "editor/bubble-menu/link-edit-popover-events.ts",
-  "editor/bubble-menu/bubble-menu-clip.ts",
   "editor/bubble-menu/bubble-menu-state.ts",
   "editor/bubble-menu/ImageAlignButtons.tsx",
   "editor/bubble-menu/FileBubbleButtons.tsx",
@@ -123,6 +124,7 @@ const MANIFEST = [
   "editor/markdown-code-languages.ts",
   "editor/utils/severity.ts",
   "editor/utils/get-editor-view.ts",
+  "editor/utils/editor-visible-region.ts",
   "editor/components/ResizeHandles.tsx",
   "editor/components/PreviewBlockedNotice.tsx",
   "editor/components/CodePreviewEditModal.tsx",
@@ -191,6 +193,8 @@ const MANIFEST = [
   "components/ui/command.tsx",
   "components/ui/dialog.tsx",
   "components/ui/toast-outside-guard.ts",
+  "components/ui/electron-drag-strip.tsx",
+  "components/ui/spinner.tsx",
   "components/file-entry-icon.tsx",
   "components/file-tree-rename-validation.ts",
   // jsxComponent rendering: upstream NodeView + the full canonical
@@ -230,6 +234,7 @@ const MANIFEST = [
   "editor/utils/reconstruct-source.ts",
   "editor/utils/sanitize-url.ts",
   "editor/utils/md-singleton.ts",
+  "lib/editor-toolbar-overlap.ts",
 ];
 
 /** Asset directories copied recursively as-is (no rewrites). */
@@ -373,17 +378,29 @@ ${hostListbox}
     "const { default: katex } = await import('katex');\n  const { getHostKatexMacros } = await import('@ok-app/shims/katex-macros');",
   ],
   [/strict: 'ignore',/g, "strict: 'ignore',\n      macros: getHostKatexMacros(),"],
-  // Research Writer reads project assets through a Tauri command rather than
-  // Open Knowledge's HTTP asset route. Keep the upstream Image renderer, but
-  // resolve its authored project path to the host-provided data URL first.
+  // Lattice reads project assets through a Tauri command rather than Open
+  // Knowledge's HTTP asset route. Replace the inventory hook with the host
+  // resolver, which returns both the data URL and authoritative existence.
   [
-    /import \{ LoadingImage \} from '@ok-app\/components\/ui\/loading-image';/g,
-    "import { LoadingImage } from '@ok-app/components/ui/loading-image';\nimport { useProjectImageSrc } from '../../../project-image-host';",
+    /import \{ useImageTargetExistence \} from '\.\/image-target-existence';/g,
+    "import { useProjectImage } from '../../../editor/markdown/project-image-host';",
   ],
   [
-    /function BareImg\(props: ImageProps\) \{\n  return \(\n    <LoadingImage\n      src=\{props\.src === undefined \? undefined : toDesktopAssetHref\(props\.src\)\}/g,
-    "function BareImg(props: ImageProps) {\n  const src = useProjectImageSrc(props.src);\n  return (\n    <LoadingImage\n      src={src === undefined ? undefined : toDesktopAssetHref(src)}",
+    /const targetExistence = useImageTargetExistence\(props\.src\);/g,
+    "const imageResource = useProjectImage(props.src);",
   ],
+  [
+    /src=\{props\.src === undefined \? undefined : toDesktopAssetHref\(props\.src\)\}/g,
+    "src={imageResource.src === undefined ? undefined : toDesktopAssetHref(imageResource.src)}",
+  ],
+  [/targetExistence=\{targetExistence\}/g, "targetExistence={imageResource.targetExistence}"],
+  // LoadingImage's target-state type is an app-inventory concern upstream;
+  // keep the portable renderer self-contained in the Tauri host baseline.
+  [
+    /import type \{ ImageTargetExistence \} from '@ok-app\/editor\/components\/image-target-existence';\n/g,
+    "",
+  ],
+  [/targetExistence\?: ImageTargetExistence;/g, "targetExistence?: 'unknown' | 'exists' | 'missing';"],
   // upload-file keeps `accept` on its public signature for call-site
   // stability (upstream biome-ignores the unused param); this host compiles
   // with noUnusedParameters, so underscore-prefix it deterministically.
@@ -577,66 +594,126 @@ function rewrite(content) {
   return out;
 }
 
+function sha256(content) {
+  return createHash("sha256").update(content).digest("hex").slice(0, 16);
+}
+
+function git(args, options = {}) {
+  return execFileSync("git", args, {
+    cwd: UPSTREAM,
+    stdio: ["ignore", "pipe", "pipe"],
+    ...options,
+  });
+}
+
 const check = process.argv.includes("--check");
 const lockOnly = process.argv.includes("--lock-only");
-const upstreamCommit = execSync("git rev-parse HEAD", { cwd: UPSTREAM }).toString().trim();
+const revisionArgument = process.argv.find((argument) => argument.startsWith("--revision="));
+if (check && lockOnly) throw new Error("--check and --lock-only are mutually exclusive.");
+if (!existsSync(path.join(UPSTREAM, ".git"))) {
+  throw new Error(`Open Knowledge upstream clone is missing at ${UPSTREAM}.`);
+}
+
+const previousLock = existsSync(LOCK) ? JSON.parse(readFileSync(LOCK, "utf8")) : null;
+const requestedRevision = revisionArgument?.slice("--revision=".length) || previousLock?.commit;
+if (!requestedRevision) {
+  throw new Error("No upstream revision is locked. Pass --revision=<ref> with --lock-only.");
+}
+const upstreamCommit = git(["rev-parse", `${requestedRevision}^{commit}`], {
+  encoding: "utf8",
+}).trim();
+if (!lockOnly && previousLock?.commit && upstreamCommit !== previousLock.commit) {
+  throw new Error("Move the upstream pin with --lock-only --revision=<ref> after the three-way merge.");
+}
+
+function readUpstreamFile(rel, encoding = null) {
+  try {
+    return git(["show", `${upstreamCommit}:${SOURCE_ROOT}/${rel}`], { encoding });
+  } catch {
+    throw new Error(`Missing upstream file at ${upstreamCommit}: ${rel}`);
+  }
+}
+
+function upstreamDirectoryFiles(rel) {
+  const prefix = `${SOURCE_ROOT}/${rel}/`;
+  return git(["ls-tree", "-r", "--name-only", upstreamCommit, "--", prefix], {
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter(Boolean)
+    .map((file) => file.slice(SOURCE_ROOT.length + 1));
+}
 
 let mismatches = 0;
 const lockFiles = {};
+const localOverrides = lockOnly ? {} : { ...(previousLock?.localOverrides ?? {}) };
 
-for (const rel of MANIFEST) {
-  const srcPath = path.join(SRC, rel);
+function processFile(rel, content) {
   const destPath = path.join(DEST, rel);
-  if (!existsSync(srcPath)) {
-    console.error(`MISSING upstream file: ${rel}`);
-    process.exitCode = 1;
-    continue;
+  const baselineHash = sha256(content);
+  const current = existsSync(destPath) ? readFileSync(destPath) : null;
+  const currentHash = current === null ? null : sha256(current);
+  lockFiles[rel] = baselineHash;
+
+  if (lockOnly) {
+    if (currentHash === null) {
+      console.error(`MISSING vendored file: ${rel}`);
+      mismatches++;
+    } else if (currentHash !== baselineHash) {
+      localOverrides[rel] = currentHash;
+    }
+    return;
   }
-  const content = rewrite(readFileSync(srcPath, "utf8"));
-  const hash = createHash("sha256").update(content).digest("hex").slice(0, 16);
-  lockFiles[rel] = hash;
+
   if (check) {
-    const current = existsSync(destPath) ? readFileSync(destPath, "utf8") : null;
-    if (current !== content) {
-      console.error(`DRIFT: ${rel}`);
+    if (previousLock?.files?.[rel] !== baselineHash) {
+      console.error(`BASELINE DRIFT: ${rel}`);
       mismatches++;
     }
-  } else if (!lockOnly) {
-    mkdirSync(path.dirname(destPath), { recursive: true });
-    writeFileSync(destPath, content);
+    const expectedVendoredHash = previousLock?.localOverrides?.[rel] ?? baselineHash;
+    if (currentHash !== expectedVendoredHash) {
+      console.error(currentHash === null ? `MISSING vendored file: ${rel}` : `DRIFT: ${rel}`);
+      mismatches++;
+    }
+    return;
   }
+
+  const overrideHash = previousLock?.localOverrides?.[rel];
+  if (overrideHash) {
+    if (currentHash !== overrideHash) {
+      console.error(`DRIFT in protected Lattice override: ${rel}`);
+      mismatches++;
+    }
+    return;
+  }
+  mkdirSync(path.dirname(destPath), { recursive: true });
+  writeFileSync(destPath, content);
+}
+
+for (const rel of MANIFEST) {
+  processFile(rel, rewrite(readUpstreamFile(rel, "utf8")));
 }
 
 for (const rel of ASSET_DIRS) {
-  const srcPath = path.join(SRC, rel);
-  const destPath = path.join(DEST, rel);
-  if (!existsSync(srcPath)) {
-    console.error(`MISSING upstream dir: ${rel}`);
-    process.exitCode = 1;
-    continue;
-  }
-  if (!check && !lockOnly) cpSync(srcPath, destPath, { recursive: true });
-  for (const f of readdirSync(srcPath)) {
-    if (statSync(path.join(srcPath, f)).isFile()) {
-      lockFiles[`${rel}/${f}`] = createHash("sha256")
-        .update(readFileSync(path.join(srcPath, f)))
-        .digest("hex")
-        .slice(0, 16);
-    }
+  const files = upstreamDirectoryFiles(rel);
+  if (files.length === 0) throw new Error(`Missing or empty upstream directory: ${rel}`);
+  for (const file of files) {
+    processFile(file, readUpstreamFile(file));
   }
 }
 
-if (!check) {
+if (!check && mismatches === 0) {
   writeFileSync(
     LOCK,
     `${JSON.stringify(
       {
         upstream: "https://github.com/inkeep/open-knowledge",
         commit: upstreamCommit,
-        sourceRoot: "packages/app/src",
+        sourceRoot: SOURCE_ROOT,
         vendoredAt: new Date().toISOString(),
-        note: "Regenerate with: node scripts/vendor-open-knowledge.mjs. Do not hand-edit vendored files; local seams live alongside but are not in this lock.",
+        note: "Regenerate unmodified files with node scripts/vendor-open-knowledge.mjs. Paths in localOverrides are protected three-way-merged Lattice adaptations; refresh them with --lock-only after review. Local seams live outside the manifest.",
         files: lockFiles,
+        localOverrides,
       },
       null,
       2,
@@ -644,12 +721,14 @@ if (!check) {
   );
   console.log(
     lockOnly
-      ? `Locked ${Object.keys(lockFiles).length} files at ${upstreamCommit} (no files written)`
-      : `Vendored ${Object.keys(lockFiles).length} files from ${upstreamCommit}`,
+      ? `Locked ${Object.keys(lockFiles).length} files at ${upstreamCommit} with ${Object.keys(localOverrides).length} Lattice overrides (no files written)`
+      : `Vendored ${Object.keys(lockFiles).length} files from ${upstreamCommit}; preserved ${Object.keys(localOverrides).length} Lattice overrides`,
   );
 } else if (mismatches) {
-  console.error(`${mismatches} vendored file(s) drifted from upstream+rewrites`);
+  console.error(`${mismatches} vendored file(s) failed verification`);
   process.exitCode = 1;
 } else {
-  console.log("All vendored files match upstream+rewrites");
+  console.log(
+    `All vendored files match the locked upstream baseline and ${Object.keys(previousLock?.localOverrides ?? {}).length} Lattice overrides`,
+  );
 }

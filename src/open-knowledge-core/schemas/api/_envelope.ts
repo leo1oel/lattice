@@ -80,6 +80,12 @@ export const ServerInfoSuccessSchema = z
     currentBranch: z.string().min(1).optional(),
     currentDiskAckSVs: z.record(z.string().min(1), z.string().min(1)).optional(),
     boot: ServerInfoBootSchema.optional(),
+    /**
+     * Live `/collab` WebSocket clients — editor windows and agents alike.
+     * Optional: absent means the server did not wire a counter, which a
+     * reader must treat as unknown rather than as zero.
+     */
+    collabClients: z.number().int().nonnegative().optional(),
   })
   .loose() satisfies StandardSchemaV1;
 export type ServerInfoSuccess = z.infer<typeof ServerInfoSuccessSchema>;
@@ -316,6 +322,13 @@ export const ProblemTypeSchema = z.enum([
   // both flag "I have no conflict record for this file" distinctly from
   // generic 4xx so MCP clients can branch on the URN.
   'urn:ok:error:no-conflict-tracked',
+  // `no-blocking-changes` is the 409 from handleSyncResolveBlocking when the
+  // commit action arrives against an engine that is no longer paused on
+  // a pre-merge overlap — a stale panel, or a second click after the first
+  // already cleared it. Distinct from a generic 409 so the UI can refresh its
+  // status and drop the panel rather than surfacing a failure the user caused
+  // by resolving the same thing twice.
+  'urn:ok:error:no-blocking-changes',
   // Cluster H: sync + seed handlers. `sync-not-active` flags the
   // service-unavailable state when the sync engine isn't constructed yet
   // (no remote, or sync subsystem disabled). `project-repo-not-configured`
@@ -399,6 +412,15 @@ export const ProblemTypeSchema = z.enum([
   // Retryable and self-correcting: the same mutation broadcasts `lint-config`,
   // so the caller is already scheduling the walk that supersedes this one.
   'urn:ok:error:audit-superseded',
+  // Saved-theme store (`POST /api/saved-theme`). `theme-name-taken` (409) — the
+  // save name already names a scheme file in the store; refused before any
+  // write so a name collision never overwrites prior work. `theme-name-invalid`
+  // (400) — the name can't become a palette id (empty / too long / characters
+  // outside the grammar); the specific cause rides `detail`. Distinct URNs so
+  // the save form branches "pick a different name" vs "fix the name" without
+  // parsing a string.
+  'urn:ok:error:theme-name-taken',
+  'urn:ok:error:theme-name-invalid',
 ]) satisfies StandardSchemaV1;
 export type ProblemType = z.infer<typeof ProblemTypeSchema>;
 

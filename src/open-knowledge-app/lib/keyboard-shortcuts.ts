@@ -66,6 +66,18 @@ export interface KeyboardShortcutDefinition {
   description: MessageDescriptor;
   scope: MessageDescriptor;
   bindings: ShortcutBinding[];
+  /**
+   * Keep this shortcut out of the Settings hotkeys list on a web host, where
+   * nothing can fire it.
+   *
+   * Opt-in per shortcut rather than derived, and that is the load-bearing part:
+   * every derivation available here — the `OK Desktop` scope string, the
+   * command identity's `shortcutDesktopOnly`, "no binding declares a renderer
+   * `match`" — is equally true of `new-folder`, `navigate-back`, and
+   * `navigate-forward`, which are listed on web today. A derived filter would
+   * silently drop those three rows, so each omission is declared instead.
+   */
+  desktopOnly?: boolean;
 }
 
 type ShortcutTargetLike =
@@ -222,8 +234,8 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
   {
     id: 'toggle-terminal-panel',
     category: 'general',
-    title: msg`Show or hide bottom dock`,
-    description: msg`Toggle the bottom dock, where the terminal lives. With text selected, stage it for your preferred AI instead.`,
+    title: msg`Show or hide Terminal`,
+    description: msg`Toggle Terminal in its current dock.`,
     scope: msg`OK Desktop`,
     // ⌘J must stay bindings[0]: `formatShortcut` renders only the first binding,
     // and the menu-accelerator parity ratchet compares that against the View
@@ -255,6 +267,27 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
     title: msg`Show or hide agents`,
     description: msg`Toggle the right agents panel, where agent conversations live.`,
     scope: msg`Global`,
+    bindings: [
+      {
+        mac: '⌘ L',
+        windowsLinux: 'Ctrl L',
+        match: { key: 'l', mod: true },
+      },
+    ],
+  },
+  {
+    // Second row on ⌘L, disambiguated by selection state — the same two-rows-one-
+    // chord shape `command-palette` and `add-link` use, so each behavior gets an
+    // honest name in the shortcuts list rather than one row with a buried clause.
+    // A selection claims the chord; without one it falls through to the toggle
+    // above. Deliberately targets the agents panel rather than resolving the
+    // user's preferred AI globally: a chord should name one destination, and this
+    // one already means "agents panel".
+    id: 'ask-ai-selection',
+    category: 'general',
+    title: msg`Ask AI about selection`,
+    description: msg`Stage the selected passage in the agents panel, ready to extend and send.`,
+    scope: msg`Editor selection`,
     bindings: [
       {
         mac: '⌘ L',
@@ -300,6 +333,51 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
         match: { key: 'j', mod: true, shiftKey: true },
       },
     ],
+  },
+  {
+    // Accelerator-only by design: the native Help-menu item delivers this
+    // chord, so there is deliberately no `match` here and no renderer keydown
+    // listener. Adding a `match` would put it back behind the app-global
+    // overlay gate that every renderer listener honors, which is the one place
+    // this chord must not be — a bug reporter is reached from exactly the
+    // states that gate refuses.
+    //
+    // How far that buys immunity is platform-specific, and only macOS gets it
+    // for free. There AppKit resolves the main menu's key equivalents before
+    // the event reaches the web view, so a focused Radix layer never sees the
+    // keystroke. On Windows and Linux the menu is a per-window top menu and
+    // Electron resolves its accelerators on the browser side of the renderer's
+    // input path, so a focused surface calling `preventDefault()` on the chord
+    // cancels the menu item too — `TerminalPanel`'s xterm handler relies on
+    // precisely that to keep Ctrl+C/V away from the hidden Edit menu on Linux.
+    // Nothing in the app claims Shift+Mod+D today; if something ever does, it
+    // has to exempt this chord rather than assume the OS got there first.
+    //
+    // A focused terminal is the sharpest case, since the terminal window mounts
+    // its own report trigger and xterm sees the keydown first there. Traced
+    // against @xterm/xterm 6.0.0 and it survives: `TerminalPanel`'s custom
+    // handler falls through for this chord, and xterm's own keydown then finds
+    // nothing to encode — its ctrl-letter branch requires `!shiftKey`, and the
+    // `key && ctrlKey` fallback below it covers only `_` and `@` — so it
+    // returns at its `if (!result.key)` early exit, ahead of the one call that
+    // would `preventDefault()`. That version ships no modifyOtherKeys / CSI-u
+    // encoding; a bump that adds one would start encoding Ctrl+Shift+<letter>
+    // and silently claim this chord inside a terminal pane.
+    //
+    // NOT ⇧⌘B, however obvious "B for bug" looks: TipTap's blockquote extension
+    // binds Mod-Shift-B, so with the editor focused that chord wraps the caret's
+    // paragraph in a blockquote and persists it instead of opening a report.
+    // ⇧⌘H and ⇧⌘S are spoken for the same way (highlight, strike). Those
+    // bindings live in the editor dependency's own defaults, not in this
+    // registry, so a chord that greps clean here can still be taken — check
+    // the extension defaults before adding one.
+    id: 'report-bug',
+    category: 'general',
+    title: msg`Report a bug`,
+    description: msg`Start a bug report with a screenshot of the screen as it looks right now.`,
+    scope: msg`OK Desktop`,
+    desktopOnly: true,
+    bindings: [{ mac: '⇧⌘ D', windowsLinux: 'Ctrl Shift D' }],
   },
   {
     id: 'navigate-back',
@@ -622,16 +700,24 @@ const KEYBOARD_SHORTCUT_DEFINITIONS = [
     ],
   },
   {
-    id: 'edit-with-ai',
+    // ⌘Enter is already TipTap's hardBreak and CodeMirror's insertBlankLine, so a
+    // window listener on it would fire while someone types a line break. ⇧⌘Enter
+    // is free: `prosemirror-keymap` resolves it to `Shift-Meta-Enter`, and its
+    // strip-Shift-and-retry fallback is gated on `name.length == 1`, so a named
+    // key can never degrade into its non-shift binding.
+    //
+    // Global rather than panel-scoped: the queue is project-wide, and the panel is
+    // a view of it, not the thing itself.
+    id: 'send-comment-queue',
     category: 'general',
-    title: msg`Ask AI (from selection)`,
-    description: msg`Open and focus the Ask AI composer for the current editor selection.`,
-    scope: msg`Editor selection`,
+    title: msg`Send checked comments to chat`,
+    description: msg`Hand the checked comments to an agent in one turn. On This doc, that document's comments only; on This project, every checked comment. Does nothing while the Comments tab is closed.`,
+    scope: msg`When the Comments tab is open`,
     bindings: [
       {
-        mac: '⇧⌘ I',
-        windowsLinux: 'Ctrl Shift I',
-        match: { key: 'i', mod: true, shiftKey: true },
+        mac: '⇧⌘ Enter',
+        windowsLinux: 'Ctrl Shift Enter',
+        match: { key: 'Enter', mod: true, shiftKey: true },
       },
     ],
   },
@@ -1073,6 +1159,13 @@ export function isEditableShortcutTarget(target: ShortcutTargetLike): boolean {
   if (!('tagName' in target)) return false;
   const tagName = String(target.tagName).toUpperCase();
   return tagName === 'INPUT' || tagName === 'TEXTAREA';
+}
+
+export function matchesPrimaryModifier(
+  event: Pick<ShortcutEventLike, 'ctrlKey' | 'metaKey'>,
+  platform: ShortcutPlatform = currentShortcutPlatform(),
+): boolean {
+  return platform === 'mac' ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 }
 
 export function matchesKeyboardShortcut(

@@ -38,7 +38,7 @@ import type { ImgHTMLAttributes } from 'react';
 import { useEffect, useRef } from 'react';
 import Zoom from 'react-medium-image-zoom';
 import { LoadingImage } from '@ok-app/components/ui/loading-image';
-import { useProjectImageSrc } from '../../../editor/markdown/project-image-host';
+import { useProjectImage } from '../../../editor/markdown/project-image-host';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
 import { ResizeHandles } from './ResizeHandles.tsx';
 import { useNearViewport } from '../../../editor/markdown/use-near-viewport';
@@ -78,7 +78,8 @@ function coerceDimension(value: number | string | undefined): number | string | 
  */
 function BareImg(props: ImageProps) {
   const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
-  const src = useProjectImageSrc(props.src, nearViewport);
+  const imageResource = useProjectImage(props.src, nearViewport);
+  const src = imageResource.src;
   const image = (
     <LoadingImage
       slotRef={viewportRef}
@@ -94,6 +95,7 @@ function BareImg(props: ImageProps) {
       fetchPriority={props.fetchpriority}
       crossOrigin={props.crossorigin}
       referrerPolicy={props.referrerpolicy}
+      targetExistence={imageResource.targetExistence}
     />
   );
   return nearViewport && src ? (

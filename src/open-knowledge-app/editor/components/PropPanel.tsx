@@ -18,7 +18,7 @@
 import type { PropDef } from '@ok-core';
 import { t } from '@ok-app/shims/lingui-core-macro';
 import { Trans } from '@ok-app/shims/lingui-react-macro';
-import { ChevronDown, Loader2, Upload } from 'lucide-react';
+import { ChevronDown, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@ok-app/shims/sonner';
 import { Badge } from '@ok-app/components/ui/badge';
@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ok-app/components/ui/select';
+import { Spinner } from '@ok-app/components/ui/spinner';
 import { Switch } from '@ok-app/components/ui/switch';
 import { ColorPickerInput } from '@ok-app/editor/components/ColorPickerInput.tsx';
 import { IconPickerInput } from '@ok-app/editor/components/IconPickerInput.tsx';
@@ -713,7 +714,7 @@ function PropUploadButton({
       >
         {uploading ? (
           <>
-            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            <Spinner className="size-3.5" aria-hidden="true" />
             <Trans>Uploading</Trans>
           </>
         ) : (

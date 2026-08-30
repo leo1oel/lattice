@@ -15,7 +15,14 @@
  * treat markdown syntax as elastic on whichever side carries it. Every other
  * character must still match, in order: this is not a fuzzy match and cannot
  * land on different words.
+ *
+ * Markdown syntax is not the only place the two sides legally disagree. The
+ * display pipeline also DECODES a narrow set of numeric character references —
+ * six bytes on disk, one character on screen — and this file is a consumer of
+ * that contract; `whitespace-char-ref.ts` owns which refs are in it.
  */
+
+import { decodeInlineWhitespaceNumericCharRef } from '../markdown/whitespace-char-ref.ts';
 
 /** A located passage as `[start, end)` offsets into the haystack. */
 export interface PassageMatch {
@@ -225,6 +232,59 @@ function invisibleLineRunAt(text: string, i: number): number {
   return line.length;
 }
 
+/**
+ * One numeric character reference.
+ *
+ * LOCKSTEP: the PATTERN BODY is identical to `NUMERIC_CHAR_REF_TOKEN` in
+ * `whitespace-char-ref.ts` and `NUMERIC_CHAR_REF_TOKEN_RE` in
+ * `to-markdown-handlers.ts`; change all three together or they classify
+ * different ref sets. The FLAG differs on purpose and must not be "corrected"
+ * to match: sticky (`/y`) anchors `exec` at `lastIndex`, which is what makes
+ * the run scan below positional. With `/g` the same call would happily return
+ * a match from further down the text, and the scan would report a run that
+ * does not start where it was asked to look.
+ *
+ * This file owns the scan; `whitespace-char-ref.ts` owns which refs decode and
+ * to what, via `decodeInlineWhitespaceNumericCharRef`.
+ */
+const NUMERIC_CHAR_REF_TOKEN = /&#(?:x[0-9A-Fa-f]+|X[0-9A-Fa-f]+|[0-9]+);/y;
+
+/**
+ * A run of back-to-back numeric character references the display pipeline
+ * decodes, and the characters it shows in their place — or null when `i` opens
+ * no such run.
+ *
+ * The byte-fidelity serializer mints these to hold a phrasing-boundary space or
+ * tab across re-parse (CommonMark §6.4), so an ordinary space typed just inside
+ * `**…**` reaches disk as `&#x20;`. Nobody types the entity, which is why this
+ * reaches ordinary documents.
+ *
+ * Deliberately NOT a `syntaxRunAt` entry. A syntax run means "renders as
+ * nothing, skip it" — true of a space or tab, false of `&#xA0;`: NBSP is not
+ * whitespace to `isSpace`, so the other side carries it as content and the run
+ * has to be decoded and compared rather than skipped. Refs outside the decoded
+ * set (`&amp;`, `&hellip;`, `&#x2014;`) reach the screen as their own bytes and
+ * must stay content, so they get null and match literally as they always did.
+ */
+function renderedCharRefRunAt(
+  text: string,
+  i: number,
+): { length: number; rendered: string } | null {
+  if (text[i] !== '&') return null;
+  let end = i;
+  let rendered = '';
+  for (;;) {
+    NUMERIC_CHAR_REF_TOKEN.lastIndex = end;
+    const token = NUMERIC_CHAR_REF_TOKEN.exec(text)?.[0];
+    if (token === undefined) break;
+    const char = decodeInlineWhitespaceNumericCharRef(token);
+    if (char === null) break;
+    rendered += char;
+    end += token.length;
+  }
+  return end === i ? null : { length: end - i, rendered };
+}
+
 function isSpace(ch: string): boolean {
   return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v';
 }
@@ -326,7 +386,13 @@ export function findAllPassages(
     // is content to them and the loop will match it literally. Inline HTML that
     // survives into rendered text is the case: a quote of `<div>` must still be
     // able to start on the `<` that `HTML_TAG` would otherwise call syntax.
-    if (syntaxInHaystack && first !== needle[0] && syntaxRunAt(haystack, start) > 0) continue;
+    if (
+      syntaxInHaystack &&
+      first !== needle[0] &&
+      (syntaxRunAt(haystack, start) > 0 || renderedCharRefRunAt(haystack, start) !== null)
+    ) {
+      continue;
+    }
 
     let hi = start;
     let ni = 0;
@@ -352,8 +418,53 @@ export function findAllPassages(
         else ni += run;
         continue;
       }
+      // A run of character references the markdown side spends on a character
+      // the other side simply has. Consume the run there, and what it renders
+      // here: a decoded space or tab asks nothing (whitespace is already
+      // elastic both ways), while a decoded NBSP is content the other side has
+      // to supply — its own whitespace in front of it stays elastic.
+      const decoded = syntaxInHaystack
+        ? renderedCharRefRunAt(haystack, hi)
+        : renderedCharRefRunAt(needle, ni);
+      if (decoded !== null) {
+        const other = syntaxInHaystack ? needle : haystack;
+        let oi = syntaxInHaystack ? ni : hi;
+        let supplied = true;
+        for (const ch of decoded.rendered) {
+          if (isSpace(ch)) continue;
+          while (oi < other.length && isSpace(other[oi] as string)) oi += 1;
+          if (other[oi] !== ch) {
+            supplied = false;
+            break;
+          }
+          oi += 1;
+        }
+        if (!supplied) break;
+        if (syntaxInHaystack) {
+          hi += decoded.length;
+          ni = oi;
+        } else {
+          ni += decoded.length;
+          hi = oi;
+        }
+        continue;
+      }
       break;
     }
+    // Whitespace left over in the needle once the haystack is exhausted. The
+    // loop above can only skip it while there is still haystack to compare
+    // against, so a needle ending in whitespace never completed at the very end
+    // of the text — even though whitespace is elastic everywhere else.
+    //
+    // A comment on a document's LAST passage is the case that reached users.
+    // Rendered text carries no trailing newline, while a stored suffix that ran
+    // off the end of the markdown body is exactly "\n" — so `prefix + suffix`
+    // matched (its "\n" was skipped mid-haystack) while `prefix + quote +
+    // suffix` did not, and the deletion probe in `findRangeInIndex` read the
+    // passage as deleted where it stood. The comment stayed `anchored`
+    // server-side,
+    // where the body does end in a newline, and silently lost its highlight.
+    while (ni < needle.length && isSpace(needle[ni] as string)) ni += 1;
     if (ni === needle.length) out.push({ start, end: hi });
   }
   return out;
@@ -393,6 +504,26 @@ export function findPassage(
 export interface ContextMatchOptions {
   /** `'haystack'` when `text` is markdown; `'none'` when it is rendered text. */
   readonly syntaxIn: 'haystack' | 'none';
+  /**
+   * Whether the stored `prefix`/`suffix` themselves carry markdown syntax —
+   * independent of the haystack, because the two sides come from different
+   * places. A STORED anchor's context is a slice of the markdown body, so it
+   * arrives with `## `, `1. `, `**` in it; the context a client captures around
+   * a live selection is rendered text and has none.
+   *
+   * Condensing a markdown context as though it were rendered was a silent
+   * scoring collapse, not a rounding error: a 32-character window reaches past
+   * its own block in ordinary prose, so it almost always contains a heading or
+   * list marker, and one such character at the seam takes the common-run length
+   * to zero — `## Steps\n\n1. ` condenses to `##Steps1.` against a rendered
+   * `…Steps`, sharing nothing at the end. Every candidate scored 0, the
+   * evidence floor could never be met, and re-find fell through to the
+   * exact-literal bracket recovery for anchors that should have resolved on
+   * their quote. The visible symptom was a highlight vanishing when text NEAR
+   * the passage — inside the stored context window, but not inside the quote —
+   * was edited.
+   */
+  readonly syntaxInContext?: boolean;
 }
 
 /**
@@ -422,6 +553,17 @@ function condense(text: string, from: number, to: number, syntax: boolean): stri
         i += run;
         continue;
       }
+      const decoded = renderedCharRefRunAt(text, i);
+      if (decoded !== null) {
+        // Whitespace is dropped from both sides here, so a decoded space adds
+        // nothing; an NBSP is content and has to survive on this side exactly
+        // as it does on the rendered one, or the two condensations disagree.
+        for (const ch of decoded.rendered) {
+          if (!isSpace(ch)) out += ch;
+        }
+        i += decoded.length;
+        continue;
+      }
     }
     out += ch;
     i += 1;
@@ -447,7 +589,7 @@ export function contextMatchScore(
   text: string,
   span: { readonly start: number; readonly end: number },
   context: { readonly prefix?: string; readonly suffix?: string },
-  { syntaxIn }: ContextMatchOptions,
+  { syntaxIn, syntaxInContext = false }: ContextMatchOptions,
 ): number {
   const prefix = context.prefix ?? '';
   const suffix = context.suffix ?? '';
@@ -456,18 +598,56 @@ export function contextMatchScore(
   if (prefix.length > 0) {
     const window = prefix.length * CONTEXT_WINDOW_FACTOR + CONTEXT_WINDOW_FLOOR;
     score += commonSuffixLen(
-      condense(prefix, 0, prefix.length, false),
+      condense(prefix, 0, prefix.length, syntaxInContext),
       condense(text, span.start - window, span.start, syntax),
     );
   }
   if (suffix.length > 0) {
     const window = suffix.length * CONTEXT_WINDOW_FACTOR + CONTEXT_WINDOW_FLOOR;
     score += commonPrefixLen(
-      condense(suffix, 0, suffix.length, false),
+      condense(suffix, 0, suffix.length, syntaxInContext),
       condense(text, span.end, span.end + window, syntax),
     );
   }
   return score;
+}
+
+/**
+ * The least context agreement a re-find may accept a quote hit on, in the
+ * condensed characters {@link contextMatchScore} counts. Zero when too little
+ * context is stored to demand anything (a quote hugging both document edges).
+ *
+ * This is what stands between a comment and an impostor. Deleting a commented
+ * passage while an identical phrase survives elsewhere leaves the survivor as a
+ * lone, clean hit of the quote — and a re-find that accepts a lone hit
+ * unexamined re-anchors the comment onto words nobody commented on, with the
+ * stored context in open disagreement. Any acceptance must therefore show a
+ * TRACE of the recorded neighbourhood.
+ *
+ * A floor, not a match requirement: the surroundings may legitimately have been
+ * edited, so it asks for a fragment, well under the stored context's length.
+ * Above zero because unrelated locations share stray seam characters — a
+ * period, a closing word — and a gate those satisfy is no gate. The cost is
+ * deliberate and documented: a passage MOVED somewhere entirely new fails the
+ * floor and orphans (its old neighbours, left behind and now adjacent, read as
+ * a deletion) — "exact-match-or-orphan, never guess" is the contract, and
+ * re-placing an orphan is one click.
+ */
+export function contextEvidenceFloor(
+  context: {
+    readonly prefix?: string;
+    readonly suffix?: string;
+  },
+  { syntaxInContext = false }: { readonly syntaxInContext?: boolean } = {},
+): number {
+  const MAX_FLOOR = 8;
+  // Condensed the same way `contextMatchScore` condenses this context, or the
+  // floor asks for more agreement than the score can ever report — a context
+  // that is mostly markers would demand characters scoring has already dropped.
+  const available =
+    condense(context.prefix ?? '', 0, Number.POSITIVE_INFINITY, syntaxInContext).length +
+    condense(context.suffix ?? '', 0, Number.POSITIVE_INFINITY, syntaxInContext).length;
+  return Math.min(MAX_FLOOR, available);
 }
 
 /**

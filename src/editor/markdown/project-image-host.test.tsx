@@ -1,10 +1,16 @@
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
+import { ProjectImageHostProvider, useProjectImage } from "./project-image-host";
 
 function ImageProbe({ src, enabled = true }: { src: string; enabled?: boolean }) {
-  const resolved = useProjectImageSrc(src, enabled);
-  return <span data-testid={src} data-resolved-length={resolved?.length ?? 0} />;
+  const resolved = useProjectImage(src, enabled);
+  return (
+    <span
+      data-testid={src}
+      data-resolved-length={resolved.src?.length ?? 0}
+      data-target-existence={resolved.targetExistence}
+    />
+  );
 }
 
 function CacheHarness({
@@ -68,6 +74,22 @@ describe("project image cache", () => {
     await vi.waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(3));
     await vi.advanceTimersByTimeAsync(5_000);
     expect(loadAsset).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
+
+  it("reports a persistently null project asset as missing", async () => {
+    vi.useFakeTimers();
+    const loadAsset = vi.fn(async () => null);
+    const path = "../figures/permanently-missing.png";
+    const view = render(<CacheHarness paths={[path]} loadAsset={loadAsset} />);
+
+    await vi.waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(1_250);
+    await vi.waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(view.getByTestId(path)).toHaveAttribute(
+      "data-target-existence",
+      "missing",
+    ));
     vi.useRealTimers();
   });
 

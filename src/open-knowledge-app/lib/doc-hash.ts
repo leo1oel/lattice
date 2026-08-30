@@ -21,10 +21,11 @@ export function docNameFromHash(hash: string): string | null {
   // A pre-install skill preview (`#/__skill-preview__/…`) is a full-pane viewer
   // keyed by import coordinates, not a doc — it resolves via `skillPreviewFromHash`.
   if (hash.startsWith(SKILL_PREVIEW_HASH_PREFIX)) return null;
-  // Skill (`#/__skill__/…`) and template (`#/__template__/…`) hashes ARE
-  // documents — they open as ordinary editor tabs, so they resolve to their
-  // synthetic doc name here like any other `#/<docName>` hash (per-segment
-  // decode below yields the raw `__skill__/<scope>/<name>` key the tab uses).
+  // A global-skill hash (`#/__skill__/…`) and a LEGACY template hash
+  // (`#/__template__/…`) decode to their raw name here like any other
+  // `#/<docName>` hash; a legacy template name is then redirected to its content
+  // doc at navigation resolution. New templates use their content-path hash
+  // (`#/<folder>/.ok/templates/<name>`), decoded per-segment like any doc.
   if (!hash.startsWith('#/')) return null;
   const rest = hash.slice(2);
   const delimiter = firstRouteDelimiterIndex(rest);
@@ -56,10 +57,101 @@ export function anchorFromHash(hash: string): string | null {
   }
 }
 
-/** Build a `#/<docName>#<anchor>` hash for the given docName. */
+/**
+ * A surrogate with no partner. `encodeURIComponent` throws `URIError` on one,
+ * and it has no partial result, so one bad code unit would otherwise cost the
+ * whole value its escaping.
+ */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Percent-encode one hash component: a path segment, an anchor, a branch name.
+ *
+ * Every value these builders escape ultimately comes from a filename, and a
+ * filename can carry an unpaired surrogate. Substituting U+FFFD first keeps
+ * the call total, so the rest of the value is still escaped and the builders
+ * cannot throw — they run inside render paths, where a `URIError` takes out
+ * the surrounding tree rather than breaking one link. The substitution is
+ * visible in the URL as `%EF%BF%BD` rather than silently corrupting the route.
+ *
+ * Mirrors the sanitizer in `packages/server/src/services/search.ts`, including
+ * why `String.prototype.toWellFormed` is not used: this subtree targets ES2022.
+ */
+function encodeSegment(value: string): string {
+  return encodeURIComponent(value.replace(LONE_SURROGATE, '\uFFFD'));
+}
+
+/**
+ * Percent-encode a route path one `/`-separated segment at a time, so the
+ * separators survive while everything else is escaped.
+ *
+ * Encoding matters most for `#`: the browser does not escape it when the hash
+ * is assigned, so an unescaped one in a name comes back looking like the start
+ * of an anchor.
+ */
+function encodeRoutePath(path: string): string {
+  return path.split('/').map(encodeSegment).join('/');
+}
+
+/**
+ * Build a `#/<docName>#<anchor>` hash for the given docName.
+ *
+ * The path is encoded per segment so that `/` stays a real route separator
+ * while every other character is escaped, mirroring the per-segment decode in
+ * `docNameFromHash`. Encoding matters most for `#`: the browser does not
+ * escape it when the hash is assigned, so an unescaped one in a docName would
+ * come back looking like the start of the anchor. The parser then reads only
+ * the text before it, which is the empty string for a leading `#` and a
+ * truncated name for one in the middle.
+ */
 export function hashFromDocName(docName: string, anchor?: string | null): string {
-  const base = `#/${docName}`;
-  return anchor ? `${base}#${encodeURIComponent(anchor)}` : base;
+  const base = `#/${encodeRoutePath(docName)}`;
+  return anchor ? `${base}#${encodeSegment(anchor)}` : base;
+}
+
+/**
+ * `true` when two hashes address the same target, tolerating the
+ * percent-encoding difference between the two ways a hash reaches us.
+ *
+ * The `hashFrom*` builders encode the path, so a freshly built hash and the
+ * `window.location.hash` the browser hands back are normally identical and
+ * settle on the `===` fast path. The decode earns its place for hashes this
+ * app did not build: entries persisted in history or a bookmark by an older
+ * build, whose builders emitted the path raw (`#/My Notes/`), and hashes typed
+ * or edited by hand in the address bar. Without the tolerance a `===` against
+ * those is false for every name carrying a space or non-ASCII character, which
+ * silently inverts any "are we already here?" guard for exactly those
+ * documents and folders.
+ *
+ * Both sides are decoded rather than just the location side, so the arguments
+ * commute — callers pass location first or second depending on the call site.
+ *
+ * Two residual ambiguities survive the encoding:
+ *
+ * A raw name that itself contains a percent escape (`100%20`) shares a hash
+ * with its decoded form (`100 `), and the two cannot be told apart after the
+ * fact. A hash built here cannot collide that way, because the escape's `%` is
+ * itself encoded, so the ambiguity is confined to legacy and hand-written
+ * input.
+ *
+ * The decode is whole-string, so it also collapses an encoded `%23` back to a
+ * structural `#`: a document named `a#b` and the anchor `b` on document `a`
+ * compare equal, even though their built hashes are distinguishable
+ * (`#/a%23b` versus `#/a#b`). Telling those apart means decoding the path and
+ * anchor separately rather than the whole string, which changes this guard for
+ * every caller and is deliberately not attempted here.
+ */
+export function isSameHash(a: string, b: string): boolean {
+  return a === b || decodeHashForComparison(a) === decodeHashForComparison(b);
+}
+
+function decodeHashForComparison(hash: string): string {
+  try {
+    return decodeURIComponent(hash);
+  } catch {
+    // Malformed escape — the raw string is still a usable comparison key.
+    return hash;
+  }
 }
 
 const MANAGED_HASH_HISTORY_STATE_KEY = '__okHashHistoryEntry';
@@ -92,7 +184,7 @@ export function replaceHashWithoutNavigation(hash: string): void {
 }
 
 export function pushHashWithoutNavigation(hash: string): void {
-  if (window.location.hash === hash) return;
+  if (isSameHash(window.location.hash, hash)) return;
   const { pathname, search } = window.location;
   window.history.pushState(
     managedHashHistoryState(window.history.state),
@@ -113,11 +205,17 @@ export function filePathToDocName(filePath: string): string {
   return filePath;
 }
 
-/** Build a `#/<folderPath>/#<anchor>` hash for a folder target. */
+/**
+ * Build a `#/<folderPath>/#<anchor>` hash for a folder target.
+ *
+ * Encoded per segment for the same reason as `hashFromDocName`. The trailing
+ * slash stays outside the encoding so it remains the folder marker the parser
+ * looks for, and an empty path still yields the `#/` content-root sentinel.
+ */
 export function hashFromFolderPath(folderPath: string, anchor?: string | null): string {
   const normalized = folderPath.replace(/^\/+|\/+$/g, '');
-  const base = normalized ? `#/${normalized}/` : '#/';
-  return anchor ? `${base}#${encodeURIComponent(anchor)}` : base;
+  const base = normalized ? `#/${encodeRoutePath(normalized)}/` : '#/';
+  return anchor ? `${base}#${encodeSegment(anchor)}` : base;
 }
 
 /**
@@ -142,9 +240,9 @@ export function encodeShareTargetForHash(
   branch?: string | null,
 ): string {
   if (kind === 'folder') return hashFromFolderPath(path);
-  const base = `#/${encodeURIComponent(path)}`;
+  const base = `#/${encodeSegment(path)}`;
   if (branch === undefined || branch === null || branch === '') return base;
-  return `${base}?branch=${encodeURIComponent(branch)}`;
+  return `${base}?branch=${encodeSegment(branch)}`;
 }
 
 /**
@@ -189,17 +287,15 @@ export function assetPathFromHash(hash: string): string | null {
 }
 
 export function hashFromAssetPath(assetPath: string): string {
-  return `${ASSET_HASH_PREFIX}${assetPath.split('/').map(encodeURIComponent).join('/')}`;
+  return `${ASSET_HASH_PREFIX}${encodeRoutePath(assetPath)}`;
 }
 
 const SKILL_FILE_HASH_PREFIX = '#/__skill-file__/';
 
-// The Skills destination hub is a singleton full-pane route; its hash carries no
-// coordinates. Opened via `#/__skills__`.
+// Retired route. Nothing MINTS this hash any more — Skills live in the sidebar
+// dock, not behind a full-pane route — but it is still parsed so an old bookmark
+// or a restored history entry resolves and redirects instead of dead-ending.
 const SKILLS_HASH_PREFIX = '#/__skills__';
-export function hashFromSkills(): string {
-  return SKILLS_HASH_PREFIX;
-}
 export function skillsFromHash(hash: string): boolean {
   return hash === SKILLS_HASH_PREFIX || hash.startsWith(`${SKILLS_HASH_PREFIX}/`);
 }
@@ -216,7 +312,7 @@ export function skillsFromHash(hash: string): boolean {
 const SKILL_PREVIEW_HASH_PREFIX = '#/__skill-preview__/';
 /** The skill-preview surfaces, single-sourced. Add a flavor here and every
  *  hash/tab-id validator + target type picks it up. */
-const SKILL_PREVIEW_FLAVORS = ['explore', 'detected', 'builtin', 'foreign'] as const;
+const SKILL_PREVIEW_FLAVORS = ['explore', 'detected', 'builtin', 'foreign', 'linked'] as const;
 export type SkillPreviewFlavor = (typeof SKILL_PREVIEW_FLAVORS)[number];
 /** Type-guard for an untrusted flavor (from a `window.location` hash or a
  *  persisted, hand-editable tab id). */
@@ -266,7 +362,7 @@ export function encodeSkillPreviewSegments(target: SkillPreviewHashTarget): stri
     target.subtitle,
     target.level ?? DEFAULT_PREVIEW_LEVEL,
   ]
-    .map(encodeURIComponent)
+    .map(encodeSegment)
     .join('/');
 }
 
@@ -300,7 +396,7 @@ export function hashFromSkillPreview(target: SkillPreviewHashTarget): string {
   let body = encodeSkillPreviewSegments(target);
   // The identity is always 5 segments now (level defaulted, never dropped), so
   // `path` is unambiguously the 6th with no padding.
-  if (target.path) body += `/${encodeURIComponent(target.path)}`;
+  if (target.path) body += `/${encodeSegment(target.path)}`;
   return `${SKILL_PREVIEW_HASH_PREFIX}${body}`;
 }
 
@@ -350,8 +446,8 @@ const SKILL_FILE_HOST_SEP = ':';
 export function hashFromSkillFile(target: SkillFileHashTarget): string {
   const named =
     target.host === undefined ? target.name : `${target.name}${SKILL_FILE_HOST_SEP}${target.host}`;
-  const head = [target.scope, named].map(encodeURIComponent).join('/');
-  const tail = target.path.split('/').map(encodeURIComponent).join('/');
+  const head = [target.scope, named].map(encodeSegment).join('/');
+  const tail = encodeRoutePath(target.path);
   return `${SKILL_FILE_HASH_PREFIX}${head}/${tail}`;
 }
 

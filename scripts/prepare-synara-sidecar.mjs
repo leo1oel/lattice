@@ -41,28 +41,28 @@ const deviceHelperFiles = [
 const nodeArchives = {
   "aarch64-apple-darwin": {
     platform: "darwin-arm64",
-    archive: "node-v24.13.0-darwin-arm64.tar.gz",
-    sha256: "d595961e563fcae057d4a0fb992f175a54d97fcc4a14dc2d474d92ddeea3b9f8",
+    archive: "node-v24.20.0-darwin-arm64.tar.gz",
+    sha256: "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
   },
   "x86_64-apple-darwin": {
     platform: "darwin-x64",
-    archive: "node-v24.13.0-darwin-x64.tar.gz",
-    sha256: "6f03c1b48ddbe1b129a6f8038be08e0899f05f17185b4d3e4350180ab669a7f3",
+    archive: "node-v24.20.0-darwin-x64.tar.gz",
+    sha256: "9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4",
   },
   "aarch64-unknown-linux-gnu": {
     platform: "linux-arm64",
-    archive: "node-v24.13.0-linux-arm64.tar.gz",
-    sha256: "0f6d40b94c6a2eb6b4c240ffc8b9fd3ada7ab044c177dd413c06e1ef9a63f081",
+    archive: "node-v24.20.0-linux-arm64.tar.gz",
+    sha256: "3515603e2487879a39bc75716f1a2affd027500c64ba50e845cf72cb33219013",
   },
   "x86_64-unknown-linux-gnu": {
     platform: "linux-x64",
-    archive: "node-v24.13.0-linux-x64.tar.gz",
-    sha256: "6223aad1a81f9d1e7b682c59d12e2de233f7b4c37475cd40d1c89c42b737ffa8",
+    archive: "node-v24.20.0-linux-x64.tar.gz",
+    sha256: "855d581f8a4eb1a8117e3426de25fe02770592febcfb31369aee1ffbfee9e8ec",
   },
   "x86_64-pc-windows-msvc": {
     platform: "win-x64",
-    archive: "node-v24.13.0-win-x64.zip",
-    sha256: "ca2742695be8de44027d71b3f53a4bdb36009b95575fe1ae6f7f0b5ce091cb88",
+    archive: "node-v24.20.0-win-x64.zip",
+    sha256: "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
   },
 };
 

@@ -12,6 +12,13 @@ type ProjectImageResource = {
   consumers: number;
 };
 
+export type ProjectImageTargetExistence = "unknown" | "exists" | "missing";
+
+export type ProjectImageResult = {
+  src: string | undefined;
+  targetExistence: ProjectImageTargetExistence;
+};
+
 const PROJECT_IMAGE_CACHE_ENTRY_LIMIT = 48;
 const PROJECT_IMAGE_CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
 const PROJECT_IMAGE_OFFSCREEN_RETENTION_MS = 5_000;
@@ -120,7 +127,7 @@ export function ProjectImageHostProvider({
   );
 }
 
-export function useProjectImageSrc(src: string | undefined, enabled = true): string | undefined {
+export function useProjectImage(src: string | undefined, enabled = true): ProjectImageResult {
   const { activePath, loadAsset } = useContext(ProjectImageHostContext);
   const projectPath = src ? resolveProjectPath(activePath, src) : null;
   const resource = cachedProjectImageResource(loadAsset, projectPath);
@@ -128,6 +135,10 @@ export function useProjectImageSrc(src: string | undefined, enabled = true): str
     projectPath: string;
     loader: (path: string) => Promise<string | null>;
     dataUrl: string;
+  } | null>(null);
+  const [missing, setMissing] = useState<{
+    projectPath: string;
+    loader: (path: string) => Promise<string | null>;
   } | null>(null);
 
   useEffect(() => {
@@ -163,13 +174,18 @@ export function useProjectImageSrc(src: string | undefined, enabled = true): str
         releaseResource();
         if (active && dataUrl) {
           setLoaded({ projectPath, loader: loadAsset, dataUrl });
+          setMissing(null);
           return;
         }
         // Tauri can transiently return null while a newly imported paper
         // asset is still being written. Treat it like a failed read rather
         // than caching a permanent blank image for this document session.
         if (resources?.get(projectPath) === pendingResource) resources.delete(projectPath);
-        if (!active || attempt >= retryDelays.length) return;
+        if (!active) return;
+        if (attempt >= retryDelays.length) {
+          setMissing({ projectPath, loader: loadAsset });
+          return;
+        }
         retryTimer = setTimeout(() => {
           releaseCurrent = load(attempt + 1);
         }, retryDelays[attempt]);
@@ -190,10 +206,19 @@ export function useProjectImageSrc(src: string | undefined, enabled = true): str
     };
   }, [enabled, loadAsset, projectPath]);
 
-  if (!projectPath || !loadAsset) return src;
+  if (!projectPath || !loadAsset) return { src, targetExistence: "unknown" };
   if (loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset) {
-    return loaded.dataUrl;
+    return { src: loaded.dataUrl, targetExistence: "exists" };
   }
-  if (!enabled) return undefined;
-  return resource?.dataUrl ?? undefined;
+  if (missing && missing.projectPath === projectPath && missing.loader === loadAsset) {
+    return { src: undefined, targetExistence: "missing" };
+  }
+  if (!enabled) return { src: undefined, targetExistence: "unknown" };
+  return resource?.dataUrl
+    ? { src: resource.dataUrl, targetExistence: "exists" }
+    : { src: undefined, targetExistence: "unknown" };
+}
+
+export function useProjectImageSrc(src: string | undefined, enabled = true): string | undefined {
+  return useProjectImage(src, enabled).src;
 }

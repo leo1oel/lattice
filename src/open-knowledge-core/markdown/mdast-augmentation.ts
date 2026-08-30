@@ -134,6 +134,8 @@ declare module 'mdast' {
   }
   interface LinkReferenceData {
     sourceRaw?: string;
+    resolvedUrl?: string;
+    resolvedTitle?: string | null;
   }
   interface ThematicBreakData {
     sourceRaw?: string;

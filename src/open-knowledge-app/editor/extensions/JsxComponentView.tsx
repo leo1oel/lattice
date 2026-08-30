@@ -55,6 +55,7 @@ import {
   ArrowDown,
   ArrowUp,
   ExternalLink,
+  Maximize2,
   Pencil,
   Settings2,
   Trash2,
@@ -74,6 +75,7 @@ import { OPT_OUT_ATTR } from '../clipboard/index.ts';
 import { CodePreviewEditModal } from '../components/CodePreviewEditModal';
 import { DescriptorPlaceholder } from '../components/DescriptorPlaceholder.tsx';
 import { JsxComponentHostProvider } from '../components/jsx-host-context.tsx';
+import { MermaidLightbox } from '../components/Mermaid';
 import { PropPanel } from '../components/PropPanel.tsx';
 import { getEditorDocName } from '../extensions/doc-context.ts';
 import { normalizeDocRelativeMediaRenderProps } from '../extensions/media-render-props.ts';
@@ -93,9 +95,13 @@ import {
 import { ALIGNABLE_DESCRIPTOR_NAMES } from '../utils/alignable-descriptors.ts';
 import { runWithAlignAnimation } from '../utils/animate-align-change.ts';
 import { formatContainerAriaLabel } from '../utils/editor-strings.ts';
+import { getEditorView } from '../utils/get-editor-view.ts';
 import { reconstructSource } from '../utils/reconstruct-source.ts';
 import { sanitizeComponentProps } from '../utils/sanitize-url.ts';
-import { autonomousFragmentEditAllowed } from './autonomous-fragment-edit.ts';
+import {
+  autonomousFragmentEditAllowed,
+  markAutonomousFragmentEdit,
+} from './autonomous-fragment-edit.ts';
 
 // ── Error Boundary ──────────────────────────────────────────────────────
 //
@@ -247,14 +253,20 @@ export function getElementJsxAttrs(attrs: Record<string, unknown>): ElementJsxAt
 // ── Main NodeView ───────────────────────────────────────────────────────
 
 /**
- * How many times the auto-convert effect retries its `replaceWith` dispatch
- * before falling through to the stuck-state UX. Observed failure shapes are
- * all transient position races (remote peer edit shifts the target range,
- * Observer B re-parse lands mid-flight), so three attempts over ~350ms is
- * long enough to clear every realistic contention window without keeping
- * the user on a dead placeholder if something deeper is wrong.
+ * Total auto-convert attempts before the stuck-state UX, counted rather than
+ * the retries between them: 3 buys the first attempt plus 2 retries, waiting
+ * 50ms then 150ms when all three land in one ladder. An attempt that declines
+ * before dispatching (no mounted view) spends a slot too, so this bounds
+ * attempts rather than `replaceWith` calls.
+ *
+ * The backoff covers a failure that resolves without the document moving. It
+ * cannot re-derive a position: the target range is captured once per effect
+ * invocation, so a shifted range needs a fresh `node`, which arrives only on a
+ * transaction touching this span. That re-run is not a second budget — the ref
+ * is never reset and `stuck` gates re-entry — so it resumes mid-ladder, and
+ * once the budget is spent the stuck UX is terminal.
  */
-const MAX_AUTO_CONVERT_RETRIES = 3;
+const MAX_AUTO_CONVERT_ATTEMPTS = 3;
 
 export function JsxComponentView({ node, editor, extension, getPos, selected }: NodeViewProps) {
   const { t } = useLingui();
@@ -461,6 +473,7 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
       : null;
   const editableSourceLabel = t`Edit ${descriptor.displayName ?? descriptor.name} source`;
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [diagramLightboxOpen, setDiagramLightboxOpen] = useState(false);
 
   // Source-bearing self-closing leaves (today only MermaidFence) hide their
   // single required prop from the PropPanel and author it in the fullscreen
@@ -520,6 +533,22 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
     translatedProps,
     sourceDocName,
   );
+  // Lightbox chart reads the sanitized render value, not raw `node.attrs`,
+  // for the same structural reason the edit-modal preview does. One predicate
+  // gates the two expand triggers AND the dialog mount, so a remote edit that
+  // empties the chart or converts the block cannot leave them disagreeing.
+  const lightboxRenderChart =
+    descriptor.name === 'MermaidFence' && typeof renderProps.chart === 'string'
+      ? renderProps.chart
+      : null;
+  const expandableChart =
+    lightboxRenderChart !== null && lightboxRenderChart.trim() !== '' ? lightboxRenderChart : null;
+  const diagramExpandable = expandableChart !== null;
+  // A remote edit can empty the chart while the dialog is open; without this
+  // the dialog would pop back open unbidden when the chart returns.
+  useEffect(() => {
+    if (!diagramExpandable) setDiagramLightboxOpen(false);
+  }, [diagramExpandable]);
   // Stable reset key for the ErrorBoundary. `JSON.stringify` on an arbitrary
   // props object produced a string whose content was key-order-sensitive
   // across engines — combined with the post-edit re-serialization that
@@ -557,17 +586,18 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   // its own cleanup and skips. Local to the effect invocation, so a
   // cancelled first run doesn't block a subsequent run's dispatch.
   //
-  // Bounded retry: on dispatch failure (position went stale under a remote
-  // peer edit, Observer B re-parse, etc.) we schedule up to MAX_AUTO_CONVERT_RETRIES
-  // backoff attempts before giving up. Without a retry schedule, nothing
-  // guarantees a subsequent re-render fires — a quiescent doc with a latent
-  // failing condition would leave the user on the non-editable placeholder
-  // forever (no retry signal, no React re-render trigger). After retries
-  // exhaust, the placeholder swaps to a stuck-state UX with Delete + Copy
-  // source affordances so the user can recover without blaming the editor.
+  // Bounded retry: every transient failure (stale position, Observer B
+  // re-parse landing mid-flight, view not yet mounted) reaches one ladder;
+  // what the wait can and cannot recover is at MAX_AUTO_CONVERT_ATTEMPTS.
+  // Without a retry schedule, nothing guarantees a subsequent re-render fires
+  // — a quiescent doc with a latent failing condition would leave the user on
+  // the non-editable placeholder forever (no retry signal, no React re-render
+  // trigger). Once the budget is spent, the placeholder swaps to a
+  // stuck-state UX with Delete + Copy source affordances so the user can
+  // recover without blaming the editor.
   const needsConversion = descriptor.name === '*' || renderError !== null;
   const convertedRef = useRef(false);
-  const retryCountRef = useRef(0);
+  const attemptCountRef = useRef(0);
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     if (!needsConversion || convertedRef.current || stuck) return;
@@ -607,20 +637,13 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
       // the placeholder is inert and any edit re-triggers conversion, while
       // dispatching from the hidden editor corrupts the authoritative bytes.
       if (!autonomousFragmentEditAllowed(editor)) return;
-      try {
-        editor.view.dispatch(
-          editor.state.tr
-            .replaceWith(p, p + node.nodeSize, fallbackNode)
-            .setMeta('addToHistory', false)
-            .setMeta('preventUpdate', true),
-        );
-        convertedRef.current = true;
-        const clampedComponent = descriptor.name === '*' ? 'wildcard' : descriptor.name;
-        incrementJsxAutoConvertSucceeded(clampedComponent);
-      } catch (err) {
-        // Position may have changed if other transactions fired.
+      // Transient failures share one handler so the missing-view case reaches
+      // the same retry ladder a stale position does. It is a call rather than a
+      // `throw` into the catch below because the React Compiler rejects a
+      // `throw` inside the `try` block, and only the build gate reports it.
+      const failTransiently = (failureReason: string) => {
         // Log as a structured event so recurring failures are visible in
-        // telemetry — a swallowed exception here would otherwise leave the
+        // telemetry — a swallowed failure here would otherwise leave the
         // user on the "opening source editor..." placeholder with no signal.
         const clampedComponent = descriptor.name === '*' ? 'wildcard' : descriptor.name;
         console.warn(
@@ -633,18 +656,20 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             // user-authored names in log payloads.
             component: clampedComponent,
             rawComponentName: String(node.attrs.componentName ?? '').slice(0, 200),
-            reason: err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500),
-            retry: retryCountRef.current,
+            reason: failureReason.slice(0, 500),
+            // Wire key, deliberately unrenamed: consumers aggregate on it.
+            retry: attemptCountRef.current,
           }),
         );
         incrementJsxAutoConvertFailed(clampedComponent);
 
-        retryCountRef.current += 1;
-        if (retryCountRef.current < MAX_AUTO_CONVERT_RETRIES) {
-          // Exponential-ish backoff: 50ms, 150ms, 350ms. Short enough to
-          // feel instant in the typical case where a concurrent tx cleared
-          // on the next tick; long enough to not hammer the event loop.
-          const delay = 50 * (2 ** retryCountRef.current - 1);
+        attemptCountRef.current += 1;
+        if (attemptCountRef.current < MAX_AUTO_CONVERT_ATTEMPTS) {
+          // Exponential-ish backoff, sized to feel instant in the typical
+          // case where a concurrent tx cleared on the next tick while not
+          // hammering the event loop. Bound and arithmetic: see
+          // MAX_AUTO_CONVERT_ATTEMPTS.
+          const delay = 50 * (2 ** attemptCountRef.current - 1);
           timeoutId = setTimeout(() => {
             if (cancelled) return;
             dispatchOnce();
@@ -654,6 +679,27 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
           // can Delete / Copy source instead of sitting on a dead placeholder.
           if (!cancelled) setStuck(true);
         }
+      };
+
+      // `editor.view` is a proxy that throws before ProseMirror mounts, and
+      // this fires a frame after the effect — long enough for a recycle to
+      // land. `getEditorView` reports that state instead of throwing; it is
+      // the same transient class as a stale position, not a policy decline.
+      const view = getEditorView(editor);
+      if (!view) {
+        failTransiently('ProseMirror view not mounted');
+        return;
+      }
+      try {
+        view.dispatch(
+          markAutonomousFragmentEdit(view.state.tr.replaceWith(p, p + node.nodeSize, fallbackNode)),
+        );
+        convertedRef.current = true;
+        const clampedComponent = descriptor.name === '*' ? 'wildcard' : descriptor.name;
+        incrementJsxAutoConvertSucceeded(clampedComponent);
+      } catch (err) {
+        // Position may have changed if other transactions fired.
+        failTransiently(err instanceof Error ? err.message : String(err));
       }
     };
 
@@ -1275,11 +1321,21 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             </button>
           ) : null}
 
-          {/* Settings — opens the controlled PropPanel popover hoisted above
-            NodeViewWrapper. `<PopoverTrigger asChild>` is the canonical click-to-
-            open path. In placeholder mode the popover is positioned via the
-            `<PopoverAnchor>` wrapping the placeholder pill (Anchor takes precedence
-            over Trigger for placement); both paths flip the same popoverOpen state. */}
+          {/* Expand — Mermaid only. Non-mutating, so it deliberately
+              carries no editability check; it needs a non-empty chart or
+              there is nothing to view. */}
+          {expandableChart !== null ? (
+            <button
+              type="button"
+              className="jsx-chrome-btn"
+              aria-label={t`Expand diagram`}
+              data-testid="jsx-component-expand-btn"
+              onClick={() => setDiagramLightboxOpen(true)}
+            >
+              <Maximize2 size={12} aria-hidden="true" />
+            </button>
+          ) : null}
+
           {hasEditableProps && (
             <PopoverTrigger asChild>
               <button
@@ -1411,8 +1467,9 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
                       // Pass the live `getPos` rather than a snapshot — host writes
                       // can fire seconds after render (e.g. ResizeHandles pointerup
                       // for Embed) and snapshot pos drifts under concurrent edits.
-                      // Matches the fresh-getPos pattern at every other dispatch
-                      // site in this file.
+                      // Matches the fresh-getPos pattern the other dispatch sites
+                      // here use; the auto-convert effect is the exception, and
+                      // MAX_AUTO_CONVERT_ATTEMPTS records what that costs.
                       getPos: () => {
                         const p = getPos();
                         return typeof p === 'number' ? p : undefined;
@@ -1434,7 +1491,12 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
                   : null
               }
             >
-              <Comp {...renderProps}>
+              <Comp
+                {...renderProps}
+                {...(expandableChart !== null
+                  ? { onExpand: () => setDiagramLightboxOpen(true) }
+                  : {})}
+              >
                 <NodeViewContent
                   className={`component-children ${
                     !descriptor.hasChildren && node.childCount === 0 ? 'min-h-0 m-0 p-0' : ''
@@ -1486,6 +1548,13 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
             );
           })()}
       </NodeViewWrapper>
+      {expandableChart !== null ? (
+        <MermaidLightbox
+          chart={expandableChart}
+          open={diagramLightboxOpen}
+          onOpenChange={setDiagramLightboxOpen}
+        />
+      ) : null}
       {editableSource && typeof pos === 'number' ? (
         <CodePreviewEditModal
           open={editModalOpen}

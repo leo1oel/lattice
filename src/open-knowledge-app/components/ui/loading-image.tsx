@@ -1,7 +1,7 @@
 import { useLingui } from '@ok-app/shims/lingui-react-macro';
 import { ImageOff } from 'lucide-react';
 import type { CSSProperties, ImgHTMLAttributes, Ref } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { OPT_OUT_ATTR } from '@ok-app/editor/clipboard/clipboard-sanitize';
 import { cn } from '@ok-app/lib/utils';
 
@@ -12,7 +12,11 @@ type LoadingImageProps = ImgHTMLAttributes<HTMLImageElement> & {
   slotTestId?: string;
   slotClassName?: string;
   slotRef?: Ref<HTMLSpanElement>;
+  /** Inventory-known target state, distinct from whether the browser decoded it. */
+  targetExistence?: 'unknown' | 'exists' | 'missing';
 };
+
+type ImageErrorKind = 'not-found' | 'undisplayable' | null;
 
 // Project images now remount with the same resolved data URL. Retaining the
 // terminal state for that exact URL prevents a fresh img element from showing
@@ -72,12 +76,14 @@ export function LoadingImage({
   src,
   style,
   alt = '',
+  targetExistence = 'unknown',
   ...imgProps
 }: LoadingImageProps) {
   const { t } = useLingui();
   const imgRef = useRef<HTMLImageElement>(null);
   const [loaded, setLoaded] = useState(() => Boolean(src && loadedImageSources.has(imageSourceCacheKey(src))));
   const [hasError, setHasError] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const intrinsic = hasIntrinsicDimensions(width, height);
   const slotStyle = computeSlotStyle(width, height, style);
 
@@ -100,7 +106,24 @@ export function LoadingImage({
     // load of a dimensionless resource (SVG with only a viewBox, images
     // sized by CSS). onError is the only unambiguous signal.
     setHasError(false);
-  }, [src]);
+  }, [src, reloadNonce]);
+
+  // A previously missing target can be created without changing its authored
+  // path. Remount the image when inventory truth changes so Chromium retries a
+  // request it may otherwise retain as a failed load.
+  const prevExistenceRef = useRef(targetExistence);
+  useEffect(() => {
+    const previous = prevExistenceRef.current;
+    prevExistenceRef.current = targetExistence;
+    if (previous === 'missing' && targetExistence !== 'missing') {
+      setLoaded(false);
+      setHasError(false);
+      setReloadNonce((nonce) => nonce + 1);
+    }
+  }, [targetExistence]);
+
+  const errorKind: ImageErrorKind =
+    targetExistence === 'missing' ? 'not-found' : hasError ? 'undisplayable' : null;
 
   // A visible placeholder overlay replaces the browser's default 16x16
   // broken-image glyph so the reader can tell the asset is missing instead
@@ -116,12 +139,19 @@ export function LoadingImage({
   // alt=''). Silencing the pill for alt='' would silence broken
   // no-alt-authored images too.
   const errorLabel = alt && alt.length > 0 ? alt : (src ?? '');
+  const errorMessage =
+    errorKind === 'not-found' ? t`Image not found` : t`Image couldn't be displayed`;
+  const errorAriaLabel =
+    errorKind === 'not-found'
+      ? t`Image not found: ${errorLabel}`
+      : t`Image couldn't be displayed: ${errorLabel}`;
 
   return (
     <span
       ref={slotRef}
       data-testid={slotTestId}
-      data-image-error={hasError ? 'true' : undefined}
+      data-image-error={errorKind ? 'true' : undefined}
+      data-image-error-kind={errorKind ?? undefined}
       className={cn(
         'relative inline-block overflow-hidden',
         // Pre-load only: reserve a 16:9 slot to prevent the "0x0 box → reflow"
@@ -129,12 +159,12 @@ export function LoadingImage({
         // object-contain / max-h-full styling can govern the image's
         // natural shape — otherwise sidebar previews would be locked at 16:9
         // forever, letterboxing portrait assets.
-        !intrinsic && !loaded && !hasError && 'aspect-[16/9] w-full max-w-full',
+        !intrinsic && !loaded && !errorKind && 'aspect-[16/9] w-full max-w-full',
         slotClassName,
       )}
       style={slotStyle}
     >
-      {!loaded && !hasError && (
+      {!loaded && !errorKind && (
         // Inline-content the skeleton element directly rather than reaching for
         // shadcn `<Skeleton>` (which is a `<div>`). The slot is a `<span>`
         // because `Image.tsx`'s `<Zoom wrapElement="span">` constrains its
@@ -152,6 +182,7 @@ export function LoadingImage({
       )}
       <img
         {...imgProps}
+        key={reloadNonce}
         ref={imgRef}
         src={src}
         alt={alt}
@@ -160,7 +191,7 @@ export function LoadingImage({
         // `hidden` keeps the img in the DOM (queryable by tests + the
         // clipboard walker) but out of the visual + a11y trees when the
         // error placeholder is showing.
-        hidden={hasError || undefined}
+        hidden={errorKind ? true : undefined}
         className={cn(
           'block max-w-full transition-opacity motion-reduce:transition-none',
           loaded ? 'opacity-100' : 'opacity-0',
@@ -184,25 +215,30 @@ export function LoadingImage({
           onError?.(event);
         }}
       />
-      {hasError && (
+      {errorKind && (
         <span
           role="img"
-          aria-label={t`Image failed to load: ${errorLabel}`}
+          aria-label={errorAriaLabel}
           // Render-layer chrome only: the clipboard walker strips opt-out
           // children from cross-app copies, so the pill text never pastes
           // as if it were document content. The hidden <img> sibling stays
           // in the clone and carries the authored src (the walker's
           // error-slot un-hide pass drops the hidden attr from the clone).
           {...{ [OPT_OUT_ATTR]: 'true' }}
-          className="inline-flex max-w-full items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1 text-muted-foreground"
+          className="ok-image-error-placeholder box-border inline-grid max-w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1 text-muted-foreground"
         >
-          <ImageOff aria-hidden="true" className="size-3.5 shrink-0 opacity-70" />
-          <span className="text-xs font-medium">{t`Image failed to load`}</span>
-          {src ? (
-            <span className="max-w-[24ch] truncate font-mono text-xs opacity-70" title={src}>
-              {src}
-            </span>
-          ) : null}
+          <ImageOff aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 opacity-70" />
+          <span className="min-w-0">
+            <span className="ok-image-error-message block text-xs font-medium">{errorMessage}</span>
+            {src ? (
+              <span
+                className="ok-image-error-target block max-w-[24ch] truncate font-mono text-xs opacity-70"
+                title={src}
+              >
+                {src}
+              </span>
+            ) : null}
+          </span>
         </span>
       )}
     </span>

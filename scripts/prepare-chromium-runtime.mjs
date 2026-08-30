@@ -26,7 +26,7 @@ const electronRoot = dirname(require.resolve("electron/package.json"));
 const electronDist = join(electronRoot, "dist");
 const electronApp = join(electronDist, "Electron.app");
 
-// Electron 43 ships its downloader as the explicit `install-electron` binary
+// Electron ships its downloader as the explicit `install-electron` binary
 // instead of running it during package installation. Keep ordinary installs
 // small, but materialize the pinned runtime when a macOS package is prepared.
 if (!existsSync(electronApp)) {
