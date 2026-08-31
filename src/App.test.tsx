@@ -2748,7 +2748,7 @@ describe("project workspace", () => {
     expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
   });
 
-  it("routes agent paper, file, and review requests to their native surfaces", async () => {
+  it("routes agent paper, file, link, and review requests to their native surfaces", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -2830,6 +2830,27 @@ describe("project workspace", () => {
       "read_project_file",
       expect.objectContaining({ path: "notes/detailed distillation.md" }),
     ));
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: {
+          type: "synara:open-external",
+          url: "https://example.com/paper",
+        },
+      }));
+    });
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/paper"));
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:open-external", url: "javascript:alert(1)" },
+      }));
+    });
+    expect(openUrl).toHaveBeenCalledTimes(1);
 
     act(() => {
       window.dispatchEvent(new MessageEvent("message", {

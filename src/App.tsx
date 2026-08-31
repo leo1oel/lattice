@@ -6,7 +6,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
 import {
   bibliographyEntryLine,
@@ -459,6 +459,7 @@ const SYNARA_EMBED_READY = "synara:embed-ready";
 const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_OPEN_REVIEW = "synara:open-review";
 const SYNARA_OPEN_FILE = "synara:open-file";
+const SYNARA_OPEN_EXTERNAL = "synara:open-external";
 const SYNARA_SIDEBAR_MINIMUM = 310;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
@@ -1878,6 +1879,15 @@ function App() {
           projectRef.current?.root,
         );
         if (path) openMarkdownProjectPathRef.current(path);
+        return;
+      }
+      if (event.data?.type === SYNARA_OPEN_EXTERNAL) {
+        // WebKit does not hand an embedded frame's `_blank` navigation to the
+        // system browser. Keep that privileged operation in the host instead.
+        const url = typeof event.data.url === "string" ? event.data.url.trim() : "";
+        if (/^https?:\/\//i.test(url)) {
+          void openUrl(url).catch(() => undefined);
+        }
         return;
       }
       if (event.data?.type === SYNARA_OPEN_REVIEW) {
