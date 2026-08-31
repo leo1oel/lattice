@@ -158,6 +158,20 @@ export function pdfSelectionOverlayRect(
   };
 }
 
+function rangeInsideGlyph(range: Range, glyph: HTMLElement): Range | null {
+  if (!range.intersectsNode(glyph)) return null;
+  const glyphRange = document.createRange();
+  glyphRange.selectNodeContents(glyph);
+  const clipped = range.cloneRange();
+  if (clipped.compareBoundaryPoints(Range.START_TO_START, glyphRange) < 0) {
+    clipped.setStart(glyphRange.startContainer, glyphRange.startOffset);
+  }
+  if (clipped.compareBoundaryPoints(Range.END_TO_END, glyphRange) > 0) {
+    clipped.setEnd(glyphRange.endContainer, glyphRange.endOffset);
+  }
+  return clipped.collapsed ? null : clipped;
+}
+
 function paintSelectionOverlays(selection: Selection | null) {
   clearSelectionOverlays();
   if (!selection || selection.isCollapsed || selectionIsCopyField(selection)) return;
@@ -167,17 +181,24 @@ function paintSelectionOverlays(selection: Selection | null) {
     for (let index = 0; index < selection.rangeCount; index += 1) {
       const range = selection.getRangeAt(index);
       if (!range.intersectsNode(textLayer)) continue;
-      for (const rect of range.getClientRects()) {
-        if (rect.width < 0.5 || rect.height < 0.5) continue;
-        const overlay = pdfSelectionOverlayRect(rect);
-        const mark = document.createElement("div");
-        mark.className = "pdf-sel-rect";
-        mark.setAttribute("aria-hidden", "true");
-        mark.style.left = `${overlay.left - origin.left}px`;
-        mark.style.top = `${overlay.top - origin.top}px`;
-        mark.style.width = `${overlay.width}px`;
-        mark.style.height = `${overlay.height}px`;
-        textLayer.append(mark);
+      // WebKit includes PDF.js's full-page endOfContent sentinel in the range
+      // rectangle list. Measure each selected glyph separately so an internal
+      // clipping node can never become a page-sized visual highlight.
+      for (const glyph of textLayer.querySelectorAll<HTMLElement>("span:not(.markedContent)")) {
+        const clipped = rangeInsideGlyph(range, glyph);
+        if (!clipped) continue;
+        for (const rect of clipped.getClientRects()) {
+          if (rect.width < 0.5 || rect.height < 0.5) continue;
+          const overlay = pdfSelectionOverlayRect(rect);
+          const mark = document.createElement("div");
+          mark.className = "pdf-sel-rect";
+          mark.setAttribute("aria-hidden", "true");
+          mark.style.left = `${overlay.left - origin.left}px`;
+          mark.style.top = `${overlay.top - origin.top}px`;
+          mark.style.width = `${overlay.width}px`;
+          mark.style.height = `${overlay.height}px`;
+          textLayer.append(mark);
+        }
       }
     }
   }
@@ -224,7 +245,10 @@ function disarmPdfCopyField() {
 /** Drop a PDF text-layer range. Leaves an editor-only selection alone. */
 export function clearPdfTextSelection() {
   const selection = document.getSelection();
-  if (selectionIntersectsPdf(selection)) selection?.removeAllRanges();
+  const selectionOwnedByPdf =
+    selectionIntersectsPdf(selection) || selectionIsCopyField(selection);
+  const hadPdfSelection = selectionOwnedByPdf || Boolean(lastPdfCopyText);
+  if (selectionOwnedByPdf) selection?.removeAllRanges();
   previousRange = null;
   lastPdfCopyText = "";
   clearSelectionOverlays();
@@ -233,6 +257,10 @@ export function clearPdfTextSelection() {
     resetLayer(textLayer, endOfContent);
     textLayer.classList.remove("has-selection");
   }
+  // WebKit parks a completed PDF drag in the hidden copy field and does not
+  // reliably publish the programmatic clear. Notify PdfViewer so its Agent
+  // context cannot retain text after the visible highlight is gone.
+  if (hadPdfSelection) document.dispatchEvent(new Event("selectionchange"));
 }
 
 function blurEditableFocus() {

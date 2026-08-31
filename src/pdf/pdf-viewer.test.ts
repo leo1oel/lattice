@@ -10,10 +10,10 @@ import {
   pdfPageWindow,
   PdfCooperativeRenderQueue,
   PdfRenderQueue,
-  PDF_CHROMIUM_MAX_CANVAS_PIXELS,
+  PDF_BROWSER_MAX_CANVAS_PIXELS,
   PDF_MAX_CANVAS_PIXELS,
   PDF_RENDER_PRIORITY,
-  pdfChromiumRenderPixelRatio,
+  pdfBrowserRenderPixelRatio,
   pdfRenderPixelRatio,
   updatePdfRenderCache,
 } from "./pdf-viewer-utils";
@@ -305,28 +305,26 @@ describe("PDF viewer helpers", () => {
       .toBeCloseTo(Math.sqrt((2 ** 24) / 36_000_000));
   });
 
-  it("matches Chromium's direct device-scale PDF rendering policy", () => {
-    expect(pdfChromiumRenderPixelRatio(1)).toBe(1);
-    expect(pdfChromiumRenderPixelRatio(1.5)).toBe(1.5);
-    expect(pdfChromiumRenderPixelRatio(2)).toBe(2);
-    expect(pdfChromiumRenderPixelRatio(3)).toBe(3);
-    expect(PDF_CHROMIUM_MAX_CANVAS_PIXELS).toBe(2 ** 25);
-    expect(pdfChromiumRenderPixelRatio(2, { width: 6_000, height: 6_000 }))
+  it("matches the desktop browser's direct device-scale PDF rendering policy", () => {
+    expect(pdfBrowserRenderPixelRatio(1)).toBe(1);
+    expect(pdfBrowserRenderPixelRatio(1.5)).toBe(1.5);
+    expect(pdfBrowserRenderPixelRatio(2)).toBe(2);
+    expect(pdfBrowserRenderPixelRatio(3)).toBe(3);
+    expect(PDF_BROWSER_MAX_CANVAS_PIXELS).toBe(2 ** 25);
+    expect(pdfBrowserRenderPixelRatio(2, { width: 6_000, height: 6_000 }))
       .toBeCloseTo(Math.sqrt((2 ** 25) / 36_000_000));
   });
 
   it("bounds rendered PDF pages while retaining every page near the viewport", () => {
-    const nearby = new Set([10, 11]);
     expect(updatePdfRenderCache(
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      nearby,
-      11,
-      true,
+      [8, 9, 10, 11],
     )).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-    expect(updatePdfRenderCache([8, 9, 10, 11], nearby, 10, true))
-      .toEqual([8, 9, 11, 10]);
-    expect(updatePdfRenderCache([8, 9, 10, 11], new Set([8, 9, 10]), 11, false, 3))
+    expect(updatePdfRenderCache([8, 9, 10, 11], [9, 10], 4))
+      .toEqual([8, 11, 9, 10]);
+    expect(updatePdfRenderCache([8, 9, 10, 11], [8, 9, 10], 3))
       .toEqual([8, 9, 10]);
+    expect(updatePdfRenderCache([1, 2], [3, 4], 0)).toEqual([]);
   });
 
   it("computes fit-to-width and fit-to-height scales", () => {

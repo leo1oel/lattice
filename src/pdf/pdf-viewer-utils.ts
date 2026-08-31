@@ -152,8 +152,8 @@ export function closestPdfPageIndex(
 export const PDF_MIN_SCALE = 0.3;
 export const PDF_MAX_SCALE = 5;
 export const PDF_MAX_CANVAS_PIXELS = 2 ** 24;
-/** Match PDF.js's desktop viewer cap when the bundled Chromium owns rendering. */
-export const PDF_CHROMIUM_MAX_CANVAS_PIXELS = 2 ** 25;
+/** Match PDF.js's default desktop-browser canvas cap. */
+export const PDF_BROWSER_MAX_CANVAS_PIXELS = 2 ** 25;
 const PDF_MAX_CONCURRENT_RENDERS = 2;
 
 export const PDF_RENDER_PRIORITY = {
@@ -377,25 +377,24 @@ export class PdfCooperativeRenderQueue {
 }
 
 /**
- * Keep expensive rendered pages in recency order while protecting every page
- * near the viewport. Page shells remain mounted, so eviction does not disturb
- * continuous scrolling.
+ * Keep expensive rendered pages in recency order while protecting the whole
+ * viewport window. Lightweight page shells stay mounted independently, so
+ * cache eviction does not disturb continuous-document geometry.
  */
 export function updatePdfRenderCache(
   cachedPages: number[],
-  nearbyPages: ReadonlySet<number>,
-  page: number,
-  isNearby: boolean,
+  nearbyPages: readonly number[],
   limit = PDF_RENDER_CACHE_SIZE,
 ): number[] {
-  const next = cachedPages.filter((cached) => cached !== page);
-  if (isNearby || cachedPages.includes(page)) next.push(page);
-  while (next.length > limit) {
-    const evict = next.findIndex((cached) => !nearbyPages.has(cached));
-    if (evict < 0) break;
-    next.splice(evict, 1);
-  }
-  return next;
+  if (limit <= 0) return [];
+  const nearby = Array.from(new Set(nearbyPages)).slice(0, limit);
+  const nearbySet = new Set(nearby);
+  const retained = cachedPages.filter((page) => !nearbySet.has(page));
+  const retainedCount = limit - nearby.length;
+  return [
+    ...(retainedCount > 0 ? retained.slice(-retainedCount) : []),
+    ...nearby,
+  ];
 }
 
 /** Turn a directly entered percentage into the viewer's bounded scale. */
@@ -417,11 +416,11 @@ function cappedPdfPixelRatio(
   return Math.min(preferred, areaLimit);
 }
 
-/** Chromium's PDF.js viewer policy: render once at device scale, with an area cap. */
-export function pdfChromiumRenderPixelRatio(
+/** PDF.js desktop-browser policy: render once at device scale, with an area cap. */
+export function pdfBrowserRenderPixelRatio(
   devicePixelRatio = 1,
   page?: PdfPageSize,
-  maxCanvasPixels = PDF_CHROMIUM_MAX_CANVAS_PIXELS,
+  maxCanvasPixels = PDF_BROWSER_MAX_CANVAS_PIXELS,
 ): number {
   const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
   return cappedPdfPixelRatio(dpr, page, maxCanvasPixels);

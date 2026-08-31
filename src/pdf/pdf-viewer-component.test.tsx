@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PdfPreview } from "./pdf-viewer";
 
@@ -6,7 +6,7 @@ const pdfJs = vi.hoisted(() => ({
   getDocument: vi.fn(),
 }));
 const browserRuntime = vi.hoisted(() => ({
-  bundledChromium: false,
+  hosted: false,
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 vi.mock("../platform/browser-runtime", () => ({
-  isBundledChromium: () => browserRuntime.bundledChromium,
+  isBrowserHosted: () => browserRuntime.hosted,
 }));
 
 vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
@@ -26,16 +26,16 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   getDocument: pdfJs.getDocument,
 }));
 
-function mockSinglePageDocument() {
-  const renderPage = vi.fn((_context: {
+function mockDocument(numPages = 1) {
+  const renderPages = Array.from({ length: numPages }, () => vi.fn((_context: {
     transform?: number[];
     viewport: { width: number; height: number };
   }) => ({
     cancel: vi.fn(),
     onContinue: undefined as ((continuation: () => void) => void) | undefined,
     promise: Promise.resolve(),
-  }));
-  const page = {
+  })));
+  const pages = renderPages.map((renderPage) => ({
     cleanup: vi.fn(),
     getAnnotations: vi.fn(async () => []),
     getViewport: vi.fn(({ scale }: { scale: number }) => ({
@@ -45,24 +45,24 @@ function mockSinglePageDocument() {
     })),
     render: renderPage,
     streamTextContent: vi.fn(() => ({})),
-  };
+  }));
   const documentProxy = {
     cleanup: vi.fn(),
     getData: vi.fn(async () => new Uint8Array([1, 2, 3])),
-    getPage: vi.fn(async () => page),
-    numPages: 1,
+    getPage: vi.fn(async (pageNumber: number) => pages[pageNumber - 1]),
+    numPages,
   };
   const destroy = vi.fn(async () => undefined);
   pdfJs.getDocument.mockReturnValue({
     destroy,
     promise: Promise.resolve(documentProxy),
   });
-  return { documentProxy, page, renderPage };
+  return { documentProxy, renderPage: renderPages[0], renderPages };
 }
 
 describe("PDF viewer controls", () => {
   beforeEach(() => {
-    browserRuntime.bundledChromium = false;
+    browserRuntime.hosted = false;
     pdfJs.getDocument.mockReset();
     localStorage.clear();
   });
@@ -126,9 +126,9 @@ describe("PDF viewer controls", () => {
     expect(onViewState).not.toHaveBeenCalled();
   });
 
-  it("renders bundled Chromium's first paint at target DPI without a refinement pass", async () => {
-    browserRuntime.bundledChromium = true;
-    const { renderPage } = mockSinglePageDocument();
+  it("renders a browser-hosted first paint at target DPI without a refinement pass", async () => {
+    browserRuntime.hosted = true;
+    const { renderPage } = mockDocument();
     const pixelRatio = vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
     const view = render(
       <PdfPreview
@@ -153,7 +153,7 @@ describe("PDF viewer controls", () => {
   });
 
   it("retains the progressive low-DPI fallback in WKWebView", async () => {
-    const { renderPage } = mockSinglePageDocument();
+    const { renderPage } = mockDocument();
     const pixelRatio = vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
     const view = render(
       <PdfPreview
@@ -175,6 +175,39 @@ describe("PDF viewer controls", () => {
     });
 
     pixelRatio.mockRestore();
+    view.unmount();
+  });
+
+  it("keeps a recently rendered page mounted across viewport-window changes", async () => {
+    browserRuntime.hosted = true;
+    const { renderPages } = mockDocument(12);
+    const view = render(
+      <PdfPreview
+        url={null}
+        pdfBase64={null}
+        pdfBytes={new ArrayBuffer(8)}
+        initialViewState={{ page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 }}
+      />,
+    );
+
+    await waitFor(() => expect(renderPages[0]).toHaveBeenCalledOnce());
+    const firstPageCanvas = view.container.querySelector('[data-pdf-page="1"] canvas');
+    expect(firstPageCanvas).not.toBeNull();
+    const pageInput = view.getByRole("textbox", { name: "PDF page number" });
+
+    fireEvent.focus(pageInput);
+    fireEvent.change(pageInput, { target: { value: "11" } });
+    fireEvent.blur(pageInput);
+    await waitFor(() => expect(renderPages[10]).toHaveBeenCalledOnce());
+    expect(view.container.querySelectorAll(".pdf-page-content")).toHaveLength(10);
+    expect(view.container.querySelector('[data-pdf-page="1"] canvas')).toBe(firstPageCanvas);
+
+    fireEvent.focus(pageInput);
+    fireEvent.change(pageInput, { target: { value: "1" } });
+    fireEvent.blur(pageInput);
+    await waitFor(() => expect(pageInput).toHaveValue("1"));
+    expect(view.container.querySelector('[data-pdf-page="1"] canvas')).toBe(firstPageCanvas);
+    expect(renderPages[0]).toHaveBeenCalledOnce();
     view.unmount();
   });
 });

@@ -99,6 +99,74 @@ describe("PDF text-layer selection clipping", () => {
     placeEndOfContentForRange(range, null, layers);
     expect(spans[0]!.nextSibling).toBe(end);
   });
+
+  it("does not paint WebKit's page-sized range rectangle as selected text", () => {
+    const { layer, spans } = glyphLayer("Hello", "world");
+    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 50, bottom: 22 });
+    mockGlyphBox(spans[1]!, { left: 55, top: 10, right: 95, bottom: 22 });
+    layer.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 600,
+      bottom: 800,
+      width: 600,
+      height: 800,
+      x: 0,
+      y: 0,
+      toJSON() { return this; },
+    }) as DOMRect;
+    const originalGetClientRects = Range.prototype.getClientRects;
+    Object.defineProperty(Range.prototype, "getClientRects", {
+      configurable: true,
+      value(this: Range) {
+        const text = this.cloneContents().textContent ?? "";
+        if (text === "elloworl") {
+          return [{ left: 0, top: 0, width: 600, height: 800 }] as unknown as DOMRectList;
+        }
+        if (text === "ello") {
+          return [{ left: 18, top: 10, width: 32, height: 12 }] as unknown as DOMRectList;
+        }
+        if (text === "worl") {
+          return [{ left: 55, top: 10, width: 32, height: 12 }] as unknown as DOMRectList;
+        }
+        return [] as unknown as DOMRectList;
+      },
+    });
+    const uninstall = installPdfTextLayerSelection(layer);
+    try {
+      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: 20,
+        clientY: 16,
+      }));
+      const range = document.createRange();
+      range.setStart(spans[0]!.firstChild!, 1);
+      range.setEnd(spans[1]!.firstChild!, 4);
+      document.getSelection()?.removeAllRanges();
+      document.getSelection()?.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+
+      const overlays = Array.from(layer.querySelectorAll<HTMLElement>(".pdf-sel-rect"));
+      expect(overlays).toHaveLength(2);
+      expect(overlays.map((overlay) => ({
+        left: overlay.style.left,
+        top: overlay.style.top,
+        width: overlay.style.width,
+        height: overlay.style.height,
+      }))).toEqual([
+        { left: "18px", top: "10px", width: "32px", height: "12px" },
+        { left: "55px", top: "10px", width: "32px", height: "12px" },
+      ]);
+    } finally {
+      uninstall();
+      Object.defineProperty(Range.prototype, "getClientRects", {
+        configurable: true,
+        value: originalGetClientRects,
+      });
+    }
+  });
 });
 
 describe("PDF text-layer selection styles", () => {
@@ -366,16 +434,32 @@ describe("PDF empty-page clicks", () => {
     expect(isVisualPdfGlyphEvent({ target: spans[0]!, clientX: 200, clientY: 16 })).toBe(false);
   });
 
-  it("clears a PDF selection on the first click in empty page space", () => {
+  it("publishes the cleared selection on the first click after a completed PDF drag", () => {
     const { layer, spans } = glyphLayer("Hello");
     mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 40, bottom: 22 });
     const uninstall = installPdfTextLayerSelection(layer);
     try {
+      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: 20,
+        clientY: 16,
+      }));
       const range = document.createRange();
       range.selectNodeContents(spans[0]!);
       document.getSelection()?.removeAllRanges();
       document.getSelection()?.addRange(range);
-      layer.classList.add("has-selection");
+      document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+
+      let reportedSelection = "Hello";
+      const reportSelection = () => {
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+          reportedSelection = "";
+        }
+      };
+      document.addEventListener("selectionchange", reportSelection);
       const canvas = document.createElement("canvas");
       document.body.append(canvas);
       canvas.dispatchEvent(new PointerEvent("pointerdown", {
@@ -385,7 +469,10 @@ describe("PDF empty-page clicks", () => {
         clientX: 8,
         clientY: 8,
       }));
+      document.removeEventListener("selectionchange", reportSelection);
+
       expect(document.getSelection()?.isCollapsed).toBe(true);
+      expect(reportedSelection).toBe("");
       expect(layer.classList.contains("has-selection")).toBe(false);
       expect(layer.classList.contains("selecting")).toBe(false);
     } finally {

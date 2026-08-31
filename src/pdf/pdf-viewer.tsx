@@ -55,13 +55,14 @@ import {
   pdfPageWindow,
   PdfCooperativeRenderQueue,
   PdfRenderQueue,
-  pdfChromiumRenderPixelRatio,
+  pdfBrowserRenderPixelRatio,
   pdfRenderPixelRatio,
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
   PDF_MIN_SCALE,
   PDF_RENDER_PRIORITY,
   PDF_STANDARD_FONT_DATA_URL,
+  updatePdfRenderCache,
   type PdfPageSize,
   type PdfRenderCancellation,
 } from "./pdf-viewer-utils";
@@ -69,7 +70,7 @@ import "./pdf-viewer.css";
 import { logAction, notifyError } from "../telemetry/app-notify";
 import type { PdfFileViewState } from "../app-types";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
-import { isBundledChromium } from "../platform/browser-runtime";
+import { isBrowserHosted } from "../platform/browser-runtime";
 
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
@@ -448,8 +449,9 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   pageNumber,
   scale,
   current,
+  nearby,
   scrolling,
-  bundledChromium,
+  browserHosted,
   pageAcquireQueue,
   renderQueue,
   searchQuery,
@@ -464,8 +466,9 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   pageNumber: number;
   scale: number;
   current: boolean;
+  nearby: boolean;
   scrolling: boolean;
-  bundledChromium: boolean;
+  browserHosted: boolean;
   pageAcquireQueue: PdfRenderQueue;
   renderQueue: PdfCooperativeRenderQueue;
   searchQuery: string;
@@ -482,27 +485,30 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>([]);
-  // Inactive canvases are cleared to release their backing stores. Keep their
-  // next activation in loading state so a fast scroll never exposes that zero-
-  // sized canvas while its queued render is waiting to start.
+  // Cached canvases stay intact so revisiting a recent page is compositor-only.
+  // A newly mounted page starts behind a skeleton until its first frame lands.
   const [rendering, setRendering] = useState(true);
   const [previewScale, setPreviewScale] = useState<number | null>(null);
   const [refinedScale, setRefinedScale] = useState<number | null>(null);
   const [textLayerVersion, setTextLayerVersion] = useState(0);
   const [pageError, setPageError] = useState("");
-  const initialPriority = current ? PDF_RENDER_PRIORITY.current : PDF_RENDER_PRIORITY.nearby;
+  const initialPriority = current
+    ? PDF_RENDER_PRIORITY.current
+    : nearby ? PDF_RENDER_PRIORITY.nearby : PDF_RENDER_PRIORITY.cached;
   const priorityRef = useRef(initialPriority);
   const acquireJobRef = useRef<PdfRenderCancellation | null>(null);
   const previewJobRef = useRef<PdfRenderCancellation | null>(null);
   const refinementJobRef = useRef<PdfRenderCancellation | null>(null);
 
   useEffect(() => {
-    const priority = current ? PDF_RENDER_PRIORITY.current : PDF_RENDER_PRIORITY.nearby;
+    const priority = current
+      ? PDF_RENDER_PRIORITY.current
+      : nearby ? PDF_RENDER_PRIORITY.nearby : PDF_RENDER_PRIORITY.cached;
     priorityRef.current = priority;
     acquireJobRef.current?.setPriority(priority);
     previewJobRef.current?.setPriority(PDF_PREVIEW_PRIORITY_OFFSET + priority);
     refinementJobRef.current?.setPriority(priority);
-  }, [current]);
+  }, [current, nearby]);
 
   useEffect(() => {
     if (page) return;
@@ -544,13 +550,13 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
     let textLayer: TextLayer | null = null;
     let uninstallTextSelection: (() => void) | null = null;
     const cssViewport = page.getViewport({ scale });
-    const fullPixelRatio = bundledChromium
-      ? pdfChromiumRenderPixelRatio(window.devicePixelRatio || 1, cssViewport)
+    const fullPixelRatio = browserHosted
+      ? pdfBrowserRenderPixelRatio(window.devicePixelRatio || 1, cssViewport)
       : pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
-    // Chromium follows the PDF.js desktop viewer and paints once at output
-    // scale. WK keeps the progressive first paint that avoids scroll stalls on
-    // the fallback renderer.
-    const previewPixelRatio = bundledChromium ? fullPixelRatio : Math.min(1, fullPixelRatio);
+    // Browser-hosted renderers follow the PDF.js desktop viewer and paint once
+    // at output scale. Native WK keeps the progressive first paint that avoids
+    // scroll stalls on the fallback renderer.
+    const previewPixelRatio = browserHosted ? fullPixelRatio : Math.min(1, fullPixelRatio);
     const cancelQueuedPreview = renderQueue.enqueue(async (onContinue) => {
       if (!alive) return;
       const completed = await renderContinuousPagePreview({
@@ -591,11 +597,12 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       uninstallTextSelection = null;
       cancelContinuousPageWork(previewTask, textLayer);
     };
-  }, [bundledChromium, onTextLayerText, page, pageNumber, renderQueue, scale]);
+  }, [browserHosted, onTextLayerText, page, pageNumber, renderQueue, scale]);
 
   useEffect(() => {
     if (
-      bundledChromium
+      browserHosted
+      || (!current && !nearby)
       || scrolling
       || previewScale !== scale
       || refinedScale === scale
@@ -634,7 +641,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       cancelQueuedRefinement();
       if (!refinementSettled) cancelContinuousPageWork(refinementTask, null);
     };
-  }, [bundledChromium, current, page, previewScale, refinedScale, renderQueue, scale, scrolling]);
+  }, [browserHosted, current, nearby, page, previewScale, refinedScale, renderQueue, scale, scrolling]);
 
   useEffect(() => {
     const container = textLayerRef.current;
@@ -766,7 +773,7 @@ export function PdfPreview({
   toolbarEnd?: ReactNode;
 }) {
   const { t } = useLingui();
-  const bundledChromium = isBundledChromium();
+  const browserHosted = isBrowserHosted();
   const effectiveSaveLabel = saveLabel ?? t`Save PDF as…`;
   const effectiveTimeoutMessage = timeoutMessage ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`;
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -822,7 +829,31 @@ export function PdfPreview({
   useLayoutEffect(() => {
     pageGeometryRef.current = pageGeometry;
   }, [pageGeometry]);
-  const [mountedPageWindow, setMountedPageWindow] = useState({ start: 0, end: 1 });
+  const [pageRenderState, setPageRenderState] = useState({
+    cached: [1],
+    nearby: { start: 0, end: 1 },
+  });
+  const updatePageRenderWindow = useCallback((
+    nearby: { start: number; end: number },
+    focusPage: number,
+  ) => {
+    const nearbyPages = Array.from(
+      { length: nearby.end - nearby.start },
+      (_, index) => nearby.start + index + 1,
+    );
+    const focusIndex = nearbyPages.indexOf(focusPage);
+    if (focusIndex >= 0) nearbyPages.push(...nearbyPages.splice(focusIndex, 1));
+    setPageRenderState((current) => {
+      const cached = updatePdfRenderCache(current.cached, nearbyPages);
+      if (
+        current.nearby.start === nearby.start
+        && current.nearby.end === nearby.end
+        && current.cached.length === cached.length
+        && current.cached.every((page, index) => page === cached[index])
+      ) return current;
+      return { cached, nearby };
+    });
+  }, []);
   const pendingGeometryAnchorRef = useRef<{ pageIndex: number; offset: number } | null>(null);
   // Canvas2D executes on the WebView thread. Keep one page painting at a time
   // so pre-rendering cannot contend with compositor scrolling; metadata/page
@@ -1131,9 +1162,21 @@ export function PdfPreview({
         const retainedPage = Math.min(pageNumberRef.current, pdf.numPages);
         documentProxyRef.current = pdf;
         const initialWindowStart = Math.max(0, Math.min(pdf.numPages - 10, retainedPage - 5));
-        setMountedPageWindow({
+        const initialWindow = {
           start: initialWindowStart,
           end: Math.min(pdf.numPages, initialWindowStart + 10),
+        };
+        const initialPages = Array.from(
+          { length: initialWindow.end - initialWindow.start },
+          (_, index) => initialWindow.start + index + 1,
+        );
+        const retainedPageIndex = initialPages.indexOf(retainedPage);
+        if (retainedPageIndex >= 0) {
+          initialPages.push(...initialPages.splice(retainedPageIndex, 1));
+        }
+        setPageRenderState({
+          cached: initialPages,
+          nearby: initialWindow,
         });
         setPageSizes(new Map());
         setDocumentGeneration((generation) => generation + 1);
@@ -1447,11 +1490,9 @@ export function PdfPreview({
         scrollArea.clientHeight,
         index,
       );
-      setMountedPageWindow((current) => (
-        current.start === nextWindow.start && current.end === nextWindow.end ? current : nextWindow
-      ));
+      updatePageRenderWindow(nextWindow, nextPage);
     }
-  }, [pageContentTop]);
+  }, [pageContentTop, updatePageRenderWindow]);
   const updateCurrentPage = useCallback(() => {
     scheduleViewState();
     if (!pdfScrollingRef.current) {
@@ -1490,19 +1531,19 @@ export function PdfPreview({
     const geometry = pageGeometryRef.current.pages[nextPage - 1];
     if (!scrollArea || !geometry) return;
     setPageNumber(nextPage);
-    setMountedPageWindow(pdfPageWindow(
+    updatePageRenderWindow(pdfPageWindow(
       pageGeometryRef.current.pages,
       geometry.top,
       scrollArea.clientHeight,
       nextPage - 1,
-    ));
+    ), nextPage);
     const top = Math.max(0, pageContentTop() + geometry.top - 20);
     if (typeof scrollArea.scrollTo === "function") {
       scrollArea.scrollTo({ top, behavior });
     } else {
       scrollArea.scrollTop = top;
     }
-  }, [pageContentTop]);
+  }, [pageContentTop, updatePageRenderWindow]);
 
   useEffect(() => {
     const requestedPage = initialViewStateSnapshot?.page ?? initialPage;
@@ -1770,7 +1811,8 @@ export function PdfPreview({
               : { transform: `scale(${zoomFactor})`, transformOrigin: "0 0" }}
           >{documentProxy && pages.map((page, index) => {
             const geometry = pageGeometry.pages[index];
-            const mounted = index >= mountedPageWindow.start && index < mountedPageWindow.end;
+            const nearby = index >= pageRenderState.nearby.start && index < pageRenderState.nearby.end;
+            const mounted = pageRenderState.cached.includes(page);
             return (
               <div
                 key={`${documentGeneration}:${page}`}
@@ -1784,8 +1826,9 @@ export function PdfPreview({
                     pageNumber={page}
                     scale={scale}
                     current={pageNumber === page}
+                    nearby={nearby}
                     scrolling={pdfScrolling}
-                    bundledChromium={bundledChromium}
+                    browserHosted={browserHosted}
                     pageAcquireQueue={pageAcquireQueue}
                     renderQueue={renderQueue}
                     searchQuery={searchQuery}
