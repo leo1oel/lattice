@@ -412,9 +412,11 @@ impl PresentationRuntime {
             // orphan behind after every Rust rebuild.
             .env("OPEN_SLIDE_PARENT_PIPE", "1")
             // Vite's dependency optimizer can otherwise retain several
-            // hundred MiB during its first Open Slide compile.
+            // hundred MiB during its first Open Slide compile. Keep a bounded
+            // heap, but leave enough headroom for a deck transform to overlap
+            // the optimizer's peak before the explicit idle collection runs.
             .env("GOMEMLIMIT", "64MiB")
-            .env("NODE_OPTIONS", "--max-old-space-size=128 --expose-gc")
+            .env("NODE_OPTIONS", "--max-old-space-size=1024 --expose-gc")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
