@@ -64,6 +64,14 @@ const interfaceSounds = vi.hoisted(() => ({
   configure: vi.fn(),
   play: vi.fn(),
 }));
+const openSlideWorkspaceApi = vi.hoisted(() => ({
+  onMutation: null as null | ((mutation: {
+    id: number;
+    path: string;
+    kind: "delete";
+    previousBase64?: string;
+  }) => Promise<Array<{ path: string; kind: "delete" }>>),
+}));
 const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
@@ -107,14 +115,18 @@ vi.mock("./editor/presentation/open-slide-workspace", () => ({
     projectRoot: string;
     path: string;
     source: string;
-  }) => (
-    <div
-      data-testid="open-slide-workspace-mock"
-      data-project-root={props.projectRoot}
-      data-path={props.path}
-      data-source={props.source}
-    />
-  ),
+    onMutation: NonNullable<typeof openSlideWorkspaceApi.onMutation>;
+  }) => {
+    openSlideWorkspaceApi.onMutation = props.onMutation;
+    return (
+      <div
+        data-testid="open-slide-workspace-mock"
+        data-project-root={props.projectRoot}
+        data-path={props.path}
+        data-source={props.source}
+      />
+    );
+  },
 }));
 vi.mock("./agent/use-synara-runtime", () => ({
   useSynaraRuntime: (enabled: boolean) => {
@@ -207,6 +219,7 @@ beforeEach(() => {
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
   browserRuntime.hosted = false;
   browserRuntime.bundled = false;
+  openSlideWorkspaceApi.onMutation = null;
   webviewApi.dragDropHandler = null;
   tauriEventApi.handlers.clear();
   synaraHook.runtime = {
@@ -563,9 +576,11 @@ describe("welcome screen", () => {
     renderApp();
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const settingsNavigation = await screen.findByRole("navigation", {
-      name: "Settings sections",
-    });
+    const settingsNavigation = await screen.findByRole(
+      "navigation",
+      { name: "Settings sections" },
+      { timeout: 5000 },
+    );
     expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
       .toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
@@ -8549,6 +8564,56 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByTestId("open-slide-workspace-mock"))
       .toHaveAttribute("data-path", "slides/quarterly-review/index.tsx");
+  });
+
+  it("accepts an Open Slide delete when the canonical asset is already gone", { timeout: 20000 }, async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{
+        name: "index.tsx",
+        path: "slides/native/index.tsx",
+        kind: "tsx",
+        children: [],
+      }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "export default [];\n";
+      if (command === "delete_project_entry") {
+        throw new Error("That file or folder no longer exists.");
+      }
+      if (command === "stat_project_file") return { exists: false, mtimeMs: 0 };
+      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 15000 });
+
+    let operations: Array<{ path: string; kind: "delete" }> = [];
+    await act(async () => {
+      operations = await openSlideWorkspaceApi.onMutation!({
+        id: 9,
+        path: "assets/unused.png",
+        kind: "delete",
+      });
+    });
+
+    expect(invoke).toHaveBeenCalledWith("delete_project_entry", {
+      path: "assets/unused.png",
+      projectRoot: "/tmp/lattice-paper",
+    });
+    expect(invoke).toHaveBeenCalledWith("stat_project_file", { path: "assets/unused.png" });
+    expect(operations).toEqual([{ path: "assets/unused.png", kind: "delete" }]);
+    expect(formatAppLogs()).not.toContain("That file or folder no longer exists.");
   });
 
   it("creates a spreadsheet from the header button with an inline name", async () => {

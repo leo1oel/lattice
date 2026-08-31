@@ -50,6 +50,8 @@ vi.mock("./canvas-lazy-modules", () => {
     projectRoot: string;
     path: string;
     source: string;
+    locale: "en" | "zh-CN";
+    theme: "light" | "dark";
     active?: boolean;
     editable?: boolean;
     onMutation: (mutation: {
@@ -65,6 +67,8 @@ vi.mock("./canvas-lazy-modules", () => {
       data-project-root={props.projectRoot}
       data-path={props.path}
       data-source={props.source}
+      data-locale={props.locale}
+      data-theme={props.theme}
       data-active={String(props.active ?? true)}
       data-editable={String(props.editable ?? true)}
     >
@@ -104,6 +108,8 @@ type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 function baseProps(): CanvasProps {
   return {
     projectRoot: "/tmp/project",
+    locale: "en",
+    theme: "light",
     mode: "source",
     source: "\\section{Intro}\n",
     activeFile: "main.tex",
@@ -379,12 +385,16 @@ describe("DocumentCanvas / editor for the open document", () => {
       mode: "source",
       activeFile: "slides/research-update/index.tsx",
       source: "export default [];\n",
+      locale: "zh-CN",
+      theme: "dark",
       onOpenSlideMutation,
     });
 
     const presentation = await screen.findByTestId("open-slide-workspace");
     expect(presentation.dataset.projectRoot).toBe("/tmp/project");
     expect(presentation.dataset.path).toBe("slides/research-update/index.tsx");
+    expect(presentation.dataset.locale).toBe("zh-CN");
+    expect(presentation.dataset.theme).toBe("dark");
     expect(sourceEditor(container)).toBeNull();
     fireEvent.click(screen.getByTestId("open-slide-mutation"));
     expect(onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({

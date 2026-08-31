@@ -337,6 +337,25 @@ mod realtime_generation_tests {
     }
 
     #[test]
+    fn only_authenticated_loopback_presenter_pages_can_open_popup_windows() {
+        let allowed: tauri::Url = "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter"
+            .parse()
+            .unwrap();
+        assert!(super::is_open_slide_presenter_url(&allowed));
+
+        for rejected in [
+            "https://example.com/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter",
+            "http://127.0.0.1:43123/__lattice/bootstrap?next=%2Fs%2Ftalk%2Fpresenter",
+            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk",
+            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fsettings",
+        ] {
+            assert!(!super::is_open_slide_presenter_url(
+                &rejected.parse().unwrap()
+            ));
+        }
+    }
+
+    #[test]
     fn a_delayed_project_action_cannot_move_to_the_new_project() {
         let root_a = PathBuf::from("/project/a");
 
@@ -846,6 +865,33 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
         .expect("an unused window label always exists")
 }
 
+// Presenter and projection synchronize through BroadcastChannel, so this must
+// remain a Wry child window sharing its opener's WebView configuration. An
+// external browser can load the notes but cannot stay linked to the slideshow.
+fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
+    if url.scheme() != "http"
+        || url.host_str() != Some("127.0.0.1")
+        || url.port().is_none()
+        || url.path() != "/__lattice/bootstrap"
+    {
+        return false;
+    }
+    let token = url
+        .query_pairs()
+        .find_map(|(key, value)| (key == "token").then_some(value));
+    let next = url
+        .query_pairs()
+        .find_map(|(key, value)| (key == "next").then_some(value));
+    let Some(deck_id) = next
+        .as_deref()
+        .and_then(|path| path.strip_prefix("/s/"))
+        .and_then(|path| path.strip_suffix("/presenter"))
+    else {
+        return false;
+    };
+    token.is_some_and(|value| !value.is_empty()) && !deck_id.is_empty() && !deck_id.contains('/')
+}
+
 fn build_project_window(
     app: &tauri::AppHandle,
     label: &str,
@@ -854,7 +900,14 @@ fn build_project_window(
         .title("Lattice")
         .inner_size(1440.0, 900.0)
         .min_inner_size(1222.0, 680.0)
-        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
+        .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
+        .on_new_window(|url, _| {
+            if is_open_slide_presenter_url(&url) {
+                tauri::webview::NewWindowResponse::Allow
+            } else {
+                tauri::webview::NewWindowResponse::Deny
+            }
+        });
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -4078,12 +4131,22 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    // The configured main window has `create: false` so this builder can
+    // install the same constrained popup policy as every project window.
     let builder =
         tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, tauri::WebviewUrl::default())
             .title("Lattice")
+            .center()
             .inner_size(1440.0, 900.0)
             .min_inner_size(1222.0, 680.0)
-            .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF));
+            .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
+            .on_new_window(|url, _| {
+                if is_open_slide_presenter_url(&url) {
+                    tauri::webview::NewWindowResponse::Allow
+                } else {
+                    tauri::webview::NewWindowResponse::Deny
+                }
+            });
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)

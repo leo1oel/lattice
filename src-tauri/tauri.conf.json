@@ -13,6 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "create": false,
         "title": "Lattice",
         "width": 1440,
         "height": 900,

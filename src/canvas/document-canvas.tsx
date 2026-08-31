@@ -90,6 +90,8 @@ import {
   persistSplitRatio,
   loadColumnsPdfRatio,
   persistColumnsPdfRatio,
+  type AppLocale,
+  type Theme,
 } from "../settings/app-settings";
 import {
   editorDiagnosticsForFile,
@@ -1168,6 +1170,8 @@ function useOptionalKeymapExtensions(
 
 export function DocumentCanvas(props: {
   projectRoot: string;
+  locale: AppLocale;
+  theme: Theme;
   mode: CanvasMode;
   dualPreviewPanes?: { primary: boolean; secondary: boolean };
   /** Whether some pane still holds an editor a PDF double-click can jump into. */
@@ -4009,6 +4013,8 @@ export function DocumentCanvas(props: {
           path={activeFile}
           source={props.source}
           editable={props.editorEditable}
+          locale={props.locale}
+          theme={props.theme}
           onMutation={props.onOpenSlideMutation}
           onContext={props.onOpenSlideContext}
           onError={props.onOpenSlideError}
@@ -4060,6 +4066,8 @@ export function DocumentCanvas(props: {
             path={secondaryFile}
             source={secondarySource}
             editable={props.secondaryEditorEditable}
+            locale={props.locale}
+            theme={props.theme}
             active={focusedPane === "secondary"}
             onMutation={props.onOpenSlideMutation}
             onContext={props.onOpenSlideContext}
@@ -4299,6 +4307,8 @@ export function DocumentCanvas(props: {
               path={activeFile}
               source={props.source}
               editable={props.editorEditable}
+              locale={props.locale}
+              theme={props.theme}
               active={focusedPane === "primary"}
               onMutation={props.onOpenSlideMutation}
               onContext={props.onOpenSlideContext}

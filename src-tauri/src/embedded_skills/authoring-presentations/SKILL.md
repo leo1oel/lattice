@@ -24,6 +24,12 @@ Lattice hosts Open Slide directly, so the deck source, editor, presenter mode, c
 - Do not edit another deck or shared assets unless the request requires it.
 - Preserve existing page order, notes, metadata, design tokens, transitions, and assets outside the requested change.
 
+Before creating a new deck, inspect markdown files under `themes/`.
+If the user names a theme, read its markdown end to end and treat its palette, typography, layout, fixed components, motion, and aesthetic constraints as authoritative.
+If themes exist but the user did not specify a visual direction, offer the relevant existing themes along with a custom design option.
+When applying a theme, copy its concrete design and components into the deck source and set `meta.theme` to the theme id so Open Slide can link the deck back to the theme.
+Theme files are authoring-time specifications, so an existing deck does not inherit later theme edits automatically.
+
 When the Lattice host context contains `presentation`, treat it as the live Open Slide cursor for the current turn.
 Use `presentation.pagePath`, `pageIndex`, and `pageNumber` to resolve references such as “this slide,” and use `presentation.selection.line` and `column` as the source handle for references such as “this heading.”
 Re-check the current host context on every turn that uses such a reference because the user can navigate or select another element between turns.
@@ -110,6 +116,9 @@ Keep the design object as a literal without spreads or helper calls so the Desig
 
 ## Use assets and native primitives
 
+Choose the asset scope separately for each new file, and preserve every existing asset's location and import specifier unless the user explicitly asks to reorganize assets.
+Do not copy project-root assets into a deck-local directory or rewrite unrelated `@assets/...` imports to `./assets/...` merely because the new asset is deck-local.
+
 Import deck-local assets as modules:
 
 ```tsx
@@ -123,6 +132,8 @@ Import a reusable global asset through the alias:
 ```tsx
 import logo from '@assets/logos/lattice.svg';
 ```
+
+To embed a deck-local HTML visualization, import only that HTML file with `?raw` and pass the resulting string to an iframe's `srcDoc`; leave existing image and media imports unchanged.
 
 Render mathematical notation with the KaTeX package bundled by Lattice.
 Open Slide does not interpret `$...$`, `\\(...\\)`, or a LaTeX string on its own, so never place raw LaTeX in JSX and expect it to typeset itself.

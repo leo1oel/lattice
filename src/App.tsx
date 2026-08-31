@@ -4246,7 +4246,19 @@ function App() {
       if (controller && shared && localMutations) {
         await controller.delete(mutation.path, localMutations);
       } else {
-        await invoke("delete_project_entry", { path: mutation.path, projectRoot });
+        try {
+          await invoke("delete_project_entry", { path: mutation.path, projectRoot });
+        } catch (reason) {
+          // The shadow watcher and native project watcher can report the same
+          // unlink concurrently. A missing canonical file already satisfies
+          // the requested delete, so acknowledge that echo instead of rolling
+          // it back into Open Slide and showing an error.
+          if (projectRef.current?.root !== projectRoot) throw reason;
+          const stat = await invoke<{ exists: boolean }>("stat_project_file", {
+            path: mutation.path,
+          }).catch(() => null);
+          if (stat?.exists !== false) throw reason;
+        }
       }
     } else if (mutation.text !== undefined) {
       const previous = mutation.previousText ?? "";
@@ -9285,6 +9297,8 @@ function App() {
           <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing editor`} />}>
           <DocumentCanvas
             projectRoot={project.root}
+            locale={appLocale}
+            theme={theme}
             mode={canvasMode}
             dualPreviewPanes={dualPreviewPanes}
             canRevealPdfSource={canRevealPdfSource}

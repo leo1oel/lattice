@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { deckIdFromOpenSlidePath } from "../../app-utils";
+import type { AppLocale, Theme } from "../../settings/app-settings";
 import {
   consumeOpenSlideEvents,
   type OpenSlideContext,
@@ -27,6 +28,8 @@ export type OpenSlideWorkspaceProps = {
   path: string;
   source: string;
   editable: boolean;
+  locale: AppLocale;
+  theme: Theme;
   active?: boolean;
   onMutation: (mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>;
   onContext?: (context: OpenSlideContext | null) => void;
@@ -77,6 +80,8 @@ export function OpenSlideWorkspace({
   path,
   source,
   editable,
+  locale,
+  theme,
   active = true,
   onMutation,
   onContext,
@@ -278,8 +283,10 @@ export function OpenSlideWorkspace({
     <div className="open-slide-workspace" data-tour="open-slide-workspace">
       <iframe
         className="open-slide-frame"
-        src={`${runtime.sessionUrl}${separator}next=${encodeURIComponent(next)}`}
+        src={`${runtime.sessionUrl}${separator}locale=${encodeURIComponent(locale)}&theme=${encodeURIComponent(theme)}&next=${encodeURIComponent(next)}`}
         title={t({ message: `Open Slide editor for ${deckId}` })}
+        allow="clipboard-write; fullscreen"
+        allowFullScreen
         sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation"
       />
     </div>

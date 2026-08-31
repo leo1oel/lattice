@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppLocale, Theme } from "../../settings/app-settings";
 import { OpenSlideWorkspace } from "./open-slide-workspace";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -31,13 +32,19 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function workspace(onContext?: React.ComponentProps<typeof OpenSlideWorkspace>["onContext"]) {
+function workspace(
+  onContext?: React.ComponentProps<typeof OpenSlideWorkspace>["onContext"],
+  theme: Theme = "light",
+  locale: AppLocale = "en",
+) {
   return (
     <OpenSlideWorkspace
       projectRoot="/tmp/project"
       path="slides/research-update/index.tsx"
       source="export default [];\n"
       editable
+      locale={locale}
+      theme={theme}
       onMutation={vi.fn(async () => [])}
       onContext={onContext}
     />
@@ -71,8 +78,10 @@ describe("OpenSlideWorkspace", () => {
     const frame = await screen.findByTitle("Open Slide editor for research-update");
     expect(frame).toHaveAttribute(
       "src",
-      `${runtime.sessionUrl}&next=%2Fs%2Fresearch-update`,
+      `${runtime.sessionUrl}&locale=en&theme=light&next=%2Fs%2Fresearch-update`,
     );
+    expect(frame).toHaveAttribute("allow", "clipboard-write; fullscreen");
+    expect(frame).toHaveAttribute("allowfullscreen");
     expect(frame.closest('[data-tour="open-slide-workspace"]')).not.toBeNull();
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
       `${runtime.origin}/__lattice/access`,
@@ -87,6 +96,15 @@ describe("OpenSlideWorkspace", () => {
       projectRoot: "/tmp/project",
       leaseId: runtime.leaseId,
     });
+  });
+
+  it("passes the Lattice language and resolved theme into the embedded editor", async () => {
+    render(workspace(undefined, "dark", "zh-CN"));
+
+    await waitFor(() => expect(document.querySelector("iframe")).toHaveAttribute(
+      "src",
+      `${runtime.sessionUrl}&locale=zh-CN&theme=dark&next=%2Fs%2Fresearch-update`,
+    ));
   });
 
   it("releases a lease that finishes starting after the workspace closes", async () => {
