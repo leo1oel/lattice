@@ -1157,7 +1157,12 @@ mod tests {
              (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.sty";
         assert!(!log_loads_conference_template(plain));
 
-        for style in ["neurips.sty", "icml2026.sty", "iclr2026_conference.sty"] {
+        for style in [
+            "neurips.sty",
+            "neurips_2026.sty",
+            "icml2026.sty",
+            "iclr2026_conference.sty",
+        ] {
             let log = format!("(./main.tex (./{style}\nPackage: whatever\n");
             assert!(
                 log_loads_conference_template(&log),
@@ -1170,7 +1175,12 @@ mod tests {
     fn does_not_send_users_to_tlmgr_for_conference_template_styles() {
         // NeurIPS/ICML/ICLR styles are not on CTAN; `tlmgr install neurips`
         // fails and strands the user (they "installed everything" already).
-        for sty in ["neurips.sty", "icml2026.sty", "iclr2026_conference.sty"] {
+        for sty in [
+            "neurips.sty",
+            "neurips_2026.sty",
+            "icml2026.sty",
+            "iclr2026_conference.sty",
+        ] {
             let diagnostics =
                 parse_diagnostics(&format!("! LaTeX Error: File `{sty}' not found.\n"));
             let hint = diagnostics

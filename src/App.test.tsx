@@ -394,8 +394,8 @@ describe("welcome screen", () => {
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
-    expect(screen.getByLabelText("Venue template")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /NeurIPS/i })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS");
+    expect(screen.getByText("Verified against the official 2026 style; creates a preprint draft")).toBeInTheDocument();
   });
 
   it("keeps duplicate project errors inside the creation dialog", async () => {
@@ -461,13 +461,16 @@ describe("welcome screen", () => {
       if (command === "open_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
+      if (command === "harper_lint") return [];
       if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
-    fireEvent.click(screen.getByRole("radio", { name: /ICML/i }));
+    const venuePicker = screen.getByRole("combobox", { name: "Venue template" });
+    fireEvent.keyDown(venuePicker, { key: "ArrowDown" });
+    fireEvent.click(screen.getByRole("option", { name: "ICML" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project", {
       parent: "/tmp/research",
@@ -479,6 +482,7 @@ describe("welcome screen", () => {
       projectRoot: "/tmp/research/New paper",
     })));
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
+    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });
 
   it("preserves a forced build queued behind an ordinary build", async () => {
@@ -8361,6 +8365,48 @@ describe("project workspace", () => {
     expect(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
       .toBeInTheDocument();
     expect(screen.queryByLabelText("Insert LaTeX snippets")).not.toBeInTheDocument();
+  });
+
+  it("localizes the project-file deletion confirmation", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "notes.tex",
+          path: "notes.tex",
+          kind: "text",
+          contentKind: "text",
+          children: [],
+        },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    await import("./project/navigator");
+    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    fireEvent.contextMenu(await findProjectTreeItem("notes.tex", 5_000));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAccessibleName("要从此项目中删除“notes.tex”吗？");
+    expect(dialog).toHaveAccessibleDescription("此操作无法撤销");
+    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
   it("creates and deletes project entries and imported papers", async () => {

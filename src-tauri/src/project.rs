@@ -511,14 +511,7 @@ fn venue_template_files(venue: Venue, title: &str) -> Vec<(&'static str, String)
                 "main.tex",
                 NEURIPS_2026_MAIN.replace("LATTICE_PROJECT_TITLE", title),
             ),
-            (
-                "neurips.sty",
-                NEURIPS_2026_STYLE.replacen(
-                    "\\ProvidesPackage{neurips_2026}",
-                    "\\ProvidesPackage{neurips}",
-                    1,
-                ),
-            ),
+            ("neurips_2026.sty", NEURIPS_2026_STYLE.to_string()),
         ],
         Venue::Icml => vec![
             (
@@ -8058,6 +8051,7 @@ mod tests {
             "placeholder must typeset at least one page: {placeholder:?}"
         );
         assert!(!root.join("neurips.sty").exists());
+        assert!(!root.join("neurips_2026.sty").exists());
         assert!(!root.join("icml2026.sty").exists());
         assert!(!root.join("iclr2026_conference.sty").exists());
         fs::remove_dir_all(parent).unwrap();
@@ -8071,11 +8065,14 @@ mod tests {
         let manifest = read_manifest(&root).unwrap();
         assert_eq!(manifest.venue, "neurips");
         assert!(source.contains("\\documentclass{article}"));
-        assert!(source.contains("\\usepackage[preprint]{neurips}"));
+        assert!(source.contains("\\usepackage[preprint]{neurips_2026}"));
         assert!(source.contains("\\bibliographystyle{plainnat}"));
         assert!(!source.contains("Formatting Instructions For NeurIPS 2026"));
-        assert!(root.join("neurips.sty").exists());
-        assert!(!root.join("neurips_2026.sty").exists());
+        assert_eq!(
+            fs::read_to_string(root.join("neurips_2026.sty")).unwrap(),
+            NEURIPS_2026_STYLE
+        );
+        assert!(!root.join("neurips.sty").exists());
         assert!(!root.join("arxiv.sty").exists());
         assert!(!root.join(".research/omp-sessions").exists());
         assert!(!root.join(".research/omp-session-map").exists());
@@ -8093,17 +8090,31 @@ mod tests {
         let icml_source = fs::read_to_string(icml.join("main.tex")).unwrap();
         assert_eq!(read_manifest(&icml).unwrap().venue, "icml");
         assert!(icml_source.contains("\\usepackage[preprint]{icml2026}"));
-        assert!(icml.join("icml2026.sty").exists());
-        assert!(icml.join("icml2026.bst").exists());
+        assert_eq!(
+            fs::read_to_string(icml.join("icml2026.sty")).unwrap(),
+            ICML_2026_STYLE
+        );
+        assert_eq!(
+            fs::read_to_string(icml.join("icml2026.bst")).unwrap(),
+            ICML_2026_BST
+        );
         assert!(!icml.join("neurips.sty").exists());
+        assert!(!icml.join("neurips_2026.sty").exists());
 
         let iclr = create_with_venue(&parent, "iclr-paper", Venue::Iclr).unwrap();
         let iclr_source = fs::read_to_string(iclr.join("main.tex")).unwrap();
         assert_eq!(read_manifest(&iclr).unwrap().venue, "iclr");
         assert!(iclr_source.contains("\\usepackage{iclr2026_conference,times}"));
-        assert!(iclr.join("iclr2026_conference.sty").exists());
-        assert!(iclr.join("iclr2026_conference.bst").exists());
+        assert_eq!(
+            fs::read_to_string(iclr.join("iclr2026_conference.sty")).unwrap(),
+            ICLR_2026_STYLE
+        );
+        assert_eq!(
+            fs::read_to_string(iclr.join("iclr2026_conference.bst")).unwrap(),
+            ICLR_2026_BST
+        );
         assert!(!iclr.join("neurips.sty").exists());
+        assert!(!iclr.join("neurips_2026.sty").exists());
         fs::remove_dir_all(parent).unwrap();
     }
 

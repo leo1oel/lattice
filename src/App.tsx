@@ -7335,9 +7335,14 @@ function App() {
     );
     const path = paths[0];
     const confirmation = paths.length === 1
-      ? `Delete “${path}” from this project?`
+      ? t({ message: `Delete “${{ path }}” from this project?` })
       : t({ message: `Delete ${{ count: paths.length }} selected items from this project?` });
-    if (!await confirmAction(confirmation)) return;
+    if (!await confirmAction({
+      title: confirmation,
+      message: t`This action cannot be undone.`,
+      confirmLabel: t`Delete`,
+      destructive: true,
+    })) return;
     try {
       for (const path of paths) {
         const v2 = collabV2ControllerRef.current;

@@ -1162,8 +1162,8 @@ msgstr "已创建"
 
 #. placeholder {0}: venue.label
 #: src/project/project-dialogs.tsx
-msgid "Creates a {0} preprint template with bibliography and project brief"
-msgstr "创建包含参考文献和项目简介的 {0} 预印本模板"
+msgid "Creates a {0} paper draft with bibliography and project brief"
+msgstr "创建一份采用 {0} 样式的论文草稿，并包含参考文献和项目简介"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Creating an invite…"
@@ -1217,12 +1217,17 @@ msgstr "默认"
 msgid "Degree"
 msgstr "度"
 
+#: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
 msgstr "删除"
+
+#: src/App.tsx
+msgid "Delete “{path}” from this project?"
+msgstr "要从此项目中删除“{path}”吗？"
 
 #: src/App.tsx
 msgid "Delete {count} selected items from this project?"
@@ -2867,14 +2872,6 @@ msgstr "编号的单行公式"
 msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
 msgstr "默认关闭。使用 Apple 内置的设备端模型，不下载、不上传"
 
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 conference style"
-msgstr "官方 2026 年会议样式"
-
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 style, preprint option"
-msgstr "官方 2026 年样式，包含预印本选项"
-
 #: src/collab/collab-status.ts
 msgid "Offline"
 msgstr "离线"
@@ -4483,6 +4480,7 @@ msgstr "在画板上进行可视化思考"
 msgid "Third-level heading"
 msgstr "三级标题"
 
+#: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
@@ -4810,6 +4808,14 @@ msgstr "会议模板"
 #: src/editor/insert/insert-snippets.ts
 msgid "Verbatim"
 msgstr "原样文本"
+
+#: src/project/project-dialogs.tsx
+msgid "Verified against the official 2026 conference style"
+msgstr "已与官方 2026 年会议样式核验"
+
+#: src/project/project-dialogs.tsx
+msgid "Verified against the official 2026 style; creates a preprint draft"
+msgstr "已与官方 2026 年样式核验；创建预印本草稿"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Verifying installation…"

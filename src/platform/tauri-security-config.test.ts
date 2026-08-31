@@ -36,6 +36,7 @@ const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 const browserHost = readFileSync("src-tauri/src/browser_host.rs", "utf8");
 const chromiumRuntime = readFileSync("src-tauri/src/chromium.rs", "utf8");
 const chromiumShell = readFileSync("scripts/chromium-shell.mjs", "utf8");
+const chromiumPrepare = readFileSync("scripts/prepare-chromium-runtime.mjs", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 
 describe("Tauri security boundary", () => {
@@ -160,6 +161,11 @@ describe("Tauri security boundary", () => {
     expect(chromiumShell).toContain("sandbox: true");
     expect(chromiumShell).toContain("contextIsolation: true");
     expect(chromiumShell).toContain("nodeIntegration: false");
+    expect(chromiumShell).toContain('from "./chromium-window-policy.mjs"');
+    expect(chromiumShell).toContain("if (presenterOptions) return presenterOptions");
+    expect(chromiumPrepare).toContain(
+      'join(appSource, "chromium-window-policy.mjs")',
+    );
   });
 
   it("gives loopback browser tabs the product icon", () => {

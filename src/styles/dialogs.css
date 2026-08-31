@@ -639,35 +639,10 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
-.venue-picker { margin: 14px 0 0; padding: 0; border: 0; display: grid; gap: var(--space-3); }
-.venue-picker legend { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
-/* Beat `.modal label { flex-direction: column }` so radio stays left of the copy. */
-.modal label.venue-option {
-  min-height: var(--row-height-comfortable);
-  margin: 0;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-surface);
-  background: var(--surface-app);
-  color: var(--text-primary);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: center;
-  font-size: inherit;
-  font-weight: inherit;
-  cursor: pointer;
-}
-.modal label.venue-option.active,
-.modal label.venue-option:hover {
-  border-color: var(--control-active-border);
-  background: var(--control-active-soft);
-}
-.modal label.venue-option input { margin: 0; }
-.modal label.venue-option strong,
-.modal label.venue-option small { display: block; }
-.modal label.venue-option strong { font-size: var(--type-label-size); font-weight: 650; }
-.modal label.venue-option small { margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 500; }
+.venue-picker { margin: var(--space-8) 0 0; display: grid; gap: var(--space-3); }
+.venue-picker-label { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
+.venue-picker-content { min-width: var(--radix-select-trigger-width); }
+.venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 500; line-height: var(--type-micro-line-height); }
 .modal-icon { width: 36px; height: 36px; border-radius: var(--radius-surface); display: grid; place-items: center; color: var(--control-active); background: var(--control-active-soft); }
 .modal h2 { margin: var(--space-8) 0 7px; font-size: var(--type-heading-size); text-wrap: balance; }
 .modal > p { margin: 0 0 var(--space-10); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.55; }

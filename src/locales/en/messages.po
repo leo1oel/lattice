@@ -1162,8 +1162,8 @@ msgstr "created"
 
 #. placeholder {0}: venue.label
 #: src/project/project-dialogs.tsx
-msgid "Creates a {0} preprint template with bibliography and project brief"
-msgstr "Creates a {0} preprint template with bibliography and project brief"
+msgid "Creates a {0} paper draft with bibliography and project brief"
+msgstr "Creates a {0} paper draft with bibliography and project brief"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Creating an invite…"
@@ -1217,12 +1217,17 @@ msgstr "Default"
 msgid "Degree"
 msgstr "Degree"
 
+#: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
 msgstr "Delete"
+
+#: src/App.tsx
+msgid "Delete “{path}” from this project?"
+msgstr "Delete “{path}” from this project?"
 
 #: src/App.tsx
 msgid "Delete {count} selected items from this project?"
@@ -2867,14 +2872,6 @@ msgstr "Numbered single-line equation"
 msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
 msgstr "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
 
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 conference style"
-msgstr "Official 2026 conference style"
-
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 style, preprint option"
-msgstr "Official 2026 style, preprint option"
-
 #: src/collab/collab-status.ts
 msgid "Offline"
 msgstr "Offline"
@@ -4487,6 +4484,7 @@ msgstr "Think visually on a board"
 msgid "Third-level heading"
 msgstr "Third-level heading"
 
+#: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
@@ -4814,6 +4812,14 @@ msgstr "Venue template"
 #: src/editor/insert/insert-snippets.ts
 msgid "Verbatim"
 msgstr "Verbatim"
+
+#: src/project/project-dialogs.tsx
+msgid "Verified against the official 2026 conference style"
+msgstr "Verified against the official 2026 conference style"
+
+#: src/project/project-dialogs.tsx
+msgid "Verified against the official 2026 style; creates a preprint draft"
+msgstr "Verified against the official 2026 style; creates a preprint draft"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Verifying installation…"

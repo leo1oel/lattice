@@ -4,6 +4,10 @@ import { createInterface } from "node:readline";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
+import {
+  isOpenSlidePresenterUrl,
+  openSlidePresenterWindowOptions,
+} from "./chromium-window-policy.mjs";
 
 const DEFAULT_ENTRY_URL = "http://127.0.0.1:18452/";
 const entryUrl = new URL(process.env.LATTICE_CHROMIUM_URL ?? DEFAULT_ENTRY_URL);
@@ -130,6 +134,29 @@ async function inspectRenderer(window) {
   );
 }
 
+function openExternalUrl(rawUrl) {
+  if (/^https?:/i.test(rawUrl)) void shell.openExternal(rawUrl);
+}
+
+function installPresenterWindowPolicy(window, initialUrl) {
+  const presenterOrigin = new URL(initialUrl).origin;
+  window.setMenuBarVisibility(false);
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalUrl(url);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, url) => {
+    try {
+      if (new URL(url).origin === presenterOrigin) return;
+    } catch {
+      // Malformed destinations are denied below.
+    }
+    event.preventDefault();
+    openExternalUrl(url);
+  });
+  window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+}
+
 async function createWindow(rawUrl) {
   const url = chromiumUrl(rawUrl);
   const requestedLabel = labelFromUrl(url);
@@ -152,13 +179,22 @@ async function createWindow(rawUrl) {
   });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
+    const presenterOptions = openSlidePresenterWindowOptions(url);
+    if (presenterOptions) return presenterOptions;
+    openExternalUrl(url);
     return { action: "deny" };
+  });
+  window.webContents.on("did-create-window", (presenterWindow, { url }) => {
+    if (!isOpenSlidePresenterUrl(url)) {
+      presenterWindow.destroy();
+      return;
+    }
+    installPresenterWindowPolicy(presenterWindow, url);
   });
   window.webContents.on("will-navigate", (event, url) => {
     if (isTrustedAppUrl(url)) return;
     event.preventDefault();
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
+    openExternalUrl(url);
   });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("did-finish-load", () => {

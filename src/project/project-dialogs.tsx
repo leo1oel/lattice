@@ -18,6 +18,13 @@ import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { Input } from "../components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -140,32 +147,33 @@ export function CreateProjectDialog(props: {
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>{t`Create a research project`}</h2>
         <p>
-          {t`Creates a ${venue.label} preprint template with bibliography and project brief`}
+          {t`Creates a ${venue.label} paper draft with bibliography and project brief`}
         </p>
         <label>
           {t`Project name`}
           <Input controlSize="form" autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
-        <fieldset className="venue-picker" aria-label={t`Venue template`}>
-          <legend>{t`Venue template`}</legend>
-          {PROJECT_VENUES.map((item) => (
-            <label key={item.id} className={`venue-option ${props.projectVenue === item.id ? "active" : ""}`}>
-              <input
-                type="radio"
-                name="project-venue"
-                value={item.id}
-                checked={props.projectVenue === item.id}
-                onChange={() => props.setProjectVenue(item.id)}
-              />
-              <span>
-                <strong>{item.label}</strong>
-                <small>{item.id === "iclr"
-                  ? t`Official 2026 conference style`
-                  : t`Official 2026 style, preprint option`}</small>
-              </span>
-            </label>
-          ))}
-        </fieldset>
+        <div className="venue-picker">
+          <span className="venue-picker-label">{t`Venue template`}</span>
+          <Select
+            value={props.projectVenue}
+            onValueChange={(value) => props.setProjectVenue(value as ProjectVenue)}
+          >
+            <SelectTrigger size="form" aria-label={t`Venue template`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="venue-picker-content" position="popper" align="start">
+              {PROJECT_VENUES.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <small className="venue-picker-detail">
+            {venue.id === "iclr"
+              ? t`Verified against the official 2026 conference style`
+              : t`Verified against the official 2026 style; creates a preprint draft`}
+          </small>
+        </div>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
