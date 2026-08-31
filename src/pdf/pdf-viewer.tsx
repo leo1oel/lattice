@@ -55,6 +55,7 @@ import {
   pdfPageWindow,
   PdfCooperativeRenderQueue,
   PdfRenderQueue,
+  pdfChromiumRenderPixelRatio,
   pdfRenderPixelRatio,
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
@@ -68,6 +69,7 @@ import "./pdf-viewer.css";
 import { logAction, notifyError } from "../telemetry/app-notify";
 import type { PdfFileViewState } from "../app-types";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
+import { isBundledChromium } from "../platform/browser-runtime";
 
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
@@ -270,19 +272,15 @@ type PdfPageViewport = ReturnType<PDFPageProxy["getViewport"]>;
 async function renderPdfPageCanvas(ctx: {
   page: PDFPageProxy;
   canvas: HTMLCanvasElement;
-  scale: number;
   pixelRatio: number;
   cssViewport: PdfPageViewport;
   holdRenderTask: (task: RenderTask) => void;
 }) {
-  const { page, canvas, scale, pixelRatio, cssViewport } = ctx;
-  const viewport = page.getViewport({ scale: scale * pixelRatio });
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
+  const { page, canvas, pixelRatio, cssViewport } = ctx;
+  canvas.width = Math.floor(cssViewport.width * pixelRatio);
+  canvas.height = Math.floor(cssViewport.height * pixelRatio);
   canvas.style.width = `${Math.floor(cssViewport.width)}px`;
   canvas.style.height = `${Math.floor(cssViewport.height)}px`;
-  // PDF pages are static frames. Let WKWebView synchronize the canvas with its
-  // compositor so a scroll cannot expose a partially committed bitmap.
   const context = canvas.getContext("2d", { alpha: false });
   if (context) {
     context.setTransform(1, 0, 0, 1, 0, 0);
@@ -292,11 +290,12 @@ async function renderPdfPageCanvas(ctx: {
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
   const renderTask = page.render({
-    // PDF.js 4.9 renders glyph commands directly into this 2D context. Keep
-    // this pre-Path2D glyph API: later PDF.js releases can complete without
-    // painting visible pixels in the WKWebView shipped with macOS 14.2.
     canvasContext: context as CanvasRenderingContext2D,
-    viewport,
+    // Match PDF.js's desktop viewer: keep layout in CSS-pixel coordinates and
+    // apply output scale at the canvas boundary. Chromium can then raster once
+    // at device resolution instead of painting and replacing a 1× bitmap.
+    transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
+    viewport: cssViewport,
     intent: "display",
   });
   ctx.holdRenderTask(renderTask);
@@ -304,9 +303,9 @@ async function renderPdfPageCanvas(ctx: {
 }
 
 /**
- * Produce a CSS-pixel preview first. Search, selection, links, and SyncTeX use
- * separate DOM layers, so they become available without waiting for the later
- * high-DPI refinement.
+ * Produce the first complete canvas. Chromium paints it directly at output
+ * scale; WKWebView paints a CSS-pixel preview and refines it after scrolling.
+ * Search, selection, links, and SyncTeX use separate DOM layers in both paths.
  */
 async function renderContinuousPagePreview(ctx: {
   page: PDFPageProxy;
@@ -348,7 +347,6 @@ async function renderContinuousPagePreview(ctx: {
     await renderPdfPageCanvas({
       page,
       canvas,
-      scale,
       pixelRatio,
       cssViewport,
       holdRenderTask: ctx.holdRenderTask,
@@ -408,7 +406,6 @@ async function refineContinuousPage(ctx: {
     await renderPdfPageCanvas({
       page: ctx.page,
       canvas: offscreen,
-      scale: ctx.scale,
       pixelRatio: ctx.pixelRatio,
       cssViewport,
       holdRenderTask: ctx.holdRenderTask,
@@ -452,6 +449,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   scale,
   current,
   scrolling,
+  bundledChromium,
   pageAcquireQueue,
   renderQueue,
   searchQuery,
@@ -467,6 +465,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
   scale: number;
   current: boolean;
   scrolling: boolean;
+  bundledChromium: boolean;
   pageAcquireQueue: PdfRenderQueue;
   renderQueue: PdfCooperativeRenderQueue;
   searchQuery: string;
@@ -545,8 +544,13 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
     let textLayer: TextLayer | null = null;
     let uninstallTextSelection: (() => void) | null = null;
     const cssViewport = page.getViewport({ scale });
-    const fullPixelRatio = pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
-    const previewPixelRatio = Math.min(1, fullPixelRatio);
+    const fullPixelRatio = bundledChromium
+      ? pdfChromiumRenderPixelRatio(window.devicePixelRatio || 1, cssViewport)
+      : pdfRenderPixelRatio(window.devicePixelRatio || 1, cssViewport);
+    // Chromium follows the PDF.js desktop viewer and paints once at output
+    // scale. WK keeps the progressive first paint that avoids scroll stalls on
+    // the fallback renderer.
+    const previewPixelRatio = bundledChromium ? fullPixelRatio : Math.min(1, fullPixelRatio);
     const cancelQueuedPreview = renderQueue.enqueue(async (onContinue) => {
       if (!alive) return;
       const completed = await renderContinuousPagePreview({
@@ -587,11 +591,12 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       uninstallTextSelection = null;
       cancelContinuousPageWork(previewTask, textLayer);
     };
-  }, [onTextLayerText, page, pageNumber, renderQueue, scale]);
+  }, [bundledChromium, onTextLayerText, page, pageNumber, renderQueue, scale]);
 
   useEffect(() => {
     if (
-      scrolling
+      bundledChromium
+      || scrolling
       || previewScale !== scale
       || refinedScale === scale
     ) return;
@@ -629,7 +634,7 @@ const ContinuousPdfPage = memo(function ContinuousPdfPage({
       cancelQueuedRefinement();
       if (!refinementSettled) cancelContinuousPageWork(refinementTask, null);
     };
-  }, [current, page, previewScale, refinedScale, renderQueue, scale, scrolling]);
+  }, [bundledChromium, current, page, previewScale, refinedScale, renderQueue, scale, scrolling]);
 
   useEffect(() => {
     const container = textLayerRef.current;
@@ -761,6 +766,7 @@ export function PdfPreview({
   toolbarEnd?: ReactNode;
 }) {
   const { t } = useLingui();
+  const bundledChromium = isBundledChromium();
   const effectiveSaveLabel = saveLabel ?? t`Save PDF as…`;
   const effectiveTimeoutMessage = timeoutMessage ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`;
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -1779,6 +1785,7 @@ export function PdfPreview({
                     scale={scale}
                     current={pageNumber === page}
                     scrolling={pdfScrolling}
+                    bundledChromium={bundledChromium}
                     pageAcquireQueue={pageAcquireQueue}
                     renderQueue={renderQueue}
                     searchQuery={searchQuery}

@@ -1,18 +1,72 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PdfPreview } from "./pdf-viewer";
+
+const pdfJs = vi.hoisted(() => ({
+  getDocument: vi.fn(),
+}));
+const browserRuntime = vi.hoisted(() => ({
+  bundledChromium: false,
+}));
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async () => () => undefined),
 }));
 
-vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
-  GlobalWorkerOptions: {},
-  TextLayer: class {},
-  getDocument: vi.fn(),
+vi.mock("../platform/browser-runtime", () => ({
+  isBundledChromium: () => browserRuntime.bundledChromium,
 }));
 
+vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
+  GlobalWorkerOptions: {},
+  TextLayer: class {
+    render = vi.fn(async () => undefined);
+    cancel = vi.fn();
+  },
+  getDocument: pdfJs.getDocument,
+}));
+
+function mockSinglePageDocument() {
+  const renderPage = vi.fn((_context: {
+    transform?: number[];
+    viewport: { width: number; height: number };
+  }) => ({
+    cancel: vi.fn(),
+    onContinue: undefined as ((continuation: () => void) => void) | undefined,
+    promise: Promise.resolve(),
+  }));
+  const page = {
+    cleanup: vi.fn(),
+    getAnnotations: vi.fn(async () => []),
+    getViewport: vi.fn(({ scale }: { scale: number }) => ({
+      width: 600 * scale,
+      height: 800 * scale,
+      convertToViewportPoint: (x: number, y: number) => [x * scale, y * scale],
+    })),
+    render: renderPage,
+    streamTextContent: vi.fn(() => ({})),
+  };
+  const documentProxy = {
+    cleanup: vi.fn(),
+    getData: vi.fn(async () => new Uint8Array([1, 2, 3])),
+    getPage: vi.fn(async () => page),
+    numPages: 1,
+  };
+  const destroy = vi.fn(async () => undefined);
+  pdfJs.getDocument.mockReturnValue({
+    destroy,
+    promise: Promise.resolve(documentProxy),
+  });
+  return { documentProxy, page, renderPage };
+}
+
 describe("PDF viewer controls", () => {
+  beforeEach(() => {
+    browserRuntime.bundledChromium = false;
+    pdfJs.getDocument.mockReset();
+    localStorage.clear();
+  });
+
   it("does not reserve an outline track when an outline component renders nothing", () => {
     const EmptyOutline = () => null;
     const view = render(
@@ -70,5 +124,57 @@ describe("PDF viewer controls", () => {
       .toEqual({ fitMode: null, scale: 1.75 });
     view.unmount();
     expect(onViewState).not.toHaveBeenCalled();
+  });
+
+  it("renders bundled Chromium's first paint at target DPI without a refinement pass", async () => {
+    browserRuntime.bundledChromium = true;
+    const { renderPage } = mockSinglePageDocument();
+    const pixelRatio = vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
+    const view = render(
+      <PdfPreview
+        url={null}
+        pdfBase64={null}
+        pdfBytes={new ArrayBuffer(8)}
+        initialViewState={{ page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 }}
+      />,
+    );
+
+    await waitFor(() => expect(renderPage).toHaveBeenCalledOnce());
+    expect(renderPage.mock.calls[0]?.[0]).toMatchObject({
+      transform: [2, 0, 0, 2, 0, 0],
+      viewport: { width: 600, height: 800 },
+    });
+    expect(view.container.querySelector("canvas")).toMatchObject({ width: 1_200, height: 1_600 });
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    expect(renderPage).toHaveBeenCalledOnce();
+
+    pixelRatio.mockRestore();
+    view.unmount();
+  });
+
+  it("retains the progressive low-DPI fallback in WKWebView", async () => {
+    const { renderPage } = mockSinglePageDocument();
+    const pixelRatio = vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
+    const view = render(
+      <PdfPreview
+        url={null}
+        pdfBase64={null}
+        pdfBytes={new ArrayBuffer(8)}
+        initialViewState={{ page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 }}
+      />,
+    );
+
+    await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(2));
+    expect(renderPage.mock.calls[0]?.[0]).toMatchObject({
+      viewport: { width: 600, height: 800 },
+    });
+    expect(renderPage.mock.calls[0]?.[0].transform).toBeUndefined();
+    expect(renderPage.mock.calls[1]?.[0]).toMatchObject({
+      transform: [2, 0, 0, 2, 0, 0],
+      viewport: { width: 600, height: 800 },
+    });
+
+    pixelRatio.mockRestore();
+    view.unmount();
   });
 });

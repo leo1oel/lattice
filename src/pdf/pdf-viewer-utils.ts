@@ -152,6 +152,8 @@ export function closestPdfPageIndex(
 export const PDF_MIN_SCALE = 0.3;
 export const PDF_MAX_SCALE = 5;
 export const PDF_MAX_CANVAS_PIXELS = 2 ** 24;
+/** Match PDF.js's desktop viewer cap when the bundled Chromium owns rendering. */
+export const PDF_CHROMIUM_MAX_CANVAS_PIXELS = 2 ** 25;
 const PDF_MAX_CONCURRENT_RENDERS = 2;
 
 export const PDF_RENDER_PRIORITY = {
@@ -403,9 +405,31 @@ export function parsePdfZoomPercent(value: string): number | null {
   return Math.min(PDF_MAX_SCALE, Math.max(PDF_MIN_SCALE, Number((percent / 100).toFixed(3))));
 }
 
+function cappedPdfPixelRatio(
+  preferred: number,
+  page: PdfPageSize | undefined,
+  maxCanvasPixels: number,
+): number {
+  if (!page || !(page.width > 0) || !(page.height > 0) || !(maxCanvasPixels > 0)) {
+    return preferred;
+  }
+  const areaLimit = Math.sqrt(maxCanvasPixels / (page.width * page.height));
+  return Math.min(preferred, areaLimit);
+}
+
+/** Chromium's PDF.js viewer policy: render once at device scale, with an area cap. */
+export function pdfChromiumRenderPixelRatio(
+  devicePixelRatio = 1,
+  page?: PdfPageSize,
+  maxCanvasPixels = PDF_CHROMIUM_MAX_CANVAS_PIXELS,
+): number {
+  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return cappedPdfPixelRatio(dpr, page, maxCanvasPixels);
+}
+
 /**
- * Canvas supersampling for pdf.js. Preview.app looks fine with Type1 Times;
- * WKWebView at devicePixelRatio=1 (common in VMs) needs extra scale or glyphs go soft.
+ * Canvas supersampling for the WKWebView fallback. Preview.app looks fine with
+ * Type1 Times; WK at devicePixelRatio=1 needs extra scale or glyphs go soft.
  */
 export function pdfRenderPixelRatio(
   devicePixelRatio = 1,
@@ -415,11 +439,7 @@ export function pdfRenderPixelRatio(
   const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
   // Cap supersampling — 3× on large conference PDFs was freezing WKWebView.
   const preferred = dpr < 2 ? 2 : Math.min(Math.max(dpr, 2), 2.5);
-  if (!page || !(page.width > 0) || !(page.height > 0) || !(maxCanvasPixels > 0)) {
-    return preferred;
-  }
-  const areaLimit = Math.sqrt(maxCanvasPixels / (page.width * page.height));
-  return Math.min(preferred, areaLimit);
+  return cappedPdfPixelRatio(preferred, page, maxCanvasPixels);
 }
 
 /** Scale that fits a page into the scroll area (padding deducted). */

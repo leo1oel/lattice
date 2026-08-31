@@ -10,8 +10,10 @@ import {
   pdfPageWindow,
   PdfCooperativeRenderQueue,
   PdfRenderQueue,
+  PDF_CHROMIUM_MAX_CANVAS_PIXELS,
   PDF_MAX_CANVAS_PIXELS,
   PDF_RENDER_PRIORITY,
+  pdfChromiumRenderPixelRatio,
   pdfRenderPixelRatio,
   updatePdfRenderCache,
 } from "./pdf-viewer-utils";
@@ -301,6 +303,16 @@ describe("PDF viewer helpers", () => {
     expect(PDF_MAX_CANVAS_PIXELS).toBe(2 ** 24);
     expect(pdfRenderPixelRatio(2, { width: 6_000, height: 6_000 }))
       .toBeCloseTo(Math.sqrt((2 ** 24) / 36_000_000));
+  });
+
+  it("matches Chromium's direct device-scale PDF rendering policy", () => {
+    expect(pdfChromiumRenderPixelRatio(1)).toBe(1);
+    expect(pdfChromiumRenderPixelRatio(1.5)).toBe(1.5);
+    expect(pdfChromiumRenderPixelRatio(2)).toBe(2);
+    expect(pdfChromiumRenderPixelRatio(3)).toBe(3);
+    expect(PDF_CHROMIUM_MAX_CANVAS_PIXELS).toBe(2 ** 25);
+    expect(pdfChromiumRenderPixelRatio(2, { width: 6_000, height: 6_000 }))
+      .toBeCloseTo(Math.sqrt((2 ** 25) / 36_000_000));
   });
 
   it("bounds rendered PDF pages while retaining every page near the viewport", () => {
