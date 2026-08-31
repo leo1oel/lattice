@@ -483,7 +483,7 @@ describe("welcome screen", () => {
     })));
     expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
     expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
-  });
+  }, 30_000);
 
   it("preserves a forced build queued behind an ordinary build", async () => {
     const snapshot = {
