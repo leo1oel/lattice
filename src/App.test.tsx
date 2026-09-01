@@ -377,16 +377,18 @@ describe("welcome screen", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
   });
 
-  it("does not start the tutorial before a project has opened", async () => {
+  it("starts the tutorial directly on a genuinely empty first launch", async () => {
     localStorage.removeItem("lattice.tutorial-seen.v1");
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "initial_project") return null;
+      if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
       throw new Error(`Unexpected command: ${command}`);
     });
+
     renderApp();
-    expect(screen.getByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("initial_project"));
-    expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
+    expect(open).not.toHaveBeenCalled();
   });
 
   it("opens the project creation dialog", () => {
@@ -412,7 +414,7 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
   });
 
-  it("automatically offers the tutorial after an unseen user opens a project", async () => {
+  it("keeps an explicitly opened project instead of replacing it with the tutorial", async () => {
     localStorage.removeItem("lattice.tutorial-seen.v1");
     const snapshot = {
       root: "/tmp/research/First paper",
@@ -436,7 +438,11 @@ describe("welcome screen", () => {
 
     renderApp();
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "main.tex",
+      projectRoot: snapshot.root,
+    }));
+    expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -7383,6 +7389,44 @@ describe("project workspace", () => {
     });
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();
     expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
+  });
+
+  it("does not open TeX setup when latexmk reports a missing project style", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "CVPR paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\usepackage[review]{cvpr}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") {
+        return {
+          success: false,
+          pdfBase64: null,
+          log: "Latexmk: Missing input file 'cvpr.sty' message in .log file:\nLaTeX Error: File `cvpr.sty' not found.\n",
+          durationMs: 80,
+          diagnostics: [{
+            level: "error",
+            message: "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it.",
+          }],
+        };
+      }
+      return mockAppCommand(command);
+    });
+
+    renderApp();
+    await waitFor(() => expect(formatAppLogs()).toContain("Missing style file `cvpr.sty`"));
+    expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" }))
+      .not.toBeInTheDocument();
   });
 
   it("saves dirty buffers before switching project files", async () => {

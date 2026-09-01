@@ -69,6 +69,9 @@ describe("tex setup wizard helpers", () => {
     expect(isMissingTexBuildError("Could not start latexmk. Install MacTeX or TeX Live.")).toBe(true);
     expect(isMissingTexBuildError("The LaTeX tool 'pdflatex' was not found.")).toBe(true);
     expect(isMissingTexBuildError("Undefined control sequence.")).toBe(false);
+    expect(isMissingTexBuildError(
+      "Latexmk: Missing input file 'cvpr.sty' message in .log file:\nLaTeX Error: File `cvpr.sty' not found.",
+    )).toBe(false);
   });
 
   it("reports conference font status separately from compile tools", () => {

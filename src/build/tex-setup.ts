@@ -60,8 +60,6 @@ export function isMissingTexBuildError(message: string): boolean {
   return (
     lower.includes("could not start latexmk")
     || lower.includes("mactex or tex live")
-    || (lower.includes("latexmk") && lower.includes("not found"))
-    || (lower.includes("pdflatex") && lower.includes("not found"))
     || lower.includes("the latex tool")
   );
 }

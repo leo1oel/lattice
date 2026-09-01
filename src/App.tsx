@@ -3760,7 +3760,11 @@ function App() {
             } : undefined,
           });
           completionSound = "build-failed";
-          if (isMissingTexBuildError(failureText)) {
+          // A raw latexmk log contains its own name and uses "not found" for
+          // every missing project file. Only parsed tool diagnostics may open
+          // system setup; the full log is evidence for the build toast, not a
+          // machine-readable failure category.
+          if (result.diagnostics.some((item) => isMissingTexBuildError(item.message))) {
             doctorGenerationRef.current += 1;
             setDoctorReport(null);
             setDoctorBusy(false);
@@ -4968,8 +4972,10 @@ function App() {
   );
   enterProjectRef.current = enterProject;
 
-  // On launch, reopen the project you had open last. Falls back to the welcome
-  // screen if that folder was moved or deleted.
+  // On launch, honor a project explicitly assigned to this window, otherwise
+  // reopen the project the writer used last. A genuinely empty first launch
+  // enters the tutorial directly; the welcome screen remains the fallback for
+  // returning writers whose last folder was moved or deleted.
   //
   // Resolved by the boot effect below with whether the backend designated an
   // initial project. The auto-reopen must wait for that answer: both flows
@@ -4977,32 +4983,11 @@ function App() {
   // last wins — since startProjectTransition became async, the recent-project
   // reopen could land after the backend's choice and silently clobber it.
   const [initialProjectProbe] = useState(() => {
-    let resolve!: (has: boolean) => void;
-    const promise = new Promise<boolean>((r) => { resolve = r; });
+    let resolve!: (result: "project" | "empty" | "failed") => void;
+    const promise = new Promise<"project" | "empty" | "failed">((r) => { resolve = r; });
     return { promise, resolve };
   });
-  const didAutoReopenRef = useRef(false);
-  useEffect(() => {
-    if (didAutoReopenRef.current) return;
-    didAutoReopenRef.current = true;
-    const mostRecent = loadRecentProjects()[0]?.path;
-    if (!mostRecent) return;
-    void (async () => {
-      try {
-        if (await initialProjectProbe.promise) return;
-        if (!await startProjectTransition()) return;
-        const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
-        // Defer enterProject's own initial build (it races cold-start init and
-        // the PDF never appears), then kick one explicitly once the project is
-        // fully entered.
-        await enterProject(snapshot, { deferInitialBuild: true });
-        void runBuild(false, { immediatePreview: true });
-      } catch {
-        cancelProjectTransition();
-        // Folder gone — stay on the welcome screen.
-      }
-    })();
-  }, [cancelProjectTransition, enterProject, initialProjectProbe, runBuild, startProjectTransition]);
+  const didRouteStartupRef = useRef(false);
 
   /// Hand a project to a window of its own, or raise the window already
   /// showing it. Returns the failure message so a caller that keeps a list of
@@ -5304,11 +5289,40 @@ function App() {
       setBusyLabel(null);
     }
   }, [cancelProjectTransition, enterProject, save, setSidebarOpen, startProjectTransition]);
-
   useEffect(() => {
-    if (!project || tutorialActive || autoTutorialAttemptedRef.current || hasSeenTutorial()) return;
-    void openTutorialProject();
-  }, [openTutorialProject, project, tutorialActive]);
+    if (didRouteStartupRef.current) return;
+    didRouteStartupRef.current = true;
+    void (async () => {
+      const initialProject = await initialProjectProbe.promise;
+      if (initialProject !== "empty") return;
+      const mostRecent = loadRecentProjects()[0]?.path;
+      if (!mostRecent) {
+        if (!hasSeenTutorial() && !autoTutorialAttemptedRef.current) {
+          void openTutorialProject();
+        }
+        return;
+      }
+      try {
+        if (!await startProjectTransition()) return;
+        const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
+        // Defer enterProject's own initial build (it races cold-start init and
+        // the PDF never appears), then kick one explicitly once the project is
+        // fully entered.
+        await enterProject(snapshot, { deferInitialBuild: true });
+        void runBuild(false, { immediatePreview: true });
+      } catch {
+        cancelProjectTransition();
+        // Folder gone — stay on the welcome screen.
+      }
+    })();
+  }, [
+    cancelProjectTransition,
+    enterProject,
+    initialProjectProbe,
+    openTutorialProject,
+    runBuild,
+    startProjectTransition,
+  ]);
 
   const importOverleafZip = useCallback(async () => {
     const zipPath = await open({
@@ -5406,7 +5420,7 @@ function App() {
     // restarted compile → endless “Rendering PDF…”.
     void invoke<ProjectSnapshot | null>("initial_project")
       .then(async (snapshot) => {
-        initialProjectProbe.resolve(Boolean(snapshot));
+        initialProjectProbe.resolve(snapshot ? "project" : "empty");
         if (!active || !snapshot) return;
         await enterProjectRef.current?.(snapshot);
         if (!active) return;
@@ -5425,7 +5439,7 @@ function App() {
         }
       })
       .catch((reason) => {
-        initialProjectProbe.resolve(false);
+        initialProjectProbe.resolve("failed");
         if (active) setError(toMessage(reason));
       });
     return () => {

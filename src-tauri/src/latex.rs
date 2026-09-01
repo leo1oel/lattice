@@ -625,9 +625,9 @@ fn normalize_log_path(path: &str) -> String {
     without_dot.to_string()
 }
 
-/// Conference styles (NeurIPS/ICML/ICLR) are not on CTAN — `tlmgr install` can
-/// never provide them. Lattice writes them into the project folder at creation,
-/// so a "not found" means the file went missing from the project, not from TeX.
+/// Conference styles (NeurIPS/ICML/ICLR/CVPR) are not on CTAN — `tlmgr install` can
+/// never provide them. Their author kits distribute them in the project folder,
+/// so a "not found" means the project copy is missing, not the TeX installation.
 /// Whether this build loaded one of the conference templates.
 ///
 /// The log names every style it reads, so the document that was actually
@@ -650,6 +650,8 @@ fn conference_template_venue(sty: &str) -> Option<&'static str> {
         Some("ICML")
     } else if lower.starts_with("iclr") {
         Some("ICLR")
+    } else if lower.starts_with("cvpr") {
+        Some("CVPR")
     } else {
         None
     }
@@ -1162,6 +1164,7 @@ mod tests {
             "neurips_2026.sty",
             "icml2026.sty",
             "iclr2026_conference.sty",
+            "cvpr.sty",
         ] {
             let log = format!("(./main.tex (./{style}\nPackage: whatever\n");
             assert!(
@@ -1173,13 +1176,14 @@ mod tests {
 
     #[test]
     fn does_not_send_users_to_tlmgr_for_conference_template_styles() {
-        // NeurIPS/ICML/ICLR styles are not on CTAN; `tlmgr install neurips`
+        // Conference author-kit styles are not on CTAN; `tlmgr install neurips`
         // fails and strands the user (they "installed everything" already).
         for sty in [
             "neurips.sty",
             "neurips_2026.sty",
             "icml2026.sty",
             "iclr2026_conference.sty",
+            "cvpr.sty",
         ] {
             let diagnostics =
                 parse_diagnostics(&format!("! LaTeX Error: File `{sty}' not found.\n"));
