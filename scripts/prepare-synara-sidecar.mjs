@@ -603,6 +603,8 @@ if (existsSync(existingManifestPath)) {
   const executableName = target.includes("windows") ? "node.exe" : "node";
   if (
     existingManifest.buildKey === buildKey &&
+    existingManifest.nodeRuntime === "standalone" &&
+    existingManifest.nodeVersion === runtimeConfig.nodeVersion &&
     existsSync(join(runtimeRoot, "bin", executableName)) &&
     existsSync(join(runtimeRoot, "server/dist/index.mjs")) &&
     existsSync(join(runtimeRoot, "server/dist/client/index.html")) &&
@@ -750,6 +752,7 @@ try {
         buildKey,
         target,
         nodeVersion: runtimeConfig.nodeVersion,
+        nodeRuntime: "standalone",
         synaraVersion,
         synaraRevision: dirtyStatus ? `${head}+dirty` : head,
         deviceHelperSource: "server/dist/device-helper",

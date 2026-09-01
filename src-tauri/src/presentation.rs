@@ -95,7 +95,8 @@ struct Inner {
 
 #[derive(Clone)]
 pub struct PresentationRuntime {
-    node_path: PathBuf,
+    javascript_runtime_path: PathBuf,
+    electron_node: bool,
     entry_path: PathBuf,
     shadow_parent: PathBuf,
     inner: Arc<Mutex<Inner>>,
@@ -104,7 +105,9 @@ pub struct PresentationRuntime {
 impl PresentationRuntime {
     pub fn new(app: &tauri::App) -> Result<Self, Box<dyn std::error::Error>> {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let resources = if cfg!(debug_assertions) {
+        // A debug package has debug assertions but still owns a copied resource
+        // tree. Only `tauri dev` should resolve Open Slide from the checkout.
+        let resources = if tauri::is_dev() {
             manifest.clone()
         } else {
             app.path().resource_dir()?
@@ -114,6 +117,12 @@ impl PresentationRuntime {
         } else {
             "node"
         };
+        let electron_node = cfg!(all(target_os = "macos", not(debug_assertions)));
+        let javascript_runtime_path = if electron_node {
+            resources.join("chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron")
+        } else {
+            resources.join("synara-runtime/bin").join(node)
+        };
         let shadow_parent = app.path().app_cache_dir()?.join("presentation-shadows");
         std::fs::create_dir_all(&shadow_parent)?;
         for entry in std::fs::read_dir(&shadow_parent)?.flatten() {
@@ -122,7 +131,8 @@ impl PresentationRuntime {
             }
         }
         Ok(Self {
-            node_path: resources.join("synara-runtime/bin").join(node),
+            javascript_runtime_path,
+            electron_node,
             entry_path: resources.join("presentation-runtime/server.mjs"),
             shadow_parent,
             inner: Arc::new(Mutex::new(Inner::default())),
@@ -396,7 +406,10 @@ impl PresentationRuntime {
             return Err(error);
         }
         let control_token = uuid::Uuid::new_v4().simple().to_string();
-        let mut command = Command::new(&self.node_path);
+        let mut command = Command::new(&self.javascript_runtime_path);
+        if self.electron_node {
+            command.env("ELECTRON_RUN_AS_NODE", "1");
+        }
         command
             .arg(&self.entry_path)
             .current_dir(&shadow)

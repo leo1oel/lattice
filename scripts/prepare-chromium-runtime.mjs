@@ -15,12 +15,27 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pruneChromiumLocales } from "./chromium-runtime-locales.mjs";
+import { configureSynaraNodeRuntime } from "./synara-node-runtime.mjs";
 
 if (process.platform !== "darwin") {
   throw new Error("The bundled Chromium runtime is currently packaged only for macOS.");
 }
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const arguments_ = process.argv.slice(2);
+const runtimeArgument = arguments_.find((argument) =>
+  argument.startsWith("--synara-node-runtime="),
+);
+if (arguments_.length !== 1 || !runtimeArgument) {
+  throw new Error(
+    "Usage: prepare-chromium-runtime.mjs --synara-node-runtime=electron|standalone",
+  );
+}
+const synaraNodeRuntime = runtimeArgument.slice(runtimeArgument.indexOf("=") + 1);
+if (synaraNodeRuntime !== "electron" && synaraNodeRuntime !== "standalone") {
+  throw new Error(`Unsupported Synara Node runtime: ${synaraNodeRuntime}`);
+}
 const require = createRequire(import.meta.url);
 const electronRoot = dirname(require.resolve("electron/package.json"));
 const electronDist = join(electronRoot, "dist");
@@ -43,6 +58,10 @@ const appVersion = String(packageJson.version);
 const electronVersion = String(
   JSON.parse(readFileSync(join(electronRoot, "package.json"), "utf8")).version,
 );
+const standaloneNodeVersion = String(
+  JSON.parse(readFileSync(join(projectRoot, "scripts", "synara-runtime.json"), "utf8"))
+    .nodeVersion,
+);
 const signingIdentity = process.env.APPLE_SIGNING_IDENTITY?.trim() || "-";
 const entitlements = join(projectRoot, "src-tauri", "Entitlements.plist");
 
@@ -50,14 +69,27 @@ function plistSet(plist, key, value) {
   execFileSync("/usr/libexec/PlistBuddy", ["-c", `Set :${key} ${value}`, plist]);
 }
 
+function readElectronNodeVersion(app) {
+  const executable = join(app, "Contents", "MacOS", "Electron");
+  const version = execFileSync(executable, ["-p", "process.versions.node"], {
+    encoding: "utf8",
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    stdio: ["ignore", "pipe", "inherit"],
+  }).trim();
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(`The bundled Electron Node runtime reported an invalid version: ${version}`);
+  }
+  return version;
+}
+
 function sign(path, { deep = false, includeEntitlements = false } = {}) {
-  const arguments_ = ["--force"];
-  if (deep) arguments_.push("--deep");
-  arguments_.push("--options", "runtime");
-  if (signingIdentity !== "-") arguments_.push("--timestamp");
-  if (includeEntitlements) arguments_.push("--entitlements", entitlements);
-  arguments_.push("--sign", signingIdentity, path);
-  execFileSync("/usr/bin/codesign", arguments_, { stdio: "inherit" });
+  const codesignArguments = ["--force"];
+  if (deep) codesignArguments.push("--deep");
+  codesignArguments.push("--options", "runtime");
+  if (signingIdentity !== "-") codesignArguments.push("--timestamp");
+  if (includeEntitlements) codesignArguments.push("--entitlements", entitlements);
+  codesignArguments.push("--sign", signingIdentity, path);
+  execFileSync("/usr/bin/codesign", codesignArguments, { stdio: "inherit" });
 }
 
 // Tauri's resource copier deliberately dereferences symlinks. A conventional
@@ -149,6 +181,11 @@ try {
     flattenFramework(join(frameworks, name));
   }
 
+  // Locale resources are data-only, but they are sealed by the framework and
+  // app signatures. Remove unsupported locales only after copying/flattening
+  // and before any final signing pass.
+  const removedLocales = pruneChromiumLocales(stagedApp);
+
   // `codesign --deep` signs recognized bundles after flattening, but skips raw
   // Mach-O files nested inside their resource directories. Apple notarization
   // checks those files independently, so sign them before sealing the app.
@@ -161,11 +198,23 @@ try {
   execFileSync("/usr/bin/codesign", ["--verify", "--deep", "--strict", "--verbose=2", stagedApp], {
     stdio: "inherit",
   });
+  const electronNodeVersion = readElectronNodeVersion(stagedApp);
 
   rmSync(runtimeRoot, { recursive: true, force: true });
   renameSync(stageRoot, runtimeRoot);
+  const configuredSynara = configureSynaraNodeRuntime({
+    synaraRoot: join(projectRoot, "src-tauri", "synara-runtime"),
+    nodeRuntime: synaraNodeRuntime,
+    electronNodeVersion,
+    standaloneNodeVersion,
+  });
+  const synaraDescription = !configuredSynara
+    ? ""
+    : synaraNodeRuntime === "electron"
+      ? ", shared Node with Synara"
+      : ", retained standalone Synara Node";
   console.log(
-    `Prepared Lattice Chromium runtime (Electron ${electronVersion}) at ${runtimeRoot}`,
+    `Prepared Lattice Chromium runtime (Electron ${electronVersion}, Node ${electronNodeVersion}, removed ${removedLocales} locale directories${synaraDescription}) at ${runtimeRoot}`,
   );
 } catch (error) {
   rmSync(stageRoot, { recursive: true, force: true });

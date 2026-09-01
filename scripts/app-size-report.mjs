@@ -116,10 +116,9 @@ async function optionalTotal(target) {
   return total(await fileInventory(target));
 }
 
-async function optionalRuntimeTarget(runtime) {
+async function optionalRuntimeManifest(runtime) {
   try {
-    const manifest = JSON.parse(await readFile(path.join(runtime, "manifest.json"), "utf8"));
-    return typeof manifest.target === "string" ? manifest.target : null;
+    return JSON.parse(await readFile(path.join(runtime, "manifest.json"), "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return null;
     throw error;
@@ -136,7 +135,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
   }
   const eager = eagerAssetUrls(html);
   const runtime = path.resolve(workspace, "src-tauri/synara-runtime");
+  const presentationRuntime = path.resolve(workspace, "src-tauri/presentation-runtime");
+  const chromiumRuntime = path.resolve(workspace, "src-tauri/chromium-runtime");
   const runtimeFiles = await fileInventory(runtime);
+  const runtimeManifest = await optionalRuntimeManifest(runtime);
   const canonicalRuntime = runtimeFiles ? await realpath(runtime) : runtime;
   const sdkExecutables = runtimeFiles
     ?.filter((file) => /node_modules[/\\]@anthropic-ai[/\\]claude-agent-sdk-[^/\\]+[/\\]claude(?:\.exe)?$/.test(file.path))
@@ -150,7 +152,12 @@ export async function createAppSizeReport(workspace = process.cwd()) {
     bundledNodeBytes: await optionalTotal(path.join(runtime, "bin/node")),
     synaraServerDistBytes: await optionalTotal(path.join(runtime, "server/dist")),
     runtimeNodeModulesBytes: await optionalTotal(path.join(runtime, "server/node_modules")),
-    synaraTarget: await optionalRuntimeTarget(runtime),
+    synaraTarget: typeof runtimeManifest?.target === "string" ? runtimeManifest.target : null,
+    synaraNodeRuntime: typeof runtimeManifest?.nodeRuntime === "string"
+      ? runtimeManifest.nodeRuntime
+      : null,
+    presentationRuntimeBytes: await optionalTotal(presentationRuntime),
+    chromiumRuntimeBytes: await optionalTotal(chromiumRuntime),
     claudeAgentSdkExecutables: sdkExecutables,
   };
 }
@@ -159,6 +166,9 @@ const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const MACOS_SYNARA_RUNTIME_BUDGET_BYTES = 250 * 1024 * 1024;
+const MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES = 130 * 1024 * 1024;
+const PRESENTATION_RUNTIME_BUDGET_BYTES = 125 * 1024 * 1024;
+const CHROMIUM_RUNTIME_BUDGET_BYTES = 275 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
@@ -222,12 +232,29 @@ export async function checkAppSizeBudgets(
       `Bundled Claude executable is ${executable.bytes} bytes; PATH launcher budget is ${CLAUDE_PATH_LAUNCHER_BUDGET_BYTES}`,
     );
   }
+  const sharedElectronNode = measuredReport.synaraNodeRuntime === "electron";
+  if (sharedElectronNode && measuredReport.bundledNodeBytes !== null) {
+    throw new Error("Electron-backed Synara runtime must not bundle a standalone Node binary");
+  }
+  const synaraRuntimeBudgetBytes = sharedElectronNode
+    ? MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES
+    : MACOS_SYNARA_RUNTIME_BUDGET_BYTES;
   if (
     measuredReport.synaraTarget?.endsWith("-apple-darwin")
-    && measuredReport.synaraRuntimeBytes > MACOS_SYNARA_RUNTIME_BUDGET_BYTES
+    && measuredReport.synaraRuntimeBytes > synaraRuntimeBudgetBytes
   ) {
     throw new Error(
-      `macOS Synara runtime is ${measuredReport.synaraRuntimeBytes} bytes; budget is ${MACOS_SYNARA_RUNTIME_BUDGET_BYTES}`,
+      `macOS Synara runtime is ${measuredReport.synaraRuntimeBytes} bytes; budget is ${synaraRuntimeBudgetBytes}`,
+    );
+  }
+  if (measuredReport.presentationRuntimeBytes > PRESENTATION_RUNTIME_BUDGET_BYTES) {
+    throw new Error(
+      `Presentation runtime is ${measuredReport.presentationRuntimeBytes} bytes; budget is ${PRESENTATION_RUNTIME_BUDGET_BYTES}`,
+    );
+  }
+  if (measuredReport.chromiumRuntimeBytes > CHROMIUM_RUNTIME_BUDGET_BYTES) {
+    throw new Error(
+      `Chromium runtime is ${measuredReport.chromiumRuntimeBytes} bytes; budget is ${CHROMIUM_RUNTIME_BUDGET_BYTES}`,
     );
   }
   return {
@@ -236,7 +263,9 @@ export async function checkAppSizeBudgets(
     rolldownRuntimeBytes: runtimeBytes,
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
     claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
-    macosSynaraRuntimeBudgetBytes: MACOS_SYNARA_RUNTIME_BUDGET_BYTES,
+    macosSynaraRuntimeBudgetBytes: synaraRuntimeBudgetBytes,
+    presentationRuntimeBudgetBytes: PRESENTATION_RUNTIME_BUDGET_BYTES,
+    chromiumRuntimeBudgetBytes: CHROMIUM_RUNTIME_BUDGET_BYTES,
   };
 }
 
@@ -254,6 +283,8 @@ export function formatHuman(report) {
     ["Bundled Node bin", report.bundledNodeBytes],
     ["Synara server dist", report.synaraServerDistBytes],
     ["Runtime node_modules", report.runtimeNodeModulesBytes],
+    ["Presentation runtime", report.presentationRuntimeBytes],
+    ["Chromium runtime", report.chromiumRuntimeBytes],
   ].map(([label, bytes]) => `${label}: ${humanBytes(bytes)}`);
   if (report.synaraRuntimeBytes === null) lines.push("Claude Agent SDK executables: runtime missing");
   else if (report.claudeAgentSdkExecutables.length === 0) lines.push("Claude Agent SDK executables: none found");

@@ -53,6 +53,9 @@ run = "pnpm test"
 sources = [
   "src/**",
   "!src/locales/**/*.js",
+  # Vitest also discovers script-level tests, whose imported implementation
+  # modules must invalidate this stage just like src/ does.
+  "scripts/**",
   # src/styles/surfaces.test.ts reads the dev playground's stylesheet off disk.
   "tools/**",
   "protocol/**",
@@ -80,6 +83,7 @@ sources = [
   "pnpm-lock.yaml",
   "public/**",
   "scripts/app-size-report.mjs",
+  "scripts/app-size-report-selftest.mjs",
   # Copied out of pdfjs-dist by vite.config.ts on every build; an input that the
   # build itself rewrites can never be fresh.
   "!public/pdfjs/**",

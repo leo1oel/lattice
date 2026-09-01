@@ -28,7 +28,7 @@ describes what the sidecar is and how it is built and synced; it is not a second
 - Tauri owns lifecycle only: prepare, start, health-check, report status, and stop.
 - Synara remains an upstream-shaped Node service with its own SQLite and WebSocket layers.
 - The first Agent, source-control, review, or Agent-settings surface starts one sidecar for the Lattice process on a dynamically selected `127.0.0.1` port.
-- Ordinary writing sessions never launch the bundled Node service; after the first request it remains alive because hidden surfaces may still own background turns or terminals.
+- Ordinary writing sessions never launch the bundled agent service; after the first request it remains alive because hidden surfaces may still own background turns or terminals.
 - Tauri explicitly stops the sidecar on `RunEvent::Exit`; the sidecar also watches its launching
   Lattice PID and exits if the host disappears, so a crash cannot leave the SQLite lifecycle lock.
 - Every launch gets a random authentication token. Lattice transfers it in the iframe fragment;
@@ -221,9 +221,11 @@ went stale before.
 - `pnpm prepare:synara:dev` accepts a dirty local Synara checkout for development.
 - `pnpm prepare:synara` is the release path. It refuses a dirty checkout or a revision that differs
   from the pin.
-- The preparation script builds the production web/server artifacts, downloads the official
-  target-specific Node binary, verifies its SHA-256 digest, installs production dependencies, and
-  stages the result under `src-tauri/synara-runtime`.
+- The preparation script builds the production web/server artifacts, downloads and verifies the official target-specific Node fallback, installs production dependencies, and stages the result under `src-tauri/synara-runtime`.
+- Tauri's documented `TAURI_ENV_DEBUG` hook signal selects the package staging profile through `scripts/prepare-build.mjs`.
+- Release packaging verifies Electron's embedded Node major version, records its exact version in the runtime manifest, and removes the standalone Node binary before Tauri copies resources.
+- Debug packaging restores and marks standalone Node before preparing Chromium, so switching profiles cannot reuse the release manifest or missing `bin` tree.
+- Release builds run Synara and Open Slide with `ELECTRON_RUN_AS_NODE=1`; debug packages and `pnpm tauri dev` use standalone Node.
 - Claude sessions use the external `claude` executable selected in Provider settings (or found on
   the login-shell PATH). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
   launcher so account probing follows the same installation without shipping a redundant copy.
@@ -231,16 +233,12 @@ went stale before.
 
 ### Runtime size is a budget, not a note
 
-Run `pnpm size:report` after preparing the runtime and building the frontend to record exact
-file-byte totals for the web bundle, eager assets, Node binary, server distribution, runtime
-dependencies, and provider executables.
+Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, Chromium runtime, and provider executables.
 
-The staged macOS runtime is **enforced**, not merely observed. `scripts/app-size-report.mjs` fails
-the report when the measured runtime exceeds `MACOS_SYNARA_RUNTIME_BUDGET_BYTES` — **250 MiB**
-uncompressed — and separately fails when a bundled Claude Agent SDK executable exceeds
-`CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` (4 KiB), which is how the PATH-launcher substitution above stays
-honest. Read the current constants from that file rather than trusting a number quoted here; the
-recorded totals belong in the release notes for the version that measured them.
+The staged runtimes are **enforced**, not merely observed.
+`scripts/app-size-report.mjs` applies separate uncompressed budgets to development Synara, release Synara after it shares Electron's Node, Open Slide, and Chromium.
+It also fails if an Electron-backed Synara runtime still contains a standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
+Read the current constants from that file rather than trusting a number quoted here; the recorded totals belong in the release notes for the version that measured them.
 
 Provider-specific lazy packaging is the next place to optimize if installer size becomes a
 constraint.

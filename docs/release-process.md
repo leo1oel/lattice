@@ -87,9 +87,8 @@ create the Release and upload assets.
    `scripts/synara-runtime.json`, shallow-fetches exactly that revision into
    `$RUNNER_TEMP/lattice-synara`, asserts `HEAD` equals the pinned revision,
    runs `bun install --frozen-lockfile`, and exports `SYNARA_SOURCE_DIR` and
-   `BUN_BIN` for the build. The sidecar is staged later by
-   `pnpm prepare:runtime`, which `tauri.conf.json` runs as
-   `beforeBuildCommand`.
+   `BUN_BIN` for the build.
+   The sidecar is staged later by `pnpm prepare:build`, which `tauri.conf.json` runs as `beforeBuildCommand` and which selects the release staging path from Tauri's build-profile hook signal.
 7. **Import the Apple Developer ID certificate.** Base64-decodes
    `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the
    certificate with `-T /usr/bin/codesign`, sets the key partition list so

@@ -25,6 +25,9 @@ assert.equal(report.distBytes, 8 + 7 + Buffer.byteLength(await (await import("no
 assert.equal(report.synaraRuntimeBytes, null);
 assert.equal(report.bundledNodeBytes, null);
 assert.equal(report.synaraTarget, null);
+assert.equal(report.synaraNodeRuntime, null);
+assert.equal(report.presentationRuntimeBytes, null);
+assert.equal(report.chromiumRuntimeBytes, null);
 assert.deepEqual(report.claudeAgentSdkExecutables, []);
 
 const runtime = path.join(workspace, "src-tauri/synara-runtime");
@@ -47,6 +50,7 @@ assert.equal(report.bundledNodeBytes, 4);
 assert.equal(report.synaraServerDistBytes, 6);
 assert.equal(report.runtimeNodeModulesBytes, 9);
 assert.equal(report.synaraTarget, "aarch64-apple-darwin");
+assert.equal(report.synaraNodeRuntime, null);
 assert.equal(
   report.synaraRuntimeBytes,
   19 + Buffer.byteLength(runtimeManifest),
@@ -112,6 +116,40 @@ await assert.rejects(
     claudeAgentSdkExecutables: [],
   }),
   /macOS Synara runtime.*budget/,
+);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, {
+    ...report,
+    synaraNodeRuntime: "electron",
+    claudeAgentSdkExecutables: [],
+  }),
+  /must not bundle a standalone Node binary/,
+);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, {
+    ...report,
+    synaraNodeRuntime: "electron",
+    bundledNodeBytes: null,
+    synaraRuntimeBytes: 130 * 1024 * 1024 + 1,
+    claudeAgentSdkExecutables: [],
+  }),
+  /macOS Synara runtime.*budget/,
+);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, {
+    ...report,
+    presentationRuntimeBytes: 125 * 1024 * 1024 + 1,
+    claudeAgentSdkExecutables: [],
+  }),
+  /Presentation runtime.*budget/,
+);
+await assert.rejects(
+  checkAppSizeBudgets(workspace, {
+    ...report,
+    chromiumRuntimeBytes: 275 * 1024 * 1024 + 1,
+    claudeAgentSdkExecutables: [],
+  }),
+  /Chromium runtime.*budget/,
 );
 
 console.log("app-size-report self-test passed");

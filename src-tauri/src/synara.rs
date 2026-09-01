@@ -114,7 +114,8 @@ struct RuntimeState {
 }
 
 pub struct SynaraRuntime {
-    node_path: PathBuf,
+    javascript_runtime_path: PathBuf,
+    electron_node: bool,
     server_entry: PathBuf,
     bundled_skills_dir: PathBuf,
     home_dir: PathBuf,
@@ -136,7 +137,11 @@ impl SynaraRuntime {
             None
         };
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let (runtime_root, bundled_skills_dir) = if cfg!(debug_assertions) {
+        // `debug_assertions` is also true for `tauri build --debug`, whose app
+        // must use its packaged resources rather than the build machine's
+        // source tree. Tauri's development marker distinguishes that package
+        // from `tauri dev` without changing which JavaScript runtime it uses.
+        let (runtime_root, bundled_skills_dir) = if tauri::is_dev() {
             (
                 manifest_dir.join("synara-runtime"),
                 manifest_dir.join("src").join("embedded_skills"),
@@ -153,13 +158,27 @@ impl SynaraRuntime {
         } else {
             "node"
         };
+        // Production macOS already ships Electron for the fixed Chromium
+        // renderer. Its executable can run ordinary Node entry points without
+        // launching a browser, so sharing it avoids bundling a second 120 MB
+        // Node binary. Development keeps the independently prepared runtime so
+        // `pnpm tauri dev` never has to materialize Chromium first.
+        let electron_node = cfg!(all(target_os = "macos", not(debug_assertions)));
+        let javascript_runtime_path = if electron_node {
+            app.path()
+                .resource_dir()?
+                .join("chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron")
+        } else {
+            runtime_root.join("bin").join(executable_name)
+        };
         let manifest = read_runtime_manifest(&runtime_root.join("manifest.json"));
         let home_dir = app.path().app_data_dir()?.join("synara");
         let preferred_port = read_server_runtime_state(&home_dir.join(RUNTIME_STATE_RELATIVE_PATH))
             .map(|runtime| runtime.port);
 
         Ok(Self {
-            node_path: runtime_root.join("bin").join(executable_name),
+            javascript_runtime_path,
+            electron_node,
             server_entry: runtime_root.join("server/dist/index.mjs"),
             bundled_skills_dir,
             home_dir,
@@ -276,10 +295,10 @@ impl SynaraRuntime {
     }
 
     fn spawn(&self) -> Result<RunningSynara, String> {
-        if !self.node_path.is_file() {
+        if !self.javascript_runtime_path.is_file() {
             return Err(format!(
-                "The bundled Synara runtime is missing at {}.",
-                self.node_path.display()
+                "The bundled JavaScript runtime is missing at {}.",
+                self.javascript_runtime_path.display()
             ));
         }
         if !self.server_entry.is_file() {
@@ -309,7 +328,10 @@ impl SynaraRuntime {
         let auth_token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
         let shutdown_token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
 
-        let mut command = Command::new(&self.node_path);
+        let mut command = Command::new(&self.javascript_runtime_path);
+        if self.electron_node {
+            command.env("ELECTRON_RUN_AS_NODE", "1");
+        }
         command.arg(&self.server_entry);
         // Web storage is scoped to the complete iframe origin, including its
         // port. Reuse the previous sidecar port when it is free so composer

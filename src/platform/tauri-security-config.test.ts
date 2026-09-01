@@ -37,6 +37,10 @@ const browserHost = readFileSync("src-tauri/src/browser_host.rs", "utf8");
 const chromiumRuntime = readFileSync("src-tauri/src/chromium.rs", "utf8");
 const chromiumShell = readFileSync("scripts/chromium-shell.mjs", "utf8");
 const chromiumPrepare = readFileSync("scripts/prepare-chromium-runtime.mjs", "utf8");
+const buildPrepare = readFileSync("scripts/prepare-build.mjs", "utf8");
+const synaraNodeStaging = readFileSync("scripts/synara-node-runtime.mjs", "utf8");
+const synaraRuntime = readFileSync("src-tauri/src/synara.rs", "utf8");
+const presentationRuntime = readFileSync("src-tauri/src/presentation.rs", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 
 describe("Tauri security boundary", () => {
@@ -148,9 +152,15 @@ describe("Tauri security boundary", () => {
 
   it("packages the sandboxed Chromium renderer without exposing workspace tokens in argv", () => {
     expect(packageJson.scripts["prepare:chromium"]).toBe(
-      "node scripts/prepare-chromium-runtime.mjs",
+      "node scripts/prepare-chromium-runtime.mjs --synara-node-runtime=electron",
     );
-    expect(config.build.beforeBuildCommand).toContain("pnpm prepare:chromium");
+    expect(packageJson.scripts["prepare:chromium:debug"]).toBe(
+      "node scripts/prepare-chromium-runtime.mjs --synara-node-runtime=standalone",
+    );
+    expect(config.build.beforeBuildCommand).toBe("pnpm prepare:build");
+    expect(buildPrepare).toContain("process.env.TAURI_ENV_DEBUG");
+    expect(buildPrepare).toContain('debug ? "prepare:runtime:dev" : "prepare:runtime"');
+    expect(buildPrepare).toContain('debug ? "prepare:chromium:debug" : "prepare:chromium"');
     expect(config.bundle.resources).toContain("chromium-runtime/");
     expect(rustApp).toContain("chromium_packaged");
     expect(browserHost).toContain(".open_url(url)?");
@@ -166,6 +176,20 @@ describe("Tauri security boundary", () => {
     expect(chromiumPrepare).toContain(
       'join(appSource, "chromium-window-policy.mjs")',
     );
+    // The packaged renderer already embeds a complete Node runtime. Synara and
+    // Open Slide share it in release builds, while debug builds retain the
+    // independently staged Node binary instead of selecting Electron.
+    expect(chromiumPrepare).toContain('ELECTRON_RUN_AS_NODE: "1"');
+    expect(synaraNodeStaging).toContain('nodeRuntime !== "electron"');
+    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin")');
+    for (const runtime of [synaraRuntime, presentationRuntime]) {
+      expect(runtime).toContain("tauri::is_dev()");
+      expect(runtime).toContain('not(debug_assertions)');
+      expect(runtime).toContain('.env("ELECTRON_RUN_AS_NODE", "1")');
+      expect(runtime).toContain(
+        'chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron',
+      );
+    }
   });
 
   it("gives loopback browser tabs the product icon", () => {
