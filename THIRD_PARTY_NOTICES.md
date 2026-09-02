@@ -19982,7 +19982,7 @@ Apache License
 
 <details><summary>Packages sharing this text</summary>
 
-`fast-uri@3.1.6`
+`fast-uri@3.1.7`
 
 </details>
 
