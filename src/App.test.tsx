@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
-import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
+import { clearAppLogs, formatAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "./telemetry/app-log-store";
 import { persistWorkspaceLayout } from "./settings/app-settings";
 import { mapCollabProjectStatusV2 } from "./collab/collab-status";
 import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
@@ -7587,6 +7587,58 @@ describe("project workspace", () => {
     });
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();
     expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
+  });
+
+  it("localizes the missing LaTeX package installer action", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "start_tex_dependency_install") return undefined;
+      if (command === "build_project") {
+        return {
+          success: false,
+          pdfBase64: null,
+          log: "LaTeX Error: File `newtxmath.sty' not found.\n",
+          durationMs: 80,
+          diagnostics: [{
+            level: "error",
+            message: "Missing LaTeX dependency `newtxmath.sty`. BasicTeX does not include every package available on Overleaf.",
+          }],
+        };
+      }
+      return mockAppCommand(command);
+    });
+
+    renderApp();
+    const toastId = await waitFor(() => {
+      const id = getVisibleAppToastIds().find((candidate) => (
+        getAppLogEntry(candidate)?.source === "Build"
+      ));
+      expect(id).toBeDefined();
+      return id!;
+    });
+    const action = getAppToastOptions(toastId)?.primaryAction;
+    expect(action?.label).toBe("安装缺失的软件包");
+    await act(async () => action?.onClick());
+    expect(invoke).toHaveBeenCalledWith("start_tex_dependency_install", {
+      missingFile: "newtxmath.sty",
+    });
+    await waitFor(() => expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 配置] 软件包安装程序已打开"));
   });
 
   it("does not open TeX setup when latexmk reports a missing project style", async () => {

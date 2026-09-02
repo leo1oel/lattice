@@ -3520,13 +3520,13 @@ function App() {
   ]);
 
   const installTexDependency = useCallback((missingFile: string) => {
-    const trace = logAction("LaTeX setup", "Install missing package", missingFile);
+    const trace = logAction(t`LaTeX setup`, t`Install missing package`, missingFile);
     void invoke("start_tex_dependency_install", { missingFile })
-      .then(() => trace.ok("Package installer opened", {
-        detail: "Follow the Terminal steps, then Build again.",
+      .then(() => trace.ok(t`Package installer opened`, {
+        detail: t`Follow the Terminal steps, then Build again.`,
       }))
       .catch((reason) => trace.fail(reason));
-  }, []);
+  }, [t]);
 
   const relayAgentCompileResults = useCallback((
     associations: Array<{ threadId: string; turnId: string; checkpointRef: string }>,
@@ -3755,7 +3755,7 @@ function App() {
             // first diagnostic.
             copyText: failureText,
             primaryAction: missingDependency ? {
-              label: "Install missing package",
+              label: t`Install missing package`,
               onClick: () => installTexDependency(missingDependency),
             } : undefined,
           });

@@ -1742,6 +1742,10 @@ msgstr "浮动表格，三线表样式（需要 booktabs）"
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
+#: src/App.tsx
+msgid "Follow the Terminal steps, then Build again."
+msgstr "按照终端中的步骤操作，然后重新构建。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote"
 msgstr "脚注"
@@ -2121,6 +2125,10 @@ msgstr "安装 LaTeX 工具"
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
 
+#: src/App.tsx
+msgid "Install missing package"
+msgstr "安装缺失的软件包"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "安装所需的论文工具"
@@ -2279,6 +2287,10 @@ msgstr "最后更新时间未知"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
+
+#: src/App.tsx
+msgid "LaTeX setup"
+msgstr "LaTeX 配置"
 
 #: src/App.tsx
 msgid "latexmk -c then -g"
@@ -3069,6 +3081,10 @@ msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作
 #: src/editor/insert/insert-snippets.ts
 msgid "Overline"
 msgstr "上划线"
+
+#: src/App.tsx
+msgid "Package installer opened"
+msgstr "软件包安装程序已打开"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx

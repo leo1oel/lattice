@@ -1742,6 +1742,10 @@ msgstr "Floating table with ruled rows (requires booktabs)"
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
+#: src/App.tsx
+msgid "Follow the Terminal steps, then Build again."
+msgstr "Follow the Terminal steps, then Build again."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote"
 msgstr "Footnote"
@@ -2121,6 +2125,10 @@ msgstr "Install LaTeX tools"
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "Install LaTeX tools (needed to compile PDFs)"
 
+#: src/App.tsx
+msgid "Install missing package"
+msgstr "Install missing package"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
@@ -2279,6 +2287,10 @@ msgstr "last update unknown"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
+
+#: src/App.tsx
+msgid "LaTeX setup"
+msgstr "LaTeX setup"
 
 #: src/App.tsx
 msgid "latexmk -c then -g"
@@ -3069,6 +3081,10 @@ msgstr "Overleaf's own record of this project, including everything collaborator
 #: src/editor/insert/insert-snippets.ts
 msgid "Overline"
 msgstr "Overline"
+
+#: src/App.tsx
+msgid "Package installer opened"
+msgstr "Package installer opened"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
