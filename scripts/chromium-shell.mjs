@@ -199,8 +199,8 @@ async function createWindow(rawUrl) {
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("did-finish-load", () => {
     // Browser-hosted CSS assumes an ordinary browser tab has no traffic
-    // lights. Restore the native macOS inset and make only the empty titlebar
-    // strip draggable so this Chromium experiment behaves like an app window.
+    // lights. Restore the native macOS inset and make empty titlebar chrome
+    // draggable so this Chromium experiment behaves like an app window.
     void window.webContents.insertCSS(`
       .app-shell.browser-hosted .traffic-space {
         width: 70px !important;
@@ -214,6 +214,12 @@ async function createWindow(rawUrl) {
       }
       .titlebar-drag-area {
         -webkit-app-region: drag;
+      }
+      .titlebar-main > .editor-tabs .editor-tabs-content {
+        -webkit-app-region: drag;
+      }
+      .titlebar-main > .editor-tabs .editor-tab {
+        -webkit-app-region: no-drag;
       }
     `);
   });

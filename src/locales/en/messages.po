@@ -346,6 +346,7 @@ msgstr "All of your projects are archived or trashed. Tick “Show archived” t
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Almost done"
 msgstr "Almost done"
@@ -396,6 +397,7 @@ msgstr "Appearance"
 msgid "Applies to the LaTeX source editor only"
 msgstr "Applies to the LaTeX source editor only"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
@@ -649,6 +651,7 @@ msgstr "cached"
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/canvas/document-canvas.tsx
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
@@ -772,6 +775,7 @@ msgstr "Checking the connection to {linkedHost}…"
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "Checking…"
@@ -1382,6 +1386,7 @@ msgstr "Download arXiv {id}"
 msgid "Download PDF"
 msgstr "Download PDF"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Download time depends on your connection"
 msgstr "Download time depends on your connection"
@@ -1714,6 +1719,7 @@ msgid "Finish"
 msgstr "Finish"
 
 #: src/app/use-collab-v2-session.ts
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
@@ -1741,10 +1747,6 @@ msgstr "Floating table with ruled rows (requires booktabs)"
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
-
-#: src/App.tsx
-msgid "Follow the Terminal steps, then Build again."
-msgstr "Follow the Terminal steps, then Build again."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote"
@@ -2126,6 +2128,7 @@ msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "Install LaTeX tools (needed to compile PDFs)"
 
 #: src/App.tsx
+#: src/build/tex-dependency-installer.tsx
 msgid "Install missing package"
 msgstr "Install missing package"
 
@@ -2142,6 +2145,7 @@ msgstr "Install required tools"
 msgid "Installing BasicTeX…"
 msgstr "Installing BasicTeX…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Installing LaTeX packages…"
 msgstr "Installing LaTeX packages…"
@@ -2288,6 +2292,14 @@ msgstr "last update unknown"
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
 
+#: src/build/tex-dependency-installer.tsx
+msgid "LaTeX package installation progress"
+msgstr "LaTeX package installation progress"
+
+#: src/App.tsx
+msgid "LaTeX package installed"
+msgstr "LaTeX package installed"
+
 #: src/App.tsx
 msgid "LaTeX setup"
 msgstr "LaTeX setup"
@@ -2319,6 +2331,11 @@ msgstr "Lattice needs uv to add papers and manage bibliographies. The verified d
 #: src/settings/settings-dialog.tsx
 msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
 msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Lattice will find and install the TeX Live package that provides {0}."
+msgstr "Lattice will find and install the TeX Live package that provides {0}."
 
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
@@ -2489,6 +2506,10 @@ msgstr "Loading files…"
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Loading PDF…"
+msgstr "Loading PDF…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
@@ -2550,6 +2571,10 @@ msgstr "Manuscript TODOs"
 #: src/editor/insert/insert-snippets.ts
 msgid "Maps to"
 msgstr "Maps to"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Match case"
+msgstr "Match case"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Math"
@@ -2727,6 +2752,10 @@ msgstr "next"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next page"
 msgstr "Next page"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Next PDF location"
+msgstr "Next PDF location"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
@@ -3082,10 +3111,6 @@ msgstr "Overleaf's own record of this project, including everything collaborator
 msgid "Overline"
 msgstr "Overline"
 
-#: src/App.tsx
-msgid "Package installer opened"
-msgstr "Package installer opened"
-
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 msgid "Paper"
@@ -3161,6 +3186,10 @@ msgstr "PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF document"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "PDF loading progress"
+msgstr "PDF loading progress"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF page {pageNumber}"
@@ -3308,6 +3337,10 @@ msgstr "previous"
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous page"
 msgstr "Previous page"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Previous PDF location"
+msgstr "Previous PDF location"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
@@ -3586,8 +3619,8 @@ msgid "Rendering changes…"
 msgstr "Rendering changes…"
 
 #: src/pdf/pdf-viewer.tsx
-msgid "Rendering PDF…"
-msgstr "Rendering PDF…"
+msgid "Rendering first page…"
+msgstr "Rendering first page…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -3684,6 +3717,7 @@ msgstr "Resolved"
 msgid "Resolving citation metadata…"
 msgstr "Resolving citation metadata…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "Resolving…"
@@ -4020,6 +4054,7 @@ msgstr "Settings"
 msgid "Settings sections"
 msgstr "Settings sections"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Setup is complete"
 msgstr "Setup is complete"
@@ -4594,6 +4629,7 @@ msgid "Triangle right"
 msgstr "Triangle right"
 
 #: src/App.tsx
+#: src/build/tex-dependency-installer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
@@ -4811,6 +4847,7 @@ msgstr "Verified against the official 2026 conference style"
 msgid "Verified against the official 2026 style; creates a preprint draft"
 msgstr "Verified against the official 2026 style; creates a preprint draft"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
@@ -4873,6 +4910,7 @@ msgstr "Visual Markdown editor"
 msgid "Vmatrix"
 msgstr "Vmatrix"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
@@ -4904,6 +4942,10 @@ msgstr "Welcome to Lattice"
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Whole word"
+msgstr "Whole word"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

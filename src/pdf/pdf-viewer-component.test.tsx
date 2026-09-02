@@ -2,6 +2,13 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdfPreview } from "./pdf-viewer";
 
+type MockPdfDestination = {
+  page: number;
+  scrollTop: number;
+  scrollLeft: number;
+  scaleValue?: string;
+};
+
 type MockPdfSlick = {
   args: {
     container: HTMLDivElement;
@@ -10,6 +17,10 @@ type MockPdfSlick = {
   };
   dispatch: ReturnType<typeof vi.fn>;
   gotoPage: ReturnType<typeof vi.fn>;
+  linkService: {
+    page: number;
+    goToDestination: (destination: MockPdfDestination) => Promise<void>;
+  };
   loadDocument: ReturnType<typeof vi.fn>;
   unbindEvents: ReturnType<typeof vi.fn>;
   viewer: {
@@ -29,6 +40,11 @@ const pdfSlickMock = vi.hoisted(() => ({
   numPages: 3,
   viewportScale: 1,
   documentBytes: new Uint8Array([1, 2, 3]),
+  deferLoad: false,
+  pendingLoad: null as null | {
+    onProgress?: (progress: { loaded: number; total: number; percent: number }) => void;
+    resolve: () => void;
+  },
 }));
 const browserRuntime = vi.hoisted(() => ({ hosted: false }));
 const pdfJs = vi.hoisted(() => ({ GlobalWorkerOptions: {} as { workerSrc?: string } }));
@@ -50,6 +66,7 @@ vi.mock("@pdfslick/core", () => ({
     args: MockPdfSlick["args"];
     dispatch: ReturnType<typeof vi.fn>;
     gotoPage: ReturnType<typeof vi.fn>;
+    linkService: MockPdfSlick["linkService"];
     loadDocument: ReturnType<typeof vi.fn>;
     unbindEvents = vi.fn();
     document: {
@@ -86,11 +103,28 @@ vi.mock("@pdfslick/core", () => ({
         set currentScaleValue(value: string) {
           currentScaleValue = value;
           const scale = value === "page-fit" ? 0.6 : value === "page-width" ? 0.75 : Number(value);
-          queueMicrotask(() => emit("scalechanging", { scale }));
+          currentScale = scale;
+          queueMicrotask(() => emit("scalechanging", {
+            scale,
+            presetValue: value === "page-fit" || value === "page-width" ? value : undefined,
+          }));
         },
         getPageView: (index: number) => this.pageViews[index],
       };
-      this.gotoPage = vi.fn((page: number) => this.emit("pagechanging", { pageNumber: page }));
+      this.linkService = {
+        page: 1,
+        goToDestination: vi.fn(async (destination: MockPdfDestination) => {
+          this.linkService.page = destination.page;
+          if (destination.scaleValue) this.viewer.currentScaleValue = destination.scaleValue;
+          args.container.scrollTop = destination.scrollTop;
+          args.container.scrollLeft = destination.scrollLeft;
+          this.emit("pagechanging", { pageNumber: destination.page });
+        }),
+      };
+      this.gotoPage = vi.fn((page: number) => {
+        this.linkService.page = page;
+        this.emit("pagechanging", { pageNumber: page });
+      });
       this.dispatch = vi.fn((name: string, event: Record<string, unknown>) => {
         if (name === "findbarclose") {
           this.clearHighlights();
@@ -121,8 +155,18 @@ vi.mock("@pdfslick/core", () => ({
           },
         });
       });
-      this.loadDocument = vi.fn(async (source: string | ArrayBuffer) => {
+      this.loadDocument = vi.fn(async (
+        source: string | ArrayBuffer,
+        options?: {
+          onProgress?: (progress: { loaded: number; total: number; percent: number }) => void;
+        },
+      ) => {
         void source;
+        if (pdfSlickMock.deferLoad) {
+          await new Promise<void>((resolve) => {
+            pdfSlickMock.pendingLoad = { onProgress: options?.onProgress, resolve };
+          });
+        }
         this.document = {
           numPages: pdfSlickMock.numPages,
           getData: async () => pdfSlickMock.documentBytes,
@@ -145,7 +189,20 @@ vi.mock("@pdfslick/core", () => ({
           link.target = "_blank";
           link.rel = "noopener noreferrer nofollow";
           link.title = "https://example.com/paper";
-          annotationLayer.append(link);
+          const internalLink = document.createElement("a");
+          internalLink.href = "#page=3";
+          internalLink.className = "internalLink";
+          internalLink.title = "Jump to PDF page 3";
+          internalLink.onclick = () => {
+            void this.linkService.goToDestination({
+              page: 3,
+              scrollTop: 1_200,
+              scrollLeft: 24,
+              scaleValue: "1.5",
+            });
+            return false;
+          };
+          annotationLayer.append(link, internalLink);
           page.append(canvas, textLayer, annotationLayer);
           args.viewer.append(page);
           this.pageViews.push({
@@ -190,6 +247,8 @@ describe("PDFSlick viewer integration", () => {
     pdfSlickMock.numPages = 3;
     pdfSlickMock.viewportScale = 1;
     pdfSlickMock.documentBytes = new Uint8Array([1, 2, 3]);
+    pdfSlickMock.deferLoad = false;
+    pdfSlickMock.pendingLoad = null;
     localStorage.clear();
   });
 
@@ -263,15 +322,48 @@ describe("PDFSlick viewer integration", () => {
       getDocumentParams: {
         cMapPacked: true,
         cMapUrl: expect.stringContaining("/pdfjs/cmaps/"),
+        data: expect.any(ArrayBuffer),
         disableAutoFetch: true,
         disableFontFace: false,
+        rangeChunkSize: 2 ** 20,
         standardFontDataUrl: expect.stringContaining("/pdfjs/standard_fonts/"),
         useSystemFonts: false,
       },
     });
+    expect((instance.args.options.getDocumentParams as { data: ArrayBuffer }).data.byteLength)
+      .toBe(bytes.byteLength);
     expect(pdfJs.GlobalWorkerOptions.workerSrc).toContain("pdf.worker.min.mjs");
     expect(await view.findByLabelText("PDF page 3")).toBeInTheDocument();
     expect(onNumPages).toHaveBeenLastCalledWith(3);
+  });
+
+  it("shows real network progress and the first-page rendering stage", async () => {
+    pdfSlickMock.deferLoad = true;
+    const view = render(
+      <PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} />,
+    );
+
+    await waitFor(() => expect(pdfSlickMock.pendingLoad).not.toBeNull());
+    const pendingLoad = pdfSlickMock.pendingLoad!;
+    expect(view.getByRole("status")).toHaveTextContent("Loading PDF…");
+
+    act(() => {
+      pendingLoad.onProgress?.({ loaded: 3, total: 10, percent: 30 });
+    });
+    expect(view.getByRole("status")).toHaveTextContent("Loading PDF…30%");
+    expect(view.getByRole("progressbar", { name: "PDF loading progress" }))
+      .toHaveAttribute("aria-valuenow", "30");
+    expect(view.container.querySelector(".pdf-load-progress-fill")).toHaveStyle({ width: "30%" });
+
+    act(() => {
+      pendingLoad.onProgress?.({ loaded: 10, total: 10, percent: 100 });
+    });
+    expect(view.getByRole("status")).toHaveTextContent("Rendering first page…");
+    expect(view.queryByRole("progressbar", { name: "PDF loading progress" })).toBeNull();
+
+    await act(async () => pendingLoad.resolve());
+    expect(await view.findByLabelText("PDF page 1")).toBeInTheDocument();
+    await waitFor(() => expect(view.queryByRole("status")).toBeNull());
   });
 
   it("uses PDFSlick navigation, native search highlights, selection, and secure links", async () => {
@@ -282,6 +374,8 @@ describe("PDFSlick viewer integration", () => {
     const pageInput = await view.findByLabelText("PDF page number");
     await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(1));
     const instance = pdfSlickMock.instances[0];
+    expect(instance.args.options.getDocumentParams).toMatchObject({ rangeChunkSize: 2 ** 20 });
+    expect(instance.args.options.getDocumentParams).not.toHaveProperty("data");
 
     fireEvent.focus(pageInput);
     fireEvent.change(pageInput, { target: { value: "3" } });
@@ -293,6 +387,29 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => expect(view.getByText("1 / 3")).toBeInTheDocument());
     expect(view.container.querySelectorAll(".highlight")).toHaveLength(3);
     expect(view.container.querySelectorAll(".highlight.selected")).toHaveLength(1);
+
+    const matchCase = view.getByRole("button", { name: "Match case" });
+    const wholeWord = view.getByRole("button", { name: "Whole word" });
+    expect(matchCase).toHaveAttribute("aria-pressed", "false");
+    expect(wholeWord).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(matchCase);
+    await waitFor(() => expect(instance.dispatch).toHaveBeenLastCalledWith("find", expect.objectContaining({
+      caseSensitive: true,
+      entireWord: false,
+      query: "attention",
+    })));
+    fireEvent.click(wholeWord);
+    await waitFor(() => expect(instance.dispatch).toHaveBeenLastCalledWith("find", expect.objectContaining({
+      caseSensitive: true,
+      entireWord: true,
+      query: "attention",
+    })));
+
+    fireEvent.keyDown(searchInput, { key: "Enter", shiftKey: true });
+    expect(instance.dispatch).toHaveBeenLastCalledWith("find", expect.objectContaining({
+      findPrevious: true,
+      type: "again",
+    }));
     fireEvent.click(view.getByRole("button", { name: "Next search result" }));
     expect(instance.dispatch).toHaveBeenLastCalledWith("find", expect.objectContaining({
       findPrevious: false,
@@ -310,6 +427,20 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => {
       expect(onTextSelect).toHaveBeenLastCalledWith("Attention is all you need");
     });
+    const preview = view.container.querySelector<HTMLElement>(".pdf-preview")!;
+    preview.focus();
+    fireEvent.keyDown(preview, { key: "f", metaKey: true });
+    await waitFor(() => {
+      expect(searchInput).toHaveFocus();
+      expect(searchInput).toHaveValue("Attention is all you need");
+    });
+    fireEvent.change(searchInput, { target: { value: "other query" } });
+    preview.focus();
+    fireEvent.keyDown(preview, { key: "f", ctrlKey: true });
+    await waitFor(() => {
+      expect(searchInput).toHaveFocus();
+      expect(searchInput).toHaveValue("Attention is all you need");
+    });
     selection.mockReturnValue({ rangeCount: 0, isCollapsed: true } as Selection);
     document.dispatchEvent(new Event("selectionchange"));
     expect(onTextSelect).toHaveBeenLastCalledWith("");
@@ -318,6 +449,47 @@ describe("PDFSlick viewer integration", () => {
     const link = view.getAllByTitle("https://example.com/paper")[0];
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
+  it("returns to exact locations after internal PDF link jumps and clears history on replacement", async () => {
+    const view = render(
+      <PdfPreview url="https://example.test/first.pdf" pdfBase64={null} />,
+    );
+    await view.findByLabelText("PDF page 1");
+    const instance = pdfSlickMock.instances[0];
+    const viewport = instance.args.container;
+    const back = view.getByRole("button", { name: "Previous PDF location" });
+    const forward = view.getByRole("button", { name: "Next PDF location" });
+    expect(back).toBeDisabled();
+    expect(forward).toBeDisabled();
+
+    instance.linkService.page = 1;
+    viewport.scrollTop = 240;
+    viewport.scrollLeft = 12;
+    fireEvent.click(view.getAllByTitle("Jump to PDF page 3")[0]);
+    await waitFor(() => expect(back).toBeEnabled());
+    expect(forward).toBeDisabled();
+    expect(viewport.scrollTop).toBe(1_200);
+    expect(viewport.scrollLeft).toBe(24);
+
+    fireEvent.click(back);
+    await waitFor(() => expect(viewport.scrollTop).toBe(240));
+    expect(viewport.scrollLeft).toBe(12);
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(1);
+    expect(back).toBeDisabled();
+    expect(forward).toBeEnabled();
+
+    fireEvent.click(forward);
+    await waitFor(() => expect(viewport.scrollTop).toBe(1_200));
+    expect(viewport.scrollLeft).toBe(24);
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(3);
+    expect(back).toBeEnabled();
+    expect(forward).toBeDisabled();
+
+    view.rerender(<PdfPreview url="https://example.test/second.pdf" pdfBase64={null} />);
+    await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(2), { timeout: 2_500 });
+    await waitFor(() => expect(back).toBeDisabled());
+    expect(forward).toBeDisabled();
   });
 
   it("preserves forward and reverse SyncTeX point coordinates", async () => {

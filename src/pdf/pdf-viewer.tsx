@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -14,16 +15,20 @@ import { PDFSlick, type PDFSlickOptions } from "@pdfslick/core";
 import { GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
+  CaseSensitive,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   CircleAlert,
+  CornerUpLeft,
+  CornerUpRight,
   Download,
   FileText,
   LocateFixed,
   RectangleHorizontal,
   RectangleVertical,
+  WholeWord,
   X,
   ZoomIn,
   ZoomOut,
@@ -42,7 +47,7 @@ import {
   pdfBytesFingerprint,
   utf8ToBase64,
 } from "./pdf-bytes";
-import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
+import { installPdfTextLayerSelection, pdfSelectedOrCachedPlainText } from "./pdf-text-layer-selection";
 import {
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
@@ -57,6 +62,7 @@ import "./pdf-viewer.css";
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
 const PDF_LOAD_TIMEOUT_MS = 45_000;
+const PDF_RANGE_CHUNK_BYTES = 2 ** 20;
 const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
 const PDF_REFIT_SETTLE_MS = 120;
 /** PDF.js's viewer renders a PDF point at one CSS pixel at 75% viewer scale. */
@@ -139,6 +145,20 @@ type ScaleEvent = {
   presetValue?: string | null;
 };
 
+type PdfLocation = PdfFileViewState;
+
+type PdfLocationHistory = {
+  back: PdfLocation[];
+  forward: PdfLocation[];
+};
+
+type PdfLoadFeedback = {
+  key: string;
+  phase: "loading" | "rendering";
+  percent: number | null;
+  blocking: boolean;
+};
+
 function loadPdfViewPreference(): PdfViewPreference {
   try {
     const stored = JSON.parse(localStorage.getItem(PDF_VIEW_PREFERENCE_KEY) ?? "null") as unknown;
@@ -179,6 +199,30 @@ function toAppScale(viewerScale: number) {
 
 function toViewerScale(appScale: number) {
   return clamp(appScale, PDF_MIN_SCALE, PDF_MAX_SCALE) / PDF_TO_CSS_UNITS;
+}
+
+function capturePdfLocation(record: ViewerRecord): PdfLocation {
+  const { slick, root } = record;
+  const scaleValue = slick.viewer.currentScaleValue;
+  return {
+    page: Math.max(1, Math.floor(slick.linkService.page)),
+    scale: toAppScale(slick.viewer.currentScale),
+    fitMode: scaleValue === "page-width"
+      ? "width"
+      : scaleValue === "page-fit"
+        ? "height"
+        : null,
+    scrollTop: root.scrollTop,
+    scrollLeft: root.scrollLeft,
+  };
+}
+
+function isSamePdfLocation(left: PdfLocation, right: PdfLocation): boolean {
+  return left.page === right.page
+    && left.fitMode === right.fitMode
+    && Math.abs(left.scale - right.scale) < 0.001
+    && Math.abs(left.scrollTop - right.scrollTop) < 1
+    && Math.abs(left.scrollLeft - right.scrollLeft) < 1;
 }
 
 function copyArrayBuffer(bytes: ArrayBuffer | Uint8Array): ArrayBuffer {
@@ -242,6 +286,7 @@ function viewerOptions(
   browserHosted: boolean,
   scaleValue: string,
   completeSource: boolean,
+  documentData: ArrayBuffer | null,
 ): PDFSlickOptions {
   return {
     scaleValue,
@@ -257,6 +302,15 @@ function viewerOptions(
       cMapUrl: PDF_CMAP_URL,
       cMapPacked: true,
       standardFontDataUrl: PDF_STANDARD_FONT_DATA_URL,
+      // PDFSlick turns ArrayBuffers into blob URLs before calling PDF.js.
+      // Supplying the same disposable copy as data keeps local documents on
+      // PDF.js's direct worker-transfer path instead of fetching that blob.
+      ...(documentData ? { data: documentData } : {}),
+      // arXiv's response startup latency makes PDF.js's 64 KiB default very
+      // expensive for non-linearized papers: one first page can require many
+      // sequential ranges. Favor fewer requests over conserving a small amount
+      // of overlapping early data.
+      rangeChunkSize: PDF_RANGE_CHUNK_BYTES,
       // PDFViewer eagerly initializes 250 pages after its first paint. Local
       // byte sources are already complete, so keep page proxies lazy and let a
       // far jump request its target directly. PDF.js requires streaming to be
@@ -310,7 +364,7 @@ export function PdfPreview({
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
   onPageChange?: (page: number) => void;
-  /** Complete bytes assembled by PDF.js after a URL load, suitable for caching. */
+  /** Complete bytes assembled by PDF.js after a URL load, for host actions such as download. */
   onDocumentData?: (bytes: ArrayBuffer) => void;
   initialPage?: number;
   initialViewState?: PdfFileViewState;
@@ -329,6 +383,7 @@ export function PdfPreview({
   const effectiveSaveLabel = saveLabel ?? t`Save PDF as…`;
   const effectiveTimeoutMessage = timeoutMessage
     ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`;
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const activeRecordRef = useRef<ViewerRecord | null>(null);
@@ -372,17 +427,25 @@ export function PdfPreview({
   const [fitMode, setFitMode] = useState<"width" | "height" | null>(initialViewPreference.fitMode);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
+  const [loadFeedback, setLoadFeedback] = useState<PdfLoadFeedback | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchCase, setSearchMatchCase] = useState(false);
+  const [searchWholeWord, setSearchWholeWord] = useState(false);
   const [searchMatches, setSearchMatches] = useState({ current: 0, total: 0 });
   const [pageEditing, setPageEditing] = useState(false);
   const [pageDraft, setPageDraft] = useState("");
   const [zoomEditing, setZoomEditing] = useState(false);
   const [zoomDraft, setZoomDraft] = useState("");
+  const [historyAvailability, setHistoryAvailability] = useState({ back: false, forward: false });
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const pdfSurfaceActiveRef = useRef(false);
   const cancelPageEditRef = useRef(false);
   const pageNumberRef = useRef(pageNumber);
   const scaleRef = useRef(scale);
   const fitModeRef = useRef(fitMode);
+  const locationHistoryRef = useRef<PdfLocationHistory>({ back: [], forward: [] });
+  const locationNavigationTokenRef = useRef(0);
   const viewStateFrameRef = useRef<number | null>(null);
   const viewStateReadyRef = useRef(!initialViewStateSnapshot);
   const textLayerDisposersRef = useRef(new Map<HTMLElement, () => void>());
@@ -425,6 +488,19 @@ export function PdfPreview({
     }
     scheduleViewState();
   }, [fitMode, scale, scheduleViewState]);
+
+  const syncHistoryAvailability = useCallback(() => {
+    setHistoryAvailability({
+      back: locationHistoryRef.current.back.length > 0,
+      forward: locationHistoryRef.current.forward.length > 0,
+    });
+  }, []);
+
+  const resetLocationHistory = useCallback(() => {
+    locationNavigationTokenRef.current += 1;
+    locationHistoryRef.current = { back: [], forward: [] };
+    setHistoryAvailability({ back: false, forward: false });
+  }, []);
 
   const disposeRecord = useCallback((record: ViewerRecord) => {
     for (const [layer, dispose] of textLayerDisposersRef.current) {
@@ -472,6 +548,7 @@ export function PdfPreview({
         setActiveViewerGeneration(0);
         setNumPages(null);
         setLoadedKey(null);
+        resetLocationHistory();
         onNumPagesRef.current?.(null);
         if (previous) disposeRecord(previous);
       }
@@ -481,6 +558,7 @@ export function PdfPreview({
     let cancelled = false;
     let promoted = false;
     let loadSettled = false;
+    let firstPageRendered = false;
     let loadFailure: unknown = null;
     let dataTimer: number | null = null;
     let timeout: number | null = null;
@@ -496,18 +574,42 @@ export function PdfPreview({
     if (previousAtStart) root.classList.add("pdf-viewer-staging");
     host.append(root);
 
+    const updateLoadFeedback = (phase: PdfLoadFeedback["phase"], percent: number | null) => {
+      if (cancelled || firstPageRendered) return;
+      setLoadFeedback((current) => {
+        if (
+          current?.key === stableLoadKey
+          && current.phase === phase
+          && current.percent === percent
+        ) return current;
+        return {
+          key: stableLoadKey,
+          phase,
+          percent,
+          blocking: previousAtStart === null,
+        };
+      });
+    };
+    const clearLoadFeedback = () => {
+      setLoadFeedback((current) => current?.key === stableLoadKey ? null : current);
+    };
+
     const scaleValue = fitModeRef.current === "width"
       ? "page-width"
       : fitModeRef.current === "height"
         ? "page-fit"
         : String(toViewerScale(scaleRef.current));
-    const completeSource = Boolean(
-      pdfSourceRef.current.byteSource || pdfSourceRef.current.pdfBase64,
-    );
+    const { byteSource: currentBytes, pdfBase64: currentBase64, url: currentUrl } = pdfSourceRef.current;
+    const source = currentBytes
+      ? copyArrayBuffer(currentBytes)
+      : currentBase64
+        ? copyArrayBuffer(pdfBase64ToBytes(currentBase64))
+        : currentUrl!;
+    const documentData = typeof source === "string" ? null : source;
     const slick = new PDFSlick({
       container: root,
       viewer,
-      options: viewerOptions(browserHosted, scaleValue, completeSource),
+      options: viewerOptions(browserHosted, scaleValue, documentData !== null, documentData),
       // PDFSlick reports PDF.js failures through this callback and deliberately
       // resolves loadDocument. Preserve the error so the lifecycle below can
       // keep an old document visible or show a useful first-load failure.
@@ -515,6 +617,32 @@ export function PdfPreview({
         loadFailure = reason;
       },
     });
+    const linkService = slick.linkService;
+    const originalGoToDestination = linkService.goToDestination;
+    const trackedGoToDestination: typeof originalGoToDestination = async (destination) => {
+      const sourceLocation = activeRecordRef.current === record
+        ? capturePdfLocation(record)
+        : null;
+      const navigationToken = sourceLocation
+        ? ++locationNavigationTokenRef.current
+        : 0;
+      await originalGoToDestination.call(linkService, destination);
+      if (
+        !sourceLocation
+        || activeRecordRef.current !== record
+        || locationNavigationTokenRef.current !== navigationToken
+      ) return;
+      const targetLocation = capturePdfLocation(record);
+      if (isSamePdfLocation(sourceLocation, targetLocation)) return;
+      locationHistoryRef.current.back.push(sourceLocation);
+      locationHistoryRef.current.forward = [];
+      syncHistoryAvailability();
+    };
+    // PDFSlick exposes PDF.js's link service but does not install its optional
+    // browser-global PDFHistory. Track only internal-destination jumps on this
+    // viewer instance so app/tab navigation and ordinary PDF scrolling remain
+    // independent.
+    linkService.goToDestination = trackedGoToDestination;
     const sourceHandler = (event: MouseEvent) => {
       const sourceCallback = onSourceRef.current;
       if (!sourceCallback) return;
@@ -545,6 +673,9 @@ export function PdfPreview({
       viewer,
       disposeDom: () => {
         if (dataTimer !== null) window.clearTimeout(dataTimer);
+        if (linkService.goToDestination === trackedGoToDestination) {
+          linkService.goToDestination = originalGoToDestination;
+        }
         root.removeEventListener("dblclick", sourceHandler);
         root.removeEventListener("scroll", scrollHandler);
       },
@@ -568,11 +699,13 @@ export function PdfPreview({
     const promote = () => {
       if (cancelled || promoted || !slick.document) return;
       promoted = true;
+      updateLoadFeedback("rendering", null);
       const previous = activeRecordRef.current;
       const restorePage = Math.min(pageNumberRef.current, slick.document.numPages);
       const restoreTop = previous?.root.scrollTop ?? initialViewStateSnapshot?.scrollTop ?? 0;
       const restoreLeft = previous?.root.scrollLeft ?? initialViewStateSnapshot?.scrollLeft ?? 0;
       root.classList.remove("pdf-viewer-staging");
+      resetLocationHistory();
       activeRecordRef.current = record;
       scrollAreaRef.current = root;
       setActiveViewerGeneration((generation) => generation + 1);
@@ -596,6 +729,10 @@ export function PdfPreview({
       promote();
     });
     slick.on("pagerendered", () => {
+      if (!firstPageRendered) {
+        firstPageRendered = true;
+        clearLoadFeedback();
+      }
       for (const [layer, dispose] of textLayerDisposersRef.current) {
         if (!layer.isConnected) {
           dispose();
@@ -637,6 +774,11 @@ export function PdfPreview({
       const event = source as ScaleEvent;
       if (activeRecordRef.current !== record || typeof event.scale !== "number") return;
       setScale(toAppScale(event.scale));
+      setFitMode(event.presetValue === "page-width"
+        ? "width"
+        : event.presetValue === "page-fit"
+          ? "height"
+          : null);
     });
     slick.on("updatefindmatchescount", (source) => {
       const event = source as FindMatchesCountEvent;
@@ -647,20 +789,26 @@ export function PdfPreview({
       });
     });
 
-    const { byteSource: currentBytes, pdfBase64: currentBase64, url: currentUrl } = pdfSourceRef.current;
-    const source = currentBytes
-      ? copyArrayBuffer(currentBytes)
-      : currentBase64
-        ? copyArrayBuffer(pdfBase64ToBytes(currentBase64))
-        : currentUrl!;
     timeout = window.setTimeout(() => {
       if (loadSettled || cancelled) return;
       cancelled = true;
+      clearLoadFeedback();
       if (!activeRecordRef.current) setPdfError(effectiveTimeoutMessage);
       setLoadedKey(stableLoadKey);
     }, PDF_LOAD_TIMEOUT_MS);
 
-    void slick.loadDocument(source)
+    void slick.loadDocument(source, {
+      onProgress: ({ loaded, total }) => {
+        if (cancelled || promoted || firstPageRendered) return;
+        const percent = total > 0
+          ? Math.round(clamp((loaded / total) * 100, 0, 100))
+          : null;
+        updateLoadFeedback(
+          percent === 100 ? "rendering" : "loading",
+          percent === 100 ? null : percent,
+        );
+      },
+    })
       .then(() => {
         loadSettled = true;
         if (timeout !== null) window.clearTimeout(timeout);
@@ -675,6 +823,7 @@ export function PdfPreview({
             onNumPagesRef.current?.(null);
           }
           setLoadedKey(stableLoadKey);
+          clearLoadFeedback();
           disposeRecord(record);
           return;
         }
@@ -684,6 +833,7 @@ export function PdfPreview({
         loadSettled = true;
         if (timeout !== null) window.clearTimeout(timeout);
         if (cancelled) return;
+        clearLoadFeedback();
         if (!activeRecordRef.current) {
           setPdfError(message(reason));
           setNumPages(null);
@@ -699,7 +849,17 @@ export function PdfPreview({
       cancelled = true;
       if (loadSettled) disposeRecord(record);
     };
-  }, [browserHosted, disposeRecord, effectiveTimeoutMessage, initialViewStateSnapshot, scheduleViewState, stableLoadKey, t]);
+  }, [
+    browserHosted,
+    disposeRecord,
+    effectiveTimeoutMessage,
+    initialViewStateSnapshot,
+    resetLocationHistory,
+    scheduleViewState,
+    stableLoadKey,
+    syncHistoryAvailability,
+    t,
+  ]);
 
   useEffect(() => () => {
     if (viewStateFrameRef.current !== null) {
@@ -928,6 +1088,41 @@ export function PdfPreview({
     setPageNumber(page);
   }, [numPages]);
 
+  const navigateLocationHistory = useCallback((direction: "back" | "forward") => {
+    const record = activeRecordRef.current;
+    if (!record) return;
+    const history = locationHistoryRef.current;
+    const source = direction === "back" ? history.back : history.forward;
+    const target = source.pop();
+    if (!target) return;
+    const current = capturePdfLocation(record);
+    if (direction === "back") history.forward.push(current);
+    else history.back.push(current);
+    syncHistoryAvailability();
+
+    const navigationToken = ++locationNavigationTokenRef.current;
+    fitModeRef.current = target.fitMode;
+    scaleRef.current = target.scale;
+    setFitMode(target.fitMode);
+    setScale(target.scale);
+    if (target.fitMode) {
+      record.slick.viewer.currentScaleValue = target.fitMode === "width" ? "page-width" : "page-fit";
+    } else {
+      record.slick.viewer.currentScale = toViewerScale(target.scale);
+    }
+    window.requestAnimationFrame(() => {
+      if (
+        activeRecordRef.current !== record
+        || locationNavigationTokenRef.current !== navigationToken
+      ) return;
+      record.slick.gotoPage(target.page);
+      record.root.scrollTop = target.scrollTop;
+      record.root.scrollLeft = target.scrollLeft;
+      setPageNumber(target.page);
+      scheduleViewState();
+    });
+  }, [scheduleViewState, syncHistoryAvailability]);
+
   useEffect(() => {
     const record = activeRecordRef.current;
     if (!record) return;
@@ -972,13 +1167,73 @@ export function PdfPreview({
       source: slick,
       type: again ? "again" : "",
       query,
-      caseSensitive: false,
-      entireWord: false,
+      caseSensitive: searchMatchCase,
+      entireWord: searchWholeWord,
       highlightAll: true,
       findPrevious,
       matchDiacritics: false,
     });
+  }, [searchMatchCase, searchWholeWord]);
+
+  const focusPdfSurface = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const interactiveSelector = ["a", "button", "input", "select", "textarea", `[${"contenteditable"}]`]
+      .join(", ");
+    if (target?.closest(interactiveSelector)) return;
+    event.currentTarget.focus({ preventScroll: true });
   }, []);
+
+  const handlePdfFindShortcut = useCallback((event: KeyboardEvent) => {
+    if (
+      event.key.toLocaleLowerCase() !== "f"
+      || (!event.metaKey && !event.ctrlKey)
+      || event.altKey
+      || event.shiftKey
+    ) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode;
+    let selectedText = "";
+    if (selection && !selection.isCollapsed && anchor && activeRecordRef.current?.root.contains(anchor)) {
+      selectedText = normalizePdfSelection(selection.toString());
+    }
+    if (
+      !selectedText
+      && event.target instanceof Element
+      && event.target.classList.contains("pdf-copy-field")
+    ) selectedText = pdfSelectedOrCachedPlainText();
+    if (selectedText) setSearchQuery(selectedText);
+    window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+  }, []);
+
+  useEffect(() => {
+    const preview = previewRef.current;
+    if (!preview || !loadKey) return;
+    const onPointerDown = (event: PointerEvent) => {
+      pdfSurfaceActiveRef.current = event.target instanceof Node && preview.contains(event.target);
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.classList.contains("pdf-copy-field")) return;
+      pdfSurfaceActiveRef.current = target instanceof Node && preview.contains(target);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (pdfSurfaceActiveRef.current) handlePdfFindShortcut(event);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      pdfSurfaceActiveRef.current = false;
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [handlePdfFindShortcut, loadKey]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize PDFSlick's imperative find controller after promotion or query changes.
@@ -1004,7 +1259,19 @@ export function PdfPreview({
   };
 
   const loading = Boolean(loadKey && loadedKey !== loadKey);
-  const showBlockingLoader = loading && !hasActiveViewer;
+  const currentLoadFeedback = loadFeedback?.key === loadKey ? loadFeedback : null;
+  const showBlockingLoader = (loading && !hasActiveViewer) || currentLoadFeedback?.blocking === true;
+  const showQuietLoader = !showBlockingLoader
+    && hasActiveViewer
+    && (loading || currentLoadFeedback !== null);
+  const remoteSource = !byteSource && !pdfBase64;
+  const loadPhase = currentLoadFeedback?.phase ?? (remoteSource ? "loading" : "rendering");
+  const loadPercent = loadPhase === "loading" ? currentLoadFeedback?.percent ?? null : null;
+  const loadLabel = showBlockingLoader
+    ? loadPhase === "loading"
+      ? t`Loading PDF…`
+      : t`Rendering first page…`
+    : t`Updating…`;
 
   if (!loadKey) {
     return (
@@ -1044,7 +1311,12 @@ export function PdfPreview({
   };
 
   return (
-    <div className="pdf-preview">
+    <div
+      ref={previewRef}
+      className="pdf-preview"
+      tabIndex={-1}
+      onPointerDownCapture={focusPdfSurface}
+    >
       <div className="pdf-toolbar">
         <div className="pdf-navigation-controls">
           {toolbarStart}
@@ -1089,10 +1361,31 @@ export function PdfPreview({
               </button>
             </Tip>
           </div>
+          <div className="pdf-history-controls">
+            <Tip label={t`Previous PDF location`}>
+              <button
+                type="button"
+                disabled={!historyAvailability.back}
+                onClick={() => navigateLocationHistory("back")}
+              >
+                <CornerUpLeft size={14} />
+              </button>
+            </Tip>
+            <Tip label={t`Next PDF location`}>
+              <button
+                type="button"
+                disabled={!historyAvailability.forward}
+                onClick={() => navigateLocationHistory("forward")}
+              >
+                <CornerUpRight size={14} />
+              </button>
+            </Tip>
+          </div>
         </div>
         <div className="pdf-find-controls">
           {outline}
           <SearchField
+            ref={searchInputRef}
             aria-label={t`Search PDF`}
             containerClassName="pdf-search"
             controlSize="compact"
@@ -1100,8 +1393,39 @@ export function PdfPreview({
             value={searchQuery}
             placeholder={t`Find in PDF`}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && searchQuery) {
+                event.preventDefault();
+                dispatchFind(searchQuery, event.shiftKey, true);
+              } else if (event.key === "Escape" && searchQuery) {
+                event.preventDefault();
+                setSearchQuery("");
+              }
+            }}
             trailing={searchQuery ? (
               <>
+                <Tip label={t`Match case`}>
+                  <button
+                    type="button"
+                    className="pdf-search-option"
+                    aria-pressed={searchMatchCase}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setSearchMatchCase((enabled) => !enabled)}
+                  >
+                    <CaseSensitive size={12} />
+                  </button>
+                </Tip>
+                <Tip label={t`Whole word`}>
+                  <button
+                    type="button"
+                    className="pdf-search-option"
+                    aria-pressed={searchWholeWord}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setSearchWholeWord((enabled) => !enabled)}
+                  >
+                    <WholeWord size={12} />
+                  </button>
+                </Tip>
                 <small className="pdf-search-position" aria-live="polite">
                   {searchMatches.total ? `${searchMatches.current} / ${searchMatches.total}` : "0 / 0"}
                 </small>
@@ -1133,6 +1457,7 @@ export function PdfPreview({
         <div className="pdf-zoom-controls">
           <Tip label={t`Zoom out`}>
             <button
+              className="pdf-zoom-step"
               disabled={scale <= PDF_MIN_SCALE}
               onClick={() => applyManualScale(Number((scaleRef.current - 0.1).toFixed(1)))}
             >
@@ -1141,7 +1466,7 @@ export function PdfPreview({
           </Tip>
           <label
             ref={zoomValueLabelRef}
-            className="pdf-zoom-value"
+            className="pdf-zoom-value pdf-zoom-step"
             title={t`Enter a zoom percentage or scroll to zoom`}
           >
             <input
@@ -1164,13 +1489,14 @@ export function PdfPreview({
           </label>
           <Tip label={t`Zoom in`}>
             <button
+              className="pdf-zoom-step"
               disabled={scale >= PDF_MAX_SCALE}
               onClick={() => applyManualScale(Number((scaleRef.current + 0.1).toFixed(1)))}
             >
               <ZoomIn size={14} />
             </button>
           </Tip>
-          <i className="pdf-fit-divider" aria-hidden="true" />
+          <i className="pdf-fit-divider pdf-zoom-step" aria-hidden="true" />
           {onForwardSync && (
             <>
               <Tip label={t`Reveal cursor in PDF (⌘⇧J)`}>
@@ -1221,11 +1547,32 @@ export function PdfPreview({
         {pdfError && !hasActiveViewer
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
           : null}
-        {showBlockingLoader
-          ? <div className="pdf-loading smooth-shadow-ring-md"><InfinityLoader size={17} /> {t`Rendering PDF…`}</div>
-          : null}
-        {loading && hasActiveViewer
-          ? <div className="pdf-loading pdf-loading-quiet smooth-shadow-ring-md"><InfinityLoader size={14} /> {t`Updating…`}</div>
+        {showBlockingLoader || showQuietLoader
+          ? (
+              <div
+                className={`pdf-loading smooth-shadow-ring-md${showQuietLoader ? " pdf-loading-quiet" : ""}`}
+                role="status"
+                aria-live="polite"
+              >
+                <InfinityLoader size={showBlockingLoader ? 17 : 14} />
+                <span>{loadLabel}</span>
+                {loadPercent !== null ? (
+                  <>
+                    <div
+                      className="pdf-load-progress"
+                      role="progressbar"
+                      aria-label={t`PDF loading progress`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={loadPercent}
+                    >
+                      <div className="pdf-load-progress-fill" style={{ width: `${loadPercent}%` }} />
+                    </div>
+                    <span className="pdf-load-percent" aria-hidden="true">{loadPercent}%</span>
+                  </>
+                ) : null}
+              </div>
+            )
           : null}
       </div>
     </div>

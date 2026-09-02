@@ -11,7 +11,9 @@
 /* Shell + placeholder live in the eager sheet, not pdf-viewer.css: the lazy PDF
    chunk's Suspense fallback (PdfPreviewLoading) paints before that chunk's CSS
    arrives, and unstyled it dropped the icon and label into the top-left corner. */
-.pdf-preview { position: relative; padding: 0; display: flex; flex-direction: column; background: var(--pdf-bg); }
+/* PDF.js assigns very high local z-index values to parts of its annotation
+   layer, so contain that ladder before it can compete with app drawers. */
+.pdf-preview { position: relative; isolation: isolate; padding: 0; display: flex; flex-direction: column; background: var(--pdf-bg); }
 .pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); }
 .source-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; max-width: 100%; height: 100%; background: var(--editor-bg); }
 .source-workspace > .document-outline,

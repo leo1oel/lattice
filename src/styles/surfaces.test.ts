@@ -52,6 +52,15 @@ describe("shared surface contracts", () => {
     expect(appCss).not.toMatch(frostedChrome)
   })
 
+  it("keeps PDF.js annotation layers below application drawers", () => {
+    expect(appCss).toMatch(
+      /\.pdf-preview \{[^}]*position:\s*relative;[^}]*isolation:\s*isolate;/,
+    )
+    expect(appCss).toMatch(
+      /\.drawer-backdrop \{[^}]*z-index:\s*var\(--z-drawer-backdrop\);/,
+    )
+  })
+
   it("does not hardcode the popover surface colour on the project menu", () => {
     expect(projectDialogs).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
   })

@@ -7,6 +7,7 @@ import {
   installPdfTextLayerSelection,
   isEditableSelectAllTarget,
   isVisualPdfGlyphEvent,
+  pdfSelectedOrCachedPlainText,
   pdfSelectionOverlayRect,
   placeEndOfContentForRange,
   shouldPreventPdfSelectAll,
@@ -330,6 +331,8 @@ describe("PDF Command-C", () => {
       await vi.waitFor(() => {
         expect(invoke).toHaveBeenCalledWith("set_pdf_copy_text", { text: "可复制标题" });
       });
+      document.getSelection()?.removeAllRanges();
+      expect(pdfSelectedOrCachedPlainText()).toBe("可复制标题");
     } finally {
       uninstall();
     }

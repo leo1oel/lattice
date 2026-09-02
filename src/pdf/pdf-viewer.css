@@ -1,6 +1,6 @@
-/* The middle track stays usable while all three groups fit on one row. Once
-   they do not, the container query gives search a full row instead of reducing
-   it to an icon-width sliver or clipping the controls at the trailing edge. */
+/* The toolbar stays on one row so resizing the source/PDF split never moves
+   search away from page navigation. Narrow panes shed redundant zoom steps;
+   trackpad zoom and the two fit controls remain available. */
 .pdf-preview { container: pdf-preview / inline-size; }
 .pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
 .pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
@@ -12,9 +12,10 @@
 .pdf-find-controls:has(.pdf-outline-trigger) { grid-template-columns: 24px minmax(0, 1fr); }
 .pdf-find-controls .pdf-search { width: 100%; min-width: 0; }
 .pdf-outline-trigger { justify-self: center; }
-.pdf-page-controls, .pdf-zoom-controls { display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-micro-size); }
+.pdf-page-controls, .pdf-history-controls, .pdf-zoom-controls { display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-micro-size); }
 .pdf-navigation-controls { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: var(--space-3); }
 .pdf-page-controls { justify-self: start; display: grid; grid-template-columns: 24px 44px 24px; gap: var(--gap-hairline); }
+.pdf-history-controls { display: grid; grid-template-columns: 24px 24px; gap: var(--gap-hairline); }
 .pdf-zoom-controls { width: auto; grid-column: 3; justify-self: end; gap: var(--space-2); }
 .pdf-page-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .pdf-page-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
@@ -33,6 +34,7 @@
 .pdf-search small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .pdf-search .pdf-search-position { min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
+.pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .pdf-viewer-host { position: absolute; inset: 0; overflow: hidden; }
 .pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; padding: var(--space-10); box-sizing: border-box; }
@@ -67,15 +69,13 @@
 .pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
 .pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
 .pdf-loading-quiet { opacity: 0.85; }
+.pdf-load-progress { width: calc(var(--space-16) * 2); height: var(--space-2); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
+.pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }
+.pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
-@container pdf-preview (max-width: 560px) {
-  .pdf-toolbar { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .pdf-find-controls { grid-row: 2; grid-column: 1 / -1; }
-}
-@container pdf-preview (max-width: 360px) {
-  .pdf-toolbar { grid-template-columns: minmax(0, 1fr); padding-inline: var(--space-2); }
-  .pdf-navigation-controls { grid-row: 1; grid-column: 1; justify-self: center; }
-  .pdf-zoom-controls { grid-row: 2; grid-column: 1; justify-self: center; gap: var(--space-1); }
-  .pdf-find-controls { grid-row: 3; grid-column: 1; }
+@container pdf-preview (max-width: 640px) {
+  .pdf-toolbar { padding-inline: var(--space-2); gap: var(--space-1); }
+  .pdf-zoom-controls { gap: var(--space-1); }
+  .pdf-toolbar .pdf-zoom-step { display: none; }
 }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }

@@ -5,10 +5,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::fs::{self, FileTimes, OpenOptions};
+use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Output;
-use std::time::SystemTime;
 use uuid::Uuid;
 
 // Schema 4 also normalizes converter block boundaries before hashing and
@@ -34,7 +33,6 @@ const FIRECRAWL_CONVERTER: &str = "firecrawl-v2";
 const ARXIV_TITLE_SEARCH_URL: &str = "https://export.arxiv.org/api/query";
 const LITERATURE_USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
 const MAX_PAPER_PDF_BYTES: usize = 100 * 1024 * 1024;
-const PAPER_PDF_CACHE_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -916,104 +914,6 @@ fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
         title.replace('"', "'"),
         body,
     ))
-}
-
-/// Read an arXiv PDF from the app cache and mark it as recently used.
-///
-/// The cache lives under the operating system's cache directory, never in the
-/// project. An empty response is a normal miss: the reader can start a ranged
-/// request against arXiv immediately, then populate this cache in the
-/// background once PDF.js has assembled the complete document.
-pub fn read_cached_pdf(cache_dir: &Path, arxiv_id: &str) -> Result<Vec<u8>, String> {
-    let path = cached_pdf_path(cache_dir, arxiv_id)?;
-    if !path.is_file() {
-        return Ok(Vec::new());
-    }
-    let metadata = fs::metadata(&path).map_err(err)?;
-    if metadata.len() > MAX_PAPER_PDF_BYTES as u64 {
-        let _ = fs::remove_file(&path);
-        return Ok(Vec::new());
-    }
-    let bytes = fs::read(&path).map_err(err)?;
-    if !is_pdf(&bytes) {
-        let _ = fs::remove_file(&path);
-        return Ok(Vec::new());
-    }
-    if let Ok(file) = OpenOptions::new().write(true).open(&path) {
-        let _ = file.set_times(FileTimes::new().set_modified(SystemTime::now()));
-    }
-    Ok(bytes)
-}
-
-/// Persist a PDF that PDF.js already fetched, then enforce the shared cache
-/// ceiling. This avoids a second network request while making later opens
-/// local and near-instant.
-pub fn cache_pdf(cache_dir: &Path, arxiv_id: &str, bytes: &[u8]) -> Result<(), String> {
-    if !is_pdf(bytes) {
-        return Err("The cached paper is not a valid PDF.".to_string());
-    }
-    if bytes.len() > MAX_PAPER_PDF_BYTES {
-        return Err("The PDF is larger than the 100 MB cache limit.".to_string());
-    }
-    fs::create_dir_all(cache_dir).map_err(err)?;
-    let path = cached_pdf_path(cache_dir, arxiv_id)?;
-    let temporary = cache_dir.join(format!(".{}.tmp", Uuid::new_v4()));
-    fs::write(&temporary, bytes).map_err(err)?;
-    if let Err(first_error) = fs::rename(&temporary, &path) {
-        // Unix replaces atomically; Windows does not. Keep the fallback narrow
-        // so a failure for any other reason still reports the original cause.
-        if !path.is_file() {
-            let _ = fs::remove_file(&temporary);
-            return Err(first_error.to_string());
-        }
-        fs::remove_file(&path).map_err(err)?;
-        fs::rename(&temporary, &path).map_err(err)?;
-    }
-    prune_pdf_cache(cache_dir, PAPER_PDF_CACHE_BYTES, Some(&path))
-}
-
-fn cached_pdf_path(cache_dir: &Path, arxiv_id: &str) -> Result<PathBuf, String> {
-    let normalized = arxiv_id.trim();
-    validate_arxiv_id(normalized)?;
-    // Legacy identifiers contain one slash. Replacing it keeps the complete
-    // versioned identity while ensuring the cache entry is always one file.
-    Ok(cache_dir.join(format!("{}.pdf", normalized.replace('/', "_"))))
-}
-
-fn is_pdf(bytes: &[u8]) -> bool {
-    bytes.starts_with(b"%PDF-")
-}
-
-fn prune_pdf_cache(cache_dir: &Path, limit: u64, keep: Option<&Path>) -> Result<(), String> {
-    let mut entries = fs::read_dir(cache_dir)
-        .map_err(err)?
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("pdf") {
-                return None;
-            }
-            let metadata = entry.metadata().ok()?;
-            Some((
-                path,
-                metadata.len(),
-                metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-            ))
-        })
-        .collect::<Vec<_>>();
-    let mut total = entries.iter().map(|(_, size, _)| *size).sum::<u64>();
-    entries.sort_by(|left, right| left.2.cmp(&right.2).then_with(|| left.0.cmp(&right.0)));
-    for (path, size, _) in entries {
-        if total <= limit {
-            break;
-        }
-        if keep.is_some_and(|kept| kept == path) {
-            continue;
-        }
-        fs::remove_file(path).map_err(err)?;
-        total = total.saturating_sub(size);
-    }
-    Ok(())
 }
 
 fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
@@ -2196,35 +2096,6 @@ mod tests {
             ),
         );
         path
-    }
-
-    #[test]
-    fn paper_pdf_cache_is_bounded_and_rejects_non_pdf_data() {
-        let directory =
-            std::env::temp_dir().join(format!("lattice-paper-pdf-cache-{}", Uuid::new_v4()));
-        let first = directory.join("first.pdf");
-        let second = directory.join("second.pdf");
-        fs::create_dir_all(&directory).unwrap();
-        fs::write(&first, b"12345678").unwrap();
-        fs::write(&second, b"abcdefgh").unwrap();
-        OpenOptions::new()
-            .write(true)
-            .open(&first)
-            .unwrap()
-            .set_times(FileTimes::new().set_modified(SystemTime::UNIX_EPOCH))
-            .unwrap();
-
-        prune_pdf_cache(&directory, 8, Some(&second)).unwrap();
-        assert!(!first.exists());
-        assert!(second.exists());
-
-        let pdf = b"%PDF-1.7 cached paper";
-        cache_pdf(&directory, "1706.03762v7", pdf).unwrap();
-        assert_eq!(read_cached_pdf(&directory, "1706.03762v7").unwrap(), pdf);
-        assert!(cache_pdf(&directory, "1706.03762", b"not a pdf").is_err());
-        assert!(cache_pdf(&directory, "../../escape", pdf).is_err());
-
-        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

@@ -9,6 +9,11 @@ export type TexInstallProgress = {
   progress: number;
 };
 
+export type TexDependencyInstallProgress = {
+  stage: "searching-packages" | "authorizing" | "installing-dependency" | "verifying-dependency" | "complete";
+  progress: number;
+};
+
 const REQUIRED_ALWAYS = ["latexmk", "synctex", "bibtex"] as const;
 const REQUIRED_APP_TOOLS = ["uv", "uvx"] as const;
 

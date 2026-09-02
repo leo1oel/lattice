@@ -74,7 +74,18 @@ async function loadUpdaterApis() {
 
 async function restartAfterUpdate() {
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("restart_after_update");
+  try {
+    await invoke("restart_after_update");
+  } catch (reason) {
+    // An updater can replace the app bundle before the old process exits. If
+    // that process then reloads the new frontend, releases before v0.1.251 do
+    // not know this app-owned command yet. Their process plugin is available,
+    // so use the older restart path only for that exact compatibility case.
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    if (detail !== "Command restart_after_update not found") throw reason;
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+    await relaunch();
+  }
 }
 
 /**

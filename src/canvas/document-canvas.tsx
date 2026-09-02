@@ -16,7 +16,6 @@ import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/comm
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { latex } from "codemirror-lang-latex";
 import {
@@ -110,7 +109,7 @@ import { MathPreview } from "../editor/latex/math-preview";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
-import { pdfBase64ToBytes, pdfBytesToObjectUrl, utf8ToBase64 } from "../pdf/pdf-bytes";
+import { pdfBase64ToBytes } from "../pdf/pdf-bytes";
 import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
 import { notifyError } from "../telemetry/app-notify";
 import type {
@@ -702,16 +701,12 @@ function MarkdownPreviewLoading() {
   );
 }
 
-type PaperPdfView =
-  | { arxivId: string; status: "loading"; initialPage: number }
-  | {
-      arxivId: string;
-      status: "ready";
-      url: string;
-      objectUrl: string | null;
-      bytes: ArrayBuffer | null;
-      initialPage: number;
-    };
+type PaperPdfView = {
+  arxivId: string;
+  url: string;
+  bytes: ArrayBuffer | null;
+  initialPage: number;
+};
 
 function normalizedArxivId(value: string): string {
   const candidate = value.trim();
@@ -1405,90 +1400,40 @@ export function DocumentCanvas(props: {
     [props.activePaper],
   );
   const [paperPdfView, setPaperPdfView] = useState<PaperPdfView | null>(null);
-  const paperPdfRequestGenerationRef = useRef(0);
   const paperPdfPagesRef = useRef(new Map<string, number>());
   useEffect(() => {
-    paperPdfRequestGenerationRef.current += 1;
     setPaperPdfView((current) => current?.arxivId === activePaperArxivId ? current : null);
+  }, [activePaperArxivId]);
+  useEffect(() => {
+    // The paper article is already useful while this local chunk initializes.
+    // Start it here so a later PDF click waits only for arXiv and PDF.js.
+    if (activePaperArxivId) void loadPdfPreviewModule();
   }, [activePaperArxivId]);
   useEffect(() => {
     // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
     // Choosing one while the PDF is open exits the alternate PDF surface.
-    paperPdfRequestGenerationRef.current += 1;
     setPaperPdfView(null);
   }, [activeFile, props.mode]);
-  const paperPdfObjectUrl = paperPdfView?.status === "ready" ? paperPdfView.objectUrl : null;
-  useEffect(() => () => {
-    if (paperPdfObjectUrl) URL.revokeObjectURL(paperPdfObjectUrl);
-  }, [paperPdfObjectUrl]);
   const openPaperPdf = useCallback(() => {
     if (!activePaperArxivId) return;
-    const generation = ++paperPdfRequestGenerationRef.current;
-    const remoteUrl = arxivPdfUrl(activePaperArxivId);
-    const initialPage = paperPdfPagesRef.current.get(activePaperArxivId) ?? 1;
-    setPaperPdfView({ arxivId: activePaperArxivId, status: "loading", initialPage });
-    void invoke<ArrayBuffer>("read_cached_paper_pdf", { arxivId: activePaperArxivId })
-      .then((bytes) => {
-        if (paperPdfRequestGenerationRef.current !== generation) return;
-        if (bytes.byteLength > 0) {
-          const objectUrl = pdfBytesToObjectUrl(bytes);
-          setPaperPdfView({
-            arxivId: activePaperArxivId,
-            status: "ready",
-            url: objectUrl,
-            objectUrl,
-            bytes,
-            initialPage,
-          });
-          return;
-        }
-        setPaperPdfView({
-          arxivId: activePaperArxivId,
-          status: "ready",
-          url: remoteUrl,
-          objectUrl: null,
-          bytes: null,
-          initialPage,
-        });
-      })
-      .catch(() => {
-        // Cache availability never gates reading. A miss or cache-directory
-        // failure falls back to arXiv's ranged, CORS-enabled PDF response.
-        if (paperPdfRequestGenerationRef.current === generation) {
-          setPaperPdfView({
-            arxivId: activePaperArxivId,
-            status: "ready",
-            url: remoteUrl,
-            objectUrl: null,
-            bytes: null,
-            initialPage,
-          });
-        }
-      });
+    setPaperPdfView({
+      arxivId: activePaperArxivId,
+      url: arxivPdfUrl(activePaperArxivId),
+      bytes: null,
+      initialPage: paperPdfPagesRef.current.get(activePaperArxivId) ?? 1,
+    });
   }, [activePaperArxivId]);
   const closePaperPdf = useCallback(() => {
-    paperPdfRequestGenerationRef.current += 1;
     setPaperPdfView(null);
   }, []);
-  const cacheActivePaperPdf = useCallback((bytes: ArrayBuffer) => {
-    if (
-      !activePaperArxivId
-      || paperPdfView?.status !== "ready"
-      || paperPdfView.objectUrl
-    ) {
-      return;
-    }
+  const captureActivePaperPdf = useCallback((bytes: ArrayBuffer) => {
+    if (!activePaperArxivId) return;
     setPaperPdfView((current) => (
-      current?.status === "ready"
-      && current.arxivId === activePaperArxivId
-      && !current.objectUrl
+      current?.arxivId === activePaperArxivId
         ? { ...current, bytes }
         : current
     ));
-    void invoke<void>("cache_paper_pdf", bytes, {
-      headers: { "x-arxiv-id": utf8ToBase64(activePaperArxivId) },
-    }).catch(() => undefined);
-  }, [activePaperArxivId, paperPdfView]);
+  }, [activePaperArxivId]);
   const rememberPaperPdfPage = useCallback((page: number) => {
     if (activePaperArxivId) paperPdfPagesRef.current.set(activePaperArxivId, page);
   }, [activePaperArxivId]);
@@ -3598,46 +3543,44 @@ export function DocumentCanvas(props: {
       ) : null}
     </div>
   ) : null;
-  const paperPdfPreview = paperPdfActive ? (
-    paperPdfView?.status === "ready" ? (
-      <div
-        className="paper-pdf-preview"
-        onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
-        onFocusCapture={() => props.onContextSurfaceActivate("paper")}
-      >
-        <Suspense fallback={<PdfPreviewLoading />}>
-          <PdfPreview
-            key={`paper-pdf:${paperPdfView.arxivId}`}
-            url={paperPdfView.url}
-            pdfBase64={null}
-            pdfBytes={paperPdfView.bytes}
-            fileName={`${paperPdfView.arxivId.replace("/", "-")}.pdf`}
-            initialPage={paperPdfView.initialPage}
-            saveLabel={t`Download PDF`}
-            timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
-            onTextSelect={props.onPaperTextSelect}
-            onPageChange={rememberPaperPdfPage}
-            initialViewState={props.getFileViewState?.(activeFile)?.pdf}
-            onViewState={(pdf) => props.onFileViewState?.(activeFile, { pdf })}
-            onDocumentData={paperPdfView.objectUrl ? undefined : cacheActivePaperPdf}
-            toolbarStart={(
-              <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
-                <button type="button" onClick={closePaperPdf}>
-                  <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
-                </button>
-              </Tip>
-            )}
-            toolbarEnd={activePaperBrowserUrl ? (
-              <Tip label={paperBrowserActionLabel}>
-                <button type="button" onClick={openActivePaperInBrowser}>
-                  <ExternalLink size={14} aria-hidden="true" />
-                </button>
-              </Tip>
-            ) : undefined}
-          />
-        </Suspense>
-      </div>
-    ) : <PdfPreviewLoading />
+  const paperPdfPreview = paperPdfActive && paperPdfView ? (
+    <div
+      className="paper-pdf-preview"
+      onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
+      onFocusCapture={() => props.onContextSurfaceActivate("paper")}
+    >
+      <Suspense fallback={<PdfPreviewLoading />}>
+        <PdfPreview
+          key={`paper-pdf:${paperPdfView.arxivId}`}
+          url={paperPdfView.url}
+          pdfBase64={null}
+          pdfBytes={paperPdfView.bytes}
+          fileName={`${paperPdfView.arxivId.replace("/", "-")}.pdf`}
+          initialPage={paperPdfView.initialPage}
+          saveLabel={t`Download PDF`}
+          timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
+          onTextSelect={props.onPaperTextSelect}
+          onPageChange={rememberPaperPdfPage}
+          initialViewState={props.getFileViewState?.(activeFile)?.pdf}
+          onViewState={(pdf) => props.onFileViewState?.(activeFile, { pdf })}
+          onDocumentData={paperPdfView.bytes ? undefined : captureActivePaperPdf}
+          toolbarStart={(
+            <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
+              <button type="button" onClick={closePaperPdf}>
+                <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </Tip>
+          )}
+          toolbarEnd={activePaperBrowserUrl ? (
+            <Tip label={paperBrowserActionLabel}>
+              <button type="button" onClick={openActivePaperInBrowser}>
+                <ExternalLink size={14} aria-hidden="true" />
+              </button>
+            </Tip>
+          ) : undefined}
+        />
+      </Suspense>
+    </div>
   ) : null;
   const paperPreview = props.activePaper ? (
     <section className="paper-reader-shell" aria-label={t({ message: `${{ title: props.activePaper.title }} paper reader` })}>

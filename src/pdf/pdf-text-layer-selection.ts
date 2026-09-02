@@ -296,9 +296,13 @@ export function pdfSelectedPlainText(selection: Selection | null = document.getS
   return normalizePdfSelection(fallback.join(""));
 }
 
+export function pdfSelectedOrCachedPlainText(selection: Selection | null = document.getSelection()): string {
+  return pdfSelectedPlainText(selection) || lastPdfCopyText || copyField?.value || "";
+}
+
 function copyTextForEvent(target: EventTarget | null): string {
   if (fieldHasOwnSelection(target) || fieldHasOwnSelection(document.activeElement)) return "";
-  return pdfSelectedPlainText() || lastPdfCopyText || copyField?.value || "";
+  return pdfSelectedOrCachedPlainText();
 }
 
 async function writeClipboardText(text: string) {

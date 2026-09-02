@@ -640,6 +640,16 @@ fn installer_stage_progress(stage: &str) -> Option<f64> {
                 _ => Some(0.72),
             }
         }
+        "installing-dependency" => {
+            let completed = parts.next().and_then(|value| value.parse::<f64>().ok());
+            let total = parts.next().and_then(|value| value.parse::<f64>().ok());
+            match (completed, total) {
+                (Some(completed), Some(total)) if total > 0.0 => {
+                    Some(0.42 + (completed / total).clamp(0.0, 1.0) * 0.48)
+                }
+                _ => Some(0.42),
+            }
+        }
         "verifying" => Some(0.95),
         "complete" => Some(1.0),
         _ => None,
@@ -647,10 +657,7 @@ fn installer_stage_progress(stage: &str) -> Option<f64> {
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn install_error(stderr: &str) -> String {
-    if stderr.contains("User canceled") || stderr.contains("(-128)") {
-        return "Administrator approval is required to install BasicTeX.".into();
-    }
+fn install_error_detail(stderr: &str) -> String {
     let raw_detail = stderr.trim();
     let detail = raw_detail
         .split_once("execution error:")
@@ -671,6 +678,15 @@ fn install_error(stderr: &str) -> String {
         .take(8)
         .collect::<Vec<_>>()
         .join("\n");
+    detail
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn install_error(stderr: &str) -> String {
+    if stderr.contains("User canceled") || stderr.contains("(-128)") {
+        return "Administrator approval is required to install BasicTeX.".into();
+    }
+    let detail = install_error_detail(stderr);
     if detail.is_empty() {
         "BasicTeX installation failed. Please try again.".into()
     } else if detail.starts_with("Updating the TeX Live package manager failed.")
@@ -681,6 +697,21 @@ fn install_error(stderr: &str) -> String {
         )
     } else {
         format!("BasicTeX installation failed.\n{detail}")
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn dependency_install_error(stderr: &str, missing_file: &str) -> String {
+    if stderr.contains("User canceled") || stderr.contains("(-128)") {
+        return format!(
+            "Administrator approval is required to install the package for {missing_file}."
+        );
+    }
+    let detail = install_error_detail(stderr);
+    if detail.is_empty() {
+        format!("Could not install the package for {missing_file}. Please try again.")
+    } else {
+        format!("Could not install the package for {missing_file}.\n{detail}")
     }
 }
 
@@ -794,7 +825,33 @@ fn run_basic_tex_installer(
     status_path: &Path,
     on_progress: &Channel<TexInstallProgress>,
 ) -> Result<(), String> {
-    send_progress(on_progress, "authorizing", 0.58);
+    run_privileged_tex_installer(
+        command,
+        status_path,
+        on_progress,
+        PrivilegedTexInstall::BasicTex,
+    )
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy)]
+enum PrivilegedTexInstall<'a> {
+    BasicTex,
+    Dependency(&'a str),
+}
+
+#[cfg(target_os = "macos")]
+fn run_privileged_tex_installer(
+    command: &str,
+    status_path: &Path,
+    on_progress: &Channel<TexInstallProgress>,
+    install: PrivilegedTexInstall<'_>,
+) -> Result<(), String> {
+    let (name, authorization_progress) = match install {
+        PrivilegedTexInstall::BasicTex => ("BasicTeX", 0.58),
+        PrivilegedTexInstall::Dependency(missing_file) => (missing_file, 0.2),
+    };
+    send_progress(on_progress, "authorizing", authorization_progress);
     let mut child = Command::new("/usr/bin/osascript")
         .args([
             "-e",
@@ -808,7 +865,7 @@ fn run_basic_tex_installer(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| format!("Could not request permission to install BasicTeX: {error}"))?;
+        .map_err(|error| format!("Could not request permission to install {name}: {error}"))?;
 
     let mut last_stage = String::new();
     let exit = loop {
@@ -823,7 +880,7 @@ fn run_basic_tex_installer(
         }
         if let Some(exit) = child
             .try_wait()
-            .map_err(|error| format!("Could not monitor the BasicTeX installer: {error}"))?
+            .map_err(|error| format!("Could not monitor the {name} installer: {error}"))?
         {
             break exit;
         }
@@ -835,7 +892,12 @@ fn run_basic_tex_installer(
         let _ = pipe.read_to_string(&mut stderr);
     }
     if !exit.success() {
-        return Err(install_error(&stderr));
+        return Err(match install {
+            PrivilegedTexInstall::BasicTex => install_error(&stderr),
+            PrivilegedTexInstall::Dependency(missing_file) => {
+                dependency_install_error(&stderr, missing_file)
+            }
+        });
     }
     Ok(())
 }
@@ -863,107 +925,170 @@ fn active_tex_live_year(tlmgr: &Path) -> Option<i32> {
 
 #[cfg(any(target_os = "macos", test))]
 const DEPENDENCY_SCRIPT: &str = r#"#!/bin/bash
-set -u
-echo "=== Lattice: install missing LaTeX package ==="
-echo ""
-
-MISSING_FILE="__MISSING_FILE__"
+set -euo pipefail
+ROOT=__ROOT_PATH__
 TLMGR=__TLMGR_PATH__
-KPSEWHICH=__KPSEWHICH_PATH__
-SEARCH_PATTERN=__SEARCH_PATTERN__
+PACKAGE=__PACKAGE_NAME__
+REPOSITORY=__REPOSITORY__
+STATUS="${ROOT}/status"
+LOG="${ROOT}/install.log"
+CURRENT_STEP="Preparing the LaTeX package installation"
 
-if [[ ! -x "${TLMGR}" || ! -x "${KPSEWHICH}" ]]; then
-  echo "TeX Live's package manager could not be found beside the compiler Lattice uses."
-  echo "Install BasicTeX from Lattice first."
-  echo ""
-  read -r -p "Press Enter to close this window…"
+umask 077
+if ! /bin/mkdir -m 711 "${ROOT}"; then
+  echo "Could not create the privileged LaTeX package installer folder." >&2
   exit 1
 fi
+: > "${STATUS}"
+/bin/chmod 644 "${STATUS}"
+: > "${LOG}"
+exec 3>&2
 
-echo "Looking up the TeX Live package that provides ${MISSING_FILE}…"
-SEARCH_OUTPUT="$("${TLMGR}" search --global --file "${SEARCH_PATTERN}" 2>&1)"
-SEARCH_STATUS=$?
-printf '%s\n' "${SEARCH_OUTPUT}"
+cleanup() {
+  /bin/rm -rf "${ROOT}"
+}
 
-if [[ "${SEARCH_STATUS}" -ne 0 ]]; then
-  echo ""
-  echo "The TeX Live repository could not be searched."
-  echo "The output above usually explains whether the repository or TeX Live version needs attention."
-  echo ""
-  read -r -p "Press Enter to close this window…"
-  exit 1
-fi
+fail() {
+  code=$?
+  trap - ERR EXIT
+  set +e
+  printf '%s failed.\n' "${CURRENT_STEP}" >&3
+  DIAGNOSTIC="$(
+    /usr/bin/grep -Eai 'not present|not found|failed|failure|error|cannot|could not|unavailable' "${LOG}" \
+      | /usr/bin/grep -Ev 'An error has occurred|See above messages|Exiting' \
+      | /usr/bin/tail -n 4
+  )"
+  if [[ -n "${DIAGNOSTIC}" ]]; then
+    printf '%s\n' "${DIAGNOSTIC}" >&3
+  else
+    /usr/bin/tail -n 8 "${LOG}" >&3
+  fi
+  cleanup
+  exit "${code}"
+}
 
-PACKAGE="$(printf '%s\n' "${SEARCH_OUTPUT}" | awk -v wanted="/${MISSING_FILE}" '
-  /^[[:alnum:]][[:alnum:]_.+-]*:$/ { package=$0; sub(/:$/, "", package); next }
-  /^[[:space:]]/ {
-    path=$0
-    sub(/^[[:space:]]+/, "", path)
-    if (length(path) >= length(wanted) && substr(path, length(path) - length(wanted) + 1) == wanted) {
-      if (owner != "" && owner != package) { print "__AMBIGUOUS__"; exit }
-      owner=package
-    }
-  }
-  END { if (owner != "") print owner }
-')"
-if [[ "${PACKAGE}" == "__AMBIGUOUS__"* ]]; then
-  echo ""
-  echo "More than one TeX Live package claims ${MISSING_FILE}; nothing was installed automatically."
-  echo "Review the search results above and install the appropriate package manually."
-  echo ""
-  read -r -p "Press Enter to close this window…"
-  exit 1
-elif [[ -z "${PACKAGE}" ]]; then
-  echo ""
-  echo "No TeX Live package provides ${MISSING_FILE}."
-  echo "It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
-  echo ""
-  read -r -p "Press Enter to close this window…"
-  exit 1
-fi
+trap fail ERR
+trap cleanup EXIT
+exec > "${LOG}" 2>&1
 
-echo ""
-echo "Installing TeX Live package: ${PACKAGE}"
-TEXMFROOT="$("${KPSEWHICH}" -var-value=TEXMFROOT 2>/dev/null || true)"
-if [[ -n "${TEXMFROOT}" && -w "${TEXMFROOT}" ]]; then
-  "${TLMGR}" install "${PACKAGE}"
-else
-  sudo "${TLMGR}" install "${PACKAGE}"
-fi
+status() {
+  printf '%s\n' "$1" > "${STATUS}"
+}
 
-echo ""
-if FOUND="$("${KPSEWHICH}" "${MISSING_FILE}" 2>/dev/null)" && [[ -n "${FOUND}" ]]; then
-  echo "Installed ${MISSING_FILE} → ${FOUND}"
-  echo "Return to Lattice and Build again."
-else
-  echo "The package installed, but ${MISSING_FILE} is still unavailable."
-  echo "Review the tlmgr output above for more details."
-fi
-echo ""
-read -r -p "Press Enter to close this window…"
+tlmgr_install() {
+  if [[ -n "${REPOSITORY}" ]]; then
+    "${TLMGR}" --repository "${REPOSITORY}" install "${PACKAGE}"
+  else
+    "${TLMGR}" install "${PACKAGE}"
+  fi
+}
+
+CURRENT_STEP="Installing TeX Live package ${PACKAGE}"
+status installing-dependency
+tlmgr_install 2>&1 | while IFS= read -r line; do
+  printf '%s\n' "${line}"
+  if [[ "${line}" =~ ^\[([0-9]+)/([0-9]+), ]]; then
+    status "installing-dependency ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+  fi
+done
 "#;
 
-#[cfg(target_os = "macos")]
-fn open_terminal_script(path: &std::path::Path, script: &str) -> Result<(), String> {
-    {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o700)
-            .open(path)
-            .map_err(|error| format!("Could not create install script: {error}"))?;
-        file.write_all(script.as_bytes())
-            .map_err(|error| format!("Could not write install script: {error}"))?;
+#[cfg(any(target_os = "macos", test))]
+fn tex_live_package_for_file(search_output: &str, missing_file: &str) -> Result<String, String> {
+    let mut current_package: Option<&str> = None;
+    let mut owners = Vec::new();
+    for line in search_output.lines() {
+        let trimmed = line.trim();
+        if !line.chars().next().is_some_and(char::is_whitespace) {
+            current_package = trimmed
+                .strip_suffix(':')
+                .filter(|package| valid_tex_package_name(package));
+            continue;
+        }
+        if !trimmed.ends_with(&format!("/{missing_file}")) {
+            continue;
+        }
+        if let Some(package) = current_package {
+            if !owners.contains(&package) {
+                owners.push(package);
+            }
+        }
     }
 
-    let status = Command::new("open")
-        .arg(path)
-        .status()
-        .map_err(|error| format!("Could not open Terminal for TeX install: {error}"))?;
-    if !status.success() {
-        return Err("Could not open Terminal for TeX install.".into());
+    match owners.as_slice() {
+        [package] => Ok((*package).to_string()),
+        [] => Err(format!(
+            "No TeX Live package provides {missing_file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+        )),
+        _ => Err(format!(
+            "More than one TeX Live package provides {missing_file}: {}. Nothing was installed automatically.",
+            owners.join(", ")
+        )),
     }
-    Ok(())
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn valid_tex_package_name(package: &str) -> bool {
+    !package.is_empty()
+        && package
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte))
+}
+
+#[cfg(target_os = "macos")]
+fn find_tex_live_package(
+    tlmgr: &Path,
+    missing_file: &str,
+) -> Result<(String, Option<&'static str>), String> {
+    const FALLBACK_REPOSITORIES: [&str; 2] = [
+        "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet",
+        "https://mirrors.ustc.edu.cn/CTAN/systems/texlive/tlnet",
+    ];
+    let search_pattern = format!("/{}$", regex::escape(missing_file));
+    let repositories = std::iter::once(None).chain(FALLBACK_REPOSITORIES.map(Some));
+    let mut failures = Vec::new();
+    for repository in repositories {
+        let mut command = Command::new(tlmgr);
+        if let Some(repository) = repository {
+            command.args(["--repository", repository]);
+        }
+        let output = command
+            .args(["search", "--global", "--file", &search_pattern])
+            .output()
+            .map_err(|error| format!("Could not search the TeX Live repository: {error}"))?;
+        if output.status.success() {
+            let search_output = String::from_utf8_lossy(&output.stdout);
+            return tex_live_package_for_file(&search_output, missing_file)
+                .map(|package| (package, repository));
+        }
+        failures.push(command_failure_detail(&output));
+    }
+    failures.dedup();
+    Err(format!(
+        "The TeX Live repository could not be searched.\n{}",
+        failures.join("\n")
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn verify_tex_dependency(kpsewhich: &Path, missing_file: &str) -> Result<String, String> {
+    let output = Command::new(kpsewhich)
+        .arg(missing_file)
+        .output()
+        .map_err(|error| format!("Could not verify {missing_file}: {error}"))?;
+    let resolved = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.status.success() || resolved.is_empty() {
+        return Err(format!(
+            "The package installation finished, but {missing_file} is still unavailable.\n{}",
+            command_failure_detail(&output)
+        ));
+    }
+    fs::File::open(&resolved).map_err(|error| {
+        format!(
+            "The package installation finished, but Lattice could not read {missing_file}.\nResolved file: {resolved}\n{error}"
+        )
+    })?;
+    Ok(resolved)
 }
 
 pub fn start_tex_install(
@@ -1037,10 +1162,13 @@ pub fn start_tex_install(
     }
 }
 
-pub fn start_tex_dependency_install(missing_file: &str) -> Result<(), String> {
+pub fn start_tex_dependency_install(
+    missing_file: &str,
+    on_progress: Channel<TexInstallProgress>,
+) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = missing_file;
+        let _ = (missing_file, on_progress);
         Err("One-click TeX package install is only available on macOS.".into())
     }
 
@@ -1050,6 +1178,7 @@ pub fn start_tex_dependency_install(missing_file: &str) -> Result<(), String> {
             return Err("Invalid missing TeX dependency name.".into());
         }
 
+        let _install_guard = TexInstallGuard::acquire()?;
         let tlmgr = crate::commands::resolve("tlmgr");
         if !tlmgr.is_file() {
             return Err("TeX Live's package manager is not installed.".into());
@@ -1059,20 +1188,35 @@ pub fn start_tex_dependency_install(missing_file: &str) -> Result<(), String> {
             .map(|parent| parent.join("kpsewhich"))
             .filter(|path| path.is_file())
             .ok_or_else(|| "kpsewhich was not found beside tlmgr.".to_string())?;
-        let search_pattern = format!("/{}$", regex::escape(missing_file));
-        let script = DEPENDENCY_SCRIPT
-            .replace("__MISSING_FILE__", missing_file)
-            .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
-            .replace(
-                "__KPSEWHICH_PATH__",
-                &shell_quote(&kpsewhich.to_string_lossy()),
-            )
-            .replace("__SEARCH_PATTERN__", &shell_quote(&search_pattern));
-        let path = std::env::temp_dir().join(format!(
-            "lattice-tex-dependency-install-{}.command",
+        if verify_tex_dependency(&kpsewhich, missing_file).is_ok() {
+            send_progress(&on_progress, "complete", 1.0);
+            return Ok(());
+        }
+
+        send_progress(&on_progress, "searching-packages", 0.02);
+        let (package, repository) = find_tex_live_package(&tlmgr, missing_file)?;
+        let root_path = PathBuf::from("/private/var/tmp").join(format!(
+            "lattice-tex-dependency-root-{}",
             uuid::Uuid::new_v4().simple()
         ));
-        open_terminal_script(&path, &script)
+        let status_path = root_path.join("status");
+        let repository = repository.map(shell_quote).unwrap_or_else(|| "''".into());
+        let script = DEPENDENCY_SCRIPT
+            .replace("__ROOT_PATH__", &shell_quote(&root_path.to_string_lossy()))
+            .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
+            .replace("__PACKAGE_NAME__", &shell_quote(&package))
+            .replace("__REPOSITORY__", &repository);
+        let command = format!("/bin/bash -c {}", shell_quote(&script));
+        run_privileged_tex_installer(
+            &command,
+            &status_path,
+            &on_progress,
+            PrivilegedTexInstall::Dependency(missing_file),
+        )?;
+        send_progress(&on_progress, "verifying-dependency", 0.95);
+        verify_tex_dependency(&kpsewhich, missing_file)?;
+        send_progress(&on_progress, "complete", 1.0);
+        Ok(())
     }
 }
 
@@ -1231,6 +1375,10 @@ mod tests {
             installer_stage_progress("installing-packages 10 10"),
             Some(0.9299999999999999)
         );
+        assert_eq!(
+            installer_stage_progress("installing-dependency 1 2"),
+            Some(0.6599999999999999)
+        );
     }
 
     #[test]
@@ -1267,13 +1415,43 @@ mod tests {
 
     #[test]
     fn dependency_installer_looks_up_the_owning_tex_live_package() {
-        assert!(DEPENDENCY_SCRIPT.contains("${TLMGR}\" search --global --file"));
-        assert!(DEPENDENCY_SCRIPT.contains("sudo \"${TLMGR}\" install \"${PACKAGE}\""));
-        assert!(DEPENDENCY_SCRIPT.contains("custom project or conference-template file"));
+        let search_output = r#"newtx:
+    texmf-dist/tex/latex/newtx/newtxmath.sty
+    texmf-dist/tex/latex/newtx/newtxtext.sty
+other-package:
+    texmf-dist/tex/latex/other/other.sty
+"#;
+        assert_eq!(
+            tex_live_package_for_file(search_output, "newtxmath.sty").unwrap(),
+            "newtx"
+        );
+        assert!(DEPENDENCY_SCRIPT.contains("status installing-dependency"));
+        assert!(DEPENDENCY_SCRIPT.contains("--repository \"${REPOSITORY}\""));
+        assert!(DEPENDENCY_SCRIPT.contains("\"${TLMGR}\" install \"${PACKAGE}\""));
+        assert!(!DEPENDENCY_SCRIPT.contains("REPOSITORY_ARGS"));
+        assert!(!DEPENDENCY_SCRIPT.contains("sudo"));
+        assert!(!DEPENDENCY_SCRIPT.contains("Terminal"));
     }
 
     #[test]
-    fn dependency_name_validation_prevents_terminal_injection() {
+    fn dependency_lookup_refuses_missing_or_ambiguous_packages() {
+        let ambiguous = r#"first:
+    texmf-dist/tex/latex/first/shared.sty
+second:
+    texmf-dist/tex/latex/second/shared.sty
+"#;
+        assert!(tex_live_package_for_file(ambiguous, "shared.sty")
+            .unwrap_err()
+            .contains("More than one"));
+        assert!(
+            tex_live_package_for_file("unrelated:\n    texmf-dist/other.sty\n", "custom.sty")
+                .unwrap_err()
+                .contains("custom project or conference-template file")
+        );
+    }
+
+    #[test]
+    fn dependency_name_validation_prevents_installer_injection() {
         assert!(valid_tex_dependency_name("algorithm.sty"));
         assert!(valid_tex_dependency_name("biblatex-authoryear.bbx"));
         assert!(!valid_tex_dependency_name("../../evil.sty"));

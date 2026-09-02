@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -26,10 +26,15 @@ import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/searc
 import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
+import {
+  TexDependencyInstaller,
+  type TexDependencyInstallStatus,
+} from "./build/tex-dependency-installer";
 import { TexSetupWizard } from "./build/tex-setup-wizard";
 import {
   isMissingTexBuildError,
   isRequiredSetupMissing,
+  type TexDependencyInstallProgress,
 } from "./build/tex-setup";
 import {
   assertCollabWorkspaceLease,
@@ -1415,6 +1420,10 @@ function App() {
   const [doctorNotice, setDoctorNotice] = useState("");
   const doctorGenerationRef = useRef(0);
   const [texSetupOpen, setTexSetupOpen] = useState(false);
+  const [texDependencyInstall, setTexDependencyInstall] =
+    useState<TexDependencyInstallStatus | null>(null);
+  const texDependencyInstallRef = useRef<TexDependencyInstallStatus | null>(null);
+  const texDependencyInstallAttemptRef = useRef(0);
   const closedTabsRef = useRef<string[]>([]);
   const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
   const [referenceHits, setReferenceHits] = useState<{
@@ -3520,13 +3529,56 @@ function App() {
   ]);
 
   const installTexDependency = useCallback((missingFile: string) => {
+    if (texDependencyInstallRef.current?.installing) return;
+    const attempt = texDependencyInstallAttemptRef.current + 1;
+    texDependencyInstallAttemptRef.current = attempt;
+    const initial: TexDependencyInstallStatus = {
+      missingFile,
+      progress: { stage: "searching-packages", progress: 0 },
+      installing: true,
+      error: null,
+    };
+    texDependencyInstallRef.current = initial;
+    setTexDependencyInstall(initial);
     const trace = logAction(t`LaTeX setup`, t`Install missing package`, missingFile);
-    void invoke("start_tex_dependency_install", { missingFile })
-      .then(() => trace.ok(t`Package installer opened`, {
-        detail: t`Follow the Terminal steps, then Build again.`,
-      }))
-      .catch((reason) => trace.fail(reason));
+    const updateStatus = (
+      update: (current: TexDependencyInstallStatus) => TexDependencyInstallStatus,
+    ) => {
+      const current = texDependencyInstallRef.current;
+      if (!current || texDependencyInstallAttemptRef.current !== attempt) return;
+      const next = update(current);
+      texDependencyInstallRef.current = next;
+      setTexDependencyInstall(next);
+    };
+    const onProgress = new Channel<TexDependencyInstallProgress>();
+    onProgress.onmessage = (progress) => {
+      updateStatus((current) => ({ ...current, progress }));
+    };
+    void invoke("start_tex_dependency_install", { missingFile, onProgress })
+      .then(() => {
+        if (texDependencyInstallAttemptRef.current !== attempt) return;
+        texDependencyInstallAttemptRef.current += 1;
+        texDependencyInstallRef.current = null;
+        setTexDependencyInstall(null);
+        trace.ok(t`LaTeX package installed`, { detail: missingFile });
+        void compileRef.current(true, true);
+      })
+      .catch((reason) => {
+        updateStatus((current) => ({
+          ...current,
+          installing: false,
+          error: toMessage(reason),
+        }));
+        trace.fail(reason);
+      });
   }, [t]);
+
+  const closeTexDependencyInstall = useCallback(() => {
+    if (texDependencyInstallRef.current?.installing) return;
+    texDependencyInstallAttemptRef.current += 1;
+    texDependencyInstallRef.current = null;
+    setTexDependencyInstall(null);
+  }, []);
 
   const relayAgentCompileResults = useCallback((
     associations: Array<{ threadId: string; turnId: string; checkpointRef: string }>,
@@ -3699,7 +3751,14 @@ function App() {
         // had chosen to live with returned seconds after they dismissed it, for
         // as long as they kept writing.
         const nextDiagnostics = diagnosticsFingerprint(result.diagnostics);
-        setDiagnosticsDismissed(nextDiagnostics === dismissedDiagnosticsRef.current);
+        // An unchanged automatic warning stays dismissed while someone is
+        // writing. A failed build they explicitly requested is different:
+        // reopening its result is the acknowledgement that Build did run.
+        setDiagnosticsDismissed(
+          result.success || !shouldPlayCompletionSound
+            ? nextDiagnostics === dismissedDiagnosticsRef.current
+            : false,
+        );
         setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
         if (pdfBytes) {
           // LaTeX rewrites PDF metadata on every compile, so bytes almost always
@@ -3754,6 +3813,11 @@ function App() {
             // The full log is what a bug report needs; the toast only shows the
             // first diagnostic.
             copyText: failureText,
+            // A manual Build needs a durable outcome. The PDF panel below also
+            // retains the diagnostics; this toast stays until the reader has
+            // acknowledged it instead of disappearing while they inspect the
+            // source or a long compiler message.
+            timeoutMs: shouldPlayCompletionSound ? 0 : undefined,
             primaryAction: missingDependency ? {
               label: t`Install missing package`,
               onClick: () => installTexDependency(missingDependency),
@@ -3781,7 +3845,9 @@ function App() {
     } catch (reason) {
       if (scopeIsCurrent()) {
         const message = toMessage(reason);
-        trace.fail(reason);
+        trace.fail(reason, {
+          timeoutMs: shouldPlayCompletionSound ? 0 : undefined,
+        });
         completionSound = "build-failed";
         if (isMissingTexBuildError(message)) {
           doctorGenerationRef.current += 1;
@@ -9012,6 +9078,11 @@ function App() {
           onClose={() => setTexSetupOpen(false)}
           onRecheck={() => runDoctor({ openWizardIfMissing: true })}
         />
+        <TexDependencyInstaller
+          status={texDependencyInstall}
+          onClose={closeTexDependencyInstall}
+          onRetry={installTexDependency}
+        />
       </>
     );
   }
@@ -9365,7 +9436,7 @@ function App() {
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
-            pdfTop={!diagnosticsDismissed && build?.success && build.diagnostics.length > 0 ? (
+            pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
               <Suspense fallback={null}>
                 <CompileDiagnosticsPanel
                   diagnostics={build.diagnostics}
@@ -9587,6 +9658,12 @@ function App() {
         checking={doctorBusy}
         onClose={() => setTexSetupOpen(false)}
         onRecheck={() => runDoctor({ openWizardIfMissing: true })}
+      />
+
+      <TexDependencyInstaller
+        status={texDependencyInstall}
+        onClose={closeTexDependencyInstall}
+        onRetry={installTexDependency}
       />
 
       {figurePointerDrag && (

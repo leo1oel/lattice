@@ -68,7 +68,7 @@ describe("narrow pane chrome", () => {
     }
   });
 
-  it("keeps PDF search usable and moves it to its own row in a narrow pane", () => {
+  it("keeps PDF search and navigation on one row in a narrow pane", () => {
     const css = readFileSync("src/pdf/pdf-viewer.css", "utf8");
     const template = /\.pdf-toolbar \{[^}]*grid-template-columns: ([^;]+);/.exec(css)?.[1];
 
@@ -77,9 +77,9 @@ describe("narrow pane chrome", () => {
     expect(css).toMatch(
       /\.pdf-find-controls:has\(\.pdf-outline-trigger\) \{ grid-template-columns: 24px minmax\(0, 1fr\); \}/,
     );
+    expect(css).toMatch(/\.pdf-history-controls \{[^}]*grid-template-columns: 24px 24px;/);
     expect(css).toMatch(/\.pdf-find-controls \.pdf-search \{[^}]*width: 100%; min-width: 0;/);
-    expect(css).toMatch(
-      /@container pdf-preview \(max-width: 560px\)[\s\S]*?\.pdf-find-controls \{ grid-row: 2; grid-column: 1 \/ -1; \}/,
-    );
+    expect(css).not.toMatch(/\.pdf-find-controls \{[^}]*grid-row:/);
+    expect(css).toMatch(/@container pdf-preview \(max-width: 640px\)[\s\S]*?\.pdf-zoom-step[^}]*display: none;/);
   });
 });

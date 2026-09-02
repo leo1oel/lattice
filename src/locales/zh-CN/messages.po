@@ -346,6 +346,7 @@ msgstr "你的所有项目都已归档或移入回收站。勾选“显示已归
 msgid "Allow external commands"
 msgstr "允许外部命令"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Almost done"
 msgstr "即将完成"
@@ -396,6 +397,7 @@ msgstr "外观"
 msgid "Applies to the LaTeX source editor only"
 msgstr "仅应用于 LaTeX 源码编辑器"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "批准 macOS 提示以继续"
@@ -649,6 +651,7 @@ msgstr "缓存"
 msgid "Calligraphic"
 msgstr "花体"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/canvas/document-canvas.tsx
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
@@ -772,6 +775,7 @@ msgstr "正在检查与 {linkedHost} 的连接…"
 msgid "Checking your Overleaf connection…"
 msgstr "正在检查你的 Overleaf 连接…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "正在检查…"
@@ -1382,6 +1386,7 @@ msgstr "下载 arXiv {id}"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Download time depends on your connection"
 msgstr "下载时间取决于你的网络连接"
@@ -1714,6 +1719,7 @@ msgid "Finish"
 msgstr "完成"
 
 #: src/app/use-collab-v2-session.ts
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "正在完成设置…"
@@ -1741,10 +1747,6 @@ msgstr "浮动表格，三线表样式（需要 booktabs）"
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
-
-#: src/App.tsx
-msgid "Follow the Terminal steps, then Build again."
-msgstr "按照终端中的步骤操作，然后重新构建。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote"
@@ -2126,6 +2128,7 @@ msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
 
 #: src/App.tsx
+#: src/build/tex-dependency-installer.tsx
 msgid "Install missing package"
 msgstr "安装缺失的软件包"
 
@@ -2142,6 +2145,7 @@ msgstr "安装所需工具"
 msgid "Installing BasicTeX…"
 msgstr "正在安装 BasicTeX…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Installing LaTeX packages…"
 msgstr "正在安装 LaTeX 软件包…"
@@ -2288,6 +2292,14 @@ msgstr "最后更新时间未知"
 msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
 
+#: src/build/tex-dependency-installer.tsx
+msgid "LaTeX package installation progress"
+msgstr "LaTeX 软件包安装进度"
+
+#: src/App.tsx
+msgid "LaTeX package installed"
+msgstr "LaTeX 软件包已安装"
+
 #: src/App.tsx
 msgid "LaTeX setup"
 msgstr "LaTeX 配置"
@@ -2319,6 +2331,11 @@ msgstr "Lattice 需要 uv 来添加论文和管理参考文献。经验证的下
 #: src/settings/settings-dialog.tsx
 msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
 msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Lattice will find and install the TeX Live package that provides {0}."
+msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
@@ -2489,6 +2506,10 @@ msgstr "正在加载文件…"
 msgid "Loading Overleaf's history…"
 msgstr "正在加载 Overleaf 的历史记录…"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Loading PDF…"
+msgstr "正在加载 PDF…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "正在加载设置…"
@@ -2550,6 +2571,10 @@ msgstr "手稿待办事项"
 #: src/editor/insert/insert-snippets.ts
 msgid "Maps to"
 msgstr "映射到"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Match case"
+msgstr "区分大小写"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Math"
@@ -2727,6 +2752,10 @@ msgstr "下一个"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next page"
 msgstr "下一页"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Next PDF location"
+msgstr "前往 PDF 下一位置"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
@@ -3082,10 +3111,6 @@ msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作
 msgid "Overline"
 msgstr "上划线"
 
-#: src/App.tsx
-msgid "Package installer opened"
-msgstr "软件包安装程序已打开"
-
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 msgid "Paper"
@@ -3161,6 +3186,10 @@ msgstr "PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF 文档"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "PDF loading progress"
+msgstr "PDF 加载进度"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF page {pageNumber}"
@@ -3308,6 +3337,10 @@ msgstr "上一个"
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous page"
 msgstr "上一页"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Previous PDF location"
+msgstr "返回 PDF 上一位置"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
@@ -3584,8 +3617,8 @@ msgid "Rendering changes…"
 msgstr "正在渲染更改…"
 
 #: src/pdf/pdf-viewer.tsx
-msgid "Rendering PDF…"
-msgstr "正在渲染 PDF…"
+msgid "Rendering first page…"
+msgstr "正在渲染首页…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -3682,6 +3715,7 @@ msgstr "已解决"
 msgid "Resolving citation metadata…"
 msgstr "正在解析引文元数据…"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "正在解析…"
@@ -4018,6 +4052,7 @@ msgstr "设置"
 msgid "Settings sections"
 msgstr "设置分区"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Setup is complete"
 msgstr "设置已完成"
@@ -4590,6 +4625,7 @@ msgid "Triangle right"
 msgstr "右三角形"
 
 #: src/App.tsx
+#: src/build/tex-dependency-installer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
@@ -4807,6 +4843,7 @@ msgstr "已与官方 2026 年会议样式核验"
 msgid "Verified against the official 2026 style; creates a preprint draft"
 msgstr "已与官方 2026 年样式核验；创建预印本草稿"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Verifying installation…"
 msgstr "正在验证安装…"
@@ -4869,6 +4906,7 @@ msgstr "可视化 Markdown 编辑器"
 msgid "Vmatrix"
 msgstr "行列式矩阵"
 
+#: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
 msgstr "正在等待管理员批准…"
@@ -4900,6 +4938,10 @@ msgstr "欢迎使用 Lattice"
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
 msgstr "当你在这里删除文件时"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Whole word"
+msgstr "全词匹配"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

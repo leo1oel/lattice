@@ -5,7 +5,7 @@ use crate::project;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Command, Output, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -102,6 +102,34 @@ fn finish_active(active: &ActiveBuild) -> bool {
     cancelled
 }
 
+fn run_tracked_command(
+    mut command: Command,
+    active: &ActiveBuild,
+    start_error: &str,
+    wait_error: &str,
+) -> Result<(Output, bool), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+
+    let child = command
+        .spawn()
+        .map_err(|error| format!("{start_error}{error}"))?;
+    let pid = child.id();
+    if let Err(error) = begin_active(active, pid) {
+        terminate_process_group(pid);
+        let _ = child.wait_with_output();
+        return Err(error);
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("{wait_error}{error}"))?;
+    Ok((output, finish_active(active)))
+}
+
 fn default_root_document(
     manifest: &crate::models::ProjectManifest,
 ) -> Result<&crate::models::RootDocument, String> {
@@ -122,6 +150,262 @@ fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
     Ok(project::safe_path(root, &document.path)?.with_extension("pdf"))
+}
+
+// Two draft passes are only a net win when normal passes would repeatedly
+// encode a substantial graphics payload. Small projects keep the direct path.
+const DRAFT_PREWARM_GRAPHICS_THRESHOLD: u64 = 8 * 1024 * 1024;
+const DRAFT_PREWARM_ARTIFACTS: [&str; 20] = [
+    "aux",
+    "bbl",
+    "bcf",
+    "blg",
+    "fdb_latexmk",
+    "fls",
+    "idx",
+    "ilg",
+    "ind",
+    "lof",
+    "log",
+    "lot",
+    "nav",
+    "out",
+    "pdf",
+    "run.xml",
+    "snm",
+    "synctex",
+    "synctex.gz",
+    "toc",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DraftBibliography {
+    None,
+    Bibtex,
+    Unsupported,
+}
+
+fn draft_bibliography(aux: &str) -> DraftBibliography {
+    if aux.contains("\\abx@aux") || aux.contains("\\@input{") {
+        return DraftBibliography::Unsupported;
+    }
+    let has_data = aux.lines().any(|line| line.starts_with("\\bibdata{"));
+    let has_style = aux.lines().any(|line| line.starts_with("\\bibstyle{"));
+    match (has_data, has_style) {
+        (false, false) => DraftBibliography::None,
+        (true, true) => DraftBibliography::Bibtex,
+        _ => DraftBibliography::Unsupported,
+    }
+}
+
+fn draft_prewarm_candidate(
+    root: &Path,
+    root_document: &Path,
+    document_path: &str,
+    manifest: &crate::models::ProjectManifest,
+    force: bool,
+) -> bool {
+    if force
+        || manifest.trusted
+        || manifest.engine != "pdf"
+        || project::has_latexmkrc(root)
+        || Path::new(document_path).components().count() != 1
+    {
+        return false;
+    }
+    DRAFT_PREWARM_ARTIFACTS
+        .iter()
+        .all(|extension| !root_document.with_extension(extension).exists())
+}
+
+fn has_large_graphics_payload(root: &Path) -> bool {
+    let mut directories = vec![root.to_path_buf()];
+    let mut bytes = 0_u64;
+
+    while let Some(directory) = directories.pop() {
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                directories.push(entry.path());
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+
+            let path = entry.path();
+            let is_graphics = path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| {
+                    matches!(
+                        extension.to_ascii_lowercase().as_str(),
+                        "eps" | "jb2" | "jbig2" | "jpeg" | "jpg" | "pdf" | "png"
+                    )
+                });
+            if !is_graphics {
+                continue;
+            }
+
+            bytes = bytes.saturating_add(entry.metadata().map_or(0, |metadata| metadata.len()));
+            if bytes >= DRAFT_PREWARM_GRAPHICS_THRESHOLD {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+fn append_command_log(log: &mut String, output: &Output) {
+    if !log.is_empty() {
+        log.push('\n');
+    }
+    log.push_str(&String::from_utf8_lossy(&output.stdout));
+    log.push_str(&String::from_utf8_lossy(&output.stderr));
+}
+
+fn remove_draft_prewarm_artifacts(root_document: &Path) {
+    for extension in DRAFT_PREWARM_ARTIFACTS {
+        let _ = fs::remove_file(root_document.with_extension(extension));
+    }
+}
+
+fn run_draft_pdflatex(
+    root: &Path,
+    document_path: &str,
+    active: &ActiveBuild,
+) -> Result<(Output, bool), String> {
+    let mut command = commands::command("pdflatex");
+    command
+        .current_dir(root)
+        .arg("-draftmode")
+        .arg("-interaction=nonstopmode")
+        .arg("-synctex=0")
+        .arg("-file-line-error")
+        .arg("-halt-on-error")
+        .arg("-no-shell-escape")
+        .arg(document_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    run_tracked_command(
+        command,
+        active,
+        "Could not start the pdfLaTeX draft prewarm: ",
+        "The pdfLaTeX draft prewarm stopped unexpectedly: ",
+    )
+}
+
+fn run_draft_bibtex(
+    root: &Path,
+    document_path: &str,
+    active: &ActiveBuild,
+) -> Result<(Output, bool), String> {
+    let stem = Path::new(document_path)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "The root document does not have a valid BibTeX name.".to_string())?;
+    let mut command = commands::command("bibtex");
+    command
+        .current_dir(root)
+        .arg(stem)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    run_tracked_command(
+        command,
+        active,
+        "Could not start the BibTeX draft prewarm: ",
+        "The BibTeX draft prewarm stopped unexpectedly: ",
+    )
+}
+
+/// Prime a cold conventional pdfLaTeX project without writing throwaway PDFs.
+///
+/// The visible output is still produced by the unchanged latexmk path below,
+/// which remains responsible for convergence and may run as many normal passes
+/// as it needs. This only replaces its earliest full-output passes with cheaper
+/// draft passes, and deliberately declines custom or stateful build setups.
+fn prewarm_cold_pdf_build(
+    root: &Path,
+    force: bool,
+    active: &ActiveBuild,
+    started: Instant,
+) -> Result<Option<BuildResult>, String> {
+    let manifest = project::read_manifest(root)?;
+    let document = default_root_document(&manifest)?;
+    let root_document = project::safe_path(root, &document.path)?;
+    if !draft_prewarm_candidate(root, &root_document, &document.path, &manifest, force)
+        || !commands::available("pdflatex")
+        || !commands::available("bibtex")
+        || !has_large_graphics_payload(root)
+    {
+        return Ok(None);
+    }
+
+    let prewarm_started = Instant::now();
+    let mut log = String::new();
+    let Ok((first, cancelled)) = run_draft_pdflatex(root, &document.path, active) else {
+        remove_draft_prewarm_artifacts(&root_document);
+        return Ok(None);
+    };
+    append_command_log(&mut log, &first);
+    if cancelled {
+        return Ok(Some(cancelled_build(started, &log, &document.path)));
+    }
+    if !first.status.success() {
+        remove_draft_prewarm_artifacts(&root_document);
+        return Ok(None);
+    }
+
+    let aux_path = root_document.with_extension("aux");
+    let bibliography = fs::read_to_string(&aux_path)
+        .ok()
+        .map(|aux| draft_bibliography(&aux))
+        .unwrap_or(DraftBibliography::Unsupported);
+    if bibliography == DraftBibliography::Unsupported {
+        remove_draft_prewarm_artifacts(&root_document);
+        return Ok(None);
+    }
+    if bibliography == DraftBibliography::Bibtex {
+        let Ok((bibtex, cancelled)) = run_draft_bibtex(root, &document.path, active) else {
+            remove_draft_prewarm_artifacts(&root_document);
+            return Ok(None);
+        };
+        append_command_log(&mut log, &bibtex);
+        if cancelled {
+            return Ok(Some(cancelled_build(started, &log, &document.path)));
+        }
+        if !bibtex.status.success() {
+            remove_draft_prewarm_artifacts(&root_document);
+            return Ok(None);
+        }
+    }
+
+    let Ok((second, cancelled)) = run_draft_pdflatex(root, &document.path, active) else {
+        remove_draft_prewarm_artifacts(&root_document);
+        return Ok(None);
+    };
+    append_command_log(&mut log, &second);
+    if cancelled {
+        return Ok(Some(cancelled_build(started, &log, &document.path)));
+    }
+    if !second.status.success() {
+        remove_draft_prewarm_artifacts(&root_document);
+        return Ok(None);
+    }
+
+    log::info!(
+        target: "lattice::latex",
+        "Draft-prewarmed {} in {:.1}s; latexmk will produce and verify the final PDF",
+        document.path,
+        prewarm_started.elapsed().as_secs_f32()
+    );
+    Ok(None)
 }
 
 pub fn clean(root: &Path) -> Result<String, String> {
@@ -164,6 +448,9 @@ pub fn build(
         }
     }
     let started = Instant::now();
+    if let Some(cancelled) = prewarm_cold_pdf_build(root, force, active, started)? {
+        return Ok(cancelled);
+    }
     let mut result = run_latexmk(root, force, active, started)?;
     // After fixing missing packages, latexmk often reports "Nothing to do" while still
     // remembering the previous failed pass. Clean once and force a fresh run.
@@ -941,6 +1228,94 @@ mod tests {
         // And a build stopped before latexmk said anything still explains itself.
         let immediate = cancelled_build(Instant::now(), "   \n", "main.tex");
         assert!(immediate.log.contains("before latexmk produced any output"));
+    }
+
+    #[test]
+    fn draft_prewarm_only_accepts_conventional_bibliographies() {
+        assert_eq!(draft_bibliography("\\relax\n"), DraftBibliography::None);
+        assert_eq!(
+            draft_bibliography("\\citation{paper}\n\\bibdata{references}\n\\bibstyle{plain}\n"),
+            DraftBibliography::Bibtex
+        );
+        assert_eq!(
+            draft_bibliography("\\abx@aux@refcontext{nty/global//global/global/global}\n"),
+            DraftBibliography::Unsupported
+        );
+        assert_eq!(
+            draft_bibliography("\\@input{chapters/results.aux}\n"),
+            DraftBibliography::Unsupported
+        );
+        assert_eq!(
+            draft_bibliography("\\bibdata{references}\n"),
+            DraftBibliography::Unsupported
+        );
+    }
+
+    #[test]
+    fn draft_prewarm_requires_a_large_graphics_payload() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("notes.txt"), vec![0; 1024]).unwrap();
+        assert!(!has_large_graphics_payload(&root));
+
+        let image = fs::File::create(root.join("figure.pdf")).unwrap();
+        image.set_len(DRAFT_PREWARM_GRAPHICS_THRESHOLD).unwrap();
+        assert!(has_large_graphics_payload(&root));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn draft_prewarm_is_only_for_pristine_simple_pdftex_projects() {
+        let parent = temp_root();
+        let root = parent.join("paper");
+        fs::create_dir_all(&root).unwrap();
+        let root_document = root.join("main.tex");
+        fs::write(&root_document, "\\documentclass{article}\n").unwrap();
+        let manifest = project::default_manifest("paper");
+
+        assert!(draft_prewarm_candidate(
+            &root,
+            &root_document,
+            "main.tex",
+            &manifest,
+            false
+        ));
+        assert!(!draft_prewarm_candidate(
+            &root,
+            &root_document,
+            "main.tex",
+            &manifest,
+            true
+        ));
+
+        let mut trusted = manifest.clone();
+        trusted.trusted = true;
+        assert!(!draft_prewarm_candidate(
+            &root,
+            &root_document,
+            "main.tex",
+            &trusted,
+            false
+        ));
+
+        fs::write(root.join("main.aux"), "generated").unwrap();
+        assert!(!draft_prewarm_candidate(
+            &root,
+            &root_document,
+            "main.tex",
+            &manifest,
+            false
+        ));
+        fs::remove_file(root.join("main.aux")).unwrap();
+        fs::write(root.join("latexmkrc"), "$pdf_mode = 1;").unwrap();
+        assert!(!draft_prewarm_candidate(
+            &root,
+            &root_document,
+            "main.tex",
+            &manifest,
+            false
+        ));
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]

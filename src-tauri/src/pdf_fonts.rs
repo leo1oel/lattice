@@ -23,11 +23,7 @@ pub struct PdfFontReport {
 }
 
 pub fn inspect_pdf_bytes(bytes: &[u8]) -> PdfFontReport {
-    let mut haystack = Vec::with_capacity(bytes.len().saturating_mul(2));
-    haystack.extend_from_slice(bytes);
-    for chunk in inflate_flate_streams(bytes) {
-        haystack.extend_from_slice(&chunk);
-    }
+    let haystack = font_metadata(bytes);
     let fonts = extract_base_fonts(&haystack);
     let times_marker = contains_ascii_ci(&haystack, b"NimbusRom")
         || contains_ascii_ci(&haystack, b"Times-Roman")
@@ -60,28 +56,24 @@ fn extract_base_fonts(bytes: &[u8]) -> Vec<String> {
     names.into_iter().collect()
 }
 
-fn inflate_flate_streams(bytes: &[u8]) -> Vec<Vec<u8>> {
-    let mut out = Vec::new();
+fn font_metadata(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len().min(1024 * 1024));
     let mut search_from = 0;
     while let Some(rel) = find_subslice(&bytes[search_from..], b"stream") {
         let stream_kw = search_from + rel;
-        // Only inflate streams whose dict mentions FlateDecode.
+        let Some(data_start) = stream_data_start(bytes, stream_kw) else {
+            search_from = stream_kw + 6;
+            continue;
+        };
+        // Font dictionaries can be hidden in compressed PDF object streams.
+        // Image and page-content streams cannot contain PDF objects, and
+        // inflating them made a figure-heavy paper spend tens of seconds and
+        // hundreds of MiB on a font check after typesetting had already ended.
         let dict_start = bytes[..stream_kw]
             .iter()
             .rposition(|&b| b == b'<')
             .unwrap_or(0);
         let dict = &bytes[dict_start..stream_kw];
-        if !contains_ascii_ci(dict, b"FlateDecode") {
-            search_from = stream_kw + 6;
-            continue;
-        }
-        let mut data_start = stream_kw + 6;
-        if bytes.get(data_start) == Some(&b'\r') {
-            data_start += 1;
-        }
-        if bytes.get(data_start) == Some(&b'\n') {
-            data_start += 1;
-        }
         let Some(end_rel) = find_subslice(&bytes[data_start..], b"endstream") else {
             break;
         };
@@ -90,12 +82,37 @@ fn inflate_flate_streams(bytes: &[u8]) -> Vec<Vec<u8>> {
         while data_end > data_start && matches!(bytes[data_end - 1], b'\n' | b'\r') {
             data_end -= 1;
         }
-        if let Some(inflated) = try_inflate(&bytes[data_start..data_end]) {
-            out.push(inflated);
+        out.extend_from_slice(&bytes[search_from..data_start]);
+        if contains_ascii_ci(dict, b"/ObjStm") {
+            if contains_ascii_ci(dict, b"FlateDecode") {
+                if let Some(inflated) = try_inflate(&bytes[data_start..data_end]) {
+                    out.extend_from_slice(&inflated);
+                }
+            } else {
+                out.extend_from_slice(&bytes[data_start..data_end]);
+            }
         }
+        out.push(b'\n');
         search_from = data_start + end_rel + 9;
     }
+    out.extend_from_slice(&bytes[search_from..]);
     out
+}
+
+fn stream_data_start(bytes: &[u8], stream_kw: usize) -> Option<usize> {
+    let mut dict_end = stream_kw;
+    while dict_end > 0 && bytes[dict_end - 1].is_ascii_whitespace() {
+        dict_end -= 1;
+    }
+    if dict_end < 2 || &bytes[dict_end - 2..dict_end] != b">>" {
+        return None;
+    }
+    match bytes.get(stream_kw + 6..stream_kw + 8) {
+        Some(b"\r\n") => Some(stream_kw + 8),
+        _ if bytes.get(stream_kw + 6) == Some(&b'\n') => Some(stream_kw + 7),
+        _ if bytes.get(stream_kw + 6) == Some(&b'\r') => Some(stream_kw + 7),
+        _ => None,
+    }
 }
 
 fn try_inflate(data: &[u8]) -> Option<Vec<u8>> {
@@ -228,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn inflates_flate_stream_basefont() {
+    fn inflates_object_stream_basefont() {
         use flate2::write::ZlibEncoder;
         use flate2::Compression;
         use std::io::Write;
@@ -237,7 +254,7 @@ mod tests {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(inner).unwrap();
         let compressed = encoder.finish().unwrap();
-        let mut pdf = b"%PDF-1.5\n1 0 obj\n<< /Filter /FlateDecode /Length ".to_vec();
+        let mut pdf = b"%PDF-1.5\n1 0 obj\n<< /Type /ObjStm /Filter /FlateDecode /Length ".to_vec();
         pdf.extend_from_slice(compressed.len().to_string().as_bytes());
         pdf.extend_from_slice(b" >>\nstream\n");
         pdf.extend_from_slice(&compressed);
@@ -246,5 +263,31 @@ mod tests {
         assert!(report.has_times_like, "{}", report.detail);
         assert!(report.ok_for_conference);
         assert!(report.fonts.iter().any(|f| f.contains("NimbusRom")));
+    }
+
+    #[test]
+    fn does_not_inflate_image_streams() {
+        use flate2::write::ZlibEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(b"<< /BaseFont /CMR10 >>").unwrap();
+        let compressed = encoder.finish().unwrap();
+        let mut pdf =
+            b"%PDF-1.5\n1 0 obj\n<< /Type /XObject /Subtype /Image /Filter /FlateDecode /Length "
+                .to_vec();
+        pdf.extend_from_slice(compressed.len().to_string().as_bytes());
+        pdf.extend_from_slice(b" >>\nstream\n");
+        pdf.extend_from_slice(&compressed);
+        pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+        assert!(!inspect_pdf_bytes(&pdf).has_computer_modern);
+    }
+
+    #[test]
+    fn does_not_treat_stream_text_as_a_pdf_stream() {
+        let pdf = b"%PDF-1.5\n(mention stream and endstream)\n<< /BaseFont /CMR10 >>\n%%EOF\n";
+        assert!(inspect_pdf_bytes(pdf).has_computer_modern);
     }
 }

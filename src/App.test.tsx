@@ -76,7 +76,20 @@ const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
 const pdfSlickTestApi = vi.hoisted(() => ({
   sources: [] as Array<string | ArrayBuffer>,
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
+const tauriCoreApi = vi.hoisted(() => ({
+  channel: null as { onmessage: ((message: unknown) => void) | null } | null,
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+  isTauri: () => true,
+  Channel: class {
+    onmessage: ((message: unknown) => void) | null = null;
+
+    constructor() {
+      tauriCoreApi.channel = this;
+    }
+  },
+}));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({
@@ -208,6 +221,7 @@ vi.mock("@pdfslick/core", () => ({
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
+    linkService = { goToDestination: vi.fn(async () => undefined) };
     unbindEvents = vi.fn();
     viewer: {
       cleanup: ReturnType<typeof vi.fn>;
@@ -240,7 +254,10 @@ vi.mock("@pdfslick/core", () => ({
         set currentScaleValue(value: string) {
           currentScaleValue = value;
           currentScale = value === "page-width" ? 0.9 : value === "page-fit" ? 0.75 : Number(value);
-          emit("scalechanging", { scale: currentScale });
+          emit("scalechanging", {
+            scale: currentScale,
+            presetValue: value === "page-width" || value === "page-fit" ? value : undefined,
+          });
         },
         getPageView: (index: number) => this.pageViews[index],
       };
@@ -419,6 +436,7 @@ beforeEach(() => {
   openSlideWorkspaceApi.onMutation = null;
   webviewApi.dragDropHandler = null;
   tauriEventApi.handlers.clear();
+  tauriCoreApi.channel = null;
   synaraHook.runtime = {
     state: "ready",
     origin: "http://127.0.0.1:4173",
@@ -4811,11 +4829,9 @@ describe("project workspace", () => {
     expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open article in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
-    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "read_cached_paper_pdf"))
-      .toBe(false);
   });
 
-  it("streams an arXiv PDF once, caches its assembled bytes, and reopens the cache", async () => {
+  it("streams an arXiv PDF without persisting a second app cache", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4828,8 +4844,7 @@ describe("project workspace", () => {
       },
       files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
-    const pdfBytes = new TextEncoder().encode("%PDF-1.7 cached arXiv paper").buffer;
-    let cached = false;
+    const pdfBytes = new TextEncoder().encode("%PDF-1.7 streamed arXiv paper").buffer;
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{main}";
@@ -4842,11 +4857,6 @@ describe("project workspace", () => {
       if (command === "list_history") return [];
       if (command === "read_paper") return "## Abstract\n\nPaper content.";
       if (command === "read_paper_blog") return null;
-      if (command === "read_cached_paper_pdf") return cached ? pdfBytes : new ArrayBuffer(0);
-      if (command === "cache_paper_pdf") {
-        cached = true;
-        return undefined;
-      }
       return mockAppCommand(command);
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
@@ -4872,13 +4882,6 @@ describe("project workspace", () => {
       promise: Promise.resolve(pdf),
       destroy: vi.fn(),
     }) as never);
-    const NativeURL = globalThis.URL;
-    class TestURL extends NativeURL {
-      static createObjectURL = vi.fn(() => "blob:cached-arxiv-paper");
-      static revokeObjectURL = vi.fn();
-    }
-    vi.stubGlobal("URL", TestURL);
-
     renderApp();
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
@@ -4886,9 +4889,6 @@ describe("project workspace", () => {
     expect(viewOriginalPdf.closest('[data-tour="paper-actions"]')).not.toBeNull();
     fireEvent.click(viewOriginalPdf);
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_cached_paper_pdf", {
-      arxivId: "1706.03762v7",
-    }));
     await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({
       url: "https://arxiv.org/pdf/1706.03762v7",
     })));
@@ -4901,31 +4901,25 @@ describe("project workspace", () => {
     expect(backToPaper.querySelector("svg")).toHaveClass("lucide-arrow-left");
     expect(backToPaper.querySelector("svg")).toHaveAttribute("stroke-width", "2");
     expect(document.querySelector(".paper-reader-header")).toBeNull();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
-      "cache_paper_pdf",
-      expect.objectContaining({ byteLength: pdfBytes.byteLength }),
-      { headers: { "x-arxiv-id": "MTcwNi4wMzc2MnY3" } },
-    ), { timeout: 2_500 });
     await waitFor(() => expect(downloadPdf).toBeEnabled());
     fireEvent.click(openInBrowser);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762v7"));
 
     fireEvent.click(backToPaper);
-    expect(await screen.findByRole("heading", { name: "Abstract" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
 
-    await waitFor(() => expect(TestURL.createObjectURL).toHaveBeenCalledOnce());
     await waitFor(() => {
-      const cachedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
+      const remoteLoads = vi.mocked(getDocument).mock.calls.filter(([source]) => (
+        source as { url?: string }
+      ).url === "https://arxiv.org/pdf/1706.03762v7");
+      expect(remoteLoads).toHaveLength(2);
+      const reopenedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
         data?: Uint8Array;
         url?: string;
       } | undefined;
-      expect(cachedSource?.data).toBeInstanceOf(Uint8Array);
-      expect(cachedSource?.data?.byteLength).toBe(pdfBytes.byteLength);
-      expect(cachedSource?.url).toBeUndefined();
+      expect(reopenedSource?.url).toBe("https://arxiv.org/pdf/1706.03762v7");
+      expect(reopenedSource?.data).toBeUndefined();
     });
-    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_cached_paper_pdf"))
-      .toHaveLength(2);
   });
 
   it("publishes a visually selected Markdown block as Agent context", async () => {
@@ -7545,7 +7539,7 @@ describe("project workspace", () => {
     });
   });
 
-  it("shows a failed build only as a global error toast", async () => {
+  it("keeps failed build guidance visible and acknowledges a manual retry", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -7566,9 +7560,17 @@ describe("project workspace", () => {
         return {
           success: false,
           pdfBase64: null,
-          log: "Undefined control sequence.\n",
+          log: "LaTeX Error: File `iclr2026_conference.sty' not found.\n",
           durationMs: 80,
-          diagnostics: [{ level: "error", message: "Undefined control sequence." }],
+          diagnostics: [
+            {
+              level: "error",
+              message:
+                "Missing style file `iclr2026_conference.sty`. "
+                + "It is part of the ICLR template and belongs next to main.tex — TeX Live cannot install it. "
+                + "Sync or copy it back from another copy of the project.",
+            },
+          ],
         };
       }
       return mockAppCommand(command);
@@ -7585,13 +7587,37 @@ describe("project workspace", () => {
         title: "Build failed",
       });
     });
+    const diagnostics = await screen.findByLabelText(
+      "Compile diagnostics",
+      {},
+      { timeout: 40_000 },
+    );
+    expect(within(diagnostics).getByText("1 error")).toBeInTheDocument();
+    expect(within(diagnostics).getByText(/Sync or copy it back from another copy/))
+      .toBeInTheDocument();
+    fireEvent.click(within(diagnostics).getByRole("button", { name: "Dismiss diagnostics" }));
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();
-    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
-  });
 
-  it("localizes the missing LaTeX package installer action", async () => {
+    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project").length;
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => {
+      expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project"))
+        .toHaveLength(buildsBeforeManualRequest + 1);
+    });
+    await waitFor(() => {
+      const toastId = getVisibleAppToastIds().find((id) => getAppLogEntry(id)?.source === "Build");
+      expect(toastId).toBeDefined();
+      expect(getAppToastOptions(toastId!)).toMatchObject({ timeoutMs: 0 });
+    });
+    expect(await screen.findByLabelText("Compile diagnostics")).toBeInTheDocument();
+    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
+  }, 40_000);
+
+  it("installs a missing LaTeX package in-app and rebuilds", async () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    let finishInstall!: () => void;
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -7608,7 +7634,11 @@ describe("project workspace", () => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
-      if (command === "start_tex_dependency_install") return undefined;
+      if (command === "start_tex_dependency_install") {
+        return new Promise<void>((resolve) => {
+          finishInstall = resolve;
+        });
+      }
       if (command === "build_project") {
         return {
           success: false,
@@ -7635,10 +7665,27 @@ describe("project workspace", () => {
     const action = getAppToastOptions(toastId)?.primaryAction;
     expect(action?.label).toBe("安装缺失的软件包");
     await act(async () => action?.onClick());
-    expect(invoke).toHaveBeenCalledWith("start_tex_dependency_install", {
+    expect(invoke).toHaveBeenCalledWith("start_tex_dependency_install", expect.objectContaining({
       missingFile: "newtxmath.sty",
+      onProgress: expect.anything(),
+    }));
+    expect(screen.getByRole("dialog", { name: "安装缺失的软件包" })).toBeInTheDocument();
+    act(() => {
+      tauriCoreApi.channel?.onmessage?.({ stage: "installing-dependency", progress: 0.64 });
     });
-    await waitFor(() => expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 配置] 软件包安装程序已打开"));
+    expect(screen.getByRole("progressbar", { name: "LaTeX 软件包安装进度" }))
+      .toHaveAttribute("aria-valuenow", "64");
+
+    const buildCallsBeforeInstall = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "build_project").length;
+    await act(async () => finishInstall());
+    await waitFor(() => {
+      const buildCalls = vi.mocked(invoke).mock.calls
+        .filter(([command]) => command === "build_project").length;
+      expect(buildCalls).toBeGreaterThan(buildCallsBeforeInstall);
+    });
+    expect(screen.queryByRole("dialog", { name: "安装缺失的软件包" })).not.toBeInTheDocument();
+    expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 配置] LaTeX 软件包已安装");
   });
 
   it("does not open TeX setup when latexmk reports a missing project style", async () => {

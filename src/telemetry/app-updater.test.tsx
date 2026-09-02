@@ -16,6 +16,7 @@ import { UpdateBanner, UpdaterProvider, useUpdater, type UpdaterApi } from "./ap
 const plugins = vi.hoisted(() => ({
   check: vi.fn(),
   invoke: vi.fn(),
+  relaunch: vi.fn(),
   tauriMissing: false,
 }));
 
@@ -31,6 +32,10 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (plugins.tauriMissing) throw new Error("Tauri IPC unavailable");
     return plugins.invoke;
   },
+}));
+
+vi.mock("@tauri-apps/plugin-process", () => ({
+  relaunch: plugins.relaunch,
 }));
 
 // Stubbed rather than spied: the updater's contract here is "record it, never
@@ -130,6 +135,7 @@ beforeEach(() => {
   plugins.tauriMissing = false;
   plugins.check.mockReset().mockResolvedValue(null);
   plugins.invoke.mockReset().mockResolvedValue(undefined);
+  plugins.relaunch.mockReset().mockResolvedValue(undefined);
   vi.mocked(addAppLog).mockReset();
 });
 
@@ -334,6 +340,21 @@ describe("useUpdater / install", () => {
     await act(async () => { download.finish(); });
     await waitFor(() => expect(result.current.phase).toBe("ready"));
     expect(plugins.invoke).toHaveBeenCalledWith("restart_after_update");
+    expect(plugins.relaunch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the process plugin after an older backend installs the new frontend", async () => {
+    offerUpdate();
+    plugins.invoke.mockRejectedValue("Command restart_after_update not found");
+    const { result } = renderUpdater();
+    await act(async () => { await result.current.check(); });
+
+    await act(async () => { await result.current.install(); });
+
+    expect(plugins.invoke).toHaveBeenCalledWith("restart_after_update");
+    expect(plugins.relaunch).toHaveBeenCalledOnce();
+    expect(result.current.phase).toBe("ready");
+    expect(result.current.error).toBeNull();
   });
 
   it("clamps progress at 1 when more arrives than was announced", async () => {

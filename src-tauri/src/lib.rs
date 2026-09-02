@@ -3761,53 +3761,6 @@ async fn list_papers(
         .map_err(|error| format!("Paper scan stopped unexpectedly: {error}"))?
 }
 
-fn paper_pdf_cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_cache_dir()
-        .map(|directory| directory.join("paper-pdfs"))
-        .map_err(|error| format!("Could not resolve the paper PDF cache: {error}"))
-}
-
-#[tauri::command]
-async fn read_cached_paper_pdf(
-    app: tauri::AppHandle,
-    arxiv_id: String,
-) -> Result<tauri::ipc::Response, String> {
-    let cache_dir = paper_pdf_cache_dir(&app)?;
-    let bytes = run_blocking("Cached paper PDF read", move || {
-        papers::read_cached_pdf(&cache_dir, &arxiv_id)
-    })
-    .await?;
-    Ok(tauri::ipc::Response::new(bytes))
-}
-
-#[tauri::command]
-async fn cache_paper_pdf(
-    app: tauri::AppHandle,
-    request: tauri::ipc::Request<'_>,
-) -> Result<(), String> {
-    let encoded_id = request
-        .headers()
-        .get("x-arxiv-id")
-        .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| "The paper PDF has no arXiv id.".to_string())?;
-    let arxiv_id = String::from_utf8(
-        STANDARD
-            .decode(encoded_id)
-            .map_err(|error| format!("The arXiv id is invalid: {error}"))?,
-    )
-    .map_err(|error| format!("The arXiv id is invalid: {error}"))?;
-    let bytes = match request.body() {
-        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
-        _ => return Err("The PDF contents were not sent as binary data.".to_string()),
-    };
-    let cache_dir = paper_pdf_cache_dir(&app)?;
-    run_blocking("Paper PDF cache write", move || {
-        papers::cache_pdf(&cache_dir, &arxiv_id, &bytes)
-    })
-    .await
-}
-
 #[tauri::command]
 async fn search_paper_library(
     state: tauri::State<'_, AppState>,
@@ -3938,9 +3891,12 @@ async fn start_tex_install(
 }
 
 #[tauri::command]
-async fn start_tex_dependency_install(missing_file: String) -> Result<(), String> {
+async fn start_tex_dependency_install(
+    missing_file: String,
+    on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
+) -> Result<(), String> {
     run_blocking("TeX package installer launch", move || {
-        tex_setup::start_tex_dependency_install(&missing_file)
+        tex_setup::start_tex_dependency_install(&missing_file, on_progress)
     })
     .await
 }
@@ -4477,8 +4433,6 @@ pub fn run() {
             upgrade_bibliography,
             remove_reference,
             list_papers,
-            read_cached_paper_pdf,
-            cache_paper_pdf,
             search_paper_library,
             read_paper,
             read_paper_blog,
