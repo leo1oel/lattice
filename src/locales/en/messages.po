@@ -1105,8 +1105,8 @@ msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
 
 #: src/pdf/pdf-viewer.tsx
-msgid "Could not open PDF link"
-msgstr "Could not open PDF link"
+msgid "Could not load PDF"
+msgstr "Could not load PDF"
 
 #: src/canvas/document-canvas.tsx
 msgid "Could not open the article in your browser"
@@ -1121,10 +1121,6 @@ msgstr "Could not open the Overleaf project"
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not remove {0} from Overleaf: {1}"
 msgstr "Could not remove {0} from Overleaf: {1}"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Could not render page {pageNumber}. {pageError}"
-msgstr "Could not render page {pageNumber}. {pageError}"
 
 #. placeholder {0}: resources.error.message
 #: src/history/history-drawer.tsx
@@ -1843,10 +1839,6 @@ msgstr "Go to line (⌘G)"
 msgid "Go to line {0}"
 msgstr "Go to line {0}"
 
-#: src/pdf/pdf-viewer.tsx
-msgid "Go to linked PDF location"
-msgstr "Go to linked PDF location"
-
 #: src/app/app-search-dialogs.tsx
 msgid "Go to section or label…"
 msgstr "Go to section or label…"
@@ -2021,10 +2013,6 @@ msgstr "Increment year"
 #: src/settings/settings-dialog.tsx
 msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
 msgstr "Indexing {0} prose blocks. {semanticSearchPrivacy}"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Indexing…"
-msgstr "Indexing…"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Infinity"
@@ -3159,10 +3147,6 @@ msgid "PDF document"
 msgstr "PDF document"
 
 #: src/pdf/pdf-viewer.tsx
-msgid "PDF links"
-msgstr "PDF links"
-
-#: src/pdf/pdf-viewer.tsx
 msgid "PDF page {pageNumber}"
 msgstr "PDF page {pageNumber}"
 
@@ -3975,15 +3959,6 @@ msgstr "Search Overleaf projects"
 msgid "Search PDF"
 msgstr "Search PDF"
 
-#. placeholder {0}: message(firstFailure.reason)
-#: src/pdf/pdf-viewer.tsx
-msgid "Search unavailable: {0}"
-msgstr "Search unavailable: {0}"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Search unavailable: {detail}"
-msgstr "Search unavailable: {detail}"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Second-level heading"
 msgstr "Second-level heading"
@@ -4629,7 +4604,6 @@ msgstr "Type"
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 
-#: src/pdf/pdf-viewer.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Unavailable"
 msgstr "Unavailable"

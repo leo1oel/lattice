@@ -16,6 +16,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     const misspelled = new Map([
       ["introductiom", "introduction"],
       ["sentnce", "sentence"],
+      ["takeawayaccent", "takeaway accent"],
       ["zylorph", "sylph"],
     ]);
     for (const match of text.matchAll(/[A-Za-z][A-Za-z'’-]*/g)) {
@@ -104,6 +105,53 @@ describe("Harper prose spellcheck", () => {
     expect(prose).not.toContain("Yimimg Zhaoo");
     expect(prose).not.toContain("plainnatt");
     expect(prose).toContain("A sentnce");
+  });
+
+  it("skips LaTeX preamble configuration and document-level color setup", async () => {
+    const source = [
+      "\\documentclass[11pt]{article}",
+      "\\usepackage{fontspec}",
+      "\\setmainfont[UprightFont={*-Regular},BoldFont={*-Bold}]{Songti SC}",
+      "\\definecolor{takeawayaccent}{HTML}{315B78}",
+      "\\hypersetup{linkcolor=takeawayaccent}",
+      "\\newtcolorbox{takeawaybox}[1]{colframe=takeawayaccent}",
+      "\\title{A Clean Title}",
+      "\\begin{document}",
+      "\\pagecolor{takeawaybackground}",
+      "\\color{takeawayaccent}",
+      "This is introductiom.",
+      "\\end{document}",
+    ].join("\n");
+    const prose = maskLatexForProse(source);
+    const diagnostics = await harperDiagnostics(source);
+
+    expect(prose).toHaveLength(source.length);
+    expect(prose).not.toContain("UprightFont");
+    expect(prose).not.toContain("takeawayaccent");
+    expect(prose).not.toContain("takeawaybackground");
+    expect(prose).toContain("A Clean Title");
+    expect(prose).toContain("This is introductiom.");
+    expect(diagnostics.some((diagnostic) =>
+      source.slice(diagnostic.from, diagnostic.to) === "takeawayaccent")).toBe(false);
+    expect(diagnostics.some((diagnostic) =>
+      source.slice(diagnostic.from, diagnostic.to) === "introductiom")).toBe(true);
+  });
+
+  it("masks technical command arguments without hiding their rendered prose", () => {
+    const source = [
+      "\\textcolor{takeawayaccent}{A sentnce.}",
+      "\\colorbox{takeawaybackground}{Visible prose.}",
+      "\\fcolorbox{takeawayaccent}{takeawaybackground}{More prose.}",
+      "\\href{https://exmple.test}{Readable link.}",
+    ].join("\n");
+    const prose = maskLatexForProse(source);
+
+    expect(prose).not.toContain("takeaway");
+    expect(prose).not.toContain("exmple.test");
+    expect(prose).toContain("A sentnce.");
+    expect(prose).toContain("Visible prose.");
+    expect(prose).toContain("More prose.");
+    expect(prose).toContain("Readable link.");
   });
 
   it("skips Markdown tables without hiding surrounding prose", async () => {

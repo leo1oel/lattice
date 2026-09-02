@@ -61,6 +61,15 @@ const OPAQUE_COMMANDS = new Set([
   "usepackage",
 ]);
 
+const NON_PROSE_ARGUMENTS = new Map([
+  ["color", 1],
+  ["colorbox", 1],
+  ["fcolorbox", 2],
+  ["href", 1],
+  ["pagecolor", 1],
+  ["textcolor", 1],
+]);
+
 const NON_PROSE_ENVIRONMENTS = new Set([
   "align",
   "align*",
@@ -138,6 +147,7 @@ function maskMarkdownTables(
 function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolean[] } {
   const masked = Array.from({ length: source.length }, (_, index) => source[index]);
   const syntaxMask = Array.from({ length: source.length }, () => false);
+  const preambleProseRanges: Array<{ from: number; to: number }> = [];
   const blank = (from: number, to: number) => {
     for (let index = from; index < Math.min(to, masked.length); index += 1) {
       if (masked[index] !== "\n" && masked[index] !== "\r") {
@@ -216,6 +226,25 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
       while (/\s/.test(source[cursor] ?? "")) cursor += 1;
       const groupEnd = balancedGroupEnd(source, cursor, "{", "}");
       const environment = source.slice(cursor + 1, Math.max(cursor + 1, groupEnd - 1));
+      if (environment === "document") {
+        // Package options, font declarations, color names, and macro bodies
+        // are configuration rather than prose. Preserve the rendered title,
+        // which is the one preamble field authors still expect Harper to lint.
+        const prose = preambleProseRanges.map(({ from, to }) => ({
+          from,
+          text: masked.slice(from, to),
+          mask: syntaxMask.slice(from, to),
+        }));
+        blank(0, groupEnd);
+        for (const range of prose) {
+          for (let offset = 0; offset < range.text.length; offset += 1) {
+            masked[range.from + offset] = range.text[offset];
+            syntaxMask[range.from + offset] = range.mask[offset];
+          }
+        }
+        index = groupEnd;
+        continue;
+      }
       if (NON_PROSE_ENVIRONMENTS.has(environment)) {
         const closer = `\\end{${environment}}`;
         const close = source.indexOf(closer, groupEnd);
@@ -226,9 +255,21 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
       }
     }
 
+    if (command === "title") {
+      let argument = cursor;
+      while (/\s/.test(source[argument] ?? "")) argument += 1;
+      if (source[argument] === "{") {
+        const end = balancedGroupEnd(source, argument, "{", "}");
+        preambleProseRanges.push({ from: argument + 1, to: Math.max(argument + 1, end - 1) });
+      }
+    }
+
     blank(index, cursor);
 
-    if (OPAQUE_COMMANDS.has(command)) {
+    const opaqueArguments = OPAQUE_COMMANDS.has(command)
+      ? Number.POSITIVE_INFINITY
+      : NON_PROSE_ARGUMENTS.get(command) ?? 0;
+    if (opaqueArguments > 0) {
       let groupsMasked = 0;
       while (cursor < source.length) {
         while (/\s/.test(source[cursor] ?? "")) cursor += 1;
@@ -238,12 +279,11 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
           cursor = end;
           continue;
         }
-        if (source[cursor] === "{" && (command !== "href" || groupsMasked === 0)) {
+        if (source[cursor] === "{" && groupsMasked < opaqueArguments) {
           const end = balancedGroupEnd(source, cursor, "{", "}");
           blank(cursor, end);
           cursor = end;
           groupsMasked += 1;
-          if (command === "href") break;
           continue;
         }
         break;

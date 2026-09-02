@@ -8,7 +8,7 @@ import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist-v4/legacy/build/pdf.mjs";
 import * as Y from "yjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -73,6 +73,9 @@ const openSlideWorkspaceApi = vi.hoisted(() => ({
   }) => Promise<Array<{ path: string; kind: "delete" }>>),
 }));
 const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
+const pdfSlickTestApi = vi.hoisted(() => ({
+  sources: [] as Array<string | ArrayBuffer>,
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => true }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 vi.mock("@tauri-apps/api/webview", () => ({
@@ -142,7 +145,7 @@ vi.mock("./platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted,
   isBundledChromium: () => browserRuntime.bundled,
 }));
-vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
+vi.mock("pdfjs-dist-v4/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
   getDocument: vi.fn(),
   TextLayer: class {
@@ -157,6 +160,199 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
       return Promise.resolve();
     }
     cancel() {}
+  },
+}));
+
+type PdfSlickMockArgs = {
+  container: HTMLDivElement;
+  viewer: HTMLDivElement;
+  options?: {
+    scaleValue?: string;
+    getDocumentParams?: Record<string, unknown>;
+  };
+};
+
+type PdfSlickMockPage = {
+  getAnnotations?: (options: { intent: string }) => Promise<Array<{
+    url?: string;
+    unsafeUrl?: string;
+    title?: string;
+  }>>;
+  getViewport: (options: { scale: number }) => {
+    width: number;
+    height: number;
+  };
+  render?: (options: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: { width: number; height: number };
+  }) => { promise: Promise<unknown> };
+};
+
+type PdfSlickMockDocument = {
+  numPages: number;
+  getPage: (pageNumber: number) => Promise<PdfSlickMockPage>;
+  getData?: () => Promise<Uint8Array>;
+  loadingTask?: { destroy: () => Promise<unknown> | unknown };
+};
+
+type PdfSlickMockPageView = {
+  div: HTMLDivElement;
+  textLayer: { div: HTMLDivElement };
+  viewport: { scale: number; width: number; height: number };
+};
+
+vi.mock("@pdfslick/core", () => ({
+  PDFSlick: class PDFSlickMock {
+    args: PdfSlickMockArgs;
+    document: PdfSlickMockDocument | null = null;
+    eventHandlers = new Map<string, Array<(event: object) => void>>();
+    pageViews: PdfSlickMockPageView[] = [];
+    findIndex = 0;
+    unbindEvents = vi.fn();
+    viewer: {
+      cleanup: ReturnType<typeof vi.fn>;
+      currentScale: number;
+      currentScaleValue: string;
+      getPageView: (index: number) => PdfSlickMockPageView;
+    };
+
+    constructor(args: PdfSlickMockArgs) {
+      this.args = args;
+      const emit = (name: string, event: object) => this.emit(name, event);
+      let currentScale = args.options?.scaleValue === "page-width"
+        ? 0.9
+        : args.options?.scaleValue === "page-fit"
+          ? 0.75
+          : Number(args.options?.scaleValue) || 0.825;
+      let currentScaleValue = args.options?.scaleValue ?? "page-width";
+      this.viewer = {
+        cleanup: vi.fn(),
+        get currentScale() {
+          return currentScale;
+        },
+        set currentScale(value: number) {
+          currentScale = value;
+          emit("scalechanging", { scale: value });
+        },
+        get currentScaleValue() {
+          return currentScaleValue;
+        },
+        set currentScaleValue(value: string) {
+          currentScaleValue = value;
+          currentScale = value === "page-width" ? 0.9 : value === "page-fit" ? 0.75 : Number(value);
+          emit("scalechanging", { scale: currentScale });
+        },
+        getPageView: (index: number) => this.pageViews[index],
+      };
+    }
+
+    on(name: string, listener: (event: object) => void) {
+      const handlers = this.eventHandlers.get(name) ?? [];
+      handlers.push(listener);
+      this.eventHandlers.set(name, handlers);
+    }
+
+    emit(name: string, event: object) {
+      for (const listener of this.eventHandlers.get(name) ?? []) listener(event);
+    }
+
+    gotoPage(pageNumber: number) {
+      this.emit("pagechanging", { pageNumber });
+    }
+
+    clearHighlights() {
+      for (const page of this.pageViews) {
+        page.div.querySelectorAll(".highlight").forEach((highlight) => highlight.remove());
+      }
+    }
+
+    dispatch(name: string, event: Record<string, unknown>) {
+      if (name === "findbarclose") {
+        this.clearHighlights();
+        this.emit("updatefindmatchescount", { matchesCount: { current: 0, total: 0 } });
+        return;
+      }
+      if (name !== "find") return;
+      const query = String(event.query ?? "").toLocaleLowerCase();
+      const matches = this.pageViews.filter((page) => (
+        page.div.textContent ?? ""
+      ).toLocaleLowerCase().includes(query));
+      if (event.type === "again" && matches.length) {
+        this.findIndex = (this.findIndex + (event.findPrevious ? -1 : 1) + matches.length) % matches.length;
+      } else {
+        this.findIndex = 0;
+      }
+      this.clearHighlights();
+      for (const [index, page] of matches.entries()) {
+        const highlight = document.createElement("span");
+        highlight.className = `highlight${index === this.findIndex ? " selected" : ""}`;
+        highlight.textContent = query;
+        page.div.querySelector(".textLayer")?.append(highlight);
+      }
+      this.emit("updatefindmatchescount", {
+        matchesCount: {
+          current: matches.length ? this.findIndex + 1 : 0,
+          total: matches.length,
+        },
+      });
+    }
+
+    async loadDocument(source: string | ArrayBuffer) {
+      pdfSlickTestApi.sources.push(source);
+      const pdfjs = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
+      const loadingTask = pdfjs.getDocument({
+        ...(typeof source === "string"
+          ? { url: source }
+          : { data: new Uint8Array(source) }),
+        ...this.args.options?.getDocumentParams,
+      });
+      const loaded = await loadingTask.promise as unknown as PdfSlickMockDocument;
+      loaded.loadingTask = loadingTask;
+      this.document = loaded;
+      const viewportScale = this.viewer.currentScale * (96 / 72);
+      for (let pageNumber = 1; pageNumber <= loaded.numPages; pageNumber += 1) {
+        const pdfPage = await loaded.getPage(pageNumber);
+        const viewport = pdfPage.getViewport({ scale: viewportScale });
+        const page = document.createElement("div");
+        page.className = "page";
+        page.dataset.pageNumber = String(pageNumber);
+        const canvas = document.createElement("canvas");
+        const canvasContext = canvas.getContext("2d") as CanvasRenderingContext2D;
+        if (pdfPage.render) {
+          await pdfPage.render({ canvasContext, viewport }).promise;
+        }
+        const textLayer = document.createElement("div");
+        textLayer.className = "textLayer";
+        const span = document.createElement("span");
+        span.textContent = "Attention is all you need";
+        textLayer.append(span);
+        const annotationLayer = document.createElement("div");
+        annotationLayer.className = "annotationLayer";
+        const annotations = await pdfPage.getAnnotations?.({ intent: "display" }) ?? [];
+        for (const annotation of annotations) {
+          const href = annotation.url ?? annotation.unsafeUrl;
+          if (!href) continue;
+          const link = document.createElement("a");
+          link.href = href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer nofollow";
+          link.title = annotation.title ?? href;
+          annotationLayer.append(link);
+        }
+        page.append(canvas, textLayer, annotationLayer);
+        this.args.viewer.append(page);
+        this.pageViews.push({
+          div: page,
+          textLayer: { div: textLayer },
+          viewport: { scale: viewportScale, width: viewport.width, height: viewport.height },
+        });
+      }
+      this.emit("pagesinit", {});
+      this.emit("pagerendered", { pageNumber: 1 });
+      for (let pageNumber = 1; pageNumber <= loaded.numPages; pageNumber += 1) {
+        this.emit("textlayerrendered", { pageNumber });
+      }
+    }
   },
 }));
 
@@ -219,6 +415,7 @@ beforeEach(() => {
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
   browserRuntime.hosted = false;
   browserRuntime.bundled = false;
+  pdfSlickTestApi.sources.length = 0;
   openSlideWorkspaceApi.onMutation = null;
   webviewApi.dragDropHandler = null;
   tauriEventApi.handlers.clear();
@@ -6996,15 +7193,17 @@ describe("project workspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", {
       projectRoot: "/tmp/lattice-paper",
     }));
-    await waitFor(() => {
-      const compiledSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
-        data?: Uint8Array;
-        url?: string;
-      } | undefined;
-      expect(compiledSource?.data).toBeInstanceOf(Uint8Array);
-      expect(compiledSource?.data?.byteLength).toBe(8);
-      expect(compiledSource?.url).toBeUndefined();
+    // The production PDF viewer is a heavy lazy chunk. Let Vitest transform it
+    // before asserting on PDFSlick's document source.
+    await waitFor(() => expect(document.querySelector(".pdf-preview")).not.toBeNull(), {
+      timeout: 30_000,
     });
+    await waitFor(() => {
+      const sources = pdfSlickTestApi.sources.map((source) => (
+        typeof source === "string" ? source : `${source.constructor.name}:${source.byteLength}`
+      ));
+      expect(sources).toContain("ArrayBuffer:8");
+    }, { timeout: 5_000 });
     const savePdf = await screen.findByRole("button", { name: "Save PDF as…" });
     const pdfScrollArea = document.querySelector(".pdf-scroll-area")!;
     const pdfViewport = pdfScrollArea.querySelector("[data-slot='scroll-area-viewport']");
@@ -7013,10 +7212,9 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled());
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
     expect(await screen.findByLabelText("PDF page 2")).toBeInTheDocument();
-    await waitFor(() => expect(renderPdfPage.mock.calls.length).toBeGreaterThanOrEqual(2));
-    // Every page gets a quick CSS-pixel preview before an offscreen high-DPI
-    // refinement, so fast scrolling never waits on the final-quality pass.
-    await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(4));
+    // PDFSlick owns the virtualized render queue and paints each visible page
+    // directly at its output scale rather than replacing a blurry preview.
+    await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(2));
     expect(renderTask.cancel).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(document.querySelector(".pdf-text-layer span")).toHaveTextContent("Attention is all you need");
@@ -7050,14 +7248,14 @@ describe("project workspace", () => {
     fireEvent.change(searchInput, { target: { value: "attention" } });
     expect(searchControl.querySelector(":scope > svg")).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
-    await waitFor(() => expect(getPdfPageText).toHaveBeenCalledTimes(2));
+    expect(getPdfPageText).not.toHaveBeenCalled();
     expect(await screen.findByText("1 / 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next search result" }));
     expect(await screen.findByText("2 / 2")).toBeInTheDocument();
     await waitFor(() => {
-      const exactHighlights = document.querySelectorAll("mark.pdf-text-match");
+      const exactHighlights = document.querySelectorAll(".pdf-text-layer .highlight");
       expect(exactHighlights.length).toBe(2);
-      expect(document.querySelectorAll("mark.pdf-text-match.selected").length).toBe(1);
+      expect(document.querySelectorAll(".pdf-text-layer .highlight.selected").length).toBe(1);
     });
     fireEvent.click(screen.getByRole("button", { name: "Clear PDF search" }));
     expect(searchInput).toHaveValue("");
@@ -8404,6 +8602,11 @@ describe("project workspace", () => {
     });
 
     renderApp();
+    // The action is eager titlebar UI, but its palette lives in the lazy
+    // document canvas. Wait for the insertion host before exercising it.
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull(), {
+      timeout: 15_000,
+    });
     fireEvent.click(await screen.findByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }));
     const palette = await screen.findByLabelText("Insert LaTeX snippets");
     expect(palette).toHaveClass("resizable-drawer");

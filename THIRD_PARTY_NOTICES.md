@@ -293,7 +293,7 @@ Nothing on disk says what the terms are. Each needs to be looked up upstream.
 - `buffers@0.1.1` (npm)
 - `khroma@2.1.0` (npm) — ships `license`
 
-### Declared a license but shipped no license text (119)
+### Declared a license but shipped no license text (120)
 
 The SPDX identifier is known, but the package contains no `LICENSE`,
 `COPYING` or `NOTICE` file, so the copyright line those licenses require us
@@ -401,6 +401,7 @@ to reproduce is not available from the artifact we distribute.
 - `winapi-x86_64-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
 - `@cloudflare/workers-types@4.20260702.1` (npm) — declared `MIT OR Apache-2.0`
 - `@panzoom/panzoom@4.6.2` (npm) — declared `MIT`
+- `@pdfslick/core@4.0.2` (npm) — declared `MIT`
 - `@stylexjs/stylex@0.19.0` (npm) — declared `MIT`
 - `@univerjs/protocol@0.25.1` (npm) — declared `Apache-2.0`
 - `binary@0.3.0` (npm) — declared `MIT`
@@ -423,13 +424,13 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**774 packages.**
+**778 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 617 |
+| `MIT` | 620 |
 | `ISC` | 64 |
-| `Apache-2.0` | 32 |
+| `Apache-2.0` | 33 |
 | `BSD-3-Clause` | 24 |
 | `MIT OR Apache-2.0` | 7 |
 | `SEE LICENSE IN LICENSE.md` | 5 |
@@ -449,7 +450,7 @@ The production dependency closure of the root `package.json` — the superset of
 | `BSD` | 1 |
 | `BSD-2-Clause` | 1 |
 
-<details><summary>Platform-gated optional packages not resolved here (60)</summary>
+<details><summary>Platform-gated optional packages not resolved here (71)</summary>
 
 These are `optionalDependencies` whose install is gated on `os`/`cpu` —
 prebuilt native binaries. Only the host's copy is ever installed, so
@@ -468,6 +469,17 @@ parent package listed beside it.
 - `@napi-rs/canvas@0.1.100 → @napi-rs/canvas-linux-x64-musl@0.1.100`
 - `@napi-rs/canvas@0.1.100 → @napi-rs/canvas-win32-arm64-msvc@0.1.100`
 - `@napi-rs/canvas@0.1.100 → @napi-rs/canvas-win32-x64-msvc@0.1.100`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-android-arm64@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-darwin-arm64@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-darwin-x64@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-arm-gnueabihf@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-arm64-gnu@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-arm64-musl@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-riscv64-gnu@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-x64-gnu@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-linux-x64-musl@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-win32-arm64-msvc@1.0.8`
+- `@napi-rs/canvas@1.0.8 → @napi-rs/canvas-win32-x64-msvc@1.0.8`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-android-arm64@4.3.3`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-darwin-arm64@4.3.3`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-darwin-x64@4.3.3`
@@ -520,17 +532,17 @@ parent package listed beside it.
 
 </details>
 
-### License texts (78 distinct texts across 774 packages)
+### License texts (78 distinct texts across 778 packages)
 
-#### 1. MIT (+2 other declarations) — 277 package(s), from `LICENSE`
+#### 1. MIT (+2 other declarations) — 279 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`@antfu/install-pkg@1.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@gilbarbara/deep-equal@0.4.1`, `@gilbarbara/hooks@0.11.0`, `@gilbarbara/types@0.2.2`, `@handlewithcare/remark-prosemirror@0.1.5`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.4`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@napi-rs/canvas@0.1.100`, `@oxc-project/types@0.144.0`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1`, `@tiptap/core@3.23.5`, `@tiptap/extension-blockquote@3.23.5`, `@tiptap/extension-bold@3.23.5`, `@tiptap/extension-bubble-menu@3.23.5`, `@tiptap/extension-bullet-list@3.23.5`, `@tiptap/extension-code-block@3.23.5`, `@tiptap/extension-code@3.23.5`, `@tiptap/extension-collaboration@3.23.5`, `@tiptap/extension-document@3.23.5`, `@tiptap/extension-drag-handle@3.23.5`, `@tiptap/extension-dropcursor@3.23.5`, `@tiptap/extension-floating-menu@3.23.5`, `@tiptap/extension-gapcursor@3.23.5`, `@tiptap/extension-hard-break@3.23.5`, `@tiptap/extension-heading@3.23.5`, `@tiptap/extension-highlight@3.23.5`, `@tiptap/extension-horizontal-rule@3.23.5`, `@tiptap/extension-image@3.23.5`, `@tiptap/extension-italic@3.23.5`, `@tiptap/extension-link@3.23.5`, `@tiptap/extension-list-item@3.23.5`, `@tiptap/extension-list-keymap@3.23.5`, `@tiptap/extension-list@3.23.5`, `@tiptap/extension-node-range@3.23.5`, `@tiptap/extension-ordered-list@3.23.5`, `@tiptap/extension-paragraph@3.23.5`, `@tiptap/extension-strike@3.23.5`, `@tiptap/extension-table@3.23.5`, `@tiptap/extension-text@3.23.5`, `@tiptap/extension-underline@3.23.5`, `@tiptap/extensions@3.23.5`, `@tiptap/markdown@3.23.5`, `@tiptap/pm@3.23.5`, `@tiptap/react@3.23.5`, `@tiptap/starter-kit@3.23.5`, `@tiptap/suggestion@3.23.5`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `@visimer/core@0.1.0`, `@visimer/dom@0.1.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.18`, `brace-expansion@2.1.4`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cmdk@1.1.1`, `codemirror-lang-mermaid@0.5.0`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.50.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `invariant@2.2.4`, `is-fullwidth-code-point@3.0.0`, `is-lite@2.0.0`, `is-plain-obj@4.1.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `package-manager-detector@1.8.0`, `path-data-parser@0.1.0`, `points-on-curve@0.2.0`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prism-react-renderer@2.4.1`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-innertext@1.1.5`, `react-is@16.13.1`, `react-is@18.3.1`, `react-joyride@3.2.0`, `react-lite-youtube-embed@3.6.0`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `remark-github-alerts@0.1.1`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadow-plugin@1.2.7`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `styleq@0.2.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwind-scrollbar@4.0.2`, `tailwindcss@4.3.3`, `tinyexec@1.2.4`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `tw-animate-css@1.4.0`, `type-fest@4.41.0`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zod@4.4.3`
+`@antfu/install-pkg@1.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@gilbarbara/deep-equal@0.4.1`, `@gilbarbara/hooks@0.11.0`, `@gilbarbara/types@0.2.2`, `@handlewithcare/remark-prosemirror@0.1.5`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.4`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@napi-rs/canvas@0.1.100`, `@napi-rs/canvas@1.0.8`, `@oxc-project/types@0.144.0`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1`, `@tiptap/core@3.23.5`, `@tiptap/extension-blockquote@3.23.5`, `@tiptap/extension-bold@3.23.5`, `@tiptap/extension-bubble-menu@3.23.5`, `@tiptap/extension-bullet-list@3.23.5`, `@tiptap/extension-code-block@3.23.5`, `@tiptap/extension-code@3.23.5`, `@tiptap/extension-collaboration@3.23.5`, `@tiptap/extension-document@3.23.5`, `@tiptap/extension-drag-handle@3.23.5`, `@tiptap/extension-dropcursor@3.23.5`, `@tiptap/extension-floating-menu@3.23.5`, `@tiptap/extension-gapcursor@3.23.5`, `@tiptap/extension-hard-break@3.23.5`, `@tiptap/extension-heading@3.23.5`, `@tiptap/extension-highlight@3.23.5`, `@tiptap/extension-horizontal-rule@3.23.5`, `@tiptap/extension-image@3.23.5`, `@tiptap/extension-italic@3.23.5`, `@tiptap/extension-link@3.23.5`, `@tiptap/extension-list-item@3.23.5`, `@tiptap/extension-list-keymap@3.23.5`, `@tiptap/extension-list@3.23.5`, `@tiptap/extension-node-range@3.23.5`, `@tiptap/extension-ordered-list@3.23.5`, `@tiptap/extension-paragraph@3.23.5`, `@tiptap/extension-strike@3.23.5`, `@tiptap/extension-table@3.23.5`, `@tiptap/extension-text@3.23.5`, `@tiptap/extension-underline@3.23.5`, `@tiptap/extensions@3.23.5`, `@tiptap/markdown@3.23.5`, `@tiptap/pm@3.23.5`, `@tiptap/react@3.23.5`, `@tiptap/starter-kit@3.23.5`, `@tiptap/suggestion@3.23.5`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `@visimer/core@0.1.0`, `@visimer/dom@0.1.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.18`, `brace-expansion@2.1.4`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cmdk@1.1.1`, `codemirror-lang-mermaid@0.5.0`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.50.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `invariant@2.2.4`, `is-fullwidth-code-point@3.0.0`, `is-lite@2.0.0`, `is-plain-obj@4.1.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `package-manager-detector@1.8.0`, `path-data-parser@0.1.0`, `points-on-curve@0.2.0`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prism-react-renderer@2.4.1`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-innertext@1.1.5`, `react-is@16.13.1`, `react-is@18.3.1`, `react-joyride@3.2.0`, `react-lite-youtube-embed@3.6.0`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `remark-github-alerts@0.1.1`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadow-plugin@1.2.7`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `styleq@0.2.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwind-scrollbar@4.0.2`, `tailwindcss@4.3.3`, `tinyexec@1.2.4`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `tw-animate-css@1.4.0`, `type-fest@4.41.0`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zod@4.4.3`, `zustand@5.0.15`
 
 </details>
 
-Copyright notices (91):
+Copyright notices (92):
 
 ```text
 Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
@@ -566,6 +578,7 @@ Copyright (c) 2018, Gil Barbara
 Copyright (c) 2018-present, iamkun
 Copyright (c) 2019 - present, iVis@Bilkent.
 Copyright (c) 2019 Material-UI SAS
+Copyright (c) 2019 Paul Henschel
 Copyright (c) 2019 Preet Shihn
 Copyright (c) 2019 iVis@Bilkent
 Copyright (c) 2020 Anton Korzunov
@@ -933,11 +946,11 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-#### 7. Apache-2.0 (+2 other declarations) — 21 package(s), from `LICENSE_APACHE-2.0`
+#### 7. Apache-2.0 (+2 other declarations) — 22 package(s), from `LICENSE_APACHE-2.0`
 
 <details><summary>Packages sharing this text</summary>
 
-`@tauri-apps/api@2.11.1`, `@univerjs/core@0.25.1`, `@univerjs/design@0.25.1`, `@univerjs/docs-ui@0.25.1`, `@univerjs/docs@0.25.1`, `@univerjs/drawing@0.25.1`, `@univerjs/engine-formula@0.25.1`, `@univerjs/engine-render@0.25.1`, `@univerjs/network@0.25.1`, `@univerjs/preset-sheets-core@0.25.1`, `@univerjs/rpc@0.25.1`, `@univerjs/sheets-formula-ui@0.25.1`, `@univerjs/sheets-formula@0.25.1`, `@univerjs/sheets-numfmt-ui@0.25.1`, `@univerjs/sheets-numfmt@0.25.1`, `@univerjs/sheets-ui@0.25.1`, `@univerjs/sheets@0.25.1`, `@univerjs/telemetry@0.25.1`, `@univerjs/themes@0.25.1`, `@univerjs/ui@0.25.1`, `pdfjs-dist@4.9.155`
+`@tauri-apps/api@2.11.1`, `@univerjs/core@0.25.1`, `@univerjs/design@0.25.1`, `@univerjs/docs-ui@0.25.1`, `@univerjs/docs@0.25.1`, `@univerjs/drawing@0.25.1`, `@univerjs/engine-formula@0.25.1`, `@univerjs/engine-render@0.25.1`, `@univerjs/network@0.25.1`, `@univerjs/preset-sheets-core@0.25.1`, `@univerjs/rpc@0.25.1`, `@univerjs/sheets-formula-ui@0.25.1`, `@univerjs/sheets-formula@0.25.1`, `@univerjs/sheets-numfmt-ui@0.25.1`, `@univerjs/sheets-numfmt@0.25.1`, `@univerjs/sheets-ui@0.25.1`, `@univerjs/sheets@0.25.1`, `@univerjs/telemetry@0.25.1`, `@univerjs/themes@0.25.1`, `@univerjs/ui@0.25.1`, `pdfjs-dist@4.9.155`, `pdfjs-dist@6.3.289`
 
 </details>
 
@@ -18475,7 +18488,7 @@ to reproduce is not available from the artifact we distribute.
 - `@mariozechner/clipboard@0.3.9` (sidecar) — declared `MIT`
 - `@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4` (sidecar) — declared `MIT`
 - `@nodable/entities@2.1.0` (sidecar) — declared `MIT`
-- `@opencode-ai/sdk@1.18.25` (sidecar) — declared `MIT`
+- `@opencode-ai/sdk@1.18.26` (sidecar) — declared `MIT`
 - `@xterm/headless@6.0.0` (sidecar) — declared `MIT`
 - `data-uri-to-buffer@4.0.1` (sidecar) — declared `MIT`
 - `kubernetes-types@1.30.0` (sidecar) — declared `Apache-2.0`

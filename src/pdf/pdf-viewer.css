@@ -33,20 +33,14 @@
 .pdf-search small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .pdf-search .pdf-search-position { min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
-.pdf-scroll-area { position: relative; flex: 1; min-height: 0; }
-.pdf-scroll-area-viewport { position: relative; padding: var(--space-10); }
-.pdf-scroll-area-content { min-width: 100%; min-height: 100%; }
-.pdf-pages { width: max-content; min-width: 100%; min-height: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
-.pdf-page-shell { position: relative; flex: none; background: var(--pdf-page-surface); overflow: hidden; }
-.pdf-page-content { position: absolute; inset: 0; overflow: hidden; }
-.pdf-scroll-area canvas.synctex-enabled { cursor: text; }
-.pdf-scroll-area canvas {
-  position: relative;
-  z-index: 0;
-  display: block;
-  contain: content;
-  background: var(--pdf-page-surface);
-}
+.pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.pdf-viewer-host { position: absolute; inset: 0; overflow: hidden; }
+.pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; padding: var(--space-10); box-sizing: border-box; }
+.pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
+.pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
+.pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto 18px; background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
+.pdf-preview .pdfViewer .page.synctex-enabled { cursor: text; }
+.pdf-preview .pdfViewer .canvasWrapper canvas { background: var(--pdf-page-surface); image-rendering: auto; }
 /* Glyph spans stay unselectable so Command-A in the editor (or anywhere else
    in the webview) cannot wash the page blue. They opt into selection only
    while the user is dragging or holding a range that started in this layer. */
@@ -55,7 +49,8 @@
 .pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }
 .pdf-text-layer.selecting :is(span, br),
 .pdf-text-layer.has-selection :is(span, br) { user-select: text; }
-.pdf-page-content.is-selecting-text .pdf-link-annotation { pointer-events: none; }
+.pdf-page-content.is-selecting-text .pdf-link-annotation,
+.pdfViewer .page.is-selecting-text .annotationLayer { pointer-events: none; }
 .pdf-text-layer > :not(.markedContent), .pdf-text-layer .markedContent span:not(.markedContent) { --font-height: 0; --scale-x: 1; --rotate: 0deg; font-size: calc(var(--text-scale-factor) * var(--font-height)); transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); z-index: 1; }
 .pdf-text-layer span.markedContent { top: 0; height: 0; }
 .pdf-text-layer span::selection, .pdf-text-layer br::selection, .pdf-text-layer .endOfContent::selection { color: transparent; background: transparent; }
@@ -63,16 +58,14 @@
 .pdf-copy-field { position: fixed; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
 .pdf-text-layer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }
 .pdf-text-layer.selecting .endOfContent { top: 0; }
-.pdf-text-layer .pdf-text-match { margin: -1px 0; padding: 1px 0; border-radius: 1px; background: var(--highlight-match-surface); color: transparent; }
-.pdf-text-layer .pdf-text-match.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
+.pdf-text-layer .highlight { background: var(--highlight-match-surface); color: transparent; }
+.pdf-text-layer .highlight.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
 .pdf-annotation-layer { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
 .pdf-link-annotation { position: absolute; pointer-events: auto; border: 0; padding: 0; background: transparent; cursor: pointer; outline: 1px solid transparent; }
 .pdf-link-annotation:hover, .pdf-link-annotation:focus-visible { outline-color: color-mix(in srgb, var(--control-active) 65%, transparent); background: color-mix(in srgb, var(--control-active) 12%, transparent); }
 .pdf-zoom-controls button { position: relative; }
 .pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
-.pdf-page-skeleton { position: absolute; z-index: 4; inset: 0; background: linear-gradient(110deg, #F9F9FA 20%, #f5f5f4 45%, #F9F9FA 70%); background-size: 220% 100%; animation: pdf-page-loading 1.3s var(--ease-in-out) infinite; pointer-events: none; }
-.pdf-page-error { position: absolute; z-index: 5; inset: 0; padding: var(--space-12); display: grid; place-content: center; color: var(--status-danger); font-size: var(--type-caption-size); text-align: center; }
-.pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 5; }
+.pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
 .pdf-loading-quiet { opacity: 0.85; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
 @container pdf-preview (max-width: 560px) {
@@ -85,5 +78,4 @@
   .pdf-zoom-controls { grid-row: 2; grid-column: 1; justify-self: center; gap: var(--space-1); }
   .pdf-find-controls { grid-row: 3; grid-column: 1; }
 }
-@keyframes pdf-page-loading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }

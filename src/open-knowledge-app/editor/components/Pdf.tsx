@@ -101,18 +101,17 @@ const ZOOM_STEP = 0.25;
  * splits cleanly, and the React-Compiled component sees only a stable
  * `Promise` reference.
  */
-type PdfJsModule = typeof import('pdfjs-dist');
+type PdfJsModule = typeof import('pdfjs-dist-v4');
 let pdfjsPromise: Promise<PdfJsModule> | null = null;
 function loadPdfjs(): Promise<PdfJsModule> {
   if (!pdfjsPromise) {
     pdfjsPromise = (async () => {
-      // Local patch: use the same legacy+minified pdfjs build as
-      // src/pdf/pdf-viewer.tsx so the bundle carries one pdfjs runtime and one
-      // worker instead of two of each (~3 MB saved), and PDF embeds keep
-      // working on the oldest supported WKWebView (macOS 14).
-      const mod = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as PdfJsModule;
+      // Keep this vendored embed on the PDF.js v4 compatibility alias. The main
+      // viewer uses PDFSlick's v6 runtime, while this legacy renderer continues
+      // to support the oldest WKWebView covered by the vendored application.
+      const mod = (await import('pdfjs-dist-v4/legacy/build/pdf.mjs')) as PdfJsModule;
       if (!mod.GlobalWorkerOptions.workerSrc) {
-        const workerUrl = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'))
+        const workerUrl = (await import('pdfjs-dist-v4/legacy/build/pdf.worker.min.mjs?url'))
           .default;
         mod.GlobalWorkerOptions.workerSrc = workerUrl;
       }
@@ -138,7 +137,7 @@ interface PageInfo {
   naturalHeight: number;
 }
 
-type PdfDoc = import('pdfjs-dist').PDFDocumentProxy;
+type PdfDoc = import('pdfjs-dist-v4').PDFDocumentProxy;
 
 /** Recognise pdfjs-dist's `RenderingCancelledException` so cleanup-driven
  *  cancellations don't surface as unhandled rejections / console errors.
@@ -287,7 +286,7 @@ export function Pdf(props: PdfProps) {
     const doc = docRef.current;
     if (!doc || pages.length === 0 || containerWidth === 0) return;
     let cancelled = false;
-    let activeRenderTask: import('pdfjs-dist').RenderTask | null = null;
+    let activeRenderTask: import('pdfjs-dist-v4').RenderTask | null = null;
 
     (async () => {
       try {
@@ -353,7 +352,7 @@ export function Pdf(props: PdfProps) {
     const doc = docRef.current;
     if (!doc || pages.length === 0) return;
     let cancelled = false;
-    let activeRenderTask: import('pdfjs-dist').RenderTask | null = null;
+    let activeRenderTask: import('pdfjs-dist-v4').RenderTask | null = null;
     (async () => {
       try {
         const dpr = window.devicePixelRatio || 1;

@@ -15,9 +15,9 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
   }
   if (asset.mimeType !== "application/pdf") return null;
 
-  // Keep PDF.js out of startup for the common image-preview path. The legacy
-  // build matches the main viewer and is loaded only for an actual PDF asset.
-  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Keep PDF.js out of startup for the common image-preview path. The v4
+  // compatibility build is loaded only for an actual PDF reference asset.
+  const { getDocument } = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
   const binary = atob(asset.base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const loadingTask = getDocument({

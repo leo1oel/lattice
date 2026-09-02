@@ -74,6 +74,20 @@ describe("PDF text-layer selection clipping", () => {
     expect(layer.classList.contains("selecting")).toBe(false);
   });
 
+  it("reuses and preserves PDF.js's own endOfContent sentinel", () => {
+    const { layer } = glyphLayer("Hello");
+    const supplied = document.createElement("div");
+    supplied.className = "endOfContent";
+    layer.append(supplied);
+
+    const uninstall = installPdfTextLayerSelection(layer);
+    expect(layer.querySelectorAll(".endOfContent")).toHaveLength(1);
+    expect(layer.querySelector(".endOfContent")).toBe(supplied);
+
+    uninstall();
+    expect(layer.querySelector(".endOfContent")).toBe(supplied);
+  });
+
   it("parks endOfContent after the selected glyph so the range cannot cover the page", () => {
     const { layer, spans } = glyphLayer("Hello", "world", "again");
     const end = document.createElement("div");
@@ -182,7 +196,8 @@ describe("PDF text-layer selection styles", () => {
     expect(css).toContain(".pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }");
     expect(css).toContain(".pdf-text-layer .pdf-sel-rect {");
     expect(css).toContain(".pdf-copy-field {");
-    expect(css).toContain(".pdf-page-content.is-selecting-text .pdf-link-annotation { pointer-events: none; }");
+    expect(css).toContain(".pdf-page-content.is-selecting-text .pdf-link-annotation,");
+    expect(css).toContain(".pdfViewer .page.is-selecting-text .annotationLayer { pointer-events: none; }");
   });
 });
 

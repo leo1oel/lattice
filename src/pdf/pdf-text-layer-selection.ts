@@ -26,7 +26,8 @@
  * the extra width and dropping the stretch makes the layout box match the page.
  *
  * Mozilla's viewer also clips drags with a `.endOfContent` sentinel
- * (TextLayerBuilder). We use `TextLayer` directly, so this module owns that.
+ * (TextLayerBuilder). Reuse that sentinel when the viewer supplies one, and
+ * create it only for older direct-TextLayer consumers.
  */
 
 /* eslint lingui/no-unlocalized-strings: "off" -- DOM selectors and native command identifiers only. */
@@ -38,6 +39,7 @@ import { normalizePdfSelection } from "./pdf-viewer-utils";
 const PDF_SELECTION_HEIGHT_RATIO = 1;
 
 const textLayers = new Map<HTMLElement, HTMLElement>();
+const ownedEndOfContent = new WeakSet<HTMLElement>();
 let selectionAbort: AbortController | null = null;
 let previousRange: Range | null = null;
 let lastPdfCopyText = "";
@@ -49,7 +51,7 @@ function resetLayer(textLayer: HTMLElement, endOfContent: HTMLElement) {
   endOfContent.style.width = "";
   endOfContent.style.height = "";
   textLayer.classList.remove("selecting");
-  textLayer.closest(".pdf-page-content")?.classList.remove("is-selecting-text");
+  textLayer.closest(".pdf-page-content, .page")?.classList.remove("is-selecting-text");
 }
 
 export function isEditableSelectAllTarget(node: EventTarget | null): boolean {
@@ -370,7 +372,7 @@ function enableGlobalSelectionListener() {
       pointerDown = true;
       blurEditableFocus();
       const span = glyphSpanFromTarget(event.target);
-      span?.closest(".pdf-page-content")?.classList.add("is-selecting-text");
+      span?.closest(".pdf-page-content, .page")?.classList.add("is-selecting-text");
       return;
     }
     pointerDown = false;
@@ -528,19 +530,31 @@ function previousTextBearingNode(node: Node): Node | null {
 
 /** Append the pdf.js sentinel and start clipping native selection for this page. */
 export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void {
-  textLayers.get(textLayer)?.remove();
+  const previousEndOfContent = textLayers.get(textLayer);
+  if (previousEndOfContent && ownedEndOfContent.has(previousEndOfContent)) {
+    previousEndOfContent.remove();
+  }
+  textLayers.delete(textLayer);
   alignPdfTextLayerGlyphs(textLayer);
-  const endOfContent = document.createElement("div");
-  endOfContent.className = "endOfContent";
-  endOfContent.setAttribute("aria-hidden", "true");
-  textLayer.append(endOfContent);
+  const suppliedEndOfContent = Array.from(textLayer.children).find((child) => (
+    child instanceof HTMLElement && child.classList.contains("endOfContent")
+  ));
+  const endOfContent = suppliedEndOfContent instanceof HTMLElement
+    ? suppliedEndOfContent
+    : document.createElement("div");
+  if (!suppliedEndOfContent) {
+    endOfContent.className = "endOfContent";
+    endOfContent.setAttribute("aria-hidden", "true");
+    textLayer.append(endOfContent);
+    ownedEndOfContent.add(endOfContent);
+  }
   textLayers.set(textLayer, endOfContent);
   enableGlobalSelectionListener();
 
   const onMouseDown = (event: MouseEvent) => {
     if (!isVisualPdfGlyphEvent(event)) return;
     textLayer.classList.add("selecting");
-    textLayer.closest(".pdf-page-content")?.classList.add("is-selecting-text");
+    textLayer.closest(".pdf-page-content, .page")?.classList.add("is-selecting-text");
   };
   // Capture so `user-select: text` is on before WebKit starts the range.
   textLayer.addEventListener("mousedown", onMouseDown, true);
@@ -549,11 +563,11 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void
     if (textLayer.classList.contains("has-selection")) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
-    endOfContent.remove();
+    if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();
     textLayer.querySelectorAll(".pdf-sel-rect").forEach((node) => node.remove());
     textLayer.classList.remove("selecting");
     textLayer.classList.remove("has-selection");
-    textLayer.closest(".pdf-page-content")?.classList.remove("is-selecting-text");
+    textLayer.closest(".pdf-page-content, .page")?.classList.remove("is-selecting-text");
     disableGlobalSelectionListenerIfIdle();
   };
 }
