@@ -48,6 +48,25 @@ const LATTICE_EDITOR_STYLES = `
   color: var(--muted-foreground);
 }
 
+/* The split Present control is a flat Lattice surface. Open Slide's brand
+   button adds a bottom shadow that reads as a stray border, and brightens an
+   already-light neutral on hover. Preserve only the divider between halves. */
+[data-lattice-present] > button {
+  box-shadow: none;
+  filter: none;
+}
+[data-lattice-present] > button + button {
+  box-shadow: inset 1px 0 0 oklch(0 0 0 / 0.12);
+}
+[data-lattice-present] > button:hover {
+  background: color-mix(in oklch, var(--brand) 94%, black);
+  filter: none;
+}
+[data-lattice-present] > button:active {
+  background: color-mix(in oklch, var(--brand) 90%, black);
+  filter: none;
+}
+
 /* Match Lattice's quiet, hover-revealed PDF and editor scrollbar. */
 @media (pointer: fine) {
   [data-slot="scroll-area"]:has([data-slot="scroll-area-viewport"] aside)
@@ -99,15 +118,32 @@ export function transformOpenSlideEditorStyles(source, id) {
   return `${withLatticeFont}${LATTICE_EDITOR_STYLES}`;
 }
 
+export function transformOpenSlideThumbnailRail(source, id) {
+  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  if (!modulePath.endsWith("/@open-slide/core/src/app/components/thumbnail-rail.tsx")) return null;
+  const roomyGap = "group/thumb flex w-full items-start gap-2.5 rounded-[6px]";
+  if (!source.includes(roomyGap)) {
+    throw new Error("Open Slide's thumbnail rail layout contract changed");
+  }
+  // The upstream gap leaves the preview nearly touching the overlaid scrollbar.
+  // Keep its size while moving it left to restore a clear right-side gutter.
+  return source.replace(
+    roomyGap,
+    "group/thumb flex w-full items-start gap-1 rounded-[6px]",
+  );
+}
+
 export function transformOpenSlideToolbar(source, id) {
   const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
   if (!modulePath.endsWith("/@open-slide/core/src/app/routes/slide.tsx")) return null;
   const viewportCentered = "pointer-events-none relative flex min-w-0 justify-center px-2 md:absolute md:inset-x-0";
+  const presentGroup = '<div className="inline-flex items-stretch">';
   const badgeCall = "{import.meta.env.DEV && <AgentConnectedBadge />}";
   const badgeStart = "function AgentConnectedBadge() {";
   const badgeEnd = "function SelectionReporter() {";
   if (
     !source.includes(viewportCentered)
+    || !source.includes(presentGroup)
     || !source.includes(badgeCall)
     || !source.includes(badgeStart)
     || !source.includes(badgeEnd)
@@ -120,6 +156,10 @@ export function transformOpenSlideToolbar(source, id) {
   let transformed = source.replace(
     viewportCentered,
     "pointer-events-none relative flex min-w-0 justify-center px-2 md:flex-1",
+  );
+  transformed = transformed.replace(
+    presentGroup,
+    '<div data-lattice-present className="inline-flex items-stretch">',
   );
   transformed = transformed.replace(
     badgeCall,
@@ -1073,7 +1113,11 @@ export function createMutationQueue(root, controlToken) {
       }
     }
     for (const response of clients) {
-      if (!response.write(frame)) response.destroy();
+      // `write()` returning false means Node buffered the complete frame and
+      // wants the producer to observe backpressure; it does not mean the SSE
+      // client disconnected. Destroying here cut large source-change events
+      // short, so comments appeared to save and then raised "network error".
+      response.write(frame);
     }
   };
   async function enqueue(kind, absolute) {
@@ -1604,6 +1648,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
           let changed = false;
           for (const transform of [
             transformOpenSlideEditorStyles,
+            transformOpenSlideThumbnailRail,
             transformOpenSlideToolbar,
             transformOpenSlideConnectionCopy,
             transformOpenSlideAssets,
@@ -1630,6 +1675,10 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
     resolve: {
       ...config.resolve,
       alias: [
+        {
+          find: /^@open-slide\/core$/,
+          replacement: path.join(RUNTIME_ROOT, "node_modules/@open-slide/core/dist/index.js"),
+        },
         {
           find: /^@fontsource-variable\/inter$/,
           replacement: path.join(RUNTIME_ROOT, "node_modules/@fontsource-variable/inter/index.css"),

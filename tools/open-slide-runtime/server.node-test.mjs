@@ -14,6 +14,7 @@ import {
   transformOpenSlideConnectionCopy,
   transformOpenSlideEditorStyles,
   transformOpenSlideHomeChrome,
+  transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -53,11 +54,28 @@ test("uses Lattice typography, interaction colors, and scrollbars in the Open Sl
   assert.match(transformed, /--ring: var\(--muted-foreground\)/);
   assert.match(transformed, /--sidebar-ring: var\(--muted-foreground\)/);
   assert.match(transformed, /\.text-brand \{\s*color: var\(--muted-foreground\)/);
+  assert.match(transformed, /\[data-lattice-present\] > button \{\s*box-shadow: none/);
+  assert.match(transformed, /\[data-lattice-present\] > button:hover \{\s*background: color-mix\(in oklch, var\(--brand\) 94%, black\)/);
   assert.match(transformed, /:has\(\[data-slot="scroll-area-viewport"\] aside\)/);
   assert.match(transformed, /\[data-scrolling\]/);
   assert.match(transformed, /width: 4px/);
   assert.match(transformed, /opacity: 0/);
   assert.equal(transformOpenSlideEditorStyles(source, "/project/styles.css"), null);
+});
+
+test("moves vertical slide thumbnails left of the overlaid scrollbar", async () => {
+  const source = await readFile(
+    new URL("./node_modules/@open-slide/core/src/app/components/thumbnail-rail.tsx", import.meta.url),
+    "utf8",
+  );
+  const transformed = transformOpenSlideThumbnailRail(
+    source,
+    "/runtime/node_modules/@open-slide/core/src/app/components/thumbnail-rail.tsx?direct",
+  );
+  assert.match(transformed, /group\/thumb flex w-full items-start gap-1 rounded-\[6px\]/);
+  assert.doesNotMatch(transformed, /group\/thumb flex w-full items-start gap-2\.5/);
+  assert.equal(transformOpenSlideThumbnailRail(source, "/project/thumbnail-rail.tsx"), null);
+  await transformTsx(transformed, { loader: "tsx" });
 });
 
 test("keeps the Open Slide title in bounds and shows connection status only as a warning", async () => {
@@ -71,6 +89,7 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   );
   assert.match(transformed, /min-w-0 justify-center px-2 md:flex-1/);
   assert.doesNotMatch(transformed, /md:absolute|md:inset-x-0/);
+  assert.match(transformed, /<div data-lattice-present className="inline-flex items-stretch">/);
   assert.match(transformed, /<AgentConnectionWarning \/>/);
   assert.match(transformed, /if \(connected\) return null/);
   assert.match(transformed, /t\.slide\.agentDisconnected/);
@@ -465,6 +484,39 @@ test("does not report initial files or exact host mirror echoes", async () => {
     await queue.enqueue("add", entry);
     await queue.sync([{ path: "slides/talk/index.tsx", kind: "write", text: "after" }]);
     await queue.enqueue("change", entry);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("keeps event streams connected when a large mutation applies backpressure", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "lattice-open-slide-backpressure-"));
+  try {
+    const entry = path.join(root, "slides", "talk", "index.tsx");
+    await mkdir(path.dirname(entry), { recursive: true });
+    await writeFile(entry, "before");
+    const queue = createMutationQueue(root, "secret");
+    await queue.seed();
+    const frames = [];
+    let destroyed = false;
+    queue.attach({
+      on() {},
+      write(frame) {
+        frames.push(frame);
+        return false;
+      },
+      destroy() {
+        destroyed = true;
+      },
+    });
+
+    await writeFile(entry, "after".repeat(40_000));
+    await queue.enqueue("write", entry);
+    await delay(80);
+
+    assert.equal(frames.length, 1);
+    assert.match(frames[0], /"path":"slides\/talk\/index\.tsx"/);
+    assert.equal(destroyed, false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
