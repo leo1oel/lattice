@@ -36,6 +36,8 @@ function workspace(
   onContext?: React.ComponentProps<typeof OpenSlideWorkspace>["onContext"],
   theme: Theme = "light",
   locale: AppLocale = "en",
+  initialViewState?: React.ComponentProps<typeof OpenSlideWorkspace>["initialViewState"],
+  onViewState?: React.ComponentProps<typeof OpenSlideWorkspace>["onViewState"],
 ) {
   return (
     <OpenSlideWorkspace
@@ -47,6 +49,8 @@ function workspace(
       theme={theme}
       onMutation={vi.fn(async () => [])}
       onContext={onContext}
+      initialViewState={initialViewState}
+      onViewState={onViewState}
     />
   );
 }
@@ -143,7 +147,7 @@ describe("OpenSlideWorkspace", () => {
     ).length).toBe(refreshesBeforeEvent + 1));
   });
 
-  it("forwards the live Open Slide page and inspector selection", async () => {
+  it("restores and remembers the live Open Slide page with its inspector selection", async () => {
     const encoder = new TextEncoder();
     let eventRequests = 0;
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
@@ -164,13 +168,20 @@ describe("OpenSlideWorkspace", () => {
       }), { status: 200 });
     }));
     const onContext = vi.fn();
+    const onViewState = vi.fn();
 
-    render(workspace(onContext));
+    render(workspace(onContext, "light", "en", { page: 3 }, onViewState));
+
+    expect(await screen.findByTitle("Open Slide editor for research-update")).toHaveAttribute(
+      "src",
+      `${runtime.sessionUrl}&locale=en&theme=light&next=%2Fs%2Fresearch-update%3Fp%3D3`,
+    );
 
     await waitFor(() => expect(onContext).toHaveBeenCalledWith(expect.objectContaining({
       pagePath: "slides/research-update/index.tsx",
       pageNumber: 2,
       selection: expect.objectContaining({ line: 42, tagName: "h1" }),
     })));
+    expect(onViewState).toHaveBeenCalledWith({ page: 2 });
   });
 });

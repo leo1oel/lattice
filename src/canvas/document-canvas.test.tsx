@@ -65,6 +65,8 @@ vi.mock("./canvas-lazy-modules", () => {
     theme: "light" | "dark";
     active?: boolean;
     editable?: boolean;
+    initialViewState?: { page: number };
+    onViewState?: (state: { page: number }) => void;
     onMutation: (mutation: {
       id: number;
       path: string;
@@ -82,6 +84,7 @@ vi.mock("./canvas-lazy-modules", () => {
       data-theme={props.theme}
       data-active={String(props.active ?? true)}
       data-editable={String(props.editable ?? true)}
+      data-restored-page={String(props.initialViewState?.page ?? "")}
     >
       <button
         type="button"
@@ -93,6 +96,11 @@ vi.mock("./canvas-lazy-modules", () => {
           text: "export default [];\n",
           previousText: props.source,
         })}
+      />
+      <button
+        type="button"
+        data-testid="open-slide-view-state"
+        onClick={() => props.onViewState?.({ page: 3 })}
       />
     </div>
   );
@@ -572,6 +580,28 @@ describe("DocumentCanvas / per-file view state", () => {
     rerenderWith({ activeFile: "diagram.tldr", source: "{}" });
 
     expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("120");
+  });
+
+  it("returns an open presentation tab to the page it was showing", async () => {
+    const path = "slides/research-update/index.tsx";
+    const states: Record<string, FileViewState> = {};
+    const onFileViewState = vi.fn((statePath: string, update: Partial<FileViewState>) => {
+      states[statePath] = { ...states[statePath], ...update };
+    });
+    const getFileViewState = (statePath: string) => states[statePath];
+    const { rerenderWith } = renderCanvas({
+      activeFile: path,
+      source: "export default [];\n",
+      getFileViewState,
+      onFileViewState,
+    });
+    fireEvent.click(await screen.findByTestId("open-slide-view-state"));
+
+    rerenderWith({ activeFile: "main.tex", source: "\\section{Intro}\n" });
+    rerenderWith({ activeFile: path, source: "export default [];\n" });
+
+    expect((await screen.findByTestId("open-slide-workspace")).dataset.restoredPage).toBe("3");
+    expect(onFileViewState).toHaveBeenCalledWith(path, { openSlide: { page: 3 } });
   });
 
   it("keeps the preview on the last file that owns one", async () => {

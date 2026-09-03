@@ -172,6 +172,9 @@ describe("local file view state persistence", () => {
       "sketch.tldr": {
         board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
       },
+      "slides/talk/index.tsx": {
+        openSlide: { page: 3 },
+      },
       "report.html": {
         html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
       },
@@ -201,6 +204,9 @@ describe("local file view state persistence", () => {
       },
       "sketch.tldr": {
         board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
+      },
+      "slides/talk/index.tsx": {
+        openSlide: { page: 3 },
       },
       "report.html": {
         html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },

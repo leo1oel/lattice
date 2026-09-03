@@ -3996,6 +3996,8 @@ export function DocumentCanvas(props: {
           editable={props.editorEditable}
           locale={props.locale}
           theme={props.theme}
+          initialViewState={props.getFileViewState?.(activeFile)?.openSlide}
+          onViewState={(openSlide) => props.onFileViewState?.(activeFile, { openSlide })}
           onMutation={props.onOpenSlideMutation}
           onContext={props.onOpenSlideContext}
           onError={props.onOpenSlideError}
@@ -4050,6 +4052,8 @@ export function DocumentCanvas(props: {
             locale={props.locale}
             theme={props.theme}
             active={focusedPane === "secondary"}
+            initialViewState={props.getFileViewState?.(secondaryFile)?.openSlide}
+            onViewState={(openSlide) => props.onFileViewState?.(secondaryFile, { openSlide })}
             onMutation={props.onOpenSlideMutation}
             onContext={props.onOpenSlideContext}
             onError={props.onOpenSlideError}
@@ -4293,6 +4297,8 @@ export function DocumentCanvas(props: {
               locale={props.locale}
               theme={props.theme}
               active={focusedPane === "primary"}
+              initialViewState={props.getFileViewState?.(activeFile)?.openSlide}
+              onViewState={(openSlide) => props.onFileViewState?.(activeFile, { openSlide })}
               onMutation={props.onOpenSlideMutation}
               onContext={props.onOpenSlideContext}
               onError={props.onOpenSlideError}

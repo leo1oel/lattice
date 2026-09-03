@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { deckIdFromOpenSlidePath } from "../../app-utils";
+import type { OpenSlideFileViewState } from "../../app-types";
 import type { AppLocale, Theme } from "../../settings/app-settings";
 import {
   consumeOpenSlideEvents,
@@ -34,6 +35,8 @@ export type OpenSlideWorkspaceProps = {
   onMutation: (mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>;
   onContext?: (context: OpenSlideContext | null) => void;
   onError?: (message: string) => void;
+  initialViewState?: OpenSlideFileViewState;
+  onViewState?: (state: OpenSlideFileViewState) => void;
 };
 
 function errorMessage(reason: unknown): string {
@@ -86,6 +89,8 @@ export function OpenSlideWorkspace({
   onMutation,
   onContext,
   onError,
+  initialViewState,
+  onViewState,
 }: OpenSlideWorkspaceProps) {
   const { t } = useLingui();
   const deckId = useMemo(() => deckIdFromOpenSlidePath(path), [path]);
@@ -105,6 +110,15 @@ export function OpenSlideWorkspace({
   useEffect(() => {
     sourceRef.current = source;
   }, [source]);
+  // The parent keys this workspace by file. Freeze the restored page for this
+  // iframe lifetime so reporting a later page does not itself change `src`
+  // and reload the deck that just reported it.
+  const [restoredPage] = useState(() => Math.max(1, Math.floor(initialViewState?.page ?? 1)));
+  const reportedPageRef = useRef(restoredPage);
+  const onViewStateRef = useRef(onViewState);
+  useEffect(() => {
+    onViewStateRef.current = onViewState;
+  }, [onViewState]);
 
   useEffect(() => {
     let disposed = false;
@@ -232,6 +246,13 @@ export function OpenSlideWorkspace({
           if (!response.ok || !response.body) throw new Error(`Open Slide event bridge returned ${response.status}`);
           await consumeOpenSlideEvents(response.body, async (event) => {
             if ("context" in event) {
+              if (
+                event.context.pagePath === path
+                && event.context.pageNumber !== reportedPageRef.current
+              ) {
+                reportedPageRef.current = event.context.pageNumber;
+                onViewStateRef.current?.({ page: event.context.pageNumber });
+              }
               onContext?.(event.context);
               lastEventId = Math.max(lastEventId, event.id);
               return;
@@ -259,7 +280,7 @@ export function OpenSlideWorkspace({
       controller.abort();
       onContext?.(null);
     };
-  }, [active, onContext, onError, onMutation, runtime]);
+  }, [active, onContext, onError, onMutation, path, runtime]);
 
   if (!deckId) {
     return <div className="open-slide-status" role="alert" data-tour="open-slide-workspace">{t`This is not a native Open Slide deck.`}</div>;
@@ -277,7 +298,7 @@ export function OpenSlideWorkspace({
   }
   // Open Slide owns this application route.
   // eslint-disable-next-line lingui/no-unlocalized-strings
-  const next = `/s/${encodeURIComponent(deckId)}`;
+  const next = `/s/${encodeURIComponent(deckId)}${restoredPage > 1 ? `?p=${restoredPage}` : ""}`;
   const separator = runtime.sessionUrl.includes("?") ? "&" : "?";
   return (
     <div className="open-slide-workspace" data-tour="open-slide-workspace">

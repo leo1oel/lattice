@@ -81,6 +81,10 @@ export type BoardFileViewState = {
   camera: { x: number; y: number; z: number };
 };
 
+export type OpenSlideFileViewState = {
+  page: number;
+};
+
 export type ScrollFileViewState = {
   scrollTop: number;
   scrollLeft?: number;
@@ -106,6 +110,7 @@ export type FileViewState = {
   board?: BoardFileViewState;
   image?: ImageFileViewState;
   html?: HtmlFileViewState;
+  openSlide?: OpenSlideFileViewState;
   visualMarkdown?: ScrollFileViewState;
 };
 

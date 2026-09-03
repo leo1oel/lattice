@@ -16,6 +16,7 @@ import type {
   FileViewState,
   HtmlFileViewState,
   ImageFileViewState,
+  OpenSlideFileViewState,
   PdfFileViewState,
   ScrollFileViewState,
   SpreadsheetFileViewState,
@@ -436,6 +437,11 @@ function normalizeHtmlFileViewState(value: unknown): HtmlFileViewState | null {
   return { ...scroll, scale: scale ?? 1 };
 }
 
+function normalizeOpenSlideFileViewState(value: unknown): OpenSlideFileViewState | null {
+  const page = finiteNumber(settingsRecord(value)?.page);
+  return page !== null && page >= 1 ? { page: Math.floor(page) } : null;
+}
+
 function normalizeFileViewState(value: unknown): FileViewState | null {
   const candidate = settingsRecord(value);
   if (!candidate) return null;
@@ -447,6 +453,7 @@ function normalizeFileViewState(value: unknown): FileViewState | null {
   const board = normalizeBoardFileViewState(candidate.board);
   const image = normalizeImageFileViewState(candidate.image);
   const html = normalizeHtmlFileViewState(candidate.html);
+  const openSlide = normalizeOpenSlideFileViewState(candidate.openSlide);
   const visualMarkdown = normalizeScrollFileViewState(candidate.visualMarkdown);
   const normalized: FileViewState = {
     ...(cursor !== null && cursor >= 0 && textScrollTop !== null && textScrollTop >= 0
@@ -457,6 +464,7 @@ function normalizeFileViewState(value: unknown): FileViewState | null {
     ...(board ? { board } : {}),
     ...(image ? { image } : {}),
     ...(html ? { html } : {}),
+    ...(openSlide ? { openSlide } : {}),
     ...(visualMarkdown ? { visualMarkdown } : {}),
   };
   return Object.keys(normalized).length > 0 ? normalized : null;
