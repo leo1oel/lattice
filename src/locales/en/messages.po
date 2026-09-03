@@ -3388,6 +3388,10 @@ msgstr "Open the PDF in Lattice or your browser"
 msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
 
+#: src/app/app-history-drawers.tsx
+msgid "Open this repository on GitHub"
+msgstr "Open this repository on GitHub"
+
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
 msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"

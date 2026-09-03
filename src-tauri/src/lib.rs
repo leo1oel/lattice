@@ -3419,14 +3419,25 @@ async fn overleaf_probe(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     project_root: String,
+    check_local: Option<bool>,
+    live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafProbe, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
-    tauri::async_runtime::spawn_blocking(move || overleaf::probe(&config, &root))
-        .await
-        .map_err(|error| format!("The Overleaf check stopped unexpectedly: {error}"))?
+    let local_live_paths = check_local.unwrap_or(false).then(|| {
+        let mut paths = live_paths(live);
+        if let Ok(realtime) = project.realtime.lock() {
+            realtime.extend_joined_paths(&root, &mut paths);
+        }
+        paths
+    });
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::probe(&config, &root, local_live_paths.as_ref())
+    })
+    .await
+    .map_err(|error| format!("The Overleaf check stopped unexpectedly: {error}"))?
 }
 
 #[tauri::command]

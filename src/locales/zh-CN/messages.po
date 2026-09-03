@@ -3388,6 +3388,10 @@ msgstr "在 Lattice 或浏览器中打开 PDF"
 msgid "Open this Agent task before restoring its files"
 msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 
+#: src/app/app-history-drawers.tsx
+msgid "Open this repository on GitHub"
+msgstr "在 GitHub 上打开此仓库"
+
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
 msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留在这台 Mac 上"

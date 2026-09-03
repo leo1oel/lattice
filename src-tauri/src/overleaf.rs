@@ -223,6 +223,10 @@ pub struct OverleafPreview {
 pub struct OverleafProbe {
     /// True when Overleaf has moved on since our last sync.
     pub changed: bool,
+    /// True when a requested local check found files that differ from the last
+    /// sync. Ordinary polling leaves this false so it stays a cheap network
+    /// version check rather than rereading the project every few seconds.
+    pub local_changed: bool,
     /// False when this instance does not tell us a version, in which case
     /// `changed` is meaningless and polling cannot be used to drive syncing.
     pub version_known: bool,
@@ -915,6 +919,34 @@ fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
         files.insert(rel, data);
     }
     Ok(LocalFiles { files, oversized })
+}
+
+/// Whether files outside the realtime channel have moved away from the last
+/// full-sync baseline. This is intentionally only used for the one-time open
+/// check: hashing the project on every remote-version poll would make the
+/// supposedly cheap path expensive again.
+fn local_files_changed(
+    root: &Path,
+    state: &SyncState,
+    live: &BTreeSet<String>,
+) -> Result<bool, String> {
+    let local = read_local_files(root)?.files;
+    let tracked_count = state
+        .files
+        .keys()
+        .filter(|path| !is_excluded(path) && !live.contains(*path))
+        .count();
+    let local_count = local.keys().filter(|path| !live.contains(*path)).count();
+    if tracked_count != local_count {
+        return Ok(true);
+    }
+    Ok(local.iter().any(|(path, bytes)| {
+        !live.contains(path)
+            && state
+                .files
+                .get(path)
+                .is_none_or(|expected| expected != &sha256_hex(bytes))
+    }))
 }
 
 /// Where a project being opened from Overleaf should land.
@@ -2450,10 +2482,18 @@ fn ensure_user_id(config_dir: &Path, session: &mut SessionFile) -> Option<String
 /// payload, so this can run every few seconds — unlike a full sync, which
 /// downloads the whole project as a zip. Live mode polls this and only syncs
 /// for real when the version moved.
-pub fn probe(config_dir: &Path, root: &Path) -> Result<OverleafProbe, String> {
+pub fn probe(
+    config_dir: &Path,
+    root: &Path,
+    local_live_paths: Option<&BTreeSet<String>>,
+) -> Result<OverleafProbe, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session)?;
+    let local_changed = local_live_paths
+        .map(|live| local_files_changed(root, &state, live))
+        .transpose()?
+        .unwrap_or(false);
     let client = http_client(15)?;
     let response = client
         .get(format!(
@@ -2482,6 +2522,7 @@ pub fn probe(config_dir: &Path, root: &Path) -> Result<OverleafProbe, String> {
             // whole project on every poll, which is what earned a 429.
             (None, _) => false,
         },
+        local_changed,
         version_known: remote_version.is_some(),
         remote_version,
         last_sync: state.last_sync,
@@ -4379,6 +4420,39 @@ mod tests {
     }
 
     #[test]
+    fn local_open_check_detects_offline_changes_but_ignores_live_documents() {
+        let root = temp_dir("local-open-check");
+        let base = b"shared body".as_slice();
+        seed_linked_project(
+            &root,
+            "https://www.overleaf.com",
+            &[("main.tex", base)],
+            &[("main.tex", base)],
+        );
+        let state = load_state(&root).unwrap();
+
+        assert!(!local_files_changed(&root, &state, &BTreeSet::new()).unwrap());
+
+        fs::write(root.join("main.tex"), b"edited while Lattice was closed").unwrap();
+        assert!(local_files_changed(&root, &state, &BTreeSet::new()).unwrap());
+        assert!(!local_files_changed(
+            &root,
+            &state,
+            &["main.tex".to_string()].into_iter().collect(),
+        )
+        .unwrap());
+
+        fs::write(root.join("main.tex"), base).unwrap();
+        fs::write(root.join("new.tex"), b"new offline file").unwrap();
+        assert!(local_files_changed(&root, &state, &BTreeSet::new()).unwrap());
+        fs::remove_file(root.join("new.tex")).unwrap();
+        fs::remove_file(root.join("main.tex")).unwrap();
+        assert!(local_files_changed(&root, &state, &BTreeSet::new()).unwrap());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn project_requests_reject_a_session_from_another_overleaf_host() {
         let config = temp_dir("host-mismatch-config");
         let root = temp_dir("host-mismatch-project");
@@ -5340,7 +5414,7 @@ mod tests {
         assert_eq!(result.pulled, vec!["main.tex"]);
         assert_eq!(read_local(&root, "main.tex").unwrap(), remote);
         assert_eq!(state_remote_version(&root), Some(11));
-        let next = probe(&config, &root).unwrap();
+        let next = probe(&config, &root, None).unwrap();
         assert!(next.changed);
         assert_eq!(next.remote_version, Some(12));
     }
@@ -5368,7 +5442,7 @@ mod tests {
         write_session_file(&config, &server.base);
         // `run_sync` owns a different config directory; probing only needs a
         // valid session and the linked root.
-        let next = probe(&config, &root).unwrap();
+        let next = probe(&config, &root, None).unwrap();
         assert!(next.changed);
         assert_eq!(next.remote_version, Some(12));
     }

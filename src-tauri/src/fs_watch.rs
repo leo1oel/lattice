@@ -240,7 +240,10 @@ mod tests {
     fn omits_paths_when_the_changed_set_is_not_exact() {
         let root = PathBuf::from("/tmp/project");
         assert_eq!(payload_paths(&root, &[root.join("main.md")], true), None);
-        assert_eq!(payload_paths(&root, std::slice::from_ref(&root), false), None);
+        assert_eq!(
+            payload_paths(&root, std::slice::from_ref(&root), false),
+            None
+        );
         assert_eq!(
             payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false),
             None

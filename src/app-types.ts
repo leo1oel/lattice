@@ -318,6 +318,8 @@ export type OverleafPreview = {
 
 export type OverleafProbe = {
   changed: boolean;
+  /** True only when the caller requested a one-time local baseline check. */
+  localChanged: boolean;
   /** False when this Overleaf gives no version to compare against. */
   versionKnown: boolean;
   remoteVersion: number | null;

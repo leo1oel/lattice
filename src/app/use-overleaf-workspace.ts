@@ -175,7 +175,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
   const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
   const [conflictPath, setConflictPath] = useState<string | null>(null);
-  const overleafAutoSyncedRoot = useRef<string | null>(null);
+  const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(
     options?: { auto?: boolean; observedRemoteVersion?: number | null },
   ) => Promise<void>>(async () => {});
@@ -759,22 +759,51 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.livePaths;
 
-  // First open after launch pulls collaborators' Overleaf edits automatically.
-  // Wait for joinProject to finish first: it records the root folder id that
-  // per-file uploads require, so the first sync cannot race the only source of
-  // that id when this project has local files to push. A terminal realtime
-  // error still falls back to ordinary sync, which can continue pulling.
+  // On first open, check the cheap remote version and the local sync baseline
+  // before downloading the whole project. Wait for joinProject first: it
+  // records the root folder id that uploads require and lets the probe exclude
+  // documents already owned by realtime. If this Overleaf cannot report a
+  // version, or the probe itself fails, retain the safe full-sync fallback.
   useEffect(() => {
-    if (
-      !overleafLink
-      || !project?.root
-      || !["live", "error"].includes(overleafRealtime.status)
-    ) return;
-    if (overleafAutoSyncedRoot.current === project.root) return;
-    overleafAutoSyncedRoot.current = project.root;
-    lastAutoSyncRef.current = Date.now();
-    void runOverleafSync({ auto: true });
-  }, [overleafLink, overleafRealtime.status, project?.root, runOverleafSync]);
+    const projectRoot = project?.root;
+    if (!projectRoot) return;
+    if (!overleafLink || overleafSyncMode !== "live") {
+      if (overleafStartupCheckedRoot.current === projectRoot) {
+        overleafStartupCheckedRoot.current = null;
+      }
+      return;
+    }
+    if (!["live", "error"].includes(overleafRealtime.status)) return;
+    if (overleafStartupCheckedRoot.current === projectRoot) return;
+    overleafStartupCheckedRoot.current = projectRoot;
+    let cancelled = false;
+    const linkGeneration = overleafLinkLoadGenerationRef.current;
+    const stillCurrent = () => (
+      !cancelled
+      && projectRef.current?.root === projectRoot
+      && overleafLinkLoadGenerationRef.current === linkGeneration
+    );
+    void invoke<OverleafProbe>("overleaf_probe", {
+      projectRoot,
+      checkLocal: true,
+      live: overleafLivePathsRef.current,
+    }).then((probe) => {
+      if (!stillCurrent()) return;
+      if (probe.versionKnown && !probe.changed && !probe.localChanged) return;
+      lastAutoSyncRef.current = Date.now();
+      void overleafSyncRef.current({
+        auto: true,
+        observedRemoteVersion: probe.remoteVersion,
+      });
+    }).catch(() => {
+      if (!stillCurrent()) return;
+      lastAutoSyncRef.current = Date.now();
+      void overleafSyncRef.current({ auto: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [overleafLink, overleafRealtime.status, overleafSyncMode, project?.root, projectRef]);
 
   // Who else is in the Overleaf project, and where. Two things the presence
   // hook cannot get anywhere else ride the same channel: our own connection

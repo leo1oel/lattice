@@ -42,6 +42,7 @@ export function AnimatedProductIcon({
       ref={hostRef}
       className={`animated-product-icon animated-product-icon--${kind}`}
       aria-hidden="true"
+      style={{ pointerEvents: "none" }}
     >
       {source === "provided" ? (
         <ProvidedAnimatedIcon

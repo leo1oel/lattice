@@ -782,7 +782,8 @@ function App() {
   const [projectGitStatus, setProjectGitStatus] = useState<{
     projectRoot: string;
     files: GitFileStatus[];
-  }>({ projectRoot: "", files: [] });
+    remoteUrl: string | null;
+  }>({ projectRoot: "", files: [], remoteUrl: null });
   const [activeFile, setActiveFile] = useState("");
   const [source, setSource] = useState("");
   const [savedSource, setSavedSource] = useState("");
@@ -2101,15 +2102,17 @@ function App() {
         ) {
           const gitStatus = gitStatusResult.value;
           const files = gitStatus?.repository ? gitStatus.files : [];
+          const remoteUrl = gitStatus?.repository ? gitStatus.remoteUrl ?? null : null;
           setProjectGitStatus((current) => {
             if (
               currentProject
               && current.projectRoot === currentProject.root
               && JSON.stringify(current.files) === JSON.stringify(files)
+              && current.remoteUrl === remoteUrl
             ) {
               return current;
             }
-            return { projectRoot: currentProject?.root ?? "", files };
+            return { projectRoot: currentProject?.root ?? "", files, remoteUrl };
           });
         }
       } catch {
@@ -9729,6 +9732,9 @@ function App() {
         compile={compile}
         deleteHistory={deleteHistory}
         gitOpen={gitOpen}
+        gitRemoteUrl={projectGitStatus.projectRoot === project.root
+          ? projectGitStatus.remoteUrl
+          : null}
         gitWorkspaceView={gitWorkspaceView}
         historyOpen={historyOpen}
         loadFile={loadFile}

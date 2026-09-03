@@ -28,6 +28,15 @@ describe("AnimatedProductIcon", () => {
     expect(container.querySelector(".bakai-icon.is-playing")).not.toBeNull();
   });
 
+  it("keeps its containing control as the pointer target while replaying", () => {
+    const { container } = render(
+      <button type="button"><AnimatedProductIcon kind="git-branch" /></button>,
+    );
+
+    expect(container.querySelector(".animated-product-icon"))
+      .toHaveStyle({ pointerEvents: "none" });
+  });
+
   it("exposes the icon kind for product-specific optical sizing", () => {
     const { container } = render(
       <button type="button"><AnimatedProductIcon kind="clock-back" /></button>,

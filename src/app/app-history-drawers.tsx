@@ -14,7 +14,9 @@
 import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { X } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, X } from "lucide-react";
+import { Tip } from "../components/icon-tip";
 import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
@@ -29,6 +31,7 @@ import {
   type AgentTurnReview,
 } from "./app-synara-embed";
 import { setError } from "./notify";
+import { githubRepositoryUrl } from "./git-repository-url";
 import { confirmAction, toMessage } from "../app-utils";
 import { type AppLocale, type Theme } from "../settings/app-settings";
 import { type HistoryItem } from "../history/history-drawer";
@@ -50,6 +53,7 @@ export type AppHistoryDrawersProps = {
   compile: (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean; }) => Promise<void>;
   deleteHistory: (id: string) => Promise<void>;
   gitOpen: boolean;
+  gitRemoteUrl: string | null;
   gitWorkspaceView: AgentGitWorkspaceView;
   historyOpen: boolean;
   loadFile: (path: string, options?: { restoreView?: boolean; revealSource?: boolean; expectedProjectRoot?: string; projectGeneration?: number; collabController?: CollabProjectControllerV2; gate?: Promise<boolean>; loadGeneration?: number; canCommit?: () => boolean; navigateToLine?: number; }) => Promise<boolean>;
@@ -82,6 +86,7 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
     compile,
     deleteHistory,
     gitOpen,
+    gitRemoteUrl,
     gitWorkspaceView,
     historyOpen,
     loadFile,
@@ -104,6 +109,7 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
     synaraSourceControlFrameRef,
     theme,
   } = props;
+  const repositoryUrl = githubRepositoryUrl(gitRemoteUrl);
   return (
     <>
       <Suspense fallback={null}>
@@ -191,14 +197,30 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
                 { value: "pull-requests", label: t`Pull requests` },
               ]}
             />
-            <button
-              type="button"
-              className="agent-git-workspace-close"
-              aria-label={t`Close Git workspace`}
-              onClick={() => setGitOpen(false)}
-            >
-              <X size={14} />
-            </button>
+            <div className="agent-git-workspace-actions">
+              {repositoryUrl ? (
+                <Tip label={t`Open this repository on GitHub`}>
+                  <button
+                    type="button"
+                    className="agent-git-workspace-repository"
+                    onClick={() => {
+                      void openUrl(repositoryUrl).catch((reason) => setError(toMessage(reason)));
+                    }}
+                  >
+                    <span>GitHub</span>
+                    <ExternalLink size={13} aria-hidden="true" />
+                  </button>
+                </Tip>
+              ) : null}
+              <button
+                type="button"
+                className="agent-git-workspace-close"
+                aria-label={t`Close Git workspace`}
+                onClick={() => setGitOpen(false)}
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
             {synaraOrigin ? (
               <iframe

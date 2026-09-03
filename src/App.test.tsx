@@ -2972,6 +2972,14 @@ describe("project workspace", () => {
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
+      if (command === "git_status") return {
+        available: true,
+        repository: true,
+        branch: "main",
+        remote: "origin",
+        remoteUrl: "git@github.com:leo1oel/lattice.git",
+        files: [],
+      };
       if (command === "read_project_file") return "\\documentclass{article}";
       if (command === "list_papers" || command === "list_history") return [];
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
@@ -2985,6 +2993,8 @@ describe("project workspace", () => {
 
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
     expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Open this repository on GitHub" }));
+    expect(openUrl).toHaveBeenCalledWith("https://github.com/leo1oel/lattice");
   });
 
   it("routes agent paper, file, link, and review requests to their native surfaces", async () => {
@@ -4319,6 +4329,91 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
   });
 
+  it("does not start a full sync when an opened Overleaf project is unchanged", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/unchanged-overleaf-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "unchanged-overleaf-paper-id",
+        name: "Unchanged Overleaf paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let syncCount = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol-unchanged",
+        projectName: "Unchanged Overleaf paper",
+        host: "https://www.overleaf.com",
+        lastSync: "2026-09-03T00:00:00Z",
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
+      }
+      if (command === "overleaf_probe") return {
+        changed: false,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 42,
+        lastSync: "2026-09-03T00:00:00Z",
+      };
+      if (command === "overleaf_sync") {
+        syncCount += 1;
+        return {
+          pulled: [],
+          pushed: [],
+          merged: [],
+          conflicts: [],
+          deletedLocal: [],
+          skippedRemoteDeletes: [],
+          automaticRemoteDeletes: [],
+          readOnly: false,
+        };
+      }
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [],
+        entities: [],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (command === "overleaf_rt_disconnect") return undefined;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_probe", {
+      projectRoot: "/tmp/unchanged-overleaf-paper",
+      checkLocal: true,
+      live: [],
+    }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(syncCount).toBe(0);
+    expect(screen.queryByRole("button", { name: "Syncing with Overleaf…" })).not.toBeInTheDocument();
+    await waitFor(
+      () => expect(document.querySelector(".cm-editor")).not.toBeNull(),
+      { timeout: 30_000 },
+    );
+  });
+
   it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {
     const snapshot = {
       root: "/tmp/lattice-overleaf-paper",
@@ -4360,7 +4455,13 @@ describe("project workspace", () => {
         skippedRemoteDeletes: [],
       };
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: false,
+          localChanged: false,
+          versionKnown: true,
+          remoteVersion: 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") return {
         publicId: null,
@@ -4447,7 +4548,13 @@ describe("project workspace", () => {
         readOnly: false,
       };
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: false,
+          localChanged: false,
+          versionKnown: true,
+          remoteVersion: 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") return {
         publicId: null,
@@ -4543,6 +4650,7 @@ describe("project workspace", () => {
       if (command === "overleaf_probe") {
         return {
           changed: probeChanged,
+          localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
           versionKnown: true,
           remoteVersion: probeChanged ? 77 : 1,
           lastSync: null,
@@ -4663,7 +4771,13 @@ describe("project workspace", () => {
         readOnly: false,
       };
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: false,
+          localChanged: false,
+          versionKnown: true,
+          remoteVersion: 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") return {
         publicId: null,
@@ -4767,7 +4881,13 @@ describe("project workspace", () => {
         };
       }
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: false,
+          localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
+          versionKnown: true,
+          remoteVersion: 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") return {
         publicId: null,
@@ -8313,7 +8433,13 @@ describe("project workspace", () => {
         };
       }
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: false,
+          localChanged: false,
+          versionKnown: true,
+          remoteVersion: 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") {
         return {
@@ -8347,11 +8473,13 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    // The linked project's own first-open auto-sync is the positive control:
-    // the machinery is live, and it aims at the linked root.
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({
+    // The linked project gets its one-time local/remote check, but neither side
+    // moved, so opening it must not start a full project download.
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_probe", {
       projectRoot: "/tmp/overleaf-paper",
-    })));
+      checkLocal: true,
+      live: [],
+    }));
 
     // The tutorial is one of the flows that still replaces the project in this
     // window; choosing a project now opens a window of its own instead.
@@ -8372,7 +8500,7 @@ describe("project workspace", () => {
     const syncRoots = vi.mocked(invoke).mock.calls
       .filter(([command]) => command === "overleaf_sync")
       .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
-    expect(syncRoots).toEqual(["/tmp/overleaf-paper"]);
+    expect(syncRoots).toEqual([]);
     const probeRoots = vi.mocked(invoke).mock.calls
       .filter(([command]) => command === "overleaf_probe")
       .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
