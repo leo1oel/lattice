@@ -67,6 +67,13 @@ const LATTICE_EDITOR_STYLES = `
   filter: none;
 }
 
+/* The save action sits inside an already elevated card. Its brand variant's
+   extra bottom shadow reads as a dark border rather than useful depth. */
+[data-lattice-save-card] [data-variant="brand"] {
+  box-shadow: none;
+  filter: none;
+}
+
 /* Match Lattice's quiet, hover-revealed PDF and editor scrollbar. */
 @media (pointer: fine) {
   [data-slot="scroll-area"]:has([data-slot="scroll-area-viewport"] aside)
@@ -166,6 +173,98 @@ export function transformOpenSlideComments(source, id) {
       } catch (e) {
         setError(String((e as Error).message ?? e));
       }`);
+}
+
+export function transformOpenSlideInspectorPanel(source, id) {
+  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-panel.tsx")) return null;
+  const agentImport = "import { useAgentSocketConnected } from '@/lib/use-agent-socket';\n";
+  const badgeCall = "            <AgentWatchingBadge />\n";
+  const badgeStart = "function AgentWatchingBadge() {";
+  const badgeEnd = "// The cue animation re-mounts with every element selection;";
+  if (
+    !source.includes(agentImport)
+    || !source.includes(badgeCall)
+    || !source.includes(badgeStart)
+    || !source.includes(badgeEnd)
+  ) {
+    throw new Error("Open Slide's inspector agent badge contract changed");
+  }
+  // Lattice shows included context beside the agent composer. A second badge
+  // inside the inspector claims the agent is actively watching and duplicates
+  // connection state without giving the user another action.
+  let transformed = source
+    .replace(agentImport, "")
+    .replace(badgeCall, "");
+  const start = transformed.indexOf(badgeStart);
+  const end = transformed.indexOf(badgeEnd, start);
+  transformed = `${transformed.slice(0, start)}${transformed.slice(end)}`;
+  return transformed;
+}
+
+export function transformOpenSlideSaveFeedback(source, id) {
+  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/save-bar.tsx")) {
+    const swallowedFailure = `    // Each provider surfaces its own errors via toast; swallow here so
+    // one failure doesn't reject the combined save.
+    await Promise.all(tasks).catch(() => {});`;
+    if (!source.includes(swallowedFailure)) {
+      throw new Error("Open Slide's combined save contract changed");
+    }
+    return source.replace(swallowedFailure, `    // Each provider owns its detailed error toast, but the rejection must
+    // reach SaveCard so a failed write is never announced as saved.
+    await Promise.all(tasks);`);
+  }
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/panel/save-card.tsx")) {
+    const optimisticSave = `  const handleSave = async () => {
+    await onSave();
+    setJustSaved(true);
+  };`;
+    const cardRoot = `    <div
+      {...dataAttrs}
+      className={cn(`;
+    if (!source.includes(optimisticSave) || !source.includes(cardRoot)) {
+      throw new Error("Open Slide's save card contract changed");
+    }
+    return source
+      .replace(optimisticSave, `  const handleSave = async () => {
+    try {
+      await onSave();
+      setJustSaved(true);
+    } catch {
+      // The provider already displayed the detailed failure. Keep the draft
+      // dirty and avoid replacing that truthful state with a Saved message.
+    }
+  };`)
+      .replace(cardRoot, `    <div
+      {...dataAttrs}
+      data-lattice-save-card=""
+      className={cn(`);
+  }
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) {
+    const reportedPartialFailure = "      if (failures.length > 0) toast.error(`${t.inspector.saveFailed} ${failures.join('; ')}`);";
+    if (!source.includes(reportedPartialFailure)) {
+      throw new Error("Open Slide's inspector partial-save contract changed");
+    }
+    // A batch can return HTTP 200 while individual edits fail. Reject that
+    // outcome too, so the save card keeps the remaining edits marked dirty.
+    return source.replace(
+      reportedPartialFailure,
+      "      if (failures.length > 0) throw new Error(failures.join('; '));",
+    );
+  }
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/style-panel/design-provider.tsx")) {
+    const reportedDesignFailure = "    if (!r.ok) toast.error(r.error ?? 'Failed to save');";
+    if (!source.includes(reportedDesignFailure)) {
+      throw new Error("Open Slide's design save contract changed");
+    }
+    return source.replace(reportedDesignFailure, `    if (!r.ok) {
+      const message = r.error ?? 'Failed to save';
+      toast.error(message);
+      throw new Error(message);
+    }`);
+  }
+  return null;
 }
 
 export function transformOpenSlideToolbar(source, id) {
@@ -1685,6 +1784,8 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
             transformOpenSlideEditorStyles,
             transformOpenSlideThumbnailRail,
             transformOpenSlideComments,
+            transformOpenSlideInspectorPanel,
+            transformOpenSlideSaveFeedback,
             transformOpenSlideToolbar,
             transformOpenSlideConnectionCopy,
             transformOpenSlideAssets,

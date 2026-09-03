@@ -15,6 +15,8 @@ import {
   transformOpenSlideConnectionCopy,
   transformOpenSlideEditorStyles,
   transformOpenSlideHomeChrome,
+  transformOpenSlideInspectorPanel,
+  transformOpenSlideSaveFeedback,
   transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
@@ -57,6 +59,7 @@ test("uses Lattice typography, interaction colors, and scrollbars in the Open Sl
   assert.match(transformed, /\.text-brand \{\s*color: var\(--muted-foreground\)/);
   assert.match(transformed, /\[data-lattice-present\] > button \{\s*box-shadow: none/);
   assert.match(transformed, /\[data-lattice-present\] > button:hover \{\s*background: color-mix\(in oklch, var\(--brand\) 94%, black\)/);
+  assert.match(transformed, /\[data-lattice-save-card\] \[data-variant="brand"\] \{\s*box-shadow: none/);
   assert.match(transformed, /:has\(\[data-slot="scroll-area-viewport"\] aside\)/);
   assert.match(transformed, /\[data-scrolling\]/);
   assert.match(transformed, /width: 4px/);
@@ -95,6 +98,60 @@ test("surfaces comment deletion failures in the existing comment panel", async (
   assert.doesNotMatch(transformed, /if \(!res\.ok\) throw new Error\(`DELETE/);
   assert.equal(transformOpenSlideComments(source, "/project/use-comments.ts"), null);
   await transformTsx(transformed, { loader: "tsx" });
+});
+
+test("removes the redundant inspector agent-watching badge", async () => {
+  const source = await readFile(
+    new URL("./node_modules/@open-slide/core/src/app/components/inspector/inspector-panel.tsx", import.meta.url),
+    "utf8",
+  );
+  const transformed = transformOpenSlideInspectorPanel(
+    source,
+    "/runtime/node_modules/@open-slide/core/src/app/components/inspector/inspector-panel.tsx?direct",
+  );
+  assert.doesNotMatch(transformed, /AgentWatchingBadge|useAgentSocketConnected|agentWatching/);
+  assert.equal(transformOpenSlideInspectorPanel(source, "/project/inspector-panel.tsx"), null);
+  await transformTsx(transformed, { loader: "tsx" });
+});
+
+test("only reports a save after every Open Slide edit succeeds", async () => {
+  const sourceRoot = new URL("./node_modules/@open-slide/core/src/app/components/", import.meta.url);
+  const [barSource, cardSource, inspectorSource, designSource] = await Promise.all([
+    readFile(new URL("inspector/save-bar.tsx", sourceRoot), "utf8"),
+    readFile(new URL("panel/save-card.tsx", sourceRoot), "utf8"),
+    readFile(new URL("inspector/inspector-provider.tsx", sourceRoot), "utf8"),
+    readFile(new URL("style-panel/design-provider.tsx", sourceRoot), "utf8"),
+  ]);
+  const bar = transformOpenSlideSaveFeedback(
+    barSource,
+    "/runtime/node_modules/@open-slide/core/src/app/components/inspector/save-bar.tsx?direct",
+  );
+  const card = transformOpenSlideSaveFeedback(
+    cardSource,
+    "/runtime/node_modules/@open-slide/core/src/app/components/panel/save-card.tsx?direct",
+  );
+  const inspector = transformOpenSlideSaveFeedback(
+    inspectorSource,
+    "/runtime/node_modules/@open-slide/core/src/app/components/inspector/inspector-provider.tsx?direct",
+  );
+  const design = transformOpenSlideSaveFeedback(
+    designSource,
+    "/runtime/node_modules/@open-slide/core/src/app/components/style-panel/design-provider.tsx?direct",
+  );
+
+  assert.match(bar, /await Promise\.all\(tasks\);/);
+  assert.doesNotMatch(bar, /Promise\.all\(tasks\)\.catch/);
+  assert.match(card, /data-lattice-save-card/);
+  assert.match(card, /try \{\s*await onSave\(\);\s*setJustSaved\(true\);\s*\} catch \{/);
+  assert.match(inspector, /if \(failures\.length > 0\) throw new Error\(failures\.join\('; '\)\);/);
+  assert.match(design, /if \(!r\.ok\) \{\s*const message = r\.error \?\? 'Failed to save';[\s\S]*throw new Error\(message\);/);
+  assert.equal(transformOpenSlideSaveFeedback(barSource, "/project/save-bar.tsx"), null);
+  await Promise.all([
+    transformTsx(bar, { loader: "tsx" }),
+    transformTsx(card, { loader: "tsx" }),
+    transformTsx(inspector, { loader: "tsx" }),
+    transformTsx(design, { loader: "tsx" }),
+  ]);
 });
 
 test("keeps the Open Slide title in bounds and shows connection status only as a warning", async () => {
