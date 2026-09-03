@@ -11,6 +11,7 @@ import {
   renameGlobalAsset,
   safeRelativePath,
   transformOpenSlideAssets,
+  transformOpenSlideComments,
   transformOpenSlideConnectionCopy,
   transformOpenSlideEditorStyles,
   transformOpenSlideHomeChrome,
@@ -63,7 +64,7 @@ test("uses Lattice typography, interaction colors, and scrollbars in the Open Sl
   assert.equal(transformOpenSlideEditorStyles(source, "/project/styles.css"), null);
 });
 
-test("moves vertical slide thumbnails left of the overlaid scrollbar", async () => {
+test("centers vertical slide previews with folios in the left gutter", async () => {
   const source = await readFile(
     new URL("./node_modules/@open-slide/core/src/app/components/thumbnail-rail.tsx", import.meta.url),
     "utf8",
@@ -72,9 +73,27 @@ test("moves vertical slide thumbnails left of the overlaid scrollbar", async () 
     source,
     "/runtime/node_modules/@open-slide/core/src/app/components/thumbnail-rail.tsx?direct",
   );
-  assert.match(transformed, /group\/thumb flex w-full items-start gap-1 rounded-\[6px\]/);
+  assert.match(transformed, /group\/thumb relative flex w-full items-start justify-center gap-1 rounded-\[6px\]/);
+  assert.match(transformed, /absolute left-2 mt-1\.5 flex w-7 shrink-0 flex-col items-start gap-1/);
   assert.doesNotMatch(transformed, /group\/thumb flex w-full items-start gap-2\.5/);
+  assert.doesNotMatch(transformed, /mt-1\.5 flex w-7 shrink-0 flex-col items-end gap-1/);
   assert.equal(transformOpenSlideThumbnailRail(source, "/project/thumbnail-rail.tsx"), null);
+  await transformTsx(transformed, { loader: "tsx" });
+});
+
+test("surfaces comment deletion failures in the existing comment panel", async () => {
+  const source = await readFile(
+    new URL("./node_modules/@open-slide/core/src/app/lib/inspector/use-comments.ts", import.meta.url),
+    "utf8",
+  );
+  const transformed = transformOpenSlideComments(
+    source,
+    "/runtime/node_modules/@open-slide/core/src/app/lib/inspector/use-comments.ts?direct",
+  );
+  assert.match(transformed, /const body = \(await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)\) as \{ error\?: string \}/);
+  assert.match(transformed, /setError\(String\(\(e as Error\)\.message \?\? e\)\)/);
+  assert.doesNotMatch(transformed, /if \(!res\.ok\) throw new Error\(`DELETE/);
+  assert.equal(transformOpenSlideComments(source, "/project/use-comments.ts"), null);
   await transformTsx(transformed, { loader: "tsx" });
 });
 

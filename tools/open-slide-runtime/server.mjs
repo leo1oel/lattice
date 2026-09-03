@@ -122,15 +122,50 @@ export function transformOpenSlideThumbnailRail(source, id) {
   const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/thumbnail-rail.tsx")) return null;
   const roomyGap = "group/thumb flex w-full items-start gap-2.5 rounded-[6px]";
-  if (!source.includes(roomyGap)) {
+  const trailingNumber = "mt-1.5 flex w-7 shrink-0 flex-col items-end gap-1";
+  if (!source.includes(roomyGap) || !source.includes(trailingNumber)) {
     throw new Error("Open Slide's thumbnail rail layout contract changed");
   }
-  // The upstream gap leaves the preview nearly touching the overlaid scrollbar.
-  // Keep its size while moving it left to restore a clear right-side gutter.
-  return source.replace(
-    roomyGap,
-    "group/thumb flex w-full items-start gap-1 rounded-[6px]",
-  );
+  // Center the preview itself inside the hover surface and place the folio in
+  // the resulting left gutter. Keeping both items in normal flex flow makes
+  // the much wider preview look right-heavy even when their bounds are centered.
+  return source
+    .replace(
+      roomyGap,
+      "group/thumb relative flex w-full items-start justify-center gap-1 rounded-[6px]",
+    )
+    .replace(
+      trailingNumber,
+      "absolute left-2 mt-1.5 flex w-7 shrink-0 flex-col items-start gap-1",
+    );
+}
+
+export function transformOpenSlideComments(source, id) {
+  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  if (!modulePath.endsWith("/@open-slide/core/src/app/lib/inspector/use-comments.ts")) return null;
+  const silentRemove = `      const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error(\`DELETE /__comments/\${id} → \${res.status}\`);
+      await refetch();`;
+  if (!source.includes(silentRemove)) {
+    throw new Error("Open Slide's comment removal contract changed");
+  }
+  // Upstream lets delete failures escape from an unawaited click handler, so
+  // read-only and network errors look like a dead button. Keep the comment and
+  // surface the server's explanation in the existing comment-panel error row.
+  return source.replace(silentRemove, `      try {
+        const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? \`DELETE /__comments/\${id} → \${res.status}\`);
+        }
+        await refetch();
+      } catch (e) {
+        setError(String((e as Error).message ?? e));
+      }`);
 }
 
 export function transformOpenSlideToolbar(source, id) {
@@ -1649,6 +1684,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
           for (const transform of [
             transformOpenSlideEditorStyles,
             transformOpenSlideThumbnailRail,
+            transformOpenSlideComments,
             transformOpenSlideToolbar,
             transformOpenSlideConnectionCopy,
             transformOpenSlideAssets,
