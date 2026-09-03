@@ -18488,7 +18488,7 @@ to reproduce is not available from the artifact we distribute.
 - `@mariozechner/clipboard@0.3.9` (sidecar) — declared `MIT`
 - `@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4` (sidecar) — declared `MIT`
 - `@nodable/entities@2.1.0` (sidecar) — declared `MIT`
-- `@opencode-ai/sdk@1.18.26` (sidecar) — declared `MIT`
+- `@opencode-ai/sdk@1.18.27` (sidecar) — declared `MIT`
 - `@xterm/headless@6.0.0` (sidecar) — declared `MIT`
 - `data-uri-to-buffer@4.0.1` (sidecar) — declared `MIT`
 - `kubernetes-types@1.30.0` (sidecar) — declared `Apache-2.0`
