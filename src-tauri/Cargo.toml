@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.276"
+version = "0.1.277"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -78,7 +78,10 @@ tokio = { version = "1", features = ["sync", "net", "time"] }
 axum = { version = "0.8", features = ["ws"] }
 keyring = { version = "3", features = ["apple-native"] }
 rustix = { version = "1", features = ["fs"] }
-anydoc = "0.1.7"
+# 0.2.4 aborts the whole conversion when even one page is classified as
+# needing OCR (including arXiv 2605.30170); keep the tested 0.1 line until the
+# new API can preserve the remaining text-layer pages.
+anydoc = "0.1.9"
 # Already in the tree transitively; direct so paper.md normalization can slug
 # headings with the exact NFKD semantics of the editor's toWikiLinkSlug.
 unicode-normalization = "0.1"

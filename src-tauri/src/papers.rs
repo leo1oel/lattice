@@ -1,11 +1,13 @@
 use crate::commands;
 use crate::models::{ImportResult, PaperSummary, ProjectSearchResult};
 use crate::project;
+use flate2::read::GzDecoder;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::process::Output;
 use uuid::Uuid;
@@ -24,14 +26,15 @@ const PAPER_SCHEMA_VERSION: u32 = 8;
 const ASSET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 /// The converter recorded on bundles built from the PDF text layer. Like the
 /// arxiv2md requirement in `commands`, this string is part of cache identity:
-/// bump it together with the `anydoc` dependency so old bundles rebuild.
-const ANYDOC_CONVERTER: &str = "anydoc@0.1.7";
+/// bump it with either parser dependency so old bundles rebuild.
+const ANYDOC_CONVERTER: &str = "anydoc@0.1.9/pdf-inspector@1.17.0";
 /// The converter recorded on webpage captures (see firecrawl.rs). Versioned
 /// by API generation, not by crate: the scrape output changes when the
 /// service's endpoint does.
 const FIRECRAWL_CONVERTER: &str = "firecrawl-v2";
 const ARXIV_TITLE_SEARCH_URL: &str = "https://export.arxiv.org/api/query";
 const LITERATURE_USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
+const MAX_PAPER_SOURCE_BYTES: usize = 100 * 1024 * 1024;
 const MAX_PAPER_PDF_BYTES: usize = 100 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,9 +49,9 @@ struct PaperMetadata {
     #[serde(default)]
     converter: String,
     /// What the markdown was derived from: `arxiv-html` for a LaTeXML
-    /// rendering, `arxiv-pdf` for the text-layer fallback, `web` for a
-    /// scraped page. Empty on bundles from before the field existed, which
-    /// are all HTML-derived.
+    /// rendering, `arxiv-source` for the TeX parser, `arxiv-pdf` for the
+    /// text-layer fallback, or `web` for a scraped page. Empty on bundles from
+    /// before the field existed, which are all HTML-derived.
     #[serde(default)]
     source: String,
     /// The page a `web` bundle captured. This is the join key back to the
@@ -558,6 +561,13 @@ pub fn fetch_paper_with_progress(
             localize_arxiv_fragment_links(&normalize_imported_markdown(&converted), &base);
         fs::write(&output_path, &markdown).map_err(err)?;
         let title = parse_title(&markdown).unwrap_or_else(|| format!("arXiv {base}"));
+        let source = if converter == ANYDOC_CONVERTER {
+            "arxiv-pdf"
+        } else if converter == commands::ARXIV_SOURCE2MD.requirement {
+            "arxiv-source"
+        } else {
+            "arxiv-html"
+        };
         let metadata = PaperMetadata {
             arxiv_id: base.clone(),
             requested_arxiv_id: requested.clone(),
@@ -565,12 +575,7 @@ pub fn fetch_paper_with_progress(
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
             converter: converter.to_string(),
-            source: if converter == ANYDOC_CONVERTER {
-                "arxiv-pdf"
-            } else {
-                "arxiv-html"
-            }
-            .to_string(),
+            source: source.to_string(),
             source_url: String::new(),
             paper_sha256: sha256_hex(markdown.as_bytes()),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
@@ -771,10 +776,10 @@ pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String
 /// converter that produced it.
 ///
 /// arXiv renders modern papers to HTML but never went back over the archive,
-/// and ar5iv covers most — not all — of the rest. A paper neither has rendered
-/// still has a PDF with a real text layer (arXiv PDFs come from pdfTeX, not
-/// scans), so the text layer is the fallback: strictly worse than a rendering,
-/// strictly better than the citation-with-no-text it used to be.
+/// and ar5iv covers most — not all — of the rest. When both renderers fail, the
+/// TeX source retains the formula and document semantics that a PDF has already
+/// flattened into positioned glyphs. Only papers without usable source reach
+/// the deliberately lower-fidelity PDF text-layer fallback.
 fn convert_paper(
     requested: &str,
     base: &str,
@@ -819,7 +824,7 @@ fn convert_paper(
             // converts the stub and exits 0. The missing body is the only
             // signal that there was never a usable HTML rendering — treat it
             // exactly like the explicit no-HTML error.
-            pdf_fallback(
+            source_then_pdf_fallback(
                 requested,
                 base,
                 output_dir,
@@ -827,22 +832,229 @@ fn convert_paper(
             )
         }
         Err(error) if error.contains("does not have an HTML version") => {
-            pdf_fallback(requested, base, output_dir, &error)
+            source_then_pdf_fallback(requested, base, output_dir, &error)
         }
         Err(error) => Err(error),
     }
 }
 
-/// Build the bundle from the PDF text layer after the HTML route produced
-/// nothing usable; `html_error` says why so a double failure reports both.
-fn pdf_fallback(
+/// Prefer the public TeX source after HTML conversion failed. This stays local
+/// and preserves formulas without shipping Pandoc or a TeX distribution; the
+/// tiny parser is materialized in uv's cache beside the existing literature
+/// tools. Any source failure still has the old local PDF text-layer route.
+fn source_then_pdf_fallback(
     requested: &str,
     base: &str,
     output_dir: &Path,
     html_error: &str,
 ) -> Result<(String, &'static str), String> {
-    let markdown = pdf_text_markdown(requested, base)
-        .map_err(|pdf_error| format!("{html_error}\nThe PDF fallback also failed: {pdf_error}"))?;
+    match arxiv_source_markdown(requested, base, output_dir) {
+        Ok(markdown) => Ok((markdown, commands::ARXIV_SOURCE2MD.requirement)),
+        Err(source_error) => pdf_fallback(
+            requested,
+            base,
+            output_dir,
+            &format!("{html_error}\nThe arXiv source fallback also failed: {source_error}"),
+        ),
+    }
+}
+
+fn arxiv_source_markdown(requested: &str, base: &str, output_dir: &Path) -> Result<String, String> {
+    let work_dir = output_dir.join(format!(".source-conversion-{}", Uuid::new_v4()));
+    let converted_dir = work_dir.join("converted");
+    fs::create_dir_all(&converted_dir).map_err(err)?;
+    let convert = || -> Result<String, String> {
+        let source = download_arxiv_source(requested)?;
+        let extension = arxiv_source_extension(&source)?;
+        let source_path = work_dir.join(format!("source{extension}"));
+        fs::write(&source_path, source).map_err(err)?;
+
+        let mut command = commands::ARXIV_SOURCE2MD.command()?;
+        let output = command
+            .current_dir(&work_dir)
+            .arg(&source_path)
+            .arg("--outdir")
+            .arg(&converted_dir)
+            // Formula and structure fidelity are the reason for this route.
+            // Avoiding optional PDFium/Pillow binaries keeps the tool's cache
+            // under 2 MB; figures still retain their captions in the text.
+            .arg("--no-assets")
+            .arg("--json")
+            .output()
+            .map_err(|error| uv_tool_spawn_error("arxiv source converter", &error))?;
+        ensure_success("arxiv source converter", &output)?;
+        let document_path = converted_dir.join("document.md");
+        if !document_path.is_file() {
+            return Err("the converter did not produce document.md".to_string());
+        }
+        let converted = fs::read_to_string(document_path).map_err(err)?;
+        if !markdown_has_body(&converted) {
+            return Err("the converter produced a document with no body".to_string());
+        }
+        let converted = prepare_arxiv_source_markdown(&converted, output_dir)?;
+        let title = parse_title(&converted).unwrap_or_else(|| format!("arXiv {base}"));
+        Ok(format!(
+            "---\ntitle: \"{}\"\nurl: \"https://arxiv.org/abs/{base}\"\nsource: \"arxiv-source\"\nfidelity: \"Converted from the public arXiv TeX source because no usable HTML rendering was available. Unsupported TeX figures are represented by their captions.\"\n---\n\n{}",
+            title.replace('"', "'"),
+            converted,
+        ))
+    };
+    let result = convert();
+    let _ = fs::remove_dir_all(work_dir);
+    result
+}
+
+fn download_arxiv_source(requested: &str) -> Result<Vec<u8>, String> {
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(LITERATURE_USER_AGENT)
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("Could not create the source download client: {error}"))?;
+    let response = client
+        .get(format!("https://arxiv.org/e-print/{requested}"))
+        .send()
+        .map_err(|error| format!("Source download failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "arXiv returned HTTP {} for the source archive.",
+            response.status().as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_PAPER_SOURCE_BYTES as u64)
+    {
+        return Err("The source archive is larger than the 100 MB conversion limit.".to_string());
+    }
+    let bytes = response
+        .bytes()
+        .map_err(|error| format!("Source download failed: {error}"))?;
+    if bytes.len() > MAX_PAPER_SOURCE_BYTES {
+        return Err("The source archive is larger than the 100 MB conversion limit.".to_string());
+    }
+    Ok(bytes.to_vec())
+}
+
+/// arXiv source downloads vary across eras: most are compressed tarballs, but
+/// old single-file submissions may be plain or gzipped TeX. Give the converter
+/// the suffix that selects its hardened extractor without trusting HTTP names.
+fn arxiv_source_extension(bytes: &[u8]) -> Result<&'static str, String> {
+    if bytes.starts_with(b"%PDF") {
+        return Err("arXiv returned a PDF instead of TeX source".to_string());
+    }
+    if bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"PK\x05\x06") {
+        return Ok(".zip");
+    }
+    if looks_like_tar(bytes) {
+        return Ok(".tar");
+    }
+    if bytes.starts_with(b"\x1f\x8b") {
+        let mut sample = Vec::with_capacity(512);
+        GzDecoder::new(bytes)
+            .take(512)
+            .read_to_end(&mut sample)
+            .map_err(|error| format!("The source gzip is unreadable: {error}"))?;
+        return Ok(if looks_like_tar(&sample) {
+            ".tar.gz"
+        } else {
+            ".tex.gz"
+        });
+    }
+    let head = &bytes[..bytes.len().min(4096)];
+    if head
+        .windows(b"\\documentclass".len())
+        .any(|part| part == b"\\documentclass")
+        || head
+            .windows(b"\\begin{document}".len())
+            .any(|part| part == b"\\begin{document}")
+    {
+        return Ok(".tex");
+    }
+    Err("arXiv returned an unrecognized source archive".to_string())
+}
+
+fn looks_like_tar(bytes: &[u8]) -> bool {
+    bytes.get(257..262) == Some(b"ustar")
+}
+
+/// Source conversion deliberately skips optional image runtimes. Keep every
+/// caption, but do not leave broken source-relative links or raw TikZ programs
+/// that dwarf the readable text.
+fn prepare_arxiv_source_markdown(markdown: &str, output_dir: &Path) -> Result<String, String> {
+    let assets_dir = output_dir.join("paper_assets");
+    if assets_dir.exists() {
+        fs::remove_dir_all(&assets_dir).map_err(err)?;
+    }
+    fs::create_dir_all(&assets_dir).map_err(err)?;
+    fs::write(
+        assets_dir.join("manifest.json"),
+        "{\"schema_version\":1,\"assets\":[]}\n",
+    )
+    .map_err(err)?;
+    Ok(clean_arxiv_source_markdown(markdown))
+}
+
+fn clean_arxiv_source_markdown(markdown: &str) -> String {
+    let lines = markdown.split('\n').collect::<Vec<_>>();
+    let mut cleaned = Vec::with_capacity(lines.len());
+    let mut index = 0;
+    while index < lines.len() {
+        let line = lines[index];
+        if line.trim() == "<details>"
+            && lines.get(index + 1).is_some_and(|summary| {
+                let summary = summary.trim();
+                summary.starts_with("<summary>Show ")
+                    && summary.ends_with(" source</summary>")
+                    && (summary.contains("TikZ") || summary.contains("PGFPlots"))
+            })
+        {
+            index += 2;
+            while index < lines.len() && lines[index].trim() != "</details>" {
+                index += 1;
+            }
+            index += usize::from(index < lines.len());
+            continue;
+        }
+        cleaned.push(rewrite_source_image(line));
+        index += 1;
+    }
+    cleaned.join("\n")
+}
+
+fn rewrite_source_image(line: &str) -> String {
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with("![") || !trimmed.ends_with(')') {
+        return line.to_string();
+    }
+    let Some(separator) = trimmed.rfind("](") else {
+        return line.to_string();
+    };
+    let caption = &trimmed[2..separator];
+    let target = &trimmed[separator + 2..trimmed.len() - 1];
+    let indent = &line[..line.len() - trimmed.len()];
+    if target.contains("://") || target.starts_with("data:") || target.starts_with('#') {
+        return line.to_string();
+    }
+    let caption = caption.trim();
+    if caption.is_empty() {
+        format!("{indent}> **Figure unavailable in source conversion.**")
+    } else {
+        format!("{indent}> **Figure:** {caption}")
+    }
+}
+
+/// Build the bundle from the PDF text layer after both semantic routes
+/// produced nothing usable; `previous_error` preserves both reasons if this
+/// final fallback also fails.
+fn pdf_fallback(
+    requested: &str,
+    base: &str,
+    output_dir: &Path,
+    previous_error: &str,
+) -> Result<(String, &'static str), String> {
+    let markdown = pdf_text_markdown(requested, base).map_err(|pdf_error| {
+        format!("{previous_error}\nThe PDF fallback also failed: {pdf_error}")
+    })?;
     // The bundle contract requires an asset manifest; the text layer carries
     // no extractable figures, so it is honestly empty. An abandoned stub
     // conversion may have left assets behind — clear them so the bundle
@@ -918,6 +1130,7 @@ fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
 
 fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
     let known_converter = metadata.converter == commands::ARXIV2MD.requirement
+        || metadata.converter == commands::ARXIV_SOURCE2MD.requirement
         || metadata.converter == ANYDOC_CONVERTER
         || metadata.converter == FIRECRAWL_CONVERTER;
     if !known_converter || metadata.asset_manifest_schema_version != ASSET_MANIFEST_SCHEMA_VERSION {
@@ -1949,15 +2162,25 @@ fn json_objects(text: &str) -> Vec<String> {
 
 fn parse_title(markdown: &str) -> Option<String> {
     // With --frontmatter, arxiv2md's clean title is the YAML `title:` field;
-    // older output carried a plain `Title:` line. Prefer the frontmatter.
-    yaml_frontmatter_title(markdown).or_else(|| {
-        markdown.lines().find_map(|line| {
-            line.strip_prefix("Title:")
-                .map(str::trim)
-                .filter(|title| !title.is_empty())
-                .map(ToString::to_string)
+    // older output carried a plain `Title:` line, while the source converter
+    // uses the document's first level-one heading. Prefer the frontmatter.
+    yaml_frontmatter_title(markdown)
+        .or_else(|| {
+            markdown.lines().find_map(|line| {
+                line.strip_prefix("Title:")
+                    .map(str::trim)
+                    .filter(|title| !title.is_empty())
+                    .map(ToString::to_string)
+            })
         })
-    })
+        .or_else(|| {
+            markdown.lines().find_map(|line| {
+                line.strip_prefix("# ")
+                    .map(str::trim)
+                    .filter(|title| !title.is_empty())
+                    .map(ToString::to_string)
+            })
+        })
 }
 
 fn yaml_frontmatter_title(markdown: &str) -> Option<String> {
@@ -1996,7 +2219,7 @@ fn err(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
-/// Importing arXiv papers shells out to `uvx` (arxiv2markdown + bibcite-cli).
+/// Importing arXiv papers shells out to `uvx` for the pinned literature tools.
 /// When uv isn't installed the raw spawn error ("No such file or directory") is
 /// baffling, so point the user straight at the installer.
 pub(crate) fn uv_tool_spawn_error(tool: &str, error: &std::io::Error) -> String {
@@ -2105,6 +2328,66 @@ mod tests {
             normalize_imported_markdown(source),
             "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- Continuation with $x_{p}$\n",
         );
+    }
+
+    #[test]
+    fn recognizes_arxiv_source_archive_formats_without_trusting_the_filename() {
+        use std::io::Write as _;
+
+        let mut tar = vec![0; 512];
+        tar[257..262].copy_from_slice(b"ustar");
+        assert_eq!(arxiv_source_extension(&tar), Ok(".tar"));
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&tar).unwrap();
+        assert_eq!(
+            arxiv_source_extension(&encoder.finish().unwrap()),
+            Ok(".tar.gz")
+        );
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(b"\\documentclass{article}").unwrap();
+        assert_eq!(
+            arxiv_source_extension(&encoder.finish().unwrap()),
+            Ok(".tex.gz")
+        );
+        assert_eq!(
+            arxiv_source_extension(b"\\documentclass{article}"),
+            Ok(".tex")
+        );
+        assert_eq!(arxiv_source_extension(b"PK\x03\x04zip"), Ok(".zip"));
+        assert!(arxiv_source_extension(b"%PDF-1.7").is_err());
+    }
+
+    #[test]
+    fn source_conversion_keeps_captions_but_drops_broken_assets_and_figure_code() {
+        let output_dir =
+            std::env::temp_dir().join(format!("lattice-source-clean-{}", Uuid::new_v4()));
+        fs::create_dir_all(output_dir.join("paper_assets")).unwrap();
+        fs::write(output_dir.join("paper_assets/stale.png"), b"stale").unwrap();
+        let source = concat!(
+            "![Local diagram](figures/diagram.pdf)\n\n",
+            "![Remote diagram](https://example.com/diagram.png)\n\n",
+            "[PGFPlots figure: Accuracy by epoch]\n\n",
+            "<details>\n",
+            "<summary>Show PGFPlots source</summary>\n\n",
+            "```latex\n\\begin{tikzpicture}\n```\n\n",
+            "</details>\n\n",
+            "<details>\n<summary>Author note</summary>\nKeep me.\n</details>\n",
+        );
+
+        let cleaned = prepare_arxiv_source_markdown(source, &output_dir).unwrap();
+        assert!(cleaned.contains("> **Figure:** Local diagram"));
+        assert!(cleaned.contains("![Remote diagram](https://example.com/diagram.png)"));
+        assert!(cleaned.contains("[PGFPlots figure: Accuracy by epoch]"));
+        assert!(!cleaned.contains("tikzpicture"), "got: {cleaned}");
+        assert!(cleaned.contains("Author note"), "got: {cleaned}");
+        assert!(!output_dir.join("paper_assets/stale.png").exists());
+        assert_eq!(
+            fs::read_to_string(output_dir.join("paper_assets/manifest.json")).unwrap(),
+            "{\"schema_version\":1,\"assets\":[]}\n"
+        );
+        fs::remove_dir_all(output_dir).unwrap();
     }
 
     #[test]
@@ -2328,6 +2611,10 @@ mod tests {
         assert_eq!(
             parse_title("Title: Attention Is All You Need\nArXiv: 1706.03762\n"),
             Some("Attention Is All You Need".to_string())
+        );
+        assert_eq!(
+            parse_title("# Unveiling the Visual Counting Bottleneck\n\n## Abstract\n"),
+            Some("Unveiling the Visual Counting Bottleneck".to_string())
         );
     }
 
@@ -3103,7 +3390,7 @@ mod tests {
             &arxiv2md,
             concat!(
                 "#!/bin/sh\n",
-                "echo 'Error: This paper does not have an HTML version available on arXiv.' >&2\n",
+                "echo 'fixture conversion failure' >&2\n",
                 "exit 1\n",
             ),
         );
@@ -3119,10 +3406,7 @@ mod tests {
         assert_eq!(result.arxiv_id, "2401.99999");
         assert!(result.paper_path.is_empty());
         let error = result.fetch_error.expect("the failed download is reported");
-        assert!(
-            error.contains("does not have an HTML version"),
-            "got: {error}"
-        );
+        assert!(error.contains("fixture conversion failure"), "got: {error}");
         let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
         assert!(bibliography.contains("stub2024"), "got: {bibliography}");
         fs::remove_dir_all(parent).unwrap();
@@ -3333,24 +3617,26 @@ mod tests {
         let _ = fs::remove_dir_all(directory);
     }
 
-    /// 2408.05088 has no arXiv HTML rendering and ar5iv serves a failed-
+    /// 2605.30170 has no arXiv HTML rendering and ar5iv serves a failed-
     /// conversion stub for it (HTTP 200, empty body), so arxiv2md "succeeds"
-    /// with a bodyless document. The fetch must land on the PDF text layer,
-    /// not cache the stub.
+    /// with a bodyless document. The fetch must preserve its TeX formulas
+    /// through the source route rather than flatten them through the PDF.
     #[test]
     #[ignore = "requires network access"]
-    fn falls_back_to_the_pdf_text_layer_for_a_broken_ar5iv_rendering() {
-        let parent = std::env::temp_dir().join(format!("lattice-pdf-fb-{}", Uuid::new_v4()));
+    fn falls_back_to_tex_source_for_a_broken_ar5iv_rendering() {
+        let parent = std::env::temp_dir().join(format!("lattice-source-fb-{}", Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         let root = project::create(&parent, "paper").unwrap();
-        let result = fetch_paper(&root, "2408.05088").unwrap();
-        assert_eq!(result.arxiv_id, "2408.05088");
+        let result = fetch_paper(&root, "2605.30170").unwrap();
+        assert_eq!(result.arxiv_id, "2605.30170");
         let markdown = fs::read_to_string(root.join(&result.paper_path)).unwrap();
-        assert!(markdown.contains("source: \"pdf-text-layer\""));
+        assert!(markdown.contains("source: \"arxiv-source\""));
+        assert!(markdown.contains(r"N_H = \sum_{i=1}^{L} f_{\text{probe}}(z_i)."));
+        assert!(!markdown.contains("Show PGFPlots source"));
         assert!(markdown_has_body(&markdown));
         // The stub conversion's leftovers are gone: the manifest is honestly
         // empty and revalidation accepts the bundle, so a refetch reuses it.
-        let reused = fetch_paper(&root, "2408.05088").unwrap();
+        let reused = fetch_paper(&root, "2605.30170").unwrap();
         assert!(reused.reused);
         fs::remove_dir_all(parent).unwrap();
     }

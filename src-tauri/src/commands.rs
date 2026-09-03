@@ -50,8 +50,17 @@ pub const ARXIV2MD: UvTool = UvTool {
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
 
+/// Converts an arXiv TeX source archive when neither arXiv nor ar5iv could
+/// render HTML. The package is a dependency-free source parser, not Pandoc or
+/// a TeX distribution, so its cached environment is under 2 MB.
+pub const ARXIV_SOURCE2MD: UvTool = UvTool {
+    requirement: "arxiv-md==0.1.0",
+    binary: "tex-to-md",
+    override_env: "LATTICE_ARXIV_SOURCE2MD_BIN",
+};
+
 impl UvTool {
-    /// A command that refreshes and runs the newest stable tool release.
+    /// A command that runs this tool's exact, app-tested requirement.
     pub fn command(&self) -> Result<Command, String> {
         if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
             let mut command = Command::new(path);
@@ -82,14 +91,14 @@ impl UvTool {
     }
 }
 
-/// Build (or confirm) the cached environments for both literature tools so
+/// Build (or confirm) the cached environments for the literature tools so
 /// the first import after install or update does not pay the download-and-
 /// build cost while the user watches a spinner. Runs `--help` because it is
 /// the cheapest invocation that forces uvx to materialize the environment.
 /// Failures only log: the import path still builds on demand as before, and
 /// a machine without `uv` gets its real error from the first import.
 pub fn prewarm_literature_tools() {
-    for tool in [&BIBCITE, &ARXIV2MD] {
+    for tool in [&BIBCITE, &ARXIV2MD, &ARXIV_SOURCE2MD] {
         let started = std::time::Instant::now();
         let result = tool.command().and_then(|mut command| {
             command
@@ -389,7 +398,7 @@ mod tests {
 
     #[test]
     fn python_tools_use_their_explicit_requirements() {
-        for tool in [&BIBCITE, &ARXIV2MD] {
+        for tool in [&BIBCITE, &ARXIV2MD, &ARXIV_SOURCE2MD] {
             // Inspect the managed path directly: process-wide development
             // overrides may be active in parallel tests that exercise a
             // fixture binary, but they do not change this contract.
@@ -412,6 +421,7 @@ mod tests {
             ARXIV2MD.requirement,
             "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@67154cec406d4f2725c1ee7bac8877c569a5c7a0"
         );
+        assert_eq!(ARXIV_SOURCE2MD.requirement, "arxiv-md==0.1.0");
     }
 
     #[test]
