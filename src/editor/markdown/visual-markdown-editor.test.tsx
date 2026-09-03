@@ -46,6 +46,7 @@ import {
   markdownPreviewSyncPolicy,
 } from "./markdown-preview-sync-policy";
 import { documentHeadingItems } from "./document-heading-items";
+import { activateAppLocale } from "../../i18n";
 
 afterEach(() => {
   cleanup();
@@ -2376,6 +2377,54 @@ describe("VisualMarkdownEditor", () => {
     expect(within(menu).queryByRole("option", { name: /^Audio/ })).not.toBeInTheDocument();
   });
 
+  it("localizes add-menu options and descriptions in Chinese", async () => {
+    await activateAppLocale("zh-CN");
+    renderEditor("");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.chain().focus().insertContent("/").run();
+    const menu = await screen.findByRole("listbox", { name: "Slash commands" });
+
+    expect(within(menu).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "一级标题",
+      "二级标题",
+      "三级标题",
+      "四级标题",
+      "五级标题",
+      "六级标题",
+      "无序列表",
+      "有序列表",
+      "任务列表",
+      "引文",
+      "代码块",
+      "表格",
+      "分隔线",
+      "脚注",
+      "表情符号",
+      "行内公式",
+      "链接",
+      "提示框",
+      "折叠面板",
+      "折叠块",
+      "标签页",
+      "数学",
+      "Mermaid 图表",
+      "镜像",
+      "镜像源",
+      "对齐块",
+      "图片",
+      "HTML",
+    ]);
+    expect(within(menu).getByText("基础块")).toBeInTheDocument();
+    expect(within(menu).getByText("插入")).toBeInTheDocument();
+    expect(within(menu).getByText("组件")).toBeInTheDocument();
+    expect(within(menu).getByText("媒体")).toBeInTheDocument();
+
+    fireEvent.mouseEnter(within(menu).getByRole("option", { name: "二级标题" }));
+    await waitFor(() => expect(menu.parentElement?.parentElement?.querySelector("aside"))
+      .toHaveTextContent("用于次级章节的中标题。"));
+  });
+
   it("composes the slash menu from the vendored upstream item sources", () => {
     // Exact upstream parity is enforced by `vendor-open-knowledge.mjs
     // --check`; here we only pin that the production sources actually
@@ -3866,12 +3915,14 @@ describe("VisualMarkdownEditor", () => {
       .toBe(changed);
   });
 
-  it("explains when paper Markdown is read-only to preserve lossy syntax", async () => {
+  it("reports a lossy paper to its parent without inserting a warning into the article", async () => {
+    const onEligibilityChange = vi.fn();
     render(
       <VisualMarkdownEditor
         text={UNMAPPABLE_MARKDOWN}
         activePath=".research/papers/example/paper.md"
         optimizeForReading
+        onEligibilityChange={onEligibilityChange}
         onChangeMarkdown={() => true}
         onUndo={() => false}
         onRedo={() => false}
@@ -3879,7 +3930,8 @@ describe("VisualMarkdownEditor", () => {
     );
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
-    expect(screen.getByText("unsupported or lossy syntax", { exact: false })).toBeInTheDocument();
+    expect(onEligibilityChange).toHaveBeenLastCalledWith(expect.stringContaining("unsupported or lossy syntax"));
+    expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
     fireEvent.keyDown(surface, { key: "f", altKey: true, metaKey: true });
     expect(screen.getByRole("button", { name: "Replace current match" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Replace all matches" })).toBeDisabled();
@@ -5137,6 +5189,83 @@ describe("VisualMarkdownEditor", () => {
       "src",
       "data:image/png;base64,YmxvY2s=",
     );
+  });
+
+  it("expands a Markdown image beyond its rendered editor size", async () => {
+    const currentSrcDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "currentSrc",
+    );
+    const decodeDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "decode");
+    const showModalDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLDialogElement.prototype,
+      "showModal",
+    );
+    const closeDescriptor = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "close");
+    let finishDecode: () => void = () => undefined;
+    const decoded = new Promise<void>((resolve) => {
+      finishDecode = resolve;
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "currentSrc", {
+      configurable: true,
+      get(this: HTMLImageElement) {
+        return this.src;
+      },
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn(() => decoded),
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.setAttribute("open", "");
+      },
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.removeAttribute("open");
+      },
+    });
+
+    try {
+      renderEditor("![Plot](figures/plot.png)");
+      const image = await screen.findByRole("img", { name: "Plot" });
+      vi.spyOn(image, "getBoundingClientRect").mockReturnValue({
+        left: 100,
+        top: 200,
+        right: 500,
+        bottom: 400,
+        width: 400,
+        height: 200,
+        x: 100,
+        y: 200,
+        toJSON: () => ({}),
+      });
+      await act(async () => {
+        finishDecode();
+        await decoded;
+      });
+      fireEvent.load(image);
+      await waitFor(() => expect(document.querySelector("[data-rmiz-btn-zoom]")).not.toBeNull());
+
+      fireEvent.click(image);
+
+      const expanded = document.querySelector<HTMLElement>("[data-rmiz-modal-img]");
+      expect(expanded).not.toBeNull();
+      await waitFor(() => expect(Number.parseFloat(expanded!.style.width)).toBeGreaterThan(400));
+    } finally {
+      for (const [prototype, property, descriptor] of [
+        [HTMLImageElement.prototype, "currentSrc", currentSrcDescriptor],
+        [HTMLImageElement.prototype, "decode", decodeDescriptor],
+        [HTMLDialogElement.prototype, "showModal", showModalDescriptor],
+        [HTMLDialogElement.prototype, "close", closeDescriptor],
+      ] as const) {
+        if (descriptor) Object.defineProperty(prototype, property, descriptor);
+        else Reflect.deleteProperty(prototype, property);
+      }
+    }
   });
 
   it("keeps image alignment in the hover toolbar instead of the selection bubble", async () => {

@@ -543,6 +543,20 @@ function allowRememberedFileViewPath(removedPaths: string[], path: string): stri
   ));
 }
 
+function normalizeProjectRelativePath(path: string): string | null {
+  const parts: string[] = [];
+  for (const part of path.replace(/\\/g, "/").split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (!parts.length) return null;
+      parts.pop();
+    } else {
+      parts.push(part);
+    }
+  }
+  return parts.join("/") || null;
+}
+
 function App() {
   const { t } = useLingui();
   const browserHosted = isBrowserHosted();
@@ -1049,6 +1063,8 @@ function App() {
   const [cleaning, setCleaning] = useState(false);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const referencePreviewCache = useRef(new Map<string, ReferencePreviewCacheEntry>());
+  const referencePreviewPaths = useRef({ root: "", paths: new Set<string>() });
+  const referencePreviewGenerationRef = useRef(0);
   const [referencePreviewGeneration, setReferencePreviewGeneration] = useState(0);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
   const [paperMarkdown, setPaperMarkdown] = useState("");
@@ -3932,7 +3948,9 @@ function App() {
     displayName: collabName,
   });
 
-  const runSharedOverleafSync = useCallback(async (): Promise<OverleafSyncResult> => {
+  const runSharedOverleafSync = useCallback(async (
+    observedRemoteVersion?: number | null,
+  ): Promise<OverleafSyncResult> => {
     const controller = collabV2ControllerRef.current;
     const lease = collabWorkspaceLeaseRef.current;
     const projectRoot = projectRef.current?.root;
@@ -4015,6 +4033,7 @@ function App() {
       projectRoot,
       authoritativeInventory: inventory,
       live: [],
+      observedRemoteVersion: observedRemoteVersion ?? null,
     });
     const acceptedActions: OverleafAcceptedAction[] = [];
     const acceptedPaths = new Set<string>();
@@ -6527,13 +6546,34 @@ function App() {
     if (!projectRoot) return;
     let stopped = false;
     let unlisten: (() => void) | null = null;
-    void listen<{ root: string }>("project-fs-changed", (event) => {
+    void listen<{ root: string; paths?: string[] | null }>("project-fs-changed", (event) => {
       if (stopped || event.payload.root !== projectRoot) return;
+      const changedPaths = event.payload.paths;
+      let touchesLoadedImage = !changedPaths?.length;
+      if (!touchesLoadedImage && changedPaths) {
+        for (const rawPath of changedPaths) {
+          const changedPath = normalizeProjectRelativePath(rawPath);
+          if (!changedPath) {
+            touchesLoadedImage = true;
+            break;
+          }
+          const loaded = referencePreviewPaths.current;
+          if (loaded.root === projectRoot && Array.from(loaded.paths).some((loadedPath) => (
+            loadedPath === changedPath || loadedPath.startsWith(`${changedPath}/`)
+          ))) {
+            touchesLoadedImage = true;
+            break;
+          }
+        }
+      }
+      if (!touchesLoadedImage) return;
       // Relative images can be replaced without changing their path or the
-      // surrounding HTML/Markdown. Invalidate both the cached bytes and the
-      // loader identity so an already-mounted preview asks for them again.
+      // surrounding HTML/Markdown. Refresh mounted previews only when the
+      // watcher names one of their assets; paper-library and .git churn must
+      // not make an unrelated document repaint.
       referencePreviewCache.current.clear();
-      setReferencePreviewGeneration((current) => current + 1);
+      referencePreviewGenerationRef.current += 1;
+      setReferencePreviewGeneration(referencePreviewGenerationRef.current);
     }).then((dispose) => {
       if (stopped) dispose();
       else unlisten = dispose;
@@ -6546,7 +6586,12 @@ function App() {
 
   const loadReferenceImage = useCallback((path: string) => {
     const projectRoot = project?.root ?? "";
-    const key = `${projectRoot}\0${referencePreviewGeneration}\0${path}`;
+    if (referencePreviewPaths.current.root !== projectRoot) {
+      referencePreviewPaths.current = { root: projectRoot, paths: new Set() };
+    }
+    const normalizedPath = normalizeProjectRelativePath(path);
+    if (normalizedPath) referencePreviewPaths.current.paths.add(normalizedPath);
+    const key = `${projectRoot}\0${referencePreviewGenerationRef.current}\0${path}`;
     const cached = referencePreviewCache.current.get(key);
     if (cached) {
       referencePreviewCache.current.delete(key);
@@ -6582,7 +6627,7 @@ function App() {
     referencePreviewCache.current.set(key, entry);
     trimReferencePreviewCache(referencePreviewCache.current);
     return preview;
-  }, [project?.root, referencePreviewGeneration]);
+  }, [project?.root]);
 
   const openProjectAssetFromClick = useCallback((path: string) => {
     if (suppressedFigureClick.current === path) {
@@ -9469,6 +9514,7 @@ function App() {
             unusedLabels={texlabActive ? [] : unusedSymbols.labels}
             unusedCitations={texlabActive ? [] : unusedSymbols.citations}
             onLoadReferenceImage={loadReferenceImage}
+            referenceImageGeneration={referencePreviewGeneration}
             onEditorLeave={buildWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
             onPasteImageFile={handlePasteImageFile}

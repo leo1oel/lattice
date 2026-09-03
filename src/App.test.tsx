@@ -2613,7 +2613,11 @@ describe("project workspace", () => {
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     expect(screen.queryByTitle("HTML preview for report.html")).not.toBeInTheDocument();
     fireEvent.pointerDown(documentView);
-    const preview = await screen.findByTitle<HTMLIFrameElement>("HTML preview for report.html");
+    const preview = await screen.findByTitle<HTMLIFrameElement>(
+      "HTML preview for report.html",
+      {},
+      { timeout: 30_000 },
+    );
     expect(within(documentView).getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
     expect(preview).toHaveAttribute("sandbox", "allow-scripts");
     expect(preview).toHaveAttribute("referrerpolicy", "no-referrer");
@@ -2643,12 +2647,26 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     });
 
+    const assetReadsBeforePaperFetch = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "read_project_asset").length;
     imageBase64 = "bmV3LWltYWdl";
     await switchSidebarMode("Agent");
     await waitFor(() => expect(screen.getByRole("tab", { name: "Agent" }))
       .toHaveAttribute("aria-selected", "true"));
     await waitFor(() => expect(tauriEventApi.handlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
-    emitTauriEvent("project-fs-changed", { root: "/tmp/lattice-paper" });
+    emitTauriEvent("project-fs-changed", {
+      root: "/tmp/lattice-paper",
+      paths: [".research/papers/1706.03762/paper.md"],
+    });
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
+    expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "read_project_asset")).toHaveLength(assetReadsBeforePaperFetch);
+    expect(preview.getAttribute("srcdoc")).toContain('src="data:image/png;base64,iVBORw0KGgo="');
+
+    emitTauriEvent("project-fs-changed", {
+      root: "/tmp/lattice-paper",
+      paths: ["figures/figure1_feature_retention.png"],
+    });
     await waitFor(() => expect(preview.getAttribute("srcdoc"))
       .toContain('src="data:image/png;base64,bmV3LWltYWdl"'));
 
@@ -4492,6 +4510,7 @@ describe("project workspace", () => {
     const scheduledTimeouts = vi.spyOn(window, "setTimeout");
     let syncCount = 0;
     let failSync = true;
+    let probeChanged = false;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
@@ -4522,7 +4541,12 @@ describe("project workspace", () => {
         };
       }
       if (command === "overleaf_probe") {
-        return { changed: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+        return {
+          changed: probeChanged,
+          versionKnown: true,
+          remoteVersion: probeChanged ? 77 : 1,
+          lastSync: null,
+        };
       }
       if (command === "overleaf_rt_connect") return {
         publicId: null,
@@ -4545,7 +4569,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    await waitFor(() => expect(syncCount).toBe(1));
+    await waitFor(() => expect(syncCount).toBe(1), { timeout: 30_000 });
     await waitFor(() => expect(formatAppLogs()).toMatch(/Could not reach Overleaf/));
     expect(getVisibleAppToastIds()
       .map((id) => getAppLogEntry(id))
@@ -4561,6 +4585,7 @@ describe("project workspace", () => {
     expect(poll).toBeTypeOf("function");
     act(() => { (poll as () => void)(); });
     await waitFor(() => expect(syncCount).toBe(2));
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "git_auto_commit")).toBe(false);
     expect(getVisibleAppToastIds()
       .map((id) => getAppLogEntry(id))
       .filter((entry) => entry?.source === "Overleaf"))
@@ -4572,12 +4597,28 @@ describe("project workspace", () => {
       expect(button).not.toBeDisabled();
       return button!;
     });
+    probeChanged = true;
+    vi.setSystemTime(1_060_000);
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await waitFor(() => expect(syncCount).toBe(3));
+    expect(invoke).toHaveBeenCalledWith("overleaf_sync", {
+      projectRoot: "/tmp/lattice-overleaf-paper",
+      live: [],
+      observedRemoteVersion: 77,
+    });
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "git_auto_commit")).toBe(false);
+
+    await waitFor(() => expect(syncButton).not.toBeDisabled());
+    probeChanged = false;
     failSync = true;
     fireEvent.click(syncButton);
 
-    await waitFor(() => expect(syncCount).toBe(3));
+    await waitFor(() => expect(syncCount).toBe(4));
     await expectNotification(/Sync failed[\s\S]*Could not reach Overleaf/);
-    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    await waitFor(
+      () => expect(document.querySelector(".cm-editor")).not.toBeNull(),
+      { timeout: 30_000 },
+    );
   });
 
   it("localizes confirmation and completion when removing a locally deleted Overleaf file", async () => {

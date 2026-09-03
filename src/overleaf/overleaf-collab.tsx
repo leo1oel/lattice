@@ -7,6 +7,7 @@
  * answer it in chat, and both come down the same realtime channel.
  */
 import { useEffect } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { MessagesSquare } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SegmentedControl } from "../components/ui/segmented-control";
@@ -60,6 +61,8 @@ export function OverleafCollabDrawer(props: {
   onAcceptChanges: (changeIds: string[]) => Promise<void>;
   onRejectChanges: (changes: TrackedChange[]) => Promise<void>;
 }) {
+  const { t } = useLingui();
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") props.onClose();
@@ -75,27 +78,27 @@ export function OverleafCollabDrawer(props: {
         <PanelHeader
           className="drawer-header"
           icon={<MessagesSquare size={16} />}
-          title="Overleaf collaboration"
+          title={t`Overleaf collaboration`}
           onClose={props.onClose}
         />
 
         <SegmentedControl
           value={props.tab}
           onChange={props.onTab}
-          ariaLabel="Overleaf collaboration view"
+          ariaLabel={t`Overleaf collaboration view`}
           className="overleaf-collab-tabs"
           items={[
             {
               value: "comments",
-              label: <>comments{openThreads > 0 ? <em>{openThreads}</em> : null}</>,
+              label: <>{t`Comments`}{openThreads > 0 ? <em>{openThreads}</em> : null}</>,
             },
             {
               value: "changes",
-              label: <>changes{props.changes.length > 0 ? <em>{props.changes.length}</em> : null}</>,
+              label: <>{t`Changes`}{props.changes.length > 0 ? <em>{props.changes.length}</em> : null}</>,
             },
             {
               value: "chat",
-              label: <>chat{props.unreadChat > 0 ? <em>{props.unreadChat}</em> : null}</>,
+              label: <>{t`Chat`}{props.unreadChat > 0 ? <em>{props.unreadChat}</em> : null}</>,
             },
           ]}
         />

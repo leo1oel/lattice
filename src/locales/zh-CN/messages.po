@@ -55,6 +55,14 @@ msgstr "（空选区）"
 msgid "(no comment text)"
 msgstr "（无评论内容）"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "(no text)"
+msgstr "（无文本）"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "(this comment's text was removed)"
+msgstr "（此评论对应的文本已被删除）"
+
 #: src/collab/collab-dialog.tsx
 msgid "(you)"
 msgstr "（你）"
@@ -233,6 +241,19 @@ msgstr "摘要环境"
 msgid "Accents"
 msgstr "重音符"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "Accept"
+msgstr "接受"
+
+#. placeholder {0}: sorted.length
+#: src/overleaf/overleaf-changes.tsx
+msgid "Accept all ({0})"
+msgstr "全部接受（{0}）"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Accordion"
+msgstr "折叠面板"
+
 #: src/telemetry/app-log.tsx
 msgid "Activity log"
 msgstr "活动日志"
@@ -321,6 +342,14 @@ msgstr "算法块（需要 algorithm 与 algpseudocode）"
 msgid "Align"
 msgstr "对齐公式"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Align a group of blocks to the left, center, or right."
+msgstr "将一组内容块左对齐、居中或右对齐。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Align block"
+msgstr "对齐块"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Align*"
 msgstr "对齐公式*"
@@ -371,6 +400,18 @@ msgstr "与号"
 msgid "An agent that works across your project"
 msgstr "可处理整个项目的 Agent"
 
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
+msgstr "一项编辑仍在发送到 Overleaf。请稍后再尝试接受。"
+
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "An edit is still on its way to Overleaf. Try again in a moment."
+msgstr "一项编辑仍在发送到 Overleaf。请稍后再试。"
+
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
+msgstr "一项编辑仍在发送到 Overleaf。请稍后再尝试拒绝。"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
 msgstr "在实时电子表格中分析结果"
@@ -384,6 +425,10 @@ msgstr "角"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Anonymous"
 msgstr "匿名"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Another file in this project"
+msgstr "此项目中的另一个文件"
 
 #: src/settings/settings-dialog.tsx
 msgid "App updates"
@@ -478,6 +523,10 @@ msgstr "横线符示例"
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Basic blocks"
+msgstr "基础块"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
 msgstr "BasicTeX 和 Lattice 所需的论文工具安装后约占用 {TEX_INSTALL_SIZE_HINT}。初始设置最多可能需要 15 分钟"
@@ -510,6 +559,10 @@ msgstr "文献引用（需要 natbib 或兼容宏包）"
 msgid "BibTeX preview"
 msgstr "BibTeX 预览"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Big section heading."
+msgstr "用于主要章节的大标题。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Big triangle down"
 msgstr "大三角形（向下）"
@@ -539,6 +592,10 @@ msgstr "二项式系数"
 #: src/editor/insert/insert-snippets.ts
 msgid "Blackboard bold"
 msgstr "黑板粗体"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Block math equation rendered with KaTeX from a LaTeX source string."
+msgstr "使用 KaTeX 渲染 LaTeX 源字符串的块级数学公式。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Block quotation"
@@ -639,6 +696,10 @@ msgstr "构建"
 msgid "Bullet"
 msgstr "实心圆点"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Bullet List"
+msgstr "无序列表"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bulleted list"
 msgstr "带项目符号的列表"
@@ -651,6 +712,10 @@ msgstr "缓存"
 msgid "Calligraphic"
 msgstr "花体"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Callout"
+msgstr "提示框"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/document-canvas.tsx
 #: src/collab/collab-dialog.tsx
@@ -659,6 +724,7 @@ msgstr "花体"
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 #: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -740,11 +806,16 @@ msgstr "居中的多行公式"
 
 #: src/app/app-history-drawers.tsx
 #: src/history/history-drawer.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "更改"
 
 #: src/collab/collab-dialog.tsx
 msgid "chat"
+msgstr "聊天"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Chat"
 msgstr "聊天"
 
 #: src/editor/insert/insert-snippets.ts
@@ -779,6 +850,10 @@ msgstr "正在检查你的 Overleaf 连接…"
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "正在检查…"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Checklist with checkboxes."
+msgstr "带复选框的任务清单。"
 
 #: src/settings/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper"
@@ -920,6 +995,10 @@ msgstr "闭路积分"
 msgid "Club suit"
 msgstr "梅花"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Code Block"
+msgstr "代码块"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "代码清单"
@@ -948,6 +1027,14 @@ msgstr "协作为只读"
 msgid "Collaboration, Overleaf, and history"
 msgstr "协作、Overleaf 与版本历史"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Collapsible content block (Notion-style toggle)."
+msgstr "可折叠内容块（类似 Notion 的折叠块）。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Collapsible section with a clickable summary."
+msgstr "带可点击摘要的折叠章节。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "颜色主题"
@@ -969,10 +1056,12 @@ msgid "Comment by {author}"
 msgstr "{author} 的评论"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Comment visibility"
 msgstr "评论显示范围"
 
 #: src/canvas/document-canvas.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "评论"
 
@@ -987,6 +1076,10 @@ msgstr "编译 LaTeX"
 #: src/collab/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Components"
+msgstr "组件"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Composition / ring"
@@ -1189,6 +1282,10 @@ msgstr "Crossref 类型"
 msgid "Curly matrix"
 msgstr "花括号矩阵"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Custom HTML with a live preview pane (sandboxed iframe)."
+msgstr "带实时预览窗格的自定义 HTML（在沙盒 iframe 中运行）。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Dagger"
 msgstr "剑号"
@@ -1204,6 +1301,10 @@ msgstr "达列特"
 #: src/settings/settings-dialog.tsx
 msgid "Dark"
 msgstr "深色"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Data"
+msgstr "数据"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1221,6 +1322,7 @@ msgstr "度"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
 msgstr "删除"
@@ -1233,6 +1335,10 @@ msgstr "要从此项目中删除“{path}”吗？"
 msgid "Delete {count} selected items from this project?"
 msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete message"
+msgstr "删除消息"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
@@ -1242,6 +1348,10 @@ msgstr "同时在 Overleaf 上删除"
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
 msgstr "要删除这条评论吗？它的回复也会一并删除，且无法撤销。"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
+msgstr "要删除此讨论吗？讨论中的所有消息都会从 Overleaf 中移除。此操作无法撤销。"
+
 #: src/history/history-drawer.tsx
 msgid "Delete this history entry"
 msgstr "删除这条历史记录"
@@ -1249,6 +1359,18 @@ msgstr "删除这条历史记录"
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "Delete this item?"
 msgstr "要删除这一项吗？"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message"
+msgstr "删除此消息"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message?"
+msgstr "要删除此消息吗？"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
+msgstr "要删除此消息吗？这是讨论中的唯一一条消息，因此会删除整个讨论。"
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Delete worksheet?"
@@ -1278,6 +1400,10 @@ msgstr "行列式样式的矩阵"
 #: src/settings/settings-dialog.tsx
 msgid "Diagnostics"
 msgstr "诊断"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
+msgstr "根据 Mermaid 源码生成的图表——支持流程图、时序图、类图、状态图、ER 图、甘特图和饼图。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Diamond operator"
@@ -1463,6 +1589,14 @@ msgstr "在左侧编辑 main.tex，右侧 PDF 会自动更新"
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit message"
+msgstr "编辑消息"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit message text"
+msgstr "编辑消息内容"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit notes.md on the left and see the formatted result update live on the right"
 msgstr "在左侧编辑 notes.md，右侧会实时更新排版结果"
@@ -1474,6 +1608,10 @@ msgstr "编辑源文件"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "编辑源文件并预览 PDF"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit this message"
+msgstr "编辑此消息"
 
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
@@ -1522,6 +1660,18 @@ msgstr "编辑内容会与 Overleaf 实时同步"
 #: src/editor/insert/insert-snippets.ts
 msgid "Element of"
 msgstr "属于"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Embed an image with optional alt text."
+msgstr "嵌入图片，并可添加替代文本。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Embeds"
+msgstr "嵌入内容"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Emoji"
+msgstr "表情符号"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasis"
@@ -1653,9 +1803,17 @@ msgstr "关注声明"
 msgid "Feedback"
 msgstr "反馈"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fenced code block with monospace text."
+msgstr "使用等宽字体显示的围栏代码块。"
+
 #: src/papers/paper-import-progress.ts
 msgid "Fetching the paper overview…"
 msgstr "正在获取论文概览…"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fifth-level heading."
+msgstr "五级标题。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Figure"
@@ -1749,6 +1907,7 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Footnote"
 msgstr "脚注"
 
@@ -1771,6 +1930,10 @@ msgstr "公式"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Formulas and Excel export"
 msgstr "公式与 Excel 导出"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fourth-level heading."
+msgstr "四级标题。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
@@ -1870,6 +2033,10 @@ msgstr "希腊字母"
 msgid "Grid generator"
 msgstr "网格生成器"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Grid of rows and columns with a header row."
+msgstr "带表头行的行列网格。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Grouped numbered equations"
 msgstr "成组编号的公式"
@@ -1890,6 +2057,30 @@ msgstr "帽号记号"
 msgid "Hat accent example"
 msgstr "帽号示例"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 1"
+msgstr "一级标题"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 2"
+msgstr "二级标题"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 3"
+msgstr "三级标题"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 4"
+msgstr "四级标题"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 5"
+msgstr "五级标题"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 6"
+msgstr "六级标题"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "红桃"
@@ -1897,6 +2088,10 @@ msgstr "红桃"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "隐藏侧边栏"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Highlight tips, warnings, and notes."
+msgstr "突出显示提示、警告和注释内容。"
 
 #: src/history/history-drawer.tsx
 msgid "History views"
@@ -1910,9 +2105,21 @@ msgstr "带钩左箭头"
 msgid "Hook right arrow"
 msgstr "带钩右箭头"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
+msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切换面板。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Horizontal rule that divides sections."
+msgstr "用于分隔章节的水平线。"
+
 #: src/collab/collab-dialog.tsx
 msgid "host"
 msgstr "主持人"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "HTML"
+msgstr "HTML"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "HTML files render live here, so you can build interactive demos and figures"
@@ -1933,6 +2140,10 @@ msgstr "HTML 缩放百分比"
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
 msgstr "当且仅当"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Image"
+msgstr "图片"
 
 #: src/canvas/document-canvas.tsx
 msgid "Image zoom percentage"
@@ -1991,6 +2202,10 @@ msgstr "正在导入 ZIP…"
 msgid "In proceedings"
 msgstr "会议论文"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "In this file"
+msgstr "当前文件"
+
 #: src/collab/collab-dialog.tsx
 msgid "In this room"
 msgstr "此房间中的成员"
@@ -2011,9 +2226,17 @@ msgstr "插入图片"
 msgid "Include resolved"
 msgstr "包括已解决"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Include resolved ({resolvedCount})"
+msgstr "包括已解决（{resolvedCount}）"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
 msgstr "年份加一"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Indented blockquote for citations."
+msgstr "用于引用内容的缩进块。"
 
 #. placeholder {0}: status.totalChunks
 #: src/settings/settings-dialog.tsx
@@ -2032,8 +2255,16 @@ msgstr "信息"
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Inline LaTeX math rendered with KaTeX."
+msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Inline math"
+msgstr "行内公式"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Inline Math"
 msgstr "行内公式"
 
 #: src/editor/insert/insert-snippets.ts
@@ -2045,6 +2276,7 @@ msgid "insert"
 msgstr "插入"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Insert"
 msgstr "插入"
 
@@ -2055,6 +2287,10 @@ msgstr "插入 \\cite{…}"
 #: src/app/app-search-dialogs.tsx
 msgid "Insert \\ref{…}"
 msgstr "插入 \\ref{…}"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Insert a footnote reference + matching definition stub."
+msgstr "插入脚注引用及与之匹配的定义占位符。"
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Insert a formula"
@@ -2198,6 +2434,14 @@ msgstr "约塔"
 msgid "Itemize"
 msgstr "无序列表"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
+msgstr "此评论对应的文本已从文档中删除，因此 Overleaf 无法确定要操作哪个文件"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
+msgstr "此评论对应的文本已从文档中删除，Overleaf 已无法确定其原始位置"
+
 #: src/collab/collab-dialog.tsx
 msgid "Join"
 msgstr "加入"
@@ -2337,6 +2581,10 @@ msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Layout"
+msgstr "布局"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
@@ -2430,6 +2678,14 @@ msgstr "极限表达式"
 msgid "Line under an expression"
 msgstr "表达式下方加横线"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Link"
+msgstr "链接"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Link to a page or external URL."
+msgstr "链接到页面或外部 URL。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
 msgstr "原样代码 / 文本块"
@@ -2492,6 +2748,10 @@ msgstr "第 {line} 行，第 {column} 列"
 msgid "Load more"
 msgstr "加载更多"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Loading comments…"
+msgstr "正在加载评论…"
+
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -2513,6 +2773,10 @@ msgstr "正在加载 PDF…"
 #: src/settings/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "正在加载设置…"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Loading the conversation…"
+msgstr "正在加载对话…"
 
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
@@ -2572,11 +2836,16 @@ msgstr "手稿待办事项"
 msgid "Maps to"
 msgstr "映射到"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
+msgstr "将内容块设为唯一源；在此编辑时，其他位置的镜像会同步更新。"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Match case"
 msgstr "区分大小写"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Math"
 msgstr "数学"
 
@@ -2608,6 +2877,26 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Media"
+msgstr "媒体"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Medium section heading."
+msgstr "用于次级章节的中标题。"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mermaid"
+msgstr "Mermaid 图表"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Message"
+msgstr "消息"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Message your collaborators…"
+msgstr "给协作者发送消息…"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "最小值"
@@ -2623,6 +2912,14 @@ msgstr "小页"
 #: src/editor/insert/insert-snippets.ts
 msgid "Minus-plus"
 msgstr "负正号"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mirror"
+msgstr "镜像"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mirror Source"
+msgstr "镜像源"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Misc"
@@ -2721,6 +3018,14 @@ msgstr "新建文件"
 msgid "New folder"
 msgstr "新建文件夹"
 
+#: src/overleaf/overleaf-chat.tsx
+msgid "New messages · Jump to latest"
+msgstr "有新消息 · 跳到最新消息"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "New messages are available."
+msgstr "有新消息。"
+
 #: src/project/project-dialogs.tsx
 msgid "New name"
 msgstr "新名称"
@@ -2777,6 +3082,10 @@ msgstr "尚未记录任何更改"
 msgid "No changes since the last version."
 msgstr "自上个版本以来没有任何更改。"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "No comments in this project. Comments made on Overleaf appear here as they are written"
+msgstr "此项目中没有评论。在 Overleaf 上创建的评论会在输入时实时显示在这里"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment"
 msgstr "还没有评论。在编辑器中选择文本，然后点击“评论”"
@@ -2805,6 +3114,10 @@ msgstr "此级别没有日志"
 msgid "No logs yet"
 msgstr "暂无日志"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "No longer in the document"
+msgstr "已不在文档中"
+
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
@@ -2812,6 +3125,14 @@ msgstr "没有匹配的论文"
 #: src/editor/insert/insert-palette.tsx
 msgid "No matching snippets. Try fraction, implies, align*, or eqref"
 msgstr "没有匹配的片段。试试 fraction、implies、align* 或 eqref"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "No messages yet. Say something and everyone in the project sees it"
+msgstr "还没有消息。发送一条消息，项目中的所有人都能看到"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "No open comments in this project. Comments made on Overleaf appear here as they are written"
+msgstr "此项目中没有未解决的评论。在 Overleaf 上创建的评论会在输入时实时显示在这里"
 
 #: src/project/project-dialogs.tsx
 msgid "No other recent projects yet"
@@ -2832,6 +3153,14 @@ msgstr "没有项目符合你的搜索条件"
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "No suggestions in this document"
+msgstr "此文档中没有修订建议"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "No suggestions in this document — open it to see any it has"
+msgstr "请打开文档以查看其中的修订建议"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
@@ -2892,6 +3221,10 @@ msgstr "数集，如 R、N"
 #: src/editor/insert/insert-snippets.ts
 msgid "Numbered list"
 msgstr "带编号的列表"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Numbered list of items."
+msgstr "有序编号项目列表。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Numbered single-line equation"
@@ -3022,6 +3355,14 @@ msgstr "{deckId} 的 Open Slide 编辑器"
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商"
 
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "Open the document this suggestion is in first."
+msgstr "请先打开此修订建议所在的文档。"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Open the file this suggestion is in first"
+msgstr "请先打开此修订建议所在的文件"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
@@ -3029,6 +3370,11 @@ msgstr "打开论文全文 Markdown"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置。"
+
+#: src/overleaf/use-overleaf-chat.ts
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "Open the linked Overleaf project first."
+msgstr "请先打开已关联的 Overleaf 项目。"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the paper overview"
@@ -3071,6 +3417,10 @@ msgstr "正在打开…"
 msgid "Operators"
 msgstr "运算符"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Ordered List"
+msgstr "有序列表"
+
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "大纲"
@@ -3082,6 +3432,18 @@ msgstr "Overleaf"
 #: src/App.tsx
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv 源文件包"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Overleaf chat messages"
+msgstr "Overleaf 聊天消息"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Overleaf collaboration"
+msgstr "Overleaf 协作"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Overleaf collaboration view"
+msgstr "Overleaf 协作视图"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf comments and chat"
@@ -3230,6 +3592,10 @@ msgstr "派"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Pick an emoji to insert at the cursor."
+msgstr "选择一个表情符号并插入光标位置。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Piecewise definition"
@@ -3439,6 +3805,7 @@ msgid "Quick open file"
 msgstr "快速打开文件"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Quote"
 msgstr "引文"
 
@@ -3449,6 +3816,10 @@ msgstr "根号"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
 msgstr "在此阅读全文"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
+msgstr "来自其他文档中“镜像源”内容块的只读副本；在源处编辑后，此处会实时更新。"
 
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
@@ -3492,6 +3863,14 @@ msgstr "引用已有的标签"
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
 msgstr "刷新版本"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Reject"
+msgstr "拒绝"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Reject all"
+msgstr "全部拒绝"
 
 #. placeholder {0}: record.title
 #: src/collab/collab-dialog.tsx
@@ -3622,6 +4001,7 @@ msgstr "正在渲染首页…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "重新打开"
 
@@ -3639,12 +4019,17 @@ msgstr "替代版本/新版本"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {displayedCommentAuthor}"
 msgstr "回复 {displayedCommentAuthor}"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Reply…"
+msgstr "回复…"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -3690,6 +4075,7 @@ msgstr "调整 PDF 窗格大小"
 msgid "Resize workspace sidebar"
 msgstr "调整工作区侧边栏大小"
 
+#: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
 msgstr "解析"
@@ -3708,8 +4094,14 @@ msgid "Resolve into bibliography entry"
 msgstr "解析为参考文献条目"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Resolved"
 msgstr "已解决"
+
+#. placeholder {0}: thread.resolvedBy
+#: src/overleaf/overleaf-comments.tsx
+msgid "Resolved by {0}"
+msgstr "由 {0} 解决"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -3910,6 +4302,7 @@ msgstr "在本机运行，文本不外传"
 #: src/collab/collab-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "Save"
 msgstr "保存"
@@ -4027,9 +4420,17 @@ msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF"
 
+#: src/overleaf/overleaf-chat.tsx
+msgid "Send message"
+msgstr "发送消息"
+
 #: src/collab/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
 msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Separator"
+msgstr "分隔线"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Set minus"
@@ -4093,6 +4494,11 @@ msgstr "显示大纲"
 msgid "Show sidebar"
 msgstr "显示侧边栏"
 
+#: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-comments.tsx
+msgid "Show this in the editor"
+msgstr "在编辑器中显示"
+
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
@@ -4145,6 +4551,10 @@ msgstr "相似"
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Sixth-level heading."
+msgstr "六级标题。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -4153,9 +4563,17 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "跳过教程"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Small section heading."
+msgstr "用于小节的小标题。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
 msgstr "上弧关系"
+
+#: src/overleaf/use-overleaf-chat.ts
+msgid "Someone"
+msgstr "某位协作者"
 
 #: src/App.tsx
 msgid "Source + PDF"
@@ -4336,6 +4754,18 @@ msgstr "后于或等于"
 msgid "Success"
 msgstr "成功"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
+msgstr "这里显示 Overleaf 上创建的修订建议，以及任何启用修订模式的协作者所做的更改。接受会将建议文本转为普通文本；拒绝会撤销该更改。结果会立即同步到两端"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "suggests deleting"
+msgstr "建议删除"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "suggests inserting"
+msgstr "建议插入"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Sum with limits"
 msgstr "带上下限的求和"
@@ -4406,8 +4836,17 @@ msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Table"
 msgstr "表格"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Tabs"
+msgstr "标签页"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Task List"
+msgstr "任务列表"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Tau"
@@ -4429,6 +4868,10 @@ msgstr "公式中的文字"
 msgid "The bundled Agent service could not start"
 msgstr "内置智能助手服务无法启动"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "The commented file is no longer open live with Overleaf. Try again."
+msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"
+
 #: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
 msgstr "主机已结束此次共享，已重新打开你自己的项目。"
@@ -4440,6 +4883,10 @@ msgstr "主机已将你移出此次共享，已重新打开你自己的项目。
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "已关联的 Overleaf 服务器"
+
+#: src/overleaf/use-overleaf-comments.ts
+msgid "The linked Overleaf project changed. Try commenting again."
+msgstr "关联的 Overleaf 项目已更改。请重新添加评论。"
 
 #: src/settings/settings-dialog.tsx
 msgid "The local model is unavailable."
@@ -4456,6 +4903,14 @@ msgstr "预览也可以编辑"
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "所需工具"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
+msgstr "这里显示与 Overleaf 审阅面板相同的评论。回复、解决和删除操作会立即同步到两端"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
+msgstr "这里显示与 Overleaf 中 {projectName} 项目的聊天面板相同的对话。消息发送后会立即显示在两端"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
@@ -4506,10 +4961,26 @@ msgstr "在画板上进行可视化思考"
 msgid "Third-level heading"
 msgstr "三级标题"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "This account cannot accept or reject suggestions here"
+msgstr "此账户无法在这里接受或拒绝修订建议"
+
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "This account cannot accept or reject suggestions here."
+msgstr "此账户无法在这里接受或拒绝修订建议。"
+
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "This comment has no text yet"
+msgstr "此评论还没有内容"
+
+#: src/overleaf/use-overleaf-comments.ts
+msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
+msgstr "此评论已不再关联任何文本，因此 Overleaf 无法应用此操作。"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
@@ -4534,6 +5005,10 @@ msgstr "这不是原生 Open Slide 演示文稿。"
 #: src/build/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes"
 msgstr "这是耗时最长的一步，最多可能需要 15 分钟"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "this project"
+msgstr "此项目"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -4591,6 +5066,10 @@ msgstr "今天"
 #: src/canvas/document-canvas.tsx
 msgid "TODOs"
 msgstr "待办"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Toggle"
+msgstr "折叠块"
 
 #: src/settings/settings-dialog.tsx
 msgid "Toolchain status"
@@ -4674,6 +5153,7 @@ msgstr "并集"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/overleaf/use-overleaf-track-changes.ts
 msgid "Unknown"
 msgstr "未知"
 
@@ -4692,6 +5172,14 @@ msgstr "不编号的居中公式"
 #: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered single-line equation"
 msgstr "不编号的单行公式"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Unordered list of items."
+msgstr "无序项目列表。"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Unresolved"
+msgstr "未解决"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Up arrow"
@@ -4915,6 +5403,10 @@ msgstr "正在等待管理员批准…"
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "正在等待你在 Overleaf 窗口中登录…"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Waiting to find out which file this is in"
+msgstr "正在等待确定此评论所在的文件"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "Warming the local service…"
 msgstr "正在启动本地服务…"
@@ -4985,6 +5477,8 @@ msgstr "昨天"
 
 #: src/collab/collab-dialog.tsx
 #: src/history/history-drawer.tsx
+#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "你"
 

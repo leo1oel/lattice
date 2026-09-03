@@ -946,7 +946,7 @@ fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(
         }
         if !matches!(
             asset.mime_type.as_str(),
-            "image/png" | "image/jpeg" | "image/gif" | "image/webp"
+            "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "image/svg+xml"
         ) {
             return Err(format!("Unsupported paper asset type: {}", asset.mime_type));
         }
@@ -3269,6 +3269,40 @@ mod tests {
         fs::write(directory.join("paper_assets/figure.png"), b"bad").unwrap();
         assert!(validate_paper_bundle(&directory, &metadata).is_err());
 
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn accepts_a_paper_bundle_with_an_inline_svg_figure() {
+        let directory = std::env::temp_dir().join(format!("lattice-paper-svg-{}", Uuid::new_v4()));
+        fs::create_dir_all(directory.join("paper_assets")).unwrap();
+        let markdown = b"# Paper\n\n![Figure](paper_assets/figure.svg)\n";
+        let svg = br#"<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/></svg>"#;
+        fs::write(directory.join("paper.md"), markdown).unwrap();
+        fs::write(directory.join("paper_assets/figure.svg"), svg).unwrap();
+        fs::write(
+            directory.join("paper_assets/manifest.json"),
+            format!(
+                r#"{{"schema_version":1,"assets":[{{"path":"paper_assets/figure.svg","sha256":"{}","size":{},"type":"image/svg+xml"}}]}}"#,
+                sha256_hex(svg),
+                svg.len()
+            ),
+        )
+        .unwrap();
+        let metadata = PaperMetadata {
+            arxiv_id: "2401.00001".to_string(),
+            requested_arxiv_id: "2401.00001".to_string(),
+            title: "Paper".to_string(),
+            schema_version: PAPER_SCHEMA_VERSION,
+            complete: true,
+            converter: commands::ARXIV2MD.requirement.to_string(),
+            source: String::new(),
+            source_url: String::new(),
+            paper_sha256: sha256_hex(markdown),
+            asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
+        };
+
+        assert_eq!(validate_paper_bundle(&directory, &metadata), Ok(()));
         let _ = fs::remove_dir_all(directory);
     }
 

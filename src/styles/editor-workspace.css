@@ -820,6 +820,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .markdown-preview-content:has(> .visual-markdown-editor > .visual-heading-rail) > .paper-visual-header { --margin-left-width: 7rem; }
 .paper-visual-header h1 { margin: 0; color: var(--text-primary); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
+.paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
 .paper-reader-shell { container: paper-reader / inline-size; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
 .paper-reader-header { min-height: var(--toolbar-height); flex: none; padding-inline: var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: flex-end; }
 .paper-local-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }

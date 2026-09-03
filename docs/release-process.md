@@ -75,35 +75,23 @@ create the Release and upload assets.
    the Apple Silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
-3. **Toolchains.** pnpm 10, Node 22, Bun 1.3.14, stable Rust with the
-   `aarch64-apple-darwin` target.
-4. **Rust cache.** `Swatinem/rust-cache@v2` with
-   `shared-key: aarch64-apple-darwin-release` and `save-if: false`. It *reads*
-   the warm dependency build produced by `release-cache.yml` on `main`; a tag
-   build can never write a cache any later release could read, so it does not
-   try.
+3. **Toolchains.** pnpm 10, Node 22, Bun 1.3.14, stable Rust with the `aarch64-apple-darwin` target.
+4. **Rust cache.** `Swatinem/rust-cache@v2` reads the warm dependency build produced by `release-cache.yml` on `main`.
+   Its shared key includes `bundle.macOS.minimumSystemVersion`, because Tauri exports that value as `MACOSX_DEPLOYMENT_TARGET` before compiling and Cargo cannot reuse artifacts warmed without it.
+   `save-if: false` prevents the tag build from writing a cache no later release could read.
 5. **`pnpm install --frozen-lockfile`.**
-6. **Fetch the pinned Synara source.** Reads `repository` and `revision` from
-   `scripts/synara-runtime.json`, shallow-fetches exactly that revision into
-   `$RUNNER_TEMP/lattice-synara`, asserts `HEAD` equals the pinned revision,
-   runs `bun install --frozen-lockfile`, and exports `SYNARA_SOURCE_DIR` and
-   `BUN_BIN` for the build.
-   The sidecar is staged later by `pnpm prepare:build`, which `tauri.conf.json` runs as `beforeBuildCommand` and which selects the release staging path from Tauri's build-profile hook signal.
-7. **Import the Apple Developer ID certificate.** Base64-decodes
-   `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the
-   certificate with `-T /usr/bin/codesign`, sets the key partition list so
-   codesign can use it without prompting, makes it the active keychain, then
-   greps `security find-identity` for the `Developer ID Application` identity
-   and exports it as `APPLE_SIGNING_IDENTITY`.
-8. **Prepare the App Store Connect API key.** Writes `APPLE_API_PRIVATE_KEY` to
-   `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports
-   `APPLE_API_KEY_PATH`.
-9. **Build, sign, and publish** with `tauri-apps/tauri-action@v0`:
+6. **Fetch the pinned Synara source.** The workflow reads `repository` and `revision` from `scripts/synara-runtime.json`, shallow-fetches exactly that revision into `$RUNNER_TEMP/lattice-synara`, asserts `HEAD` equals the pin, and exports `SYNARA_SOURCE_DIR` and `BUN_BIN`.
+7. **Import the Apple Developer ID certificate.** The workflow base64-decodes `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the certificate with `-T /usr/bin/codesign`, sets the key partition list so codesign can use it without prompting, makes it the active keychain, finds the `Developer ID Application` identity, and exports it as `APPLE_SIGNING_IDENTITY`.
+8. **Restore the prepared Synara runtime.** The restore-only cache is written on `main` and keyed by the target platform, `scripts/synara-runtime.json`, and `scripts/prepare-synara-sidecar.mjs`.
+   A miss runs `bun install --frozen-lockfile` and lets `pnpm prepare:build` build the runtime normally.
+   A hit lets the preparation script validate the source-derived manifest and re-sign the cached unsigned binaries with the current Developer ID certificate without rebuilding Synara's four-minute web bundle.
+9. **Prepare the App Store Connect API key.** The workflow writes `APPLE_API_PRIVATE_KEY` to `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports `APPLE_API_KEY_PATH`.
+10. **Build, sign, and publish** with `tauri-apps/tauri-action@v1`:
    - `args: --target aarch64-apple-darwin` (this is what makes the updater
      platform key `darwin-aarch64`);
    - `releaseDraft: true` — the Release stays a **draft** until verification
      passes;
-   - `includeUpdaterJson: true` — generates and uploads `latest.json`, which the
+   - `uploadUpdaterJson: true` — generates and uploads `latest.json`, which the
      in-app updater reads from
      `https://github.com/leo1oel/lattice/releases/latest/download/latest.json`
      (see `plugins.updater.endpoints` in `tauri.conf.json`);
@@ -112,26 +100,29 @@ create the Release and upload assets.
    - `LATTICE_FIRECRAWL_KEY` is compiled into the binary here via `option_env!`
      in `src-tauri/src/firecrawl.rs`. It is extractable from the shipped app —
      that is a known and accepted trade-off; rotate it on abuse.
-10. **Notarize.** `xcrun notarytool submit <dmg> --wait` with the API key, then
+11. **Notarize.** `xcrun notarytool submit <dmg> --wait` with the API key, then
     `xcrun stapler staple <dmg>`.
-11. **Verify before publishing.** On the DMG: `codesign --verify --strict`,
+12. **Verify before publishing.** On the DMG: `codesign --verify --strict`,
     `spctl --assess --type open --context context:primary-signature`, and
     `xcrun stapler validate`. Then it mounts the DMG and repeats on the `.app`
     inside: `codesign --verify --deep --strict`, `spctl --assess --type
     execute`, `xcrun stapler validate`.
-12. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
+13. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
     ticket is added after tauri-action's own upload, so the asset is replaced).
-13. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`.
+14. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`.
 
 If any verification step fails, the Release simply stays a draft and nothing
 reaches users.
 
 ### `release-cache.yml`
 
-A separate workflow on `main` that warms the `aarch64-apple-darwin-release`
-Rust cache so tag builds do not compile the dependency graph from scratch. It
-deliberately does **not** set `LATTICE_FIRECRAWL_KEY`, so the key never lands in
-a cache artifact.
+A separate workflow on `main` warms two caches in parallel.
+The Rust job compiles the release dependency graph with the same target and `MACOSX_DEPLOYMENT_TARGET` as Tauri, so a nominal cache hit does not trigger a second macOS dependency build inside the release.
+It deliberately does **not** set `LATTICE_FIRECRAWL_KEY`, and `rust-cache` removes the workspace crate before saving, so the key never lands in a cache artifact.
+
+The Synara job builds and stages the pinned runtime without a Developer ID certificate, then saves that unsigned directory on the default branch where tag workflows can restore it.
+The release re-signs the restored native binaries before Tauri packages them.
+Changing the Synara pin or preparation script creates a new cache key; the first release can still build on a miss, while later releases restore the warmed result.
 
 ## Required GitHub secrets
 

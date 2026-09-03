@@ -16,12 +16,18 @@ function ImageProbe({ src, enabled = true }: { src: string; enabled?: boolean })
 function CacheHarness({
   paths,
   loadAsset,
+  revision = 0,
 }: {
   paths: string[];
   loadAsset: (path: string) => Promise<string | null>;
+  revision?: number;
 }) {
   return (
-    <ProjectImageHostProvider activePath="notes/paper.md" loadAsset={loadAsset}>
+    <ProjectImageHostProvider
+      activePath="notes/paper.md"
+      loadAsset={loadAsset}
+      revision={revision}
+    >
       {paths.map((path) => <ImageProbe key={path} src={path} />)}
     </ProjectImageHostProvider>
   );
@@ -67,11 +73,16 @@ describe("project image cache", () => {
   it("bounds retries for a persistently failing asset read", async () => {
     vi.useFakeTimers();
     const loadAsset = vi.fn(async () => { throw new Error("missing"); });
-    render(<CacheHarness paths={["../figures/missing.png"]} loadAsset={loadAsset} />);
+    const path = "../figures/missing.png";
+    const view = render(<CacheHarness paths={[path]} loadAsset={loadAsset} />);
 
     await vi.waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(1));
     await vi.advanceTimersByTimeAsync(1_250);
     await vi.waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(view.getByTestId(path)).toHaveAttribute(
+      "data-target-existence",
+      "missing",
+    ));
     await vi.advanceTimersByTimeAsync(5_000);
     expect(loadAsset).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
@@ -119,6 +130,34 @@ describe("project image cache", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await vi.waitFor(() => expect(probe).toHaveAttribute("data-resolved-length", "0"));
     vi.useRealTimers();
+  });
+
+  it("keeps the current image visible while a newer revision loads", async () => {
+    let finishRefresh!: (value: string) => void;
+    const refreshed = new Promise<string>((resolve) => { finishRefresh = resolve; });
+    const loadAsset = vi.fn()
+      .mockResolvedValueOnce("data:image/png;base64,current")
+      .mockReturnValueOnce(refreshed);
+    const path = "../figures/stable-during-refresh.png";
+    const view = render(<CacheHarness paths={[path]} loadAsset={loadAsset} />);
+    const probe = view.getByTestId(path);
+
+    await waitFor(() => expect(probe).toHaveAttribute(
+      "data-resolved-length",
+      String("data:image/png;base64,current".length),
+    ));
+    view.rerender(<CacheHarness paths={[path]} loadAsset={loadAsset} revision={1} />);
+    await waitFor(() => expect(loadAsset).toHaveBeenCalledTimes(2));
+    expect(probe).toHaveAttribute(
+      "data-resolved-length",
+      String("data:image/png;base64,current".length),
+    );
+
+    finishRefresh("data:image/png;base64,refreshed");
+    await waitFor(() => expect(probe).toHaveAttribute(
+      "data-resolved-length",
+      String("data:image/png;base64,refreshed".length),
+    ));
   });
 
   it("does not retain one decoded source larger than the cache budget", async () => {

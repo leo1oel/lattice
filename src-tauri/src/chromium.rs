@@ -212,4 +212,10 @@ mod tests {
         assert!(shell.contains("app.on(\"window-all-closed\""));
         assert!(shell.contains("process.platform !== \"darwin\""));
     }
+
+    #[test]
+    fn inactive_chromium_windows_accept_the_activation_click() {
+        let shell = include_str!("../../scripts/chromium-shell.mjs");
+        assert!(shell.contains("acceptFirstMouse: true"));
+    }
 }

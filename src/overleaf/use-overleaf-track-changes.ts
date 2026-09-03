@@ -13,6 +13,7 @@
  * left, which is the one case this endpoint exists to cover.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { ReservedOperation, TrackedChange } from "./use-overleaf-realtime";
 
@@ -61,16 +62,16 @@ function parseChangeAuthors(raw: unknown): ChangeAuthor[] {
   return authors;
 }
 
-/** "First Last", else the part of the email before the @, else "Unknown". */
-function displayName(author: ChangeAuthor | undefined): string {
-  if (!author) return "Unknown";
+/** "First Last", else the part of the email before the @, else the localized fallback. */
+function displayName(author: ChangeAuthor | undefined, fallback: string): string {
+  if (!author) return fallback;
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
   if (full) return full;
   if (author.email) {
     const at = author.email.indexOf("@");
     return at > 0 ? author.email.slice(0, at) : author.email;
   }
-  return "Unknown";
+  return fallback;
 }
 
 export type OverleafTrackChanges = {
@@ -109,6 +110,7 @@ export function useOverleafTrackChanges(options: {
   canAct: boolean;
   reload: () => void;
 }): OverleafTrackChanges {
+  const { t } = useLingui();
   const [authors, setAuthors] = useState<Map<string, ChangeAuthor>>(new Map());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,9 +166,10 @@ export function useOverleafTrackChanges(options: {
     };
   }, [enabled, changeIdsKey, options.projectRoot]);
 
+  const unknownAuthor = t`Unknown`;
   const authorName = useCallback(
-    (userId: string | null) => displayName(userId ? authors.get(userId) : undefined),
-    [authors],
+    (userId: string | null) => displayName(userId ? authors.get(userId) : undefined, unknownAuthor),
+    [authors, unknownAuthor],
   );
 
   /** One id → busy as itself; several → busy as "all", for a bulk button's spinner. */
@@ -175,7 +178,7 @@ export function useOverleafTrackChanges(options: {
   const run = useCallback(async (ids: string[], action: () => Promise<string>) => {
     if (!ids.length) return;
     if (!canAct.current) {
-      const message = "This account cannot accept or reject suggestions here.";
+      const message = t`This account cannot accept or reject suggestions here.`;
       setError(message);
       throw new Error(message);
     }
@@ -194,16 +197,16 @@ export function useOverleafTrackChanges(options: {
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [t]);
 
   const accept = useCallback((changeIds: string[]) => run(changeIds, async () => {
     const targetDocId = docId.current;
-    if (!targetDocId) throw new Error("Open the document this suggestion is in first.");
+    if (!targetDocId) throw new Error(t`Open the document this suggestion is in first.`);
     const targetRoot = projectRoot.current;
-    if (!targetRoot) throw new Error("Open the linked Overleaf project first.");
+    if (!targetRoot) throw new Error(t`Open the linked Overleaf project first.`);
     if (settledVersion.current() === null) {
       throw new Error(
-        "An edit is still on its way to Overleaf. Try accepting again in a moment.",
+        t`An edit is still on its way to Overleaf. Try accepting again in a moment.`,
       );
     }
     await invoke("overleaf_accept_changes", {
@@ -212,18 +215,18 @@ export function useOverleafTrackChanges(options: {
       changeIds,
     });
     return targetDocId;
-  }), [run]);
+  }), [run, t]);
 
   const reject = useCallback((toReject: TrackedChange[]) => run(
     toReject.map((change) => change.id),
     async () => {
-      if (!docId.current) throw new Error("Open the document this suggestion is in first.");
+      if (!docId.current) throw new Error(t`Open the document this suggestion is in first.`);
       const targetRoot = projectRoot.current;
-      if (!targetRoot) throw new Error("Open the linked Overleaf project first.");
+      if (!targetRoot) throw new Error(t`Open the linked Overleaf project first.`);
       const reservation = reserveOperation.current();
       if (reservation === null) {
         throw new Error(
-          "An edit is still on its way to Overleaf. Try rejecting again in a moment.",
+          t`An edit is still on its way to Overleaf. Try rejecting again in a moment.`,
         );
       }
       try {
@@ -239,7 +242,7 @@ export function useOverleafTrackChanges(options: {
       }
       return reservation.docId;
     },
-  ), [run]);
+  ), [run, t]);
 
   return { authorName, busy, error, accept, reject };
 }

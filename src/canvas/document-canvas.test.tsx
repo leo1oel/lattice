@@ -37,6 +37,7 @@ vi.mock("./canvas-lazy-modules", () => {
   const editorStub = (testId: string) => (props: {
     path?: string;
     source?: string;
+    onEligibilityChange?: (reason: string | null) => void;
     initialViewState?: { camera?: { x: number; y: number; z: number } };
   }) => (
     <div
@@ -44,7 +45,17 @@ vi.mock("./canvas-lazy-modules", () => {
       data-path={props.path ?? ""}
       data-source={props.source ?? ""}
       data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
-    />
+    >
+      {props.onEligibilityChange && (
+        <button
+          type="button"
+          data-testid={`${testId}-report-lossy`}
+          onClick={() => props.onEligibilityChange?.(
+            "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.",
+          )}
+        />
+      )}
+    </div>
   );
   const OpenSlideWorkspace = (props: {
     projectRoot: string;
@@ -377,6 +388,30 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(await screen.findByTestId("visual-markdown-editor")).toBeInTheDocument();
     await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
     expect(screen.queryByTestId("pdf-preview")).toBeNull();
+  });
+
+  it("places a paper's visual editing warning above its generated title", async () => {
+    renderCanvas({
+      mode: "pdf",
+      activeFile: ".research/papers/2408.05088/paper.md",
+      source: "Paper body.",
+      activePaper: {
+        arxivId: "2408.05088",
+        title: "UNIC",
+        authors: "Mert and Philippe",
+        hasFullText: true,
+        hasBlog: false,
+      },
+    });
+
+    fireEvent.click(await screen.findByTestId("visual-markdown-editor-report-lossy"));
+    const warning = await screen.findByRole("status");
+    const title = screen.getByRole("heading", { name: "UNIC" });
+
+    expect(warning).toHaveTextContent("Visual editing is unavailable");
+    expect(warning).toHaveClass("paper-visual-eligibility");
+    expect(warning.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
   });
 
   it("hosts a native Open Slide deck as the complete presentation workspace", async () => {

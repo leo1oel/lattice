@@ -11,6 +11,7 @@
  * partial events is a panel that eventually disagrees with the browser.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { OverleafThread } from "../app-types";
@@ -100,6 +101,7 @@ export function useOverleafComments(options: {
     quote: string,
   ) => Promise<void>;
 }): OverleafComments {
+  const { t } = useLingui();
   const [threads, setThreads] = useState<OverleafThread[]>([]);
   const [anchors, setAnchors] = useState<Map<string, OverleafCommentAnchor>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -198,7 +200,7 @@ export function useOverleafComments(options: {
       // The message first, the anchor second — the order Overleaf's own editor
       // uses, so a thread never exists on the page with nothing in it.
       if (target.projectRoot !== projectRoot) {
-        throw new Error("The linked Overleaf project changed. Try commenting again.");
+        throw new Error(t`The linked Overleaf project changed. Try commenting again.`);
       }
       await invoke("overleaf_reply_to_thread", { projectRoot: target.projectRoot, threadId, content });
       await anchor.current(target, threadId, position, quote);
@@ -208,7 +210,7 @@ export function useOverleafComments(options: {
       setError(String(reason));
       throw reason;
     }
-  }, [projectRoot]);
+  }, [projectRoot, t]);
 
   /**
    * The document a thread lives in, which is what Overleaf keys resolve,
@@ -218,13 +220,13 @@ export function useOverleafComments(options: {
    * A thread with no anchor left is orphaned: its span was edited away, and
    * there is no document to name.
    */
-  const documentOf = (threadId: string) => {
+  const documentOf = useCallback((threadId: string) => {
     const found = anchorsRef.current.get(threadId)?.docId ?? null;
     if (found) return found;
     throw new Error(
-      "This comment is no longer attached to any text, so Overleaf has nowhere to apply this.",
+      t`This comment is no longer attached to any text, so Overleaf has nowhere to apply this.`,
     );
-  };
+  }, [t]);
 
   const setResolved = useCallback((threadId: string, resolved: boolean) => act(async () => {
     await invoke("overleaf_resolve_thread", {
@@ -233,7 +235,7 @@ export function useOverleafComments(options: {
       threadId,
       resolved,
     });
-  }), [act, projectRoot]);
+  }), [act, documentOf, projectRoot]);
 
   const remove = useCallback((threadId: string) => act(async () => {
     await invoke("overleaf_delete_thread", {
@@ -241,7 +243,7 @@ export function useOverleafComments(options: {
       docId: documentOf(threadId),
       threadId,
     });
-  }), [act, projectRoot]);
+  }), [act, documentOf, projectRoot]);
 
   const editMessage = useCallback(
     (threadId: string, messageId: string, content: string) => act(async () => {

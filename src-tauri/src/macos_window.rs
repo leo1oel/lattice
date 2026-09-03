@@ -597,6 +597,13 @@ mod tests {
             include_str!("../Cargo.toml").contains("\"macos-private-api\""),
             "the macOS WebView must disable its opaque white backing surface"
         );
+        assert_eq!(
+            include_str!("lib.rs")
+                .matches(".accept_first_mouse(true)")
+                .count(),
+            2,
+            "both the main and project WebView windows must accept the activation click"
+        );
     }
 
     #[test]

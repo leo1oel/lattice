@@ -36,6 +36,15 @@ export function groupThreadsByFile(
   anchors: Map<string, OverleafCommentAnchor>,
   activeDocId: string | null,
   pathForDoc: (docId: string) => string | null,
+  labels: {
+    currentFile: string;
+    unknownFile: string;
+    orphaned: string;
+  } = {
+    currentFile: "In this file",
+    unknownFile: "Another file in this project",
+    orphaned: "No longer in the document",
+  },
 ): OverleafThreadGroup[] {
   const here: string[] = [];
   const byDoc = new Map<string, string[]>();
@@ -57,18 +66,18 @@ export function groupThreadsByFile(
   }
 
   const groups: OverleafThreadGroup[] = [];
-  if (here.length) groups.push({ key: "here", label: "In this file", threadIds: here });
+  if (here.length) groups.push({ key: "here", label: labels.currentFile, threadIds: here });
 
   // Unresolved paths sort after named ones rather than interleaving among them.
   const elsewhere = [...byDoc.entries()]
     .map(([docId, ids]) => ({ docId, ids, path: pathForDoc(docId) }))
     .sort((a, b) => (a.path ?? "￿").localeCompare(b.path ?? "￿"));
   for (const { docId, ids, path } of elsewhere) {
-    groups.push({ key: docId, label: path ?? "Another file in this project", threadIds: ids });
+    groups.push({ key: docId, label: path ?? labels.unknownFile, threadIds: ids });
   }
 
   if (orphaned.length) {
-    groups.push({ key: "orphaned", label: "No longer in the document", threadIds: orphaned });
+    groups.push({ key: "orphaned", label: labels.orphaned, threadIds: orphaned });
   }
   return groups;
 }

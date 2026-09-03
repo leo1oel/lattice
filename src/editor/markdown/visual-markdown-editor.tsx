@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import {
   EditorContent,
@@ -1308,14 +1310,130 @@ function projectAssetMarkdownHref(activePath: string, projectPath: string): stri
   return [...from.map(() => ".."), ...to].join("/") || ".";
 }
 
+type SlashItemMessages = {
+  label: MessageDescriptor;
+  description: MessageDescriptor;
+};
+
+/**
+ * The vendored editor is compiled through an English-only Lingui seam, so its
+ * slash items cannot see Lattice's active catalog. Keep the host translation
+ * at this composition boundary rather than patching generated vendor files.
+ */
+const SLASH_ITEM_MESSAGES: Record<string, SlashItemMessages> = {
+  heading1: { label: msg`Heading 1`, description: msg`Big section heading.` },
+  heading2: { label: msg`Heading 2`, description: msg`Medium section heading.` },
+  heading3: { label: msg`Heading 3`, description: msg`Small section heading.` },
+  heading4: { label: msg`Heading 4`, description: msg`Fourth-level heading.` },
+  heading5: { label: msg`Heading 5`, description: msg`Fifth-level heading.` },
+  heading6: { label: msg`Heading 6`, description: msg`Sixth-level heading.` },
+  bulletList: { label: msg`Bullet List`, description: msg`Unordered list of items.` },
+  orderedList: { label: msg`Ordered List`, description: msg`Numbered list of items.` },
+  taskList: { label: msg`Task List`, description: msg`Checklist with checkboxes.` },
+  blockquote: { label: msg`Quote`, description: msg`Indented blockquote for citations.` },
+  codeBlock: { label: msg`Code Block`, description: msg`Fenced code block with monospace text.` },
+  table: { label: msg`Table`, description: msg`Grid of rows and columns with a header row.` },
+  separator: { label: msg`Separator`, description: msg`Horizontal rule that divides sections.` },
+  footnote: {
+    label: msg`Footnote`,
+    description: msg`Insert a footnote reference + matching definition stub.`,
+  },
+  emoji: { label: msg`Emoji`, description: msg`Pick an emoji to insert at the cursor.` },
+  inlineMath: {
+    label: msg`Inline Math`,
+    description: msg`Inline LaTeX math rendered with KaTeX.`,
+  },
+  link: { label: msg`Link`, description: msg`Link to a page or external URL.` },
+  "component-Callout": {
+    label: msg`Callout`,
+    description: msg`Highlight tips, warnings, and notes.`,
+  },
+  "component-Accordion": {
+    label: msg`Accordion`,
+    description: msg`Collapsible section with a clickable summary.`,
+  },
+  "component-Toggle": {
+    label: msg`Toggle`,
+    description: msg`Collapsible content block (Notion-style toggle).`,
+  },
+  "component-Tabs": {
+    label: msg`Tabs`,
+    description: msg`Horizontal pill strip + active panel below; click a pill to switch panels.`,
+  },
+  "component-Math": {
+    label: msg`Math`,
+    description: msg`Block math equation rendered with KaTeX from a LaTeX source string.`,
+  },
+  "component-MermaidFence": {
+    label: msg`Mermaid`,
+    description: msg`Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie.`,
+  },
+  "component-Mirror": {
+    label: msg`Mirror`,
+    description: msg`Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live.`,
+  },
+  "component-MirrorSource": {
+    label: msg`Mirror Source`,
+    description: msg`Mark a block as the source of truth. Mirrors elsewhere update live as you edit it.`,
+  },
+  "component-HtmlAlignBlock": {
+    label: msg`Align block`,
+    description: msg`Align a group of blocks to the left, center, or right.`,
+  },
+  "component-img": {
+    label: msg`Image`,
+    description: msg`Embed an image with optional alt text.`,
+  },
+  "embed-starter-html": {
+    label: msg`HTML`,
+    description: msg`Custom HTML with a live preview pane (sandboxed iframe).`,
+  },
+};
+
+const SLASH_CATEGORY_MESSAGES: Record<string, MessageDescriptor> = {
+  basic: msg`Basic blocks`,
+  insert: msg`Insert`,
+  content: msg`Components`,
+  layout: msg`Layout`,
+  media: msg`Media`,
+  data: msg`Data`,
+  embed: msg`Embeds`,
+};
+
+function localizeSlashItem(item: SlashCommandItem, i18n: I18n): SlashCommandItem {
+  const messages = SLASH_ITEM_MESSAGES[item.name];
+  if (!messages) return item;
+  const description = i18n._(messages.description);
+  return {
+    ...item,
+    label: i18n._(messages.label),
+    description,
+    preview: item.preview ? { ...item.preview, description } : undefined,
+  };
+}
+
+function slashCategoryLabels(i18n: I18n): Record<string, string> {
+  return Object.fromEntries(Object.entries(SLASH_CATEGORY_MESSAGES).map(([category, message]) => (
+    [category, i18n._(message)]
+  )));
+}
+
 /** Upstream slash-menu composition minus app-only skill references. */
 function slashItemSources(
+  i18n: I18n,
   importAsset?: (file: File) => Promise<string | null>,
   getActivePath: () => string = () => "",
 ) {
   const cached = (factory: () => SlashCommandItem[]) => {
-    let items: SlashCommandItem[] | null = null;
-    return () => (items ??= factory());
+    const itemsByLocale = new Map<string, SlashCommandItem[]>();
+    return () => {
+      const locale = i18n.locale;
+      const cachedItems = itemsByLocale.get(locale);
+      if (cachedItems) return cachedItems;
+      const items = factory().map((item) => localizeSlashItem(item, i18n));
+      itemsByLocale.set(locale, items);
+      return items;
+    };
   };
   return [
   cached(getSlashCommandItems),
@@ -1371,13 +1489,8 @@ function slashItemSources(
   ];
 }
 
-const SLASH_CATEGORY_LABELS = {
-  content: "Components",
-  layout: "Layout",
-  media: "Media",
-  data: "Data",
-  embed: "Embeds",
-};
+const VISUAL_EDITING_UNAVAILABLE_REASON =
+  "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.";
 
 type VisualMarkdownEditorProps = {
   text: string;
@@ -1385,6 +1498,8 @@ type VisualMarkdownEditorProps = {
   onChangeMarkdown: (next: string, expected: string) => boolean;
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   optimizeForReading?: boolean;
+  /** Lets a parent place the eligibility notice outside the article body. */
+  onEligibilityChange?: (reason: string | null) => void;
   synchronizeSourceScroll?: boolean;
   onRequestViewportLock?: (
     anchor: HTMLElement | null,
@@ -1406,6 +1521,7 @@ type VisualMarkdownEditorProps = {
   ) => void;
   onImportAsset?: (file: File) => Promise<string | null>;
   onLoadAsset?: (path: string) => Promise<string | null>;
+  assetRevision?: number;
   presenceCursors?: PresenceCursor[];
   onCaretChange?: (row: number, column: number) => void;
   onSourceCaretChange?: (sourceOffset: number) => void;
@@ -1482,7 +1598,7 @@ function ProjectInlineImageView({ node }: NodeViewProps) {
       data-clipboard-inline-leaf="image"
     >
       {nearViewport && src ? (
-        <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
+        <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ src, sizes: undefined }}>
           <img src={src} alt={alt} title={title} loading="eager" decoding="async" />
         </Zoom>
       ) : (
@@ -1682,6 +1798,7 @@ function PassiveVisualMarkdownViewport({
   optimizeForReading,
   onActivate,
   onLoadAsset,
+  assetRevision,
   onOpenProjectPath,
   workspaceIndex,
 }: {
@@ -1690,6 +1807,7 @@ function PassiveVisualMarkdownViewport({
   optimizeForReading: boolean;
   onActivate: (handoff: PassiveEditorHandoff) => void;
   onLoadAsset?: (path: string) => Promise<string | null>;
+  assetRevision: number;
   onOpenProjectPath?: (path: string) => void;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
 }) {
@@ -1837,7 +1955,11 @@ function PassiveVisualMarkdownViewport({
         className="visual-markdown-virtual-edit"
         onClick={() => onActivate({ sourceOffset: model.blocks[0]?.from ?? 0 })}
       >Edit document</button>
-      <ProjectImageHostProvider activePath={activePath} loadAsset={onLoadAsset}>
+      <ProjectImageHostProvider
+        activePath={activePath}
+        loadAsset={onLoadAsset}
+        revision={assetRevision}
+      >
         <MirrorHostProvider workspaceIndex={workspaceIndex}>
           <TooltipProvider delayDuration={280} skipDelayDuration={400}>
             <div aria-hidden="true" style={{ height: `${topHeight}px` }} />
@@ -2266,6 +2388,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   editor,
   activePath,
   onLoadAsset,
+  assetRevision,
   workspaceIndex,
   viewInSource,
   editorViewMounted,
@@ -2277,6 +2400,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   editor: Editor;
   activePath: string;
   onLoadAsset?: (path: string) => Promise<string | null>;
+  assetRevision: number;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   viewInSource: (editor: Editor) => void;
   editorViewMounted: boolean;
@@ -2286,7 +2410,11 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
   onLinkPopoverOpenChange: (open: boolean) => void;
 }) {
   return (
-    <ProjectImageHostProvider activePath={activePath} loadAsset={onLoadAsset}>
+    <ProjectImageHostProvider
+      activePath={activePath}
+      loadAsset={onLoadAsset}
+      revision={assetRevision}
+    >
       <MirrorHostProvider workspaceIndex={workspaceIndex}>
         <ViewInSourceProvider onViewInSource={viewInSource}>
           <TooltipProvider delayDuration={280} skipDelayDuration={400}>
@@ -2321,6 +2449,7 @@ function CompleteVisualMarkdownEditor({
   onChangeMarkdown,
   onFlushPendingChange,
   optimizeForReading = false,
+  onEligibilityChange,
   synchronizeSourceScroll = true,
   onRequestViewportLock,
   onOpenProjectPath,
@@ -2332,6 +2461,7 @@ function CompleteVisualMarkdownEditor({
   onViewInSource,
   onImportAsset,
   onLoadAsset,
+  assetRevision = 0,
   presenceCursors = [],
   onCaretChange,
   onSourceCaretChange,
@@ -2706,8 +2836,8 @@ function CompleteVisualMarkdownEditor({
   const getWorkspaceIndex = useCallback(() => indexRef.current ?? null, []);
   const getPapers = useCallback(() => papersRef.current ?? [], []);
   const slashSources = useMemo(
-    () => slashItemSources(onImportAsset, getActivePath),
-    [getActivePath, onImportAsset],
+    () => slashItemSources(i18n, onImportAsset, getActivePath),
+    [getActivePath, i18n, onImportAsset],
   );
   const imageExtension = useMemo(() => ImageSrcFidelity.extend({
     addNodeView() {
@@ -2912,7 +3042,7 @@ function CompleteVisualMarkdownEditor({
       KeyboardNav,
       SlashCommand.configure({
         itemsSources: slashSources,
-        categoryLabels: SLASH_CATEGORY_LABELS,
+        categoryLabels: slashCategoryLabels(i18n),
       }),
       TiptapFindReplace,
       ...(optimizeForReading ? [ChunkWrapperDecoration, GeneratedPaperContents] : []),
@@ -3411,7 +3541,14 @@ function CompleteVisualMarkdownEditor({
   useEffect(() => {
     if (!editor) return;
     if (renderedPath !== activePath || activePathRef.current !== activePath) return;
-    if (eligibilityText.current === text) return;
+    if (eligibilityText.current === text) {
+      onEligibilityChange?.(
+        eligibilityRepresentedExactly.current
+          ? null
+          : VISUAL_EDITING_UNAVAILABLE_REASON,
+      );
+      return;
+    }
     // Eligibility is a property of the source parser's round trip, not of the
     // live Editor instance. The editor can still be applying initialization or
     // path-switch transactions while a tutorial advances, which made the same
@@ -3439,12 +3576,13 @@ function CompleteVisualMarkdownEditor({
     eligibilityRepresentedExactly.current = representedExactly;
     const reason = representedExactly
       ? null
-      : "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.";
+      : VISUAL_EDITING_UNAVAILABLE_REASON;
     setEligibilityReason(reason);
+    onEligibilityChange?.(reason);
     const canEdit = representedExactly && editable;
     if (editor.isEditable !== canEdit) editor.setEditable(canEdit);
     editorReadyForChanges.current = true;
-  }, [activePath, editable, editor, optimizeForReading, renderedPath, text]);
+  }, [activePath, editable, editor, onEligibilityChange, renderedPath, text]);
 
   const editorViewMounted = useEditorViewMounted(editor);
 
@@ -3819,7 +3957,9 @@ function CompleteVisualMarkdownEditor({
           })}
         </div>
       )}
-      {!documentPending && eligibilityReason && (
+      {/* A parent may own this notice so it can sit before surrounding chrome,
+          such as a downloaded paper's generated title. */}
+      {!documentPending && eligibilityReason && !onEligibilityChange && (
         <InlineMessage level="warning" className="visual-markdown-eligibility">
           {eligibilityReason}
           {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
@@ -3840,6 +3980,7 @@ function CompleteVisualMarkdownEditor({
         editor={editor}
         activePath={renderedPath}
         onLoadAsset={onLoadAsset}
+        assetRevision={assetRevision}
         workspaceIndex={workspaceIndex}
         viewInSource={viewInSource}
         editorViewMounted={editorViewMounted}
@@ -3899,6 +4040,7 @@ export function VisualMarkdownEditor(props: VisualMarkdownEditorProps): JSX.Elem
         activePath={props.activePath}
         optimizeForReading={Boolean(props.optimizeForReading)}
         onLoadAsset={props.onLoadAsset}
+        assetRevision={props.assetRevision ?? 0}
         onOpenProjectPath={props.onOpenProjectPath}
         workspaceIndex={props.workspaceIndex}
         onActivate={(handoff) => setCompleteSession({

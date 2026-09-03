@@ -170,6 +170,10 @@ async function createWindow(rawUrl) {
     backgroundColor: "#F7F7F6",
     show: false,
     titleBarStyle: "hiddenInset",
+    // Lattice's titlebar controls live in the web contents rather than native
+    // NSButtons. Let a click activate an inactive window and press the control
+    // in one gesture, as native toolbar buttons do.
+    acceptFirstMouse: true,
     webPreferences: {
       sandbox: true,
       contextIsolation: true,

@@ -7,6 +7,7 @@
  * arrives on the realtime channel, so there is no refresh button to hunt for.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { SendHorizontal } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -18,12 +19,12 @@ import "./overleaf-chat.css";
 import { InlineMessage } from "../components/ui/inline-message";
 
 /** "14:32" for today, "12 Mar 14:32" for anything older. */
-export function formatStamp(timestamp: number) {
+export function formatStamp(timestamp: number, locale?: string) {
   if (!timestamp) return "";
   const when = new Date(timestamp);
   const now = new Date();
   const sameDay = when.toDateString() === now.toDateString();
-  return when.toLocaleString(undefined, sameDay
+  return when.toLocaleString(locale, sameDay
     ? { hour: "2-digit", minute: "2-digit" }
     : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
@@ -35,6 +36,7 @@ export function OverleafChatPanel(props: {
   error: string | null;
   onSend: (content: string) => Promise<void>;
 }) {
+  const { i18n, t } = useLingui();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [hasMessagesBelow, setHasMessagesBelow] = useState(false);
@@ -42,6 +44,7 @@ export function OverleafChatPanel(props: {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const nearBottomRef = useRef(true);
   const previousMessageCountRef = useRef(0);
+  const projectName = props.projectName || t`this project`;
 
   // Grow with the text instead of scrolling inside a fixed box, the way the
   // agent composer does — a two-line box with its own scrollbar is a worse
@@ -109,8 +112,9 @@ export function OverleafChatPanel(props: {
   return (
     <>
       <p className="drawer-copy">
-        The same conversation as the chat panel in {props.projectName || "this project"} on
-        Overleaf. Messages appear on both sides as they are sent
+        {t({
+          message: `The same conversation as the chat panel in ${projectName} on Overleaf. Messages appear on both sides as they are sent`,
+        })}
       </p>
 
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
@@ -119,7 +123,7 @@ export function OverleafChatPanel(props: {
         className="overleaf-chat-list"
         ref={listRef}
         role="region"
-        aria-label="Overleaf chat messages"
+        aria-label={t`Overleaf chat messages`}
         tabIndex={0}
         onScroll={(event) => {
           const list = event.currentTarget;
@@ -130,10 +134,10 @@ export function OverleafChatPanel(props: {
         }}
       >
         {props.loading && !props.messages.length && (
-          <p className="git-empty"><InfinityLoader size={13} /> Loading the conversation…</p>
+          <p className="git-empty"><InfinityLoader size={13} /> {t`Loading the conversation…`}</p>
         )}
         {!props.loading && !props.messages.length && !props.error && (
-          <p className="git-empty">No messages yet. Say something and everyone in the project sees it</p>
+          <p className="git-empty">{t`No messages yet. Say something and everyone in the project sees it`}</p>
         )}
         {props.messages.map((message, index) => {
           // One name above a run of messages reads as a conversation rather
@@ -150,8 +154,8 @@ export function OverleafChatPanel(props: {
             >
               {!grouped && (
                 <div className="overleaf-chat-meta">
-                  <span>{message.mine ? "You" : message.authorName}</span>
-                  <time>{formatStamp(message.timestamp)}</time>
+                  <span>{message.mine ? t`You` : message.authorName}</span>
+                  <time>{formatStamp(message.timestamp, i18n.locale)}</time>
                 </div>
               )}
               <p>{message.content}</p>
@@ -161,7 +165,7 @@ export function OverleafChatPanel(props: {
       </div>
 
       <span className="sr-only" aria-live="polite" aria-atomic="true">
-        {hasMessagesBelow ? "New messages are available." : ""}
+        {hasMessagesBelow ? t`New messages are available.` : ""}
       </span>
       {hasMessagesBelow && (
         <Button
@@ -170,7 +174,7 @@ export function OverleafChatPanel(props: {
           className="overleaf-chat-latest-button"
           onClick={scrollToLatest}
         >
-          New messages · Jump to latest
+          {t`New messages · Jump to latest`}
         </Button>
       )}
 
@@ -179,8 +183,8 @@ export function OverleafChatPanel(props: {
           ref={composerRef}
           rows={1}
           value={draft}
-          placeholder="Message your collaborators…"
-          aria-label="Message"
+          placeholder={t`Message your collaborators…`}
+          aria-label={t`Message`}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             // While an input method is composing, Enter is choosing a
@@ -197,7 +201,7 @@ export function OverleafChatPanel(props: {
           }}
         />
         <IconButton
-          label="Send message"
+          label={t`Send message`}
           tooltip={false}
           tone="primary"
           disabled={!draft.trim() || sending}

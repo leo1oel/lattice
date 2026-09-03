@@ -2963,6 +2963,7 @@ pub fn prepare_sync(
     root: &Path,
     authoritative_inventory: &[OverleafAuthoritativeEntry],
     live: &BTreeSet<String>,
+    observed_remote_version: Option<i64>,
 ) -> Result<OverleafPreparedSync, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
@@ -3012,7 +3013,9 @@ pub fn prepare_sync(
     }
 
     let client = http_client(30)?;
-    let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
+    let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id)
+        .or(observed_remote_version)
+        .or(state.remote_version);
     let RemoteFiles {
         files: remote,
         automatic_remote_deletes,
@@ -3471,6 +3474,7 @@ pub fn sync(
     config_dir: &Path,
     root: &Path,
     live: &BTreeSet<String>,
+    observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
@@ -3487,7 +3491,12 @@ pub fn sync(
     // Where Overleaf's history stood when we took our copy. Comparing it again
     // just before uploading tells us whether anyone edited in the meantime.
     let remote_version_before =
-        fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
+        fetch_remote_version(&client, &host, &session.cookie, &state.project_id)
+            // The cheap probe that requested this sync is an observed lower
+            // bound for the snapshot. Preserve it when the best-effort repeat
+            // is rate-limited instead of erasing a usable baseline.
+            .or(observed_remote_version)
+            .or(state.remote_version);
     let RemoteFiles {
         files: remote,
         automatic_remote_deletes,
@@ -4426,7 +4435,7 @@ mod tests {
         let root = temp_dir("project");
         write_session_file(&config, &server.base);
         seed_linked_project(&root, &server.base, local, base);
-        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
         (root, result)
     }
 
@@ -4502,6 +4511,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", base)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
 
@@ -4551,6 +4561,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", base)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         assert_eq!(prepared.actions[0].kind, "delete");
@@ -4578,6 +4589,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", base)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         let action = &prepared.actions[0];
@@ -4602,6 +4614,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", base)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         let mut state = load_state(&root).unwrap();
@@ -4628,6 +4641,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", local)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         let action = prepared
@@ -4664,6 +4678,7 @@ mod tests {
             &root,
             &[authoritative("main.tex", local)],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         let main = prepared
@@ -4713,6 +4728,7 @@ mod tests {
                 authoritative("b.tex", local_b),
             ],
             &BTreeSet::new(),
+            None,
         )
         .unwrap();
         let accepted = prepared
@@ -5150,7 +5166,7 @@ mod tests {
             &[("main.tex", base), ("notes.tex", base)],
         );
         let live: BTreeSet<String> = ["main.tex".to_string()].into_iter().collect();
-        let result = sync(&config, &root, &live).unwrap();
+        let result = sync(&config, &root, &live, None).unwrap();
 
         assert!(result.pushed.is_empty());
         assert!(result.merged.is_empty());
@@ -5267,6 +5283,37 @@ mod tests {
     }
 
     #[test]
+    fn overleaf_sync_keeps_a_version_when_the_history_recheck_fails() {
+        let base = b"shared body".as_slice();
+        // This mock deliberately answers 404 for /updates while the project
+        // download succeeds, matching an intermittent best-effort history
+        // failure during an otherwise successful sync.
+        let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
+        let config = temp_dir("history-fallback-config");
+        let root = temp_dir("history-fallback-project");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("main.tex", base)],
+            &[("main.tex", base)],
+        );
+        let mut state = load_state(&root).unwrap();
+        state.remote_version = Some(42);
+        save_state(&root, &state).unwrap();
+
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
+        assert!(result.pulled.is_empty());
+        assert!(result.pushed.is_empty());
+        assert_eq!(state_remote_version(&root), Some(42));
+
+        // A successful probe made immediately before the sync is stronger
+        // evidence than the older saved value and becomes the new baseline.
+        sync(&config, &root, &BTreeSet::new(), Some(43)).unwrap();
+        assert_eq!(state_remote_version(&root), Some(43));
+    }
+
+    #[test]
     fn overleaf_sync_records_the_downloaded_snapshot_not_a_later_remote_version() {
         // The zip contains version 11. A collaborator reaches version 12 while
         // this pull-only sync is finishing. Recording 12 would make the next
@@ -5288,7 +5335,7 @@ mod tests {
             &[("main.tex", base)],
         );
 
-        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
 
         assert_eq!(result.pulled, vec!["main.tex"]);
         assert_eq!(read_local(&root, "main.tex").unwrap(), remote);
@@ -5353,7 +5400,7 @@ mod tests {
             &[("a.tex", base_a), ("b.tex", base_b)],
         );
 
-        let outcome = sync(&config, &root, &BTreeSet::new());
+        let outcome = sync(&config, &root, &BTreeSet::new(), None);
 
         assert!(outcome.is_err());
         assert_eq!(server.uploads().len(), 2);
@@ -5843,7 +5890,7 @@ mod tests {
         );
         set_permission(&root, "readOnly").unwrap();
 
-        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
         assert!(result.read_only);
         assert!(result.pushed.is_empty());
         assert!(server.uploads().is_empty());
@@ -5854,10 +5901,18 @@ mod tests {
 
         // A reviewer may comment but not change the text, so the same applies.
         set_permission(&root, "review").unwrap();
-        assert!(sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
+        assert!(
+            sync(&config, &root, &BTreeSet::new(), None)
+                .unwrap()
+                .read_only
+        );
         // An account that can write is unaffected.
         set_permission(&root, "readAndWrite").unwrap();
-        assert!(!sync(&config, &root, &BTreeSet::new()).unwrap().read_only);
+        assert!(
+            !sync(&config, &root, &BTreeSet::new(), None)
+                .unwrap()
+                .read_only
+        );
     }
 
     #[test]
@@ -5877,7 +5932,7 @@ mod tests {
         state.permission = None;
         save_state(&root, &state).unwrap();
 
-        let result = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
 
         assert!(result.read_only);
         assert!(result.pushed.is_empty());
@@ -5907,7 +5962,7 @@ mod tests {
         state.permission = None;
         save_state(&root, &state).unwrap();
 
-        let pulled = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let pulled = sync(&config, &root, &BTreeSet::new(), None).unwrap();
 
         assert!(pulled.read_only);
         assert_eq!(
@@ -5937,7 +5992,7 @@ mod tests {
         // new test address, so move the synthetic session with the link.
         write_session_file(&config, &second_server.base);
 
-        let merged = sync(&config, &root, &BTreeSet::new()).unwrap();
+        let merged = sync(&config, &root, &BTreeSet::new(), None).unwrap();
 
         assert_eq!(merged.merged, vec!["main.tex"]);
         assert!(merged.conflicts.is_empty());

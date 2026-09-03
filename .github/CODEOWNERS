@@ -58,7 +58,6 @@
 
 # --- CI, release, and the local gate ----------------------------------------
 /.github/workflows/                 @leo1oel
-/.github/dependabot.yml             @leo1oel
 /mise.toml                          @leo1oel
 
 # --- Dependency pins that carry patches -------------------------------------

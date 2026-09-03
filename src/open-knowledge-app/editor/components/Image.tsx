@@ -15,9 +15,10 @@
  * links, markdown `![alt](src)` after autolink/CommonMark promotion).
  *
  * `zoomMargin={20}` matches the upstream-docs-lib default — the zoom-modal's
- * padding from the viewport edge when expanded. `zoomImg={{ sizes: undefined }}`
- * forces the zoom-view image to NOT inherit the authored `sizes` attribute
- * (which would constrain the zoomed rendering to the thumbnail's breakpoints).
+ * padding from the viewport edge when expanded. Passing the resolved `src` as
+ * `zoomImg.src` lets the modal use the available viewport instead of capping a
+ * raster image at its rendered size. Clearing `sizes` keeps thumbnail-specific
+ * responsive breakpoints from constraining the zoomed rendering.
  *
  * `loading` defaults to `'lazy'` when undefined — matches browser-default
  * behavior for images below the fold but avoids silently loading any image
@@ -80,10 +81,11 @@ function BareImg(props: ImageProps) {
   const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
   const imageResource = useProjectImage(props.src, nearViewport);
   const src = imageResource.src;
+  const renderedSrc = src === undefined ? undefined : toDesktopAssetHref(src);
   const image = (
     <LoadingImage
       slotRef={viewportRef}
-      src={src === undefined ? undefined : toDesktopAssetHref(src)}
+      src={renderedSrc}
       alt={props.alt ?? ''}
       width={coerceDimension(props.width)}
       height={coerceDimension(props.height)}
@@ -99,7 +101,11 @@ function BareImg(props: ImageProps) {
     />
   );
   return nearViewport && src ? (
-    <Zoom wrapElement="span" zoomMargin={20} zoomImg={{ sizes: undefined }}>
+    <Zoom
+      wrapElement="span"
+      zoomMargin={20}
+      zoomImg={{ src: renderedSrc, sizes: undefined }}
+    >
       {image}
     </Zoom>
   ) : image;
@@ -108,9 +114,9 @@ function BareImg(props: ImageProps) {
 /**
  * DIY Image. Descriptor-dispatched via `componentMap['img']`.
  *
- * The `Zoom` wrapper reads its child `<img>`'s `src` to build the zoom-view;
- * no manual `zoomImg.src` plumbing needed. We override `sizes` to `undefined`
- * so the zoom-view doesn't inherit a thumbnail-scoped sizes attribute.
+ * The `Zoom` wrapper receives the rendered source explicitly so raster images
+ * may grow beyond their in-editor dimensions. We override `sizes` to
+ * `undefined` so the zoom-view doesn't inherit a thumbnail-scoped attribute.
  */
 export function Image(props: ImageProps) {
   const wrapperRef = useRef<HTMLSpanElement | null>(null);

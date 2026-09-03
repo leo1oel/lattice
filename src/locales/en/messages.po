@@ -55,6 +55,14 @@ msgstr "(empty span)"
 msgid "(no comment text)"
 msgstr "(no comment text)"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "(no text)"
+msgstr "(no text)"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "(this comment's text was removed)"
+msgstr "(this comment's text was removed)"
+
 #: src/collab/collab-dialog.tsx
 msgid "(you)"
 msgstr "(you)"
@@ -233,6 +241,19 @@ msgstr "Abstract environment"
 msgid "Accents"
 msgstr "Accents"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "Accept"
+msgstr "Accept"
+
+#. placeholder {0}: sorted.length
+#: src/overleaf/overleaf-changes.tsx
+msgid "Accept all ({0})"
+msgstr "Accept all ({0})"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Accordion"
+msgstr "Accordion"
+
 #: src/telemetry/app-log.tsx
 msgid "Activity log"
 msgstr "Activity log"
@@ -321,6 +342,14 @@ msgstr "Algorithm block (requires algorithm and algpseudocode)"
 msgid "Align"
 msgstr "Align"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Align a group of blocks to the left, center, or right."
+msgstr "Align a group of blocks to the left, center, or right."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Align block"
+msgstr "Align block"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Align*"
 msgstr "Align*"
@@ -371,6 +400,18 @@ msgstr "Ampersand"
 msgid "An agent that works across your project"
 msgstr "An agent that works across your project"
 
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
+msgstr "An edit is still on its way to Overleaf. Try accepting again in a moment."
+
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "An edit is still on its way to Overleaf. Try again in a moment."
+msgstr "An edit is still on its way to Overleaf. Try again in a moment."
+
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
+msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment."
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
 msgstr "Analyze results in a live spreadsheet"
@@ -384,6 +425,10 @@ msgstr "Angle"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Anonymous"
 msgstr "Anonymous"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Another file in this project"
+msgstr "Another file in this project"
 
 #: src/settings/settings-dialog.tsx
 msgid "App updates"
@@ -478,6 +523,10 @@ msgstr "Bar accent example"
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Basic blocks"
+msgstr "Basic blocks"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
 msgstr "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
@@ -510,6 +559,10 @@ msgstr "Bibliographic citation (requires natbib or compatible package)"
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Big section heading."
+msgstr "Big section heading."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Big triangle down"
 msgstr "Big triangle down"
@@ -539,6 +592,10 @@ msgstr "Binomial coefficient"
 #: src/editor/insert/insert-snippets.ts
 msgid "Blackboard bold"
 msgstr "Blackboard bold"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Block math equation rendered with KaTeX from a LaTeX source string."
+msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Block quotation"
@@ -639,6 +696,10 @@ msgstr "Builds"
 msgid "Bullet"
 msgstr "Bullet"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Bullet List"
+msgstr "Bullet List"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bulleted list"
 msgstr "Bulleted list"
@@ -651,6 +712,10 @@ msgstr "cached"
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Callout"
+msgstr "Callout"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/document-canvas.tsx
 #: src/collab/collab-dialog.tsx
@@ -659,6 +724,7 @@ msgstr "Calligraphic"
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 #: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -740,12 +806,17 @@ msgstr "Centered multi-line equations"
 
 #: src/app/app-history-drawers.tsx
 #: src/history/history-drawer.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "Changes"
 
 #: src/collab/collab-dialog.tsx
 msgid "chat"
 msgstr "chat"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Chat"
+msgstr "Chat"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Check accent example"
@@ -779,6 +850,10 @@ msgstr "Checking your Overleaf connection…"
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "Checking…"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Checklist with checkboxes."
+msgstr "Checklist with checkboxes."
 
 #: src/settings/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper"
@@ -920,6 +995,10 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Code Block"
+msgstr "Code Block"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "Code listing"
@@ -948,6 +1027,14 @@ msgstr "Collaboration is read-only"
 msgid "Collaboration, Overleaf, and history"
 msgstr "Collaboration, Overleaf, and history"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Collapsible content block (Notion-style toggle)."
+msgstr "Collapsible content block (Notion-style toggle)."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Collapsible section with a clickable summary."
+msgstr "Collapsible section with a clickable summary."
+
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "Color theme"
@@ -969,10 +1056,12 @@ msgid "Comment by {author}"
 msgstr "Comment by {author}"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
 #: src/canvas/document-canvas.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "Comments"
 
@@ -987,6 +1076,10 @@ msgstr "Compile LaTeX"
 #: src/collab/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "Compile/PDF stays on each Mac. "
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Components"
+msgstr "Components"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Composition / ring"
@@ -1189,6 +1282,10 @@ msgstr "Crossref type"
 msgid "Curly matrix"
 msgstr "Curly matrix"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Custom HTML with a live preview pane (sandboxed iframe)."
+msgstr "Custom HTML with a live preview pane (sandboxed iframe)."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Dagger"
 msgstr "Dagger"
@@ -1204,6 +1301,10 @@ msgstr "Daleth"
 #: src/settings/settings-dialog.tsx
 msgid "Dark"
 msgstr "Dark"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Data"
+msgstr "Data"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1221,6 +1322,7 @@ msgstr "Degree"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
 msgstr "Delete"
@@ -1233,6 +1335,10 @@ msgstr "Delete “{path}” from this project?"
 msgid "Delete {count} selected items from this project?"
 msgstr "Delete {count} selected items from this project?"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete message"
+msgstr "Delete message"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
@@ -1242,6 +1348,10 @@ msgstr "Delete on Overleaf too"
 msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
 msgstr "Delete this comment? Its replies will be removed too. This cannot be undone."
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
+msgstr "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
+
 #: src/history/history-drawer.tsx
 msgid "Delete this history entry"
 msgstr "Delete this history entry"
@@ -1249,6 +1359,18 @@ msgstr "Delete this history entry"
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "Delete this item?"
 msgstr "Delete this item?"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message"
+msgstr "Delete this message"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message?"
+msgstr "Delete this message?"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
+msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread."
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Delete worksheet?"
@@ -1278,6 +1400,10 @@ msgstr "Determinant-style matrix"
 #: src/settings/settings-dialog.tsx
 msgid "Diagnostics"
 msgstr "Diagnostics"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
+msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Diamond operator"
@@ -1463,6 +1589,14 @@ msgstr "Edit main.tex on the left. The PDF on the right updates automatically"
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit message"
+msgstr "Edit message"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit message text"
+msgstr "Edit message text"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit notes.md on the left and see the formatted result update live on the right"
 msgstr "Edit notes.md on the left and see the formatted result update live on the right"
@@ -1474,6 +1608,10 @@ msgstr "Edit source"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "Edit source and preview PDF"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Edit this message"
+msgstr "Edit this message"
 
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
@@ -1522,6 +1660,18 @@ msgstr "Edits sync live with Overleaf"
 #: src/editor/insert/insert-snippets.ts
 msgid "Element of"
 msgstr "Element of"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Embed an image with optional alt text."
+msgstr "Embed an image with optional alt text."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Embeds"
+msgstr "Embeds"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Emoji"
+msgstr "Emoji"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasis"
@@ -1653,9 +1803,17 @@ msgstr "Expression of concern"
 msgid "Feedback"
 msgstr "Feedback"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fenced code block with monospace text."
+msgstr "Fenced code block with monospace text."
+
 #: src/papers/paper-import-progress.ts
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fifth-level heading."
+msgstr "Fifth-level heading."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Figure"
@@ -1749,6 +1907,7 @@ msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Footnote"
 msgstr "Footnote"
 
@@ -1771,6 +1930,10 @@ msgstr "Formulas"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Formulas and Excel export"
 msgstr "Formulas and Excel export"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Fourth-level heading."
+msgstr "Fourth-level heading."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
@@ -1870,6 +2033,10 @@ msgstr "Greek"
 msgid "Grid generator"
 msgstr "Grid generator"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Grid of rows and columns with a header row."
+msgstr "Grid of rows and columns with a header row."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Grouped numbered equations"
 msgstr "Grouped numbered equations"
@@ -1890,6 +2057,30 @@ msgstr "Hat accent"
 msgid "Hat accent example"
 msgstr "Hat accent example"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 1"
+msgstr "Heading 1"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 2"
+msgstr "Heading 2"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 3"
+msgstr "Heading 3"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 4"
+msgstr "Heading 4"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 5"
+msgstr "Heading 5"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Heading 6"
+msgstr "Heading 6"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "Heart suit"
@@ -1897,6 +2088,10 @@ msgstr "Heart suit"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Highlight tips, warnings, and notes."
+msgstr "Highlight tips, warnings, and notes."
 
 #: src/history/history-drawer.tsx
 msgid "History views"
@@ -1910,9 +2105,21 @@ msgstr "Hook left arrow"
 msgid "Hook right arrow"
 msgstr "Hook right arrow"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
+msgstr "Horizontal pill strip + active panel below; click a pill to switch panels."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Horizontal rule that divides sections."
+msgstr "Horizontal rule that divides sections."
+
 #: src/collab/collab-dialog.tsx
 msgid "host"
 msgstr "host"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "HTML"
+msgstr "HTML"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "HTML files render live here, so you can build interactive demos and figures"
@@ -1933,6 +2140,10 @@ msgstr "HTML zoom percentage"
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
 msgstr "If and only if"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Image"
+msgstr "Image"
 
 #: src/canvas/document-canvas.tsx
 msgid "Image zoom percentage"
@@ -1991,6 +2202,10 @@ msgstr "Importing ZIP…"
 msgid "In proceedings"
 msgstr "In proceedings"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "In this file"
+msgstr "In this file"
+
 #: src/collab/collab-dialog.tsx
 msgid "In this room"
 msgstr "In this room"
@@ -2011,9 +2226,17 @@ msgstr "Include graphics"
 msgid "Include resolved"
 msgstr "Include resolved"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Include resolved ({resolvedCount})"
+msgstr "Include resolved ({resolvedCount})"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
 msgstr "Increment year"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Indented blockquote for citations."
+msgstr "Indented blockquote for citations."
 
 #. placeholder {0}: status.totalChunks
 #: src/settings/settings-dialog.tsx
@@ -2032,9 +2255,17 @@ msgstr "Info"
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Inline LaTeX math rendered with KaTeX."
+msgstr "Inline LaTeX math rendered with KaTeX."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Inline math"
 msgstr "Inline math"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Inline Math"
+msgstr "Inline Math"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Input file"
@@ -2045,6 +2276,7 @@ msgid "insert"
 msgstr "insert"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Insert"
 msgstr "Insert"
 
@@ -2055,6 +2287,10 @@ msgstr "Insert \\cite{…}"
 #: src/app/app-search-dialogs.tsx
 msgid "Insert \\ref{…}"
 msgstr "Insert \\ref{…}"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Insert a footnote reference + matching definition stub."
+msgstr "Insert a footnote reference + matching definition stub."
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Insert a formula"
@@ -2198,6 +2434,14 @@ msgstr "Iota"
 msgid "Itemize"
 msgstr "Itemize"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
+msgstr "Its span was deleted from the document, so Overleaf can't say which file to act on"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
+msgstr "Its text was deleted from the document — Overleaf can no longer say where it was"
+
 #: src/collab/collab-dialog.tsx
 msgid "Join"
 msgstr "Join"
@@ -2337,6 +2581,10 @@ msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice will find and install the TeX Live package that provides {0}."
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Layout"
+msgstr "Layout"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
@@ -2430,6 +2678,14 @@ msgstr "Limit expression"
 msgid "Line under an expression"
 msgstr "Line under an expression"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Link"
+msgstr "Link"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Link to a page or external URL."
+msgstr "Link to a page or external URL."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
 msgstr "Literal code / text block"
@@ -2492,6 +2748,10 @@ msgstr "Ln {line}, Col {column}"
 msgid "Load more"
 msgstr "Load more"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Loading comments…"
+msgstr "Loading comments…"
+
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -2513,6 +2773,10 @@ msgstr "Loading PDF…"
 #: src/settings/settings-dialog.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Loading the conversation…"
+msgstr "Loading the conversation…"
 
 #: src/history/versions-timeline.tsx
 msgid "Loading versions…"
@@ -2572,11 +2836,16 @@ msgstr "Manuscript TODOs"
 msgid "Maps to"
 msgstr "Maps to"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
+msgstr "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Match case"
 msgstr "Match case"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Math"
 msgstr "Math"
 
@@ -2608,6 +2877,26 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Media"
+msgstr "Media"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Medium section heading."
+msgstr "Medium section heading."
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mermaid"
+msgstr "Mermaid"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Message"
+msgstr "Message"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Message your collaborators…"
+msgstr "Message your collaborators…"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
@@ -2623,6 +2912,14 @@ msgstr "Minipage"
 #: src/editor/insert/insert-snippets.ts
 msgid "Minus-plus"
 msgstr "Minus-plus"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mirror"
+msgstr "Mirror"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Mirror Source"
+msgstr "Mirror Source"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Misc"
@@ -2721,6 +3018,14 @@ msgstr "New file"
 msgid "New folder"
 msgstr "New folder"
 
+#: src/overleaf/overleaf-chat.tsx
+msgid "New messages · Jump to latest"
+msgstr "New messages · Jump to latest"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "New messages are available."
+msgstr "New messages are available."
+
 #: src/project/project-dialogs.tsx
 msgid "New name"
 msgstr "New name"
@@ -2777,6 +3082,10 @@ msgstr "No changes recorded yet"
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "No comments in this project. Comments made on Overleaf appear here as they are written"
+msgstr "No comments in this project. Comments made on Overleaf appear here as they are written"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment"
 msgstr "No comments yet. Select text in the editor and click Comment"
@@ -2805,6 +3114,10 @@ msgstr "No logs at this level"
 msgid "No logs yet"
 msgstr "No logs yet"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "No longer in the document"
+msgstr "No longer in the document"
+
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -2812,6 +3125,14 @@ msgstr "No matching papers"
 #: src/editor/insert/insert-palette.tsx
 msgid "No matching snippets. Try fraction, implies, align*, or eqref"
 msgstr "No matching snippets. Try fraction, implies, align*, or eqref"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "No messages yet. Say something and everyone in the project sees it"
+msgstr "No messages yet. Say something and everyone in the project sees it"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "No open comments in this project. Comments made on Overleaf appear here as they are written"
+msgstr "No open comments in this project. Comments made on Overleaf appear here as they are written"
 
 #: src/project/project-dialogs.tsx
 msgid "No other recent projects yet"
@@ -2832,6 +3153,14 @@ msgstr "No projects match your search"
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "No sections yet. Add a \\section{…} to start the outline"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "No suggestions in this document"
+msgstr "No suggestions in this document"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "No suggestions in this document — open it to see any it has"
+msgstr "No suggestions in this document — open it to see any it has"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
@@ -2892,6 +3221,10 @@ msgstr "Number sets like R, N"
 #: src/editor/insert/insert-snippets.ts
 msgid "Numbered list"
 msgstr "Numbered list"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Numbered list of items."
+msgstr "Numbered list of items."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Numbered single-line equation"
@@ -3022,6 +3355,14 @@ msgstr "Open Slide editor for {deckId}"
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "Open the Agent tab to use Codex, Claude, or another provider"
 
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "Open the document this suggestion is in first."
+msgstr "Open the document this suggestion is in first."
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Open the file this suggestion is in first"
+msgstr "Open the file this suggestion is in first"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
@@ -3029,6 +3370,11 @@ msgstr "Open the full paper Markdown"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."
+
+#: src/overleaf/use-overleaf-chat.ts
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "Open the linked Overleaf project first."
+msgstr "Open the linked Overleaf project first."
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the paper overview"
@@ -3071,6 +3417,10 @@ msgstr "Opening…"
 msgid "Operators"
 msgstr "Operators"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Ordered List"
+msgstr "Ordered List"
+
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "Outline"
@@ -3082,6 +3432,18 @@ msgstr "Overleaf"
 #: src/App.tsx
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv source pack"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "Overleaf chat messages"
+msgstr "Overleaf chat messages"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Overleaf collaboration"
+msgstr "Overleaf collaboration"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Overleaf collaboration view"
+msgstr "Overleaf collaboration view"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf comments and chat"
@@ -3230,6 +3592,10 @@ msgstr "Pi"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Pick an emoji to insert at the cursor."
+msgstr "Pick an emoji to insert at the cursor."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Piecewise definition"
@@ -3439,6 +3805,7 @@ msgid "Quick open file"
 msgstr "Quick open file"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Quote"
 msgstr "Quote"
 
@@ -3449,6 +3816,10 @@ msgstr "Radical"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
 msgstr "Read the full paper here"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
+msgstr "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
@@ -3492,6 +3863,14 @@ msgstr "Reference an existing label"
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
 msgstr "Refresh versions"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Reject"
+msgstr "Reject"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Reject all"
+msgstr "Reject all"
 
 #. placeholder {0}: record.title
 #: src/collab/collab-dialog.tsx
@@ -3624,6 +4003,7 @@ msgstr "Rendering first page…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "Reopen"
 
@@ -3641,12 +4021,17 @@ msgstr "Replacement/new version"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {displayedCommentAuthor}"
 msgstr "Reply to {displayedCommentAuthor}"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Reply…"
+msgstr "Reply…"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -3692,6 +4077,7 @@ msgstr "Resize PDF pane"
 msgid "Resize workspace sidebar"
 msgstr "Resize workspace sidebar"
 
+#: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
 msgstr "Resolve"
@@ -3710,8 +4096,14 @@ msgid "Resolve into bibliography entry"
 msgstr "Resolve into bibliography entry"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "Resolved"
 msgstr "Resolved"
+
+#. placeholder {0}: thread.resolvedBy
+#: src/overleaf/overleaf-comments.tsx
+msgid "Resolved by {0}"
+msgstr "Resolved by {0}"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -3912,6 +4304,7 @@ msgstr "Runs on-device; no text leaves this Mac"
 #: src/collab/collab-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "Save"
 msgstr "Save"
@@ -4029,9 +4422,17 @@ msgstr "Sel {words} words · {chars} chars · {lines} lines"
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 
+#: src/overleaf/overleaf-chat.tsx
+msgid "Send message"
+msgstr "Send message"
+
 #: src/collab/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
 msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Separator"
+msgstr "Separator"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Set minus"
@@ -4095,6 +4496,11 @@ msgstr "Show outline"
 msgid "Show sidebar"
 msgstr "Show sidebar"
 
+#: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-comments.tsx
+msgid "Show this in the editor"
+msgstr "Show this in the editor"
+
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "Shows 300 recent entries; disk logs rotate"
@@ -4147,6 +4553,10 @@ msgstr "Similar to"
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Sixth-level heading."
+msgstr "Sixth-level heading."
+
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -4155,9 +4565,17 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Small section heading."
+msgstr "Small section heading."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
 msgstr "Smile relation"
+
+#: src/overleaf/use-overleaf-chat.ts
+msgid "Someone"
+msgstr "Someone"
 
 #: src/App.tsx
 msgid "Source + PDF"
@@ -4340,6 +4758,18 @@ msgstr "Succeeds or equal"
 msgid "Success"
 msgstr "Success"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
+msgstr "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "suggests deleting"
+msgstr "suggests deleting"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "suggests inserting"
+msgstr "suggests inserting"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Sum with limits"
 msgstr "Sum with limits"
@@ -4410,8 +4840,17 @@ msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Table"
 msgstr "Table"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Tabs"
+msgstr "Tabs"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Task List"
+msgstr "Task List"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Tau"
@@ -4433,6 +4872,10 @@ msgstr "Text in math"
 msgid "The bundled Agent service could not start"
 msgstr "The bundled Agent service could not start"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "The commented file is no longer open live with Overleaf. Try again."
+msgstr "The commented file is no longer open live with Overleaf. Try again."
+
 #: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
 msgstr "The host ended this share. Your own project is open again."
@@ -4444,6 +4887,10 @@ msgstr "The host removed you from this share. Your own project is open again."
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "the linked Overleaf host"
+
+#: src/overleaf/use-overleaf-comments.ts
+msgid "The linked Overleaf project changed. Try commenting again."
+msgstr "The linked Overleaf project changed. Try commenting again."
 
 #: src/settings/settings-dialog.tsx
 msgid "The local model is unavailable."
@@ -4460,6 +4907,14 @@ msgstr "The preview is editable too"
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "The required tools"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
+msgstr "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
+msgstr "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
@@ -4510,10 +4965,26 @@ msgstr "Think visually on a board"
 msgid "Third-level heading"
 msgstr "Third-level heading"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "This account cannot accept or reject suggestions here"
+msgstr "This account cannot accept or reject suggestions here"
+
+#: src/overleaf/use-overleaf-track-changes.ts
+msgid "This account cannot accept or reject suggestions here."
+msgstr "This account cannot accept or reject suggestions here."
+
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "This comment has no text yet"
+msgstr "This comment has no text yet"
+
+#: src/overleaf/use-overleaf-comments.ts
+msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
+msgstr "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
@@ -4538,6 +5009,10 @@ msgstr "This is not a native Open Slide deck."
 #: src/build/tex-setup-wizard.tsx
 msgid "This is the longest step and can take up to 15 minutes"
 msgstr "This is the longest step and can take up to 15 minutes"
+
+#: src/overleaf/overleaf-chat.tsx
+msgid "this project"
+msgstr "this project"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -4595,6 +5070,10 @@ msgstr "Today"
 #: src/canvas/document-canvas.tsx
 msgid "TODOs"
 msgstr "TODOs"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Toggle"
+msgstr "Toggle"
 
 #: src/settings/settings-dialog.tsx
 msgid "Toolchain status"
@@ -4678,6 +5157,7 @@ msgstr "Union"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/overleaf/use-overleaf-track-changes.ts
 msgid "Unknown"
 msgstr "Unknown"
 
@@ -4696,6 +5176,14 @@ msgstr "Unnumbered centered equations"
 #: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
+
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Unordered list of items."
+msgstr "Unordered list of items."
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Unresolved"
+msgstr "Unresolved"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Up arrow"
@@ -4919,6 +5407,10 @@ msgstr "Waiting for administrator approval…"
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Waiting to find out which file this is in"
+msgstr "Waiting to find out which file this is in"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "Warming the local service…"
 msgstr "Warming the local service…"
@@ -4989,6 +5481,8 @@ msgstr "Yesterday"
 
 #: src/collab/collab-dialog.tsx
 #: src/history/history-drawer.tsx
+#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "You"
 

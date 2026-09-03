@@ -911,7 +911,8 @@ fn build_project_window(
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true);
+        .hidden_title(true)
+        .accept_first_mouse(true);
     let created = builder
         .build()
         .map_err(|error| format!("Could not open a new Lattice window: {error}"))?;
@@ -3435,6 +3436,7 @@ async fn overleaf_sync(
     window: tauri::Window,
     project_root: String,
     live: Option<Vec<String>>,
+    observed_remote_version: Option<i64>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
     let project = state.project(Path::new(&project_root));
     // Hold this guard until the write lease is ours. That admits only one
@@ -3457,9 +3459,11 @@ async fn overleaf_sync(
     if let Ok(realtime) = project.realtime.lock() {
         realtime.extend_joined_paths(&root, &mut live);
     }
-    tauri::async_runtime::spawn_blocking(move || overleaf::sync(&config, &root, &live))
-        .await
-        .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        overleaf::sync(&config, &root, &live, observed_remote_version)
+    })
+    .await
+    .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
 }
 
 /// Prepare a full sync from the Share catalog's authoritative snapshot.
@@ -3473,6 +3477,7 @@ async fn overleaf_prepare_sync(
     project_root: String,
     authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>,
     live: Option<Vec<String>>,
+    observed_remote_version: Option<i64>,
 ) -> Result<overleaf::OverleafPreparedSync, String> {
     let project = state.project(Path::new(&project_root));
     let mut previous_sync = state.overleaf_sync_started.lock().await;
@@ -3490,7 +3495,13 @@ async fn overleaf_prepare_sync(
     }
     let live = live_paths(live);
     tauri::async_runtime::spawn_blocking(move || {
-        overleaf::prepare_sync(&config, &root, &authoritative_inventory, &live)
+        overleaf::prepare_sync(
+            &config,
+            &root,
+            &authoritative_inventory,
+            &live,
+            observed_remote_version,
+        )
     })
     .await
     .map_err(|error| format!("The Overleaf sync preparation stopped unexpectedly: {error}"))?
@@ -4106,7 +4117,8 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true);
+        .hidden_title(true)
+        .accept_first_mouse(true);
     let window = builder
         .build()
         .map_err(|error| format!("Could not create the Lattice window: {error}"))?;

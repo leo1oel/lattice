@@ -614,6 +614,11 @@ if (existsSync(existingManifestPath)) {
       target,
     )
   ) {
+    // Release-cache.yml stores the prepared runtime unsigned so every release
+    // can apply its current Developer ID certificate after restoring it.
+    // Re-signing is also required after a certificate rotation even though the
+    // source-derived build key is unchanged.
+    signMacRuntime(runtimeRoot, target);
     console.log(
       `Synara runtime ${existingManifest.synaraVersion} is already prepared for ${target}.`,
     );

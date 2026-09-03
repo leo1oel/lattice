@@ -15,6 +15,7 @@
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
@@ -35,6 +36,9 @@ struct WatchBatch {
 #[serde(rename_all = "camelCase")]
 struct FsChangedPayload {
     root: String,
+    /// Project-relative paths when the watcher reported an exact set. `None`
+    /// tells consumers to conservatively invalidate project-wide state.
+    paths: Option<Vec<String>>,
 }
 
 /// Keeps the underlying watcher alive; dropping it stops the event stream,
@@ -61,6 +65,29 @@ fn relevant(event: &Event, root: &Path) -> bool {
     })
 }
 
+fn payload_paths(root: &Path, paths: &[PathBuf], reconcile: bool) -> Option<Vec<String>> {
+    if reconcile || paths.is_empty() {
+        return None;
+    }
+    let mut relative_paths = BTreeSet::new();
+    for path in paths {
+        let Ok(relative) = path.strip_prefix(root) else {
+            return None;
+        };
+        if relative.as_os_str().is_empty() {
+            return None;
+        }
+        relative_paths.insert(
+            relative
+                .components()
+                .map(|component| component.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+    }
+    (!relative_paths.is_empty()).then(|| relative_paths.into_iter().collect())
+}
+
 pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, String> {
     let (sender, receiver) = mpsc::channel::<WatchBatch>();
     let filter_root = root.clone();
@@ -83,9 +110,6 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
         .watch(&root, RecursiveMode::Recursive)
         .map_err(|error| error.to_string())?;
 
-    let payload = FsChangedPayload {
-        root: root.to_string_lossy().to_string(),
-    };
     std::thread::spawn(move || {
         // Reconcile an existing index once after attaching the watcher. This
         // catches edits made while the project was closed without delaying
@@ -132,6 +156,7 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
+            let changed_paths = payload_paths(&root, &paths, reconcile);
             let update = if reconcile {
                 crate::fts::reconcile(&root)
             } else {
@@ -144,7 +169,13 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
                 next_reconcile = Instant::now() + RECONCILE_INTERVAL;
             }
             // Broadcast; each window filters by its own project root.
-            let _ = app.emit("project-fs-changed", payload.clone());
+            let _ = app.emit(
+                "project-fs-changed",
+                FsChangedPayload {
+                    root: root.to_string_lossy().to_string(),
+                    paths: changed_paths,
+                },
+            );
         }
     });
 
@@ -186,5 +217,33 @@ mod tests {
             ]),
             &root
         ));
+    }
+
+    #[test]
+    fn reports_sorted_deduplicated_project_relative_paths() {
+        let root = PathBuf::from("/tmp/project");
+        assert_eq!(
+            payload_paths(
+                &root,
+                &[
+                    root.join("images/chart.png"),
+                    root.join("main.md"),
+                    root.join("images/chart.png"),
+                ],
+                false,
+            ),
+            Some(vec!["images/chart.png".into(), "main.md".into()])
+        );
+    }
+
+    #[test]
+    fn omits_paths_when_the_changed_set_is_not_exact() {
+        let root = PathBuf::from("/tmp/project");
+        assert_eq!(payload_paths(&root, &[root.join("main.md")], true), None);
+        assert_eq!(payload_paths(&root, std::slice::from_ref(&root), false), None);
+        assert_eq!(
+            payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false),
+            None
+        );
     }
 }

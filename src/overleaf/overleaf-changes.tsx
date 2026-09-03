@@ -9,6 +9,7 @@
  * from the caller, which already knows the account's Overleaf permission.
  */
 import { Check, X } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { trackedChangeContext } from "./overleaf-track-changes";
 import type { TrackedChange } from "./use-overleaf-realtime";
@@ -33,12 +34,13 @@ export function OverleafChangesPanel(props: {
   /** Put the caret on the suggested span. */
   onReveal: (position: number) => void;
 }) {
+  const { i18n, t } = useLingui();
   const sorted = [...props.changes].sort((a, b) => a.position - b.position);
   const actionable = props.canAct && props.documentOpen;
   const disabledTitle = !props.documentOpen
-    ? "Open the file this suggestion is in first"
+    ? t`Open the file this suggestion is in first`
     : !props.canAct
-      ? "This account cannot accept or reject suggestions here"
+      ? t`This account cannot accept or reject suggestions here`
       : undefined;
 
   const run = async (action: () => Promise<void>) => {
@@ -59,7 +61,7 @@ export function OverleafChangesPanel(props: {
           type="button"
           className="overleaf-change-quote"
           style={{ borderLeftColor: color }}
-          title="Show this in the editor"
+          title={t`Show this in the editor`}
           onClick={() => props.onReveal(change.position)}
         >
           <span className="overleaf-change-context">{prefix}</span>
@@ -67,7 +69,7 @@ export function OverleafChangesPanel(props: {
             className={`overleaf-change-span${change.deletion ? " deletion" : " insertion"}`}
             style={change.deletion ? { textDecorationColor: color } : { borderBottomColor: color }}
           >
-            {quote || "(no text)"}
+            {quote || t`(no text)`}
           </span>
           <span className="overleaf-change-context">{suffix}</span>
         </button>
@@ -75,9 +77,11 @@ export function OverleafChangesPanel(props: {
         <div className="overleaf-change-meta">
           <span>{props.authorName(change.userId)}</span>
           <span className="overleaf-change-kind">
-            {change.deletion ? "suggests deleting" : "suggests inserting"}
+            {change.deletion ? t`suggests deleting` : t`suggests inserting`}
           </span>
-          {change.timestamp && <time>{formatCommentTimestamp(change.timestamp)}</time>}
+          {change.timestamp && (
+            <time>{formatCommentTimestamp(change.timestamp, undefined, i18n.locale)}</time>
+          )}
         </div>
 
         <div className="overleaf-change-actions">
@@ -88,7 +92,7 @@ export function OverleafChangesPanel(props: {
             onClick={() => void run(() => props.onAccept([change.id]))}
           >
             {working ? <InfinityLoader size={12} /> : <Check size={12} />}
-            Accept
+            {t`Accept`}
           </button>
           <button
             type="button"
@@ -98,7 +102,7 @@ export function OverleafChangesPanel(props: {
             onClick={() => void run(() => props.onReject([change]))}
           >
             {working ? <InfinityLoader size={12} /> : <X size={12} />}
-            Reject
+            {t`Reject`}
           </button>
         </div>
       </article>
@@ -108,8 +112,7 @@ export function OverleafChangesPanel(props: {
   return (
     <>
       <p className="drawer-copy">
-        Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the
-        suggested text into ordinary text; rejecting undoes it. Both sides see the result at once
+        {t`Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once`}
       </p>
 
       {props.error && <InlineMessage level="error" className="overleaf-change-inline">{props.error}</InlineMessage>}
@@ -123,7 +126,7 @@ export function OverleafChangesPanel(props: {
             onClick={() => void run(() => props.onAccept(sorted.map((change) => change.id)))}
           >
             {props.busy === "all" ? <InfinityLoader size={12} /> : <Check size={12} />}
-            Accept all ({sorted.length})
+            {t({ message: `Accept all (${sorted.length})` })}
           </button>
           <button
             type="button"
@@ -133,7 +136,7 @@ export function OverleafChangesPanel(props: {
             onClick={() => void run(() => props.onReject(sorted))}
           >
             {props.busy === "all" ? <InfinityLoader size={12} /> : <X size={12} />}
-            Reject all
+            {t`Reject all`}
           </button>
         </div>
       )}
@@ -141,8 +144,9 @@ export function OverleafChangesPanel(props: {
       <div className="overleaf-change-list">
         {!sorted.length && !props.error && (
           <p className="git-empty">
-            No suggestions in this document
-            {props.documentOpen ? "" : " — open it to see any it has"}
+            {props.documentOpen
+              ? t`No suggestions in this document`
+              : t`No suggestions in this document — open it to see any it has`}
           </p>
         )}
         {sorted.map(renderChange)}

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 type ProjectImageHostValue = {
   activePath: string;
   loadAsset?: (path: string) => Promise<string | null>;
+  revision: number;
 };
 
 type ProjectImageResource = {
@@ -23,7 +24,7 @@ const PROJECT_IMAGE_CACHE_ENTRY_LIMIT = 48;
 const PROJECT_IMAGE_CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
 const PROJECT_IMAGE_OFFSCREEN_RETENTION_MS = 5_000;
 
-const ProjectImageHostContext = createContext<ProjectImageHostValue>({ activePath: "" });
+const ProjectImageHostContext = createContext<ProjectImageHostValue>({ activePath: "", revision: 0 });
 const projectImageResources = new WeakMap<
   (path: string) => Promise<string | null>,
   Map<string, ProjectImageResource>
@@ -51,43 +52,46 @@ function trimProjectImageResources(
 function projectImageResource(
   loadAsset: (path: string) => Promise<string | null>,
   projectPath: string,
+  revision: number,
 ): ProjectImageResource {
   let resources = projectImageResources.get(loadAsset);
   if (!resources) {
     resources = new Map();
     projectImageResources.set(loadAsset, resources);
   }
-  const cached = resources.get(projectPath);
+  const resourceKey = `${revision}\0${projectPath}`;
+  const cached = resources.get(resourceKey);
   if (cached) {
-    resources.delete(projectPath);
-    resources.set(projectPath, cached);
+    resources.delete(resourceKey);
+    resources.set(resourceKey, cached);
     return cached;
   }
   const resource: ProjectImageResource = {
     consumers: 0,
     promise: loadAsset(projectPath).then((dataUrl) => {
       resource.dataUrl = dataUrl;
-      if (resources?.get(projectPath) === resource) {
-        resources.delete(projectPath);
-        resources.set(projectPath, resource);
+      if (resources?.get(resourceKey) === resource) {
+        resources.delete(resourceKey);
+        resources.set(resourceKey, resource);
         trimProjectImageResources(resources);
       }
       return dataUrl;
     }).catch((error) => {
-      if (resources?.get(projectPath) === resource) resources.delete(projectPath);
+      if (resources?.get(resourceKey) === resource) resources.delete(resourceKey);
       throw error;
     }),
   };
-  resources.set(projectPath, resource);
+  resources.set(resourceKey, resource);
   return resource;
 }
 
 function cachedProjectImageResource(
   loadAsset: ((path: string) => Promise<string | null>) | undefined,
   projectPath: string | null,
+  revision: number,
 ): ProjectImageResource | null {
   if (!loadAsset || !projectPath) return null;
-  return projectImageResources.get(loadAsset)?.get(projectPath) ?? null;
+  return projectImageResources.get(loadAsset)?.get(`${revision}\0${projectPath}`) ?? null;
 }
 
 function resolveProjectPath(activePath: string, href: string): string | null {
@@ -117,9 +121,13 @@ function resolveProjectPath(activePath: string, href: string): string | null {
 export function ProjectImageHostProvider({
   activePath,
   loadAsset,
+  revision = 0,
   children,
-}: ProjectImageHostValue & { children: ReactNode }) {
-  const value = useMemo(() => ({ activePath, loadAsset }), [activePath, loadAsset]);
+}: Omit<ProjectImageHostValue, "revision"> & { revision?: number; children: ReactNode }) {
+  const value = useMemo(
+    () => ({ activePath, loadAsset, revision }),
+    [activePath, loadAsset, revision],
+  );
   return (
     <ProjectImageHostContext.Provider value={value}>
       {children}
@@ -128,17 +136,19 @@ export function ProjectImageHostProvider({
 }
 
 export function useProjectImage(src: string | undefined, enabled = true): ProjectImageResult {
-  const { activePath, loadAsset } = useContext(ProjectImageHostContext);
+  const { activePath, loadAsset, revision } = useContext(ProjectImageHostContext);
   const projectPath = src ? resolveProjectPath(activePath, src) : null;
-  const resource = cachedProjectImageResource(loadAsset, projectPath);
+  const resource = cachedProjectImageResource(loadAsset, projectPath, revision);
   const [loaded, setLoaded] = useState<{
     projectPath: string;
     loader: (path: string) => Promise<string | null>;
+    revision: number;
     dataUrl: string;
   } | null>(null);
   const [missing, setMissing] = useState<{
     projectPath: string;
     loader: (path: string) => Promise<string | null>;
+    revision: number;
   } | null>(null);
 
   useEffect(() => {
@@ -154,36 +164,37 @@ export function useProjectImage(src: string | undefined, enabled = true): Projec
     const retryDelays = [250, 1_000];
     let releaseCurrent: () => void = () => undefined;
     const load = (attempt: number) => {
-      const pendingResource = projectImageResource(loadAsset, projectPath);
+      const resourceKey = `${revision}\0${projectPath}`;
+      const pendingResource = projectImageResource(loadAsset, projectPath, revision);
       const resources = projectImageResources.get(loadAsset);
       pendingResource.consumers += 1;
-      if (resources?.get(projectPath) === pendingResource) {
-        resources.delete(projectPath);
-        resources.set(projectPath, pendingResource);
+      if (resources?.get(resourceKey) === pendingResource) {
+        resources.delete(resourceKey);
+        resources.set(resourceKey, pendingResource);
       }
       let released = false;
       const releaseResource = () => {
         if (released) return;
         released = true;
         pendingResource.consumers = Math.max(0, pendingResource.consumers - 1);
-        if (pendingResource.consumers === 0 && resources?.get(projectPath) === pendingResource) {
+        if (pendingResource.consumers === 0 && resources?.get(resourceKey) === pendingResource) {
           trimProjectImageResources(resources);
         }
       };
       void pendingResource.promise.then((dataUrl) => {
         releaseResource();
         if (active && dataUrl) {
-          setLoaded({ projectPath, loader: loadAsset, dataUrl });
+          setLoaded({ projectPath, loader: loadAsset, revision, dataUrl });
           setMissing(null);
           return;
         }
         // Tauri can transiently return null while a newly imported paper
         // asset is still being written. Treat it like a failed read rather
         // than caching a permanent blank image for this document session.
-        if (resources?.get(projectPath) === pendingResource) resources.delete(projectPath);
+        if (resources?.get(resourceKey) === pendingResource) resources.delete(resourceKey);
         if (!active) return;
         if (attempt >= retryDelays.length) {
-          setMissing({ projectPath, loader: loadAsset });
+          setMissing({ projectPath, loader: loadAsset, revision });
           return;
         }
         retryTimer = setTimeout(() => {
@@ -191,7 +202,11 @@ export function useProjectImage(src: string | undefined, enabled = true): Projec
         }, retryDelays[attempt]);
       }).catch(() => {
         releaseResource();
-        if (!active || attempt >= retryDelays.length) return;
+        if (!active) return;
+        if (attempt >= retryDelays.length) {
+          setMissing({ projectPath, loader: loadAsset, revision });
+          return;
+        }
         retryTimer = setTimeout(() => {
           releaseCurrent = load(attempt + 1);
         }, retryDelays[attempt]);
@@ -204,14 +219,22 @@ export function useProjectImage(src: string | undefined, enabled = true): Projec
       releaseCurrent();
       if (retryTimer !== null) clearTimeout(retryTimer);
     };
-  }, [enabled, loadAsset, projectPath]);
+  }, [enabled, loadAsset, projectPath, revision]);
 
   if (!projectPath || !loadAsset) return { src, targetExistence: "unknown" };
+  if (
+    missing
+    && missing.projectPath === projectPath
+    && missing.loader === loadAsset
+    && missing.revision === revision
+  ) {
+    return { src: undefined, targetExistence: "missing" };
+  }
+  // Keep the last decoded bytes painted while a replacement at the same path
+  // is read. Loader identity still fences project switches, while `revision`
+  // only asks for fresher bytes inside that project.
   if (loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset) {
     return { src: loaded.dataUrl, targetExistence: "exists" };
-  }
-  if (missing && missing.projectPath === projectPath && missing.loader === loadAsset) {
-    return { src: undefined, targetExistence: "missing" };
   }
   if (!enabled) return { src: undefined, targetExistence: "unknown" };
   return resource?.dataUrl

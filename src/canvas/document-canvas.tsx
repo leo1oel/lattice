@@ -65,6 +65,7 @@ import {
   type LatexSelectionToolbarPosition,
 } from "../editor/latex/latex-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { InlineMessage } from "../components/ui/inline-message";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { Textarea } from "../components/ui/textarea";
 import { Tip } from "../components/icon-tip";
@@ -240,6 +241,7 @@ function htmlSourceFromDataUrl(dataUrl: string): string | null {
 function HtmlPreview({
   path,
   source,
+  assetRevision = 0,
   sourceEditorView,
   initialViewState,
   onViewState,
@@ -247,6 +249,7 @@ function HtmlPreview({
 }: {
   path: string;
   source: string;
+  assetRevision?: number;
   sourceEditorView?: EditorView | null;
   initialViewState?: HtmlFileViewState;
   onViewState?: (state: HtmlFileViewState) => void;
@@ -347,7 +350,7 @@ function HtmlPreview({
       }).catch(() => undefined);
     }
     return () => { cancelled = true; };
-  }, [onLoadAsset, path, previewSource]);
+  }, [assetRevision, onLoadAsset, path, previewSource]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<unknown>) => {
@@ -828,6 +831,7 @@ function SecondaryMarkdownPreview(props: {
   macros: Record<string, string>;
   onImportAsset?: (file: File) => Promise<string | null>;
   onLoadAsset: (path: string) => Promise<string | null>;
+  assetRevision: number;
   editable: boolean;
   onCaretChange: (row: number, column: number) => void;
   onSelectionMarkdown: (value: string) => void;
@@ -916,6 +920,7 @@ function SecondaryMarkdownPreview(props: {
           onViewInSource={props.onEditSource}
           onImportAsset={props.onImportAsset}
           onLoadAsset={props.onLoadAsset}
+          assetRevision={props.assetRevision}
           editable={props.editable}
           onCaretChange={(row, column) => props.onCaretChange(row + lineOffset, column)}
           onSelectionMarkdown={props.onSelectionMarkdown}
@@ -1208,6 +1213,7 @@ export function DocumentCanvas(props: {
   unusedLabels: string[];
   unusedCitations: string[];
   onLoadReferenceImage: (path: string) => Promise<string | null>;
+  referenceImageGeneration?: number;
   onEditorLeave: () => void;
   onPrepareFigure: (path: string) => Promise<string | null>;
   onPasteImageFile: (file: File) => boolean | void;
@@ -1476,6 +1482,31 @@ export function DocumentCanvas(props: {
     markdownSyncPolicy.publicationIdleMs,
     markdownSyncPolicy.publicationMaxMs,
   );
+  const paperFullTextActive = Boolean(
+    props.activePaper
+    && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md"),
+  );
+  const [paperVisualEligibility, setPaperVisualEligibility] = useState<{
+    path: string;
+    text: string;
+    reason: string | null;
+  } | null>(null);
+  const reportPaperVisualEligibility = useCallback((reason: string | null) => {
+    setPaperVisualEligibility((current) => {
+      if (!paperFullTextActive) return null;
+      if (
+        current?.path === activeFile
+        && current.text === settledPreviewText
+        && current.reason === reason
+      ) return current;
+      return { path: activeFile, text: settledPreviewText, reason };
+    });
+  }, [activeFile, paperFullTextActive, settledPreviewText]);
+  const paperVisualEligibilityReason = paperFullTextActive
+    && paperVisualEligibility?.path === activeFile
+    && paperVisualEligibility.text === settledPreviewText
+    ? paperVisualEligibility.reason
+    : null;
   const markdownPreviewLineOffset = props.source.slice(0, markdownPreviewStart).split("\n").length - 1;
   const markdownVisualCursors = useMemo(
     () => props.overleafPresenceCursors
@@ -3399,10 +3430,14 @@ export function DocumentCanvas(props: {
       />
     );
   }
-  const paperFullTextHeader = props.activePaper
-    && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md") ? (
+  const paperFullTextHeader = props.activePaper && paperFullTextActive ? (
       <header className="paper-visual-header editor-content-aligned">
         <div>
+          {paperVisualEligibilityReason && (
+            <InlineMessage level="warning" className="paper-visual-eligibility">
+              {paperVisualEligibilityReason}
+            </InlineMessage>
+          )}
           <h1>{props.activePaper.title}</h1>
           {props.activePaper.authors?.trim() && (
             <p>{props.activePaper.authors.trim().replace(/\s+and\s+/gi, " · ")}</p>
@@ -3456,6 +3491,7 @@ export function DocumentCanvas(props: {
           text={settledPreviewText}
           activePath={props.activeFile}
           optimizeForReading={Boolean(props.activePaper)}
+          onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
           // Split previews keep source labels for scroll sync. Pure preview
           // enables them only for a pending navigation, so collaborator jumps
           // stay exact without paying the labeling cost while typing.
@@ -3472,6 +3508,7 @@ export function DocumentCanvas(props: {
           onViewInSource={viewMarkdownSource}
           onImportAsset={props.onImportAsset}
           onLoadAsset={props.onLoadReferenceImage}
+          assetRevision={props.referenceImageGeneration ?? 0}
           presenceCursors={allMarkdownVisualCursors}
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.overleafTrackChangeActions}
@@ -3859,6 +3896,7 @@ export function DocumentCanvas(props: {
           key={activeFile}
           path={activeFile}
           source={props.source}
+          assetRevision={props.referenceImageGeneration ?? 0}
           sourceEditorView={props.mode === "split" ? primaryScrollbarView : null}
           initialViewState={props.getFileViewState?.(activeFile)?.html}
           onViewState={(html) => props.onFileViewState?.(activeFile, { html })}
@@ -4126,6 +4164,7 @@ export function DocumentCanvas(props: {
         macros={katexMacros}
         onImportAsset={props.onImportAsset}
         onLoadAsset={props.onLoadReferenceImage}
+        assetRevision={props.referenceImageGeneration ?? 0}
         editable={props.secondaryEditorEditable}
         onSelectionMarkdown={(value) => setSelectionRef.current(value)}
         onCaretChange={(row, column) => {
@@ -4141,6 +4180,7 @@ export function DocumentCanvas(props: {
             key={secondaryFile}
             path={secondaryFile}
             source={secondarySource}
+            assetRevision={props.referenceImageGeneration ?? 0}
             initialViewState={props.getFileViewState?.(secondaryFile)?.html}
             onViewState={(html) => props.onFileViewState?.(secondaryFile, { html })}
             onLoadAsset={props.onLoadReferenceImage}

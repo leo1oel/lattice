@@ -8,6 +8,7 @@
  * closed — a chat you have to open to discover is a chat nobody reads.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { OverleafMessage, OverleafStatus } from "../app-types";
@@ -40,6 +41,7 @@ export function useOverleafChat(options: {
   enabled: boolean;
   projectRoot: string | null;
 }): OverleafChat {
+  const { t } = useLingui();
   const [messages, setMessages] = useState<OverleafMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export function useOverleafChat(options: {
   const send = useCallback(async (content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
-    if (!projectRoot) throw new Error("Open the linked Overleaf project first.");
+    if (!projectRoot) throw new Error(t`Open the linked Overleaf project first.`);
     setError(null);
     try {
       await invoke("overleaf_send_chat_message", { projectRoot, content: trimmed });
@@ -105,7 +107,7 @@ export function useOverleafChat(options: {
       setError(String(reason));
       throw reason;
     }
-  }, [projectRoot]);
+  }, [projectRoot, t]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -123,7 +125,7 @@ export function useOverleafChat(options: {
       const message: OverleafMessage = {
         id: payload.id,
         content: payload.content ?? "",
-        authorName: payload.authorName ?? "Someone",
+        authorName: payload.authorName ?? t`Someone`,
         authorEmail: email,
         timestamp: payload.timestamp ?? 0,
         mine,
@@ -138,7 +140,7 @@ export function useOverleafChat(options: {
       disposed = true;
       unlisten?.();
     };
-  }, [enabled, projectRoot]);
+  }, [enabled, projectRoot, t]);
 
   const markRead = useCallback(() => setUnread(0), []);
 

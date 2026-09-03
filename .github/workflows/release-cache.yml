@@ -1,7 +1,8 @@
 name: Release cache
 
-# Keeps a warm release-profile build of src-tauri's dependencies on the default
-# branch, for the Release workflow to restore.
+# Keeps the expensive release inputs warm on the default branch so tag-scoped
+# Release runs can restore them: Rust dependencies and the prepared Synara
+# runtime.
 #
 # Why this exists: Actions scopes every cache entry to the ref that wrote it,
 # and Release runs on a tag. Each release is therefore a brand new scope that
@@ -11,7 +12,7 @@ name: Release cache
 # dependencies from scratch: 17 minutes of a 23-minute release.
 #
 # This is a cache warmer, not a gate. It fails open — a miss only costs the
-# next release the compile it was already paying.
+# next release the work it was already paying.
 on:
   push:
     branches: [main]
@@ -23,6 +24,8 @@ on:
       - "src-tauri/Cargo.toml"
       - "src-tauri/Cargo.lock"
       - "rust-toolchain.toml"
+      - "scripts/synara-runtime.json"
+      - "scripts/prepare-synara-sidecar.mjs"
       - ".github/workflows/release-cache.yml"
   # Actions evicts caches untouched for 7 days. Releases are less frequent than
   # that, so refresh it on a schedule to keep releases off the cold path.
@@ -44,29 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          # Must stay identical to the Release workflow's. shared-key replaces
-          # the job-name component of the key, which is exactly what kept these
-          # two apart (`v0-rust-release-…` vs `v0-rust-rust-…`).
-          shared-key: aarch64-apple-darwin-release
-
-      # tauri-build compiles the resource list from tauri.conf.json, which names
-      # both bundled runtimes. Nothing here launches them.
-      - name: Stub bundled runtime resources for compilation
-        run: |
-          mkdir -p src-tauri/synara-runtime src-tauri/chromium-runtime
-          echo stub > src-tauri/synara-runtime/placeholder.txt
-          echo stub > src-tauri/chromium-runtime/placeholder.txt
-
-      # generate_context! embeds the frontend at compile time. The build is
-      # cheap next to the Rust compile and removes any question of whether a
-      # missing dist/ would derail it.
       - uses: pnpm/action-setup@v6
         with:
           version: 10
@@ -77,14 +57,94 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      - name: Read the minimum macOS version
+        id: macos-version
+        run: |
+          echo "value=$(node -p "require('./src-tauri/tauri.conf.json').bundle.macOS.minimumSystemVersion")" \
+            >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          # Must stay identical to the Release workflow's. shared-key replaces
+          # the job-name component of the key, which is exactly what kept these
+          # two apart (`v0-rust-release-…` vs `v0-rust-rust-…`).
+          shared-key: aarch64-apple-darwin-release-macos${{ steps.macos-version.outputs.value }}
+
+      # tauri-build compiles the resource list from tauri.conf.json, which names
+      # both bundled runtimes. Nothing here launches them.
+      - name: Stub bundled runtime resources for compilation
+        run: |
+          mkdir -p src-tauri/synara-runtime src-tauri/chromium-runtime
+          echo stub > src-tauri/synara-runtime/placeholder.txt
+          echo stub > src-tauri/chromium-runtime/placeholder.txt
+
       # LATTICE_FIRECRAWL_KEY is deliberately absent. rust-cache prunes
       # workspace crates from the target dir before saving (cache-workspace-
       # crates defaults to false), so this crate's own artifacts — the only
       # place an option_env! secret could land — never reach the cache. The
       # release rebuilds them with the key.
       - name: Warm the dependency graph
+        env:
+          # Tauri sets this from tauri.conf.json before its Cargo invocation.
+          # Without the same value here, the apparent cache hit still rebuilds
+          # the macOS/Tauri half of the dependency graph during every release.
+          MACOSX_DEPLOYMENT_TARGET: ${{ steps.macos-version.outputs.value }}
         run: |
           cargo build \
             --release \
             --target aarch64-apple-darwin \
             --manifest-path src-tauri/Cargo.toml
+
+  synara:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      # The staging script reads the host triple from rustc to select the
+      # matching bundled Node runtime.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Fetch pinned Synara source
+        run: |
+          synara_repository="$(
+            node -p "require('./scripts/synara-runtime.json').repository"
+          )"
+          synara_revision="$(
+            node -p "require('./scripts/synara-runtime.json').revision"
+          )"
+          synara_source="$RUNNER_TEMP/lattice-synara"
+
+          git init "$synara_source"
+          git -C "$synara_source" remote add origin "$synara_repository"
+          git -C "$synara_source" fetch --depth=1 origin "$synara_revision"
+          git -C "$synara_source" checkout --detach FETCH_HEAD
+          test "$(git -C "$synara_source" rev-parse HEAD)" = "$synara_revision"
+
+          echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
+          echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
+
+      - name: Restore prepared Synara runtime
+        id: synara-runtime-cache
+        uses: actions/cache@v5
+        with:
+          path: src-tauri/synara-runtime
+          key: synara-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/synara-runtime.json', 'scripts/prepare-synara-sidecar.mjs') }}
+
+      - name: Build the prepared Synara runtime after a cache miss
+        if: steps.synara-runtime-cache.outputs.cache-hit != 'true'
+        run: |
+          bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
+          node scripts/prepare-synara-sidecar.mjs

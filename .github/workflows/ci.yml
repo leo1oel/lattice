@@ -6,13 +6,18 @@ on:
   pull_request:
 
 # The frontend work is split so the wall clock is the slowest single job rather
-# than the sum of every check. `pnpm test` dominates at ~160s, so it runs alone;
-# lint and the production build together still finish well inside that, and the
-# Rust job is shorter than either. Nothing is skipped — this only stops the
+# than the sum of every check. Vitest deliberately uses one worker per process
+# to keep the memory-heavy app/editor suites stable, so CI shards the test files
+# across three isolated runners. Nothing is skipped — this only stops the
 # checks from queueing behind each other.
 jobs:
   test:
+    name: test (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -23,7 +28,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm vitest run --shard=${{ matrix.shard }}/3
 
   # The collaboration server is its own pnpm project with its own lockfile and
   # is not part of the root install, so nothing above sees it. Its tests run on

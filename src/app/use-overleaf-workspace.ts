@@ -87,7 +87,7 @@ export type OverleafWorkspaceDeps = {
   collabSession: EditorCollabSession | null;
   collabName: string;
   /** Runs prepare → canonical Catalog/Yjs apply → exact-byte commit for an active Share. */
-  runSharedOverleafSync: () => Promise<OverleafSyncResult>;
+  runSharedOverleafSync: (observedRemoteVersion?: number | null) => Promise<OverleafSyncResult>;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
   loadFile: (
@@ -176,7 +176,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const overleafAutoSyncedRoot = useRef<string | null>(null);
-  const overleafSyncRef = useRef<(options?: { auto?: boolean }) => Promise<void>>(async () => {});
+  const overleafSyncRef = useRef<(
+    options?: { auto?: boolean; observedRemoteVersion?: number | null },
+  ) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
@@ -411,7 +413,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }
   }, [projectOperationGenerationRef, projectRef, t]);
 
-  const runOverleafSync = useCallback(async (options?: { auto?: boolean }) => {
+  const runOverleafSync = useCallback(async (options?: {
+    auto?: boolean;
+    observedRemoteVersion?: number | null;
+  }) => {
     if (!project || overleafSyncingRef.current) return;
     const syncRoot = project.root;
     const syncGeneration = projectOperationGenerationRef.current;
@@ -435,10 +440,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stillCurrent()) return;
       const sharedSync = collabSession !== null;
       const result = sharedSync
-        ? await runSharedOverleafSync()
+        ? await runSharedOverleafSync(options?.observedRemoteVersion)
         : await invoke<OverleafSyncResult>("overleaf_sync", {
             projectRoot: syncRoot,
             live: overleafLivePathsRef.current,
+            observedRemoteVersion: options?.observedRemoteVersion ?? null,
           });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
@@ -550,13 +556,23 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         // still leaves a line in the log so a gap in sync history is explained.
         trace.note("Overleaf: already up to date.");
       }
-      // Each sync point becomes a version, so the timeline shows what arrived.
+      const changedProjectContent = hadUnsavedEdits
+        || result.pulled.length > 0
+        || result.pushed.length > 0
+        || result.merged.length > 0
+        || result.conflicts.length > 0
+        || result.deletedLocal.length > 0;
+      // Only a real content transition becomes a version. A no-op sync used
+      // to run `git add -A` anyway, waking the filesystem watcher and making
+      // unrelated previews reload even though Overleaf changed nothing.
       if (!stillCurrent()) return;
-      void invoke<string | null>("git_auto_commit", {
-        message: "Overleaf sync",
-        author: collabName.trim() || null,
-        projectRoot: syncRoot,
-      }).catch(() => {});
+      if (changedProjectContent) {
+        void invoke<string | null>("git_auto_commit", {
+          message: "Overleaf sync",
+          author: collabName.trim() || null,
+          projectRoot: syncRoot,
+        }).catch(() => {});
+      }
       if (stillCurrent()) refreshOverleafLink();
     } catch (reason) {
       if (stillCurrent()) {
@@ -614,14 +630,28 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const projectRoot = project.root;
     let stopped = false;
     let timer: number | null = null;
+    let running = false;
     // Backs off when Overleaf pushes back, and stays slow when this instance
     // cannot tell us a version — polling only earns its keep when a cheap
     // check can rule a download out.
     const baseWait = () =>
       overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
     let wait = baseWait();
-    const tick = async () => {
+    const scheduleNext = () => {
       if (stopped) return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void tick();
+      }, wait);
+    };
+    const tick = async () => {
+      if (stopped || running) return;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      running = true;
       try {
         if (!overleafSyncingRef.current) {
           const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
@@ -646,10 +676,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           } else if (
             !stopped
             && probe.changed
-            && Date.now() - lastAutoSyncRef.current >= OVERLEAF_MIN_SYNC_GAP_MS
+            && Date.now() - lastAutoSyncRef.current >= minimumSyncGap
           ) {
             lastAutoSyncRef.current = Date.now();
-            await overleafSyncRef.current({ auto: true });
+            await overleafSyncRef.current({
+              auto: true,
+              observedRemoteVersion: probe.remoteVersion,
+            });
           }
         }
       } catch (reason) {
@@ -659,17 +692,25 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         wait = /429|Too Many Requests/i.test(message)
           ? Math.min(wait * 4, 5 * 60_000)
           : Math.min(Math.max(wait * 2, baseWait()), 60_000);
+      } finally {
+        running = false;
+        scheduleNext();
       }
-      if (!stopped) timer = window.setTimeout(() => void tick(), wait);
     };
     void tick();
     // Coming back from the browser is the moment stale content is most
     // obvious, so check immediately rather than waiting for the next tick.
-    const onFocus = () => void tick();
+    const onFocus = () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      void tick();
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       stopped = true;
-      if (timer) window.clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
     };
   }, [overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);

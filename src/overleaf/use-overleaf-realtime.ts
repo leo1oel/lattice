@@ -1183,14 +1183,14 @@ export function useOverleafRealtime(options: {
       || connectionRoot.current !== target.projectRoot
       || callbacks.current.activeFile !== target.path
     ) {
-      throw new Error("The commented file is no longer open live with Overleaf. Try again.");
+      throw new Error(t`The commented file is no longer open live with Overleaf. Try again.`);
     }
     // An anchor is an operation like any other, so it needs the wire to
     // itself; typing while one is outstanding would be built on a version the
     // server has not confirmed.
     const reserved = doc.anchor();
     if (!reserved) {
-      throw new Error("An edit is still on its way to Overleaf. Try again in a moment.");
+      throw new Error(t`An edit is still on its way to Overleaf. Try again in a moment.`);
     }
     try {
       await invoke("overleaf_rt_send_comment", {
@@ -1211,7 +1211,7 @@ export function useOverleafRealtime(options: {
         ? { ...current, comments: [...current.comments, { threadId, position, quote }] }
         : current
     ));
-  }, [fail]);
+  }, [fail, t]);
 
   return {
     status,
