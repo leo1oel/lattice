@@ -8160,15 +8160,28 @@ function App() {
       });
       if (!operationIsCurrent()) return;
       let citationMode: "keep" | "remove" | undefined;
+      const confirmationTitle = t({
+        message: `Remove “${{ title: paper.title }}” from the bibliography?`,
+      });
       if (preview.blockers.length) {
         const count = preview.blockers.length;
         const first = preview.blockers[0];
-        const location = first ? ` The first is at ${first.path}:${first.line}.` : "";
+        const citationCount = count === 1
+          ? t`This entry is cited in 1 place.`
+          : t({ message: `This entry is cited in ${{ count }} places.` });
+        const location = first
+          ? t({ message: `The first is at ${{ path: first.path }}:${{ line: first.line }}.` })
+          : "";
         const choice = await chooseAction({
-          title: `Remove “${paper.title}” from the bibliography?`,
-          message: `This entry is cited in ${count} ${count === 1 ? "place" : "places"}.${location} Keeping the citation commands will leave them unresolved. Downloaded paper files will be kept.`,
-          confirmLabel: "Remove citations too",
-          alternativeLabel: "Keep citations",
+          title: confirmationTitle,
+          message: [
+            citationCount,
+            location,
+            t`Keeping the citation commands will leave them unresolved.`,
+            t`Downloaded paper files will be kept.`,
+          ].filter(Boolean).join(" "),
+          confirmLabel: t`Remove citations too`,
+          alternativeLabel: t`Keep citations`,
           alternativeDestructive: true,
           destructive: true,
         });
@@ -8176,9 +8189,9 @@ function App() {
         citationMode = choice === "confirm" ? "remove" : "keep";
       } else {
         const confirmed = await confirmAction({
-          title: `Remove “${paper.title}” from the bibliography?`,
-          message: "Downloaded paper files will be kept.",
-          confirmLabel: "Remove entry",
+          title: confirmationTitle,
+          message: t`Downloaded paper files will be kept.`,
+          confirmLabel: t`Remove entry`,
           destructive: true,
         });
         if (!confirmed) return;
@@ -8307,6 +8320,7 @@ function App() {
     refreshProject,
     save,
     secondaryFile,
+    t,
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {

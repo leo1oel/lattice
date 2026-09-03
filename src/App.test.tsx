@@ -8945,6 +8945,73 @@ describe("project workspace", () => {
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
+  it("localizes the imported-paper removal confirmation", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const paper = {
+      arxivId: "1706.03762",
+      title: "Attention Is All You Need",
+      citationKey: "vaswani2017attention",
+      hasFullText: true,
+    };
+    let cited = false;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [paper];
+      if (command === "list_history" || command === "harper_lint") return [];
+      if (command === "remove_reference") {
+        return {
+          key: paper.citationKey,
+          removed: false,
+          blockers: cited
+            ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }]
+            : [],
+          changedFiles: [],
+          removedCitations: 0,
+        };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    fireEvent.click(await screen.findByRole("tab", { name: "论文" }));
+    fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "要从参考文献中移除“Attention Is All You Need”吗？",
+    });
+    expect(dialog).toHaveAccessibleDescription("已下载的论文文件将会保留");
+    expect(screen.getByRole("button", { name: "移除条目" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    cited = true;
+    fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
+    const citedDialog = await screen.findByRole("dialog", {
+      name: "要从参考文献中移除“Attention Is All You Need”吗？",
+    });
+    expect(citedDialog).toHaveAccessibleDescription(
+      "此条目在 1 处被引用。 第一处位于 main.tex:7。 保留引用命令会使这些引用无法解析。 已下载的论文文件将会保留",
+    );
+    expect(screen.getByRole("button", { name: "同时移除引用" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保留引用" })).toBeInTheDocument();
+  });
+
   it("creates and deletes project entries and imported papers", async () => {
     localStorage.setItem("lattice.file-view-states.v1", JSON.stringify({
       "/tmp/lattice-paper": {

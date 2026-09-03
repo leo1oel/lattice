@@ -1517,6 +1517,10 @@ msgstr "下载 PDF"
 msgid "Download time depends on your connection"
 msgstr "下载时间取决于你的网络连接"
 
+#: src/App.tsx
+msgid "Downloaded paper files will be kept."
+msgstr "已下载的论文文件将会保留。"
+
 #. placeholder {0}: cloning.name
 #: src/overleaf/overleaf-connect.tsx
 msgid "Downloading {0} from Overleaf… this can take a minute for large projects"
@@ -2475,6 +2479,10 @@ msgstr "只有你"
 msgid "Kappa"
 msgstr "卡帕"
 
+#: src/App.tsx
+msgid "Keep citations"
+msgstr "保留引用"
+
 #: src/settings/settings-dialog.tsx
 msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
 msgstr "登录后保持 http://127.0.0.1:18452 可用。退出 Lattice 后，该地址将停止服务"
@@ -2482,6 +2490,10 @@ msgstr "登录后保持 http://127.0.0.1:18452 可用。退出 Lattice 后，该
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
+
+#: src/App.tsx
+msgid "Keeping the citation commands will leave them unresolved."
+msgstr "保留引用命令会使这些引用无法解析。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
@@ -3894,6 +3906,10 @@ msgstr "此预览中无法使用项目相对链接"
 msgid "Remove"
 msgstr "移除"
 
+#: src/App.tsx
+msgid "Remove “{title}” from the bibliography?"
+msgstr "要从参考文献中移除“{title}”吗？"
+
 #. placeholder {0}: known.length
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove {0} files from the Overleaf project?"
@@ -3923,6 +3939,14 @@ msgstr "移除 {title}"
 #: src/settings/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "从项目词典中移除 {word}"
+
+#: src/App.tsx
+msgid "Remove citations too"
+msgstr "同时移除引用"
+
+#: src/App.tsx
+msgid "Remove entry"
+msgstr "移除条目"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -4876,6 +4900,10 @@ msgstr "内置智能助手服务无法启动"
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"
 
+#: src/App.tsx
+msgid "The first is at {path}:{line}."
+msgstr "第一处位于 {path}:{line}。"
+
 #: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
 msgstr "主机已结束此次共享，已重新打开你自己的项目。"
@@ -4989,6 +5017,14 @@ msgstr "此评论已不再关联任何文本，因此 Overleaf 无法应用此�
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "此文档的同一位置已被修改"
+
+#: src/App.tsx
+msgid "This entry is cited in {count} places."
+msgstr "此条目在 {count} 处被引用。"
+
+#: src/App.tsx
+msgid "This entry is cited in 1 place."
+msgstr "此条目在 1 处被引用。"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"

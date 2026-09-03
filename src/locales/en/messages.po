@@ -1517,6 +1517,10 @@ msgstr "Download PDF"
 msgid "Download time depends on your connection"
 msgstr "Download time depends on your connection"
 
+#: src/App.tsx
+msgid "Downloaded paper files will be kept."
+msgstr "Downloaded paper files will be kept."
+
 #. placeholder {0}: cloning.name
 #: src/overleaf/overleaf-connect.tsx
 msgid "Downloading {0} from Overleaf… this can take a minute for large projects"
@@ -2475,6 +2479,10 @@ msgstr "just you"
 msgid "Kappa"
 msgstr "Kappa"
 
+#: src/App.tsx
+msgid "Keep citations"
+msgstr "Keep citations"
+
 #: src/settings/settings-dialog.tsx
 msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
 msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
@@ -2482,6 +2490,10 @@ msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stop
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
+
+#: src/App.tsx
+msgid "Keeping the citation commands will leave them unresolved."
+msgstr "Keeping the citation commands will leave them unresolved."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
@@ -3894,6 +3906,10 @@ msgstr "Relative project links are unavailable in this preview"
 msgid "Remove"
 msgstr "Remove"
 
+#: src/App.tsx
+msgid "Remove “{title}” from the bibliography?"
+msgstr "Remove “{title}” from the bibliography?"
+
 #. placeholder {0}: known.length
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove {0} files from the Overleaf project?"
@@ -3925,6 +3941,14 @@ msgstr "Remove {title}"
 #: src/settings/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "Remove {word} from project dictionary"
+
+#: src/App.tsx
+msgid "Remove citations too"
+msgstr "Remove citations too"
+
+#: src/App.tsx
+msgid "Remove entry"
+msgstr "Remove entry"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -4880,6 +4904,10 @@ msgstr "The bundled Agent service could not start"
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
 
+#: src/App.tsx
+msgid "The first is at {path}:{line}."
+msgstr "The first is at {path}:{line}."
+
 #: src/app/use-collab-v2-session.ts
 msgid "The host ended this share. Your own project is open again."
 msgstr "The host ended this share. Your own project is open again."
@@ -4993,6 +5021,14 @@ msgstr "This comment is no longer attached to any text, so Overleaf has nowhere 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"
+
+#: src/App.tsx
+msgid "This entry is cited in {count} places."
+msgstr "This entry is cited in {count} places."
+
+#: src/App.tsx
+msgid "This entry is cited in 1 place."
+msgstr "This entry is cited in 1 place."
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
