@@ -3641,6 +3641,35 @@ mod tests {
         fs::remove_dir_all(parent).unwrap();
     }
 
+    /// arXiv HTML represents some vector figures as `<object data="…svg">`
+    /// instead of `<img>`. Figure 6 in 2609.01607 mixes both forms in one row;
+    /// both panels must be local verified assets rather than an empty left cell.
+    #[test]
+    #[ignore = "requires network access"]
+    fn imports_external_svg_figure_panels() {
+        let parent = std::env::temp_dir().join(format!("lattice-svg-figure-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let root = project::create(&parent, "paper").unwrap();
+
+        let result = fetch_paper(&root, "2609.01607").unwrap();
+        let markdown = fs::read_to_string(root.join(&result.paper_path)).unwrap();
+        let figure = markdown
+            .split_once("<PaperFigure id=\"S4.F6\">")
+            .and_then(|(_, rest)| rest.split_once("</PaperFigure>"))
+            .map(|(figure, _)| figure)
+            .expect("Figure 6 should retain its structured panel layout");
+        assert_eq!(figure.matches("![").count(), 2, "got: {figure}");
+        assert!(figure.contains("paper_assets/"));
+        assert!(figure.contains(".svg)"));
+        let manifest =
+            fs::read_to_string(root.join(".research/papers/2609.01607/paper_assets/manifest.json"))
+                .unwrap();
+        assert!(manifest.contains("svg_vqa_accuracy.svg"));
+        assert!(manifest.contains("image/svg+xml"));
+
+        fs::remove_dir_all(parent).unwrap();
+    }
+
     #[test]
     #[ignore = "requires network access"]
     fn imports_markdown_and_a_real_citation() {
