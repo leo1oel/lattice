@@ -3752,6 +3752,109 @@ async fn upgrade_bibliography(
     .map_err(|e| e.to_string())?
 }
 
+/// The only path from a sandboxed agent process to a bibliography mutation.
+/// Keep this protocol closed over the three domain operations that validate
+/// and resolve references; it must never accept an executable, file path, or
+/// arbitrary literature request.
+#[derive(serde::Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+enum AgentBibliographyMutation {
+    Cite {
+        query: String,
+    },
+    UpgradeBibliography {
+        #[serde(rename = "dryRun", default)]
+        dry_run: bool,
+    },
+    RemoveReference {
+        key: String,
+    },
+}
+
+fn bounded_agent_bibliography_value(
+    value: String,
+    label: &str,
+    max_chars: usize,
+) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > max_chars {
+        return Err(format!(
+            "{label} must contain between 1 and {max_chars} characters."
+        ));
+    }
+    Ok(value.to_string())
+}
+
+#[tauri::command]
+async fn agent_bibliography_mutation(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    mutation: AgentBibliographyMutation,
+) -> Result<serde_json::Value, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let value = match mutation {
+            AgentBibliographyMutation::Cite { query } => {
+                let query = bounded_agent_bibliography_value(query, "Citation query", 4_096)?;
+                papers::import_reference_with_history(&root, &query, papers::HistoryMode::Defer)
+                    .and_then(|result| {
+                        serde_json::to_value(result).map_err(|error| error.to_string())
+                    })
+            }
+            AgentBibliographyMutation::UpgradeBibliography { dry_run } => {
+                papers::upgrade_bibliography_with_history(
+                    &root,
+                    dry_run,
+                    papers::HistoryMode::Defer,
+                )
+                .and_then(|result| serde_json::to_value(result).map_err(|error| error.to_string()))
+            }
+            AgentBibliographyMutation::RemoveReference { key } => {
+                let key = bounded_agent_bibliography_value(key, "Citation key", 512)?;
+                papers::remove_reference_with_history(&root, &key, papers::HistoryMode::Defer)
+                    .and_then(|result| {
+                        serde_json::to_value(result).map_err(|error| error.to_string())
+                    })
+            }
+        }?;
+        Ok(value)
+    })
+    .await
+    .map_err(|error| format!("The bibliography task stopped unexpectedly: {error}"))?
+}
+
+#[cfg(test)]
+mod agent_bibliography_mutation_tests {
+    use super::{bounded_agent_bibliography_value, AgentBibliographyMutation};
+
+    #[test]
+    fn mutation_protocol_rejects_arbitrary_actions_and_fields() {
+        assert!(serde_json::from_str::<AgentBibliographyMutation>(
+            r#"{"action":"cite","query":"Attention Is All You Need"}"#
+        )
+        .is_ok());
+        assert!(serde_json::from_str::<AgentBibliographyMutation>(
+            r#"{"action":"write_file","path":"references.bib"}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<AgentBibliographyMutation>(
+            r#"{"action":"remove_reference","key":"bad2024","path":"references.bib"}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn mutation_protocol_bounds_agent_controlled_strings() {
+        assert_eq!(
+            bounded_agent_bibliography_value("  key2024  ".to_string(), "key", 512).unwrap(),
+            "key2024"
+        );
+        assert!(bounded_agent_bibliography_value("   ".to_string(), "key", 512).is_err());
+        assert!(bounded_agent_bibliography_value("x".repeat(513), "key", 512).is_err());
+    }
+}
+
 #[tauri::command]
 async fn remove_reference(
     state: tauri::State<'_, AppState>,
@@ -4454,6 +4557,7 @@ pub fn run() {
             fetch_paper,
             fetch_web_reference,
             upgrade_bibliography,
+            agent_bibliography_mutation,
             remove_reference,
             list_papers,
             search_paper_library,

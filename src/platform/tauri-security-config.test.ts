@@ -181,7 +181,8 @@ describe("Tauri security boundary", () => {
     // independently staged Node binary instead of selecting Electron.
     expect(chromiumPrepare).toContain('ELECTRON_RUN_AS_NODE: "1"');
     expect(synaraNodeStaging).toContain('nodeRuntime !== "electron"');
-    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin")');
+    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin", "node")');
+    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin", "node.exe")');
     for (const runtime of [synaraRuntime, presentationRuntime]) {
       expect(runtime).toContain("tauri::is_dev()");
       expect(runtime).toContain('not(debug_assertions)');

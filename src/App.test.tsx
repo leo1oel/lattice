@@ -5072,7 +5072,7 @@ describe("project workspace", () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
     const snapshot = {
       root: "/tmp/lattice-overleaf-paper",
       manifest: {

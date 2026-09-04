@@ -117,6 +117,10 @@ import {
   waitForAgentCanvasAdapter,
 } from "./agent/agent-canvas-tools";
 import {
+  executeAgentBibliographyToolRequest,
+  parseAgentBibliographyToolRequest,
+} from "./agent/agent-bibliography-tools";
+import {
   executeAgentProjectDocumentToolRequest,
   parseAgentProjectDocumentToolRequest,
   type AgentProjectDocumentToolRequest,
@@ -1978,6 +1982,14 @@ function App() {
         selectionSourceRef.current = null;
         setSelection("");
         setSelectionSource(null);
+        return;
+      }
+      const bibliographyRequest = parseAgentBibliographyToolRequest(event.data);
+      if (bibliographyRequest) {
+        void executeAgentBibliographyToolRequest(
+          bibliographyRequest,
+          projectRootRef.current,
+        ).then(postSynaraMessage);
         return;
       }
       const projectDocumentRequest = parseAgentProjectDocumentToolRequest(event.data);

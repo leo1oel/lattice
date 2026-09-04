@@ -33,6 +33,12 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const SHUTDOWN_GRACE_PERIOD: Duration = Duration::from_secs(2);
 const RUNTIME_STATE_RELATIVE_PATH: &str = "userdata/server-runtime.json";
+#[cfg(target_os = "macos")]
+const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
+    "(version 1)\n",
+    "(allow default)\n",
+    "(deny file-write* (regex #\".*[.][bB][iI][bB]$\"))",
+);
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -328,6 +334,22 @@ impl SynaraRuntime {
         let auth_token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
         let shutdown_token = format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
 
+        // The prompt tells providers to use Lattice's bibliography tools, but
+        // prompt text is not an authorization boundary. On macOS, put the
+        // complete sidecar inside one Seatbelt profile so in-process agents,
+        // provider CLIs, scripts, and delayed descendants all inherit the same
+        // .bib write denial. The trusted parent app brokers the three allowed
+        // bibliography mutations.
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let mut command = Command::new("/usr/bin/sandbox-exec");
+            command
+                .arg("-p")
+                .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
+                .arg(&self.javascript_runtime_path);
+            command
+        };
+        #[cfg(not(target_os = "macos"))]
         let mut command = Command::new(&self.javascript_runtime_path);
         if self.electron_node {
             command.env("ELECTRON_RUN_AS_NODE", "1");
@@ -787,6 +809,8 @@ fn terminate_process_tree(child: &mut Child) {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::BIBLIOGRAPHY_SANDBOX_PROFILE;
     use super::{
         apply_proxy_environment, available_preferred_server_port, health_is_ready,
         proxy_bypass_list, read_runtime_manifest, startup_log_excerpt, StartupLogs,
@@ -802,6 +826,22 @@ mod tests {
             .find(|(name, _)| *name == key)
             .and_then(|(_, value)| value)
             .map(|value| value.to_string_lossy().into_owned())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn run_bibliography_sandbox(script: &str, args: &[&std::path::Path]) -> bool {
+        let mut command = Command::new("/usr/bin/sandbox-exec");
+        command
+            .arg("-p")
+            .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
+            .arg("/bin/sh")
+            .arg("-c")
+            .arg(script)
+            .arg("sandbox-test");
+        for arg in args {
+            command.arg(arg);
+        }
+        command.status().expect("run sandboxed command").success()
     }
 
     #[test]
@@ -839,6 +879,89 @@ mod tests {
             ]),
             ".local,10.0.0.0/8,127.0.0.1,::1,localhost"
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn bibliography_sandbox_blocks_direct_and_indirect_bib_writes() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-bib-sandbox-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).expect("create temp directory");
+        let bibliography = root.join("references.bib");
+        let uppercase_bibliography = root.join("OTHER.BIB");
+        let replacement = root.join("replacement.tmp");
+        let renamed = root.join("renamed.tmp");
+        let alias = root.join("alias.txt");
+        let bib_alias = root.join("alias.bib");
+        let hardlink_alias = root.join("hardlink.txt");
+        let ordinary = root.join("ordinary.txt");
+        fs::write(&bibliography, "original").expect("write bibliography");
+        fs::write(&uppercase_bibliography, "uppercase").expect("write uppercase bibliography");
+        fs::write(&ordinary, "ordinary").expect("write ordinary file");
+        std::os::unix::fs::symlink(&bibliography, &alias).expect("symlink to bibliography");
+
+        let attempts = [
+            ("printf changed >> \"$1\"", vec![bibliography.as_path()]),
+            ("printf changed > \"$1\"", vec![bibliography.as_path()]),
+            ("rm \"$1\"", vec![bibliography.as_path()]),
+            (
+                "printf replacement > \"$1\" && mv -f \"$1\" \"$2\"",
+                vec![replacement.as_path(), bibliography.as_path()],
+            ),
+            (
+                "mv \"$1\" \"$2\" && printf changed > \"$2\" && mv \"$2\" \"$1\"",
+                vec![bibliography.as_path(), renamed.as_path()],
+            ),
+            (
+                "printf changed > \"$1\"",
+                vec![uppercase_bibliography.as_path()],
+            ),
+            (
+                "ln \"$1\" \"$2\" && printf changed > \"$2\"",
+                vec![bibliography.as_path(), hardlink_alias.as_path()],
+            ),
+            ("printf changed > \"$1\"", vec![alias.as_path()]),
+            (
+                "ln -s \"$1\" \"$2\" && printf changed > \"$2\"",
+                vec![ordinary.as_path(), bib_alias.as_path()],
+            ),
+        ];
+        for (script, args) in attempts {
+            assert!(
+                !run_bibliography_sandbox(script, &args),
+                "sandbox allowed: {script}"
+            );
+        }
+
+        assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
+        assert_eq!(
+            fs::read_to_string(&uppercase_bibliography).unwrap(),
+            "uppercase"
+        );
+        assert!(run_bibliography_sandbox(
+            "printf changed > \"$1\"",
+            &[&ordinary],
+        ));
+        assert_eq!(fs::read_to_string(&ordinary).unwrap(), "changed");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn bibliography_sandbox_is_inherited_by_background_descendants() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-bib-sandbox-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).expect("create temp directory");
+        let bibliography = root.join("references.bib");
+        fs::write(&bibliography, "original").expect("write bibliography");
+
+        assert!(run_bibliography_sandbox(
+            "(sleep 0.05; printf changed > \"$1\") >/dev/null 2>&1 &",
+            &[&bibliography],
+        ));
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
