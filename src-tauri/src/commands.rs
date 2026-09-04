@@ -252,11 +252,44 @@ fn child_path() -> OsString {
         .unwrap_or_else(|_| env::var_os("PATH").unwrap_or_else(|| OsString::from("/usr/bin:/bin")))
 }
 
+/// Executable launchers shipped with Lattice's JavaScript runtime.
+///
+/// `bibcite` finds its formatter through PATH. During development that launcher
+/// uses the adjacent standalone Node; the packaged macOS app resolves the same
+/// directory under Resources and the launcher shares Chromium's Node runtime.
+fn bundled_tools_dir() -> Option<PathBuf> {
+    if tauri::is_dev() {
+        return Some(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("synara-runtime")
+                .join("bin"),
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return env::current_exe()
+            .ok()?
+            .parent()?
+            .parent()
+            .map(|contents| contents.join("Resources/synara-runtime/bin"));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        env::current_exe()
+            .ok()?
+            .parent()
+            .map(|directory| directory.join("synara-runtime/bin"))
+    }
+}
+
 fn command_directories() -> Vec<PathBuf> {
     let mut directories = Vec::new();
     // App-owned tools must win over stale Homebrew, shell PATH, and any
     // unrelated executable that happens to live in a TeX tree.
     directories.extend(managed_tools_dir());
+    directories.extend(bundled_tools_dir());
     // Prefer known TeX locations first — GUI-launched apps often have a minimal PATH
     // that never includes /Library/TeX/texbin even after MacTeX/BasicTeX install.
     // Rediscover each call so Recheck works without quitting after a fresh install.
@@ -367,6 +400,7 @@ mod tests {
             managed_tools_dir(),
             "Lattice-owned tools must have PATH precedence"
         );
+        assert!(env::split_paths(path).any(|entry| Some(entry) == bundled_tools_dir()));
         assert!(env::split_paths(path).any(|entry| entry == Path::new("/Library/TeX/texbin")));
     }
 

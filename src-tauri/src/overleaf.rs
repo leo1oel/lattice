@@ -496,7 +496,9 @@ fn fetch_projects_page(
             response.status()
         ));
     }
-    response.text().map_err(err)
+    response.text().map_err(|error| {
+        format!("Could not reach Overleaf while reading the project list: {error}")
+    })
 }
 
 /// Extract the decoded `content` attribute of `<meta name="...">`.
@@ -622,7 +624,12 @@ fn download_project_zip(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
-    let bytes = response.bytes().map_err(err)?.to_vec();
+    let bytes = response
+        .bytes()
+        .map_err(|error| {
+            format!("Could not reach Overleaf while reading the project download: {error}")
+        })?
+        .to_vec();
     if content_type.contains("text/html") || !bytes.starts_with(b"PK") {
         return Err(SESSION_EXPIRED.to_string());
     }

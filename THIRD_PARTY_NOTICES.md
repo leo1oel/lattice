@@ -18435,11 +18435,11 @@ DEALINGS IN THE SOFTWARE.
 
 The prepare script additionally stages these notices by hand: `src-tauri/synara-runtime/licenses/Node-LICENSE.txt`, `src-tauri/synara-runtime/licenses/Synara-MIT.txt`.
 
-**310 packages.**
+**311 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 212 |
+| `MIT` | 213 |
 | `Apache-2.0` | 54 |
 | `BSD-3-Clause` | 17 |
 | `ISC` | 14 |
@@ -18496,17 +18496,17 @@ to reproduce is not available from the artifact we distribute.
 - `standardwebhooks@1.1.1` (sidecar) — declared `MIT`
 - `xml-naming@0.1.0` (sidecar) — declared `MIT`
 
-### License texts (44 distinct texts across 310 packages)
+### License texts (44 distinct texts across 311 packages)
 
-#### 1. MIT — 89 package(s), from `license`
+#### 1. MIT — 90 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.9.0`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici-types@8.3.0`, `undici@7.29.0`, `undici@8.5.0`, `wsl-utils@0.1.0`, `zod@3.25.76`, `zod@4.5.4`
+`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bibtex-tidy@1.15.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.9.0`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici-types@8.3.0`, `undici@7.29.0`, `undici@8.5.0`, `wsl-utils@0.1.0`, `zod@3.25.76`, `zod@4.5.4`
 
 </details>
 
-Copyright notices (51):
+Copyright notices (52):
 
 ```text
 Copyright (c) 2013 James Halliday
@@ -18518,6 +18518,7 @@ Copyright (c) 2016 Jordan Harband
 Copyright (c) 2017 Amit Kumar Gupta
 Copyright (c) 2017 Evgeny Poberezkin
 Copyright (c) 2017 Nicolas DUBIEN
+Copyright (c) 2017 Peter West
 Copyright (c) 2017-2019 Tomas Della Vedova
 Copyright (c) 2018 Nicolas DUBIEN
 Copyright (c) 2018 Nikita Skovoroda <chalkerx@gmail.com>
@@ -19346,7 +19347,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@pierre/diffs@1.3.6`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.1`
+`@pierre/diffs@1.4.0`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.1`
 
 </details>
 

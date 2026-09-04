@@ -62,7 +62,9 @@ type OverleafSyncOptions = {
 };
 
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return toMessage(reason).toLowerCase().includes("could not reach overleaf");
+  const message = toMessage(reason).toLowerCase();
+  return message.includes("could not reach overleaf")
+    || message.includes("error decoding response body");
 }
 
 /**

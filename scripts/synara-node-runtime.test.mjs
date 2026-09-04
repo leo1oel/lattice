@@ -16,6 +16,7 @@ function stageStandaloneRuntime() {
   mkdirSync(join(fixture, "bin"), { recursive: true });
   mkdirSync(join(fixture, "server/dist"), { recursive: true });
   writeFileSync(join(fixture, "bin/node"), "standalone node\n");
+  writeFileSync(join(fixture, "bin/bibtex-tidy"), "formatter launcher\n");
   writeFileSync(join(fixture, "server/dist/index.mjs"), "server\n");
   writeFileSync(join(fixture, "manifest.json"), '{"buildKey":"fixture"}\n');
 }
@@ -35,7 +36,9 @@ describe("Synara Node runtime staging", () => {
       standaloneNodeVersion: "24.20.0",
     })).toBe(true);
 
-    expect(existsSync(join(fixture, "bin"))).toBe(false);
+    expect(existsSync(join(fixture, "bin/node"))).toBe(false);
+    expect(readFileSync(join(fixture, "bin/bibtex-tidy"), "utf8"))
+      .toBe("formatter launcher\n");
     expect(manifest()).toMatchObject({
       nodeRuntime: "electron",
       nodeVersion: "24.18.1",

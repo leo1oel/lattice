@@ -4610,9 +4610,7 @@ describe("project workspace", () => {
       },
       files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
     };
-    const transportFailure = new Error(
-      "Could not reach Overleaf: error sending request for url (https://www.overleaf.com/project)",
-    );
+    const transportFailure = new Error("error decoding response body");
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(1_000_000);
     const scheduledTimeouts = vi.spyOn(window, "setTimeout");
@@ -4679,7 +4677,7 @@ describe("project workspace", () => {
 
     renderApp();
     await waitFor(() => expect(syncCount).toBe(1), { timeout: 30_000 });
-    await waitFor(() => expect(formatAppLogs()).toMatch(/Could not reach Overleaf/));
+    await waitFor(() => expect(formatAppLogs()).toMatch(/error decoding response body/));
     expect(getVisibleAppToastIds()
       .map((id) => getAppLogEntry(id))
       .filter((entry) => entry?.source === "Overleaf"))
@@ -4723,7 +4721,7 @@ describe("project workspace", () => {
     fireEvent.click(syncButton);
 
     await waitFor(() => expect(syncCount).toBe(4));
-    await expectNotification(/Sync failed[\s\S]*Could not reach Overleaf/);
+    await expectNotification(/Sync failed[\s\S]*error decoding response body/);
     await waitFor(
       () => expect(document.querySelector(".cm-editor")).not.toBeNull(),
       { timeout: 30_000 },

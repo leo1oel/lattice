@@ -24,7 +24,11 @@ export function configureSynaraNodeRuntime({
         `Electron Node ${electronNodeVersion} is incompatible with Synara's Node ${standaloneNodeVersion} pin.`,
       );
     }
-    rmSync(join(synaraRoot, "bin"), { recursive: true, force: true });
+    // Keep the tiny launchers in bin/: bibcite discovers the bundled
+    // bibtex-tidy there. Only the standalone Node binary is duplicated by the
+    // packaged Electron runtime.
+    rmSync(join(synaraRoot, "bin", "node"), { force: true });
+    rmSync(join(synaraRoot, "bin", "node.exe"), { force: true });
     nodeVersion = electronNodeVersion;
   } else {
     if (!existsSync(join(synaraRoot, "bin", "node"))) {

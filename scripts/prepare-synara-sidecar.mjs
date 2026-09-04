@@ -31,6 +31,8 @@ const sourceRoot = resolve(
 const runtimeRoot = join(projectRoot, "src-tauri/synara-runtime");
 const cacheRoot = join(projectRoot, "node_modules/.cache/lattice/synara");
 const npmCache = join(projectRoot, "node_modules/.cache/lattice/npm");
+const bibtexTidyVersion = "1.15.1";
+const bibtexTidySha256 = "bea5fb60947053fe6b46efb62fdd5944f8a8be3420c0163b0cf987032b7bb2b4";
 const deviceHelperFiles = [
   "build.sh",
   "device-helper.sb",
@@ -249,6 +251,10 @@ function resolveServerDependencies() {
 
 function installServerRuntime(stageRoot) {
   const { serverPackage, dependencies } = resolveServerDependencies();
+  // bibcite is a Python CLI, but its canonical formatter is the Node-based
+  // bibtex-tidy executable. Ship an exact version beside the JavaScript runtime
+  // Lattice already owns so paper imports never depend on a user's Node/npm.
+  dependencies["bibtex-tidy"] = bibtexTidyVersion;
   const serverRoot = join(stageRoot, "server");
   mkdirSync(serverRoot, { recursive: true });
   cpSync(join(sourceRoot, "apps/server/dist"), join(serverRoot, "dist"), {
@@ -286,6 +292,53 @@ function installServerRuntime(stageRoot) {
         npm_config_cache: npmCache,
       },
     },
+  );
+  const installedBibtexTidy = JSON.parse(
+    readFileSync(join(serverRoot, "node_modules/bibtex-tidy/package.json"), "utf8"),
+  );
+  if (installedBibtexTidy.version !== bibtexTidyVersion) {
+    throw new Error(
+      `Installed bibtex-tidy ${installedBibtexTidy.version} instead of ${bibtexTidyVersion}.`,
+    );
+  }
+  const installedBibtexTidyBin = join(
+    serverRoot,
+    "node_modules/bibtex-tidy/bin/bibtex-tidy",
+  );
+  if (sha256File(installedBibtexTidyBin) !== bibtexTidySha256) {
+    throw new Error(`bibtex-tidy ${bibtexTidyVersion} failed its SHA-256 check.`);
+  }
+  const binRoot = join(stageRoot, "bin");
+  const toolsRoot = join(stageRoot, "tools");
+  mkdirSync(binRoot, { recursive: true });
+  mkdirSync(toolsRoot, { recursive: true });
+  cpSync(installedBibtexTidyBin, join(toolsRoot, "bibtex-tidy.mjs"));
+  // Development uses the standalone Node next to this launcher. A release
+  // removes that 120 MB duplicate and shares Electron's Node runtime instead;
+  // the launcher resolves either layout from its own packaged location.
+  writeFileSync(
+    join(binRoot, "bibtex-tidy"),
+    `#!/bin/sh
+set -eu
+bin_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+runtime_dir="$(dirname -- "$bin_dir")"
+tool="$runtime_dir/tools/bibtex-tidy.mjs"
+if [ -x "$bin_dir/node" ]; then
+  exec "$bin_dir/node" "$tool" "$@"
+fi
+electron="$runtime_dir/../chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron"
+if [ -x "$electron" ]; then
+  export ELECTRON_RUN_AS_NODE=1
+  exec "$electron" "$tool" "$@"
+fi
+echo "Lattice's bundled JavaScript runtime is unavailable." >&2
+exit 127
+`,
+  );
+  chmodSync(join(binRoot, "bibtex-tidy"), 0o755);
+  writeFileSync(
+    join(binRoot, "bibtex-tidy.cmd"),
+    "@echo off\r\n\"%~dp0node.exe\" \"%~dp0..\\tools\\bibtex-tidy.mjs\" %*\r\n",
   );
   silenceExpectedSessionProbeWarnings(serverRoot);
   mkdirSync(join(stageRoot, "licenses"), { recursive: true });
@@ -605,7 +658,10 @@ if (existsSync(existingManifestPath)) {
     existingManifest.buildKey === buildKey &&
     existingManifest.nodeRuntime === "standalone" &&
     existingManifest.nodeVersion === runtimeConfig.nodeVersion &&
+    existingManifest.bibtexTidyVersion === bibtexTidyVersion &&
     existsSync(join(runtimeRoot, "bin", executableName)) &&
+    existsSync(join(runtimeRoot, "bin", "bibtex-tidy")) &&
+    existsSync(join(runtimeRoot, "tools", "bibtex-tidy.mjs")) &&
     existsSync(join(runtimeRoot, "server/dist/index.mjs")) &&
     existsSync(join(runtimeRoot, "server/dist/client/index.html")) &&
     deviceHelperTreeMatches(
@@ -758,6 +814,7 @@ try {
         target,
         nodeVersion: runtimeConfig.nodeVersion,
         nodeRuntime: "standalone",
+        bibtexTidyVersion,
         synaraVersion,
         synaraRevision: dirtyStatus ? `${head}+dirty` : head,
         deviceHelperSource: "server/dist/device-helper",
