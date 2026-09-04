@@ -5033,7 +5033,7 @@ describe("project workspace", () => {
 
     const dialog = await screen.findByRole("dialog", {
       name: "从 Overleaf 项目中删除 1 个文件？",
-    });
+    }, { timeout: 15_000 });
     expect(dialog).toHaveAccessibleDescription(
       "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它",
     );

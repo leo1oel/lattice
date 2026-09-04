@@ -9723,12 +9723,12 @@ function App() {
               editable: editorEditableForPath(activeFile),
               locale: appLocale,
               theme,
-              initialViewState: getFileViewState(activeFile)?.openSlide,
               onViewState: (openSlide) => rememberFileViewState(activeFile, { openSlide }),
               onMutation: applyOpenSlideMutation,
               onContext: setOpenSlideContext,
               onError: setError,
             } : null}
+            getFileViewState={getFileViewState}
           />
           <DocumentCanvas
             projectRoot={project.root}

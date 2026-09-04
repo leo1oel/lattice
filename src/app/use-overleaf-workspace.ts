@@ -870,10 +870,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         wait = /429|Too Many Requests/i.test(message)
           ? Math.min(wait * 4, 5 * 60_000)
           : Math.min(Math.max(wait * 2, baseWait()), 60_000);
-      } finally {
-        running = false;
-        scheduleNext();
       }
+      running = false;
+      scheduleNext();
     };
     void tick();
     // Coming back from the browser is the moment stale content is most
