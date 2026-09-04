@@ -102,6 +102,33 @@ export function isWholeFileEditorPath(path: string): boolean {
   return isOpenSlideDeckPath(path) || extension === "tldr" || extension === "lattice-sheet";
 }
 
+/**
+ * Markdown resolves an unprefixed link relative to its own folder. If that
+ * relative path does not exist, recover a whole-file document whose known
+ * project-root path is the exact suffix (for example a root-level Sheet linked
+ * from `notes/`). Exact project paths always win, so ordinary relative links
+ * keep their normal meaning.
+ */
+export function resolveKnownWholeFileProjectPath(
+  path: string,
+  projectPaths: readonly string[],
+): string {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const normalizedPaths = projectPaths.map((candidate) => ({
+    candidate,
+    normalized: candidate.replace(/\\/g, "/"),
+  }));
+  const exact = normalizedPaths.find(({ normalized }) => normalized === normalizedPath);
+  if (exact) return exact.candidate;
+
+  const matches = normalizedPaths
+    .filter(({ candidate, normalized }) => (
+      isWholeFileEditorPath(candidate) && normalizedPath.endsWith(`/${normalized}`)
+    ))
+    .sort((left, right) => right.normalized.length - left.normalized.length);
+  return matches[0]?.candidate ?? path;
+}
+
 export function isPreviewableSourceFilePath(path: string): boolean {
   return ["tex", "md", "html"].includes(fileExtension(path));
 }

@@ -61,6 +61,12 @@ describe("shared surface contracts", () => {
     )
   })
 
+  it("lets a Paper reader fill its split pane", () => {
+    expect(appCss).toMatch(
+      /\.paper-pane > \.paper-reader-shell \{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;/,
+    )
+  })
+
   it("does not hardcode the popover surface colour on the project menu", () => {
     expect(projectDialogs).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
   })

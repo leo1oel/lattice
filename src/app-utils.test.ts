@@ -18,6 +18,7 @@ import {
   overleafHostsMatch,
   overleafLinkMatchesSession,
   remapProjectPath,
+  resolveKnownWholeFileProjectPath,
   stripFrontmatter,
 } from "./app-utils";
 import type { ProjectSnapshot } from "./app-types";
@@ -269,6 +270,30 @@ describe("editor file drops", () => {
     expect(isWholeFileEditorPath("results.LATTICE-SHEET")).toBe(true);
     expect(isWholeFileEditorPath("main.tex")).toBe(false);
     expect(isWholeFileEditorPath("slides/research-update/theme.tsx")).toBe(false);
+  });
+
+  it("recovers project-root whole-file links resolved relative to a Markdown folder", () => {
+    const paths = [
+      "notes/local.tldr",
+      "slides/research-update/index.tsx",
+      "results.lattice-sheet",
+      "sketch.tldr",
+    ];
+
+    expect(resolveKnownWholeFileProjectPath("notes/slides/research-update/index.tsx", paths))
+      .toBe("slides/research-update/index.tsx");
+    expect(resolveKnownWholeFileProjectPath("notes/results.lattice-sheet", paths))
+      .toBe("results.lattice-sheet");
+    expect(resolveKnownWholeFileProjectPath("notes/sketch.tldr", paths))
+      .toBe("sketch.tldr");
+  });
+
+  it("preserves exact, ordinary Markdown, and missing whole-file link paths", () => {
+    const paths = ["notes/local.tldr", "results.lattice-sheet", "notes/other.md"];
+
+    expect(resolveKnownWholeFileProjectPath("notes/local.tldr", paths)).toBe("notes/local.tldr");
+    expect(resolveKnownWholeFileProjectPath("notes/other.md", paths)).toBe("notes/other.md");
+    expect(resolveKnownWholeFileProjectPath("notes/missing.tldr", paths)).toBe("notes/missing.tldr");
   });
 
   it("runs Harper only for prose source files", () => {

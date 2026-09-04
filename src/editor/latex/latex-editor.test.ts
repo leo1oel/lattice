@@ -1,12 +1,16 @@
 import {
+  closeBrackets,
+  closeBracketsKeymap,
   completionStatus,
   currentCompletions,
+  insertBracket,
   selectedCompletionIndex,
   startCompletion,
 } from "@codemirror/autocomplete";
+import { defaultKeymap } from "@codemirror/commands";
 import { openSearchPanel, search, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorState, Transaction } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -49,6 +53,45 @@ import {
   wrapRange,
 } from "./latex-editor";
 import { compactSearchPanel } from "./search-panel";
+
+function createProductionLatexView(citationKeys: string[]): EditorView {
+  return new EditorView({
+    parent: document.body,
+    state: EditorState.create({
+      extensions: [
+        closeBrackets(),
+        keymap.of([...closeBracketsKeymap, ...defaultKeymap]),
+        latexEditorExtensions(citationKeys),
+      ],
+    }),
+  });
+}
+
+function typeText(view: EditorView, text: string): void {
+  for (const character of text) {
+    const range = view.state.selection.main;
+    view.dispatch({
+      changes: { from: range.from, to: range.to, insert: character },
+      selection: { anchor: range.from + character.length },
+      annotations: Transaction.userEvent.of("input.type"),
+    });
+  }
+}
+
+function typeBracket(view: EditorView, bracket: "{" | "}"): void {
+  const event = new KeyboardEvent("keydown", {
+    key: bracket,
+    code: bracket === "{" ? "BracketLeft" : "BracketRight",
+    shiftKey: true,
+    bubbles: true,
+    cancelable: true,
+  });
+  view.contentDOM.dispatchEvent(event);
+  if (event.defaultPrevented) return;
+  const transaction = insertBracket(view.state, bracket);
+  if (transaction) view.dispatch(transaction);
+  else typeText(view, bracket);
+}
 
 describe("LaTeX citation editing", () => {
   it("shows the current and total matches in the find panel", () => {
@@ -271,6 +314,42 @@ describe("LaTeX citation editing", () => {
 
     view.destroy();
     now.mockRestore();
+  });
+
+  it("handles a literally typed citation command with the production bracket keymap", async () => {
+    const view = createProductionLatexView(["vaswani2017attention", "dosovitskiy2021image"]);
+
+    typeText(view, "\\cite");
+    typeBracket(view, "{");
+    expect(view.state.doc.toString()).toBe("\\cite{}");
+    expect(view.state.selection.main.head).toBe(6);
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+
+    fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+    expect(selectedCompletionIndex(view.state)).toBe(1);
+    fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+    expect(view.state.doc.toString()).toBe("\\cite{vaswani2017attention}");
+
+    view.destroy();
+  });
+
+  it("does not accumulate closing braces while deleting a literally typed citation", () => {
+    const view = createProductionLatexView(["vaswani2017attention"]);
+
+    typeText(view, "\\cite");
+    typeBracket(view, "{");
+    typeBracket(view, "}");
+    expect(view.state.doc.toString()).toBe("\\cite{}");
+    expect(view.state.selection.main.head).toBe(7);
+
+    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
+    expect(view.state.doc.toString()).toBe("\\cite{");
+    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
+    expect(view.state.doc.toString()).toBe("\\cite");
+    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
+    expect(view.state.doc.toString()).toBe("\\cit");
+
+    view.destroy();
   });
 
   it("completes labels inside reference commands", () => {

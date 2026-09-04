@@ -1,4 +1,9 @@
-import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import {
+  autocompletion,
+  insertBracket,
+  type CompletionContext,
+  type CompletionResult,
+} from "@codemirror/autocomplete";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import type { Diagnostic } from "@codemirror/lint";
 import { linter } from "@codemirror/lint";
@@ -1222,6 +1227,27 @@ function dollarPairCommand(view: EditorView): boolean {
   return true;
 }
 
+function bracedCommandContentBeforeCursor(view: EditorView): string | null {
+  const range = view.state.selection.main;
+  if (!range.empty || view.state.sliceDoc(range.head, range.head + 1) !== "}") return null;
+  const before = view.state.sliceDoc(Math.max(0, range.head - 120), range.head);
+  const openingBrace = before.lastIndexOf("{");
+  if (openingBrace < 0 || !shouldInsertCommandBraces(before.slice(0, openingBrace))) return null;
+  const content = before.slice(openingBrace + 1);
+  return /[{}]/.test(content) ? null : content;
+}
+
+function skipRedundantCommandOpenBrace(view: EditorView): boolean {
+  return bracedCommandContentBeforeCursor(view) === "";
+}
+
+function skipExistingCommandCloseBrace(view: EditorView): boolean {
+  if (bracedCommandContentBeforeCursor(view) === null) return false;
+  const head = view.state.selection.main.head;
+  view.dispatch({ selection: { anchor: head + 1 }, scrollIntoView: true });
+  return true;
+}
+
 export type LatexEditorLiveData = {
   citationKeys: string[];
   citations: CitationInfo[];
@@ -1530,6 +1556,13 @@ export function latexEditorExtensions(
       { key: "Enter", run: insertLatexNewline },
       { key: "Shift-Enter", run: insertNewlineKeepIndent },
     ])),
+    // Typing a full `\cite{}` must compose with the pair inserted after
+    // `\cite`: swallow the duplicate opening brace and step over its close.
+    // Highest precedence also keeps optional Vim handling from seeing them.
+    Prec.highest(keymap.of([
+      { key: "{", run: skipRedundantCommandOpenBrace },
+      { key: "}", run: skipExistingCommandCloseBrace },
+    ])),
     keymap.of([
       ...searchKeymap,
       { key: "Mod-f", run: openSearchPanel },
@@ -1665,11 +1698,8 @@ export function latexEditorExtensions(
       }
       if (update.state.sliceDoc(selection.head, selection.head + 1) === "{") return;
       if (!shouldInsertCommandBraces(before)) return;
-      update.view.dispatch({
-        changes: { from: selection.head, insert: "{}" },
-        selection: { anchor: selection.head + 1 },
-        annotations: Transaction.userEvent.of("input.type"),
-      });
+      const braceTransaction = insertBracket(update.state, "{");
+      if (braceTransaction) update.view.dispatch(braceTransaction);
     }),
   ];
 }

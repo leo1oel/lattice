@@ -259,6 +259,7 @@ import {
   paperTabKey,
   projectItemPath,
   remapProjectPath,
+  resolveKnownWholeFileProjectPath,
   stripFrontmatter,
   toMessage,
   type ProjectPathChange,
@@ -6856,11 +6857,15 @@ function App() {
   }, [openProjectAsset]);
 
   const openMarkdownProjectPath = useCallback((path: string) => {
+    const resolvedPath = resolveKnownWholeFileProjectPath(
+      path,
+      flattenProjectPaths(projectRef.current?.files ?? []),
+    );
     // A link into a paper's cached markdown opens the Papers reading view,
     // not a plain editor tab: the plain tab loses the blog/full-text switch
     // and the paper selection context the agent reads. Falls through for a
     // paper that is no longer in the library.
-    const paperLink = parsePaperLinkPath(path);
+    const paperLink = parsePaperLinkPath(resolvedPath);
     if (paperLink) {
       const paper = papers.find((item) => item.arxivId === paperLink.arxivId
         && (item.hasFullText || item.hasBlog));
@@ -6875,8 +6880,8 @@ function App() {
         return;
       }
     }
-    if (isProjectAssetFilePath(path)) openProjectAssetFromClick(path);
-    else openProjectFileFromClick(path);
+    if (isProjectAssetFilePath(resolvedPath)) openProjectAssetFromClick(resolvedPath);
+    else openProjectFileFromClick(resolvedPath);
   }, [changePaperView, openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
   useEffect(() => {
     openMarkdownProjectPathRef.current = openMarkdownProjectPath;

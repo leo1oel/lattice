@@ -268,11 +268,11 @@ fn bundled_tools_dir() -> Option<PathBuf> {
 
     #[cfg(target_os = "macos")]
     {
-        return env::current_exe()
+        env::current_exe()
             .ok()?
             .parent()?
             .parent()
-            .map(|contents| contents.join("Resources/synara-runtime/bin"));
+            .map(|contents| contents.join("Resources/synara-runtime/bin"))
     }
 
     #[cfg(not(target_os = "macos"))]

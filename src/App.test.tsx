@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { completionStatus } from "@codemirror/autocomplete";
+import { completionStatus, insertBracket, selectedCompletionIndex } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -2604,6 +2604,116 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-selected", "true");
   }, 40_000);
 
+  it("opens project-root Slides, Sheets, and boards from nested Markdown links", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        {
+          name: "notes",
+          path: "notes",
+          kind: "directory",
+          children: [
+            { name: "index.md", path: "notes/index.md", kind: "markdown", children: [] },
+          ],
+        },
+        {
+          name: "slides",
+          path: "slides",
+          kind: "directory",
+          children: [{
+            name: "native",
+            path: "slides/native",
+            kind: "directory",
+            children: [
+              { name: "index.tsx", path: "slides/native/index.tsx", kind: "tsx", children: [] },
+            ],
+          }],
+        },
+        {
+          name: "results.lattice-sheet",
+          path: "results.lattice-sheet",
+          kind: "spreadsheet",
+          children: [],
+        },
+        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
+      ],
+    };
+    const contentByPath: Record<string, string> = {
+      "notes/index.md": [
+        "[Open slides](slides/native/index.tsx)",
+        "[Open sheet](results.lattice-sheet)",
+        "[Open board](sketch.tldr)",
+      ].join("\n\n"),
+      "slides/native/index.tsx": "export default [];\n",
+      "results.lattice-sheet": "{}",
+      "sketch.tldr": "{\"tldrawFileFormatVersion\":1,\"records\":[]}",
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes/index.md"],
+      activeFile: "notes/index.md",
+      activeTab: "notes/index.md",
+      secondaryFile: "",
+      focusedPane: "primary",
+      canvasMode: "split",
+      documentMode: "split",
+      paperView: "blog",
+      tabRecency: ["notes/index.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        const path = (args as { path: string }).path;
+        if (path in contentByPath) return contentByPath[path];
+        throw new Error(`Unexpected project path: ${path}`);
+      }
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    await Promise.all([
+      loadTextLanguageExtensions("notes/index.md"),
+      loadVisualMarkdownEditorModule(),
+    ]);
+    renderApp();
+
+    await waitFor(() => expect(document.querySelector(".source-editor .cm-content"))
+      .toHaveTextContent("[Open slides]"), { timeout: 20_000 });
+    expect(document.querySelector(".markdown-preview")).not.toBeNull();
+    fireEvent.click(await screen.findByRole("link", { name: "Open slides" }));
+    expect(await screen.findByTestId("open-slide-workspace-mock"))
+      .toHaveAttribute("data-path", "slides/native/index.tsx");
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", {
+      path: "notes/slides/native/index.tsx",
+      projectRoot: snapshot.root,
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
+    fireEvent.click(await screen.findByRole("link", { name: "Open sheet" }));
+    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "results.lattice-sheet",
+      projectRoot: snapshot.root,
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
+    fireEvent.click(await screen.findByRole("link", { name: "Open board" }));
+    expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_file", {
+      path: "sketch.tldr",
+      projectRoot: snapshot.root,
+    });
+  }, 40_000);
+
   it("opens HTML documents in an interactive sandboxed preview with Edit and Split views", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -3952,20 +4062,38 @@ describe("project workspace", () => {
     })));
     vi.mocked(invoke).mockClear();
 
-    const from = view.state.doc.length;
-    const insert = "\nSee \\cite{}";
-    view.dispatch({
-      changes: { from, insert },
-      selection: { anchor: from + insert.length - 1 },
-      annotations: Transaction.userEvent.of("input.type"),
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    for (const character of "\nSee \\cite") {
+      const range = view.state.selection.main;
+      view.dispatch({
+        changes: { from: range.from, to: range.to, insert: character },
+        selection: { anchor: range.from + character.length },
+        annotations: Transaction.userEvent.of("input.type"),
+      });
+    }
+    const openingBrace = new KeyboardEvent("keydown", {
+      key: "{",
+      code: "BracketLeft",
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
     });
+    view.contentDOM.dispatchEvent(openingBrace);
+    if (!openingBrace.defaultPrevented) {
+      const transaction = insertBracket(view.state, "{");
+      if (transaction) view.dispatch(transaction);
+    }
+    expect(view.state.doc.toString()).toContain("\\cite{}");
     await waitFor(() => expect(completionStatus(view.state)).toBe("active"));
     fireEvent.pointerLeave(document.querySelector(".source-editor")!);
     await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_400)));
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "build_project")).toBe(false);
 
+    expect(selectedCompletionIndex(view.state)).toBe(0);
+    fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+    expect(selectedCompletionIndex(view.state)).toBe(1);
     fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-    expect(view.state.doc.toString()).toContain("\\cite{dosovitskiy2021image}");
+    expect(view.state.doc.toString()).toContain("\\cite{vaswani2017attention}");
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
