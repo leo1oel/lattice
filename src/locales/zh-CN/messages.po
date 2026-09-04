@@ -3162,6 +3162,10 @@ msgstr "此账户下还没有项目。在 Overleaf 上创建一个，它就会�
 msgid "No projects match your search"
 msgstr "没有项目符合你的搜索条件"
 
+#: src/App.tsx
+msgid "No readable paper content is available."
+msgstr "没有可读取的论文内容。"
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"

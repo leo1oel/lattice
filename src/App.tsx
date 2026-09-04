@@ -5948,7 +5948,9 @@ function App() {
       const fullText = fullTextResult.status === "fulfilled" ? fullTextResult.value : "";
       const blog = blogResult.status === "fulfilled" ? blogResult.value : null;
       if (!fullText && !blog) {
-        throw fullTextResult.status === "rejected" ? fullTextResult.reason : new Error("No readable paper content is available.");
+        throw fullTextResult.status === "rejected"
+          ? fullTextResult.reason
+          : new Error(t`No readable paper content is available.`);
       }
       // The old editor stayed live while save/read ran. If it changed in that
       // interval, keep it on screen for autosave instead of replacing it with
@@ -5999,6 +6001,7 @@ function App() {
     secondaryFile,
     secondarySavedSource,
     secondarySource,
+    t,
   ]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
@@ -6282,7 +6285,7 @@ function App() {
         if (!markdown && !blog) {
           throw fullTextResult.status === "rejected"
             ? fullTextResult.reason
-            : new Error("No readable paper content is available.");
+            : new Error(t`No readable paper content is available.`);
         }
         const view = paperView === "fulltext" && markdown
           ? "fulltext"
@@ -6545,6 +6548,7 @@ function App() {
     papers,
     projectAssetPaths,
     save,
+    t,
   ]);
   const closeSplitView = useCallback(() => {
     if (canvasMode !== "dual" && canvasMode !== "columns") return;

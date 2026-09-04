@@ -3162,6 +3162,10 @@ msgstr "No projects in this account yet. Create one on Overleaf and it will appe
 msgid "No projects match your search"
 msgstr "No projects match your search"
 
+#: src/App.tsx
+msgid "No readable paper content is available."
+msgstr "No readable paper content is available."
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "No sections yet. Add a \\section{…} to start the outline"
