@@ -5,6 +5,9 @@ import { join } from "node:path";
 // Chinese, while en_GB, zh_TW, and grammatical variants are separate locales
 // that the product does not select and can safely fall back to these bases.
 export const CHROMIUM_LOCALE_ALLOWLIST = new Set(["en.lproj", "zh_CN.lproj"]);
+// Generic `zh` lets every Chinese system variant select the bundled simplified
+// catalog, matching resolveAppLocale's existing behavior.
+export const CHROMIUM_BUNDLE_LOCALIZATIONS = ["en", "zh"];
 
 export function pruneChromiumLocales(root) {
   let removed = 0;

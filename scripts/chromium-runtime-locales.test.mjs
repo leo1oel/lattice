@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  CHROMIUM_BUNDLE_LOCALIZATIONS,
   CHROMIUM_LOCALE_ALLOWLIST,
   pruneChromiumLocales,
 } from "./chromium-runtime-locales.mjs";
@@ -31,6 +32,10 @@ function frameworkResources(root) {
 }
 
 describe("Chromium runtime locale pruning", () => {
+  it("declares both interface languages even when empty app locale directories are omitted", () => {
+    expect(CHROMIUM_BUNDLE_LOCALIZATIONS).toEqual(["en", "zh"]);
+  });
+
   it("retains only base English and simplified Chinese at every resource depth", () => {
     fixture = mkdtempSync(join(tmpdir(), "lattice-chromium-locales-"));
     const appResources = join(fixture, "Contents", "Resources");

@@ -15,7 +15,10 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pruneChromiumLocales } from "./chromium-runtime-locales.mjs";
+import {
+  CHROMIUM_BUNDLE_LOCALIZATIONS,
+  pruneChromiumLocales,
+} from "./chromium-runtime-locales.mjs";
 import { configureSynaraNodeRuntime } from "./synara-node-runtime.mjs";
 
 if (process.platform !== "darwin") {
@@ -149,6 +152,17 @@ try {
   plistSet(mainPlist, "CFBundleVersion", appVersion);
   plistSet(mainPlist, "LSApplicationCategoryType", "public.app-category.productivity");
   plistSet(mainPlist, "LSMinimumSystemVersion", "14.0");
+  // Electron's top-level locale directories are empty, so Tauri omits them
+  // while copying this nested app into the final bundle. Declare the locales
+  // explicitly or Chromium falls back to English before the web app can honor
+  // its "follow system" preference.
+  execFileSync("/usr/libexec/PlistBuddy", [
+    "-c", "Add :CFBundleLocalizations array",
+    ...CHROMIUM_BUNDLE_LOCALIZATIONS.flatMap((locale, index) => [
+      "-c", `Add :CFBundleLocalizations:${index} string ${locale}`,
+    ]),
+    mainPlist,
+  ]);
   plistSet(
     mainPlist,
     "NSMicrophoneUsageDescription",
