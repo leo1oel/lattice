@@ -27,6 +27,10 @@ import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
 import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
 import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
+import type {
+  OpenSlideMutation,
+  OpenSlideSyncOperation,
+} from "./editor/presentation/open-slide-bridge";
 
 const windowApi = vi.hoisted(() => ({
   startDragging: vi.fn(),
@@ -65,12 +69,9 @@ const interfaceSounds = vi.hoisted(() => ({
   play: vi.fn(),
 }));
 const openSlideWorkspaceApi = vi.hoisted(() => ({
-  onMutation: null as null | ((mutation: {
-    id: number;
-    path: string;
-    kind: "delete";
-    previousBase64?: string;
-  }) => Promise<Array<{ path: string; kind: "delete" }>>),
+  onMutation: null as null | ((
+    mutation: OpenSlideMutation,
+  ) => Promise<OpenSlideSyncOperation[]>),
 }));
 const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
 const pdfSlickTestApi = vi.hoisted(() => ({
@@ -9172,7 +9173,7 @@ describe("project workspace", () => {
       .not.toBeInTheDocument();
   });
 
-  it("creates and opens a native Open Slide presentation", { timeout: 20000 }, async () => {
+  it("creates and opens a native Open Slide presentation", { timeout: 30000 }, async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -9195,6 +9196,7 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
+    await import("./project/navigator");
     renderApp();
     await waitFor(() => expect(projectTreeRoot()).not.toBeNull(), { timeout: 15000 });
     fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
@@ -9212,8 +9214,147 @@ describe("project workspace", () => {
       deckId: "quarterly-review",
       projectRoot: "/tmp/lattice-paper",
     }));
-    expect(await screen.findByTestId("open-slide-workspace-mock"))
+    expect(await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 15000 }))
       .toHaveAttribute("data-path", "slides/quarterly-review/index.tsx");
+  });
+
+  it("defers an active Open Slide Overleaf sync until the document is left", { timeout: 120_000 }, async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
+    localStorage.setItem("lattice.last-file.v1", JSON.stringify({
+      "/tmp/lattice-slide-overleaf": "slides/native/index.tsx",
+    }));
+    const deckSource = "export default [{ id: 'title' }];\n";
+    const editedDeckSource = "export default [{ id: 'title', title: 'Edited' }];\n";
+    let probeChanged = true;
+    const snapshot = {
+      root: "/tmp/lattice-slide-overleaf",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "slide-overleaf-id",
+        name: "Slide Overleaf",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "index.tsx", path: "slides/native/index.tsx", kind: "tsx", children: [] },
+      ],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      const callArgs = args as Record<string, unknown> | undefined;
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") {
+        return callArgs?.path === "main.tex" ? "\\documentclass{article}\n" : deckSource;
+      }
+      if (command === "write_project_file") {
+        return { content: String(callArgs?.content ?? ""), hadConflicts: false };
+      }
+      if (
+        command === "list_papers"
+        || command === "list_history"
+        || command === "list_citation_keys"
+        || command === "list_citations"
+        || command === "list_references"
+        || command === "harper_lint"
+      ) return [];
+      if (command === "overleaf_link") return {
+        projectId: "ol-slide",
+        projectName: "Slide Overleaf",
+        host: "https://www.overleaf.com",
+        lastSync: null,
+        paused: false,
+      };
+      if (command === "overleaf_status") {
+        return {
+          connected: true,
+          email: "writer@example.com",
+          name: "Writer",
+          host: "https://www.overleaf.com",
+        };
+      }
+      if (command === "overleaf_probe") return {
+        changed: probeChanged,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 12,
+        lastSync: null,
+      };
+      if (command === "overleaf_sync") return {
+        pulled: [],
+        pushed: ["slides/native/index.tsx"],
+        merged: [],
+        conflicts: [],
+        deletedLocal: [],
+        skippedRemoteDeletes: [],
+        automaticRemoteDeletes: [],
+        readOnly: false,
+      };
+      if (command === "overleaf_rt_connect") return {
+        publicId: null,
+        rootFolderId: "root",
+        docs: [],
+        entities: [],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      };
+      if (command === "overleaf_rt_disconnect") return undefined;
+      if (
+        command === "overleaf_chat_messages"
+        || command === "overleaf_threads"
+        || command === "overleaf_comment_anchors"
+        || command === "overleaf_change_authors"
+        || command === "overleaf_rt_connected_users"
+      ) return [];
+      return mockAppCommand(command, callArgs);
+    });
+
+    renderApp();
+    expect(await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 60_000 }))
+      .toHaveAttribute("data-path", "slides/native/index.tsx");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_probe", {
+      projectRoot: "/tmp/lattice-slide-overleaf",
+      checkLocal: true,
+      live: ["slides/native/index.tsx"],
+    }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_sync", {
+      projectRoot: "/tmp/lattice-slide-overleaf",
+      live: ["slides/native/index.tsx"],
+      observedRemoteVersion: 12,
+    }));
+    probeChanged = false;
+    const syncCountBeforeMutation = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "overleaf_sync").length;
+
+    await act(async () => {
+      await openSlideWorkspaceApi.onMutation!({
+        id: 17,
+        path: "slides/native/index.tsx",
+        kind: "write",
+        text: editedDeckSource,
+        previousText: deckSource,
+      });
+    });
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "slides/native/index.tsx",
+      content: editedDeckSource,
+      baseContent: deckSource,
+      projectRoot: "/tmp/lattice-slide-overleaf",
+    });
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+    });
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync"))
+      .toHaveLength(syncCountBeforeMutation);
+
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_sync", {
+      projectRoot: "/tmp/lattice-slide-overleaf",
+      live: [],
+      observedRemoteVersion: null,
+    }), { timeout: 5000 });
   });
 
   it("accepts an Open Slide delete when the canonical asset is already gone", { timeout: 20000 }, async () => {
@@ -9248,7 +9389,7 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 15000 });
 
-    let operations: Array<{ path: string; kind: "delete" }> = [];
+    let operations: OpenSlideSyncOperation[] = [];
     await act(async () => {
       operations = await openSlideWorkspaceApi.onMutation!({
         id: 9,

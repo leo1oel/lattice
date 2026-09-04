@@ -115,10 +115,31 @@ export function OpenSlideWorkspace({
   // and reload the deck that just reported it.
   const [restoredPage] = useState(() => Math.max(1, Math.floor(initialViewState?.page ?? 1)));
   const reportedPageRef = useRef(restoredPage);
+  const lastEventIdRef = useRef(0);
+  const latestContextRef = useRef<OpenSlideContext | null>(null);
+  const mutationInFlightRef = useRef(0);
+  const requestNativeRefreshRef = useRef<() => void>(() => undefined);
+  const activeRef = useRef(active);
+  const onContextRef = useRef(onContext);
   const onViewStateRef = useRef(onViewState);
   useEffect(() => {
     onViewStateRef.current = onViewState;
   }, [onViewState]);
+  useEffect(() => {
+    activeRef.current = active;
+    onContextRef.current = onContext;
+    if (active && latestContextRef.current) {
+      onContext?.(latestContextRef.current);
+    } else if (!active) {
+      // Another cached deck owns the shared project event queue while this
+      // iframe is hidden. Re-enter as a fresh consumer instead of replaying
+      // mutations that the active deck has already applied to the host.
+      lastEventIdRef.current = 0;
+    }
+  }, [active, onContext]);
+  useEffect(() => () => {
+    if (activeRef.current) onContextRef.current?.(null);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -154,6 +175,13 @@ export function OpenSlideWorkspace({
 
   useEffect(() => {
     if (!runtime) return;
+    if (latestContextRef.current?.pendingEdits || mutationInFlightRef.current > 0) {
+      // The queued native refresh will send the latest canonical source after
+      // the inspector draft has become a real file mutation. Sending this prop
+      // immediately is the other path by which an Overleaf pull could replace
+      // the shadow source underneath an unsaved inspector edit.
+      return;
+    }
     const controller = new AbortController();
     void postControl(runtime, "sync", {
       operations: [{ path, kind: "write", text: source }],
@@ -181,10 +209,19 @@ export function OpenSlideWorkspace({
     };
     const refresh = async () => {
       if (controller.signal.aborted) return;
+      if (latestContextRef.current?.pendingEdits || mutationInFlightRef.current > 0) {
+        // Inspector changes are optimistic until Open Slide emits its saved
+        // file mutation. Pulling Overleaf or another disk writer into the
+        // shadow now would remount the slide on the old text and invalidate
+        // the text candidate that the pending edit uses when it is committed.
+        refreshQueued = true;
+        return;
+      }
       if (refreshing) {
         refreshQueued = true;
         return;
       }
+      refreshQueued = false;
       refreshing = true;
       try {
         await invoke("presentation_refresh_native_workspace", { projectRoot });
@@ -205,6 +242,7 @@ export function OpenSlideWorkspace({
         }
       }
     };
+    requestNativeRefreshRef.current = scheduleRefresh;
     // Native project writes already flow through the filesystem watcher. A
     // two-second poll previously rehashed every slide and asset forever,
     // contending with the WebView and Vite while a deck was open.
@@ -221,13 +259,13 @@ export function OpenSlideWorkspace({
       controller.abort();
       unlisten?.();
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      requestNativeRefreshRef.current = () => undefined;
     };
   }, [active, onError, path, projectRoot, runtime]);
 
   useEffect(() => {
     if (!active || !runtime?.origin || !runtime.controlToken) return;
     const controller = new AbortController();
-    let lastEventId = 0;
     const receive = async () => {
       while (!controller.signal.aborted) {
         try {
@@ -237,7 +275,9 @@ export function OpenSlideWorkspace({
             headers: {
               // eslint-disable-next-line lingui/no-unlocalized-strings
               authorization: `Bearer ${runtime.controlToken}`,
-              ...(lastEventId ? { "last-event-id": String(lastEventId) } : {}),
+              ...(lastEventIdRef.current
+                ? { "last-event-id": String(lastEventIdRef.current) }
+                : {}),
             },
             signal: controller.signal,
           });
@@ -246,27 +286,36 @@ export function OpenSlideWorkspace({
           if (!response.ok || !response.body) throw new Error(`Open Slide event bridge returned ${response.status}`);
           await consumeOpenSlideEvents(response.body, async (event) => {
             if ("context" in event) {
-              if (
-                event.context.pagePath === path
-                && event.context.pageNumber !== reportedPageRef.current
-              ) {
+              lastEventIdRef.current = Math.max(lastEventIdRef.current, event.id);
+              if (event.context.pagePath !== path) return;
+              const refreshWasBlocked = latestContextRef.current?.pendingEdits === true;
+              latestContextRef.current = event.context;
+              if (refreshWasBlocked && !event.context.pendingEdits) {
+                requestNativeRefreshRef.current();
+              }
+              if (event.context.pageNumber !== reportedPageRef.current) {
                 reportedPageRef.current = event.context.pageNumber;
                 onViewStateRef.current?.({ page: event.context.pageNumber });
               }
               onContext?.(event.context);
-              lastEventId = Math.max(lastEventId, event.id);
               return;
             }
             const mutation = event;
-            let operations: OpenSlideSyncOperation[];
+            mutationInFlightRef.current += 1;
             try {
-              operations = await onMutation(mutation);
-            } catch (reason) {
-              operations = revertMutation(mutation);
-              onError?.(errorMessage(reason));
+              let operations: OpenSlideSyncOperation[];
+              try {
+                operations = await onMutation(mutation);
+              } catch (reason) {
+                operations = revertMutation(mutation);
+                onError?.(errorMessage(reason));
+              }
+              if (operations.length) await postControl(runtime, "sync", { operations }, controller.signal);
+              lastEventIdRef.current = Math.max(lastEventIdRef.current, mutation.id);
+            } finally {
+              mutationInFlightRef.current -= 1;
+              requestNativeRefreshRef.current();
             }
-            if (operations.length) await postControl(runtime, "sync", { operations }, controller.signal);
-            lastEventId = Math.max(lastEventId, mutation.id);
           });
         } catch (reason) {
           if (controller.signal.aborted) return;
@@ -276,10 +325,7 @@ export function OpenSlideWorkspace({
       }
     };
     void receive();
-    return () => {
-      controller.abort();
-      onContext?.(null);
-    };
+    return () => controller.abort();
   }, [active, onContext, onError, onMutation, path, runtime]);
 
   if (!deckId) {

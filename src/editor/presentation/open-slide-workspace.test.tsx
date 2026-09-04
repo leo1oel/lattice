@@ -38,12 +38,13 @@ function workspace(
   locale: AppLocale = "en",
   initialViewState?: React.ComponentProps<typeof OpenSlideWorkspace>["initialViewState"],
   onViewState?: React.ComponentProps<typeof OpenSlideWorkspace>["onViewState"],
+  source = "export default [];\n",
 ) {
   return (
     <OpenSlideWorkspace
       projectRoot="/tmp/project"
       path="slides/research-update/index.tsx"
-      source="export default [];\n"
+      source={source}
       editable
       locale={locale}
       theme={theme}
@@ -147,6 +148,56 @@ describe("OpenSlideWorkspace", () => {
     ).length).toBe(refreshesBeforeEvent + 1));
   });
 
+  it("defers native refreshes while the inspector has unsaved edits", async () => {
+    const encoder = new TextEncoder();
+    let events!: ReadableStreamDefaultController<Uint8Array>;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/__lattice/events")) {
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) { events = controller; },
+        }), { status: 200 });
+      }
+      return new Response(null, { status: 204 });
+    }));
+    const { rerender } = render(workspace());
+    await waitFor(() => expect(tauriEvents.projectChanged).not.toBeNull());
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "presentation_refresh_native_workspace",
+      { projectRoot: "/tmp/project" },
+    ));
+
+    events.enqueue(encoder.encode(
+      "id: 3\ndata: {\"id\":3,\"type\":\"context\",\"context\":{\"slideId\":\"research-update\",\"pageIndex\":0,\"pageNumber\":1,\"totalPages\":4,\"slideTitle\":\"Research update\",\"view\":\"slides\",\"pagePath\":\"slides/research-update/index.tsx\",\"selection\":null,\"pendingEdits\":true,\"updatedAt\":\"2026-08-30T12:00:00.000Z\"}}\n\n",
+    ));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const syncsBeforeEvent = vi.mocked(fetch).mock.calls.filter(([input]) => (
+      String(input).endsWith("/__lattice/sync")
+    )).length;
+    const refreshesBeforeEvent = vi.mocked(invoke).mock.calls.filter(
+      ([command]) => command === "presentation_refresh_native_workspace",
+    ).length;
+
+    rerender(workspace(undefined, "light", "en", undefined, undefined, "export default ['remote'];\n"));
+    tauriEvents.projectChanged?.({ payload: { root: "/tmp/project" } });
+    await new Promise((resolve) => window.setTimeout(resolve, 400));
+    expect(vi.mocked(fetch).mock.calls.filter(([input]) => (
+      String(input).endsWith("/__lattice/sync")
+    ))).toHaveLength(syncsBeforeEvent);
+    expect(vi.mocked(invoke).mock.calls.filter(
+      ([command]) => command === "presentation_refresh_native_workspace",
+    )).toHaveLength(refreshesBeforeEvent);
+
+    events.enqueue(encoder.encode(
+      "id: 4\ndata: {\"id\":4,\"type\":\"context\",\"context\":{\"slideId\":\"research-update\",\"pageIndex\":0,\"pageNumber\":1,\"totalPages\":4,\"slideTitle\":\"Research update\",\"view\":\"slides\",\"pagePath\":\"slides/research-update/index.tsx\",\"selection\":null,\"pendingEdits\":false,\"updatedAt\":\"2026-08-30T12:00:01.000Z\"}}\n\n",
+    ));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(
+      ([command]) => command === "presentation_refresh_native_workspace",
+    ).length).toBe(refreshesBeforeEvent + 1));
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([input]) => (
+      String(input).endsWith("/__lattice/sync")
+    )).length).toBe(syncsBeforeEvent + 1));
+  });
+
   it("restores and remembers the live Open Slide page with its inspector selection", async () => {
     const encoder = new TextEncoder();
     let eventRequests = 0;
@@ -161,7 +212,7 @@ describe("OpenSlideWorkspace", () => {
       return new Response(new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(encoder.encode(
-            "id: 3\ndata: {\"id\":3,\"type\":\"context\",\"context\":{\"slideId\":\"research-update\",\"pageIndex\":1,\"pageNumber\":2,\"totalPages\":4,\"slideTitle\":\"Research update\",\"view\":\"slides\",\"pagePath\":\"slides/research-update/index.tsx\",\"selection\":{\"line\":42,\"column\":6,\"tagName\":\"h1\",\"text\":\"Q2 Roadmap\"},\"updatedAt\":\"2026-08-30T12:00:00.000Z\"}}\n\n",
+            "id: 3\ndata: {\"id\":3,\"type\":\"context\",\"context\":{\"slideId\":\"research-update\",\"pageIndex\":3,\"pageNumber\":4,\"totalPages\":4,\"slideTitle\":\"Research update\",\"view\":\"slides\",\"pagePath\":\"slides/research-update/index.tsx\",\"selection\":{\"line\":42,\"column\":6,\"tagName\":\"h1\",\"text\":\"Q2 Roadmap\"},\"updatedAt\":\"2026-08-30T12:00:00.000Z\"}}\n\n",
           ));
           controller.close();
         },
@@ -179,9 +230,15 @@ describe("OpenSlideWorkspace", () => {
 
     await waitFor(() => expect(onContext).toHaveBeenCalledWith(expect.objectContaining({
       pagePath: "slides/research-update/index.tsx",
-      pageNumber: 2,
+      pageNumber: 4,
       selection: expect.objectContaining({ line: 42, tagName: "h1" }),
     })));
-    expect(onViewState).toHaveBeenCalledWith({ page: 2 });
+    expect(onViewState).toHaveBeenCalledWith({ page: 4 });
+    await waitFor(() => expect(eventRequests).toBeGreaterThan(1));
+    const eventCalls = vi.mocked(fetch).mock.calls.filter(([input]) => (
+      String(input).endsWith("/__lattice/events")
+    ));
+    expect(eventCalls[0]?.[1]?.headers).not.toHaveProperty("last-event-id");
+    expect(eventCalls[1]?.[1]?.headers).toMatchObject({ "last-event-id": "3" });
   });
 });

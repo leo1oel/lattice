@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
-import { DocumentCanvas } from "./document-canvas";
+import { DocumentCanvas, OpenSlideTabPool } from "./document-canvas";
 
 /**
  * The canvas decides *what* to mount; the editors themselves are covered by
@@ -444,6 +444,59 @@ describe("DocumentCanvas / editor for the open document", () => {
       path: "slides/research-update/index.tsx",
       kind: "write",
     }));
+  });
+
+  it("keeps an open presentation iframe mounted while another tab is active", async () => {
+    const path = "slides/research-update/index.tsx";
+    const activeWorkspace = {
+      projectRoot: "/tmp/project",
+      path,
+      source: "export default [];\n",
+      editable: true,
+      locale: "en" as const,
+      theme: "light" as const,
+      onMutation: vi.fn(async () => []),
+    };
+    const { rerender } = render(
+      <OpenSlideTabPool
+        projectRoot="/tmp/project"
+        activeWorkspace={activeWorkspace}
+        openPaths={[path]}
+      />,
+    );
+    const presentation = await screen.findByTestId("open-slide-workspace");
+
+    rerender(
+      <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={null} openPaths={[path]} />,
+    );
+    expect(screen.getByTestId("open-slide-workspace")).toBe(presentation);
+    expect(presentation.dataset.active).toBe("false");
+
+    rerender(
+      <OpenSlideTabPool
+        projectRoot="/tmp/project"
+        activeWorkspace={activeWorkspace}
+        openPaths={[path]}
+      />,
+    );
+    expect(screen.getByTestId("open-slide-workspace")).toBe(presentation);
+    expect(presentation.dataset.active).toBe("true");
+
+    rerender(
+      <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={null} openPaths={[]} />,
+    );
+    expect(screen.queryByTestId("open-slide-workspace")).toBeNull();
+  });
+
+  it("lets the external presentation pool own the primary Open Slide surface", async () => {
+    const { container } = renderCanvas({
+      mode: "source",
+      activeFile: "slides/research-update/index.tsx",
+      source: "export default [];\n",
+      primaryOpenSlideExternallyRendered: true,
+    });
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it("keeps a native Open Slide deck inside the secondary pane", async () => {

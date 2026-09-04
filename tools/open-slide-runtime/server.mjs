@@ -139,7 +139,7 @@ export function transformOpenSlideThumbnailRail(source, id) {
   return source
     .replace(
       roomyGap,
-      "group/thumb relative flex w-full items-start justify-center gap-1 rounded-[6px]",
+      "group/thumb relative flex w-full items-start justify-center gap-1 rounded-[6px] pl-2",
     )
     .replace(
       trailingNumber,
@@ -149,19 +149,19 @@ export function transformOpenSlideThumbnailRail(source, id) {
 
 export function transformOpenSlideComments(source, id) {
   const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
-  if (!modulePath.endsWith("/@open-slide/core/src/app/lib/inspector/use-comments.ts")) return null;
-  const silentRemove = `      const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
+  if (modulePath.endsWith("/@open-slide/core/src/app/lib/inspector/use-comments.ts")) {
+    const silentRemove = `      const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(\`DELETE /__comments/\${id} → \${res.status}\`);
       await refetch();`;
-  if (!source.includes(silentRemove)) {
-    throw new Error("Open Slide's comment removal contract changed");
-  }
-  // Upstream lets delete failures escape from an unawaited click handler, so
-  // read-only and network errors look like a dead button. Keep the comment and
-  // surface the server's explanation in the existing comment-panel error row.
-  return source.replace(silentRemove, `      try {
+    if (!source.includes(silentRemove)) {
+      throw new Error("Open Slide's comment removal contract changed");
+    }
+    // Upstream lets delete failures escape from an unawaited click handler, so
+    // read-only and network errors look like a dead button. Keep the comment and
+    // surface the server's explanation in the existing comment-panel error row.
+    return source.replace(silentRemove, `      try {
         const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
           method: 'DELETE',
         });
@@ -173,6 +173,26 @@ export function transformOpenSlideComments(source, id) {
       } catch (e) {
         setError(String((e as Error).message ?? e));
       }`);
+  }
+
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/comment-widget.tsx")) {
+    const manualApplyHint = `              <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+                {t.inspector.commentsApplyHintPrefix}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+                  /apply-comments
+                </code>
+                {t.inspector.commentsApplyHintSuffix}
+              </div>`;
+    if (!source.includes(manualApplyHint)) {
+      throw new Error("Open Slide's comment apply hint contract changed");
+    }
+    return source.replace(manualApplyHint, `              <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+                {t.inspector.commentsApplyHintPrefix}
+                {t.inspector.commentsApplyHintSuffix}
+              </div>`);
+  }
+
+  return null;
 }
 
 export function transformOpenSlideInspectorPanel(source, id) {
@@ -275,12 +295,29 @@ export function transformOpenSlideToolbar(source, id) {
   const badgeCall = "{import.meta.env.DEV && <AgentConnectedBadge />}";
   const badgeStart = "function AgentConnectedBadge() {";
   const badgeEnd = "function SelectionReporter() {";
+  const selectionReporter = `function SelectionReporter() {
+  const { selected } = useInspector();
+  useEffect(() => {
+    if (!import.meta.hot) return;
+    const selection = selected
+      ? {
+          line: selected.line,
+          column: selected.column,
+          tagName: selected.anchor.tagName.toLowerCase(),
+          text: (selected.anchor.textContent ?? '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+        }
+      : null;
+    import.meta.hot.send('open-slide:current', { selection });
+  }, [selected]);
+  return null;
+}`;
   if (
     !source.includes(viewportCentered)
     || !source.includes(presentGroup)
     || !source.includes(badgeCall)
     || !source.includes(badgeStart)
     || !source.includes(badgeEnd)
+    || !source.includes(selectionReporter)
   ) {
     throw new Error("Open Slide's toolbar layout contract changed");
   }
@@ -332,7 +369,20 @@ export function transformOpenSlideToolbar(source, id) {
 }
 
 `;
-  return `${transformed.slice(0, start)}${warning}${transformed.slice(end)}`;
+  transformed = `${transformed.slice(0, start)}${warning}${transformed.slice(end)}`;
+  return transformed.replace(
+    selectionReporter,
+    selectionReporter
+      .replace(
+        "const { selected } = useInspector();",
+        "const { slideId, selected, pendingCount, comments } = useInspector();",
+      )
+      .replace(
+        "{ selection });",
+        "{ slideId, selection, pendingEdits: pendingCount > 0, pendingComments: comments });",
+      )
+      .replace("}, [selected]);", "}, [comments, pendingCount, selected, slideId]);"),
+  );
 }
 
 export function transformOpenSlideConnectionCopy(source, id) {
@@ -360,6 +410,14 @@ export function transformOpenSlideConnectionCopy(source, id) {
           "noDemoHintSuffix: ' for this theme to generate a preview slide.'",
           "noDemoHintSuffix: ' in the AI composer and choose Create Theme from the slash menu.'",
         ],
+        [
+          "commentsApplyHintPrefix: 'Run '",
+          "commentsApplyHintPrefix: 'Included automatically with your next Lattice AI message.'",
+        ],
+        [
+          "commentsApplyHintSuffix: ' in your agent to apply these.'",
+          "commentsApplyHintSuffix: ''",
+        ],
       ]
     : modulePath.endsWith("/@open-slide/core/src/locale/zh-cn.ts")
       ? [
@@ -383,6 +441,14 @@ export function transformOpenSlideConnectionCopy(source, id) {
           [
             "noDemoHintSuffix: ' 即可生成预览用的 slide。'",
             "noDemoHintSuffix: '，并从斜杠菜单中选择“创建主题”。'",
+          ],
+          [
+            "commentsApplyHintPrefix: '在你的代理中运行 '",
+            "commentsApplyHintPrefix: '这些评论会自动包含在你发送给 Lattice AI 的下一条消息中。'",
+          ],
+          [
+            "commentsApplyHintSuffix: ' 以应用这些更改。'",
+            "commentsApplyHintSuffix: ''",
           ],
         ]
       : null;
@@ -953,7 +1019,39 @@ export function safeRelativePath(value) {
 }
 
 const PRESENTATION_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
+const OPEN_SLIDE_COMMENT_ID_RE = /^c-[a-f0-9]+$/;
 const ASSET_FORBIDDEN_RE = /[/\\:*?"<>|]/;
+
+export function removeOpenSlideCommentMarker(source, id) {
+  if (typeof source !== "string" || !OPEN_SLIDE_COMMENT_ID_RE.test(id)) return null;
+  const marker = new RegExp(
+    `\\{\\/\\*\\s*@slide-comment\\s+id="${id}"\\s+ts="[^"]+"\\s+text="[A-Za-z0-9_\\-]+={0,2}"\\s*\\*\\/\\}`,
+  );
+  const match = marker.exec(source);
+  if (!match) return null;
+
+  let from = match.index;
+  let to = from + match[0].length;
+  const lineEnd = source.indexOf("\n", to);
+  const remainder = source.slice(to, lineEnd === -1 ? source.length : lineEnd);
+  // Upstream inserts only a leading newline, so a marker inside an otherwise
+  // ordinary `<h1>Title</h1>` shares its line with `Title`. In that case remove
+  // the marker itself while preserving the line's indentation and JSX.
+  if (!/^[ \t\r]*$/.test(remainder)) {
+    return source.slice(0, from) + source.slice(to);
+  }
+  const lineStart = source.lastIndexOf("\n", from - 1) + 1;
+  if (/^[ \t]*$/.test(source.slice(lineStart, from))) {
+    if (lineStart > 0) {
+      from = source[lineStart - 2] === "\r" ? lineStart - 2 : lineStart - 1;
+    } else {
+      from = 0;
+      if (source.startsWith("\r\n", to)) to += 2;
+      else if (source[to] === "\n") to += 1;
+    }
+  }
+  return source.slice(0, from) + source.slice(to);
+}
 
 function validAssetName(value) {
   if (typeof value !== "string") return null;
@@ -1272,6 +1370,8 @@ export function createMutationQueue(root, controlToken) {
     timer = setTimeout(flush, 40);
   }
   function flush() {
+    clearTimeout(timer);
+    timer = undefined;
     for (const [relative, event] of pending) {
       const utf8 = event.data?.toString("utf8");
       const text = event.data && Buffer.from(utf8, "utf8").equals(event.data) ? utf8 : undefined;
@@ -1295,6 +1395,11 @@ export function createMutationQueue(root, controlToken) {
   }
   function reportCurrent(raw) {
     if (raw == null || typeof raw !== "object") return;
+    // Context derived from a file change (especially a just-added or removed
+    // comment) must follow that mutation on the bridge. The host consumes SSE
+    // serially, so this ordering makes the canonical source durable before the
+    // next Agent message can include the new comment state.
+    if (pending.size > 0) flush();
     const next = currentSlide ? { ...currentSlide } : {
       slideId: "",
       pageIndex: 0,
@@ -1303,30 +1408,38 @@ export function createMutationQueue(root, controlToken) {
       slideTitle: "",
       view: "slides",
       pagePath: "",
+      pendingEdits: false,
+      pendingComments: [],
       selection: null,
     };
     if (typeof raw.slideId === "string") {
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(raw.slideId)) return;
+      const currentForSlide = currentSlide?.slideId === raw.slideId ? currentSlide : null;
       const totalPages = typeof raw.totalPages === "number"
         && Number.isFinite(raw.totalPages)
         && raw.totalPages > 0
         ? Math.floor(raw.totalPages)
-        : 1;
+        : currentForSlide?.totalPages ?? 1;
       const pageIndex = Math.max(0, Math.min(
         totalPages - 1,
         typeof raw.pageIndex === "number" && Number.isFinite(raw.pageIndex)
           ? Math.floor(raw.pageIndex)
-          : 0,
+          : currentForSlide?.pageIndex ?? 0,
       ));
       if (currentSlide?.slideId !== raw.slideId || currentSlide.pageIndex !== pageIndex) {
         next.selection = null;
       }
+      if (currentSlide?.slideId !== raw.slideId) next.pendingComments = [];
       next.slideId = raw.slideId;
       next.pageIndex = pageIndex;
       next.pageNumber = pageIndex + 1;
       next.totalPages = totalPages;
-      next.slideTitle = typeof raw.slideTitle === "string" ? raw.slideTitle.slice(0, 200) : raw.slideId;
-      next.view = raw.view === "assets" ? "assets" : "slides";
+      next.slideTitle = typeof raw.slideTitle === "string"
+        ? raw.slideTitle.slice(0, 200)
+        : currentForSlide?.slideTitle ?? raw.slideId;
+      next.view = raw.view === "assets" || raw.view === "slides"
+        ? raw.view
+        : currentForSlide?.view ?? "slides";
       next.pagePath = `slides/${raw.slideId}/index.tsx`;
     }
     if (Object.hasOwn(raw, "selection")) {
@@ -1349,6 +1462,41 @@ export function createMutationQueue(root, controlToken) {
           }
         : null;
     }
+    if (typeof raw.pendingEdits === "boolean") {
+      next.pendingEdits = raw.pendingEdits;
+    }
+    if (Object.hasOwn(raw, "pendingComments")) {
+      const comments = [];
+      const ids = new Set();
+      let textLength = 0;
+      for (const value of Array.isArray(raw.pendingComments) ? raw.pendingComments : []) {
+        if (comments.length >= 100) break;
+        if (!value || typeof value !== "object") continue;
+        const id = typeof value.id === "string" ? value.id : "";
+        const note = typeof value.note === "string" ? value.note.trim().slice(0, 2_000) : "";
+        const hint = typeof value.hint === "string" ? value.hint.trim().slice(0, 500) : "";
+        if (
+          !OPEN_SLIDE_COMMENT_ID_RE.test(id)
+          || ids.has(id)
+          || typeof value.line !== "number"
+          || !Number.isFinite(value.line)
+          || value.line < 1
+          || typeof value.ts !== "string"
+          || !note
+        ) continue;
+        if (textLength + note.length + hint.length > 24_000) break;
+        ids.add(id);
+        textLength += note.length + hint.length;
+        comments.push({
+          id,
+          line: Math.floor(value.line),
+          ts: value.ts.slice(0, 128),
+          note,
+          ...(hint ? { hint } : {}),
+        });
+      }
+      next.pendingComments = comments;
+    }
     if (!next.slideId) return;
     currentSlide = next;
     broadcast({
@@ -1367,8 +1515,11 @@ export function createMutationQueue(root, controlToken) {
         await fs.rm(target, { recursive: true, force: true });
       } else {
         const data = operation.base64 !== undefined ? Buffer.from(operation.base64, "base64") : Buffer.from(operation.text ?? "");
+        const signature = digest(data);
+        const current = known.get(relative);
+        if (current?.size === data.length && current.digest === signature) continue;
         // Watchers do not reliably distinguish create from write, so accept either echo kind.
-        expectEcho(relative, new Set([`create:${digest(data)}`, `write:${digest(data)}`]));
+        expectEcho(relative, new Set([`create:${signature}`, `write:${signature}`]));
         rememberKnown(relative, remember(data));
         await fs.mkdir(path.dirname(target), { recursive: true });
         await fs.writeFile(target, data);
@@ -1438,8 +1589,13 @@ export function createMutationQueue(root, controlToken) {
     attach(response, lastEventId = 0) {
       clients.add(response);
       response.on("close", () => clients.delete(response));
-      for (const event of history) {
-        if (event.id > lastEventId) response.write(event.frame);
+      // A missing Last-Event-ID denotes a new iframe/host bridge, not a
+      // reconnect. Replaying the previous iframe's page here could overwrite
+      // the page restored for the new tab before that iframe finished loading.
+      if (lastEventId > 0) {
+        for (const event of history) {
+          if (event.id > lastEventId) response.write(event.frame);
+        }
       }
     },
     connected: () => clients.size > 0,
@@ -1712,6 +1868,31 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
       && !access.writable()
     ) {
       res.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "This Lattice project is read-only." }));
+      return;
+    }
+    const commentDelete = /^\/__comments\/(c-[a-f0-9]+)$/.exec(url.pathname);
+    if (commentDelete && req.method === "DELETE") {
+      const slideId = url.searchParams.get("slideId") || "";
+      if (!PRESENTATION_ID_RE.test(slideId)) {
+        res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "invalid slideId" }));
+        return;
+      }
+      const file = path.join(root, "slides", slideId, "index.tsx");
+      try {
+        const source = await fs.readFile(file, "utf8");
+        const next = removeOpenSlideCommentMarker(source, commentDelete[1]);
+        if (next !== null) await fs.writeFile(file, next, "utf8");
+        // Deletion is idempotent. A stale HMR response can briefly retain a
+        // comment after its marker is gone; treating that retry as success lets
+        // the panel refetch the source instead of getting stuck on 404.
+        res.writeHead(200, {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+        }).end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        const status = error.code === "ENOENT" ? 404 : 500;
+        res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: error.message }));
+      }
       return;
     }
     if (url.pathname === "/__lattice/assets-used" && req.method === "GET") {

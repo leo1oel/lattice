@@ -97,6 +97,11 @@ export function isOpenSlideDeckPath(path: string): boolean {
   return deckIdFromOpenSlidePath(path) !== null;
 }
 
+export function isWholeFileEditorPath(path: string): boolean {
+  const extension = fileExtension(path);
+  return isOpenSlideDeckPath(path) || extension === "tldr" || extension === "lattice-sheet";
+}
+
 export function isPreviewableSourceFilePath(path: string): boolean {
   return ["tex", "md", "html"].includes(fileExtension(path));
 }

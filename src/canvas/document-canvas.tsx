@@ -178,6 +178,84 @@ const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((modul
   default: module.OpenSlideWorkspace,
 })));
 
+type CachedOpenSlideWorkspace = Omit<ComponentProps<typeof OpenSlideWorkspace>, "active">;
+
+function openSlideSessionKey(projectRoot: string, path: string): string {
+  return `${projectRoot}\n${path}`;
+}
+
+export function OpenSlideTabPool({
+  projectRoot,
+  activeWorkspace,
+  openPaths,
+}: {
+  projectRoot: string;
+  activeWorkspace: CachedOpenSlideWorkspace | null;
+  openPaths: readonly string[];
+}) {
+  const { t } = useLingui();
+  const [sessions, setSessions] = useState(
+    () => new Map<string, CachedOpenSlideWorkspace>(),
+  );
+  const activeKey = activeWorkspace
+    ? openSlideSessionKey(projectRoot, activeWorkspace.path)
+    : null;
+
+  useLayoutEffect(() => {
+    if (!activeWorkspace || !activeKey) return;
+    setSessions((current) => {
+      if (current.get(activeKey) === activeWorkspace) return current;
+      const next = new Map(current);
+      next.set(activeKey, activeWorkspace);
+      return next;
+    });
+  }, [activeKey, activeWorkspace]);
+
+  useEffect(() => {
+    const retained = new Set(openPaths.map((path) => openSlideSessionKey(projectRoot, path)));
+    setSessions((current) => {
+      const next = new Map(current);
+      for (const key of next.keys()) {
+        if (!retained.has(key) && key !== activeKey) next.delete(key);
+      }
+      return next.size === current.size ? current : next;
+    });
+  }, [activeKey, openPaths, projectRoot]);
+
+  const sessionKeys = Array.from(sessions.keys());
+  const renderKeys = activeKey && !sessions.has(activeKey)
+    ? [...sessionKeys, activeKey]
+    : sessionKeys;
+  return (
+    <div
+      className="open-slide-tab-pool"
+      data-active={activeKey ? "true" : "false"}
+      aria-hidden={!activeKey}
+    >
+      {renderKeys.map((key) => {
+        const active = key === activeKey;
+        const workspace = active ? activeWorkspace : sessions.get(key);
+        if (!workspace) return null;
+        return (
+          <div
+            key={key}
+            className="open-slide-tab-session"
+            data-active={active ? "true" : "false"}
+          >
+            <Suspense
+              fallback={active
+                ? <div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />
+                : null}
+            >
+              <OpenSlideWorkspace {...workspace} active={active} />
+            </Suspense>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();
   const [ready, setReady] = useState(isVisualMarkdownEditorWarmed);
@@ -1297,6 +1375,7 @@ export function DocumentCanvas(props: {
   collabEditorKey: string;
   editorEditable: boolean;
   secondaryEditorEditable: boolean;
+  primaryOpenSlideExternallyRendered?: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
@@ -3986,6 +4065,7 @@ export function DocumentCanvas(props: {
     );
   }
   if (presentationDocument && props.mode !== "dual" && props.mode !== "columns") {
+    if (props.primaryOpenSlideExternallyRendered) return null;
     return (
       <Suspense fallback={<div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} data-tour="open-slide-workspace" />}>
         <OpenSlideWorkspace

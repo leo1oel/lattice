@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,7 +19,12 @@ import {
 } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import { setError, setNotice, setWarning } from "./notify";
-import { confirmAction, overleafLinkMatchesSession, toMessage } from "../app-utils";
+import {
+  confirmAction,
+  isWholeFileEditorPath,
+  overleafLinkMatchesSession,
+  toMessage,
+} from "../app-utils";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
@@ -47,6 +53,13 @@ import type {
  * prefix without the workspace hook having to hand it back.
  */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
+
+type OverleafSyncOptions = {
+  auto?: boolean;
+  observedRemoteVersion?: number | null;
+  /** Whole-file editors normally stay protected; these paths are ready to flush. */
+  includeWholeFilePaths?: readonly string[];
+};
 
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
   return toMessage(reason).toLowerCase().includes("could not reach overleaf");
@@ -84,10 +97,19 @@ export type OverleafWorkspaceDeps = {
   build: BuildResult | null;
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   saveGeneration: number;
+  /** Paths written since the hook last observed saveGeneration. */
+  savedPathsRef: RefObject<Set<string>>;
+  /** Whole-file documents currently mounted as editable surfaces. */
+  wholeFileEditingPaths: readonly string[];
+  /** Mounted whole-file documents that have an uncommitted control edit. */
+  wholeFileDraftPaths: readonly string[];
   collabSession: EditorCollabSession | null;
   collabName: string;
   /** Runs prepare → canonical Catalog/Yjs apply → exact-byte commit for an active Share. */
-  runSharedOverleafSync: (observedRemoteVersion?: number | null) => Promise<OverleafSyncResult>;
+  runSharedOverleafSync: (
+    observedRemoteVersion?: number | null,
+    livePaths?: readonly string[],
+  ) => Promise<OverleafSyncResult>;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
   loadFile: (
@@ -131,6 +153,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     editorPositionRef,
     build,
     saveGeneration,
+    savedPathsRef,
+    wholeFileEditingPaths,
+    wholeFileDraftPaths,
     collabSession,
     collabName,
     runSharedOverleafSync,
@@ -176,13 +201,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const overleafStartupCheckedRoot = useRef<string | null>(null);
-  const overleafSyncRef = useRef<(
-    options?: { auto?: boolean; observedRemoteVersion?: number | null },
-  ) => Promise<void>>(async () => {});
+  const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
+  const wholeFileEditingPathsRef = useRef<readonly string[]>(wholeFileEditingPaths);
+  const wholeFileDraftPathsRef = useRef<readonly string[]>(wholeFileDraftPaths);
+  const deferredWholeFilePathsRef = useRef(new Set<string>());
+  const wholeFileIdleTimerRef = useRef<number | null>(null);
+  const wholeFileBoundaryTimerRef = useRef<number | null>(null);
+  const wholeFileBoundaryPathsRef = useRef(new Set<string>());
+  const flushDeferredWholeFileSyncRef = useRef<(
+    paths?: readonly string[],
+  ) => Promise<void>>(async () => {});
   /** Whether the realtime channel is up, for the poll loop to read. */
   const overleafChannelLiveRef = useRef(false);
   /** Path → Overleaf's id and kind, which is what its endpoints take. */
@@ -192,6 +224,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const OVERLEAF_LIVE_POLL_MS = 3_000;
   /** Quiet time after a save before local work is pushed up. */
   const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
+  /** Let editor cleanup writes settle before syncing a file that just became inactive. */
+  const OVERLEAF_WHOLE_FILE_SETTLE_MS = 1_000;
+  /** A long quiet edit still gets a durable remote checkpoint. */
+  const OVERLEAF_WHOLE_FILE_IDLE_MS = 60_000;
   /** Cadence when Overleaf gives us no cheap way to detect a change. */
   const OVERLEAF_BLIND_POLL_MS = 120_000;
   /**
@@ -215,6 +251,29 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const OVERLEAF_CHANNEL_SYNC_GAP_MS = 30_000;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
+
+  useLayoutEffect(() => {
+    wholeFileEditingPathsRef.current = wholeFileEditingPaths;
+    wholeFileDraftPathsRef.current = wholeFileDraftPaths;
+  }, [wholeFileDraftPaths, wholeFileEditingPaths]);
+
+  const currentOverleafLivePaths = useCallback((includeWholeFilePaths: readonly string[] = []) => {
+    const included = new Set(includeWholeFilePaths);
+    const drafts = new Set(wholeFileDraftPathsRef.current);
+    return Array.from(new Set([
+      ...overleafLivePathsRef.current,
+      ...wholeFileEditingPathsRef.current.filter((path) => !included.has(path) || drafts.has(path)),
+    ]));
+  }, []);
+
+  const captureSavedPaths = useCallback(() => {
+    const paths = Array.from(savedPathsRef.current);
+    savedPathsRef.current.clear();
+    for (const path of paths) {
+      if (isWholeFileEditorPath(path)) deferredWholeFilePathsRef.current.add(path);
+    }
+    return paths;
+  }, [savedPathsRef]);
 
   useEffect(() => {
     overleafTransportRetryRef.current = false;
@@ -413,10 +472,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }
   }, [projectOperationGenerationRef, projectRef, t]);
 
-  const runOverleafSync = useCallback(async (options?: {
-    auto?: boolean;
-    observedRemoteVersion?: number | null;
-  }) => {
+  const runOverleafSync = useCallback(async (options?: OverleafSyncOptions) => {
     if (!project || overleafSyncingRef.current) return;
     const syncRoot = project.root;
     const syncGeneration = projectOperationGenerationRef.current;
@@ -438,16 +494,28 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     try {
       if (!(await save())) return;
       if (!stillCurrent()) return;
+      const livePaths = currentOverleafLivePaths(
+        options?.auto
+          ? options.includeWholeFilePaths
+          : wholeFileEditingPathsRef.current,
+      );
       const sharedSync = collabSession !== null;
       const result = sharedSync
-        ? await runSharedOverleafSync(options?.observedRemoteVersion)
+        ? await runSharedOverleafSync(options?.observedRemoteVersion, livePaths)
         : await invoke<OverleafSyncResult>("overleaf_sync", {
             projectRoot: syncRoot,
-            live: overleafLivePathsRef.current,
+            live: livePaths,
             observedRemoteVersion: options?.observedRemoteVersion ?? null,
           });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
+      // Every pending whole-file path omitted from `livePaths` participated in
+      // this successful sync. Forget it now so a later blur does not perform a
+      // duplicate project download for work that is already remote.
+      const protectedPaths = new Set(livePaths);
+      for (const path of deferredWholeFilePathsRef.current) {
+        if (!protectedPaths.has(path)) deferredWholeFilePathsRef.current.delete(path);
+      }
       // PDF inspection generates contact sheets and page renders under this
       // app-owned folder. Old versions uploaded them as project files; remove
       // that legacy folder silently and never mix it into the user's ordinary
@@ -603,6 +671,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     collabName,
     collabSession,
     compile,
+    currentOverleafLivePaths,
     loadFile,
     overleafSyncSettledRef,
     overleafSyncingRef,
@@ -625,6 +694,113 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // the answer is yes. That is what makes seconds-level latency affordable —
   // polling the project itself would mean re-downloading it every time.
   overleafSyncRef.current = runOverleafSync;
+
+  const flushDeferredWholeFileSync = useCallback(async (paths?: readonly string[]) => {
+    if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
+    captureSavedPaths();
+    const requested = paths ?? Array.from(deferredWholeFilePathsRef.current);
+    const drafts = new Set(wholeFileDraftPathsRef.current);
+    const ready = requested.filter((path) => (
+      deferredWholeFilePathsRef.current.has(path) && !drafts.has(path)
+    ));
+    if (!ready.length) {
+      if (requested.some((path) => deferredWholeFilePathsRef.current.has(path))) {
+        if (wholeFileIdleTimerRef.current !== null) {
+          window.clearTimeout(wholeFileIdleTimerRef.current);
+        }
+        wholeFileIdleTimerRef.current = window.setTimeout(() => {
+          wholeFileIdleTimerRef.current = null;
+          void flushDeferredWholeFileSyncRef.current(requested);
+        }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
+      }
+      return;
+    }
+    const syncRoot = project.root;
+    if (overleafSyncingRef.current) {
+      await overleafSyncSettledRef.current;
+    }
+    if (projectRef.current?.root !== syncRoot) return;
+    const pathsToSync = ready.filter((path) => deferredWholeFilePathsRef.current.has(path));
+    if (!pathsToSync.length) return;
+    lastAutoSyncRef.current = Date.now();
+    await overleafSyncRef.current({
+      auto: true,
+      includeWholeFilePaths: pathsToSync,
+    });
+  }, [
+    OVERLEAF_WHOLE_FILE_SETTLE_MS,
+    captureSavedPaths,
+    overleafLink,
+    overleafSyncMode,
+    overleafSyncSettledRef,
+    overleafSyncingRef,
+    project?.root,
+    projectRef,
+  ]);
+  useLayoutEffect(() => {
+    flushDeferredWholeFileSyncRef.current = flushDeferredWholeFileSync;
+  }, [flushDeferredWholeFileSync]);
+
+  const previousWholeFileEditingPathsRef = useRef<readonly string[]>(wholeFileEditingPaths);
+  useEffect(() => {
+    const editing = new Set(wholeFileEditingPaths);
+    const left = previousWholeFileEditingPathsRef.current.filter((path) => !editing.has(path));
+    previousWholeFileEditingPathsRef.current = wholeFileEditingPaths;
+    // A document switch can batch with the editor's final persistence update.
+    // Capture that path here too, rather than relying on the save-generation
+    // effect having run in an earlier commit.
+    for (const path of left) {
+      if (!savedPathsRef.current.has(path)) continue;
+      savedPathsRef.current.delete(path);
+      deferredWholeFilePathsRef.current.add(path);
+    }
+    const pending = left.filter((path) => deferredWholeFilePathsRef.current.has(path));
+    if (!pending.length) return;
+    for (const path of pending) wholeFileBoundaryPathsRef.current.add(path);
+    if (wholeFileBoundaryTimerRef.current !== null) {
+      window.clearTimeout(wholeFileBoundaryTimerRef.current);
+    }
+    wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
+      wholeFileBoundaryTimerRef.current = null;
+      const pathsToFlush = Array.from(wholeFileBoundaryPathsRef.current);
+      wholeFileBoundaryPathsRef.current.clear();
+      void flushDeferredWholeFileSyncRef.current(pathsToFlush);
+    }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
+  }, [OVERLEAF_WHOLE_FILE_SETTLE_MS, savedPathsRef, wholeFileEditingPaths]);
+
+  useEffect(() => {
+    if (!overleafLink || overleafSyncMode !== "live") return;
+    const onBlur = () => {
+      if (wholeFileBoundaryTimerRef.current !== null) {
+        window.clearTimeout(wholeFileBoundaryTimerRef.current);
+      }
+      wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
+        wholeFileBoundaryTimerRef.current = null;
+        void flushDeferredWholeFileSyncRef.current();
+      }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+  }, [OVERLEAF_WHOLE_FILE_SETTLE_MS, overleafLink, overleafSyncMode]);
+
+  useEffect(() => {
+    const clearWholeFileSyncState = () => {
+      deferredWholeFilePathsRef.current.clear();
+      wholeFileBoundaryPathsRef.current.clear();
+      savedPathsRef.current.clear();
+      if (wholeFileIdleTimerRef.current !== null) {
+        window.clearTimeout(wholeFileIdleTimerRef.current);
+        wholeFileIdleTimerRef.current = null;
+      }
+      if (wholeFileBoundaryTimerRef.current !== null) {
+        window.clearTimeout(wholeFileBoundaryTimerRef.current);
+        wholeFileBoundaryTimerRef.current = null;
+      }
+    };
+    clearWholeFileSyncState();
+    return clearWholeFileSyncState;
+  }, [project?.root, savedPathsRef]);
+
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
     const projectRoot = project.root;
@@ -723,7 +899,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     enabled: overleafLink !== null,
     documents: overleafSyncMode === "live" && !collabSession,
     projectRoot: project?.root ?? null,
-    activeFile,
+    // Slides, boards and spreadsheets serialize their whole document at once;
+    // feeding those bytes through Overleaf's character OT while their own
+    // editor is active creates competing writers for the same file.
+    activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
     readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
     onRemoteText: (text, caret) => {
       const path = activeFileRef.current;
@@ -786,7 +965,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     void invoke<OverleafProbe>("overleaf_probe", {
       projectRoot,
       checkLocal: true,
-      live: overleafLivePathsRef.current,
+      live: currentOverleafLivePaths(),
     }).then((probe) => {
       if (!stillCurrent()) return;
       if (probe.versionKnown && !probe.changed && !probe.localChanged) return;
@@ -803,7 +982,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     return () => {
       cancelled = true;
     };
-  }, [overleafLink, overleafRealtime.status, overleafSyncMode, project?.root, projectRef]);
+  }, [
+    currentOverleafLivePaths,
+    overleafLink,
+    overleafRealtime.status,
+    overleafSyncMode,
+    project?.root,
+    projectRef,
+  ]);
 
   // Who else is in the Overleaf project, and where. Two things the presence
   // hook cannot get anywhere else ride the same channel: our own connection
@@ -1016,6 +1202,36 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // was almost always cancelled before it ran.
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
+    const savedPaths = captureSavedPaths();
+    const wholeFilePaths = savedPaths.filter(isWholeFileEditorPath);
+    if (wholeFilePaths.length) {
+      const editing = new Set(wholeFileEditingPathsRef.current);
+      for (const path of wholeFilePaths) {
+        if (!editing.has(path)) wholeFileBoundaryPathsRef.current.add(path);
+      }
+      if (wholeFileBoundaryPathsRef.current.size) {
+        if (wholeFileBoundaryTimerRef.current !== null) {
+          window.clearTimeout(wholeFileBoundaryTimerRef.current);
+        }
+        wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
+          wholeFileBoundaryTimerRef.current = null;
+          const pathsToFlush = Array.from(wholeFileBoundaryPathsRef.current);
+          wholeFileBoundaryPathsRef.current.clear();
+          void flushDeferredWholeFileSyncRef.current(pathsToFlush);
+        }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
+      }
+      if (wholeFileIdleTimerRef.current !== null) {
+        window.clearTimeout(wholeFileIdleTimerRef.current);
+      }
+      wholeFileIdleTimerRef.current = window.setTimeout(() => {
+        wholeFileIdleTimerRef.current = null;
+        void flushDeferredWholeFileSyncRef.current();
+      }, OVERLEAF_WHOLE_FILE_IDLE_MS);
+    }
+    // A save belonging only to a whole-file editor waits for a document
+    // boundary (or the long quiet fallback) instead of downloading and merging
+    // the Overleaf project after every serialized control change.
+    if (!savedPaths.some((path) => !isWholeFileEditorPath(path))) return;
     let cancelled = false;
     let timer: number | null = null;
     const attempt = () => {
@@ -1042,7 +1258,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [overleafLink, overleafSyncMode, saveGeneration]);
+  }, [
+    OVERLEAF_WHOLE_FILE_IDLE_MS,
+    OVERLEAF_WHOLE_FILE_SETTLE_MS,
+    captureSavedPaths,
+    overleafLink,
+    overleafSyncMode,
+    saveGeneration,
+    savedPathsRef,
+  ]);
 
   // Manual mode never syncs on its own; it just watches for incoming work so
   // the toolbar can offer it, the way a repository shows commits to pull.
@@ -1110,6 +1334,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     refreshOverleafLink,
     publishProjectToOverleaf,
     runOverleafSync,
+    flushDeferredWholeFileSync,
     settleRemoteDeletes,
     openCurrentOverleafProject,
     jumpToOverleafPeer,

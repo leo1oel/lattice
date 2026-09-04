@@ -8,6 +8,14 @@ export type OpenSlideMutation = {
   previousBase64?: string;
 };
 
+export type OpenSlideComment = {
+  id: string;
+  line: number;
+  ts: string;
+  note: string;
+  hint?: string;
+};
+
 export type OpenSlideContext = {
   slideId: string;
   pageIndex: number;
@@ -16,6 +24,8 @@ export type OpenSlideContext = {
   slideTitle: string;
   view: "slides" | "assets";
   pagePath: string;
+  pendingEdits: boolean;
+  pendingComments: OpenSlideComment[];
   selection: {
     line: number;
     column: number;

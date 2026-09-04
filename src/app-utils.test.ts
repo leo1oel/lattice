@@ -12,6 +12,7 @@ import {
   isHarperProseFilePath,
   isOpenSlideDeckPath,
   isProjectSourceFilePath,
+  isWholeFileEditorPath,
   isWindowDragExcluded,
   markdownFrontmatterEnd,
   overleafHostsMatch,
@@ -260,6 +261,14 @@ describe("editor file drops", () => {
     expect(deckIdFromOpenSlidePath("slides/research-update/index.tsx")).toBe("research-update");
     expect(isOpenSlideDeckPath("slides/research_update/index.tsx")).toBe(false);
     expect(isOpenSlideDeckPath("slides/research-update/notes.tsx")).toBe(false);
+  });
+
+  it("recognizes editors whose documents synchronize as whole files", () => {
+    expect(isWholeFileEditorPath("slides/research-update/index.tsx")).toBe(true);
+    expect(isWholeFileEditorPath("figures/model.tldr")).toBe(true);
+    expect(isWholeFileEditorPath("results.LATTICE-SHEET")).toBe(true);
+    expect(isWholeFileEditorPath("main.tex")).toBe(false);
+    expect(isWholeFileEditorPath("slides/research-update/theme.tsx")).toBe(false);
   });
 
   it("runs Harper only for prose source files", () => {

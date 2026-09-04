@@ -253,6 +253,7 @@ import {
   isProjectAssetFilePath,
   isProjectSourceFilePath,
   isPaperTabKey,
+  isWholeFileEditorPath,
   markdownFrontmatterEnd,
   paperKey,
   paperTabKey,
@@ -432,6 +433,9 @@ const CompileDiagnosticsPanel = lazy(() =>
 const loadDocumentCanvas = () => import("./canvas/document-canvas");
 const DocumentCanvas = lazy(() =>
   loadDocumentCanvas().then((module) => ({ default: module.DocumentCanvas })),
+);
+const OpenSlideTabPool = lazy(() =>
+  loadDocumentCanvas().then((module) => ({ default: module.OpenSlideTabPool })),
 );
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
@@ -660,6 +664,7 @@ function App() {
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
   const visualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const saveBeforeProjectTransitionRef = useRef<() => Promise<boolean>>(async () => true);
+  const flushWholeFilesBeforeProjectTransitionRef = useRef<() => Promise<void>>(async () => {});
   const hasLateProjectTransitionEditRef = useRef<() => boolean>(() => false);
   const [primaryOpening, setPrimaryOpening] = useState<{
     generation: number;
@@ -1325,6 +1330,12 @@ function App() {
   const [collabReady, setCollabReady] = useState(false);
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
+  const savedPathsRef = useRef(new Set<string>());
+  const recordSavedPaths = useCallback((paths: readonly string[]) => {
+    if (!paths.length) return;
+    for (const path of paths) savedPathsRef.current.add(path);
+    setSaveGeneration((generation) => generation + 1);
+  }, []);
   const collabSessionRef = useRef<EditorCollabSession | null>(null);
   const collabV2ControllerRef = useRef<CollabProjectControllerV2 | null>(null);
   const collabWorkspaceLeaseRef = useRef<CollabWorkspaceLease | null>(null);
@@ -1414,14 +1425,17 @@ function App() {
       doc,
       canWrite: true,
       path,
-      commit: () => invoke<void>("write_project_file", {
-        path,
-        content: spreadsheetDocContent(doc),
-        projectRoot,
-      }),
+      commit: async () => {
+        await invoke<void>("write_project_file", {
+          path,
+          content: spreadsheetDocContent(doc),
+          projectRoot,
+        });
+        recordSavedPaths([path]);
+      },
       dispose: () => doc.destroy(),
     };
-  }), [activeCollabVersion, collabCanWrite]);
+  }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
   const [bibEntryOpen, setBibEntryOpen] = useState(false);
   const [bibEntryBusy, setBibEntryBusy] = useState(false);
@@ -2210,6 +2224,10 @@ function App() {
       return false;
     }
     if (!(await saveBeforeProjectTransitionRef.current())) return false;
+    await Promise.race([
+      flushWholeFilesBeforeProjectTransitionRef.current(),
+      new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
+    ]);
     if (hasLateProjectTransitionEditRef.current()) {
       setNotice("The document changed while saving. Save it, then switch projects again.");
       return false;
@@ -2732,7 +2750,13 @@ function App() {
   const v2WorkspaceCallbacks = useCallback((lease: CollabWorkspaceLease): CollabMaterializeCallbacksV2 => ({
     writeText: (path, content, projectRoot) => {
       const generation = collabPathMutationGeneration(path);
-      return collabDiskWriteQueueRef.current.run(lease, path, () => generation === collabPathMutationGeneration(path) ? invoke("write_project_file", { path, content, projectRoot }) : Promise.resolve());
+      return collabDiskWriteQueueRef.current.run(lease, path, async () => {
+        if (generation !== collabPathMutationGeneration(path)) return;
+        await invoke("write_project_file", { path, content, projectRoot });
+        if (isWholeFileEditorPath(path) && !overleafSyncingRef.current) {
+          recordSavedPaths([path]);
+        }
+      });
     },
     writeBytes: (path, bytes, projectRoot) => {
       const generation = collabPathMutationGeneration(path);
@@ -2753,7 +2777,7 @@ function App() {
       }
       return current;
     }),
-  }), [collabPathMutationGeneration, handleRemoteCollabDeleteV2]);
+  }), [collabPathMutationGeneration, handleRemoteCollabDeleteV2, recordSavedPaths]);
 
   // ---- Lattice Share (Yjs v2) ----------------------------------------------
   // Room state and the whole start / join / leave / close lifecycle live in
@@ -2855,8 +2879,8 @@ function App() {
       const currentSavedPaperBlog = savedPaperBlogRef.current;
       let wroteTex = false;
       let wroteBib = false;
-      let wrotePaper = false;
       let wroteSemanticSource = false;
+      const writtenPaths: string[] = [];
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
         let writeResult: EditorWriteResult | undefined;
@@ -2908,6 +2932,7 @@ function App() {
         wroteTex = wroteTex || primaryPath.endsWith(".tex");
         wroteBib = wroteBib || primaryPath === project.manifest.primaryBibliography;
         wroteSemanticSource = /\.(?:md|mdx|tex)$/i.test(primaryPath);
+        writtenPaths.push(primaryPath);
       }
       if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryPath);
@@ -2959,6 +2984,7 @@ function App() {
         wroteTex = wroteTex || secondaryPath.endsWith(".tex");
         wroteBib = wroteBib || secondaryPath === project.manifest.primaryBibliography;
         wroteSemanticSource = wroteSemanticSource || /\.(?:md|mdx|tex)$/i.test(secondaryPath);
+        writtenPaths.push(secondaryPath);
       }
       if (activePaper && currentPaperMarkdown !== currentSavedPaperMarkdown) {
         const path = `.research/papers/${activePaper.arxivId}/paper.md`;
@@ -2972,8 +2998,8 @@ function App() {
         }
         savedPaperMarkdownRef.current = currentPaperMarkdown;
         setSavedPaperMarkdown(currentPaperMarkdown);
-        wrotePaper = true;
         wroteSemanticSource = true;
+        writtenPaths.push(path);
       }
       if (activePaper && currentPaperBlog !== null && currentPaperBlog !== currentSavedPaperBlog) {
         const path = `.research/papers/${activePaper.arxivId}/blog.md`;
@@ -2987,19 +3013,11 @@ function App() {
         }
         savedPaperBlogRef.current = currentPaperBlog;
         setSavedPaperBlog(currentPaperBlog);
-        wrotePaper = true;
         wroteSemanticSource = true;
+        writtenPaths.push(path);
       }
-      if (
-        !wroteTex
-        && !wroteBib
-        && !wrotePaper
-        && primarySource === primarySavedSource
-        && currentSecondarySource === currentSecondarySavedSource
-      ) {
-        return true;
-      }
-      setSaveGeneration((generation) => generation + 1);
+      if (!writtenPaths.length) return true;
+      recordSavedPaths(writtenPaths);
       // Saving must only wait for durable writes. The derived sidebars are
       // useful, but making file switches and builds wait on six independent
       // project scans turned every save into a visible pause.
@@ -3025,6 +3043,7 @@ function App() {
     externalEditConflictMessage,
     project,
     publishTextToCollabV2,
+    recordSavedPaths,
     refreshAfterSave,
     requestSemanticReindex,
   ]);
@@ -3953,6 +3972,7 @@ function App() {
 
   const runSharedOverleafSync = useCallback(async (
     observedRemoteVersion?: number | null,
+    livePaths: readonly string[] = [],
   ): Promise<OverleafSyncResult> => {
     const controller = collabV2ControllerRef.current;
     const lease = collabWorkspaceLeaseRef.current;
@@ -4035,7 +4055,7 @@ function App() {
     const prepared = await invoke<OverleafPreparedSync>("overleaf_prepare_sync", {
       projectRoot,
       authoritativeInventory: inventory,
-      live: [],
+      live: livePaths,
       observedRemoteVersion: observedRemoteVersion ?? null,
     });
     const acceptedActions: OverleafAcceptedAction[] = [];
@@ -4235,6 +4255,39 @@ function App() {
   // `src/app/use-overleaf-workspace.ts`. It has to be called here rather than
   // beside the rest of App's state: every sync path goes through save, compile,
   // loadFile and refreshProject, all of which are declared above.
+  const wholeFileEditingPaths = useMemo(() => {
+    const paths: string[] = [];
+    if (
+      !activePaper
+      && !activeAsset
+      && !dualPreviewPanes.primary
+      && canvasMode !== "pdf"
+      && isWholeFileEditorPath(activeFile)
+    ) paths.push(activeFile);
+    if (
+      (canvasMode === "dual" || canvasMode === "columns")
+      && secondaryFile
+      && !secondaryAsset
+      && !dualPreviewPanes.secondary
+      && isWholeFileEditorPath(secondaryFile)
+    ) paths.push(secondaryFile);
+    return paths;
+  }, [
+    activeAsset,
+    activeFile,
+    activePaper,
+    canvasMode,
+    dualPreviewPanes.primary,
+    dualPreviewPanes.secondary,
+    secondaryAsset,
+    secondaryFile,
+  ]);
+  const wholeFileDraftPaths = useMemo(() => (
+    openSlideContext?.pendingEdits
+    && wholeFileEditingPaths.includes(openSlideContext.pagePath)
+      ? [openSlideContext.pagePath]
+      : []
+  ), [openSlideContext, wholeFileEditingPaths]);
   const {
     overleafLink,
     overleafProjectLinked,
@@ -4259,6 +4312,7 @@ function App() {
     refreshOverleafLink,
     publishProjectToOverleaf,
     runOverleafSync,
+    flushDeferredWholeFileSync,
     settleRemoteDeletes,
     openCurrentOverleafProject,
     jumpToOverleafPeer,
@@ -4290,6 +4344,9 @@ function App() {
     editorPositionRef,
     build,
     saveGeneration,
+    savedPathsRef,
+    wholeFileEditingPaths,
+    wholeFileDraftPaths,
     collabSession,
     collabName,
     runSharedOverleafSync,
@@ -4302,23 +4359,9 @@ function App() {
     overleafSyncSettledRef,
     resolveOverleafSyncRef,
   });
-
-  const openSlideOverleafTimerRef = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (openSlideOverleafTimerRef.current !== null) {
-      window.clearTimeout(openSlideOverleafTimerRef.current);
-    }
-  }, []);
-  const scheduleOpenSlideOverleafSync = useCallback(() => {
-    if (!overleafLink || overleafSyncMode !== "live") return;
-    if (openSlideOverleafTimerRef.current !== null) {
-      window.clearTimeout(openSlideOverleafTimerRef.current);
-    }
-    openSlideOverleafTimerRef.current = window.setTimeout(() => {
-      openSlideOverleafTimerRef.current = null;
-      void overleafSyncRef.current({ auto: true }).catch((reason) => setError(toMessage(reason)));
-    }, 750);
-  }, [overleafLink, overleafSyncMode, overleafSyncRef]);
+  useLayoutEffect(() => {
+    flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
+  }, [flushDeferredWholeFileSync]);
 
   const applyOpenSlideMutation = useCallback(async (
     mutation: OpenSlideMutation,
@@ -4505,6 +4548,12 @@ function App() {
     }
     const snapshot = await refreshProject();
     await refreshHistory();
+    const deckPath = isOpenSlideDeckPath(mutation.path)
+      ? mutation.path
+      : isOpenSlideDeckPath(activeFileRef.current)
+        ? activeFileRef.current
+        : null;
+    if (deckPath) recordSavedPaths([deckPath]);
     if (mutation.kind === "delete" && activeFileRef.current === mutation.path) {
       const replacement = flattenProjectPaths(snapshot.files).find((candidate) => (
         candidate !== mutation.path && isProjectSourceFilePath(candidate)
@@ -4519,7 +4568,6 @@ function App() {
         setSavedSource("");
       }
     }
-    scheduleOpenSlideOverleafSync();
     return mutation.kind === "delete"
       ? [{ path: mutation.path, kind: "delete" }]
       : [{
@@ -4532,9 +4580,9 @@ function App() {
     collabCanWrite,
     collabDiskWriteQueueRef,
     loadFile,
+    recordSavedPaths,
     refreshHistory,
     refreshProject,
-    scheduleOpenSlideOverleafSync,
     v2WorkspaceCallbacks,
   ]);
 
@@ -5740,7 +5788,9 @@ function App() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save().then((saved) => {
-          if (saved && !activePaper) void compile();
+          if (!saved) return;
+          void flushDeferredWholeFileSync();
+          if (!activePaper) void compile();
         });
       } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
         event.preventDefault();
@@ -5749,7 +5799,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [activePaper, chooseExisting, compile, save]);
+  }, [activePaper, chooseExisting, compile, flushDeferredWholeFileSync, save]);
 
   const importReferenceInput = useCallback(async (input: string) => {
     const trimmed = input.trim();
@@ -9162,6 +9212,11 @@ function App() {
       )
     )
   );
+  const primaryOpenSlideActive = !activePaper
+    && !activeAsset
+    && isOpenSlideDeckPath(activeFile)
+    && canvasMode !== "dual"
+    && canvasMode !== "columns";
 
   return (
     <div
@@ -9457,6 +9512,23 @@ function App() {
           )}
           <span className="canvas-tour-card-anchor" data-tour="canvas-tour-card-anchor" aria-hidden="true" />
           <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing editor`} />}>
+          <OpenSlideTabPool
+            projectRoot={project.root}
+            openPaths={openTabs}
+            activeWorkspace={primaryOpenSlideActive ? {
+              projectRoot: project.root,
+              path: activeFile,
+              source,
+              editable: editorEditableForPath(activeFile),
+              locale: appLocale,
+              theme,
+              initialViewState: getFileViewState(activeFile)?.openSlide,
+              onViewState: (openSlide) => rememberFileViewState(activeFile, { openSlide }),
+              onMutation: applyOpenSlideMutation,
+              onContext: setOpenSlideContext,
+              onError: setError,
+            } : null}
+          />
           <DocumentCanvas
             projectRoot={project.root}
             locale={appLocale}
@@ -9662,6 +9734,7 @@ function App() {
             secondaryEditorEditable={secondaryFile
               ? editorEditableForPath(secondaryFile)
               : false}
+            primaryOpenSlideExternallyRendered
             collabEditorKey={activePaper
               ? `paper:${activePaperPath}`
               : collabSession

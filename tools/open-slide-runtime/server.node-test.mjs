@@ -9,6 +9,7 @@ import {
   listUsedGlobalAssetNames,
   migrateLegacySlideAssets,
   renameGlobalAsset,
+  removeOpenSlideCommentMarker,
   safeRelativePath,
   transformOpenSlideAssets,
   transformOpenSlideComments,
@@ -20,7 +21,7 @@ import {
   transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -76,7 +77,7 @@ test("centers vertical slide previews with folios in the left gutter", async () 
     source,
     "/runtime/node_modules/@open-slide/core/src/app/components/thumbnail-rail.tsx?direct",
   );
-  assert.match(transformed, /group\/thumb relative flex w-full items-start justify-center gap-1 rounded-\[6px\]/);
+  assert.match(transformed, /group\/thumb relative flex w-full items-start justify-center gap-1 rounded-\[6px\] pl-2/);
   assert.match(transformed, /absolute left-2 mt-1\.5 flex w-7 shrink-0 flex-col items-start gap-1/);
   assert.doesNotMatch(transformed, /group\/thumb flex w-full items-start gap-2\.5/);
   assert.doesNotMatch(transformed, /mt-1\.5 flex w-7 shrink-0 flex-col items-end gap-1/);
@@ -84,20 +85,47 @@ test("centers vertical slide previews with folios in the left gutter", async () 
   await transformTsx(transformed, { loader: "tsx" });
 });
 
-test("surfaces comment deletion failures in the existing comment panel", async () => {
-  const source = await readFile(
-    new URL("./node_modules/@open-slide/core/src/app/lib/inspector/use-comments.ts", import.meta.url),
-    "utf8",
-  );
-  const transformed = transformOpenSlideComments(
-    source,
+test("surfaces comment deletion failures and removes the manual apply instruction", async () => {
+  const [hookSource, widgetSource] = await Promise.all([
+    readFile(
+      new URL("./node_modules/@open-slide/core/src/app/lib/inspector/use-comments.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("./node_modules/@open-slide/core/src/app/components/inspector/comment-widget.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  const hook = transformOpenSlideComments(
+    hookSource,
     "/runtime/node_modules/@open-slide/core/src/app/lib/inspector/use-comments.ts?direct",
   );
-  assert.match(transformed, /const body = \(await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)\) as \{ error\?: string \}/);
-  assert.match(transformed, /setError\(String\(\(e as Error\)\.message \?\? e\)\)/);
-  assert.doesNotMatch(transformed, /if \(!res\.ok\) throw new Error\(`DELETE/);
-  assert.equal(transformOpenSlideComments(source, "/project/use-comments.ts"), null);
-  await transformTsx(transformed, { loader: "tsx" });
+  const widget = transformOpenSlideComments(
+    widgetSource,
+    "/runtime/node_modules/@open-slide/core/src/app/components/inspector/comment-widget.tsx?direct",
+  );
+  assert.match(hook, /const body = \(await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)\) as \{ error\?: string \}/);
+  assert.match(hook, /setError\(String\(\(e as Error\)\.message \?\? e\)\)/);
+  assert.doesNotMatch(hook, /if \(!res\.ok\) throw new Error\(`DELETE/);
+  assert.doesNotMatch(widget, /apply-comments/);
+  assert.equal(transformOpenSlideComments(hookSource, "/project/use-comments.ts"), null);
+  await Promise.all([hook, widget].map((source) => transformTsx(source, { loader: "tsx" })));
+});
+
+test("deletes only the requested comment marker when inline JSX follows it", () => {
+  const first = '{/* @slide-comment id="c-11111111" ts="2026-09-03T00:00:00.000Z" text="eyJub3RlIjoiZmlyc3QifQ" */}';
+  const second = '{/* @slide-comment id="c-22222222" ts="2026-09-03T00:00:01.000Z" text="eyJub3RlIjoic2Vjb25kIn0" */}';
+  const source = `<h1>\n  ${first}\n  ${second}Title</h1>`;
+
+  assert.equal(
+    removeOpenSlideCommentMarker(source, "c-22222222"),
+    `<h1>\n  ${first}\n  Title</h1>`,
+  );
+  assert.equal(
+    removeOpenSlideCommentMarker(`<h1>\n  ${first}\n  Title</h1>`, "c-11111111"),
+    "<h1>\n  Title</h1>",
+  );
+  assert.equal(removeOpenSlideCommentMarker(source, "c-deadbeef"), null);
 });
 
 test("removes the redundant inspector agent-watching badge", async () => {
@@ -169,6 +197,9 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /<AgentConnectionWarning \/>/);
   assert.match(transformed, /if \(connected\) return null/);
   assert.match(transformed, /t\.slide\.agentDisconnected/);
+  assert.match(transformed, /const \{ slideId, selected, pendingCount, comments \} = useInspector\(\)/);
+  assert.match(transformed, /pendingEdits: pendingCount > 0/);
+  assert.match(transformed, /pendingComments: comments/);
   assert.doesNotMatch(transformed, /AgentConnectedBadge|bg-emerald-500|t\.slide\.agentConnected/);
   assert.equal(transformOpenSlideToolbar(source, "/project/slides/talk/index.tsx"), null);
   await transformTsx(transformed, { loader: "tsx" });
@@ -193,10 +224,14 @@ test("uses Lattice-specific connection and theme guidance", async () => {
   assert.match(en, /The agent can still edit deck files/);
   assert.match(en, /noThemesHintPrefix: 'Ask Lattice AI to create one, or enter '/);
   assert.match(en, /choose Create Theme from the slash menu/);
+  assert.match(en, /commentsApplyHintPrefix: 'Included automatically with your next Lattice AI message\.'/);
+  assert.match(en, /commentsApplyHintSuffix: ''/);
   assert.match(zh, /agentDisconnected: '页面上下文未同步'/);
   assert.match(zh, /Agent 仍可编辑演示文稿文件/);
   assert.match(zh, /noThemesHintPrefix: '让 Lattice AI 为你创建主题/);
   assert.match(zh, /从斜杠菜单中选择“创建主题”/);
+  assert.match(zh, /commentsApplyHintPrefix: '这些评论会自动包含在你发送给 Lattice AI 的下一条消息中。'/);
+  assert.match(zh, /commentsApplyHintSuffix: ''/);
   assert.equal(transformOpenSlideConnectionCopy(enSource, "/project/locale/en.ts"), null);
   await Promise.all([en, zh].map((source) => transformTsx(source, { loader: "ts" })));
 });
@@ -555,9 +590,13 @@ test("does not report initial files or exact host mirror echoes", async () => {
     await mkdir(path.join(root, "slides", "talk"), { recursive: true });
     const entry = path.join(root, "slides", "talk", "index.tsx");
     await writeFile(entry, "before");
+    const oldTime = new Date("2020-01-01T00:00:00.000Z");
+    await utimes(entry, oldTime, oldTime);
     const queue = createMutationQueue(root, "secret");
     await queue.seed();
     await queue.enqueue("add", entry);
+    await queue.sync([{ path: "slides/talk/index.tsx", kind: "write", text: "before" }]);
+    assert.equal((await stat(entry)).mtimeMs, oldTime.getTime());
     await queue.sync([{ path: "slides/talk/index.tsx", kind: "write", text: "after" }]);
     await queue.enqueue("change", entry);
   } finally {
@@ -634,6 +673,16 @@ test("streams the current page and inspector selection to Lattice", async () => 
       view: "slides",
     });
     queue.reportCurrent({
+      pendingEdits: true,
+      pendingComments: [
+        {
+          id: "c-1234abcd",
+          line: 44.9,
+          ts: "2026-09-03T00:00:00.000Z",
+          note: "  Make this chart larger.  ",
+          hint: "  chart  ",
+        },
+      ],
       selection: { line: 42.8, column: 6.2, tagName: "H1", text: "  Q2   Roadmap  " },
     });
 
@@ -646,6 +695,14 @@ test("streams the current page and inspector selection to Lattice", async () => 
       slideTitle: "Research update",
       view: "slides",
       pagePath: "slides/research-update/index.tsx",
+      pendingEdits: true,
+      pendingComments: [{
+        id: "c-1234abcd",
+        line: 44,
+        ts: "2026-09-03T00:00:00.000Z",
+        note: "Make this chart larger.",
+        hint: "chart",
+      }],
       selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
       updatedAt: context.updatedAt,
     });
@@ -653,4 +710,70 @@ test("streams the current page and inspector selection to Lattice", async () => 
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("streams a source mutation before the comment context derived from it", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "lattice-open-slide-comments-"));
+  try {
+    const entry = path.join(root, "slides", "talk", "index.tsx");
+    await mkdir(path.dirname(entry), { recursive: true });
+    await writeFile(entry, "before");
+    const queue = createMutationQueue(root, "secret");
+    await queue.seed();
+    const frames = [];
+    queue.attach({
+      on() {},
+      write(frame) { frames.push(JSON.parse(frame.split("data: ")[1])); return true; },
+    });
+
+    await writeFile(entry, "after");
+    await queue.enqueue("write", entry);
+    queue.reportCurrent({
+      slideId: "talk",
+      pageIndex: 0,
+      totalPages: 1,
+      pendingComments: [{
+        id: "c-1234abcd",
+        line: 1,
+        ts: "2026-09-03T00:00:00.000Z",
+        note: "Make this larger",
+      }],
+    });
+
+    assert.equal(frames[0].path, "slides/talk/index.tsx");
+    assert.equal(frames[0].text, "after");
+    assert.equal(frames[1].type, "context");
+    assert.equal(frames[1].context.pendingComments[0].id, "c-1234abcd");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("does not replay a previous iframe's page to a fresh event stream", () => {
+  const queue = createMutationQueue("/tmp/project", "secret");
+  const context = (pageIndex) => ({
+    slideId: "research-update",
+    pageIndex,
+    totalPages: 8,
+    slideTitle: "Research update",
+    view: "slides",
+  });
+  queue.reportCurrent(context(1));
+  const freshFrames = [];
+  queue.attach({
+    on() {},
+    write(frame) { freshFrames.push(frame); return true; },
+  });
+  assert.deepEqual(freshFrames, []);
+
+  queue.reportCurrent(context(2));
+  assert.equal(JSON.parse(freshFrames[0].split("data: ")[1]).context.pageNumber, 3);
+
+  const reconnectFrames = [];
+  queue.reportCurrent(context(3));
+  queue.attach({
+    on() {},
+    write(frame) { reconnectFrames.push(frame); return true; },
+  }, 2);
+  assert.equal(JSON.parse(reconnectFrames[0].split("data: ")[1]).context.pageNumber, 4);
 });

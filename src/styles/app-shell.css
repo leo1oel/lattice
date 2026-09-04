@@ -196,6 +196,11 @@ input[type="search"]:focus-visible {
 .cm-latex-tooltip-syntax, .cm-latex-tooltip-example { margin: 0; font-family: var(--editor-font); color: var(--text-secondary); white-space: pre-wrap; }
 .cm-latex-tooltip-package { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.open-slide-tab-pool, .open-slide-tab-session { position: absolute; inset: 0; min-width: 0; min-height: 0; }
+.open-slide-tab-pool { visibility: hidden; pointer-events: none; }
+.open-slide-tab-pool[data-active="true"] { visibility: visible; pointer-events: auto; }
+.open-slide-tab-session { visibility: hidden; pointer-events: none; }
+.open-slide-tab-session[data-active="true"] { visibility: visible; pointer-events: auto; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
 .canvas-tour-card-anchor { position: fixed; right: 24px; bottom: 20px; width: 1px; height: 1px; pointer-events: none; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the

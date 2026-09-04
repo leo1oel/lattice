@@ -96,6 +96,12 @@ describe("agent host context", () => {
         slideTitle: "Research update",
         view: "slides",
         pagePath: "slides/research-update/index.tsx",
+        pendingComments: [{
+          id: "c-1234abcd",
+          line: 44,
+          ts: "2026-09-03T00:00:00.000Z",
+          note: "Make this chart larger",
+        }],
         selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
         updatedAt: "2026-08-30T12:00:00.000Z",
       },
@@ -108,6 +114,12 @@ describe("agent host context", () => {
       slideTitle: "Research update",
       view: "slides",
       pagePath: "slides/research-update/index.tsx",
+      pendingComments: [{
+        id: "c-1234abcd",
+        line: 44,
+        ts: "2026-09-03T00:00:00.000Z",
+        note: "Make this chart larger",
+      }],
       selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
       updatedAt: "2026-08-30T12:00:00.000Z",
     });

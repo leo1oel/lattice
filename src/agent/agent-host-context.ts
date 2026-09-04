@@ -28,6 +28,13 @@ export interface AgentPresentationContext {
   slideTitle: string;
   view: "slides" | "assets";
   pagePath: string;
+  pendingComments: Array<{
+    id: string;
+    line: number;
+    ts: string;
+    note: string;
+    hint?: string;
+  }>;
   selection: {
     line: number;
     column: number;

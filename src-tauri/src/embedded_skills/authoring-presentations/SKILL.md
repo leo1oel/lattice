@@ -34,6 +34,11 @@ When the Lattice host context contains `presentation`, treat it as the live Open
 Use `presentation.pagePath`, `pageIndex`, and `pageNumber` to resolve references such as “this slide,” and use `presentation.selection.line` and `column` as the source handle for references such as “this heading.”
 Re-check the current host context on every turn that uses such a reference because the user can navigate or select another element between turns.
 
+Open Slide inspector comments arrive automatically in `presentation.pendingComments` with the next user message.
+Unless that message is clearly unrelated to the deck or asks to leave the comments pending, treat every pending comment as a requested edit: find its `@slide-comment` marker by id in `presentation.pagePath`, apply the note to the enclosing JSX element, and remove only that marker after the edit succeeds while preserving any JSX that shares its source line.
+Process multiple markers from the bottom of the file upward, preserve ambiguous markers rather than guessing, and verify that every applied comment disappeared from the source.
+Never tell the user to run `/apply-comments`; Lattice has already supplied the comments for the current turn.
+
 When the user asks for a presentation without naming an output format, create or edit a native Open Slide deck.
 If the user explicitly requests `.pptx`, explain that Lattice does not author PowerPoint files and offer the native deck or Open Slide's HTML or PDF export instead.
 
