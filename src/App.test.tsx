@@ -2,8 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { completionStatus } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
-import { EditorState, StateEffect } from "@codemirror/state";
+import { EditorState, StateEffect, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -14,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
-import { clearAppLogs, formatAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "./telemetry/app-log-store";
+import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
 import { persistWorkspaceLayout } from "./settings/app-settings";
 import { mapCollabProjectStatusV2 } from "./collab/collab-status";
 import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
@@ -838,6 +839,50 @@ describe("welcome screen", () => {
     expect(screen.getByText("Open a project to manage Agent settings")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
   });
+
+  it("does not load provider settings when opening a non-Agent settings page", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") {
+        return [];
+      }
+      if (command === "build_project") {
+        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
+      button: 0,
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+
+    expect(await screen.findByRole(
+      "heading",
+      { name: "Appearance" },
+      { timeout: 60_000 },
+    )).toBeInTheDocument();
+    expect(document.querySelector('iframe[title="Synara Providers settings"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Providers" }));
+    await waitFor(() => expect(document.querySelector(
+      'iframe[title="Synara Providers settings"]',
+    )).not.toBeNull());
+  }, 60_000);
 
   it("keeps successful TeX checks compact while retaining failure details", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
@@ -3865,6 +3910,68 @@ describe("project workspace", () => {
     expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
+  it("waits for citation completion to close before automatically building", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_citation_keys") {
+        return ["dosovitskiy2021image", "vaswani2017attention"];
+      }
+      if (command === "list_citations") return [];
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") return undefined;
+      if (command === "build_project") {
+        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const view = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const editor = element ? EditorView.findFromDOM(element) : null;
+      expect(editor).not.toBeNull();
+      return editor!;
+    }, { timeout: 60_000 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    })));
+    vi.mocked(invoke).mockClear();
+
+    const from = view.state.doc.length;
+    const insert = "\nSee \\cite{}";
+    view.dispatch({
+      changes: { from, insert },
+      selection: { anchor: from + insert.length - 1 },
+      annotations: Transaction.userEvent.of("input.type"),
+    });
+    await waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_400)));
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "build_project")).toBe(false);
+
+    fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+    expect(view.state.doc.toString()).toContain("\\cite{dosovitskiy2021image}");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
+      force: false,
+      projectRoot: "/tmp/lattice-paper",
+    })), { timeout: 2_500 });
+  }, 90_000);
+
   it("automatically rebuilds after the active source changes on disk", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
@@ -4328,6 +4435,111 @@ describe("project workspace", () => {
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await switchSidebarMode("Papers");
     await waitFor(() => expect(screen.getByTitle("Attention Is All You Need").closest(".paper-row")).not.toHaveClass("active"));
+  });
+
+  it("splits a Paper with an editor and lets the Paper move between sides", { timeout: 60_000 }, async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const paperPath = ".research/papers/1706.03762/paper.md";
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["main.tex", paperPath],
+      activeFile: "main.tex",
+      activeTab: "main.tex",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "source",
+      documentMode: "split",
+      paperView: "fulltext",
+      tabRecency: ["main.tex", paperPath],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762",
+        title: "Attention Is All You Need",
+        authors: "Ashish Vaswani and Noam Shazeer",
+        hasFullText: true,
+        hasBlog: false,
+      }];
+      if (command === "read_paper") return "## Abstract\n\nPaper content.";
+      if (command === "read_paper_blog_local") return null;
+      if (command === "list_history" || command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const paperTabButton = await screen.findByRole(
+      "tab",
+      { name: /Attention Is All You Need/ },
+      { timeout: 20_000 },
+    );
+    await waitFor(() => expect(document.querySelector(".source-editor .cm-content"))
+      .toHaveTextContent("\\documentclass{article}"), { timeout: 20_000 });
+    fireEvent.click(paperTabButton);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
+      expect(document.querySelector(".paper-reader-shell")).not.toBeNull();
+    }, { timeout: 20_000 });
+
+    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 1000,
+      width: 800,
+      top: 40,
+      bottom: 640,
+      height: 600,
+      x: 200,
+      y: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(mainTab, {
+      button: 0,
+      pointerType: "mouse",
+      clientX: 120,
+      clientY: 16,
+    });
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    expect(document.querySelector(".editor-tab-split-drop-preview"))
+      .toHaveTextContent("Open on right");
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+
+    await waitFor(() => expect(document.querySelector(".paper-pane"))
+      .toHaveAttribute("data-paper-side", "left"));
+    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      .toHaveTextContent("\\documentclass{article}");
+    expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
+
+    const paperTab = screen.getByRole("tab", { name: /Attention Is All You Need/ })
+      .closest(".editor-tab") as HTMLElement;
+    fireEvent.pointerDown(paperTab, {
+      button: 0,
+      pointerType: "mouse",
+      clientX: 120,
+      clientY: 16,
+    });
+    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
+    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+
+    await waitFor(() => expect(document.querySelector(".paper-pane"))
+      .toHaveAttribute("data-paper-side", "right"));
+    const dual = document.querySelector(".dual-canvas")!;
+    const paperPane = document.querySelector(".paper-pane")!;
+    expect(dual.lastElementChild).toBe(paperPane);
+    expect(screen.getByRole("tab", { name: /Attention Is All You Need/ }))
+      .toHaveAttribute("aria-selected", "true");
   });
 
   it("does not start a full sync when an opened Overleaf project is unchanged", async () => {
@@ -7699,7 +7911,7 @@ describe("project workspace", () => {
     });
   });
 
-  it("keeps failed build guidance visible and acknowledges a manual retry", async () => {
+  it("shows failed build guidance once and acknowledges a manual retry", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -7741,11 +7953,8 @@ describe("project workspace", () => {
       const toasts = getVisibleAppToastIds()
         .map((id) => getAppLogEntry(id))
         .filter((entry) => entry?.source === "Build");
-      expect(toasts).toHaveLength(1);
-      expect(toasts[0]).toMatchObject({
-        level: "error",
-        title: "Build failed",
-      });
+      expect(toasts).toHaveLength(0);
+      expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
     });
     const diagnostics = await screen.findByLabelText(
       "Compile diagnostics",
@@ -7766,9 +7975,10 @@ describe("project workspace", () => {
         .toHaveLength(buildsBeforeManualRequest + 1);
     });
     await waitFor(() => {
-      const toastId = getVisibleAppToastIds().find((id) => getAppLogEntry(id)?.source === "Build");
-      expect(toastId).toBeDefined();
-      expect(getAppToastOptions(toastId!)).toMatchObject({ timeoutMs: 0 });
+      const toasts = getVisibleAppToastIds()
+        .map((id) => getAppLogEntry(id))
+        .filter((entry) => entry?.source === "Build");
+      expect(toasts).toHaveLength(0);
     });
     expect(await screen.findByLabelText("Compile diagnostics")).toBeInTheDocument();
     expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
@@ -7815,20 +8025,15 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const toastId = await waitFor(() => {
-      const id = getVisibleAppToastIds().find((candidate) => (
-        getAppLogEntry(candidate)?.source === "Build"
-      ));
-      expect(id).toBeDefined();
-      return id!;
-    });
-    const action = getAppToastOptions(toastId)?.primaryAction;
-    expect(action?.label).toBe("安装缺失的软件包");
-    await act(async () => action?.onClick());
-    expect(invoke).toHaveBeenCalledWith("start_tex_dependency_install", expect.objectContaining({
-      missingFile: "newtxmath.sty",
-      onProgress: expect.anything(),
-    }));
+    const diagnostics = await screen.findByLabelText("Compile diagnostics");
+    fireEvent.click(within(diagnostics).getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "start_tex_dependency_install",
+      expect.objectContaining({
+        missingFile: "newtxmath.sty",
+        onProgress: expect.anything(),
+      }),
+    ));
     expect(screen.getByRole("dialog", { name: "安装缺失的软件包" })).toBeInTheDocument();
     act(() => {
       tauriCoreApi.channel?.onmessage?.({ stage: "installing-dependency", progress: 0.64 });

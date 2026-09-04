@@ -50,7 +50,8 @@ describe("interface language persistence", () => {
     expect(resolveAppLocale("system", ["zh-CN"])).toBe("zh-CN");
     expect(resolveAppLocale("system", ["zh-Hans"])).toBe("zh-CN");
     expect(resolveAppLocale("system", ["zh-TW"])).toBe("zh-CN");
-    expect(resolveAppLocale("system", ["fr-FR", "zh-HK"])).toBe("zh-CN");
+    expect(resolveAppLocale("system", ["en-US", "zh-CN"])).toBe("en");
+    expect(resolveAppLocale("system", ["fr-FR", "zh-HK"])).toBe("en");
     expect(resolveAppLocale("system", ["en-US"])).toBe("en");
     expect(resolveAppLocale("system", ["fr-FR"])).toBe("en");
   });

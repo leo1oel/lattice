@@ -249,7 +249,7 @@ export function SettingsDialog(props: {
     ? props.synaraRuntime.origin
     : null;
   const synaraSettingsUrl = (() => {
-    if (!synaraEmbedUrl || !props.synaraWorkspaceRoot) return null;
+    if (!synaraEmbedUrl || !props.synaraWorkspaceRoot || !synaraSettingsSection) return null;
     return synaraFrameUrl({
       origin: synaraEmbedUrl,
       path: "/settings",
@@ -259,7 +259,7 @@ export function SettingsDialog(props: {
       surface: "drawer",
       hostOrigin: window.location.origin,
       authToken: props.synaraRuntime.authToken,
-      section: "providers",
+      section: synaraSettingsSection,
     });
   })();
   const synaraSettingsOrigin = synaraEmbedUrl

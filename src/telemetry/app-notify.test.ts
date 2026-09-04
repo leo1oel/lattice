@@ -69,6 +69,14 @@ describe("app-notify", () => {
     expect(getVisibleAppToastIds()).toHaveLength(1);
   });
 
+  it("can log a failed action without duplicating an inline error surface", () => {
+    logAction("Build", "Build").fail("Undefined control sequence", { toast: false });
+
+    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
+    expect(formatAppLogs()).toContain("Undefined control sequence");
+    expect(getVisibleAppToastIds()).toHaveLength(0);
+  });
+
   it("logs whatever the Copy button offers, not just the line on screen", () => {
     const fullLog = "! Undefined control sequence.\nl.42 \\badmacro\n(plus 300 more lines)";
     notifyError("Build", "Build failed", { detail: "chapters/intro.tex:42", copyText: fullLog });

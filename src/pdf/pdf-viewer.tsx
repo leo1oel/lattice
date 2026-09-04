@@ -47,7 +47,11 @@ import {
   pdfBytesFingerprint,
   utf8ToBase64,
 } from "./pdf-bytes";
-import { installPdfTextLayerSelection, pdfSelectedOrCachedPlainText } from "./pdf-text-layer-selection";
+import {
+  installPdfTextLayerSelection,
+  pdfSelectedOrCachedPlainText,
+  PDF_TEXT_SELECTION_CLEARED_EVENT,
+} from "./pdf-text-layer-selection";
 import {
   PDF_CMAP_URL,
   PDF_MAX_SCALE,
@@ -877,19 +881,17 @@ export function PdfPreview({
     if (!hasActiveViewer || !root) return;
     let lastReported = "";
     let reportFrame: number | null = null;
-    const reportFromSelection = () => {
+    const reportFromSelection = (clearCollapsed: boolean) => {
       reportFrame = null;
       const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-        if (lastReported) {
+      const next = pdfSelectedOrCachedPlainText(selection);
+      if (!next) {
+        if (clearCollapsed && lastReported) {
           lastReported = "";
           onTextSelectRef.current?.("");
         }
         return;
       }
-      const anchor = selection.anchorNode;
-      if (!anchor || !root.contains(anchor)) return;
-      const next = normalizePdfSelection(selection.toString());
       if (next !== lastReported) {
         lastReported = next;
         onTextSelectRef.current?.(next);
@@ -897,16 +899,25 @@ export function PdfPreview({
     };
     const onMouseUp = () => {
       if (reportFrame !== null) window.cancelAnimationFrame(reportFrame);
-      reportFrame = window.requestAnimationFrame(reportFromSelection);
+      reportFrame = window.requestAnimationFrame(() => reportFromSelection(true));
     };
+    const onKeyUp = () => reportFromSelection(true);
+    // A completed PDF drag moves the native selection into the hidden copy
+    // field while its overlay remains visible, so read the text-layer cache
+    // above. Global selection changes may publish a new PDF selection, but only
+    // an interaction inside this viewer is authoritative enough to clear it.
+    const onSelectionChange = () => reportFromSelection(false);
+    const onPdfSelectionCleared = () => reportFromSelection(true);
     root.addEventListener("mouseup", onMouseUp);
-    root.addEventListener("keyup", reportFromSelection);
-    document.addEventListener("selectionchange", reportFromSelection);
+    root.addEventListener("keyup", onKeyUp);
+    document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, onPdfSelectionCleared);
     return () => {
       if (reportFrame !== null) window.cancelAnimationFrame(reportFrame);
       root.removeEventListener("mouseup", onMouseUp);
-      root.removeEventListener("keyup", reportFromSelection);
-      document.removeEventListener("selectionchange", reportFromSelection);
+      root.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("selectionchange", onSelectionChange);
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, onPdfSelectionCleared);
     };
   }, [activeViewerGeneration, hasActiveViewer]);
 

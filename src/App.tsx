@@ -796,6 +796,8 @@ function App() {
   const [secondarySource, setSecondarySource] = useState("");
   const [secondarySavedSource, setSecondarySavedSource] = useState("");
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
+  const [editorCompletionActive, setEditorCompletionActive] = useState(false);
+  const editorCompletionActiveRef = useRef(false);
   const [dualRatioResetGeneration, setDualRatioResetGeneration] = useState(0);
   const [selection, setSelection] = useState("");
   const [selectionSource, setSelectionSource] = useState<AgentHostSurface | null>(null);
@@ -1079,6 +1081,9 @@ function App() {
   // paper has no report. `paperView` picks which of blog/full-text is shown.
   const [paperBlog, setPaperBlog] = useState<string | null>(null);
   const [savedPaperBlog, setSavedPaperBlog] = useState<string | null>(null);
+  // A Paper owns the primary document buffer even when it is drawn on the
+  // right; the other visible document stays in the existing secondary buffer.
+  const [paperSide, setPaperSide] = useState<"left" | "right">("left");
   const paperMarkdownRef = useRef(paperMarkdown);
   const savedPaperMarkdownRef = useRef(savedPaperMarkdown);
   const paperBlogRef = useRef(paperBlog);
@@ -1306,12 +1311,13 @@ function App() {
     && focusedPane === "secondary"
     ? secondaryAsset
     : activeAsset;
+  const paperFocused = Boolean(activePaper && focusedPane === "primary");
   const focusedDocumentPath = focusedPane === "secondary" && secondaryFile
     ? secondaryFile
     : activeFile;
   const insertTargetPath = focusedDocumentPath;
   const canInsert = canvasMode !== "pdf"
-    && !activePaper
+    && !paperFocused
     && !focusedAsset
     && /\.(?:tex|sty|cls|txt)$/i.test(insertTargetPath);
   useEffect(() => {
@@ -3203,7 +3209,6 @@ function App() {
     const requestedPane = targetPane ?? focusedPane;
     const secondaryFocused = (canvasMode === "dual" || canvasMode === "columns")
       && requestedPane === "secondary"
-      && !activePaper
       && !activeAsset;
     if (secondaryFocused) {
       if (paperLoadGenerationRef.current === fileLoadGenerationRef.current) {
@@ -3835,9 +3840,6 @@ function App() {
             ?? result.diagnostics.find((item) => item.level === "error")
             ?? result.diagnostics[0]
             ?? null;
-          const missingDependency = missingDependencyDiagnostic
-            ? missingTexDependencyFile(missingDependencyDiagnostic.message)
-            : null;
           const navigationError = result.diagnostics.find((item) => (
             item.level === "error" && Boolean(item.file || item.line)
           )) ?? firstError;
@@ -3848,24 +3850,17 @@ function App() {
           ].join("\n");
           trace.fail("LaTeX compilation failed.", {
             detail: firstError?.message ?? "",
-            // The full log is what a bug report needs; the toast only shows the
-            // first diagnostic.
             copyText: failureText,
-            // A manual Build needs a durable outcome. The PDF panel below also
-            // retains the diagnostics; this toast stays until the reader has
-            // acknowledged it instead of disappearing while they inspect the
-            // source or a long compiler message.
-            timeoutMs: shouldPlayCompletionSound ? 0 : undefined,
-            primaryAction: missingDependency ? {
-              label: t`Install missing package`,
-              onClick: () => installTexDependency(missingDependency),
-            } : undefined,
+            // The diagnostics panel already owns this failure on screen and
+            // includes the message, full log, navigation, copy, and package
+            // install action. Keep the action trace without showing it twice.
+            toast: false,
           });
           completionSound = "build-failed";
           // A raw latexmk log contains its own name and uses "not found" for
           // every missing project file. Only parsed tool diagnostics may open
-          // system setup; the full log is evidence for the build toast, not a
-          // machine-readable failure category.
+          // system setup; the full log is evidence for diagnostics and logs,
+          // not a machine-readable failure category.
           if (result.diagnostics.some((item) => isMissingTexBuildError(item.message))) {
             doctorGenerationRef.current += 1;
             setDoctorReport(null);
@@ -5730,6 +5725,10 @@ function App() {
     if (!project || (!documentDirty && !activePaperDirty)) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const automatic = !activePaper && buildPreferences.autoBuildMode === "automatic";
+    // A completion menu is still part of the current edit. Saving and building
+    // while its keyboard or pointer selection is in progress compiles the
+    // temporary `\cite{}` buffer and can replace the menu with an error panel.
+    if (automatic && editorCompletionActive) return;
     const delay = automatic ? 1_200 : 900;
     // Call through refs so enterProject / build state updates do not keep
     // resetting the idle timer (that starved autosave and left PDF stuck reloading).
@@ -5746,6 +5745,7 @@ function App() {
     activePaper,
     activePaperDirty,
     buildPreferences.autoBuildMode,
+    editorCompletionActive,
     paperBlog,
     paperMarkdown,
     project,
@@ -5771,7 +5771,11 @@ function App() {
       if (activePaperDirty || source !== savedSource) void save();
       return;
     }
-    if (buildPreferences.autoBuildMode !== "automatic" || source === savedSource) return;
+    if (
+      buildPreferences.autoBuildMode !== "automatic"
+      || editorCompletionActiveRef.current
+      || source === savedSource
+    ) return;
     void saveAndCompileAutomatically();
   }, [
     activePaper,
@@ -5963,6 +5967,7 @@ function App() {
       ));
       if (!fullText && blog) setNotice("Full paper text is unavailable; showing the overview instead.");
       setActivePaper(paper);
+      setPaperSide("left");
       setActiveAsset(null);
       setFocusedPane("primary");
       setCanvasMode("pdf");
@@ -6090,7 +6095,17 @@ function App() {
 
   type DropPaneContent =
     | { kind: "source"; path: string; source: string; savedSource: string }
-    | { kind: "asset"; path: string; asset: AssetPreview };
+    | { kind: "asset"; path: string; asset: AssetPreview }
+    | {
+        kind: "paper";
+        path: string;
+        paper: PaperSummary;
+        markdown: string;
+        savedMarkdown: string;
+        blog: string | null;
+        savedBlog: string | null;
+        view: "blog" | "fulltext";
+      };
 
   const dropProjectPath = useCallback(async (
     path: string,
@@ -6156,12 +6171,57 @@ function App() {
       path: asset.path,
       asset,
     });
+    const paperContent = (
+      paper: PaperSummary,
+      markdown: string,
+      savedMarkdown: string,
+      blog: string | null,
+      savedBlog: string | null,
+      view: "blog" | "fulltext",
+    ): DropPaneContent => ({
+      kind: "paper",
+      path: paperTabKey(paper.arxivId),
+      paper,
+      markdown,
+      savedMarkdown,
+      blog,
+      savedBlog,
+      view,
+    });
+    const activePaperContent = (): DropPaneContent | null => activePaper
+      ? paperContent(
+          activePaper,
+          paperMarkdownRef.current,
+          savedPaperMarkdownRef.current,
+          paperBlogRef.current,
+          savedPaperBlogRef.current,
+          paperView,
+        )
+      : null;
     const primarySourceContent = (): DropPaneContent | null => (
       activeFileRef.current
         ? sourceContent(activeFileRef.current, sourceRef.current, savedSourceRef.current)
         : null
     );
     const currentPanes = (): { left: DropPaneContent | null; right: DropPaneContent | null } => {
+      const currentPaper = activePaperContent();
+      if (currentPaper) {
+        const other = secondaryAssetRef.current
+          ? assetContent(secondaryAssetRef.current)
+          : secondaryFileRef.current
+            ? sourceContent(
+                secondaryFileRef.current,
+                secondarySourceRef.current,
+                secondarySavedRef.current,
+              )
+            : null;
+        if ((canvasMode === "dual" || canvasMode === "columns") && other) {
+          return paperSide === "right"
+            ? { left: other, right: currentPaper }
+            : { left: currentPaper, right: other };
+        }
+        return { left: currentPaper, right: null };
+      }
       if (canvasMode === "asset") {
         return {
           left: activeAssetRef.current ? assetContent(activeAssetRef.current) : null,
@@ -6207,6 +6267,30 @@ function App() {
         : null);
     };
     const loadDropContent = async (): Promise<DropPaneContent | null> => {
+      if (isPaperTabKey(path)) {
+        const currentPaper = activePaperContent();
+        if (currentPaper?.path === path) return currentPaper;
+        const paper = papers.find((item) => paperTabKey(item.arxivId) === path);
+        if (!paper) return null;
+        const [fullTextResult, blogResult] = await Promise.allSettled([
+          invoke<string>("read_paper", { arxivId: paper.arxivId }),
+          invoke<string | null>("read_paper_blog_local", { arxivId: paper.arxivId }),
+        ]);
+        if (!isCurrentDrop()) return null;
+        const markdown = fullTextResult.status === "fulfilled" ? fullTextResult.value : "";
+        const blog = blogResult.status === "fulfilled" ? blogResult.value : null;
+        if (!markdown && !blog) {
+          throw fullTextResult.status === "rejected"
+            ? fullTextResult.reason
+            : new Error("No readable paper content is available.");
+        }
+        const view = paperView === "fulltext" && markdown
+          ? "fulltext"
+          : blog
+            ? "blog"
+            : "fulltext";
+        return paperContent(paper, markdown, markdown, blog, blog, view);
+      }
       if (isProjectAssetFilePath(path) || projectAssetPaths.has(path)) {
         const asset = await invoke<AssetPreview>("read_project_asset", { path });
         return isCurrentDrop() ? assetContent(asset) : null;
@@ -6225,7 +6309,14 @@ function App() {
 
     try {
       if (zone === "center") {
-        if (isProjectAssetFilePath(path) || projectAssetPaths.has(path)) {
+        if (isPaperTabKey(path)) {
+          const paper = papers.find((item) => paperTabKey(item.arxivId) === path);
+          if (!paper) return;
+          const opening = openPaper(paper);
+          primaryLoadGeneration = fileLoadGenerationRef.current;
+          if (!(await opening) || !isCurrentDrop()) return;
+          setPaperSide("left");
+        } else if (isProjectAssetFilePath(path) || projectAssetPaths.has(path)) {
           const opening = openProjectAsset(path);
           primaryLoadGeneration = fileLoadGenerationRef.current;
           if (!(await opening) || !isCurrentDrop()) return;
@@ -6252,6 +6343,7 @@ function App() {
       if (
         zone === "right"
         && path === activeFileRef.current
+        && !activePaper
         && !activeAssetRef.current
         && canvasMode !== "dual"
         && canvasMode !== "columns"
@@ -6306,7 +6398,7 @@ function App() {
       let right = current.right;
       if (zone === "left") {
         if (sameContent(target, left)) {
-          setFocusedPane("primary");
+          setFocusedPane(target.kind === "paper" ? "primary" : activePaper ? "secondary" : "primary");
           return;
         }
         const displaced = left;
@@ -6315,7 +6407,7 @@ function App() {
         else if (sameContent(target, right)) right = displaced;
       } else {
         if (sameContent(target, right)) {
-          setFocusedPane("secondary");
+          setFocusedPane(target.kind === "paper" ? "primary" : "secondary");
           return;
         }
         const displaced = right;
@@ -6324,6 +6416,65 @@ function App() {
         else if (sameContent(target, left)) left = displaced;
       }
       if (!left || !right || sameContent(left, right)) return;
+
+      const arrangedPaper = left.kind === "paper"
+        ? left
+        : right.kind === "paper"
+          ? right
+          : null;
+      if (arrangedPaper) {
+        const other = left.kind === "paper" ? right : left;
+        if (other.kind === "paper") return;
+        fileLoadGenerationRef.current += 1;
+        primaryLoadGeneration = fileLoadGenerationRef.current;
+        setPrimaryOpening(null);
+        paperMarkdownRef.current = arrangedPaper.markdown;
+        savedPaperMarkdownRef.current = arrangedPaper.savedMarkdown;
+        paperBlogRef.current = arrangedPaper.blog;
+        savedPaperBlogRef.current = arrangedPaper.savedBlog;
+        setPaperMarkdown(arrangedPaper.markdown);
+        setSavedPaperMarkdown(arrangedPaper.savedMarkdown);
+        setPaperBlog(arrangedPaper.blog);
+        setSavedPaperBlog(arrangedPaper.savedBlog);
+        setPaperView(arrangedPaper.view);
+        setActivePaper(arrangedPaper.paper);
+        setPaperSide(left.kind === "paper" ? "left" : "right");
+        activeAssetRef.current = null;
+        setActiveAsset(null);
+        setOpenTabs((tabs) => tabs.includes(arrangedPaper.path) ? tabs : [...tabs, arrangedPaper.path]);
+
+        secondaryFileLoadGenerationRef.current += 1;
+        if (other.kind === "source") {
+          secondaryFileRef.current = other.path;
+          secondarySourceRef.current = other.source;
+          secondarySavedRef.current = other.savedSource;
+          secondaryAssetRef.current = null;
+          setSecondaryFile(other.path);
+          setSecondarySource(other.source);
+          setSecondarySavedSource(other.savedSource);
+          setSecondaryAsset(null);
+        } else if (other.kind === "asset") {
+          secondaryFileRef.current = null;
+          secondarySourceRef.current = "";
+          secondarySavedRef.current = "";
+          secondaryAssetRef.current = other.asset;
+          setSecondaryFile(null);
+          setSecondarySource("");
+          setSecondarySavedSource("");
+          setSecondaryAsset(other.asset);
+        }
+        setOpenTabs((tabs) => tabs.includes(other.path) ? tabs : [...tabs, other.path]);
+        documentModeRef.current = "dual";
+        if (!hasExistingPaneDivider) {
+          setDualRatioResetGeneration((generation) => generation + 1);
+        }
+        setDualPanePreview(null);
+        setCanvasMode("dual");
+        setFocusedPane(target.kind === "paper" ? "primary" : "secondary");
+        setError(null);
+        return;
+      }
+      if (left.kind === "paper" || right.kind === "paper") return;
 
       if (left.kind === "source") {
         const opening = openProjectFile(left.path, undefined, "primary");
@@ -6384,9 +6535,14 @@ function App() {
     canvasMode,
     dualPanePreview,
     loadFile,
+    openPaper,
     openProjectAsset,
     openProjectFile,
     openTabs,
+    activePaper,
+    paperSide,
+    paperView,
+    papers,
     projectAssetPaths,
     save,
   ]);
@@ -6394,7 +6550,9 @@ function App() {
     if (canvasMode !== "dual" && canvasMode !== "columns") return;
     const focusedPath = focusedPane === "secondary"
       ? secondaryAsset?.path ?? secondaryFile
-      : activeAsset?.path ?? activeFile;
+      : activePaper
+        ? paperTabKey(activePaper.arxivId)
+        : activeAsset?.path ?? activeFile;
     if (focusedPath) {
       void dropProjectPath(focusedPath, "center", {
         preservePreview: focusedPanePreview,
@@ -6403,6 +6561,7 @@ function App() {
   }, [
     activeAsset?.path,
     activeFile,
+    activePaper,
     canvasMode,
     dropProjectPath,
     focusedPane,
@@ -6427,7 +6586,9 @@ function App() {
     };
 
     if (canvasMode === "dual" || canvasMode === "columns") {
-      const primaryPath = activeAsset?.path ?? activeFile;
+      const primaryPath = activePaper
+        ? paperTabKey(activePaper.arxivId)
+        : activeAsset?.path ?? activeFile;
       const secondaryPath = secondaryAsset?.path ?? secondaryFile;
       const closingPrimary = path === primaryPath;
       const closingSecondary = path === secondaryPath;
@@ -7459,6 +7620,11 @@ function App() {
         ? current
         : position
     ));
+  }, []);
+
+  const handleCompletionActiveChange = useCallback((active: boolean) => {
+    editorCompletionActiveRef.current = active;
+    setEditorCompletionActive(active);
   }, []);
 
   const gotoDefinition = useCallback(async (target: DefinitionTarget) => {
@@ -8808,15 +8974,44 @@ function App() {
   // it a new identity on every keystroke, defeating that.
   const selectEditorTab = useCallback((path: string) => {
     if (isPaperTabKey(path)) {
+      if (activePaper && paperTabKey(activePaper.arxivId) === path) {
+        setFocusedPane("primary");
+        return;
+      }
       const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
       if (paper) void openPaper(paper);
       else void closeEditorTab(path);
     } else if (projectAssetPaths.has(path)) {
+      if (
+        (canvasMode === "dual" || canvasMode === "columns")
+        && secondaryAsset?.path === path
+      ) {
+        setFocusedPane("secondary");
+        return;
+      }
       void openProjectAsset(path);
     } else {
+      if (
+        (canvasMode === "dual" || canvasMode === "columns")
+        && secondaryFile === path
+      ) {
+        setFocusedPane("secondary");
+        return;
+      }
       void openProjectFile(path);
     }
-  }, [closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers, projectAssetPaths]);
+  }, [
+    activePaper,
+    canvasMode,
+    closeEditorTab,
+    openPaper,
+    openProjectAsset,
+    openProjectFile,
+    papers,
+    projectAssetPaths,
+    secondaryAsset?.path,
+    secondaryFile,
+  ]);
   const requestCloseEditorTab = useCallback((path: string) => {
     void closeEditorTab(path);
   }, [closeEditorTab]);
@@ -8829,6 +9024,8 @@ function App() {
           kind: "paper" as const,
           label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper",
           dirty: activePaper?.arxivId === id && activePaperDirty,
+          beside: activePaper?.arxivId === id
+            && (canvasMode === "dual" || canvasMode === "columns"),
         };
       }
       if (projectAssetPaths.has(path)) {
@@ -8868,7 +9065,9 @@ function App() {
   // The tab that reads as active: the open paper in paper mode, else the focused
   // editor pane. Also the key eviction must never close.
   const activeTabKey = activePaper
-    ? paperTabKey(activePaper.arxivId)
+    ? (canvasMode === "dual" || canvasMode === "columns") && focusedPane === "secondary"
+      ? secondaryAsset?.path ?? secondaryFile ?? paperTabKey(activePaper.arxivId)
+      : paperTabKey(activePaper.arxivId)
     : (canvasMode === "dual" || canvasMode === "columns")
       ? focusedPane === "secondary"
         ? secondaryAsset?.path ?? secondaryFile ?? activeAsset?.path ?? activeFile
@@ -8896,6 +9095,7 @@ function App() {
     const keep = new Set([
       activeTabKey,
       activeFile,
+      activePaper ? paperTabKey(activePaper.arxivId) : null,
       secondaryFile,
       activeAsset?.path,
       secondaryAsset?.path,
@@ -8914,6 +9114,7 @@ function App() {
     appearance.maxOpenTabs,
     activeTabKey,
     activeFile,
+    activePaper,
     activeAsset?.path,
     secondaryAsset?.path,
     secondaryFile,
@@ -9225,7 +9426,6 @@ function App() {
     >
       <AppTitlebar
         abortBuild={abortBuild}
-        activePaper={activePaper}
         activeTabKey={activeTabKey}
         build={build}
         building={building}
@@ -9237,11 +9437,11 @@ function App() {
           mode={canvasMode}
           selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
           setMode={openDocumentMode}
-          supportsDocumentViewModes={Boolean(activePaper)
+          supportsDocumentViewModes={paperFocused
             || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
           onSplit={
             !isOpenSlideDeckPath(focusedDocumentPath)
-            && !activePaper
+            && !paperFocused
             && (
               (Boolean(activeAsset) && canvasMode === "asset")
               || (
@@ -9258,26 +9458,27 @@ function App() {
           onCloseSplit={canvasMode === "dual" || canvasMode === "columns"
             ? closeSplitView
             : undefined}
-          markdown={Boolean(activePaper)
+          markdown={paperFocused
             || (!focusedAsset
               && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
-          html={!activePaper && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
-          paperView={activePaper ? paperView : undefined}
+          html={!paperFocused && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
+          paperView={paperFocused ? paperView : undefined}
           paperHasBlog={paperBlog !== null}
           paperHasFullText={Boolean(paperMarkdown)}
-          onPaperView={activePaper ? (view) => {
+          onPaperView={paperFocused ? (view) => {
             changePaperView(view);
             if (tutorialActive && tutorialStep === TUTORIAL_STEPS.paperBlog && view === "fulltext") {
               setTutorialStep(TUTORIAL_STEPS.paperFullText);
             }
           } : undefined}
-          activePath={activePaper?.title ?? activeTabKey}
-          activeKind={focusedAsset ? "asset" : activePaper ? "paper" : "document"}
+          activePath={paperFocused ? activePaper?.title ?? activeTabKey : activeTabKey}
+          activeKind={focusedAsset ? "asset" : paperFocused ? "paper" : "document"}
           canInsert={canInsert}
-          dirty={activePaper
+          dirty={paperFocused
             ? activePaperDirty
-            : source !== savedSource
-              || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource)}
+            : focusedPane === "secondary"
+              ? secondarySourceDirty
+              : source !== savedSource}
           canNavigateBack={navIndex > 0}
           canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
           onNavigateBack={() => void navigateHistory(-1)}
@@ -9551,7 +9752,7 @@ function App() {
             onSave={save}
             onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
             onMarkdownModeViewportCaptureChange={registerMarkdownModeViewportCapture}
-            setSelection={(value) => reportAgentSelection(activePaper ? "paper" : "editor", value)}
+            setSelection={(value) => reportAgentSelection(paperFocused ? "paper" : "editor", value)}
             onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
             onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
             onImportAsset={importClipboardImageFile}
@@ -9588,6 +9789,7 @@ function App() {
               </Suspense>
             ) : null}
             activePaper={activePaper}
+            paperSide={paperSide}
             activeAsset={activeAsset}
             secondaryAsset={secondaryAsset}
             canOpenCitation={(key) => papers.some((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
@@ -9618,6 +9820,7 @@ function App() {
             editorNavigation={editorNavigation}
             onEditorNavigationHandled={handleEditorNavigationHandled}
             onEditorPosition={handleEditorPosition}
+            onCompletionActiveChange={handleCompletionActiveChange}
             onViewState={(path, state) => rememberFileViewState(path, { text: state })}
             getFileViewState={getFileViewState}
             onFileViewState={rememberFileViewState}
@@ -9726,7 +9929,11 @@ function App() {
             }}
             onOpenMarkdownPath={openMarkdownProjectPath}
             interactivePreviewsEnabled={postStartupInteraction}
-            collabSession={activePaper ? null : collabSession}
+            collabSession={
+              activePaper && canvasMode !== "dual" && canvasMode !== "columns"
+                ? null
+                : collabSession
+            }
             collabReady={collabReady}
             // Papers live under .research/, which Overleaf deliberately
             // excludes from sync. Collaboration grants still apply to them.

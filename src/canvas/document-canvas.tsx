@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
+import { completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
@@ -1281,6 +1282,7 @@ export function DocumentCanvas(props: {
   pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
   activePaper: PaperSummary | null;
+  paperSide: "left" | "right";
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
@@ -1304,6 +1306,7 @@ export function DocumentCanvas(props: {
   editorNavigation: EditorNavigation | null;
   onEditorNavigationHandled: (id: string) => void;
   onEditorPosition: (position: EditorPosition) => void;
+  onCompletionActiveChange: (active: boolean) => void;
   onViewState: (path: string, state: EditorViewState) => void;
   getFileViewState?: (path: string) => FileViewState | undefined;
   onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
@@ -1401,6 +1404,7 @@ export function DocumentCanvas(props: {
     localMacros,
     katexMacros,
     onCiteInsertHandled,
+    onCompletionActiveChange,
     onEditorNavigationHandled,
     onEditorPosition,
     onEnvRenameHandled,
@@ -1919,6 +1923,8 @@ export function DocumentCanvas(props: {
   setSelectionRef.current = props.setSelection;
   const setSecondarySourceRef = useRef(setSecondarySource);
   setSecondarySourceRef.current = setSecondarySource;
+  const onCompletionActiveChangeRef = useRef(onCompletionActiveChange);
+  const completionActiveRef = useRef(false);
   const reportEditorPositionRef = useRef<(view: EditorView, path: string) => void>(() => {});
   const updateSelectionToolbarRef = useRef<(view: EditorView, path: string) => void>(() => {});
   const selectionToolbarOwnerRef = useRef<{
@@ -2067,7 +2073,15 @@ export function DocumentCanvas(props: {
   const onPrimaryChange = useCallback((value: string) => {
     setSourceRef.current(value);
   }, []);
+  useEffect(() => {
+    onCompletionActiveChangeRef.current = onCompletionActiveChange;
+  }, [onCompletionActiveChange]);
   const onPrimaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
+    const completionActive = completionStatus(viewUpdate.state) !== null;
+    if (completionActiveRef.current !== completionActive) {
+      completionActiveRef.current = completionActive;
+      onCompletionActiveChangeRef.current(completionActive);
+    }
     if (focusedPaneRef.current !== "primary") return;
     const range = viewUpdate.state.selection.main;
     lastInsertionPositionRef.current = range.head;
@@ -2078,6 +2092,9 @@ export function DocumentCanvas(props: {
     updateSelectionToolbarRef.current(viewUpdate.view, activeFileRefEditor.current);
     reportEditorPositionRef.current?.(viewUpdate.view, activeFileRefEditor.current);
     markdownCursorRevealRef.current?.();
+  }, []);
+  useEffect(() => () => {
+    if (completionActiveRef.current) onCompletionActiveChangeRef.current(false);
   }, []);
   const onSecondaryChange = useCallback((value: string) => {
     if (secondaryCollabBinding?.path === secondaryFileRefEditor.current) {
@@ -4085,7 +4102,7 @@ export function DocumentCanvas(props: {
       </Suspense>
     );
   }
-  if (paperPdfActive) return paperPreview;
+  if (paperPdfActive && props.mode !== "dual" && props.mode !== "columns") return paperPreview;
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   if (props.mode === "dual" || props.mode === "columns") {
@@ -4099,6 +4116,26 @@ export function DocumentCanvas(props: {
       focusedPaneRef.current = "secondary";
       onFocusPane("secondary");
     };
+    const paperDualPane = props.activePaper ? (
+      <div
+        className={`dual-pane dual-primary paper-pane ${focusedPane === "primary" ? "focused" : ""}`}
+        data-editor-pane="primary"
+        data-paper-side={props.paperSide}
+        tabIndex={0}
+        onPointerDownCapture={() => {
+          props.onContextSurfaceActivate("paper");
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+        onFocusCapture={() => {
+          props.onContextSurfaceActivate("paper");
+          focusedPaneRef.current = "primary";
+          onFocusPane("primary");
+        }}
+      >
+        {paperPreview}
+      </div>
+    ) : null;
     const dualSecondary = props.secondaryAsset ? (
       <div
         className={`dual-pane asset-pane ${focusedPane === "secondary" ? "focused" : ""}`}
@@ -4441,10 +4478,17 @@ export function DocumentCanvas(props: {
         {preview}
       </div>
     );
-    const visiblePrimaryPane = props.dualPreviewPanes?.primary ? dualPrimaryPreview : primaryPane;
+    const visiblePrimaryPane = paperDualPane
+      ?? (props.dualPreviewPanes?.primary ? dualPrimaryPreview : primaryPane);
     const visibleSecondaryPane = props.dualPreviewPanes?.secondary
       ? dualSecondaryPreview
       : dualSecondary;
+    const leftPane = paperDualPane && props.paperSide === "right"
+      ? visibleSecondaryPane
+      : visiblePrimaryPane;
+    const rightPane = paperDualPane && props.paperSide === "right"
+      ? visiblePrimaryPane
+      : visibleSecondaryPane;
     const editorResizer = (
       <div
         className="split-resizer"
@@ -4464,9 +4508,9 @@ export function DocumentCanvas(props: {
             gridTemplateColumns: `minmax(160px, ${splitRatio * editorsShare}fr) 1px minmax(160px, ${(1 - splitRatio) * editorsShare}fr) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, ${columnsPdfRatio}fr)`,
           }}
         >
-          {visiblePrimaryPane}
+          {leftPane}
           {editorResizer}
-          {visibleSecondaryPane}
+          {rightPane}
           <div
             className="split-resizer"
             role="separator"
@@ -4486,9 +4530,9 @@ export function DocumentCanvas(props: {
         className="split-canvas dual-canvas"
         style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
       >
-        {visiblePrimaryPane}
+        {leftPane}
         {editorResizer}
-        {visibleSecondaryPane}
+        {rightPane}
       </div>
     );
   }

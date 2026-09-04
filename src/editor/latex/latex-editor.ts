@@ -1472,6 +1472,10 @@ export function latexEditorExtensions(
       ],
       activateOnTyping: true,
       activateOnTypingDelay: 0,
+      // Citation completion appears only after the opening brace, so the key
+      // that opened it cannot also be a navigation key. CodeMirror's default
+      // 75 ms guard just makes a quick Arrow/Enter fall through to the editor.
+      interactionDelay: 0,
       icons: false,
     }),
     EditorView.domEventHandlers({

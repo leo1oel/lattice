@@ -323,9 +323,10 @@ function runtimeMessage(message: RuntimeMessage): string {
     // main settings loader does.
   }
   const chinese = configuredLanguage === "zh-CN"
-    || (configuredLanguage === "system" && navigator.languages.some((locale) => (
-      locale.toLocaleLowerCase().startsWith("zh")
-    )));
+    || (
+      configuredLanguage === "system"
+      && navigator.languages[0]?.toLocaleLowerCase().startsWith("zh")
+    );
   const messages: Record<RuntimeMessage, [english: string, chinese: string]> = {
     "app-disconnected": [
       "The local Lattice app disconnected.",

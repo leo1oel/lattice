@@ -551,10 +551,11 @@ export function resolveAppLocale(
     : navigator.languages.length > 0
       ? navigator.languages
       : [navigator.language]);
-  return languages.some((language) => {
-    const normalized = language.toLowerCase();
-    return normalized === "zh" || normalized.startsWith("zh-");
-  })
+  // `navigator.languages` is ordered by preference. Falling through the whole
+  // list made a secondary Chinese input/reading language override an English
+  // system language; only the system's first preference chooses the UI locale.
+  const normalized = languages[0]?.toLowerCase() ?? "";
+  return normalized === "zh" || normalized.startsWith("zh-")
     ? "zh-CN"
     : "en";
 }

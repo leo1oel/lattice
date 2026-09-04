@@ -55,6 +55,7 @@ function connectedRelay(
 afterEach(() => {
   sockets.length = 0;
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.stubGlobal("WebSocket", NativeWebSocket);
   localStorage.removeItem("lattice.appearance.v5");
   sessionStorage.removeItem("lattice.desktop-browser-standby");
@@ -129,6 +130,22 @@ describe("browser bridge recovery", () => {
     expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
       "The local Lattice app disconnected.",
     );
+  });
+
+  it("uses only the primary system language for recovery messages", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const languages = vi.spyOn(window.navigator, "languages", "get")
+      .mockReturnValue(["en-US", "zh-CN"]);
+    const { socket } = connectedRelay();
+
+    socket.disconnect();
+    vi.advanceTimersByTime(1_000);
+
+    expect(document.getElementById("lattice-browser-runtime-error")).toHaveTextContent(
+      "The local Lattice app disconnected.",
+    );
+    languages.mockRestore();
   });
 
   it("does not reopen a tab that is intentionally closing", () => {

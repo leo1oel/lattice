@@ -1,7 +1,13 @@
-import { completionStatus, currentCompletions } from "@codemirror/autocomplete";
+import {
+  completionStatus,
+  currentCompletions,
+  selectedCompletionIndex,
+  startCompletion,
+} from "@codemirror/autocomplete";
 import { openSearchPanel, search, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   beginEnvironmentClose,
@@ -242,6 +248,29 @@ describe("LaTeX citation editing", () => {
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
     expect(currentCompletions(view.state).map((completion) => completion.label)).toContain("vaswani2017attention");
     view.destroy();
+  });
+
+  it("lets an immediately pressed arrow and Enter choose a citation", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: "\\cite{}",
+        selection: { anchor: 6 },
+        extensions: latexEditorExtensions(["vaswani2017attention", "dosovitskiy2021image"]),
+      }),
+    });
+    startCompletion(view);
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    expect(selectedCompletionIndex(view.state)).toBe(0);
+
+    fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+    expect(selectedCompletionIndex(view.state)).toBe(1);
+    fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+    expect(view.state.doc.toString()).toBe("\\cite{vaswani2017attention}");
+
+    view.destroy();
+    now.mockRestore();
   });
 
   it("completes labels inside reference commands", () => {

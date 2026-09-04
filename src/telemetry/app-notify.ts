@@ -40,6 +40,11 @@ export type NotifyOptions = {
   dedupeKey?: string;
 };
 
+type ActionFailureOptions = NotifyOptions & {
+  /** Record the failed outcome without adding a second surface beside inline diagnostics. */
+  toast?: boolean;
+};
+
 /** Composite map keys, joined on a separator no message can contain. */
 function toastKey(...parts: string[]): string {
   return parts.join("\u0000");
@@ -49,7 +54,7 @@ function notify(
   level: AppLogLevel,
   source: string,
   title: string,
-  options: NotifyOptions = {},
+  options: ActionFailureOptions = {},
 ): string {
   const detail = options.detail?.trim() ?? "";
   // The banner this replaced always offered Copy on failures, and an error you
@@ -76,7 +81,7 @@ function notify(
     source,
     title,
     detail,
-    toast: true,
+    toast: options.toast,
     dedupeKey: options.dedupeKey ?? toastKey(source, title),
     toastOptions: {
       ...(copyText ? { copyText } : {}),
@@ -103,7 +108,7 @@ export type ActionLog = {
   /** A log-only breadcrumb — no toast. Use for steps worth seeing in a trace. */
   note: (message: string, detail?: string) => void;
   ok: (title: string, options?: NotifyOptions) => void;
-  fail: (reason: unknown, options?: NotifyOptions) => void;
+  fail: (reason: unknown, options?: ActionFailureOptions) => void;
   /**
    * Retract this action's outstanding toast. A retry that succeeds should not
    * leave the previous failure on screen waiting out its timeout.

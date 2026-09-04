@@ -1813,11 +1813,20 @@ fn bibcite_query_for_input(
     query: &str,
     resolver: &dyn Fn(&str) -> Result<Option<String>, String>,
 ) -> String {
-    if is_web_url(query) || query.split_whitespace().count() < 3 {
+    if is_web_url(query) {
+        return query.to_string();
+    }
+    // bibcite's URL resolver recognizes arXiv reliably, while its free-text
+    // resolver can reject a bare id such as `2609.01607`. Give direct ids the
+    // canonical URL shape without changing DOI and short-title queries.
+    if parse_arxiv_id(query).as_deref() == Some(query.trim()) {
+        return format!("https://arxiv.org/abs/{}", query.trim());
+    }
+    if query.split_whitespace().count() < 3 {
         return query.to_string();
     }
     match resolver(query) {
-        Ok(Some(arxiv_id)) => arxiv_base_id(&arxiv_id).to_string(),
+        Ok(Some(arxiv_id)) => format!("https://arxiv.org/abs/{}", arxiv_base_id(&arxiv_id)),
         Ok(None) => query.to_string(),
         Err(error) => {
             // arXiv lookup is enrichment. A transient API failure must not
@@ -2567,7 +2576,7 @@ mod tests {
                 assert_eq!(query, title);
                 Ok(Some("2407.06438v3".to_string()))
             }),
-            "2407.06438"
+            "https://arxiv.org/abs/2407.06438"
         );
         assert_eq!(
             bibcite_query_for_input(title, &|_| Err("offline".to_string())),
@@ -2578,6 +2587,22 @@ mod tests {
                 panic!("URLs must go directly to bibcite")
             }),
             "https://openreview.net/forum?id=nuzFG0Rbhy"
+        );
+    }
+
+    #[test]
+    fn sends_bare_arxiv_ids_through_bibcites_url_resolver() {
+        assert_eq!(
+            bibcite_query_for_input("2609.01607", &|_| {
+                panic!("a direct arXiv id must not run the title resolver")
+            }),
+            "https://arxiv.org/abs/2609.01607"
+        );
+        assert_eq!(
+            bibcite_query_for_input("cs/9901002v1", &|_| {
+                panic!("a direct legacy arXiv id must not run the title resolver")
+            }),
+            "https://arxiv.org/abs/cs/9901002v1"
         );
     }
 

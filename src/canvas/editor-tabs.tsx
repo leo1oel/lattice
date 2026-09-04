@@ -269,7 +269,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
   const splitTargetAt = useCallback((path: string, clientX: number, clientY: number): EditorDropPreview | null => {
     if (!onDropTabRef.current) return null;
     const tab = tabsRef.current.find((item) => item.path === path);
-    if (!tab || tab.kind === "paper") return null;
+    if (!tab) return null;
     return editorDropPreviewAt(path, clientX, clientY);
   }, []);
 

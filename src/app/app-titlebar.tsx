@@ -28,7 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { EditorTabs, type EditorDropZone } from "../canvas/editor-tabs";
+import { EditorTabs, type EditorDropZone, type EditorTab } from "../canvas/editor-tabs";
 import { ProjectMenu } from "../project/project-dialogs";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import type {
@@ -38,14 +38,12 @@ import type {
 import type {
   BuildResult,
   CanvasMode,
-  PaperSummary,
   ProjectSnapshot,
   SettingsTab,
 } from "../app-types";
 
 export type AppTitlebarProps = {
   abortBuild: () => Promise<void>;
-  activePaper: PaperSummary | null;
   activeTabKey: string;
   build: BuildResult | null;
   building: boolean;
@@ -59,7 +57,7 @@ export type AppTitlebarProps = {
   cleaning: boolean;
   compile: (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean; }) => Promise<void>;
   dropProjectPath: (path: string, zone: EditorDropZone, options?: { preserveSplitRatio?: boolean; preservePreview?: boolean; }) => Promise<true | undefined>;
-  editorTabItems: ({ path: string; kind: "paper"; label: string; dirty: boolean; beside?: undefined; } | { path: string; kind: "asset"; beside: boolean; label?: undefined; dirty?: undefined; } | { path: string; kind: "file"; dirty: boolean; beside: boolean; label?: undefined; })[];
+  editorTabItems: EditorTab[];
   exportProjectZip: () => Promise<void>;
   importing: boolean;
   openSettings: (tab?: SettingsTab) => void;
@@ -84,7 +82,6 @@ export function AppTitlebar(props: AppTitlebarProps) {
   const { t } = useLingui();
   const {
     abortBuild,
-    activePaper,
     activeTabKey,
     build,
     building,
@@ -170,7 +167,7 @@ export function AppTitlebar(props: AppTitlebarProps) {
           activePath={activeTabKey}
           animateLayout={!sidebarResizing}
           canCloseLast={canvasMode === "pdf"}
-          onDropTab={!activePaper ? dropProjectPath : undefined}
+          onDropTab={dropProjectPath}
           onSelect={selectEditorTab}
           onClose={requestCloseEditorTab}
           onReorder={setOpenTabs}

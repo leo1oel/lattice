@@ -417,12 +417,19 @@ describe("PDFSlick viewer integration", () => {
     }));
 
     const textLayer = view.container.querySelector<HTMLElement>(".textLayer")!;
-    const selection = vi.spyOn(window, "getSelection").mockReturnValue({
-      anchorNode: textLayer.firstChild,
+    const glyph = textLayer.querySelector<HTMLElement>("span")!;
+    glyph.textContent = "Attention\u00a0 is all\n you need";
+    const range = document.createRange();
+    range.selectNodeContents(glyph);
+    const liveSelection = {
+      anchorNode: glyph,
+      getRangeAt: () => range,
       rangeCount: 1,
       isCollapsed: false,
       toString: () => "Attention\u00a0 is all\n you need",
-    } as Selection);
+    } as unknown as Selection;
+    const selection = vi.spyOn(window, "getSelection").mockReturnValue(liveSelection);
+    const documentSelection = vi.spyOn(document, "getSelection").mockReturnValue(liveSelection);
     fireEvent.mouseUp(textLayer);
     await waitFor(() => {
       expect(onTextSelect).toHaveBeenLastCalledWith("Attention is all you need");
@@ -441,9 +448,44 @@ describe("PDFSlick viewer integration", () => {
       expect(searchInput).toHaveFocus();
       expect(searchInput).toHaveValue("Attention is all you need");
     });
-    selection.mockReturnValue({ rangeCount: 0, isCollapsed: true } as Selection);
+    glyph.getClientRects = () => [{
+      left: 0,
+      right: 100,
+      top: 0,
+      bottom: 20,
+      width: 100,
+      height: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }] as unknown as DOMRectList;
+    glyph.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    }));
+    document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+    const collapsedSelection = { rangeCount: 0, isCollapsed: true } as Selection;
+    selection.mockReturnValue(collapsedSelection);
+    documentSelection.mockReturnValue(collapsedSelection);
     document.dispatchEvent(new Event("selectionchange"));
+    fireEvent.mouseUp(glyph);
+    await act(() => new Promise((resolve) => window.requestAnimationFrame(resolve)));
+    expect(onTextSelect).toHaveBeenLastCalledWith("Attention is all you need");
+    const pageCanvas = view.container.querySelector<HTMLElement>(".page canvas")!;
+    pageCanvas.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    }));
     expect(onTextSelect).toHaveBeenLastCalledWith("");
+    fireEvent.mouseUp(pageCanvas);
+    await waitFor(() => {
+      expect(onTextSelect).toHaveBeenLastCalledWith("");
+    });
+    documentSelection.mockRestore();
     selection.mockRestore();
 
     const link = view.getAllByTitle("https://example.com/paper")[0];

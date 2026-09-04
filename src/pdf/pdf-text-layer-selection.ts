@@ -46,6 +46,8 @@ let lastPdfCopyText = "";
 let copyField: HTMLTextAreaElement | null = null;
 const clipboardTimers: number[] = [];
 
+export const PDF_TEXT_SELECTION_CLEARED_EVENT = "lattice:pdf-text-selection-cleared";
+
 function resetLayer(textLayer: HTMLElement, endOfContent: HTMLElement) {
   if (endOfContent.parentElement !== textLayer) textLayer.append(endOfContent);
   endOfContent.style.width = "";
@@ -262,7 +264,10 @@ export function clearPdfTextSelection() {
   // WebKit parks a completed PDF drag in the hidden copy field and does not
   // reliably publish the programmatic clear. Notify PdfViewer so its Agent
   // context cannot retain text after the visible highlight is gone.
-  if (hadPdfSelection) document.dispatchEvent(new Event("selectionchange"));
+  if (hadPdfSelection) {
+    document.dispatchEvent(new Event(PDF_TEXT_SELECTION_CLEARED_EVENT));
+    document.dispatchEvent(new Event("selectionchange"));
+  }
 }
 
 function blurEditableFocus() {

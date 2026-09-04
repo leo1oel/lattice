@@ -149,6 +149,7 @@ function baseProps(): CanvasProps {
     pdfUrl: null,
     pdfBase64: null,
     activePaper: null,
+    paperSide: "left",
     activeAsset: null,
     secondaryAsset: null,
     citationKeys: [],
@@ -168,6 +169,7 @@ function baseProps(): CanvasProps {
     editorNavigation: null,
     onEditorNavigationHandled: vi.fn(),
     onEditorPosition: vi.fn(),
+    onCompletionActiveChange: vi.fn(),
     onViewState: vi.fn(),
     viewRestore: null,
     onViewRestoreHandled: vi.fn(),
@@ -338,6 +340,31 @@ describe("DocumentCanvas / mode", () => {
     expect(screen.getByRole("separator", { name: "Resize dual source panes" })).toBeInTheDocument();
     expect(screen.queryByTestId("pdf-preview")).toBeNull();
     expect(container.querySelector(".columns-canvas")).toBeNull();
+  });
+
+  it("places a Paper beside an editor on either side", async () => {
+    const { container, rerenderWith } = renderCanvas({
+      mode: "dual",
+      activeFile: ".research/papers/1706.03762/paper.md",
+      source: "## Abstract\n\nPaper content.",
+      activePaper: {
+        arxivId: "1706.03762",
+        title: "Attention Is All You Need",
+        authors: "Ashish Vaswani and Noam Shazeer",
+        hasFullText: true,
+        hasBlog: false,
+      },
+      paperSide: "left",
+      secondaryFile: "main.tex",
+      secondarySource: "\\documentclass{article}\n",
+    });
+
+    await waitFor(() => expect(container.querySelector(".cm-editor")).not.toBeNull());
+    const split = container.querySelector(".dual-canvas")!;
+    expect(split.firstElementChild).toHaveClass("paper-pane");
+
+    rerenderWith({ paperSide: "right" });
+    expect(split.lastElementChild).toHaveClass("paper-pane");
   });
 
   it("adds the preview column and its own resizer in columns mode", async () => {
