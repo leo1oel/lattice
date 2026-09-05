@@ -72,7 +72,7 @@ async function rotateFormat(direction = 1, manual = false) {
     if (!reducedMotion.matches) labels.forEach((label) => {
       const slot = Number(label.dataset.slot);
       formatAnimations.push(label.animate([wheelPose(slot), wheelPose(slot - direction)], {
-        duration: 800, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
+        duration: manual ? 450 : 800, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
       }));
     });
     await Promise.all(formatAnimations.map((animation) => animation.finished));
@@ -103,7 +103,7 @@ document.addEventListener('wheel', (event) => {
   lastWheelTime = event.timeStamp;
   if (formatAnimations.length) { wheelDelta = 0; return; }
   wheelDelta += delta;
-  if (Math.abs(wheelDelta) < 30) return;
+  if (Math.abs(wheelDelta) < 12) return;
   wheelDelta = 0;
   return rotateFormat(Math.sign(delta), true);
 }, { passive: true });
