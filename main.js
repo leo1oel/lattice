@@ -85,37 +85,45 @@ if (!reducedMotion.matches) {
         entry.canvas = canvas;
         canvas.className = 'entrance-particles';
         canvas.setAttribute('aria-hidden', 'true');
+        const ratio = Math.min(devicePixelRatio || 1, 2);
+        entry.ratio = ratio;
+        // Align the backing store to device pixels, not fractional layout bounds.
+        const left = Math.floor((box.left + scrollX - padding) * ratio) / ratio;
+        const top = Math.floor((box.top + scrollY - padding) * ratio) / ratio;
         const width = Math.ceil(box.width + padding * 2);
         const height = Math.ceil(box.height + padding + 112);
-        canvas.width = width;
-        canvas.height = height;
-        canvas.style.cssText = `left:${box.left + scrollX - padding}px;top:${box.top + scrollY - padding}px;width:${width}px;height:${height}px`;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px`;
         const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.scale(ratio, ratio);
         const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
         const range = document.createRange();
         while (walker.nextNode()) {
           const node = walker.currentNode;
-          if (node.parentElement.closest('svg')) continue;
+          if (node.parentElement.closest('svg') || !node.textContent.trim()) continue;
           const style = getComputedStyle(node.parentElement);
           context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
           context.fillStyle = style.color;
-          // Range rects account for responsive line breaks and letter spacing.
+          // Read each glyph's laid-out position, including CSS spacing/wrapping.
           for (let i = 0; i < node.length; i++) {
             if (!node.textContent[i].trim()) continue;
             range.setStart(node, i);
             range.setEnd(node, i + 1);
             const rect = range.getBoundingClientRect();
             const metrics = context.measureText(node.textContent[i]);
-            context.fillText(node.textContent[i], rect.left - box.left + padding,
-              rect.top - box.top + padding + metrics.fontBoundingBoxAscent);
+            context.fillText(node.textContent[i], rect.left + scrollX - left,
+              rect.top + scrollY - top + metrics.fontBoundingBoxAscent);
           }
         }
-        const pixels = context.getImageData(0, 0, width, height).data;
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
         entry.particles = [];
-        for (let y = 0; y < height; y += 1) {
-          for (let x = 0; x < width; x += 1) {
-            const offset = (y * width + x) * 4;
-            if (pixels[offset + 3] < 45) continue;
+        for (let py = 0; py < canvas.height; py += 1) {
+          for (let px = 0; px < canvas.width; px += 1) {
+            const offset = (py * canvas.width + px) * 4;
+            if (pixels[offset + 3] === 0) continue;
+            const x = px / ratio;
+            const y = py / ratio;
             // Independent scatter and timing prevent a diagonal wave: using one
             // random value for all three makes one side rise before the other.
             const seed = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -129,10 +137,7 @@ if (!reducedMotion.matches) {
               alpha: pixels[offset + 3] / 255, shade: pixels[offset] });
           }
         }
-        const ratio = Math.min(devicePixelRatio || 1, 2);
-        canvas.width = width * ratio;
-        canvas.height = height * ratio;
-        context.scale(ratio, ratio);
+        context.clearRect(0, 0, width, height);
         entry.context = context;
         document.body.append(canvas);
       });
@@ -149,11 +154,11 @@ if (!reducedMotion.matches) {
       // fully resolved brand rather than starting while its particles gather.
       const ruleProgress = Math.max(0, Math.min((elapsed - 1200) / 500, 1));
       divider.style.opacity = String(ruleProgress * ruleProgress * (3 - 2 * ruleProgress));
-      entrances.forEach(({ element, canvas, context, particles, delay, label, mark }) => {
+      entrances.forEach(({ element, canvas, context, particles, delay, label, mark, ratio }) => {
         const progress = Math.max(0, Math.min((elapsed - delay) / 1200, 1));
-        // Finish every trajectory before crossfading to DOM text. Overlapping
-        // travel and handover made the almost-formed letters seem to rise twice.
-        const ink = canvas ? Math.max(0, Math.min((progress - .74) / .26, 1)) : progress;
+        // Match the final glyph's pixel coverage and swap layers atomically.
+        // Fading two differently rasterized layers caused a gray/dark pulse.
+        const ink = canvas ? Number(progress === 1) : progress;
         element.style.opacity = String(ink * ink * (3 - 2 * ink));
         if (mark) {
           label.style.opacity = element.style.opacity;
@@ -168,11 +173,11 @@ if (!reducedMotion.matches) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         if (progress === 0 || progress === 1) return;
         particles.forEach(({ x, y, dx, dy, lag, alpha, shade }) => {
-          const travel = Math.max(0, Math.min((progress - lag) / (.70 - lag), 1));
+          const travel = Math.max(0, Math.min((progress - lag) / (1 - lag), 1));
           const remaining = 1 - travel * travel * (3 - 2 * travel);
-          context.globalAlpha = alpha * Math.min(progress * 8, 1) * (1 - ink);
+          context.globalAlpha = alpha * Math.min(progress * 8, 1);
           context.fillStyle = `rgb(${shade} ${shade} ${shade})`;
-          context.fillRect(x + dx * remaining, y + dy * remaining, .85, .85);
+          context.fillRect(x + dx * remaining, y + dy * remaining, 1 / ratio, 1 / ratio);
         });
       });
       if (elapsed < 2200) grainFrame = requestAnimationFrame(reveal);
