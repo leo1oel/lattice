@@ -58,7 +58,3 @@
 .bibliography-audit-disclaimer { display: flex; align-items: flex-start; gap: var(--space-4); flex: none; padding-top: var(--space-6); border-top: 1px solid var(--border-subtle); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .bibliography-audit-disclaimer svg { margin-top: var(--space-1); }
 .bibliography-audit-empty { display: grid; justify-items: center; gap: var(--space-5); padding: var(--space-16) var(--space-8); color: var(--text-tertiary); font-size: var(--type-caption-size); }
-@media (prefers-reduced-motion: reduce) {
-  .bibliography-audit-chevron,
-  .bibliography-audit progress::-webkit-progress-value { transition: none; }
-}
