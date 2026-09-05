@@ -8,7 +8,8 @@ a:focus-visible { outline: 2px solid #737373; outline-offset: 6px; }
 ::selection { background: #e8e8e8; }
 .skip-link { position: fixed; top: -80px; left: 20px; padding: 12px; background: #fff; z-index: 20; }
 .skip-link:focus { top: 12px; }
-.entrance-particles { position: absolute; pointer-events: none; mix-blend-mode: plus-lighter; }
+.effect-definitions { position: absolute; pointer-events: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .page-frame { position: fixed; inset: 32px 40px; pointer-events: none; }
 .page-frame span { position: absolute; width: 76px; height: 24px; }
 .page-frame span:nth-child(1) { top: 0; left: 0; }
@@ -20,7 +21,7 @@ a:focus-visible { outline: 2px solid #737373; outline-offset: 6px; }
 .page-frame span::after { height: 100%; width: 1px; animation: frame-vertical 1.2s var(--ease) .5s both; }
 @keyframes frame-horizontal { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
 @keyframes frame-vertical { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
-main { min-height: 100svh; display: grid; place-items: center; padding: 100px 32px; isolation: isolate; }
+main { min-height: 100svh; display: grid; place-items: center; padding: 100px 32px; }
 .intro { position: relative; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 84px; width: fit-content; max-width: 100%; padding-block: 14px; }
 .divider { position: absolute; grid-column: 2; top: 12px; left: -42px; width: 1px; height: 88px; background: linear-gradient(transparent, #d8d8d8 35%, #d8d8d8 65%, transparent); transform-origin: center; }
 h1 { grid-column: 1; grid-row: 1 / 3; align-self: start; margin: 0; font: 300 60px/1 'Lateef', Georgia, serif; letter-spacing: -.02em; }
@@ -28,6 +29,10 @@ h1 { grid-column: 1; grid-row: 1 / 3; align-self: start; margin: 0; font: 300 60
 .brand-mark { width: 38px; height: 38px; overflow: visible; transition: transform .8s var(--ease); }
 .brand-mark path { stroke-dasharray: 1; stroke-dashoffset: 0; }
 .description { grid-column: 2; margin: 0 0 28px; font: 300 30px/1.4 'Lateef', Georgia, serif; color: var(--muted); }
+.format-line { display: grid; }
+.format-size, .format-content { grid-area: 1 / 1; min-width: 0; }
+.format-size { visibility: hidden; }
+.format-label { white-space: nowrap; }
 .actions { grid-column: 2; justify-self: start; display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
 .actions a { height: 46px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dcdcdc; border-radius: 7px; background: #fff; transition: border-color .3s, background .4s, color .3s; }
 .download { gap: 18px; padding: 0 17px; font: 300 25px/1 'Lateef', Georgia, serif; }
