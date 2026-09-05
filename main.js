@@ -8,6 +8,8 @@ let formatReady = reducedMotion.matches;
 let formatGeneration = 0;
 const formatAnimations = [];
 const formats = ['LaTeX', 'Markdown', 'PowerPoint', 'Canvas', 'Sheet'];
+let wheelDelta = 0;
+let lastWheelTime = 0;
 
 // Resolve the current installer ahead of the click, never via a release page.
 fetch('https://api.github.com/repos/leo1oel/lattice/releases/latest', {
@@ -61,20 +63,21 @@ function wheelPose(slot) {
   };
 }
 
-async function rotateFormat() {
-  if (reducedMotion.matches || document.hidden) return;
+async function rotateFormat(direction = 1, manual = false) {
+  if (!formatReady || (reducedMotion.matches && !manual) || document.hidden || formatAnimations.length) return;
+  clearTimeout(formatTimer);
   const generation = ++formatGeneration;
   const labels = [...document.querySelectorAll('.format-label')];
   try {
-    labels.forEach((label) => {
+    if (!reducedMotion.matches) labels.forEach((label) => {
       const slot = Number(label.dataset.slot);
-      formatAnimations.push(label.animate([wheelPose(slot), wheelPose(slot - 1)], {
+      formatAnimations.push(label.animate([wheelPose(slot), wheelPose(slot - direction)], {
         duration: 800, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
       }));
     });
     await Promise.all(formatAnimations.map((animation) => animation.finished));
     if (generation !== formatGeneration) return;
-    formatIndex = (formatIndex + 1) % formats.length;
+    formatIndex = (formatIndex + direction + formats.length) % formats.length;
     // Recycle only the invisible back row. Visible rows retain their exact
     // end poses when the animation effects are removed.
     labels.forEach((label, index) => {
@@ -89,6 +92,21 @@ async function rotateFormat() {
     }
   }
 }
+
+// Accumulate trackpad micro-deltas, but never queue momentum behind an active
+// step. Passive handling leaves normal page scrolling and pinch zoom intact.
+document.addEventListener('wheel', (event) => {
+  if (!event.target.closest?.('.format-wheel') || event.ctrlKey ||
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) || !event.deltaY || !formatReady) return;
+  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1);
+  if (event.timeStamp - lastWheelTime > 180 || Math.sign(delta) !== Math.sign(wheelDelta)) wheelDelta = 0;
+  lastWheelTime = event.timeStamp;
+  if (formatAnimations.length) { wheelDelta = 0; return; }
+  wheelDelta += delta;
+  if (Math.abs(wheelDelta) < 30) return;
+  wheelDelta = 0;
+  return rotateFormat(Math.sign(delta), true);
+}, { passive: true });
 
 document.addEventListener('pointermove', (event) => {
   document.documentElement.classList.toggle('has-mouse', event.pointerType === 'mouse');
