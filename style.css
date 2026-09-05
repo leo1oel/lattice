@@ -8,7 +8,7 @@ a:focus-visible { outline: 2px solid #737373; outline-offset: 6px; }
 ::selection { background: #e8e8e8; }
 .skip-link { position: fixed; top: -80px; left: 20px; padding: 12px; background: #fff; z-index: 20; }
 .skip-link:focus { top: 12px; }
-.entrance-particles { position: absolute; pointer-events: none; }
+.entrance-particles { position: absolute; pointer-events: none; mix-blend-mode: plus-lighter; }
 .page-frame { position: fixed; inset: 32px 40px; pointer-events: none; }
 .page-frame span { position: absolute; width: 76px; height: 24px; }
 .page-frame span:nth-child(1) { top: 0; left: 0; }
@@ -20,7 +20,7 @@ a:focus-visible { outline: 2px solid #737373; outline-offset: 6px; }
 .page-frame span::after { height: 100%; width: 1px; animation: frame-vertical 1.2s var(--ease) .5s both; }
 @keyframes frame-horizontal { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
 @keyframes frame-vertical { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
-main { min-height: 100svh; display: grid; place-items: center; padding: 100px 32px; }
+main { min-height: 100svh; display: grid; place-items: center; padding: 100px 32px; isolation: isolate; }
 .intro { position: relative; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 84px; width: fit-content; max-width: 100%; padding-block: 14px; }
 .divider { position: absolute; grid-column: 2; top: 12px; left: -42px; width: 1px; height: 88px; background: linear-gradient(transparent, #d8d8d8 35%, #d8d8d8 65%, transparent); transform-origin: center; }
 h1 { grid-column: 1; grid-row: 1 / 3; align-self: start; margin: 0; font: 300 60px/1 'Lateef', Georgia, serif; letter-spacing: -.02em; }

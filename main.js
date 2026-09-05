@@ -139,7 +139,9 @@ if (!reducedMotion.matches) {
         }
         context.clearRect(0, 0, width, height);
         entry.context = context;
-        document.body.append(canvas);
+        // Both layers share an isolated transparent backdrop so plus-lighter
+        // blends their coverage, rather than dimming overlapping glyphs.
+        document.querySelector('main').append(canvas);
       });
     } catch {
       // Canvas/font support must never be a prerequisite for reading/downloads.
@@ -156,9 +158,10 @@ if (!reducedMotion.matches) {
       divider.style.opacity = String(ruleProgress * ruleProgress * (3 - 2 * ruleProgress));
       entrances.forEach(({ element, canvas, context, particles, delay, label, mark, ratio }) => {
         const progress = Math.max(0, Math.min((elapsed - delay) / 1200, 1));
-        // Match the final glyph's pixel coverage and swap layers atomically.
-        // Fading two differently rasterized layers caused a gray/dark pulse.
-        const ink = canvas ? Number(progress === 1) : progress;
+        // Native and Canvas rasterizers can differ by a fraction of a pixel.
+        // Blend into the fixed native glyphs while particles are still arriving,
+        // not with a hard layer swap after the word is already fully formed.
+        const ink = canvas ? Math.max(0, Math.min((progress - .7) / .3, 1)) : progress;
         element.style.opacity = String(ink * ink * (3 - 2 * ink));
         if (mark) {
           label.style.opacity = element.style.opacity;
@@ -175,7 +178,7 @@ if (!reducedMotion.matches) {
         particles.forEach(({ x, y, dx, dy, lag, alpha, shade }) => {
           const travel = Math.max(0, Math.min((progress - lag) / (1 - lag), 1));
           const remaining = 1 - travel * travel * (3 - 2 * travel);
-          context.globalAlpha = alpha * Math.min(progress * 8, 1);
+          context.globalAlpha = alpha * Math.min(progress * 8, 1) * (1 - ink * ink * (3 - 2 * ink));
           context.fillStyle = `rgb(${shade} ${shade} ${shade})`;
           context.fillRect(x + dx * remaining, y + dy * remaining, 1 / ratio, 1 / ratio);
         });
