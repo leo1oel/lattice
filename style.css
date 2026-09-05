@@ -28,8 +28,8 @@ h1 { grid-column: 1; grid-row: 1; align-self: start; margin: 0; font: 300 60px/1
 .wordmark { display: inline-flex; align-items: center; gap: 13px; }
 .brand-mark { width: 38px; height: 38px; overflow: visible; transition: transform .8s var(--ease); }
 .brand-mark path { stroke-dasharray: 1; stroke-dashoffset: 0; }
-.description { grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; font: 300 30px/1.4 'Lateef', Georgia, serif; color: var(--muted); }
-.format-line { display: flex; align-items: center; margin-top: .35em; }
+.description { grid-column: 2; grid-row: 1 / 3; display: grid; grid-template-rows: subgrid; align-items: center; margin: 0; font: 300 30px/1.4 'Lateef', Georgia, serif; color: var(--muted); }
+.format-line { display: flex; align-items: center; }
 .format-wheel { position: relative; display: inline-grid; height: 3.2em; align-items: center; overflow: hidden; mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); }
 .format-size, .format-label { grid-area: 1 / 1; white-space: nowrap; }
 .format-size { visibility: hidden; }
@@ -40,9 +40,9 @@ h1 { grid-column: 1; grid-row: 1; align-self: start; margin: 0; font: 300 60px/1
 .format-label[data-slot="-2"] { transform: perspective(220px) translateY(-2.1em) rotateX(64deg); }
 .format-label[data-slot="2"] { transform: perspective(220px) translateY(2.1em) rotateX(-64deg); }
 .format-suffix { white-space: nowrap; }
-.actions { grid-column: 1; grid-row: 2; justify-self: start; display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
+.actions { grid-column: 1; grid-row: 2; align-self: center; justify-self: start; display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
 .actions a { height: 46px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dcdcdc; border-radius: 7px; background: #fff; transition: border-color .3s, background .4s, color .3s; }
-.download { gap: 18px; padding: 0 17px; font: 300 25px/1 'Lateef', Georgia, serif; }
+.download { gap: 10px; padding: 0 17px; font: 300 25px/1 'Lateef', Georgia, serif; }
 /* Lateef's visible Latin glyphs sit above its line-box center. */
 .download > span { position: relative; top: .06em; }
 .platform-icon { width: 17px; height: 17px; fill: currentColor; }
@@ -66,8 +66,9 @@ h1 { grid-column: 1; grid-row: 1; align-self: start; margin: 0; font: 300 60px/1
   h1 { font-size: 54px; }
   .wordmark { gap: 12px; }
   .brand-mark { width: 35px; height: 35px; }
-  .description { grid-column: 1; grid-row: 3; font-size: 26px; line-height: 1.4; margin-top: 12px; }
-  .download { padding-inline: 14px; gap: 16px; font-size: 24px; }
+  .description { grid-column: 1; grid-row: 3; display: block; font-size: 26px; line-height: 1.4; margin-top: 12px; }
+  .format-line { margin-top: .35em; }
+  .download { padding-inline: 14px; font-size: 24px; }
   .actions { gap: 10px; }
   .github { width: 44px; flex-shrink: 0; }
 }
