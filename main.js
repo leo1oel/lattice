@@ -51,30 +51,35 @@ function stopFormat() {
 function scheduleFormat() {
   clearTimeout(formatTimer);
   if (!formatReady || reducedMotion.matches || document.hidden) return;
-  formatTimer = setTimeout(rotateFormat, 3200);
+  formatTimer = setTimeout(rotateFormat, 2500);
+}
+
+function wheelPose(slot) {
+  return {
+    opacity: slot === 0 ? 1 : Math.abs(slot) === 1 ? .22 : 0,
+    transform: `perspective(220px) translateY(${slot * 1.05}em) rotateX(${-slot * 32}deg)`,
+  };
 }
 
 async function rotateFormat() {
   if (reducedMotion.matches || document.hidden) return;
   const generation = ++formatGeneration;
-  const label = document.querySelector('.format-label');
-  const line = document.querySelector('.format-content');
+  const labels = [...document.querySelectorAll('.format-label')];
   try {
-    const exit = line.animate([
-      { opacity: 1, transform: 'translateY(0)' },
-      { opacity: 0, transform: 'translateY(-5px)' },
-    ], { duration: 200, easing: 'ease-in', fill: 'forwards' });
-    formatAnimations.push(exit);
-    await exit.finished;
+    labels.forEach((label) => {
+      const slot = Number(label.dataset.slot);
+      formatAnimations.push(label.animate([wheelPose(slot), wheelPose(slot - 1)], {
+        duration: 800, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
+      }));
+    });
+    await Promise.all(formatAnimations.map((animation) => animation.finished));
     if (generation !== formatGeneration) return;
     formatIndex = (formatIndex + 1) % formats.length;
-    label.textContent = formats[formatIndex];
-    const enter = line.animate([
-      { opacity: 0, transform: 'translateY(5px)' },
-      { opacity: 1, transform: 'translateY(0)' },
-    ], { duration: 420, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'both' });
-    formatAnimations.push(enter);
-    await enter.finished;
+    // Recycle only the invisible back row. Visible rows retain their exact
+    // end poses when the animation effects are removed.
+    labels.forEach((label, index) => {
+      label.dataset.slot = String((index - formatIndex + formats.length + 2) % formats.length - 2);
+    });
   } catch {
     // Hidden tabs and reduced-motion changes cancel rather than finish mid-cycle.
   } finally {
