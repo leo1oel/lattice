@@ -24,6 +24,34 @@ describe("bibliography entry drafting", () => {
 `);
   });
 
+  it("preserves extra fields without allowing modeled fields to reappear", () => {
+    const formatted = formatBibEntry({
+      type: "article",
+      key: "paper",
+      title: "Edited title",
+      author: "Author",
+      year: "2026",
+      extraFields: {
+        eprint: "2601.01234",
+        archiveprefix: "arXiv",
+        pages: "1--10",
+        note: "Keep {NASA}",
+        howpublished: "\\url{https://example.org}",
+        title: "Stale title",
+        journal: "Removed journal",
+      },
+    });
+
+    expect(formatted).toContain("title = {Edited title}");
+    expect(formatted).toContain("eprint = {2601.01234}");
+    expect(formatted).toContain("archiveprefix = {arXiv}");
+    expect(formatted).toContain("pages = {1--10}");
+    expect(formatted).toContain("note = {Keep {NASA}}");
+    expect(formatted).toContain("howpublished = {\\url{https://example.org}}");
+    expect(formatted).not.toContain("Stale title");
+    expect(formatted).not.toContain("Removed journal");
+  });
+
   it("appends an entry with a blank line separator", () => {
     expect(appendBibEntry("@misc{a,\n  title = {A}\n}\n", "@misc{b,\n  title = {B}\n}\n"))
       .toBe(`@misc{a,

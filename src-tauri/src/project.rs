@@ -1417,7 +1417,7 @@ fn bib_entry_line(contents: &str, key: &str) -> Option<u32> {
     )
 }
 
-fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
+pub(crate) fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
     let manifest = read_manifest(root)?;
     let mut sources = Vec::new();
     let mut seen = BTreeSet::new();
@@ -2626,6 +2626,13 @@ fn bibliography_arxiv_id(fields: &BTreeMap<String, String>) -> Option<String> {
 }
 
 fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
+    parse_bibliography_fields_raw(body)
+        .into_iter()
+        .map(|(name, value)| (name, clean_bibliography_value(&value)))
+        .collect()
+}
+
+pub(crate) fn parse_bibliography_fields_raw(body: &str) -> BTreeMap<String, String> {
     let bytes = body.as_bytes();
     let mut fields = BTreeMap::new();
     let mut position = 0;
@@ -2668,7 +2675,7 @@ fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
             }
             None => String::new(),
         };
-        fields.insert(name, clean_bibliography_value(&value));
+        fields.insert(name, value);
     }
     fields
 }
@@ -3234,15 +3241,49 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     let output = run_bibcite_get(query)?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !output.status.success() {
+    parse_citation_resolution(&stdout, output.status.code(), &stderr)
+}
+
+fn parse_citation_resolution(
+    stdout: &str,
+    code: Option<i32>,
+    stderr: &str,
+) -> Result<ResolvedCitation, String> {
+    // Exit 2 can carry usable candidate snapshots. Decode those before treating
+    // the command as an error; choosing a snapshot must never rerun a search.
+    let value = serde_json::from_str::<serde_json::Value>(stdout).ok();
+    if code == Some(2)
+        && value
+            .as_ref()
+            .and_then(|v| v.get("action"))
+            .and_then(|v| v.as_str())
+            == Some("ambiguous")
+    {
+        let mut result = citation_from_bibtex("", "");
+        let candidates = value
+            .as_ref()
+            .and_then(|v| v.get("candidates"))
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| "bibcite returned no candidate previews.".to_string())?;
+        for candidate in candidates {
+            result.candidates.push(citation_from_report(candidate)?);
+        }
+        if result.candidates.len() < 2 {
+            return Err("bibcite returned an incomplete ambiguity report.".to_string());
+        }
+        return Ok(result);
+    }
+    if code != Some(0) {
         return Err(if stderr.is_empty() {
             "bibcite could not resolve that query.".to_string()
         } else {
-            stderr
+            stderr.to_string()
         });
     }
-    let value: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|error| format!("bibcite returned invalid JSON: {error}\n{stdout}"))?;
+    citation_from_report(&value.ok_or_else(|| "bibcite returned invalid JSON.".to_string())?)
+}
+
+fn citation_from_report(value: &serde_json::Value) -> Result<ResolvedCitation, String> {
     let bibtex = value
         .get("bibtex")
         .and_then(|item| item.as_str())
@@ -3256,7 +3297,19 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
         .and_then(|item| item.as_str())
         .unwrap_or("")
         .to_string();
-    Ok(citation_from_bibtex(&bibtex, &key))
+    let mut resolved = citation_from_bibtex(&bibtex, &key);
+    resolved.evidence = value
+        .get("evidence")
+        .filter(|v| v.is_object())
+        .cloned()
+        .or_else(|| {
+            value.get("source").and_then(|v| v.as_str()).map(|source| {
+                serde_json::json!({
+                    "source": source, "author_match": "not_checked"
+                })
+            })
+        });
+    Ok(resolved)
 }
 
 fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
@@ -3278,7 +3331,10 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
     let info = parse_bibliography(bibtex).into_iter().next();
     let body = bibtex
         .find(',')
-        .map(|index| bibtex[index + 1..].trim_end_matches(['}', '\n']))
+        .map(|index| {
+            let body = bibtex[index + 1..].trim_end();
+            body.strip_suffix('}').unwrap_or(body)
+        })
         .unwrap_or("");
     let fields = parse_bibliography_fields(body);
     ResolvedCitation {
@@ -3305,6 +3361,25 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
         url: fields.get("url").cloned().unwrap_or_default(),
         doi: fields.get("doi").cloned().unwrap_or_default(),
         entry_type,
+        candidates: Vec::new(),
+        evidence: None,
+        extra_fields: parse_bibliography_fields_raw(body)
+            .iter()
+            .filter(|(name, _)| {
+                !matches!(
+                    name.as_str(),
+                    "title"
+                        | "author"
+                        | "year"
+                        | "journal"
+                        | "booktitle"
+                        | "publisher"
+                        | "url"
+                        | "doi"
+                )
+            })
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
         bibtex: if bibtex.ends_with('\n') {
             bibtex.to_string()
         } else {
@@ -3325,7 +3400,7 @@ fn bib_entry_span(bibliography: &str, target_key: &str) -> Option<(usize, usize)
 }
 
 /// Parsed citation key and byte range for every editable BibTeX entry.
-fn bibliography_entry_spans(bibliography: &str) -> Vec<(String, usize, usize)> {
+pub(crate) fn bibliography_entry_spans(bibliography: &str) -> Vec<(String, usize, usize)> {
     let bytes = bibliography.as_bytes();
     let mut cursor = 0;
     let mut entries = Vec::new();
@@ -6678,6 +6753,47 @@ mod tests {
         // Case-insensitive key match.
         assert_eq!(bib_entry_line(bib, "jones2021"), Some(5));
         assert_eq!(bib_entry_line(bib, "missing"), None);
+    }
+
+    #[test]
+    fn citation_resolution_preserves_candidate_snapshots_and_extra_fields() {
+        let candidate = |key: &str| {
+            serde_json::json!({
+                "key": key,
+                "bibtex": format!("@misc{{{key}, title={{A Paper}}, author={{Alice Smith}}, year={{2024}}, eprint={{2401.01234}}, note={{Keep {{NASA}}}}, howpublished={{\\url{{https://example.org}}}}}}"),
+                "evidence": {"source": "crossref", "author_match": "partial"}
+            })
+        };
+        let report = serde_json::json!({"action": "ambiguous", "candidates": [candidate("a"), candidate("b")]}).to_string();
+        let result = parse_citation_resolution(&report, Some(2), "ambiguous").unwrap();
+        assert_eq!(result.candidates.len(), 2);
+        assert_eq!(result.candidates[0].key, "a");
+        assert_eq!(result.candidates[0].extra_fields["eprint"], "2401.01234");
+        assert_eq!(result.candidates[0].extra_fields["note"], "Keep {NASA}");
+        assert_eq!(
+            result.candidates[0].extra_fields["howpublished"],
+            r"\url{https://example.org}"
+        );
+        assert_eq!(
+            result.candidates[0].evidence.as_ref().unwrap()["author_match"],
+            "partial"
+        );
+        assert!(parse_citation_resolution(&report, Some(3), "network failure").is_err());
+        assert!(parse_citation_resolution(
+            r#"{"action":"ambiguous","candidates":[{"doi":"10.1234/no-preview"}]}"#,
+            Some(2),
+            ""
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn citation_resolution_accepts_legacy_success_reports() {
+        let report = serde_json::json!({"key":"a", "bibtex":"@article{a,title={A},author={B},year={2024}}", "source":"crossref"}).to_string();
+        let result = parse_citation_resolution(&report, Some(0), "").unwrap();
+        assert_eq!(result.title, "A");
+        assert!(result.candidates.is_empty());
+        assert_eq!(result.evidence.unwrap()["author_match"], "not_checked");
     }
 
     #[test]

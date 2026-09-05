@@ -4411,14 +4411,17 @@ describe("project workspace", () => {
       },
       files: [{ name: "main.tex", path: "main.tex", kind: "file", children: [] }],
     };
+    let imported = false;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [];
+      if (command === "list_papers") return imported ? [{ arxivId: "", title: "Deep Residual Learning for Image Recognition", citationKey: "he2016deep", doi: "10.1109/CVPR.2016.90", hasFullText: false, hasBlog: false }] : [];
       if (command === "list_history") return [];
+      if (command === "bibliography_audit_scan") return { entries: [], issues: [] };
       // No arXiv id anywhere in the answer: bibcite resolved a DOI and wrote
       // the entry, and there is no text on disk to point at.
       if (command === "import_reference") {
+        imported = true;
         return {
           paperPath: "",
           arxivId: "",
@@ -4444,6 +4447,13 @@ describe("project workspace", () => {
     // The DOI must not be mistaken for an arXiv id, and the message has to
     // admit there is nothing to open rather than imply a paper was fetched.
     await expectNotification(/Added .Deep Residual Learning.*cite it with \\cite\{he2016deep\}.*No full text to open/);
+    expect(box).toHaveValue("10.1109/CVPR.2016.90");
+    expect(await screen.findByText("Deep Residual Learning for Image Recognition", { selector: ".paper-open strong" })).toBeInTheDocument();
+    const checkReferences = screen.getByRole("button", { name: "Check references" });
+    expect(checkReferences.closest(".sidebar-mode-actions")).toBeInTheDocument();
+    expect(checkReferences.textContent).toBe("");
+    fireEvent.click(checkReferences);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_scan", { projectRoot: snapshot.root }));
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {

@@ -432,6 +432,9 @@ const ConflictResolverDialog = lazy(() =>
 const Navigator = lazy(() =>
   import("./project/navigator").then((module) => ({ default: module.Navigator })),
 );
+const BibliographyAudit = lazy(() =>
+  import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
+);
 const CompileDiagnosticsPanel = lazy(() =>
   import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
@@ -1199,6 +1202,8 @@ function App() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
+  const paperImportInFlight = useRef(false);
+  const [recentPaperImport, setRecentPaperImport] = useState<{ projectRoot: string; query: string; citationKey?: string; arxivId: string } | null>(null);
   // Which network step the literature pipeline is in, from the backend's
   // "paper-import-progress" events. Cleared by whichever operation owned the
   // spinner; agent-driven imports run in a separate process and never emit.
@@ -1449,6 +1454,8 @@ function App() {
   }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
   const [bibEntryOpen, setBibEntryOpen] = useState(false);
+  const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
+  const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [bibEntryBusy, setBibEntryBusy] = useState(false);
   const [bibEntryResolving, setBibEntryResolving] = useState(false);
   const [bibEntryError, setBibEntryError] = useState<string | null>(null);
@@ -5821,6 +5828,9 @@ function App() {
   const importReferenceInput = useCallback(async (input: string) => {
     const trimmed = input.trim();
     if (!trimmed) return;
+    if (paperImportInFlight.current) return;
+    paperImportInFlight.current = true;
+    const importRoot = projectRootRef.current;
     setImporting(true);
     try {
       const result = await invoke<{
@@ -5832,6 +5842,8 @@ function App() {
       }>("import_reference", {
         input: trimmed,
       });
+      if (projectRootRef.current !== importRoot) return;
+      if (importRoot) setRecentPaperImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
       const snapshot = await refreshProject();
       await refreshHistory();
       if (collabSession && !result.alreadyImported) {
@@ -5868,6 +5880,7 @@ function App() {
       setError(toMessage(reason));
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
+      paperImportInFlight.current = false;
       setImporting(false);
       setPaperImportStage(null);
     }
@@ -5882,7 +5895,6 @@ function App() {
     if (!importInput.trim()) return;
     try {
       await importReferenceInput(importInput);
-      setImportInput("");
     } catch {
       // Error already surfaced by importReferenceInput.
     }
@@ -8256,18 +8268,7 @@ function App() {
     setBibEntryResolving(true);
     setBibEntryError(null);
     try {
-      const resolved = await invoke<{
-        key: string;
-        title: string;
-        author: string;
-        year: string;
-        journal: string;
-        booktitle: string;
-        publisher: string;
-        url: string;
-        doi: string;
-        entryType: string;
-      }>("resolve_citation_query", { query });
+      const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
       return resolved;
     } catch (reason) {
       setBibEntryError(toMessage(reason));
@@ -9638,6 +9639,7 @@ function App() {
             beginSidebarResize={beginSidebarResize}
             changeSynaraPermissionMode={changeSynaraPermissionMode}
             chooseSidebarMode={chooseSidebarMode}
+            onCheckReferences={() => { setBibliographyAuditRoot(project.root); setBibliographyAuditOpen(true); }}
             navigator={(
             <Suspense fallback={null}>
             <Navigator
@@ -9689,6 +9691,7 @@ function App() {
               onDeletePaper={deletePaper}
               onEditBibEntry={(paper) => void openEditBibEntry(paper)}
               importInput={importInput}
+              recentImport={recentPaperImport?.projectRoot === project.root ? recentPaperImport : null}
               importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
               setImportInput={setImportInput}
               onImport={importPaper}
@@ -10150,6 +10153,38 @@ function App() {
         source={source}
       />
 
+      {bibliographyAuditRoot === project.root && <Suspense fallback={null}>
+        <BibliographyAudit
+          key={project.root}
+          open={bibliographyAuditOpen}
+          projectRoot={project.root}
+          canApply={collabCanWrite}
+          onClose={() => setBibliographyAuditOpen(false)}
+          onPrepare={save}
+          onApply={async (entry, result) => {
+            const root = project.root;
+            const writable = () => collabCanWrite && collabSessionRef.current?.canWrite !== false;
+            if (!writable() || !result.after) throw new Error(t`This reference cannot be updated.`);
+            if (!await save()) throw new Error(t`Save pending edits before updating references.`);
+            if (projectRootRef.current !== root || !writable()) throw new Error(t`The project or its permissions changed. Check references again.`);
+            await invoke("bibliography_audit_apply", { projectRoot: root, path: entry.path, key: entry.key, before: result.before, after: result.after });
+            if (projectRootRef.current !== root) return;
+            const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
+            if (projectRootRef.current !== root) return;
+            if (activeFileRef.current === entry.path && sourceRef.current === savedSourceRef.current) {
+              sourceRef.current = content; savedSourceRef.current = content;
+              setSource(content); setSavedSource(content);
+            }
+            if (secondaryFileRef.current === entry.path && secondarySourceRef.current === secondarySavedRef.current) {
+              secondarySourceRef.current = content; secondarySavedRef.current = content;
+              setSecondarySource(content); setSecondarySavedSource(content);
+            }
+            await publishTextToCollabV2(entry.path, content);
+            await refreshProject();
+            await refreshHistory();
+          }}
+        />
+      </Suspense>}
       <AppProjectSearchDialogs
         activeFile={activeFile}
         loadFile={loadFile}

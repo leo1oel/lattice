@@ -157,6 +157,74 @@ describe("Navigator / papers", () => {
     expect(screen.getByText("1 of 2 papers")).toBeInTheDocument();
   });
 
+  it("finds a normalized DOI from a pasted DOI URL", () => {
+    const doiPaper = { ...attention, doi: "10.48550/arXiv.1706.03762" };
+    const { search } = renderNavigator({ papers: [doiPaper] });
+
+    search("https://doi.org/10.48550/arXiv.1706.03762");
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+  });
+
+  it("shows real stages inside the input without changing the submitted query", () => {
+    const { props, rerenderWith } = renderNavigator({
+      importInput: "graph transformers",
+      importing: true,
+      importStage: "Resolving citation metadata…",
+    });
+
+    const input = screen.getByRole("searchbox", { name: "Search or import papers" });
+    expect(input).toHaveAttribute("aria-busy", "true");
+    expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
+    expect(screen.getByRole("status")).toHaveTextContent("Resolving citation metadata…");
+    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+    expect(input).toHaveAttribute("readonly");
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.click(screen.getByTitle("Import paper"));
+    expect(props.onImport).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
+    for (const importStage of ["Downloading full text and figures…", "Fetching the paper overview…"]) {
+      rerenderWith({ importStage });
+      expect(screen.getByRole("status")).toHaveTextContent(importStage);
+      expect(input).toHaveValue("graph transformers");
+    }
+    rerenderWith({ importStage: undefined });
+    expect(screen.getByRole("status")).toHaveTextContent("Working…");
+    rerenderWith({ importing: false });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(input).not.toHaveAttribute("readonly");
+    expect(input).not.toHaveAttribute("aria-describedby");
+    expect(input).toHaveValue("graph transformers");
+  });
+
+  it("keeps a freshly imported paper visible under its retained raw URL query", () => {
+    const rawUrl = "https://publisher.example/article/opaque-id";
+    const imported = {
+      ...attention,
+      arxivId: "",
+      title: "Resolved Publisher Title",
+      url: "https://canonical.example/paper",
+    };
+    const { rerenderWith } = renderNavigator({ importInput: rawUrl, papers: [vit] });
+
+    rerenderWith({ importing: true });
+    rerenderWith({ papers: [vit, imported] });
+    rerenderWith({ importing: false, recentImport: { query: rawUrl, citationKey: imported.citationKey, arxivId: "" } });
+
+    expect(screen.getByRole("searchbox", { name: "Search or import papers" })).toHaveValue(rawUrl);
+    expect(paperTitles()).toEqual(["Resolved Publisher Title"]);
+  });
+
+  it("brings the confirmed import to the top and releases it when the query changes", () => {
+    const { rerenderWith, search } = renderNavigator({ importInput: "a" });
+    const viewport = screen.getByRole("list", { name: "Papers" });
+    viewport.scrollTop = 200;
+    rerenderWith({ recentImport: { query: "a", citationKey: vit.citationKey, arxivId: vit.arxivId } });
+    expect(paperTitles()[0]).toBe(vit.title);
+    expect(viewport.scrollTop).toBe(0);
+    search("attention");
+    expect(paperTitles()).toEqual([attention.title]);
+  });
+
   it("opens the top match on Enter, and imports when there is none", () => {
     const { props, search } = renderNavigator();
     const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });

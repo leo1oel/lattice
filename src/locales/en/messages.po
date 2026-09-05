@@ -126,6 +126,10 @@ msgstr "{baseName}:L{0}"
 msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} connected · {0}"
 
+#: src/papers/bibliography-audit.tsx
+msgid "{completed} of {total} references checked"
+msgstr "{completed} of {total} references checked"
+
 #: src/canvas/document-canvas.tsx
 msgid "{count} comments"
 msgstr "{count} comments"
@@ -442,6 +446,10 @@ msgstr "Appearance"
 msgid "Applies to the LaTeX source editor only"
 msgstr "Applies to the LaTeX source editor only"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Apply this update"
+msgstr "Apply this update"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
@@ -482,6 +490,22 @@ msgstr "Attention paper"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "Author"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Authors"
+msgstr "Authors"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unavailable"
+msgstr "Authors unavailable"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unavailable and unchecked"
+msgstr "Authors unavailable and unchecked"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unchecked"
+msgstr "Authors unchecked"
 
 #: src/settings/settings-dialog.tsx
 msgid "Automatic"
@@ -638,6 +662,10 @@ msgstr "Bold text command"
 msgid "Book"
 msgstr "Book"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Booktitle"
+msgstr "Booktitle"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bottom / false"
 msgstr "Bottom / false"
@@ -732,6 +760,10 @@ msgstr "Callout"
 msgid "Cancel"
 msgstr "Cancel"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Cancel check"
+msgstr "Cancel check"
+
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
@@ -822,9 +854,26 @@ msgstr "Chat"
 msgid "Check accent example"
 msgstr "Check accent example"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Check again"
+msgstr "Check again"
+
 #: src/settings/settings-dialog.tsx
 msgid "Check for updates"
 msgstr "Check for updates"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check incomplete"
+msgstr "Check incomplete"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check not started"
+msgstr "Check not started"
+
+#: src/app/app-workspace-sidebar.tsx
+#: src/papers/bibliography-audit.tsx
+msgid "Check references"
+msgstr "Check references"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check spelling in prose"
@@ -855,6 +904,10 @@ msgstr "Checking…"
 msgid "Checklist with checkboxes."
 msgstr "Checklist with checkboxes."
 
+#: src/papers/bibliography-audit.tsx
+msgid "Checks all project bibliographies without changing them. Review differences before applying an update."
+msgstr "Checks all project bibliographies without changing them. Review differences before applying an update."
+
 #: src/settings/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper"
 msgstr "Checks English spelling and grammar as you type with Harper"
@@ -874,6 +927,10 @@ msgstr "Choose location"
 #: src/settings/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text"
 msgstr "Choose the language used for menus, settings, and help text"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Choose the matching record before saving"
+msgstr "Choose the matching record before saving"
 
 #: src/settings/settings-dialog.tsx
 msgid "Choose the theme for Lattice on this device"
@@ -906,6 +963,10 @@ msgstr "Circled times / tensor"
 #: src/editor/insert/insert-snippets.ts
 msgid "Citation"
 msgstr "Citation"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Citation candidates"
+msgstr "Citation candidates"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation key"
@@ -1064,6 +1125,10 @@ msgstr "Comment visibility"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "Comments"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Compatible author names"
+msgstr "Compatible author names"
 
 #: src/settings/settings-dialog.tsx
 msgid "Compile engine"
@@ -1392,6 +1457,10 @@ msgstr "Delta"
 #: src/editor/insert/insert-snippets.ts
 msgid "Description"
 msgstr "Description"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Details"
+msgstr "Details"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
@@ -1723,6 +1792,10 @@ msgstr "Enter a zoom percentage or scroll to zoom"
 msgid "Enter your name so others can see who is editing"
 msgstr "Enter your name so others can see who is editing"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Entry changed"
+msgstr "Entry changed"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Entry type"
 msgstr "Entry type"
@@ -1778,6 +1851,10 @@ msgstr "Eta"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "Everything for the paper lives in one folder"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Exact title match"
+msgstr "Exact title match"
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Excel workbook"
@@ -2084,6 +2161,10 @@ msgstr "Heading 5"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Heading 6"
 msgstr "Heading 6"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Health checked at"
+msgstr "Health checked at"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
@@ -2467,6 +2548,10 @@ msgstr "Joined"
 msgid "journal"
 msgstr "journal"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Journal"
+msgstr "Journal"
+
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
@@ -2801,6 +2886,10 @@ msgstr "Loading your Overleaf projects…"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Loading…"
 msgstr "Loading…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Local issues"
+msgstr "Local issues"
 
 #: src/settings/settings-dialog.tsx
 msgid "Local semantic search"
@@ -3166,6 +3255,10 @@ msgstr "No projects match your search"
 msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
+#: src/papers/bibliography-audit.tsx
+msgid "No references to check"
+msgstr "No references to check"
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "No sections yet. Add a \\section{…} to start the outline"
@@ -3177,6 +3270,10 @@ msgstr "No suggestions in this document"
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this document — open it to see any it has"
 msgstr "No suggestions in this document — open it to see any it has"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No update found"
+msgstr "No update found"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
@@ -3194,6 +3291,10 @@ msgstr "North-west arrow"
 msgid "Not an element of"
 msgstr "Not an element of"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Not checked"
+msgstr "Not checked"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Not equal"
 msgstr "Not equal"
@@ -3201,6 +3302,10 @@ msgstr "Not equal"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Not verified"
+msgstr "Not verified"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
@@ -3229,6 +3334,10 @@ msgstr "Nth root"
 #: src/editor/insert/insert-snippets.ts
 msgid "Nu"
 msgstr "Nu"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Number"
+msgstr "Number"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Number sets like R, N"
@@ -3330,6 +3439,10 @@ msgstr "Open landing page"
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Open notice"
+msgstr "Open notice"
 
 #: src/canvas/editor-tabs.tsx
 msgid "Open on left"
@@ -3493,6 +3606,10 @@ msgstr "Overleaf's own record of this project, including everything collaborator
 msgid "Overline"
 msgstr "Overline"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Pages"
+msgstr "Pages"
+
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 msgid "Paper"
@@ -3527,6 +3644,10 @@ msgstr "Parallel"
 #: src/editor/insert/insert-snippets.ts
 msgid "Parenthesized matrix"
 msgstr "Parenthesized matrix"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Partial author information"
+msgstr "Partial author information"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Partial derivative"
@@ -3812,9 +3933,14 @@ msgid "Psi"
 msgstr "Psi"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 #: src/project/navigator.tsx
 msgid "Publisher"
 msgstr "Publisher"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Publisher notice"
+msgstr "Publisher notice"
 
 #: src/app/app-history-drawers.tsx
 msgid "Pull requests"
@@ -3879,6 +4005,10 @@ msgstr "Reference an equation label"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference an existing label"
 msgstr "Reference an existing label"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference check progress"
+msgstr "Reference check progress"
 
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
@@ -4219,6 +4349,10 @@ msgstr "Restored {path}."
 msgid "Restoring the conversation surface…"
 msgstr "Restoring the conversation surface…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
+msgstr "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
 msgstr "Resume syncing"
@@ -4230,6 +4364,10 @@ msgstr "Retracted"
 #: src/project/navigator.tsx
 msgid "Retraction Watch"
 msgstr "Retraction Watch"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Retrieved record information"
+msgstr "Retrieved record information"
 
 #: src/agent/synara-loading-surface.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -4243,6 +4381,10 @@ msgstr "Reveal cursor in PDF (⌘⇧J)"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Review proposed changes"
+msgstr "Review proposed changes"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Rho"
@@ -4361,6 +4503,14 @@ msgstr "Save PDF"
 msgid "Save PDF as…"
 msgstr "Save PDF as…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Save pending edits before checking references."
+msgstr "Save pending edits before checking references."
+
+#: src/App.tsx
+msgid "Save pending edits before updating references."
+msgstr "Save pending edits before updating references."
+
 #: src/App.tsx
 msgid "Save the current workspace before opening it in a browser."
 msgstr "Save the current workspace before opening it in a browser."
@@ -4384,6 +4534,10 @@ msgstr "Saved version"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "Saving…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Scanning bibliography files…"
+msgstr "Scanning bibliography files…"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Scanning project files…"
@@ -4453,6 +4607,10 @@ msgstr "Sel {words} words · {chars} chars · {lines} lines"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Select this record"
+msgstr "Select this record"
 
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
@@ -4577,6 +4735,10 @@ msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
 msgid "Similar or equal"
 msgstr "Similar or equal"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Similar title match"
+msgstr "Similar title match"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Similar to"
 msgstr "Similar to"
@@ -4616,6 +4778,10 @@ msgstr "Source + PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Source:"
+msgstr "Source:"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "South-east arrow"
@@ -4676,6 +4842,10 @@ msgstr "Square superset"
 #: src/editor/insert/insert-snippets.ts
 msgid "Square superset eq"
 msgstr "Square superset eq"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Stale result"
+msgstr "Stale result"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Star operator"
@@ -4749,6 +4919,10 @@ msgstr "Stop sharing for everyone?\n"
 #: src/app/app-titlebar.tsx
 msgid "Stop the current LaTeX build"
 msgstr "Stop the current LaTeX build"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Stopping…"
+msgstr "Stopping…"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Structure"
@@ -4940,6 +5114,10 @@ msgstr "The PDF took too long to load. Try again, or open the article in your br
 msgid "The preview is editable too"
 msgstr "The preview is editable too"
 
+#: src/App.tsx
+msgid "The project or its permissions changed. Check references again."
+msgstr "The project or its permissions changed. Check references again."
+
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "The required tools"
@@ -5054,6 +5232,10 @@ msgstr "This is not a native Open Slide deck."
 msgid "This is the longest step and can take up to 15 minutes"
 msgstr "This is the longest step and can take up to 15 minutes"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "This match information describes the retrieved record; you have edited its fields."
+msgstr "This match information describes the retrieved record; you have edited its fields."
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "this project"
 msgstr "this project"
@@ -5066,6 +5248,10 @@ msgstr "This project syncs with “{0}”"
 #: src/overleaf/overleaf-connect.tsx
 msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
 msgstr "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
+
+#: src/App.tsx
+msgid "This reference cannot be updated."
+msgstr "This reference cannot be updated."
 
 #: src/collab/collab-dialog.tsx
 msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
@@ -5096,6 +5282,7 @@ msgid "Times / cross product"
 msgstr "Times / cross product"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Title"
 msgstr "Title"
 
@@ -5245,6 +5432,14 @@ msgstr "Up-down arrow"
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Update applied"
+msgstr "Update applied"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Update available"
+msgstr "Update available"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Update comment…"
 msgstr "Update comment…"
@@ -5253,6 +5448,10 @@ msgstr "Update comment…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "updated {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Updates are disabled in read-only projects. You can still check references."
+msgstr "Updates are disabled in read-only projects. You can still check references."
 
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
@@ -5302,6 +5501,10 @@ msgstr "Upright text in math"
 #: src/editor/insert/insert-snippets.ts
 msgid "Upsilon"
 msgstr "Upsilon"
+
+#: src/papers/bibliography-audit.tsx
+msgid "URL"
+msgstr "URL"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use + to create a presentation, spreadsheet, or board"
@@ -5366,6 +5569,10 @@ msgstr "Venue"
 #: src/project/project-dialogs.tsx
 msgid "Venue template"
 msgstr "Venue template"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Venue unavailable"
+msgstr "Venue unavailable"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Verbatim"
@@ -5442,6 +5649,10 @@ msgstr "Visual Markdown editor"
 msgid "Vmatrix"
 msgstr "Vmatrix"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Volume"
+msgstr "Volume"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
@@ -5492,6 +5703,7 @@ msgid "Words inside math mode"
 msgstr "Words inside math mode"
 
 #: src/papers/paper-import-progress.ts
+#: src/project/navigator.tsx
 msgid "Working…"
 msgstr "Working…"
 
@@ -5516,8 +5728,13 @@ msgid "Xi"
 msgstr "Xi"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Year"
 msgstr "Year"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Year unavailable"
+msgstr "Year unavailable"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"

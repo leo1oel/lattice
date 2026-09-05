@@ -1,6 +1,7 @@
 mod alphaxiv;
 mod browser_host;
 mod chromium;
+mod citation_audit;
 mod citation_health;
 mod collab_credentials;
 mod commands;
@@ -1667,6 +1668,50 @@ async fn import_clipboard_image(
 async fn resolve_citation_query(query: String) -> Result<ResolvedCitation, String> {
     run_blocking("Citation lookup", move || {
         project::resolve_citation_query(&query)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_scan(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<citation_audit::AuditScan, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    run_blocking("Bibliography audit scan", move || {
+        citation_audit::scan(&root)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_entry(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    entry: citation_audit::AuditEntry,
+) -> Result<citation_audit::AuditResult, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    run_blocking("Bibliography audit entry", move || {
+        citation_audit::check_entry(&root, entry)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_apply(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    path: String,
+    key: String,
+    before: String,
+    after: String,
+) -> Result<(), String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    run_blocking("Bibliography audit apply", move || {
+        citation_audit::apply(&root, &path, &key, &before, &after)
     })
     .await
 }
@@ -4462,6 +4507,9 @@ pub fn run() {
             import_clipboard_image,
             macos_window::set_pdf_copy_text,
             resolve_citation_query,
+            bibliography_audit_scan,
+            bibliography_audit_entry,
+            bibliography_audit_apply,
             read_project_asset,
             write_project_bytes,
             prepare_latex_figure,

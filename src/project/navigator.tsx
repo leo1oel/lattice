@@ -62,7 +62,10 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
   const tokens = query.toLocaleLowerCase().split(/\s+/).filter(Boolean).map((token) => {
     const arxivId = /\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)\b/i
       .exec(token)?.[1];
-    return arxivId ? baseArxivId(arxivId) : token;
+    if (arxivId) return baseArxivId(arxivId);
+    // A pasted DOI URL and the normalized DOI stored in the bibliography are
+    // the same identifier even though neither string contains the other.
+    return token.replace(/^https?:\/\/(?:dx\.)?doi\.org\//, "").replace(/^doi:\s*/, "");
   });
   if (!tokens.length) return [...papers];
   return papers.filter((paper) => {
@@ -1443,10 +1446,15 @@ export function Navigator(props: {
   importing: boolean;
   /** Human-readable pipeline stage while an import or fetch is running. */
   importStage?: string | null;
+  recentImport?: { query: string; citationKey?: string; arxivId: string } | null;
 }) {
   const { t } = useLingui();
   const paperImportRef = useRef<HTMLInputElement | null>(null);
+  const paperViewportRef = useRef<HTMLDivElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();
+  useEffect(() => {
+    if (props.recentImport?.query === trimmedPaperQuery && paperViewportRef.current) paperViewportRef.current.scrollTop = 0;
+  }, [props.recentImport, trimmedPaperQuery]);
   const [paperTextSearch, setPaperTextSearch] = useState<{
     query: string;
     hits: PaperLibrarySearchHit[];
@@ -1487,11 +1495,16 @@ export function Navigator(props: {
   }, [paperTextSearch, trimmedPaperQuery]);
   const filteredPapers = useMemo(() => {
     const metadataMatches = new Set(filterPapers(props.papers, props.importInput).map(paperKey));
+    const isRecent = (paper: PaperSummary) => props.recentImport?.query === trimmedPaperQuery && (
+      props.recentImport.citationKey ? props.recentImport.citationKey === paper.citationKey
+        : props.recentImport.arxivId && baseArxivId(props.recentImport.arxivId) === baseArxivId(paper.arxivId)
+    );
     return props.papers.filter((paper) => (
       metadataMatches.has(paperKey(paper))
       || textHitByPaper.has(paperSearchIdentity(paper.arxivId, paper.title))
-    ));
-  }, [props.importInput, props.papers, textHitByPaper]);
+      || isRecent(paper)
+    )).sort((a, b) => Number(Boolean(isRecent(b))) - Number(Boolean(isRecent(a))));
+  }, [props.importInput, props.papers, props.recentImport, textHitByPaper, trimmedPaperQuery]);
   const matchingSnippet = (paper: PaperSummary) => (
     textHitByPaper.get(paperSearchIdentity(paper.arxivId, paper.title))?.snippet.trim()
   );
@@ -1547,36 +1560,42 @@ export function Navigator(props: {
         />
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
-        <SearchField
-          ref={paperImportRef}
-          aria-label={t`Search or import papers`}
-          containerClassName="import-box"
-          controlSize="compact"
-          placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
-          value={props.importInput}
-          onChange={(event) => props.setImportInput(event.target.value)}
-          onClear={() => props.setImportInput("")}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            const localMatch = filteredPapers[0];
-            if (localMatch) activatePaper(localMatch);
-            else props.onImport();
-          }}
-          showIcon={false}
-          trailing={(
-            <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
-              {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
-            </button>
+        <div className="paper-import-control">
+          <SearchField
+            ref={paperImportRef}
+            aria-label={t`Search or import papers`}
+            aria-busy={props.importing}
+            readOnly={props.importing}
+            title={props.importing ? props.importStage ?? t`Working…` : undefined}
+            aria-describedby={props.importing ? "paper-import-status" : undefined}
+            containerClassName="import-box"
+            controlSize="compact"
+            placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
+            value={props.importInput}
+            onChange={(event) => props.setImportInput(event.target.value)}
+            onClear={props.importing ? undefined : () => props.setImportInput("")}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || props.importing) return;
+              const localMatch = filteredPapers[0];
+              if (localMatch) activatePaper(localMatch);
+              else props.onImport();
+            }}
+            showIcon={false}
+            trailing={(
+              <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
+                {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
+              </button>
+            )}
+          />
+          {props.importing && (
+            <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
+              {props.importStage ?? t`Working…`}
+            </span>
           )}
-        />
-        {props.importStage && (
-          <div className="paper-import-stage" role="status">
-            <InfinityLoader size={12} />
-            <span>{props.importStage}</span>
-          </div>
-        )}
+        </div>
         <ScrollArea
           className="paper-list"
+          viewportRef={paperViewportRef}
           orientation="both"
           contentClassName="paper-list-content"
           viewportProps={{ role: "list", "aria-label": t`Papers` }}

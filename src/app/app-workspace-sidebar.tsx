@@ -14,6 +14,7 @@ import {
   BookMarked,
   BookOpen,
   Bot,
+  ClipboardCheck,
   FolderTree,
   Library,
   Plus,
@@ -121,6 +122,7 @@ export type AppWorkspaceSidebarProps = {
   navigator: ReactNode;
   nudgeSidebar: (delta: number) => void;
   openBibEntryDialog: (resolveSeed?: string) => void;
+  onCheckReferences: () => void;
   project: ProjectSnapshot;
   retrySynaraRuntime: () => void;
   setBoardCreateRequest: Dispatch<SetStateAction<number>>;
@@ -157,6 +159,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     navigator,
     nudgeSidebar,
     openBibEntryDialog,
+    onCheckReferences,
     project,
     retrySynaraRuntime,
     setBoardCreateRequest,
@@ -248,6 +251,11 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                 </Tip>
                 <Tip label={t`Add bibliography entry`}>
                   <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
+                </Tip>
+                <Tip label={t`Check references`}>
+                  <button type="button" aria-label={t`Check references`} onClick={onCheckReferences}>
+                    <ClipboardCheck size={14} aria-hidden="true" />
+                  </button>
                 </Tip>
               </>
             )}

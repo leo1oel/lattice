@@ -101,6 +101,10 @@ pub struct ResolvedCitation {
     pub doi: String,
     pub entry_type: String,
     pub bibtex: String,
+    pub candidates: Vec<ResolvedCitation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<serde_json::Value>,
+    pub extra_fields: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

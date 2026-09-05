@@ -2046,7 +2046,9 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
     let report = String::from_utf8(output.stdout).map_err(err)?;
     serde_json::from_str::<Value>(&report)
         .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))?;
-    run_bibcite_tidy(path)?;
+    // Import must retain identifiers needed by reference audits. The CLI's
+    // tidy profile omits DOI and other metadata across the entire file, so
+    // running it here also silently strips unrelated, existing references.
     Ok(report)
 }
 
@@ -2516,6 +2518,31 @@ mod tests {
     fn takes_the_last_key_when_several_entries_are_reported() {
         let output = "{\"key\": \"first2020\"}\nnoise\n{\n  \"key\": \"second2021\"\n}\n";
         assert_eq!(parse_citation_key(output).as_deref(), Some("second2021"));
+    }
+
+    #[test]
+    fn bibcite_evidence_preserves_the_import_report_contract() {
+        let output = serde_json::json!({
+            "action": "added",
+            "key": "smith2024paper",
+            "source": "crossref",
+            "evidence": {
+                "source": "crossref",
+                "title": "A {Paper}",
+                "author_match": "matched",
+                "doi": "10.1234/paper"
+            }
+        })
+        .to_string();
+        assert_eq!(
+            parse_citation_key(&output).as_deref(),
+            Some("smith2024paper")
+        );
+        assert_eq!(bibcite_report_source(&output).as_deref(), Some("crossref"));
+        assert_eq!(
+            parse_citation_key(r#"{"action":"ambiguous","candidates":[{"doi":"10.1234/a"}]}"#),
+            None
+        );
     }
 
     /// A brace inside a title must not close the object early, or the key
@@ -3434,6 +3461,35 @@ mod tests {
         assert!(error.contains("fixture conversion failure"), "got: {error}");
         let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
         assert!(bibliography.contains("stub2024"), "got: {bibliography}");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn citation_import_does_not_strip_existing_identifiers_with_global_tidy() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent =
+            std::env::temp_dir().join(format!("lattice-cite-identifiers-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let tool = parent.join("bibcite");
+        write_test_tool(
+            &tool,
+            concat!(
+                "#!/bin/sh\nset -eu\n",
+                "[ \"$1\" = add ] && [ \"$2\" = --no-tidy ] || exit 23\n",
+                "printf '\n@article{new2024, title={New paper}, year={2024}}\n' >> \"$3\"\n",
+                "printf '{\"key\":\"new2024\"}\n'\n",
+            ),
+        );
+        let _override = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
+        let path = parent.join("references.bib");
+        let existing =
+            "@article{jumper2021, title={AlphaFold}, doi={10.1038/s41586-021-03819-2}}\n";
+        fs::write(&path, existing).unwrap();
+        run_bibcite(&path, "New paper").unwrap();
+        let after = fs::read_to_string(&path).unwrap();
+        assert!(after.starts_with(existing));
+        assert!(after.contains("new2024"));
         fs::remove_dir_all(parent).unwrap();
     }
 

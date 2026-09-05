@@ -12,6 +12,7 @@ export type BibEntryDraft = {
   url?: string;
   doi?: string;
   note?: string;
+  extraFields?: Record<string, string>;
 };
 
 export const BIB_ENTRY_TYPES: { value: BibEntryType; label: string }[] = [
@@ -50,9 +51,24 @@ export function formatBibEntry(draft: BibEntryDraft): string {
   if (draft.url?.trim()) fields.push(["url", draft.url]);
   if (draft.doi?.trim()) fields.push(["doi", draft.doi.trim()]);
   if (draft.note?.trim()) fields.push(["note", draft.note]);
+  const modeledFields = new Set([
+    "title", "author", "year", "journal", "booktitle", "publisher", "url", "doi",
+  ]);
+  if (draft.note !== undefined) modeledFields.add("note");
+  const extraLines: string[] = [];
+  for (const [name, value] of Object.entries(draft.extraFields ?? {})) {
+    // A resolver should only return unmodeled fields, but filtering here keeps
+    // stale modeled values from overriding edits or resurrecting removed data.
+    if (!modeledFields.has(name.toLowerCase()) && /^[a-z][a-z0-9_-]*$/i.test(name) && value.trim()) {
+      // These are parsed BibTeX values, not plain-text form inputs. Preserve
+      // nested braces in commands such as howpublished = {\url{...}}.
+      extraLines.push(`  ${name} = {${value.trim()}}`);
+    }
+  }
   const body = fields
     .filter(([, value]) => value.trim())
     .map(([name, value]) => `  ${name} = {${escapeBibValue(value.trim())}}`)
+    .concat(extraLines)
     .join(",\n");
   return `@${draft.type}{${key},\n${body}\n}\n`;
 }

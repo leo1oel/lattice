@@ -126,6 +126,10 @@ msgstr "{baseName} 第{0}行"
 msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} 人已连接 · {0}"
 
+#: src/papers/bibliography-audit.tsx
+msgid "{completed} of {total} references checked"
+msgstr "已检查 {completed} / {total} 条引用"
+
 #: src/canvas/document-canvas.tsx
 msgid "{count} comments"
 msgstr "{count} 条评论"
@@ -442,6 +446,10 @@ msgstr "外观"
 msgid "Applies to the LaTeX source editor only"
 msgstr "仅应用于 LaTeX 源码编辑器"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Apply this update"
+msgstr "应用此更新"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
@@ -482,6 +490,22 @@ msgstr "注意力论文"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "作者"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Authors"
+msgstr "作者"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unavailable"
+msgstr "暂无作者信息"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unavailable and unchecked"
+msgstr "暂无作者信息，未核对"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Authors unchecked"
+msgstr "作者信息未核对"
 
 #: src/settings/settings-dialog.tsx
 msgid "Automatic"
@@ -638,6 +662,10 @@ msgstr "粗体文字命令"
 msgid "Book"
 msgstr "书籍"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Booktitle"
+msgstr "会议录 / 书名"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bottom / false"
 msgstr "底元 / 假"
@@ -732,6 +760,10 @@ msgstr "提示框"
 msgid "Cancel"
 msgstr "取消"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Cancel check"
+msgstr "取消检查"
+
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "取消创建"
@@ -822,9 +854,26 @@ msgstr "聊天"
 msgid "Check accent example"
 msgstr "抑扬符示例"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Check again"
+msgstr "重新检查"
+
 #: src/settings/settings-dialog.tsx
 msgid "Check for updates"
 msgstr "检查更新"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check incomplete"
+msgstr "检查未完成"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check not started"
+msgstr "尚未开始检查"
+
+#: src/app/app-workspace-sidebar.tsx
+#: src/papers/bibliography-audit.tsx
+msgid "Check references"
+msgstr "检查引用"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check spelling in prose"
@@ -855,6 +904,10 @@ msgstr "正在检查…"
 msgid "Checklist with checkboxes."
 msgstr "带复选框的任务清单。"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Checks all project bibliographies without changing them. Review differences before applying an update."
+msgstr "检查项目中的所有参考文献文件，不会修改内容。请确认差异后再应用更新。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Checks English spelling and grammar as you type with Harper"
 msgstr "使用 Harper 在输入时检查英文拼写和语法"
@@ -874,6 +927,10 @@ msgstr "选择位置"
 #: src/settings/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text"
 msgstr "选择菜单、设置和帮助文字所使用的语言"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Choose the matching record before saving"
+msgstr "请先选择匹配的记录，再保存"
 
 #: src/settings/settings-dialog.tsx
 msgid "Choose the theme for Lattice on this device"
@@ -906,6 +963,10 @@ msgstr "圈乘 / 张量积"
 #: src/editor/insert/insert-snippets.ts
 msgid "Citation"
 msgstr "引用文献"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Citation candidates"
+msgstr "候选引用记录"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation key"
@@ -1064,6 +1125,10 @@ msgstr "评论显示范围"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "评论"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Compatible author names"
+msgstr "作者姓名相符"
 
 #: src/settings/settings-dialog.tsx
 msgid "Compile engine"
@@ -1392,6 +1457,10 @@ msgstr "德尔塔"
 #: src/editor/insert/insert-snippets.ts
 msgid "Description"
 msgstr "描述列表"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Details"
+msgstr "检查详情"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
@@ -1723,6 +1792,10 @@ msgstr "输入缩放百分比或滚动缩放"
 msgid "Enter your name so others can see who is editing"
 msgstr "输入你的姓名，让其他人知道谁正在编辑"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Entry changed"
+msgstr "条目已变更"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Entry type"
 msgstr "条目类型"
@@ -1778,6 +1851,10 @@ msgstr "伊塔"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
 msgstr "论文所需的一切都在一个文件夹中"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Exact title match"
+msgstr "标题完全匹配"
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Excel workbook"
@@ -2084,6 +2161,10 @@ msgstr "五级标题"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Heading 6"
 msgstr "六级标题"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Health checked at"
+msgstr "健康状态检查时间"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
@@ -2467,6 +2548,10 @@ msgstr "已加入"
 msgid "journal"
 msgstr "期刊"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Journal"
+msgstr "期刊"
+
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "跳转到 PDF"
@@ -2801,6 +2886,10 @@ msgstr "正在加载你的 Overleaf 项目…"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Loading…"
 msgstr "正在加载…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Local issues"
+msgstr "本地检查发现的问题"
 
 #: src/settings/settings-dialog.tsx
 msgid "Local semantic search"
@@ -3166,6 +3255,10 @@ msgstr "没有项目符合你的搜索条件"
 msgid "No readable paper content is available."
 msgstr "没有可读取的论文内容。"
 
+#: src/papers/bibliography-audit.tsx
+msgid "No references to check"
+msgstr "暂无需要检查的引用"
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"
@@ -3177,6 +3270,10 @@ msgstr "此文档中没有修订建议"
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this document — open it to see any it has"
 msgstr "请打开文档以查看其中的修订建议"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No update found"
+msgstr "未发现更新"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
@@ -3194,6 +3291,10 @@ msgstr "左上箭头"
 msgid "Not an element of"
 msgstr "不属于"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Not checked"
+msgstr "尚未检查"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Not equal"
 msgstr "不等于"
@@ -3201,6 +3302,10 @@ msgstr "不等于"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "尚未同步"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Not verified"
+msgstr "未经核实"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
@@ -3229,6 +3334,10 @@ msgstr "n 次根"
 #: src/editor/insert/insert-snippets.ts
 msgid "Nu"
 msgstr "纽"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Number"
+msgstr "期号"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Number sets like R, N"
@@ -3330,6 +3439,10 @@ msgstr "打开论文主页"
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "打开日志文件夹"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Open notice"
+msgstr "查看通知"
 
 #: src/canvas/editor-tabs.tsx
 msgid "Open on left"
@@ -3493,6 +3606,10 @@ msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作
 msgid "Overline"
 msgstr "上划线"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Pages"
+msgstr "页码"
+
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 msgid "Paper"
@@ -3527,6 +3644,10 @@ msgstr "平行"
 #: src/editor/insert/insert-snippets.ts
 msgid "Parenthesized matrix"
 msgstr "圆括号矩阵"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Partial author information"
+msgstr "作者信息仅部分相符"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Partial derivative"
@@ -3812,9 +3933,14 @@ msgid "Psi"
 msgstr "普西"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 #: src/project/navigator.tsx
 msgid "Publisher"
 msgstr "出版商"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Publisher notice"
+msgstr "出版方通知"
 
 #: src/app/app-history-drawers.tsx
 msgid "Pull requests"
@@ -3879,6 +4005,10 @@ msgstr "引用公式标签"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference an existing label"
 msgstr "引用已有的标签"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference check progress"
+msgstr "引用检查进度"
 
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
@@ -4217,6 +4347,10 @@ msgstr "已恢复 {path}。"
 msgid "Restoring the conversation surface…"
 msgstr "正在恢复对话界面…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
+msgstr "结果基于可用来源和缓存记录，不能保证引用完全正确或已是最新。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
 msgstr "恢复同步"
@@ -4228,6 +4362,10 @@ msgstr "已撤稿"
 #: src/project/navigator.tsx
 msgid "Retraction Watch"
 msgstr "Retraction Watch"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Retrieved record information"
+msgstr "检索记录信息"
 
 #: src/agent/synara-loading-surface.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -4241,6 +4379,10 @@ msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "反向断言符"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Review proposed changes"
+msgstr "查看拟议修改"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Rho"
@@ -4359,6 +4501,14 @@ msgstr "保存 PDF"
 msgid "Save PDF as…"
 msgstr "将 PDF 另存为…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Save pending edits before checking references."
+msgstr "请先保存未保存的编辑，再检查引用。"
+
+#: src/App.tsx
+msgid "Save pending edits before updating references."
+msgstr "请先保存未保存的编辑，再更新引用。"
+
 #: src/App.tsx
 msgid "Save the current workspace before opening it in a browser."
 msgstr "请先保存当前工作区，再在浏览器中打开。"
@@ -4382,6 +4532,10 @@ msgstr "已保存的版本"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "正在保存…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Scanning bibliography files…"
+msgstr "正在扫描参考文献文件…"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Scanning project files…"
@@ -4451,6 +4605,10 @@ msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Select this record"
+msgstr "选择此记录"
 
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
@@ -4575,6 +4733,10 @@ msgstr "登录已取消。你可以随时重新尝试。"
 msgid "Similar or equal"
 msgstr "相似或等于"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Similar title match"
+msgstr "标题近似匹配"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Similar to"
 msgstr "相似"
@@ -4614,6 +4776,10 @@ msgstr "源码 + PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "PDF 中的源位置"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Source:"
+msgstr "来源："
 
 #: src/editor/insert/insert-snippets.ts
 msgid "South-east arrow"
@@ -4674,6 +4840,10 @@ msgstr "方形真超集"
 #: src/editor/insert/insert-snippets.ts
 msgid "Square superset eq"
 msgstr "方形超集（含等号）"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Stale result"
+msgstr "结果已过期"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Star operator"
@@ -4745,6 +4915,10 @@ msgstr "停止所有人的共享？\\n\\n协作者将断开连接并返回之前
 #: src/app/app-titlebar.tsx
 msgid "Stop the current LaTeX build"
 msgstr "停止当前 LaTeX 构建"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Stopping…"
+msgstr "正在停止…"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Structure"
@@ -4936,6 +5110,10 @@ msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
 msgid "The preview is editable too"
 msgstr "预览也可以编辑"
 
+#: src/App.tsx
+msgid "The project or its permissions changed. Check references again."
+msgstr "项目或权限已变更，请重新检查引用。"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "所需工具"
@@ -5050,6 +5228,10 @@ msgstr "这不是原生 Open Slide 演示文稿。"
 msgid "This is the longest step and can take up to 15 minutes"
 msgstr "这是耗时最长的一步，最多可能需要 15 分钟"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "This match information describes the retrieved record; you have edited its fields."
+msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段。"
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "this project"
 msgstr "此项目"
@@ -5062,6 +5244,10 @@ msgstr "此项目与“{0}”同步"
 #: src/overleaf/overleaf-connect.tsx
 msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
 msgstr "此项目使用 {linkedHost}。请在上方退出登录，然后连接到该服务器以恢复同步。本地文件会留在这台 Mac 上"
+
+#: src/App.tsx
+msgid "This reference cannot be updated."
+msgstr "无法更新此引用。"
 
 #: src/collab/collab-dialog.tsx
 msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
@@ -5092,6 +5278,7 @@ msgid "Times / cross product"
 msgstr "乘号 / 叉积"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Title"
 msgstr "标题"
 
@@ -5241,6 +5428,14 @@ msgstr "上下箭头"
 msgid "Up-down double arrow"
 msgstr "上下双线箭头"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Update applied"
+msgstr "已应用更新"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Update available"
+msgstr "有可用更新"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Update comment…"
 msgstr "更新评论…"
@@ -5249,6 +5444,10 @@ msgstr "更新评论…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "更新于 {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Updates are disabled in read-only projects. You can still check references."
+msgstr "只读项目不能应用更新，但仍可检查引用。"
 
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
@@ -5298,6 +5497,10 @@ msgstr "公式中的正体文字"
 #: src/editor/insert/insert-snippets.ts
 msgid "Upsilon"
 msgstr "宇普西龙"
+
+#: src/papers/bibliography-audit.tsx
+msgid "URL"
+msgstr "URL"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use + to create a presentation, spreadsheet, or board"
@@ -5362,6 +5565,10 @@ msgstr "发表处"
 #: src/project/project-dialogs.tsx
 msgid "Venue template"
 msgstr "会议模板"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Venue unavailable"
+msgstr "暂无发表处信息"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Verbatim"
@@ -5438,6 +5645,10 @@ msgstr "可视化 Markdown 编辑器"
 msgid "Vmatrix"
 msgstr "行列式矩阵"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Volume"
+msgstr "卷号"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Waiting for administrator approval…"
@@ -5488,6 +5699,7 @@ msgid "Words inside math mode"
 msgstr "数学模式中的词语"
 
 #: src/papers/paper-import-progress.ts
+#: src/project/navigator.tsx
 msgid "Working…"
 msgstr "正在处理…"
 
@@ -5512,8 +5724,13 @@ msgid "Xi"
 msgstr "克西"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Year"
 msgstr "年份"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Year unavailable"
+msgstr "暂无年份信息"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
