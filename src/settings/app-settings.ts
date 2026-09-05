@@ -4,13 +4,12 @@
  * This module owns the localStorage-backed preferences and layout state that
  * survive between sessions — recent projects, theme, build preferences,
  * split/panel ratios, remembered last-open files, panel open state, and the
- * paper reading width — along with the storage keys and the
+ * appearance settings — along with the storage keys and the
  * small `clamp` helper they share. Everything here is pure and free of React or
  * font/panel dependencies, so it can be imported anywhere without pulling in the
  * rest of the app.
  */
 
-import { DEFAULT_UI_FONT, DEFAULT_EDITOR_FONT, EDITOR_FONT_OPTIONS, resolveFontValue } from "./available-fonts";
 import type {
   BoardFileViewState,
   FileViewState,
@@ -30,7 +29,9 @@ export type InterfaceLanguage = "system" | AppLocale;
 export type RecentProject = { name: string; path: string };
 export type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
-export type PaperReadingWidth = "comfortable" | "wide";
+
+export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
+const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
 
 export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_KEY = "lattice.theme.v1";
@@ -42,7 +43,6 @@ const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
 const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
 const LAST_FILE_MAX = 60;
-export const PAPER_READING_WIDTH_KEY = "lattice.paper-reading-width";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 const WORKSPACE_LAYOUT_MAX = 60;
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
@@ -563,9 +563,9 @@ export function resolveAppLocale(
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     interfaceLanguage: "system",
-    uiFont: DEFAULT_UI_FONT,
+    uiFont: FIXED_UI_FONT,
     interfaceScale: 1,
-    editorFont: DEFAULT_EDITOR_FONT,
+    editorFont: FIXED_EDITOR_FONT,
     editorFontSize: 14,
     editorKeymap: "default",
     editorSpellcheck: true,
@@ -594,11 +594,7 @@ export function loadAppearance(): AppearanceSettings {
       interfaceScale: current === null && storedInterfaceScale === 1.1
         ? defaults.interfaceScale
         : storedInterfaceScale,
-      editorFont: resolveFontValue(
-        typeof value?.editorFont === "string" ? value.editorFont : undefined,
-        EDITOR_FONT_OPTIONS,
-        defaults.editorFont,
-      ),
+      editorFont: defaults.editorFont,
       editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
       editorKeymap: value?.editorKeymap === "vim"
         ? "vim"

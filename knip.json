@@ -39,14 +39,8 @@
   // hands them to tsc's `noUnusedLocals`, which polices them forever — but they
   // are not defects. Audit them deliberately with:
   //   pnpm knip --include exports,types,duplicates
-  // That audit is down to 41 findings, and the survivors are deliberate:
-  // 28 shadcn barrel re-exports in src/components/ui/ (re-exporting a
-  // primitive's full surface keeps us aligned with upstream), 10 in
-  // protocol/collab-v2.ts (the wire contract; 9 are imported by
-  // collab-server/, which knip cannot see), and 3 genuinely dead symbols
-  // (emptyEditorCommentsFile, PAPER_READING_WIDTH_KEY, PaperReadingWidth).
-  // Folding `exports`/`types` into the default scope needs those 3 resolved
-  // and the other 38 marked — knip's `tags` option plus a JSDoc marker is the
-  // mechanism — otherwise the default run goes permanently red.
+  // Account for deliberate shadcn barrel re-exports in src/components/ui/
+  // and the protocol/collab-v2.ts wire contract consumed by collab-server/
+  // before treating export-level findings as dead code.
   "exclude": ["exports", "types", "nsExports", "nsTypes"]
 }

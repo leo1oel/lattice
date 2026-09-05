@@ -18,6 +18,7 @@ import {
   transformOpenSlideHomeChrome,
   transformOpenSlideInspectorPanel,
   transformOpenSlideSaveFeedback,
+  transformOpenSlideSelection,
   transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
@@ -182,6 +183,36 @@ test("only reports a save after every Open Slide edit succeeds", async () => {
   ]);
 });
 
+test("recovers only an unambiguous inspector instance after comment HMR", async () => {
+  const source = await readFile(
+    new URL("./node_modules/@open-slide/core/src/app/components/inspector/inspector-provider.tsx", import.meta.url),
+    "utf8",
+  );
+  const transformed = transformOpenSlideSelection(source,
+    "/runtime/node_modules/@open-slide/core/src/app/components/inspector/inspector-provider.tsx");
+  await transformTsx(transformed, { loader: "tsx" });
+  const body = transformed.match(/const revalidate = \(\) => \{([\s\S]*?)\n {4}\};/)[1];
+  const { code } = await transformTsx(`function revalidate() {${body}\n} revalidate();`, { loader: "ts" });
+  const first = { tagName: "DIV", textContent: "First card" };
+  const second = { tagName: "DIV", textContent: "Second card" };
+  for (const [candidates, expected] of [
+    [[first, second], second],
+    [[first], null],
+    [[second, { ...second }], null],
+    [[], null],
+  ]) {
+    let result;
+    runInNewContext(code, {
+      selected: { line: 3, column: 31, anchor: { ...second, isConnected: false } },
+      root: { querySelectorAll: () => candidates },
+      setSelected: (value) => { result = value; },
+    });
+    assert.equal(result?.anchor ?? null, expected);
+  }
+  assert.equal(transformOpenSlideSelection(source, "/project/index.tsx"), null);
+  assert.throws(() => transformOpenSlideSelection("changed", "/@open-slide/core/src/app/components/inspector/inspector-provider.tsx"));
+});
+
 test("keeps the Open Slide title in bounds and shows connection status only as a warning", async () => {
   const source = await readFile(
     new URL("./node_modules/@open-slide/core/src/app/routes/slide.tsx", import.meta.url),
@@ -200,6 +231,8 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /const \{ slideId, selected, pendingCount, comments \} = useInspector\(\)/);
   assert.match(transformed, /pendingEdits: pendingCount > 0/);
   assert.match(transformed, /pendingComments: comments/);
+  assert.match(transformed, /slice\(0, 12_000\)/);
+  assert.doesNotMatch(transformed, /slice\(0, 120\)/);
   assert.doesNotMatch(transformed, /AgentConnectedBadge|bg-emerald-500|t\.slide\.agentConnected/);
   assert.equal(transformOpenSlideToolbar(source, "/project/slides/talk/index.tsx"), null);
   await transformTsx(transformed, { loader: "tsx" });
@@ -707,6 +740,15 @@ test("streams the current page and inspector selection to Lattice", async () => 
       updatedAt: context.updatedAt,
     });
     assert.match(context.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+    // Comments stay attached while inspecting a different block, and its text
+    // is useful context rather than the upstream 120-character teaser.
+    const text = "Second card text. ".repeat(40).trim();
+    queue.reportCurrent({ selection: { line: 50, column: 2, tagName: "div", text } });
+    const changed = JSON.parse(frames.at(-1).split("data: ")[1]).context;
+    assert.equal(changed.selection.text, text);
+    assert.deepEqual(changed.pendingComments, context.pendingComments);
+    queue.reportCurrent({ selection: { line: 50, column: 2, text: "a".repeat(13_000) } });
+    assert.equal(JSON.parse(frames.at(-1).split("data: ")[1]).context.selection.text.length, 12_000);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

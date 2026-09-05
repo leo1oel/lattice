@@ -31,10 +31,6 @@ type EditorCommentsFile = {
   comments: EditorComment[];
 };
 
-export function emptyEditorCommentsFile(): EditorCommentsFile {
-  return { schemaVersion: 1, comments: [] };
-}
-
 export function serializeEditorComments(comments: EditorComment[]): string {
   return `${JSON.stringify({ schemaVersion: 1, comments }, null, 2)}\n`;
 }

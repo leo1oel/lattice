@@ -59,6 +59,9 @@ sources = [
   # src/styles/surfaces.test.ts reads the dev playground's stylesheet off disk.
   "tools/**",
   "protocol/**",
+  # Compatibility tests execute the shipping script and check its HTML order.
+  "public/polyfills.js",
+  "index.html",
   "vitest.config.ts",
   "tsconfig.json",
   "package.json",

@@ -287,6 +287,29 @@ export function transformOpenSlideSaveFeedback(source, id) {
   return null;
 }
 
+export function transformOpenSlideSelection(source, id) {
+  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) return null;
+  const reattach = `      const next = root.querySelector<HTMLElement>(
+        \`[data-slide-loc="\${selected.line}:\${selected.column}"]\`,
+      );
+      if (next && next !== selected.anchor) {
+        setSelected({ ...selected, anchor: next });
+      }`;
+  if (!source.includes(reattach)) throw new Error("Open Slide's selection recovery contract changed");
+  // A comment causes HMR to replace DOM instances. Shared components have the
+  // same source location, so taking the first match silently selects a sibling.
+  // Preserve an unchanged, uniquely identifiable instance; otherwise deselect
+  // rather than reporting another element (or a detached node) to the agent.
+  return source.replace(reattach, `      const matches = Array.from(root.querySelectorAll<HTMLElement>(
+        \`[data-slide-loc="\${selected.line}:\${selected.column}"]\`,
+      )).filter((element) =>
+        element.tagName === selected.anchor.tagName
+        && element.textContent === selected.anchor.textContent
+      );
+      setSelected(matches.length === 1 ? { ...selected, anchor: matches[0] } : null);`);
+}
+
 export function transformOpenSlideToolbar(source, id) {
   const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
   if (!modulePath.endsWith("/@open-slide/core/src/app/routes/slide.tsx")) return null;
@@ -373,6 +396,7 @@ export function transformOpenSlideToolbar(source, id) {
   return transformed.replace(
     selectionReporter,
     selectionReporter
+      .replace(".slice(0, 120)", ".slice(0, 12_000)")
       .replace(
         "const { selected } = useInspector();",
         "const { slideId, selected, pendingCount, comments } = useInspector();",
@@ -1457,7 +1481,7 @@ export function createMutationQueue(root, controlToken) {
               ? selection.tagName.toLowerCase().slice(0, 32)
               : "unknown",
             text: typeof selection.text === "string"
-              ? selection.text.replace(/\s+/g, " ").trim().slice(0, 120)
+              ? selection.text.replace(/\s+/g, " ").trim().slice(0, 12_000)
               : "",
           }
         : null;
@@ -1967,6 +1991,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
             transformOpenSlideComments,
             transformOpenSlideInspectorPanel,
             transformOpenSlideSaveFeedback,
+            transformOpenSlideSelection,
             transformOpenSlideToolbar,
             transformOpenSlideConnectionCopy,
             transformOpenSlideAssets,

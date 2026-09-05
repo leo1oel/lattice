@@ -6,6 +6,7 @@ import {
   type Theme,
   type ThemePreference,
   APPEARANCE_KEY,
+  FIXED_UI_FONT,
   SYSTEM_DARK_QUERY,
   THEME_PREFERENCE_KEY,
   loadAppearance,
@@ -14,7 +15,6 @@ import {
   systemTheme,
 } from "./app-settings";
 import { activateAppLocale, i18n } from "../i18n";
-import { FIXED_UI_FONT } from "./available-fonts";
 
 export type Appearance = {
   /** The resolved light/dark value everything else renders against. */

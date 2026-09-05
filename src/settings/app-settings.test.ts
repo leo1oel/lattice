@@ -67,6 +67,28 @@ describe("interface language persistence", () => {
   });
 });
 
+describe("fixed application fonts", () => {
+  beforeEach(() => localStorage.clear());
+
+  it.each([APPEARANCE_KEY, "lattice.appearance.v4", "lattice.appearance.v3"])(
+    "normalizes old font choices from %s without losing other preferences",
+    (key) => {
+      const defaults = loadAppearance();
+      expect(defaults.uiFont).toBe('"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif');
+      expect(defaults.editorFont).toBe('"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace');
+      for (const editorFont of ['"MonoLisa", Menlo, monospace', defaults.editorFont, null]) {
+        localStorage.setItem(key, JSON.stringify({
+          uiFont: "-apple-system",
+          editorFont,
+          editorFontSize: 18,
+          editorKeymap: "vim",
+        }));
+        expect(loadAppearance()).toEqual({ ...defaults, editorFontSize: 18, editorKeymap: "vim" });
+      }
+    },
+  );
+});
+
 describe("prose spellcheck default", () => {
   beforeEach(() => localStorage.clear());
 
