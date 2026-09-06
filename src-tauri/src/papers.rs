@@ -1914,6 +1914,71 @@ fn paper_titles_match(requested: &str, candidate: &str) -> bool {
         .is_some_and(|prefix| prefix.split_whitespace().count() <= 3)
 }
 
+/// An explicit arXiv import can be joined to an existing citation without
+/// asking bibcite to resolve it again. Match only the bibliography's recorded
+/// arXiv identity: titles are intentionally excluded because this path must
+/// never guess that two works are the same.
+fn existing_explicit_arxiv_citation(
+    bibliography: &str,
+    query: &str,
+) -> Option<(String, String, String)> {
+    // parse_arxiv_id also extracts ids from arbitrary text. This fast path
+    // must not mistake a title or an unrelated publisher URL for that paper.
+    let explicit = Regex::new(r"(?i)^(?:https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)(?:\.pdf)?(?:[?#].*)?$").unwrap();
+    if !explicit.is_match(query.trim()) {
+        return None;
+    }
+    let requested = parse_arxiv_id(query)?;
+    let base = arxiv_base_id(&requested);
+    project::parse_bibliography(bibliography)
+        .into_iter()
+        .find(|entry| {
+            entry
+                .arxiv_id
+                .as_deref()
+                .is_some_and(|cited| arxiv_base_id(cited).eq_ignore_ascii_case(base))
+        })
+        .map(|entry| (base.to_string(), entry.key, entry.title))
+}
+
+fn import_existing_arxiv_citation(
+    root: &Path,
+    bibliography: &str,
+    query: &str,
+    progress: &dyn Fn(&str),
+) -> Option<Result<ImportResult, String>> {
+    let (arxiv_id, citation_key, entry_title) =
+        existing_explicit_arxiv_citation(bibliography, query)?;
+    let mut fetch_error = None;
+    // Ask for the canonical id so any complete bundle for another version is
+    // reusable. If the bundle is absent or incomplete, the normal fetch path
+    // repairs it without allowing bibcite to rewrite the existing entry.
+    let fetched = match fetch_paper_with_progress(root, &arxiv_id, progress) {
+        Ok(fetched) => Some(fetched),
+        Err(error) => {
+            fetch_error = Some(error);
+            None
+        }
+    };
+    let citation_output = serde_json::json!({
+        "action": "already-present",
+        "key": citation_key,
+        "source": "arxiv",
+    })
+    .to_string();
+    Some(Ok(ImportResult {
+        arxiv_id,
+        title: Some(entry_title)
+            .filter(|title| !title.trim().is_empty())
+            .unwrap_or_else(|| citation_key.clone()),
+        paper_path: fetched.map(|item| item.paper_path).unwrap_or_default(),
+        citation_key: Some(citation_key),
+        citation_output,
+        already_imported: true,
+        fetch_error,
+    }))
+}
+
 /// Everything that is not an arXiv paper: resolve it, write the `.bib` entry,
 /// and stop there. There is no text to fetch and none is pretended.
 fn import_citation(
@@ -1927,15 +1992,19 @@ fn import_citation(
     if query.is_empty() {
         return Err("Enter an arXiv id, a DOI, a URL, or a paper title.".to_string());
     }
-    let temp = std::env::temp_dir().join(format!("research-writer-cite-{}", Uuid::new_v4()));
-    fs::create_dir_all(&temp).map_err(err)?;
-    let bibliography_path = temp.join("references.bib");
     let project_bibliography = project::safe_path(root, &manifest.primary_bibliography)?;
     let before = if project_bibliography.exists() {
         fs::read_to_string(&project_bibliography).map_err(err)?
     } else {
         String::new()
     };
+    if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress) {
+        return result;
+    }
+
+    let temp = std::env::temp_dir().join(format!("research-writer-cite-{}", Uuid::new_v4()));
+    fs::create_dir_all(&temp).map_err(err)?;
+    let bibliography_path = temp.join("references.bib");
     fs::write(&bibliography_path, &before).map_err(err)?;
 
     progress("resolving");
@@ -2573,6 +2642,38 @@ mod tests {
         );
         assert_eq!(parse_arxiv_id("2401.12345v2").unwrap(), "2401.12345v2");
         assert_eq!(parse_arxiv_id("not a paper"), None);
+    }
+
+    #[test]
+    fn duplicate_arxiv_detection_uses_canonical_identity_only() {
+        let bibliography = concat!(
+            "@article{existingKey, title={Exact paper}, eprint={2609.01147v2}}\n",
+            "@article{sameTitle, title={A tempting title match}}\n",
+        );
+        assert_eq!(
+            existing_explicit_arxiv_citation(bibliography, "https://arxiv.org/pdf/2609.01147v5"),
+            Some((
+                "2609.01147".to_string(),
+                "existingKey".to_string(),
+                "Exact paper".to_string(),
+            ))
+        );
+        assert_eq!(
+            existing_explicit_arxiv_citation(bibliography, "2609.01148"),
+            None
+        );
+        assert_eq!(
+            existing_explicit_arxiv_citation(bibliography, "A tempting title match"),
+            None
+        );
+        assert_eq!(
+            existing_explicit_arxiv_citation(bibliography, "https://example.org/2609.01147"),
+            None
+        );
+        assert_eq!(
+            existing_explicit_arxiv_citation(bibliography, "A study of 2609.01147"),
+            None
+        );
     }
 
     #[test]
@@ -3390,11 +3491,16 @@ mod tests {
         let _ = fs::remove_dir_all(parent);
     }
 
+    #[cfg(unix)]
     #[test]
-    fn reuses_a_complete_canonical_cache_without_spawning_a_fetch() {
+    fn duplicate_pdf_url_reuses_complete_version_equivalent_cache_without_resolution() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
         let parent =
             std::env::temp_dir().join(format!("lattice-paper-duplicate-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
+        let bibliography =
+            "@article{vaswani2017attention, title={Attention Is All You Need}, eprint={1706.03762v7}}\n";
+        fs::write(root.join("references.bib"), bibliography).unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
         let markdown = "Title: Attention Is All You Need\n";
@@ -3423,9 +3529,24 @@ mod tests {
         )
         .unwrap();
 
-        let result = fetch_paper(&root, "https://arxiv.org/abs/1706.03762v7").unwrap();
-        assert!(result.reused);
+        let bibcite = parent.join("bibcite-must-not-run");
+        write_test_tool(&bibcite, "#!/bin/sh\nexit 91\n");
+        let _bibcite_override = ScopedToolOverride::set(commands::BIBCITE.override_env, &bibcite);
+        let stages = std::cell::RefCell::new(Vec::new());
+        let result =
+            import_reference_with_progress(&root, "https://arxiv.org/pdf/1706.03762v3", &|stage| {
+                stages.borrow_mut().push(stage.to_string())
+            })
+            .unwrap();
+        assert!(result.already_imported);
         assert_eq!(result.arxiv_id, "1706.03762");
+        assert_eq!(result.citation_key.as_deref(), Some("vaswani2017attention"));
+        assert_eq!(result.paper_path, ".research/papers/1706.03762/paper.md");
+        assert!(stages.borrow().is_empty(), "got: {:?}", stages.borrow());
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            bibliography
+        );
         fs::remove_dir_all(parent).unwrap();
     }
 

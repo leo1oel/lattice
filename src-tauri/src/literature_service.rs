@@ -14,6 +14,9 @@ pub(crate) fn request(
     let parsed = reqwest::Url::parse(url).map_err(|_| "Invalid literature URL.")?;
     let provider = match parsed.host_str() {
         Some("api.openalex.org") => Some("openalex"),
+        Some("api.semanticscholar.org") if public => {
+            return Err("Semantic Scholar requires a personal API key.".into())
+        }
         Some("api.semanticscholar.org") => Some("semanticscholar"),
         Some("api.crossref.org") => Some("crossref"),
         _ => None,
@@ -63,12 +66,6 @@ mod tests {
                 "/message/DOI",
                 "10.1038/nphys1170",
             ),
-            (
-                "https://api.semanticscholar.org/graph/v1/paper/batch?fields=externalIds,title",
-                Some(serde_json::json!({"ids": ["ARXIV:1706.03762"]})),
-                "/0/externalIds/ArXiv",
-                "1706.03762",
-            ),
         ] {
             let response = request(&client, url, body, true).unwrap().send().unwrap();
             let status = response.status();
@@ -89,23 +86,17 @@ mod tests {
     }
 
     #[test]
-    fn public_requests_forward_only_metadata_and_batch_ids() {
+    fn public_semantic_scholar_requests_are_rejected() {
         let client = Client::new();
-        let request = request(
+        let error = request(
             &client,
             "https://api.semanticscholar.org/graph/v1/paper/batch?fields=title&api_key=private&mailto=private",
             Some(serde_json::json!({"ids": ["ARXIV:1706.03762"]})),
             true,
-        ).unwrap().build().unwrap();
-        assert_eq!(request.url().as_str(), ENDPOINT);
-        assert_eq!(request.method(), reqwest::Method::POST);
-        let bytes = request.body().unwrap().as_bytes().unwrap();
-        let payload: Value = serde_json::from_slice(bytes).unwrap();
-        assert_eq!(payload["provider"], "semanticscholar");
-        assert_eq!(payload["params"], serde_json::json!({"fields": "title"}));
-        assert_eq!(payload["body"]["ids"][0], "ARXIV:1706.03762");
-        assert!(!String::from_utf8_lossy(bytes).contains("private"));
-        assert!(!request.headers().contains_key("x-api-key"));
+        )
+        .err()
+        .unwrap();
+        assert!(error.contains("personal API key"));
     }
 
     #[test]

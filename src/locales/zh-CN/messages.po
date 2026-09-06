@@ -127,8 +127,8 @@ msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} 人已连接 · {0}"
 
 #: src/papers/bibliography-audit.tsx
-msgid "{completed} of {total} references checked"
-msgstr "已检查 {completed} / {total} 条引用"
+msgid "{completed} of {progressTotal} references checked"
+msgstr "已检查 {completed} / {progressTotal} 条引用"
 
 #: src/canvas/document-canvas.tsx
 msgid "{count} comments"
@@ -225,6 +225,10 @@ msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来�
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
+#: src/papers/bibliography-audit.tsx
+msgid "A published version is available."
+msgstr "找到了正式发表版本，请查看修改建议和元数据来源。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
 msgstr "将打开一个安全的 Overleaf 登录窗口。Lattice 不会看到你的密码——它只保存 Overleaf 为你创建的会话"
@@ -253,6 +257,10 @@ msgstr "接受"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all ({0})"
 msgstr "全部接受（{0}）"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Accept all updates"
+msgstr "全部接受更新"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key and its permissions."
@@ -571,6 +579,10 @@ msgstr "BasicTeX 安装进度"
 msgid "BasicTeX installed"
 msgstr "BasicTeX 已安装"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Batch result reused"
+msgstr "已复用批量查询结果"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
 msgstr "贝塔"
@@ -858,13 +870,18 @@ msgstr "聊天"
 msgid "Chat"
 msgstr "聊天"
 
+#. placeholder {0}: entry.key
+#: src/papers/bibliography-audit.tsx
+msgid "Check {0}"
+msgstr "检查 {0}"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Check accent example"
 msgstr "抑扬符示例"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Check again"
-msgstr "重新检查"
+msgid "Check all"
+msgstr "检查全部"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check for updates"
@@ -882,6 +899,10 @@ msgstr "尚未开始检查"
 #: src/papers/bibliography-audit.tsx
 msgid "Check references"
 msgstr "检查引用"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check selected"
+msgstr "检查所选"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check spelling in prose"
@@ -1317,6 +1338,10 @@ msgstr "无法从 Overleaf 删除 {0}：{1}"
 #: src/history/history-drawer.tsx
 msgid "Could not render these changes: {0}"
 msgstr "无法渲染这些更改：{0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Could not save the report on this device. Keep this window open to retain the results."
+msgstr "无法在此设备上保存检查报告，请保持此窗口打开以保留结果。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not upload the project to Overleaf"
@@ -2642,8 +2667,8 @@ msgid "Key saved in the system keychain."
 msgstr "密钥已保存到系统钥匙串。"
 
 #: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
-msgstr "密钥保存在系统钥匙串中，不会写入项目。未配置个人密钥或环境变量时，将使用公共访问额度。"
+msgid "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
+msgstr "密钥保存在系统钥匙串中，不会写入项目。OpenAlex 支持公共访问；Semantic Scholar 仅在你提供自己的密钥后启用。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
@@ -2672,6 +2697,10 @@ msgstr "语言"
 #: src/editor/insert/insert-snippets.ts
 msgid "Larger fraction"
 msgstr "更大的分式"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Last checked"
+msgstr "上次检查"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Last stop: your writing agent"
@@ -3061,6 +3090,14 @@ msgstr "消息"
 msgid "Message your collaborators…"
 msgstr "给协作者发送消息…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Metadata source"
+msgstr "采用此来源的元数据"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Metadata source · cached"
+msgstr "采用此来源的元数据 · 来自缓存"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "最小值"
@@ -3369,6 +3406,14 @@ msgstr "不属于"
 #: src/papers/bibliography-audit.tsx
 msgid "Not checked"
 msgstr "尚未检查"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Not enabled · add your own API key in Settings"
+msgstr "未启用 · 请在设置中填写自己的 API key"
+
+#: src/settings/literature-settings.tsx
+msgid "Not enabled · personal API key required"
+msgstr "未启用 · 需要填写自己的 API key"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Not equal"
@@ -3733,6 +3778,10 @@ msgstr "作者信息仅部分相符"
 msgid "Partial derivative"
 msgstr "偏导数"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Partial results for {completed} of {progressTotal} references"
+msgstr "已获得 {completed} / {progressTotal} 条引用的部分结果"
+
 #: src/project/navigator.tsx
 msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项目证据"
@@ -4029,6 +4078,14 @@ msgid "Public API connection succeeded."
 msgstr "公共 API 连接成功。"
 
 #: src/papers/bibliography-audit.tsx
+msgid "Public daily quota exhausted"
+msgstr "公共服务今日额度已用完"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
+msgstr "公共服务今日额度已用完；已跳过后续 Semantic Scholar 查询"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Published version not confirmed"
 msgstr "暂时无法确认发表版本"
 
@@ -4062,6 +4119,10 @@ msgstr "根号"
 #: src/papers/bibliography-audit.tsx
 msgid "Rate limited"
 msgstr "请求被限流"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Rate limited; subsequent Semantic Scholar queries skipped"
+msgstr "请求受到速率限制；已跳过后续 Semantic Scholar 查询"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
@@ -4109,6 +4170,10 @@ msgstr "引用公式标签"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference an existing label"
 msgstr "引用已有的标签"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference changed since the last check. Check this reference again."
+msgstr "引用内容在上次检查后发生了变化，请重新检查此条引用。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Reference check progress"
@@ -4300,6 +4365,14 @@ msgstr "回复 {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "回复…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request queue busy"
+msgstr "请求队列繁忙"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request queue busy; subsequent Semantic Scholar queries skipped"
+msgstr "请求队列繁忙；已跳过后续 Semantic Scholar 查询"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Request timed out"
@@ -4719,6 +4792,19 @@ msgstr "节标记"
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 
+#. placeholder {0}: entry.key
+#: src/papers/bibliography-audit.tsx
+msgid "Select {0}"
+msgstr "选择 {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Select all"
+msgstr "全选"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Select all references"
+msgstr "选择全部引用"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF"
@@ -4731,6 +4817,34 @@ msgstr "选择此记录"
 #: src/settings/literature-settings.tsx
 msgid "Semantic Scholar"
 msgstr "Semantic Scholar"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar authorization failed; subsequent queries skipped"
+msgstr "Semantic Scholar 授权失败；已跳过后续查询"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar connection failed; subsequent queries skipped"
+msgstr "Semantic Scholar 连接失败；已跳过后续查询"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it."
+msgstr "Semantic Scholar 正在排队或查询，其他来源继续检查。可取消，无需等待它返回。"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar rate limited the service; subsequent queries skipped"
+msgstr "Semantic Scholar 对服务实施了速率限制；已跳过后续查询"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar request timed out; subsequent queries skipped"
+msgstr "Semantic Scholar 请求超时；已跳过后续查询"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar returned an invalid response; subsequent queries skipped"
+msgstr "Semantic Scholar 返回了无效响应；已跳过后续查询"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar unavailable; subsequent queries skipped"
+msgstr "Semantic Scholar 暂时不可用；已跳过后续查询"
 
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
@@ -5751,6 +5865,10 @@ msgstr "已与官方 2026 年会议样式核验"
 #: src/project/project-dialogs.tsx
 msgid "Verified against the official 2026 style; creates a preprint draft"
 msgstr "已与官方 2026 年样式核验；创建预印本草稿"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified publication match"
+msgstr "已匹配到发表版本"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx

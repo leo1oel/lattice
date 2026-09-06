@@ -3,6 +3,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   renameSync,
@@ -95,10 +96,12 @@ function preparePresentationRuntime() {
   );
   materializeLinks(join(stage, "node_modules"));
   prunePresentationRuntime(stage);
+  const packageVersion = (name) =>
+    JSON.parse(readFileSync(join(stage, "node_modules", name, "package.json"), "utf8")).version;
   writeFileSync(
     join(stage, "manifest.json"),
     JSON.stringify(
-      { openSlideVersion: "1.19.1", viteVersion: "5.4.10" },
+      { openSlideVersion: packageVersion("@open-slide/core"), viteVersion: packageVersion("vite") },
       null,
       2,
     ),

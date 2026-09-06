@@ -22,7 +22,7 @@ import {
   transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
-import { mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -30,6 +30,23 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import { transform as transformTsx } from "esbuild";
 import katex from "katex";
+import * as icons from "./lucide-open-slide.mjs";
+
+test("provides every runtime icon imported by the pinned Open Slide editor", async () => {
+  const root = new URL("./node_modules/@open-slide/core/src/app/", import.meta.url);
+  for (const file of await readdir(root, { recursive: true })) {
+    if (!/\.[jt]sx?$/.test(file)) continue;
+    // Strip TypeScript first so type-only Lucide imports don't count as runtime exports.
+    const source = await readFile(new URL(file, root), "utf8");
+    const { code } = await transformTsx(source, { loader: file.endsWith("x") ? "tsx" : "ts" });
+    for (const match of code.matchAll(/import\s*\{([^}]+)\}\s*from ["']lucide-react["']/g)) {
+      for (const specifier of match[1].split(",")) {
+        const name = specifier.trim().split(/\s+as\s+/)[0];
+        if (name) assert.ok(name in icons, `${file} requires missing icon ${name}`);
+      }
+    }
+  }
+});
 
 test("typesets bundled KaTeX formulas without throwing", () => {
   const html = katex.renderToString(
@@ -52,6 +69,7 @@ test("uses Lattice typography, interaction colors, and scrollbars in the Open Sl
   );
   assert.match(transformed, /@fontsource-variable\/inter/);
   assert.match(transformed, /"Inter Variable"/);
+  assert.match(transformed, /@source "[^"]+\/server\.mjs";/);
   assert.doesNotMatch(transformed, /Geist/);
   assert.match(transformed, /--brand: var\(--accent\)/);
   assert.match(transformed, /--brand-foreground: var\(--accent-foreground\)/);
@@ -319,18 +337,16 @@ test("removes the redundant home header while keeping the resizable navigation",
   assert.doesNotMatch(sidebar, /SidebarFooter/);
   assert.match(sidebar, /h-full w-full shrink-0/);
   assert.doesNotMatch(sidebar, /w-\[16\.5rem\]/);
-  assert.match(sidebar, /className="px-2 pt-3"/);
-  assert.match(folderItem, /FileText, Image, MoreHorizontal, Palette, Pencil, Presentation, Trash2/);
-  assert.match(folderItem, /icon\.value === '🎞️'[\s\S]*\? Presentation/);
-  assert.match(folderItem, /icon\.value === '🎨'[\s\S]*\? Palette/);
-  assert.match(folderItem, /icon\.value === '🗂️'[\s\S]*\? Image/);
-  assert.match(folderItem, /icon\.value === '📝'[\s\S]*\? FileText/);
-  assert.match(folderItem, /className=\{cn\('size-3\.5 shrink-0', className\)\}/);
-  assert.match(folderItem, /strokeWidth=\{1\.6\}/);
+  assert.match(sidebar, /className="space-y-0.5 px-2 pt-3"/);
+  assert.equal(folderItem, null); // V2 supplies native Lucide icons for built-in views.
+  assert.match(folderItemSource, /all: LayoutGrid/);
+  assert.match(folderItemSource, /draft: PenLine/);
+  assert.match(folderItemSource, /themes: Palette/);
+  assert.match(folderItemSource, /assets: FolderOpen/);
   assert.doesNotMatch(command, /LOCALE_OPTIONS|setLocale|useTheme|setTheme|theme-light/);
   assert.equal(transformOpenSlideHomeChrome(homeSource, "/project/home-shell.tsx"), null);
   await Promise.all(
-    [home, sidebar, folderItem, command]
+    [home, sidebar, folderItemSource, command]
       .map((source) => transformTsx(source, { loader: "tsx" })),
   );
 });
@@ -355,15 +371,16 @@ test("uses a denser slide grid and compact section titles on the embedded home s
     "/runtime/node_modules/@open-slide/core/src/app/routes/themes.tsx?direct",
   );
 
+  assert.equal(themes, null); // V2's compact theme heading no longer needs patching.
   assert.match(home, /minmax\(200px,1fr\)/);
   assert.match(home, /md:grid-cols-\[repeat\(auto-fill,minmax\(220px,1fr\)\)\]/);
   assert.match(home, /gap-x-4 gap-y-7/);
   assert.doesNotMatch(home, /minmax\(300px,1fr\)/);
-  for (const transformed of [home, themes]) {
-    assert.match(transformed, /text-\[26px\].*md:text-\[28px\]/);
+  for (const transformed of [home, themesSource]) {
+    assert.match(transformed, /text-\[19px\].*md:text-\[21px\]/);
     assert.doesNotMatch(transformed, /md:text-\[44px\]/);
   }
-  await Promise.all([home, themes].map((source) => transformTsx(source, { loader: "tsx" })));
+  await Promise.all([home, themesSource].map((source) => transformTsx(source, { loader: "tsx" })));
 });
 
 test("presents one project asset library with current-presentation filtering", async () => {

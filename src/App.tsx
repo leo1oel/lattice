@@ -10162,6 +10162,7 @@ function App() {
           canApply={collabCanWrite}
           onClose={() => setBibliographyAuditOpen(false)}
           onPrepare={save}
+          onApplied={() => refreshAfterSave(project.root, false, true)}
           onApply={async (entry, result) => {
             const root = project.root;
             const writable = () => collabCanWrite && collabSessionRef.current?.canWrite !== false;
@@ -10181,8 +10182,8 @@ function App() {
               setSecondarySource(content); setSecondarySavedSource(content);
             }
             await publishTextToCollabV2(entry.path, content);
-            await refreshProject();
-            await refreshHistory();
+            // The drawer refreshes derived citation/history data once per
+            // apply action (including bulk), outside the durable-write path.
           }}
         />
       </Suspense>}

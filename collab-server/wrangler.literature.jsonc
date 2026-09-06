@@ -20,7 +20,6 @@
   ],
   "vars": {
     "OPENALEX_DAILY_QUOTA": "5000",
-    "SEMANTIC_SCHOLAR_DAILY_QUOTA": "5000",
     "CROSSREF_DAILY_QUOTA": "5000"
   }
 }

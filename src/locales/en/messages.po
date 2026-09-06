@@ -127,8 +127,8 @@ msgid "{collabPeers} connected · {0}"
 msgstr "{collabPeers} connected · {0}"
 
 #: src/papers/bibliography-audit.tsx
-msgid "{completed} of {total} references checked"
-msgstr "{completed} of {total} references checked"
+msgid "{completed} of {progressTotal} references checked"
+msgstr "{completed} of {progressTotal} references checked"
 
 #: src/canvas/document-canvas.tsx
 msgid "{count} comments"
@@ -225,6 +225,10 @@ msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscr
 msgid "a over b"
 msgstr "a over b"
 
+#: src/papers/bibliography-audit.tsx
+msgid "A published version is available."
+msgstr "A published version is available."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
 msgstr "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
@@ -253,6 +257,10 @@ msgstr "Accept"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all ({0})"
 msgstr "Accept all ({0})"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Accept all updates"
+msgstr "Accept all updates"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key and its permissions."
@@ -571,6 +579,10 @@ msgstr "BasicTeX installation progress"
 msgid "BasicTeX installed"
 msgstr "BasicTeX installed"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Batch result reused"
+msgstr "Batch result reused"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
 msgstr "Beta"
@@ -858,13 +870,18 @@ msgstr "chat"
 msgid "Chat"
 msgstr "Chat"
 
+#. placeholder {0}: entry.key
+#: src/papers/bibliography-audit.tsx
+msgid "Check {0}"
+msgstr "Check {0}"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Check accent example"
 msgstr "Check accent example"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Check again"
-msgstr "Check again"
+msgid "Check all"
+msgstr "Check all"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check for updates"
@@ -882,6 +899,10 @@ msgstr "Check not started"
 #: src/papers/bibliography-audit.tsx
 msgid "Check references"
 msgstr "Check references"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check selected"
+msgstr "Check selected"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check spelling in prose"
@@ -1317,6 +1338,10 @@ msgstr "Could not remove {0} from Overleaf: {1}"
 #: src/history/history-drawer.tsx
 msgid "Could not render these changes: {0}"
 msgstr "Could not render these changes: {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Could not save the report on this device. Keep this window open to retain the results."
+msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not upload the project to Overleaf"
@@ -2642,8 +2667,8 @@ msgid "Key saved in the system keychain."
 msgstr "Key saved in the system keychain."
 
 #: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
-msgstr "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
+msgid "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
+msgstr "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
@@ -2672,6 +2697,10 @@ msgstr "Language"
 #: src/editor/insert/insert-snippets.ts
 msgid "Larger fraction"
 msgstr "Larger fraction"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Last checked"
+msgstr "Last checked"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Last stop: your writing agent"
@@ -3061,6 +3090,14 @@ msgstr "Message"
 msgid "Message your collaborators…"
 msgstr "Message your collaborators…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Metadata source"
+msgstr "Metadata source"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Metadata source · cached"
+msgstr "Metadata source · cached"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
@@ -3369,6 +3406,14 @@ msgstr "Not an element of"
 #: src/papers/bibliography-audit.tsx
 msgid "Not checked"
 msgstr "Not checked"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Not enabled · add your own API key in Settings"
+msgstr "Not enabled · add your own API key in Settings"
+
+#: src/settings/literature-settings.tsx
+msgid "Not enabled · personal API key required"
+msgstr "Not enabled · personal API key required"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Not equal"
@@ -3733,6 +3778,10 @@ msgstr "Partial author information"
 msgid "Partial derivative"
 msgstr "Partial derivative"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Partial results for {completed} of {progressTotal} references"
+msgstr "Partial results for {completed} of {progressTotal} references"
+
 #: src/project/navigator.tsx
 msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
@@ -4029,6 +4078,14 @@ msgid "Public API connection succeeded."
 msgstr "Public API connection succeeded."
 
 #: src/papers/bibliography-audit.tsx
+msgid "Public daily quota exhausted"
+msgstr "Public daily quota exhausted"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
+msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Published version not confirmed"
 msgstr "Published version not confirmed"
 
@@ -4062,6 +4119,10 @@ msgstr "Radical"
 #: src/papers/bibliography-audit.tsx
 msgid "Rate limited"
 msgstr "Rate limited"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Rate limited; subsequent Semantic Scholar queries skipped"
+msgstr "Rate limited; subsequent Semantic Scholar queries skipped"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
@@ -4109,6 +4170,10 @@ msgstr "Reference an equation label"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference an existing label"
 msgstr "Reference an existing label"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference changed since the last check. Check this reference again."
+msgstr "Reference changed since the last check. Check this reference again."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Reference check progress"
@@ -4302,6 +4367,14 @@ msgstr "Reply to {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "Reply…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request queue busy"
+msgstr "Request queue busy"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request queue busy; subsequent Semantic Scholar queries skipped"
+msgstr "Request queue busy; subsequent Semantic Scholar queries skipped"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Request timed out"
@@ -4721,6 +4794,19 @@ msgstr "Section sign"
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
 
+#. placeholder {0}: entry.key
+#: src/papers/bibliography-audit.tsx
+msgid "Select {0}"
+msgstr "Select {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Select all"
+msgstr "Select all"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Select all references"
+msgstr "Select all references"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
@@ -4733,6 +4819,34 @@ msgstr "Select this record"
 #: src/settings/literature-settings.tsx
 msgid "Semantic Scholar"
 msgstr "Semantic Scholar"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar authorization failed; subsequent queries skipped"
+msgstr "Semantic Scholar authorization failed; subsequent queries skipped"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar connection failed; subsequent queries skipped"
+msgstr "Semantic Scholar connection failed; subsequent queries skipped"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it."
+msgstr "Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it."
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar rate limited the service; subsequent queries skipped"
+msgstr "Semantic Scholar rate limited the service; subsequent queries skipped"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar request timed out; subsequent queries skipped"
+msgstr "Semantic Scholar request timed out; subsequent queries skipped"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar returned an invalid response; subsequent queries skipped"
+msgstr "Semantic Scholar returned an invalid response; subsequent queries skipped"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Semantic Scholar unavailable; subsequent queries skipped"
+msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
@@ -5755,6 +5869,10 @@ msgstr "Verified against the official 2026 conference style"
 #: src/project/project-dialogs.tsx
 msgid "Verified against the official 2026 style; creates a preprint draft"
 msgstr "Verified against the official 2026 style; creates a preprint draft"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified publication match"
+msgstr "Verified publication match"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx

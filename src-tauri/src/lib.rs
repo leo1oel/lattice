@@ -1694,7 +1694,7 @@ async fn bibliography_audit_batch(
     window: tauri::Window,
     project_root: String,
     entries: Vec<citation_audit::AuditEntry>,
-) -> Result<Vec<Option<citation_audit::AuditResult>>, String> {
+) -> Result<citation_audit::BatchAudit, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit batch", move || {
         citation_audit::check_batch(&root, entries)
@@ -1708,10 +1708,11 @@ async fn bibliography_audit_entry(
     window: tauri::Window,
     project_root: String,
     entry: citation_audit::AuditEntry,
+    s2_batch_status: Option<String>,
 ) -> Result<citation_audit::AuditResult, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit entry", move || {
-        citation_audit::check_entry(&root, entry)
+        citation_audit::check_entry(&root, entry, s2_batch_status.as_deref())
     })
     .await
 }

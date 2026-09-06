@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 
-const VERSION: &str = "1.19.1";
+const VERSION: &str = "2.0.0-beta.1";
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -126,7 +126,7 @@ impl PresentationRuntime {
         let shadow_parent = app.path().app_cache_dir()?.join("presentation-shadows");
         std::fs::create_dir_all(&shadow_parent)?;
         for entry in std::fs::read_dir(&shadow_parent)?.flatten() {
-            if entry.file_name() != "vite-cache-1.19.1" {
+            if entry.file_name() != format!("vite-cache-{VERSION}").as_str() {
                 let _ = std::fs::remove_dir_all(entry.path());
             }
         }
@@ -416,7 +416,7 @@ impl PresentationRuntime {
             .env("OPEN_SLIDE_SHADOW_ROOT", &shadow)
             .env(
                 "OPEN_SLIDE_CACHE_ROOT",
-                self.shadow_parent.join("vite-cache-1.19.1"),
+                self.shadow_parent.join(format!("vite-cache-{VERSION}")),
             )
             .env("OPEN_SLIDE_CONTROL_TOKEN", &control_token)
             // The pipe is a zero-polling parent-liveness signal. In dev mode
@@ -428,7 +428,6 @@ impl PresentationRuntime {
             // hundred MiB during its first Open Slide compile. Keep a bounded
             // heap, but leave enough headroom for a deck transform to overlap
             // the optimizer's peak before the explicit idle collection runs.
-            .env("GOMEMLIMIT", "64MiB")
             .env("NODE_OPTIONS", "--max-old-space-size=1024 --expose-gc")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

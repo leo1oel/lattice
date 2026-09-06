@@ -6,10 +6,9 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
-import { stop as stopEsbuild } from "esbuild";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
 
-const VERSION = "1.19.1";
+const VERSION = "2.0.0-beta.1";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;
@@ -122,7 +121,10 @@ export function transformOpenSlideEditorStyles(source, id) {
   const withLatticeFont = source
     .replace(fontImport, '@import "@fontsource-variable/inter";')
     .replaceAll('"Geist Variable"', '"Inter Variable"');
-  return `${withLatticeFont}${LATTICE_EDITOR_STYLES}`;
+  // Tailwind scans files on disk, not the transformed TSX. Include this file
+  // explicitly so Lattice-only utilities also exist in the staged runtime.
+  const overridesSource = JSON.stringify(path.join(RUNTIME_ROOT, "server.mjs").replaceAll("\\", "/"));
+  return `${withLatticeFont}\n@source ${overridesSource};\n${LATTICE_EDITOR_STYLES}`;
 }
 
 export function transformOpenSlideThumbnailRail(source, id) {
@@ -516,8 +518,6 @@ export async function listAssets(slideId: string): Promise<AssetEntry[]> {
 }`,
       `export type UploadOptions = { overwrite?: boolean };
 
-const GLOBAL_ASSET_SCOPE = '@global';
-
 export async function listAssets(slideId: string): Promise<AssetEntry[]> {
   const res = await fetch(\`/__assets/\${GLOBAL_ASSET_SCOPE}\`);
   if (!res.ok) throw new Error(\`GET /__assets/\${GLOBAL_ASSET_SCOPE} \${res.status}\`);
@@ -609,8 +609,8 @@ export async function listAssets(slideId: string): Promise<AssetEntry[]> {
       "{format(scopedAssets.length === 1 ? t.asset.fileCount.one : t.asset.fileCount.other, {",
     );
     replace(
-      "count: assets.length.toString().padStart(2, '0'),",
-      "count: scopedAssets.length.toString().padStart(2, '0'),",
+      "count: pad2(assets.length),",
+      "count: pad2(scopedAssets.length),",
     );
     replace("        ) : assets.length === 0 ? (", "        ) : scopedAssets.length === 0 ? (");
     replace(
@@ -691,89 +691,17 @@ export function transformOpenSlideHomeChrome(source, id) {
     transformed = transformed.slice(0, startIndex) + transformed.slice(endIndex);
   };
 
-  if (modulePath.endsWith("/@open-slide/core/src/app/components/sidebar/folder-item.tsx")) {
-    const iconImport = "import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';\n";
-    const emojiBranch = `  if (icon.type === 'emoji') {
-    return (
-      <span
-        className={cn(
-          'inline-flex size-5 items-center justify-center text-[15px] leading-none',
-          className,
-        )}
-      >
-        {icon.value}
-      </span>
-    );
-  }
-`;
-    if (!transformed.includes(iconImport) || !transformed.includes(emojiBranch)) {
-      throw new Error("Open Slide's sidebar icon contract changed");
-    }
-    const latticeIconBranch = `  if (icon.type === 'emoji') {
-    const BuiltInIcon = icon.value === '🎞️'
-      ? Presentation
-      : icon.value === '🎨'
-        ? Palette
-        : icon.value === '🗂️'
-          ? Image
-          : icon.value === '📝'
-            ? FileText
-            : null;
-    if (BuiltInIcon) {
-      return (
-        <BuiltInIcon
-          aria-hidden="true"
-          className={cn('size-3.5 shrink-0', className)}
-          strokeWidth={1.6}
-        />
-      );
-    }
-    return (
-      <span
-        className={cn(
-          'inline-flex size-5 items-center justify-center text-[15px] leading-none',
-          className,
-        )}
-      >
-        {icon.value}
-      </span>
-    );
-  }
-`;
-    return transformed
-      .replace(
-        iconImport,
-        "import { FileText, Image, MoreHorizontal, Palette, Pencil, Presentation, Trash2 } from 'lucide-react';\n",
-      )
-      .replace(emojiBranch, latticeIconBranch);
-  }
-
   if (modulePath.endsWith("/@open-slide/core/src/app/routes/home.tsx")) {
     const spaciousGrid = "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-6 gap-y-9 md:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]";
-    const oversizedTitle = "font-heading text-[32px] font-semibold leading-[1.05] tracking-[-0.025em] md:text-[44px]";
-    if (!transformed.includes(spaciousGrid) || !transformed.includes(oversizedTitle)) {
+    if (!transformed.includes(spaciousGrid)) {
       throw new Error("Open Slide's home content contract changed");
     }
+    // V2 already uses compact section titles; only the card density needs an override.
     return transformed
       .replace(
         spaciousGrid,
         "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-7 md:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]",
-      )
-      .replace(
-        oversizedTitle,
-        "font-heading text-[26px] font-semibold leading-tight tracking-[-0.02em] md:text-[28px]",
       );
-  }
-
-  if (modulePath.endsWith("/@open-slide/core/src/app/routes/themes.tsx")) {
-    const oversizedTitle = "font-heading text-[32px] font-semibold leading-[1.05] tracking-[-0.025em] md:text-[44px]";
-    if (!transformed.includes(oversizedTitle)) {
-      throw new Error("Open Slide's themes title contract changed");
-    }
-    return transformed.replace(
-      oversizedTitle,
-      "font-heading text-[26px] font-semibold leading-tight tracking-[-0.02em] md:text-[28px]",
-    );
   }
 
   if (modulePath.endsWith("/@open-slide/core/src/app/routes/home-shell.tsx")) {
@@ -789,15 +717,15 @@ export function transformOpenSlideHomeChrome(source, id) {
 `);
     remove("import { CommandMenuTrigger } from '../components/command/command-menu';\n");
     remove("import { HomeCommandMenu } from '../components/command/home-command-menu';\n");
-    remove("import { FolderIconChip } from '../components/sidebar/folder-item';\n");
+    remove("import { SystemViewIcon } from '../components/sidebar/folder-item';\n");
     remove(`  const [commandOpen, setCommandOpen] = useState(false);
   const openCommandMenu = useCallback(() => setCommandOpen(true), []);
 
 `);
     remove("          onOpenCommandMenu={openCommandMenu}\n");
     removeRange(
-      "        <div className=\"flex items-center justify-between border-b border-hairline bg-sidebar px-4 py-3 md:hidden\">\n",
-      "        <div\n          className={cn(\n",
+      "          <div className=\"flex items-center justify-between border-b border-hairline bg-sidebar px-4 py-3 md:hidden\">\n",
+      "          <div\n            className={cn(\n",
     );
     remove(`
       <HomeCommandMenu
@@ -808,11 +736,11 @@ export function transformOpenSlideHomeChrome(source, id) {
         onSelectView={selectFolder}
       />
 `);
-    const reactImport = "import { useCallback, useMemo, useState } from 'react';\n";
+    const reactImport = "import { useCallback, useEffect, useMemo, useState } from 'react';\n";
     const resizableReactImport = "import { type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';\n";
     const homeShellStart = "export function HomeShell() {";
     const sidebarStart = "      <div className=\"hidden md:block\">\n        <Sidebar\n";
-    const sidebarEnd = "        />\n      </div>\n\n      <div className=\"relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-canvas\">";
+    const sidebarEnd = "        />\n      </div>\n\n      <div className=\"relative flex min-w-0 flex-1 flex-col md:py-2 md:pr-2\">";
     if (
       !transformed.includes(reactImport)
       || !transformed.includes(homeShellStart)
@@ -945,33 +873,28 @@ function ResizableHomeSidebar({ children }: { children: ReactNode }) {
       .replace(reactImport, resizableReactImport)
       .replace(homeShellStart, `${resizableSidebar}${homeShellStart}`)
       .replace(sidebarStart, "      <ResizableHomeSidebar>\n        <Sidebar\n")
-      .replace(sidebarEnd, "        />\n      </ResizableHomeSidebar>\n\n      <div className=\"relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-canvas\">");
+      .replace(sidebarEnd, sidebarEnd.replace("</div>", "</ResizableHomeSidebar>"));
   }
 
   if (modulePath.endsWith("/@open-slide/core/src/app/components/sidebar/sidebar.tsx")) {
-    remove("import { LanguageToggle } from '@/components/language-toggle';\n");
-    remove("import { ThemeToggle } from '@/components/theme-toggle';\n");
-    remove("import { CommandMenuTrigger } from '../command/command-menu';\n");
+    remove("import logo from '@/assets/open-slide.png';\n");
+    remove("import { COMMAND_MENU_SHORTCUT } from '../command/command-menu';\n");
     remove("import { SidebarFooter } from './sidebar-footer';\n");
     remove("  onOpenCommandMenu,\n");
     remove("  onOpenCommandMenu: () => void;\n");
     removeRange(
-      "      <div className=\"flex items-center justify-between px-4 pt-5 pb-4\">\n",
-      "      <div className=\"px-2\">\n",
+      "      <div className=\"flex items-center gap-2.5 px-4 pt-4 pb-3\">\n",
+      "      <div className=\"space-y-0.5 px-2\">\n",
     );
-    remove(`
-      <div className="border-t border-hairline">
-        <SidebarFooter />
-      </div>
-`);
+    remove("      <SidebarFooter />\n");
     const fixedWidth = "relative flex h-full w-[16.5rem] shrink-0 flex-col";
-    const navigationStart = "      <div className=\"px-2\">\n";
+    const navigationStart = "      <div className=\"space-y-0.5 px-2\">\n";
     if (!transformed.includes(fixedWidth) || !transformed.includes(navigationStart)) {
       throw new Error("Open Slide's home layout contract changed");
     }
     return transformed
       .replace(fixedWidth, "relative flex h-full w-full shrink-0 flex-col")
-      .replace(navigationStart, "      <div className=\"px-2 pt-3\">\n");
+      .replace(navigationStart, "      <div className=\"space-y-0.5 px-2 pt-3\">\n");
   }
 
   if (modulePath.endsWith("/@open-slide/core/src/app/components/command/command-menu.tsx")) {
@@ -1768,10 +1691,8 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
   const scheduleTransformIdle = () => {
     clearTimeout(transformIdleTimer);
     transformIdleTimer = setTimeout(() => {
-      // Vite restarts esbuild automatically on the next TSX transform. Keeping
-      // its Go service alive while the user only reads or presents a deck costs
-      // well over 100 MiB without making that idle experience any faster.
-      stopEsbuild();
+      // Vite 8 transforms in-process; collect the temporary transform graph
+      // once the user is only reading or presenting the deck.
       globalThis.gc?.();
     }, TRANSFORM_IDLE_MS);
     transformIdleTimer.unref();
@@ -2103,13 +2024,11 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
       hmr: { server },
     },
   };
-  // Finish the dependency bundle before the webview connects. Besides avoiding
-  // Vite's first-navigation reload, the one-shot optimizer can release its
-  // large esbuild context before the long-lived transform service starts.
+  // Finish the dependency bundle before the webview connects, avoiding Vite's
+  // first-navigation reload and releasing the one-shot Rolldown optimizer.
   const resolvedConfig = await resolveConfig(viteConfig, "serve");
   await optimizeDeps(resolvedConfig, false, true);
   vite = await createViteServer(viteConfig);
-  stopEsbuild();
   globalThis.gc?.();
   vite.watcher.on("add", (file) => {
     scheduleTransformIdle();
@@ -2134,7 +2053,6 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
     setTimeout(() => process.exit(0), 750);
     server.closeAllConnections?.();
     await vite.close().catch(() => undefined);
-    stopEsbuild();
     await new Promise((resolve) => server.close(resolve));
     process.exit(0);
   };

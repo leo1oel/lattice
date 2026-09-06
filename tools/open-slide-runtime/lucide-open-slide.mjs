@@ -31,6 +31,7 @@ export { default as FileCode2 } from "lucide-react/dist/esm/icons/file-code-corn
 export { default as FileImage } from "lucide-react/dist/esm/icons/file-image.mjs";
 export { default as FileText } from "lucide-react/dist/esm/icons/file-text.mjs";
 export { default as FolderInput } from "lucide-react/dist/esm/icons/folder-input.mjs";
+export { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open.mjs";
 export { default as FolderPlus } from "lucide-react/dist/esm/icons/folder-plus.mjs";
 export { default as Grid2x2 } from "lucide-react/dist/esm/icons/grid-2x2.mjs";
 export { default as Image, default as ImageIcon } from "lucide-react/dist/esm/icons/image.mjs";
@@ -48,6 +49,7 @@ export { default as Maximize } from "lucide-react/dist/esm/icons/maximize.mjs";
 export { default as Menu } from "lucide-react/dist/esm/icons/menu.mjs";
 export { default as MessageSquare } from "lucide-react/dist/esm/icons/message-square.mjs";
 export { default as Minimize } from "lucide-react/dist/esm/icons/minimize.mjs";
+export { default as Minus } from "lucide-react/dist/esm/icons/minus.mjs";
 export { default as Monitor } from "lucide-react/dist/esm/icons/monitor.mjs";
 export { default as MonitorSpeaker } from "lucide-react/dist/esm/icons/monitor-speaker.mjs";
 export { default as Moon } from "lucide-react/dist/esm/icons/moon.mjs";
@@ -57,6 +59,7 @@ export { default as NotebookPen } from "lucide-react/dist/esm/icons/notebook-pen
 export { default as OctagonXIcon } from "lucide-react/dist/esm/icons/octagon-x.mjs";
 export { default as Palette } from "lucide-react/dist/esm/icons/palette.mjs";
 export { default as Pencil } from "lucide-react/dist/esm/icons/pencil.mjs";
+export { default as PenLine } from "lucide-react/dist/esm/icons/pen-line.mjs";
 export { default as Play } from "lucide-react/dist/esm/icons/play.mjs";
 export { default as Plus } from "lucide-react/dist/esm/icons/plus.mjs";
 export { default as Presentation } from "lucide-react/dist/esm/icons/presentation.mjs";

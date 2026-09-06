@@ -38,7 +38,8 @@ import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { SearchField } from "../components/ui/search-field";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "../app-types";
-import { baseArxivId } from "../papers/arxiv-id";
+import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
+import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import {
   fromPierrePath,
@@ -1450,7 +1451,7 @@ export function Navigator(props: {
   recentImport?: { query: string; citationKey?: string; arxivId: string } | null;
 }) {
   const { t } = useLingui();
-  const importStep = ["resolving", "fulltext", "overview"].indexOf(props.importStageId ?? "");
+  const importFillRef = usePaperImportProgressFill(props.mode === "papers" && props.importing, props.importStageId);
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const paperViewportRef = useRef<HTMLDivElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();
@@ -1513,6 +1514,12 @@ export function Navigator(props: {
   const activatePaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) props.onPaper(paper);
     else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
+  };
+  const importOrOpenPaper = () => {
+    const id = explicitArxivId(props.importInput);
+    const existing = id ? props.papers.find(paper => baseArxivId(paper.arxivId).toLowerCase() === id) : undefined;
+    if (existing?.hasFullText) props.onPaper(existing);
+    else props.onImport();
   };
   const renderPaperContextMenu = (
     path: string,
@@ -1584,16 +1591,15 @@ export function Navigator(props: {
             }}
             showIcon={false}
             trailing={(
-              <button onClick={props.onImport} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
+              <button onClick={importOrOpenPaper} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
                 {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
               </button>
             )}
           />
           {props.importing && (
             <>
-              <div className="paper-import-track" aria-hidden="true" data-indeterminate={importStep < 0 || undefined}>
-                {/* Stage milestones, not elapsed time; never fill to completion while busy. */}
-                <span style={{ width: importStep < 0 ? "100%" : `${(importStep + 1) * 30}%` }} />
+              <div className="paper-import-track" aria-hidden="true">
+                <span ref={importFillRef} style={{ width: "0%" }} />
               </div>
               <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
                 {props.importStage ?? t`Working…`}

@@ -117,6 +117,20 @@ beforeEach(() => {
 });
 
 describe("Navigator / papers", () => {
+  it("opens an existing arXiv PDF immediately instead of reimporting it", () => {
+    const { props } = renderNavigator({ importInput: "https://arxiv.org/pdf/1706.03762v3" });
+    fireEvent.click(screen.getByTitle("Import paper"));
+    expect(props.onPaper).toHaveBeenCalledWith(attention);
+    expect(props.onImport).not.toHaveBeenCalled();
+  });
+
+  it.each(["https://arxiv.org/pdf/2010.11929", "https://example.org/1706.03762", "A study of 1706.03762"])("does not skip import or missing-text repair for %s", input => {
+    const { props } = renderNavigator({ importInput: input });
+    fireEvent.click(screen.getByTitle("Import paper"));
+    expect(props.onImport).toHaveBeenCalledOnce();
+    expect(props.onPaper).not.toHaveBeenCalled();
+  });
+
   it("lists the whole library until something is typed", () => {
     renderNavigator();
 
@@ -165,7 +179,7 @@ describe("Navigator / papers", () => {
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
   });
 
-  it("shows real stage progress without changing the submitted query", () => {
+  it("starts empty and shows pipeline stages without changing the submitted query", () => {
     const { props, rerenderWith } = renderNavigator({
       importInput: "graph transformers",
       importing: true,
@@ -174,7 +188,7 @@ describe("Navigator / papers", () => {
     });
 
     const fill = () => document.querySelector(".paper-import-track > span");
-    expect(fill()).toHaveStyle({ width: "30%" });
+    expect(fill()).toHaveStyle({ width: "0%" });
     const input = screen.getByRole("searchbox", { name: "Search or import papers" });
     expect(input).toHaveAttribute("aria-busy", "true");
     expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
@@ -185,18 +199,18 @@ describe("Navigator / papers", () => {
     fireEvent.click(screen.getByTitle("Import paper"));
     expect(props.onImport).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
-    for (const [importStageId, importStage, width] of [
-      ["fulltext", "Downloading full text and figures…", "60%"],
-      ["overview", "Fetching the paper overview…", "90%"],
+    for (const [importStageId, importStage] of [
+      ["fulltext", "Downloading full text and figures…"],
+      ["overview", "Fetching the paper overview…"],
     ] as const) {
       rerenderWith({ importStage, importStageId });
       expect(screen.getByRole("status").textContent).toBe(importStage);
-      expect(fill()).toHaveStyle({ width });
+      expect(fill()).toHaveStyle({ width: "0%" });
       expect(input).toHaveValue("graph transformers");
     }
     rerenderWith({ importStage: undefined, importStageId: "future-stage" });
     expect(screen.getByRole("status")).toHaveTextContent("Working…");
-    expect(document.querySelector(".paper-import-track")).toHaveAttribute("data-indeterminate", "true");
+    expect(fill()).not.toHaveStyle({ width: "100%" });
     expect(document.querySelector(".paper-import-step")).toBeNull();
     rerenderWith({ importing: false });
     expect(screen.queryByRole("status")).toBeNull();

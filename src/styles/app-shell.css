@@ -555,9 +555,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   overflow: hidden;
   position: relative;
   background: color-mix(in srgb, var(--control-active) 12%, transparent);
-  transition: width var(--duration-slow) var(--ease-out);
 }
-.paper-import-track[data-indeterminate] > span { background: transparent; }
 .paper-import-track > span::after {
   content: "";
   position: absolute;
@@ -568,6 +566,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 @keyframes paper-import-flow {
   from { transform: translateX(-100%); }
   to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paper-import-track > span::after { animation: none; }
 }
 .papers-section .paper-import-status {
   position: absolute;

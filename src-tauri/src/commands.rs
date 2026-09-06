@@ -38,7 +38,7 @@ pub struct UvTool {
 /// bumped with app releases and `prewarm_literature_tools` rebuilds the
 /// environment right after an update instead of mid-import.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli==0.6.6",
+    requirement: "bibcite-cli==0.6.8",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
@@ -120,6 +120,8 @@ fn configure_bibcite_env(
     command.env_remove("S2_API_KEY");
     command.env_remove("SEMANTIC_SCHOLAR_API_KEY");
     command.env_remove("BIBCITE_MAILTO");
+    command.env_remove("BIBCITE_S2_BATCH_STATUS");
+    command.env_remove("BIBCITE_CORE_SOURCES");
     command.env(
         "BIBCITE_PUBLIC_SERVICE_URL",
         crate::literature_service::ENDPOINT,
@@ -132,6 +134,11 @@ fn configure_bibcite_env(
         // effective value so an inherited alias cannot outrank a saved key.
         command.env("S2_API_KEY", &key);
         command.env("SEMANTIC_SCHOLAR_API_KEY", key);
+    } else {
+        // No-key mode intentionally excludes every S2 route, including the
+        // public service. Unlike an unavailable attempted batch, this does not
+        // taint clean misses from the enabled publication sources.
+        command.env("BIBCITE_S2_BATCH_STATUS", "disabled");
     }
     if let Some(email) = contact {
         command.env("BIBCITE_MAILTO", email);
@@ -568,6 +575,19 @@ mod tests {
             envs["BIBCITE_MAILTO"].as_deref(),
             Some("person@example.org")
         );
+
+        let command = configure_bibcite_env(Command::new("bibcite"), None, None, None);
+        let envs = command
+            .get_envs()
+            .map(|(name, value)| {
+                (
+                    name.to_string_lossy().into_owned(),
+                    value.map(|value| value.to_string_lossy().into_owned()),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(envs["BIBCITE_S2_BATCH_STATUS"].as_deref(), Some("disabled"));
+        assert_eq!(envs["S2_API_KEY"], None);
     }
 
     #[test]

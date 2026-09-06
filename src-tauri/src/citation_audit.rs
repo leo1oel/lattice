@@ -36,6 +36,14 @@ pub struct AuditScan {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct BatchAudit {
+    pub results: Vec<Option<AuditResult>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub s2_failure: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldChange {
     pub field: String,
     pub before: String,
@@ -149,10 +157,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
 
 /// A bounded fast path; None means the original multi-source check is still
 /// required. API misses and malformed records never count as successful checks.
-pub fn check_batch(
-    root: &Path,
-    entries: Vec<AuditEntry>,
-) -> Result<Vec<Option<AuditResult>>, String> {
+pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, String> {
     if entries.len() > crate::citation_batch::BATCH_SIZE {
         return Err("Too many entries in an audit batch.".into());
     }
@@ -161,7 +166,24 @@ pub fn check_batch(
         .map(|entry| batch_id(&entry.bibtex))
         .collect::<Vec<_>>();
     let requested = ids.iter().flatten().cloned().collect::<Vec<_>>();
-    let papers = crate::citation_batch::lookup(&requested)?;
+    let papers = match crate::citation_batch::lookup(&requested) {
+        Ok(papers) => papers,
+        Err(failure) => {
+            return Ok(BatchAudit {
+                results: entries.iter().map(|_| None).collect(),
+                s2_failure: Some(failure.code().into()),
+            })
+        }
+    };
+    let normalized = match normalize_s2_batch(&papers) {
+        Ok(normalized) => normalized,
+        Err(_) => {
+            return Ok(BatchAudit {
+                results: entries.iter().map(|_| None).collect(),
+                s2_failure: Some("malformed".into()),
+            })
+        }
+    };
     let mut results = entries
         .iter()
         .zip(ids)
@@ -177,7 +199,13 @@ pub fn check_batch(
             {
                 return None;
             }
-            batch_comparison(&entry.bibtex, paper)
+            let (bibtex, venue) = normalized.get(&id)?;
+            let mut checked = batch_comparison(&entry.bibtex, paper, bibtex, venue.as_deref())?;
+            checked.sources.push(SourceCheck {
+                source: "semanticscholar".into(),
+                outcome: "selected".into(),
+            });
+            Some(checked)
         })
         .collect::<Vec<_>>();
     let dois = results
@@ -214,7 +242,10 @@ pub fn check_batch(
                 "Metadata may be available, but the citation-health check was incomplete.".into();
         }
     }
-    Ok(results)
+    Ok(BatchAudit {
+        results,
+        s2_failure: None,
+    })
 }
 
 fn batch_id(before: &str) -> Option<String> {
@@ -242,7 +273,12 @@ fn batch_id(before: &str) -> Option<String> {
     Some(format!("ARXIV:{id}"))
 }
 
-fn batch_comparison(before: &str, paper: &crate::citation_batch::Paper) -> Option<AuditResult> {
+fn batch_comparison(
+    before: &str,
+    paper: &crate::citation_batch::Paper,
+    normalized_bibtex: &str,
+    canonical_venue: Option<&str>,
+) -> Option<AuditResult> {
     let local = fields(before);
     if normalize_title(local.get("title")?) != normalize_title(&paper.title) {
         return None;
@@ -257,7 +293,7 @@ fn batch_comparison(before: &str, paper: &crate::citation_batch::Paper) -> Optio
     if !preprint && doi.is_none() {
         return None;
     }
-    let mut remote = paper.citation_styles.as_ref()?.bibtex.trim().to_string();
+    let mut remote = normalized_bibtex.trim().to_string();
     let other = fields(&remote);
     if project::bibliography_entry_spans(&remote).len() != 1
         || !complete_entry(&remote)
@@ -279,22 +315,21 @@ fn batch_comparison(before: &str, paper: &crate::citation_batch::Paper) -> Optio
         );
     }
     if preprint {
-        let venue = paper.venue.as_deref()?.trim().to_ascii_lowercase();
+        let venue = canonical_venue?.trim();
         if venue.is_empty()
             || ["arxiv", "corr", "preprint", "biorxiv", "medrxiv"]
                 .iter()
-                .any(|v| venue.contains(v))
+                .any(|v| venue.to_ascii_lowercase().contains(v))
+            || !["journal", "booktitle"].iter().any(|name| {
+                other
+                    .get(*name)
+                    .is_some_and(|v| normalize_text(v) == normalize_text(venue))
+            })
         {
             return None;
         }
-        if !["journal", "booktitle"].iter().any(|name| {
-            other
-                .get(*name)
-                .is_some_and(|v| normalize_text(v) == normalize_text(&venue))
-        }) {
-            return None;
-        }
         let year = local.get("year")?.parse::<u32>().ok()?;
+        let published_year = other.get("year")?.parse::<u32>().ok()?;
         let author_tokens = |authors: &str| {
             let normalized = normalize_text(authors);
             let mut tokens = normalized
@@ -309,20 +344,108 @@ fn batch_comparison(before: &str, paper: &crate::citation_batch::Paper) -> Optio
             tokens
         };
         let first_author = author_tokens(local.get("author")?);
-        if year.abs_diff(paper.year?) > 2
+        if year.abs_diff(published_year) > 2
             || first_author.is_empty()
             || first_author != author_tokens(other.get("author")?)
         {
             return None;
         }
-        let merged = merge_metadata(before, &remote, true);
-        let after = merged.after?;
+        let after = merge_metadata(before, &remote, true).after?;
         return Some(proposal(before, after, "A published version is available."));
     }
     Some(compare_doi_entry(before, &remote))
 }
 
-pub fn check_entry(root: &Path, request: AuditEntry) -> Result<AuditResult, String> {
+fn normalize_s2_batch(
+    papers: &BTreeMap<String, crate::citation_batch::Paper>,
+) -> Result<BTreeMap<String, (String, Option<String>)>, String> {
+    let mut order = Vec::new();
+    let mut input = String::new();
+    for (id, paper) in papers {
+        let Some(style) = &paper.citation_styles else {
+            continue;
+        };
+        order.push(id.clone());
+        input.push_str(&style.bibtex);
+        input.push('\n');
+        // Normalize the independent venue field too; the generated BibTeX
+        // must agree with it before a preprint can become a publication.
+        let venue = paper.venue.as_deref().unwrap_or("");
+        let venue = if venue.contains(['{', '}', '\\']) {
+            ""
+        } else {
+            venue
+        };
+        input.push_str(&format!(
+            "@misc{{latticeVenue{}, journal = {{{venue}}}, year = {{{}}}}}\n",
+            order.len(),
+            paper.year.unwrap_or(0)
+        ));
+    }
+    if order.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let temp = TempFile::new(&input)?;
+    let output = run_bibcite(&["normalize", temp.path.to_string_lossy().as_ref()], None)?;
+    if !output.status.success() {
+        return Err("bibcite normalization failed".into());
+    }
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|_| "bibcite normalization returned invalid JSON")?;
+    let values = value
+        .get("bibtex")
+        .and_then(|v| v.as_array())
+        .ok_or("bibcite normalization returned no entries")?;
+    let mut cursor = 0;
+    let mut result = BTreeMap::new();
+    for id in order {
+        let bibtex = values
+            .get(cursor)
+            .and_then(|v| v.as_str())
+            .ok_or("missing normalized entry")?
+            .to_string();
+        cursor += 1;
+        let hint = values
+            .get(cursor)
+            .and_then(|v| v.as_str())
+            .ok_or("missing normalized venue")?;
+        cursor += 1;
+        let normalized = fields(hint);
+        let venue = normalized
+            .get("journal")
+            .or_else(|| normalized.get("booktitle"))
+            .cloned();
+        result.insert(id, (bibtex, venue));
+    }
+    if cursor != values.len() {
+        return Err("unexpected normalized entries".into());
+    }
+    Ok(result)
+}
+
+pub fn check_entry(
+    root: &Path,
+    request: AuditEntry,
+    s2_batch_status: Option<&str>,
+) -> Result<AuditResult, String> {
+    if s2_batch_status.is_some_and(|s| {
+        !matches!(
+            s,
+            "checked"
+                | "not_configured"
+                | "queue_busy"
+                | "daily_quota"
+                | "upstream_rate_limit"
+                | "rate_limited"
+                | "unauthorized"
+                | "timeout"
+                | "network"
+                | "malformed"
+                | "unavailable"
+        )
+    }) {
+        return Err("Invalid batch status.".into());
+    }
     let before = match registered_entry(root, &request.path, &request.key)? {
         Some(value) if value == request.bibtex => value,
         Some(value) => {
@@ -350,29 +473,34 @@ pub fn check_entry(root: &Path, request: AuditEntry) -> Result<AuditResult, Stri
         && clean(local.get("pubstate").map(String::as_str).unwrap_or(""))
             .eq_ignore_ascii_case("preprint")
     {
-        return Ok(result(
-            "skipped",
-            "Kept as a preprint because pubstate is explicitly preprint.",
-            before,
+        return Ok(annotate_s2(
+            result(
+                "skipped",
+                "Kept as a preprint because pubstate is explicitly preprint.",
+                before,
+            ),
+            s2_batch_status,
         ));
     }
-    let published_venue = ["journal", "booktitle"].iter().any(|f| {
-        local
-            .get(*f)
-            .is_some_and(|v| !v.trim().is_empty() && !v.to_ascii_lowercase().contains("arxiv"))
-    });
-    if arxiv && !published_venue {
-        return upgrade_preprint(&before);
+    if arxiv {
+        return Ok(annotate_s2(
+            upgrade_preprint(&before, s2_batch_status)?,
+            s2_batch_status,
+        ));
     }
     let Some(doi) = doi else {
-        return Ok(result(
-            "skipped",
-            "No DOI or arXiv identifier is available for an exact check.",
-            before,
+        return Ok(annotate_s2(
+            result(
+                "skipped",
+                "No DOI or arXiv identifier is available for an exact check.",
+                before,
+            ),
+            s2_batch_status,
         ));
     };
     let health = citation_health::lookup(root, [doi.clone()]).remove(&doi);
-    let metadata = run_bibcite(&["get", "--json", &doi], None);
+    let metadata = audit_command(s2_batch_status)
+        .and_then(|command| run_bibcite(&["get", "--json", &doi], Some(command)));
     let mut checked = match metadata.and_then(|o| parse_get_output(&o)) {
         Ok(remote) => compare_doi_entry(&before, &remote),
         Err(error) => result(
@@ -391,7 +519,24 @@ pub fn check_entry(root: &Path, request: AuditEntry) -> Result<AuditResult, Stri
         checked.message =
             "Metadata may be available, but the citation-health check was incomplete.".into();
     }
-    Ok(checked)
+    Ok(annotate_s2(checked, s2_batch_status))
+}
+
+fn annotate_s2(mut result: AuditResult, status: Option<&str>) -> AuditResult {
+    if let Some(status) = status.filter(|status| *status != "checked") {
+        result
+            .sources
+            .retain(|source| source.source != "semanticscholar");
+        result.sources.push(SourceCheck {
+            source: "semanticscholar".into(),
+            outcome: if status == "not_configured" {
+                "not_configured".into()
+            } else {
+                format!("batch_{status}")
+            },
+        });
+    }
+    result
 }
 
 pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> Result<(), String> {
@@ -452,11 +597,31 @@ fn registered_entry(root: &Path, path: &str, key: &str) -> Result<Option<String>
     Ok(matches.first().map(|(_, s, e)| source[*s..*e].to_string()))
 }
 
-fn upgrade_preprint(before: &str) -> Result<AuditResult, String> {
+fn audit_command(s2_batch_status: Option<&str>) -> Result<Command, String> {
+    let mut command = commands::BIBCITE.command()?;
+    if let Some(status) = s2_batch_status {
+        command.env(
+            "BIBCITE_S2_BATCH_STATUS",
+            match status {
+                "checked" => "checked",
+                "not_configured" => "disabled",
+                _ => "unavailable",
+            },
+        );
+    }
+    Ok(command)
+}
+
+fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<AuditResult, String> {
     let temp = TempFile::new(before)?;
     let output = run_bibcite(
-        &["upgrade", temp.path.to_string_lossy().as_ref(), "--no-tidy"],
-        None,
+        &[
+            "upgrade",
+            temp.path.to_string_lossy().as_ref(),
+            "--no-tidy",
+            "--include-published-arxiv",
+        ],
+        Some(audit_command(s2_batch_status)?),
     );
     let output = match output {
         Ok(v) => v,
@@ -521,7 +686,22 @@ fn upgrade_preprint(before: &str) -> Result<AuditResult, String> {
         ));
     }
     let after = after[spans[0].1..spans[0].2].to_string();
-    Ok(proposal(before, after, "A published version is available."))
+    let mut checked = proposal(before, after, "A published version is available.");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    checked.sources = publication_sources(&stderr);
+    if let Some(source) = record.get("source").and_then(|value| value.as_str()) {
+        checked.sources.retain(|row| row.source != source);
+        checked.sources.push(SourceCheck {
+            source: source.into(),
+            outcome: if stderr.lines().any(|line| line.starts_with("[cache] hit:")) {
+                "selected_cached"
+            } else {
+                "selected"
+            }
+            .into(),
+        });
+    }
+    Ok(checked)
 }
 
 fn upgrade_miss(before: &str, record: &serde_json::Value) -> AuditResult {
@@ -552,6 +732,11 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         let Some((source, detail)) = line.strip_prefix('[').and_then(|s| s.split_once("] ")) else {
             continue;
         };
+        let source = if source == "dblp-fuzzy" || source == "dblp-exact" {
+            "dblp"
+        } else {
+            source
+        };
         if !matches!(
             source,
             "dblp" | "semanticscholar" | "googlescholar" | "crossref" | "unpaywall" | "openalex"
@@ -559,11 +744,32 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
             continue;
         }
         let detail = detail.to_ascii_lowercase();
-        let outcome = if detail.contains("captcha") {
+        // Intermediate retry diagnostics aren't final source outcomes.
+        if detail.contains("retrying once") {
+            continue;
+        }
+        let outcome = if detail.contains("publication matched") {
+            "matched"
+        } else if detail.contains("disabled by caller") {
+            "not_configured"
+        } else if detail.contains("batch result reused") {
+            "batch_reused"
+        } else if detail.contains("batch unavailable") {
+            "unavailable"
+        } else if detail.contains("queue_busy") || detail.contains("pacing") {
+            "queue_busy"
+        } else if detail.contains("daily_quota") {
+            "daily_quota"
+        } else if detail.contains("upstream_rate_limit") {
+            "rate_limited"
+        } else if detail.contains("captcha") {
             "blocked"
         } else if detail.contains("429") || detail.contains("rate-limit") {
             "rate_limited"
-        } else if detail.contains("timeout") || detail.contains("timed out") {
+        } else if detail.contains("timeout")
+            || detail.contains("timed out")
+            || detail.contains("budget exhausted")
+        {
             "timeout"
         } else if detail.contains("unreachable")
             || detail.contains("connecterror")
@@ -633,13 +839,6 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
             })
         })
         .collect::<Vec<_>>();
-    if changes.is_empty() {
-        return result(
-            "checked",
-            "DOI metadata matches the citation.",
-            before.into(),
-        );
-    }
     let mut merged = field_expressions(before);
     if local.keys().any(|key| !merged.contains_key(key)) {
         return result(
@@ -660,6 +859,33 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
             }
         }
     }
+    // Mirror bibcite.clean_publication_fields after merging local expressions;
+    // normalizing remote metadata alone cannot remove obsolete local fields.
+    // Keep this in-process so S2 batches don't spawn one CLI per entry.
+    merged.remove("primaryclass");
+    let has_publication = ["journal", "booktitle"].iter().any(|name| {
+        merged.get(*name).is_some_and(|value| {
+            if !value.trim_start().starts_with(['{', '"']) {
+                return false;
+            }
+            let value = clean(value).to_lowercase();
+            !value.is_empty()
+                && !value.contains("arxiv")
+                && !value.contains("preprint")
+                && !value.contains("corr")
+        })
+    });
+    if has_publication
+        && merged
+            .get("pubstate")
+            .is_none_or(|value| !clean(value).eq_ignore_ascii_case("preprint"))
+        && merged.get("howpublished").is_some_and(|value| {
+            let value = value.to_lowercase();
+            value.contains("arxiv") || value.contains("preprint")
+        })
+    {
+        merged.remove("howpublished");
+    }
     let entry_type =
         if published && other.contains_key("booktitle") && !other.contains_key("journal") {
             "inproceedings"
@@ -678,16 +904,7 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
         after.push_str(&format!("  {name} = {value},\n"));
     }
     after.push('}');
-    AuditResult {
-        status: "update".into(),
-        message: "DOI metadata corrections are available.".into(),
-        publication_reason: None,
-        sources: vec![],
-        before: before.into(),
-        after: Some(after),
-        changes,
-        health: None,
-    }
+    proposal(before, after, "DOI metadata corrections are available.")
 }
 
 fn proposal(before: &str, after: String, message: &str) -> AuditResult {
@@ -699,7 +916,7 @@ fn proposal(before: &str, after: String, message: &str) -> AuditResult {
         .cloned()
         .collect::<std::collections::BTreeSet<_>>();
     all.insert("ENTRYTYPE".into());
-    let changes = all
+    let changes: Vec<FieldChange> = all
         .iter()
         .filter_map(|field| {
             let old = a.get(field).map(|v| clean(v)).unwrap_or_default();
@@ -716,6 +933,9 @@ fn proposal(before: &str, after: String, message: &str) -> AuditResult {
             })
         })
         .collect();
+    if changes.is_empty() {
+        return result("checked", "No update found.", before.into());
+    }
     AuditResult {
         status: "update".into(),
         message: message.into(),
@@ -992,6 +1212,13 @@ impl Drop for TempFile {
 mod tests {
     use super::*;
 
+    fn compare_batch(before: &str, paper: &crate::citation_batch::Paper) -> Option<AuditResult> {
+        let bibtex = &paper.citation_styles.as_ref()?.bibtex;
+        let parsed = fields(bibtex);
+        let venue = parsed.get("journal").or_else(|| parsed.get("booktitle"));
+        batch_comparison(before, paper, bibtex, venue.map(String::as_str))
+    }
+
     fn project_root() -> PathBuf {
         let parent =
             std::env::temp_dir().join(format!("lattice-audit-test-{}", uuid::Uuid::new_v4()));
@@ -1007,6 +1234,42 @@ mod tests {
         );
         assert_eq!(normalize_doi("arxiv:1"), None);
     }
+
+    #[test]
+    #[ignore = "requires installed bibcite 0.6.8; normalizes offline without S2 requests"]
+    fn installed_batch_normalizer_preserves_publication_and_venue_identity() {
+        let paper = serde_json::from_value(serde_json::json!({
+            "externalIds": {"ArXiv":"2401.12345", "DOI":"10.1234/published"},
+            "title":"A paper", "venue":"CVPR", "year":2024,
+            "citationStyles":{"bibtex":"@inproceedings{remote, title={A paper}, author={Alice Smith}, year={2024}, booktitle={CVPR}}"}
+        })).unwrap();
+        let mut papers = BTreeMap::from([("ARXIV:2401.12345".into(), paper)]);
+        let normalized = normalize_s2_batch(&papers).unwrap();
+        let (bibtex, venue) = &normalized["ARXIV:2401.12345"];
+        assert_eq!(
+            venue.as_deref(),
+            Some("IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)")
+        );
+        let before = "@article{mine, title={A paper}, author={Alice Smith}, year={2024}, eprint={2401.12345}, journal={arXiv}}";
+        assert!(batch_comparison(
+            before,
+            &papers["ARXIV:2401.12345"],
+            bibtex,
+            venue.as_deref()
+        )
+        .is_some());
+        papers.get_mut("ARXIV:2401.12345").unwrap().venue = Some("ICLR".into());
+        let normalized = normalize_s2_batch(&papers).unwrap();
+        let (bibtex, venue) = &normalized["ARXIV:2401.12345"];
+        assert!(batch_comparison(
+            before,
+            &papers["ARXIV:2401.12345"],
+            bibtex,
+            venue.as_deref()
+        )
+        .is_none());
+    }
+
     #[test]
     fn batch_preprint_upgrade_preserves_key_expressions_and_requires_identity() {
         let before = "@article{mine, title={A paper}, author={Smith, Alice and Jones, Bob}, year={2024}, eprint={2401.12345v2}, journal={arXiv}, month=jan, custom={keep}}";
@@ -1016,19 +1279,14 @@ mod tests {
             "title":"A paper", "venue":"ICML", "year":2024,
             "citationStyles":{"bibtex":"@inproceedings{remote, title={A paper}, author={Alice Smith and Bob Jones}, year={2024}, booktitle={ICML}}"}
         })).unwrap();
-        let checked = batch_comparison(before, &paper).unwrap();
-        assert_eq!(checked.status, "update");
+        let checked = compare_batch(before, &paper).expect("identity safeguards passed");
         let after = checked.after.unwrap();
         assert!(after.starts_with("@inproceedings{mine,"));
         assert!(after.contains("month = jan"));
         assert!(after.contains("custom = {keep}"));
         assert!(after.contains("doi = {10.1234/published}"));
-        assert_eq!(checked.before, before);
         paper.title = "Different paper".into();
-        assert!(batch_comparison(before, &paper).is_none());
-        paper.title = "A paper".into();
-        paper.venue = Some("CoRR".into());
-        assert!(batch_comparison(before, &paper).is_none());
+        assert!(compare_batch(before, &paper).is_none());
     }
 
     #[test]
@@ -1041,15 +1299,12 @@ mod tests {
             "citationStyles":{"bibtex":"@Article{Vaswani2017AttentionIA, author={Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and I. Polosukhin}, booktitle={Neural Information Processing Systems}, pages={5998-6008}, title={Attention is All you Need}, year={2017}}"}
         })).unwrap();
         let before = "@article{vaswani2017, title={Attention Is All You Need}, author={Vaswani, Ashish and Shazeer, Noam}, year={2017}, eprint={1706.03762}, journal={arXiv preprint arXiv:1706.03762}}";
-        let checked = batch_comparison(before, &paper).unwrap();
-        let after = checked.after.unwrap();
-        assert!(after.starts_with("@inproceedings{vaswani2017,"));
-        assert!(!fields(&after).contains_key("journal"));
-        assert!(!fields(&after).contains_key("doi"));
-        assert_eq!(
-            fields(&after)["booktitle"],
-            "Neural Information Processing Systems"
-        );
+        let checked = compare_batch(before, &paper).expect("valid S2 publication retained");
+        assert_eq!(checked.status, "update");
+        assert!(checked
+            .after
+            .unwrap()
+            .starts_with("@inproceedings{vaswani2017,"));
     }
 
     #[test]
@@ -1061,7 +1316,132 @@ mod tests {
             "citationStyles":{"bibtex":"@article{x,title={A paper},doi={10.1234/wrong}}"}
         }))
         .unwrap();
-        assert!(batch_comparison(before, &paper).is_none());
+        assert!(compare_batch(before, &paper).is_none());
+    }
+
+    #[test]
+    fn doi_batch_keeps_normalized_venue_and_metadata_fast_path() {
+        let before = "@inproceedings{mine, title={A paper}, author={A}, year={2024}, booktitle={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, doi={10.1234/a}}";
+        let paper = |bibtex: &str| {
+            serde_json::from_value::<crate::citation_batch::Paper>(serde_json::json!({
+                "externalIds":{"DOI":"10.1234/a"}, "title":"A paper",
+                "citationStyles":{"bibtex":bibtex}
+            }))
+            .unwrap()
+        };
+        let alias = paper("@inproceedings{x, title={A paper}, author={A}, year={2024}, booktitle={2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, doi={10.1234/a}}");
+        assert!(compare_batch(before, &alias).is_some());
+
+        let field_switch = paper("@article{x, title={A paper}, author={A}, year={2024}, journal={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, doi={10.1234/a}}");
+        assert!(compare_batch(before, &field_switch).is_some());
+
+        let metadata = paper("@inproceedings{x, title={A paper}, author={A and B}, year={2024}, booktitle={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, doi={10.1234/a}}");
+        let checked = compare_batch(before, &metadata).expect("unchanged venue stays batched");
+        assert_eq!(checked.status, "update");
+        assert!(checked
+            .changes
+            .iter()
+            .any(|change| change.field == "author"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    #[ignore = "sets a process-wide bibcite override; run this subprocess smoke test alone"]
+    fn native_am_radio_check_preserves_canonical_conference_venue() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Copied verbatim from .tmp/native-vlm-audit/original.bib. The mock is
+        // a local bibcite process, so this exercises check_entry, TempFile,
+        // command setup, upgrade parsing, and proposal merging without network I/O.
+        let before = "@inproceedings{ranzinger2024amradio,\n  archiveprefix = {arXiv},\n  author = {Mike Ranzinger and Greg Heinrich and Jan Kautz and Pavlo Molchanov},\n  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},\n  eprint = {2312.06709},\n  primaryclass = {cs.CV},\n  title = {{AM-RADIO:} Agglomerative Vision Foundation Model Reduce All Domains Into One},\n  url = {https://arxiv.org/abs/2312.06709},\n  year = {2024}\n}";
+        let root = project_root();
+        fs::write(root.join("references.bib"), before).unwrap();
+        let mock = root.parent().unwrap().join("mock-bibcite");
+        fs::write(
+            &mock,
+            "#!/bin/sh\ncat >\"$2\" <<'EOF'\n@inproceedings{ranzinger2024amradio,\n  archiveprefix = {arXiv},\n  author = {Mike Ranzinger and Greg Heinrich and Jan Kautz and Pavlo Molchanov},\n  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},\n  eprint = {2312.06709},\n  pages = {12830--12840},\n  primaryclass = {cs.CV},\n  title = {{AM-RADIO:} Agglomerative Vision Foundation Model Reduce All Domains Into One},\n  url = {https://arxiv.org/abs/2312.06709},\n  year = {2024}\n}\nEOF\nprintf '%s\\n' '{\"entries\":[{\"matched\":true}]}'\n",
+        )
+        .unwrap();
+        fs::set_permissions(&mock, fs::Permissions::from_mode(0o700)).unwrap();
+        unsafe { std::env::set_var("LATTICE_BIBCITE_BIN", &mock) };
+        let checked = check_entry(
+            &root,
+            AuditEntry {
+                path: "references.bib".into(),
+                key: "ranzinger2024amradio".into(),
+                title: "AM-RADIO".into(),
+                bibtex: before.into(),
+                issues: vec![],
+            },
+            None,
+        )
+        .unwrap();
+        unsafe { std::env::remove_var("LATTICE_BIBCITE_BIN") };
+        let after = checked
+            .after
+            .expect("mocked published metadata is proposed");
+        assert_eq!(
+            clean(fields(&after).get("booktitle").unwrap()),
+            "IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)"
+        );
+        assert_eq!(clean(fields(&after).get("pages").unwrap()), "12830--12840");
+        fs::remove_dir_all(root.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn unchanged_publication_has_no_proposal() {
+        let before = "@inproceedings{lora, title={LoRA: Low-Rank Adaptation of Large Language Models}, booktitle={ICLR}, year={2022}}";
+        let checked = proposal(
+            before,
+            before.replace(", ", ",\n  "),
+            "A published version is available.",
+        );
+        assert_eq!(checked.status, "checked");
+        assert!(checked.after.is_none());
+        assert!(checked.changes.is_empty());
+    }
+
+    #[test]
+    fn final_dblp_diagnostics_include_fuzzy_and_ignore_recovered_timeouts() {
+        let failed = publication_sources(
+            "[dblp] no publication found\n[dblp-fuzzy] skipped: DBLP lookup budget exhausted",
+        );
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].outcome, "timeout");
+        let recovered = publication_sources("[dblp-exact] request timed out; retrying once\n[dblp] publication matched\n[semanticscholar] disabled by caller");
+        assert_eq!(recovered[0].outcome, "matched");
+        assert_eq!(recovered[1].outcome, "not_configured");
+    }
+
+    #[test]
+    fn cleanup_only_proposal_preserves_identifiers_and_matches_written_content() {
+        let before = "@inproceedings{paper, title={Paper}, author={A}, year={2024}, booktitle={CVPR}, doi={10.1109/CVPR52733.2024.01187}, eprint={2102.08981}, archiveprefix={arXiv}, primaryclass={cs.CV}, howpublished={arXiv preprint arXiv:2102.08981}}";
+        let checked = compare_doi_entry(before, before);
+        assert_eq!(checked.status, "update");
+        assert_eq!(checked.changes.len(), 2);
+        assert!(checked
+            .changes
+            .iter()
+            .all(
+                |change| ["primaryclass", "howpublished"].contains(&change.field.as_str())
+                    && change.after.is_empty()
+            ));
+        let after = checked.after.unwrap();
+        assert_eq!(fields(&after).get("doi"), fields(before).get("doi"));
+        assert_eq!(fields(&after).get("eprint"), fields(before).get("eprint"));
+        assert_eq!(
+            fields(&after).get("archiveprefix"),
+            fields(before).get("archiveprefix")
+        );
+        let root = project_root();
+        fs::write(root.join("references.bib"), before).unwrap();
+        apply(&root, "references.bib", "paper", before, &after).unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            after
+        );
+        assert_eq!(compare_doi_entry(&after, &after).status, "checked");
+        fs::remove_dir_all(root.parent().unwrap()).unwrap();
     }
 
     #[test]
@@ -1152,6 +1532,26 @@ mod tests {
 
     #[test]
     fn publication_diagnostics_preserve_partial_results_without_raw_errors() {
+        for (detail, expected) in [
+            ("batch result reused", "batch_reused"),
+            ("batch unavailable", "unavailable"),
+            (
+                "disabled: public literature service queue_busy",
+                "queue_busy",
+            ),
+            (
+                "disabled: public literature service daily_quota",
+                "daily_quota",
+            ),
+            (
+                "disabled: public literature service upstream_rate_limit",
+                "rate_limited",
+            ),
+        ] {
+            let sources = publication_sources(&format!("[semanticscholar] {detail}"));
+            assert_eq!(sources.len(), 1);
+            assert_eq!(sources[0].outcome, expected);
+        }
         let sources = publication_sources(concat!(
             "[upgrade] matching: Private title\n",
             "[crossref] no publication found\n",
@@ -1189,6 +1589,26 @@ mod tests {
         assert_eq!(result.status, "unavailable");
     }
 
+    #[test]
+    fn batch_failure_replaces_only_the_s2_diagnostic() {
+        let mut checked = result("unavailable", "Check incomplete", "entry".into());
+        checked.sources = vec![
+            SourceCheck {
+                source: "dblp".into(),
+                outcome: "timeout".into(),
+            },
+            SourceCheck {
+                source: "semanticscholar".into(),
+                outcome: "unavailable".into(),
+            },
+        ];
+        let checked = annotate_s2(checked, Some("upstream_rate_limit"));
+        assert_eq!(checked.sources.len(), 2);
+        assert_eq!(checked.sources[0].source, "dblp");
+        assert_eq!(checked.sources[0].outcome, "timeout");
+        assert_eq!(checked.sources[1].outcome, "batch_upstream_rate_limit");
+    }
+
     /// Explicit opt-in network smoke test: copy a bibliography into a disposable
     /// project and exercise the same scan/check functions as the native commands.
     #[test]
@@ -1208,7 +1628,7 @@ mod tests {
                     .iter()
                     .map(|entry| {
                         let root = &root;
-                        scope.spawn(move || check_entry(root, entry.clone()).unwrap())
+                        scope.spawn(move || check_entry(root, entry.clone(), None).unwrap())
                     })
                     .collect();
                 for task in tasks {

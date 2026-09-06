@@ -1,0 +1,5 @@
+# Codex scans bundled skills independently of Lattice's Settings picker.
+# Keep this opt-in workflow out of its automatic model context; enabling the
+# skill in Settings makes it available for explicit selection instead.
+policy:
+  allow_implicit_invocation: false

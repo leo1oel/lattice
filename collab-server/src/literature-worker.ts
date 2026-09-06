@@ -4,10 +4,8 @@ export interface Env {
   LiteratureBudget: DurableObjectNamespace<LiteratureBudget>;
   LiteratureRateLimiter: RateLimit;
   OPENALEX_API_KEYS?: string;
-  SEMANTIC_SCHOLAR_API_KEY?: string;
   CROSSREF_EMAIL?: string;
   OPENALEX_DAILY_QUOTA?: string;
-  SEMANTIC_SCHOLAR_DAILY_QUOTA?: string;
   CROSSREF_DAILY_QUOTA?: string;
 }
 
@@ -26,7 +24,8 @@ const MAX_CACHE_ENTRIES = 128;
 const PROJECT_URL = "https://github.com/leo1oel/bibcite";
 const HOSTS: Record<Provider, string> = {
   openalex: "api.openalex.org",
-  semanticscholar: "api.semanticscholar.org",
+  // Kept in the request type for old-client compatibility, but never dispatched.
+  semanticscholar: "disabled.invalid",
   crossref: "api.crossref.org",
 };
 const PARAMS: Record<Provider, Set<string>> = {
@@ -41,8 +40,8 @@ class ClientError extends Error {
   }
 }
 
-function jsonError(status: number, error: string): Response {
-  return Response.json({ error }, { status });
+function jsonError(status: number, error: string, code?: string): Response {
+  return Response.json({ error, ...(code ? { code } : {}) }, { status });
 }
 
 async function readBoundedJson(request: Request): Promise<unknown> {
@@ -152,16 +151,16 @@ export function validateQuery(input: unknown): Query {
   } else if (provider === "semanticscholar" && value.path === "/graph/v1/paper/batch") {
     throw new ClientError(400, "batch body required");
   }
+  if (value.purpose !== undefined && (value.purpose !== "audit" || !body)) throw new ClientError(400, "invalid purpose");
   return { provider, path: value.path, params: Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b))), ...(body ? { body } : {}) };
 }
 
 function health(env: Env): Response {
-  let openAlex = false;
-  try {
-    const keys = JSON.parse(env.OPENALEX_API_KEYS ?? "[]");
-    openAlex = Array.isArray(keys) && keys.some((key) => typeof key === "string" && key.length > 0);
-  } catch { /* config remains false */ }
-  return Response.json({ ok: true, configured: { openalex: openAlex, semanticscholar: !!env.SEMANTIC_SCHOLAR_API_KEY, crossref: !!env.CROSSREF_EMAIL } });
+  return Response.json({ ok: true, configured: {
+    openalex: parseKeyPool(env.OPENALEX_API_KEYS).length > 0,
+    semanticscholar: false,
+    crossref: !!env.CROSSREF_EMAIL,
+  } });
 }
 
 export default {
@@ -173,6 +172,9 @@ export default {
       const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
       if (!(await env.LiteratureRateLimiter.limit({ key: ip })).success) return jsonError(429, "rate limit exceeded");
       const query = validateQuery(await readBoundedJson(request));
+      // Semantic Scholar only permits personal client credentials. Reject old
+      // public-fallback clients before they can reach the Durable Object.
+      if (query.provider === "semanticscholar") return jsonError(503, "literature provider is disabled", "provider_disabled");
       const id = env.LiteratureBudget.idFromName("global-v1");
       return await env.LiteratureBudget.get(id).fetch("https://literature.internal/query", {
         method: "POST",
@@ -186,10 +188,29 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-type BudgetState = { day: string; count: number; lastDispatch: number };
+type BudgetState = { day: string; count: number };
+type KeyState = { lastReserved?: number; cooldownUntil?: number };
+type PoolKey = { secret: string; id: string };
+type Reservation = { ok: true; key: PoolKey } | { ok: false; reason: "quota" | "cooldown" };
+
+const DEFAULT_COOLDOWN_MS = 5000;
+const MAX_COOLDOWN_MS = 60_000;
+
+type SharedResponse = { bytes: ArrayBuffer; status: number; headers: Headers };
+
+function parseKeyPool(raw?: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((key): key is string => typeof key === "string" && key.length > 0))]
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 export class LiteratureBudget extends DurableObject<Env> {
-  private readonly inFlight = new Map<string, Promise<Response>>();
+  private readonly inFlight = new Map<string, Promise<SharedResponse>>();
   private readonly cache = new Map<string, { bytes: ArrayBuffer; contentType: string; expiresAt: number }>();
   private cacheBytes = 0;
   private readonly bindings: Env;
@@ -213,12 +234,16 @@ export class LiteratureBudget extends DurableObject<Env> {
         this.cacheBytes -= cached.bytes.byteLength;
       }
       const existing = this.inFlight.get(key);
-      if (existing) return (await existing).clone();
-      if (this.inFlight.size >= 8) return jsonError(429, "literature service busy");
-      const operation = this.dispatch(query, key);
+      if (existing) return await this.responseFor(existing);
+      if (this.inFlight.size >= 40) return jsonError(429, "literature service busy", "queue_busy");
+      // Share immutable data, not a Response stream owned by another request.
+      // Each consumer gets its own body, with no tee/backpressure coupling.
+      const operation = this.dispatch(query, key).then(async (response) => ({
+        bytes: await response.arrayBuffer(), status: response.status, headers: response.headers,
+      }));
       this.inFlight.set(key, operation);
       try {
-        return (await operation).clone();
+        return await this.responseFor(operation);
       } finally {
         this.inFlight.delete(key);
       }
@@ -229,54 +254,90 @@ export class LiteratureBudget extends DurableObject<Env> {
     }
   }
 
+  private async responseFor(operation: Promise<SharedResponse>): Promise<Response> {
+    const { bytes, status, headers } = await operation;
+    return new Response(bytes.slice(0), { status, headers });
+  }
+
   private async cacheKey(query: Query): Promise<string> {
-    const bytes = new TextEncoder().encode(JSON.stringify(query));
+    const bytes = new TextEncoder().encode(JSON.stringify({ provider: query.provider, path: query.path, params: query.params, ...(query.body ? { body: query.body } : {}) }));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
   private quota(provider: Provider): number {
-    const raw = provider === "openalex" ? this.bindings.OPENALEX_DAILY_QUOTA : provider === "semanticscholar" ? this.bindings.SEMANTIC_SCHOLAR_DAILY_QUOTA : this.bindings.CROSSREF_DAILY_QUOTA;
+    const raw = provider === "openalex" ? this.bindings.OPENALEX_DAILY_QUOTA : this.bindings.CROSSREF_DAILY_QUOTA;
     const parsed = Number(raw ?? "5000");
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 5000;
   }
 
-  private async reserve(provider: Provider): Promise<boolean> {
+  private async poolKeys(provider: Provider): Promise<PoolKey[]> {
+    const secrets = provider === "openalex"
+      ? parseKeyPool(this.bindings.OPENALEX_API_KEYS)
+      : provider === "crossref" ? [""] : [];
+    return Promise.all(secrets.map(async (secret) => {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${provider}\0${secret}`));
+      return { secret, id: [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("") };
+    }));
+  }
+
+  private async reserve(provider: Provider, keys: PoolKey[]): Promise<Reservation> {
     return this.ctx.storage.transaction(async (tx) => {
       const now = Date.now();
       const day = new Date(now).toISOString().slice(0, 10);
-      const key = `budget:${provider}`;
-      const current = (await tx.get<BudgetState>(key)) ?? { day, count: 0, lastDispatch: 0 };
-      const state = current.day === day ? current : { day, count: 0, lastDispatch: current.lastDispatch };
-      if (state.count >= this.quota(provider)) return false;
-      if (provider === "semanticscholar" && now - state.lastDispatch < 1100) return false;
-      await tx.put(key, { day, count: state.count + 1, lastDispatch: now });
-      return true;
+      const budgetKey = `budget:${provider}`;
+      const current = (await tx.get<BudgetState>(budgetKey)) ?? { day, count: 0 };
+      const budget = current.day === day ? current : { day, count: 0 };
+      if (budget.count >= this.quota(provider)) return { ok: false, reason: "quota" };
+      const states = await Promise.all(keys.map(async (key) => ({ key, state: (await tx.get<KeyState>(`key:${provider}:${key.id}`)) ?? {} })));
+      const healthy = states.filter(({ state }) => (state.cooldownUntil ?? 0) <= now);
+      if (healthy.length === 0) return { ok: false, reason: "cooldown" };
+      const selected = healthy.reduce((best, item) => (item.state.lastReserved ?? 0) < (best.state.lastReserved ?? 0) ? item : best);
+      await tx.put(budgetKey, { day, count: budget.count + 1 });
+      await tx.put(`key:${provider}:${selected.key.id}`, {
+        ...selected.state,
+        lastReserved: now,
+      });
+      return { ok: true, key: selected.key };
     });
   }
 
-  private async dispatch(query: Query, key: string): Promise<Response> {
-    const secrets: string[] = [];
-    let openAlexKey: string | undefined;
-    if (query.provider === "openalex") {
-      let keys: unknown = [];
-      try { keys = JSON.parse(this.bindings.OPENALEX_API_KEYS ?? "[]"); } catch { /* handled below */ }
-      openAlexKey = Array.isArray(keys) ? keys.find((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0) : undefined;
-      if (!openAlexKey) return jsonError(503, "literature provider is not configured");
-      secrets.push(openAlexKey);
-    } else if (query.provider === "semanticscholar") {
-      if (!this.bindings.SEMANTIC_SCHOLAR_API_KEY) return jsonError(503, "literature provider is not configured");
-      secrets.push(this.bindings.SEMANTIC_SCHOLAR_API_KEY);
+  private async establishCooldown(provider: Provider, key: PoolKey, response: Response): Promise<number> {
+    const now = Date.now();
+    const raw = response.headers.get("retry-after");
+    let duration = DEFAULT_COOLDOWN_MS;
+    if (raw) {
+      const seconds = Number(raw);
+      const parsed = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(raw) - now;
+      if (Number.isFinite(parsed)) duration = Math.max(1000, Math.min(MAX_COOLDOWN_MS, parsed));
     }
-    if (!(await this.reserve(query.provider))) return jsonError(429, "provider budget busy or exhausted");
+    await this.ctx.storage.transaction(async (tx) => {
+      const storageKey = `key:${provider}:${key.id}`;
+      const state = (await tx.get<KeyState>(storageKey)) ?? {};
+      await tx.put(storageKey, { ...state, cooldownUntil: now + duration });
+    });
+    return duration;
+  }
+
+  private async dispatch(query: Query, key: string): Promise<Response> {
+    if (query.provider === "semanticscholar") return jsonError(503, "literature provider is disabled", "provider_disabled");
+    const keys = await this.poolKeys(query.provider);
+    if (keys.length === 0) return jsonError(503, "literature provider is not configured");
+    const reservation = await this.reserve(query.provider, keys);
+    if (!reservation.ok) {
+      if (reservation.reason === "quota") return jsonError(429, "provider daily quota exhausted", "daily_quota");
+      return jsonError(429, "provider rate limited", "upstream_rate_limit");
+    }
+    return this.send(query, key, keys, reservation);
+  }
+
+  private async send(query: Query, cacheKey: string, keys: PoolKey[], reservation: Extract<Reservation, { ok: true }>): Promise<Response> {
     const url = new URL(`https://${HOSTS[query.provider]}${query.path}`);
     for (const [name, value] of Object.entries(query.params)) url.searchParams.set(name, value);
     const contact = this.bindings.CROSSREF_EMAIL ? `mailto:${this.bindings.CROSSREF_EMAIL}` : PROJECT_URL;
     const headers = new Headers({ Accept: "application/json, application/x-bibtex;q=0.9", "User-Agent": `Lattice literature proxy/1.0 (${contact})` });
     if (query.provider === "openalex") {
-      url.searchParams.set("api_key", openAlexKey!);
-    } else if (query.provider === "semanticscholar") {
-      headers.set("x-api-key", this.bindings.SEMANTIC_SCHOLAR_API_KEY!);
+      url.searchParams.set("api_key", reservation.key.secret);
     } else if (query.provider === "crossref" && this.bindings.CROSSREF_EMAIL) {
       url.searchParams.set("mailto", this.bindings.CROSSREF_EMAIL);
     }
@@ -296,29 +357,32 @@ export class LiteratureBudget extends DurableObject<Env> {
     } catch (error) {
       clearTimeout(timeout);
       console.warn("literature fetch failed", query.provider, error instanceof Error ? error.name : "unknown");
-      return jsonError(502, "upstream request failed");
+      return jsonError(502, "upstream request failed", controller.signal.aborted ? "upstream_timeout" : "upstream_network");
     }
     if (!upstream.ok) {
       clearTimeout(timeout);
       console.warn("literature upstream status", query.provider, upstream.status);
       if (upstream.status === 404) return jsonError(404, "not found");
-      if (upstream.status === 429) return jsonError(429, "provider rate limited");
-      if (upstream.status === 401 || upstream.status === 403) return jsonError(503, "literature provider unavailable");
+      if (upstream.status === 429) {
+        await this.establishCooldown(query.provider, reservation.key, upstream);
+        return jsonError(429, "provider rate limited", "upstream_rate_limit");
+      }
+      if (upstream.status === 401 || upstream.status === 403) return jsonError(503, "literature provider unavailable", "provider_unauthorized");
       return jsonError(502, "upstream request failed");
     }
     let bytes: ArrayBuffer;
     try {
       bytes = await this.readUpstream(upstream);
     } catch {
-      return jsonError(502, "upstream response rejected");
+      return jsonError(502, "upstream response rejected", controller.signal.aborted ? "upstream_timeout" : "upstream_malformed");
     } finally {
       clearTimeout(timeout);
     }
     const text = new TextDecoder().decode(bytes);
-    if (secrets.some((secret) => text.includes(secret) || text.includes(encodeURIComponent(secret)))) return jsonError(502, "upstream response rejected");
+    if (keys.some(({ secret }) => secret && (text.includes(secret) || text.includes(encodeURIComponent(secret))))) return jsonError(502, "upstream response rejected", "upstream_malformed");
     const contentType = upstream.headers.get("content-type") ?? "application/json";
     const response = new Response(bytes, { headers: { "content-type": contentType, "cache-control": "no-store" } });
-    this.putCache(key, bytes, contentType);
+    this.putCache(cacheKey, bytes, contentType);
     return response;
   }
 
