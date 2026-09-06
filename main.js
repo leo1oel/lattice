@@ -59,7 +59,7 @@ function stopFormat() {
 function scheduleFormat() {
   clearTimeout(formatTimer);
   if (!formatReady || reducedMotion.matches || document.hidden || manualWheel || stillPreview) return;
-  formatTimer = setTimeout(rotateFormat, 2500);
+  formatTimer = setTimeout(rotateFormat, 1500);
 }
 
 function wheelPose(slot) {
