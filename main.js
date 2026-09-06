@@ -79,7 +79,7 @@ async function rotateFormat(direction = 1, manual = false) {
     if (!reducedMotion.matches) labels.forEach((label) => {
       const slot = Number(label.dataset.slot);
       formatAnimations.push(label.animate([wheelPose(slot), wheelPose(slot - direction)], {
-        duration: manual ? 450 : 800, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
+        duration: manual ? 450 : 650, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards',
       }));
     });
     await Promise.all(formatAnimations.map((animation) => animation.finished));
