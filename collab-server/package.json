@@ -8,7 +8,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "login": "wrangler login",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts && vitest run --config vitest.literature.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

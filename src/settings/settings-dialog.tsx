@@ -57,6 +57,7 @@ import {
   toggleWindowFullscreen,
 } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
+import { LiteratureSettings } from "./literature-settings";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { AppLogsSettings } from "../telemetry/app-log";
@@ -156,6 +157,7 @@ export function SettingsDialog(props: {
       label: t`Integrations`,
       items: [
         { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
+        { tab: "literature", label: t`Literature services`, icon: "api-key" },
       ],
     },
     {
@@ -927,6 +929,7 @@ export function SettingsDialog(props: {
               </div>
             )}
             {props.tab === "logs" && <AppLogsSettings />}
+            {props.tab === "literature" && <LiteratureSettings />}
             {props.tab === "overleaf" && (
               <OverleafSettingsSection
                 projectRoot={props.project?.root ?? null}

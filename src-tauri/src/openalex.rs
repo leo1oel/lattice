@@ -1,6 +1,5 @@
 use crate::models::OpenAlexWork;
 use serde::Deserialize;
-use std::env;
 
 #[derive(Debug, Deserialize)]
 struct WorksResponse {
@@ -50,7 +49,7 @@ pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAle
     }
     let page = page.max(1);
     let select = "id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location";
-    let mut url = if precise {
+    let url = if precise {
         format!(
             "https://api.openalex.org/works?filter=title_and_abstract.search:{}&per_page={PER_PAGE}&page={page}&select={select}",
             urlencoding(trimmed)
@@ -61,21 +60,20 @@ pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAle
             urlencoding(trimmed)
         )
     };
-    if let Ok(key) = env::var("OPENALEX_API_KEY") {
-        if !key.trim().is_empty() {
-            url.push_str("&api_key=");
-            url.push_str(&urlencoding(key.trim()));
-        }
-    }
+    let key = crate::literature_credentials::openalex_key()?;
     let client = reqwest::blocking::Client::builder()
-        .user_agent("Lattice/0.1 (research writing; mailto:lattice@local)")
+        .user_agent("Lattice/0.1 (research writing)")
         .timeout(std::time::Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
-        .map_err(|error| format!("Could not create OpenAlex client: {error}"))?;
-    let response = client
-        .get(&url)
+        .map_err(|_| "Could not create OpenAlex client.".to_string())?;
+    let mut request = crate::literature_service::request(&client, &url, None, key.is_none())?;
+    if let Some(key) = key {
+        request = request.bearer_auth(key);
+    }
+    let response = request
         .send()
-        .map_err(|error| format!("OpenAlex request failed: {error}"))?;
+        .map_err(|_| "OpenAlex request failed.".to_string())?;
     if !response.status().is_success() {
         return Err(format!(
             "OpenAlex returned HTTP {}.",

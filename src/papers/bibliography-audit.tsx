@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
-import { AlertTriangle, Check, ChevronRight, ClipboardCheck, ExternalLink, FileText, Info, Minus, Plus, RotateCcw } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, ClipboardCheck, ExternalLink, FileText, Minus, Plus, RotateCcw } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Badge } from "../components/ui/badge";
@@ -17,6 +17,8 @@ type AuditScan = { entries: AuditEntry[]; issues: { path: string; key?: string; 
 export type AuditResult = {
   status: "checked" | "update" | "unavailable" | "skipped" | "conflict";
   message: string;
+  publicationReason?: string;
+  sources?: { source: string; outcome: string }[];
   before: string;
   after?: string;
   changes: { field: string; before: string; after: string }[];
@@ -58,23 +60,47 @@ export function BibliographyAudit(props: {
       const next = await invoke<AuditScan>("bibliography_audit_scan", { projectRoot: props.projectRoot });
       if (!current()) return;
       setScan(next);
-      let cursor = 0;
-      const worker = async () => {
-        while (current() && !run.current.stop && cursor < next.entries.length) {
-          const index = cursor++;
-          const entry = next.entries[index];
-          let result: AuditResult;
+      let batchAvailable = true;
+      // Twenty keeps cancellation responsive and fits the health-cache refresh
+      // budget. The API supports larger batches; this isn't twenty HTTP calls.
+      for (let start = 0; current() && !run.current.stop && start < next.entries.length; start += 20) {
+        const entries = next.entries.slice(start, start + 20);
+        let batch: (AuditResult | null)[] = entries.map(() => null);
+        if (batchAvailable && entries.length > 1) {
           try {
-            result = await invoke<AuditResult>("bibliography_audit_entry", { projectRoot: props.projectRoot, entry });
-          } catch (reason) {
-            result = { status: "unavailable", message: String(reason), before: entry.bibtex, changes: [] };
+            const response = await invoke<(AuditResult | null)[]>("bibliography_audit_batch", { projectRoot: props.projectRoot, entries });
+            if (response.length !== entries.length) throw new Error();
+            batch = response;
+          } catch {
+            // A failed source gets no more batch requests during this audit.
+            // Preserve the existing multi-source checks for unresolved entries.
+            batchAvailable = false;
           }
-          if (current()) setResults(previous => ({ ...previous, [index]: result }));
         }
-      };
-      // Two entries at once; each provider retains its own timeout and cache.
-      // Cancel drains those requests but never schedules the rest of the queue.
-      await Promise.all([worker(), worker()]);
+        if (!current()) return;
+        setResults(previous => {
+          const updated = { ...previous };
+          batch.forEach((value, offset) => { if (value) updated[start + offset] = value; });
+          return updated;
+        });
+        let cursor = 0;
+        const worker = async () => {
+          while (current() && !run.current.stop && cursor < entries.length) {
+            const offset = cursor++;
+            if (batch[offset]) continue;
+            const entry = entries[offset];
+            let result: AuditResult;
+            try {
+              result = await invoke<AuditResult>("bibliography_audit_entry", { projectRoot: props.projectRoot, entry });
+            } catch (reason) {
+              result = { status: "unavailable", message: String(reason), before: entry.bibtex, changes: [] };
+            }
+            if (current()) setResults(previous => ({ ...previous, [start + offset]: result }));
+          }
+        };
+        // Cancellation drains the active group; no further group is scheduled.
+        await Promise.all([worker(), worker()]);
+      }
     } catch (reason) {
       if (current()) setError(String(reason));
     } finally {
@@ -103,7 +129,7 @@ export function BibliographyAudit(props: {
   const total = scan?.entries.length ?? 0;
   const statusLabel = (result?: AuditResult) => !result ? t`Not checked`
     : result.status === "update" ? t`Update available`
-      : result.status === "unavailable" ? t`Check incomplete`
+      : result.status === "unavailable" ? result.publicationReason ? t`Published version not confirmed` : t`Check incomplete`
         : result.status === "skipped" ? t`Not verified`
           : result.status === "conflict" ? t`Entry changed`
             : t`No update found`;
@@ -111,6 +137,21 @@ export function BibliographyAudit(props: {
     title: t`Title`, author: t`Authors`, year: t`Year`, journal: t`Journal`,
     booktitle: t`Booktitle`, publisher: t`Publisher`, volume: t`Volume`,
     number: t`Number`, pages: t`Pages`, doi: "DOI", url: t`URL`,
+  };
+  const publicationMessage = (result: AuditResult) => !result.publicationReason ? result.message
+    : result.publicationReason === "no_published_version" ? t`No published version was found in the sources checked.`
+      : result.publicationReason === "sources_unavailable" ? t`Some sources could not complete the lookup. This does not mean the reference is incorrect.`
+        : result.publicationReason === "ambiguous" || result.publicationReason === "identity_conflict" ? t`The results did not identify a unique matching publication.`
+          : t`The publication lookup could not be completed. Try again later.`;
+  const sourceNames: Record<string, string> = {
+    dblp: t`DBLP`, semanticscholar: t`Semantic Scholar`, googlescholar: t`Google Scholar`,
+    crossref: t`Crossref`, unpaywall: t`Unpaywall`, openalex: t`OpenAlex`,
+  };
+  const sourceOutcomes: Record<string, string> = {
+    no_match: t`No published version found`, rate_limited: t`Rate limited`,
+    blocked: t`Requests blocked`, timeout: t`Request timed out`,
+    connection_failed: t`Connection failed`, server_error: t`Source service error`,
+    unavailable: t`Source unavailable`,
   };
   return <ResizableDrawer className="bibliography-audit" ariaLabel={t`Check references`} onClose={props.onClose}>
     <PanelHeader className="drawer-header" icon={<ClipboardCheck size={16} />} title={t`Check references`} titleAfter={scan && <Badge>{total}</Badge>} onClose={props.onClose} />
@@ -163,7 +204,13 @@ export function BibliographyAudit(props: {
         </div>}
         {result && <details className="bibliography-audit-details">
           <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Details`}</summary>
-          <p>{result.message}</p>
+          <p>{publicationMessage(result)}</p>
+          {!!result.sources?.length && <dl className="bibliography-audit-sources">
+            {result.sources.map(source => <div key={source.source}>
+              <dt>{sourceNames[source.source] ?? source.source}</dt>
+              <dd>{sourceOutcomes[source.outcome] ?? t`Source unavailable`}</dd>
+            </div>)}
+          </dl>}
           {health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={health.checkedAt}>{new Date(health.checkedAt).toLocaleString(i18n.locale)}</time>{health.stale ? ` · ${t`Stale result`}` : ""}</p>}
         </details>}
         {result?.after && <details className="bibliography-audit-changes">
@@ -181,6 +228,5 @@ export function BibliographyAudit(props: {
     })}
     </div>
     </ScrollArea>
-    <p className="bibliography-audit-disclaimer"><Info size={13} aria-hidden="true" /><span>{t`Results reflect available sources and cached records, not a guarantee that a reference is correct or current.`}</span></p>
   </ResizableDrawer>;
 }

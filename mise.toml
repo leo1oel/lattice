@@ -118,7 +118,9 @@ sources = [
   "protocol/**",
   "collab-server/tsconfig.json",
   "collab-server/vitest.config.ts",
+  "collab-server/vitest.literature.config.ts",
   "collab-server/wrangler.jsonc",
+  "collab-server/wrangler.literature.jsonc",
   "collab-server/package.json",
   "collab-server/pnpm-lock.yaml",
 ]

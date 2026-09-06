@@ -1,0 +1,26 @@
+{
+  "name": "lattice-literature",
+  "main": "src/literature-worker.ts",
+  "compatibility_date": "2026-08-06",
+  "workers_dev": true,
+  "ratelimits": [
+    {
+      "name": "LiteratureRateLimiter",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "LiteratureBudget", "class_name": "LiteratureBudget" }
+    ]
+  },
+  "migrations": [
+    { "tag": "literature-v1", "new_sqlite_classes": ["LiteratureBudget"] }
+  ],
+  "vars": {
+    "OPENALEX_DAILY_QUOTA": "5000",
+    "SEMANTIC_SCHOLAR_DAILY_QUOTA": "5000",
+    "CROSSREF_DAILY_QUOTA": "5000"
+  }
+}

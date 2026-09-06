@@ -254,6 +254,10 @@ msgstr "Accept"
 msgid "Accept all ({0})"
 msgstr "Accept all ({0})"
 
+#: src/settings/literature-settings.tsx
+msgid "Access denied. Check the key and its permissions."
+msgstr "Access denied. Check the key and its permissions."
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Accordion"
 msgstr "Accordion"
@@ -433,6 +437,10 @@ msgstr "Anonymous"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/settings/literature-settings.tsx
+msgid "API key"
+msgstr "API key"
 
 #: src/settings/settings-dialog.tsx
 msgid "App updates"
@@ -1196,12 +1204,25 @@ msgid "Connection"
 msgstr "Connection"
 
 #: src/collab/collab-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Connection failed"
 msgstr "Connection failed"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
 msgstr "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
+
+#: src/settings/literature-settings.tsx
+msgid "Connection succeeded with the key. Testing does not save it."
+msgstr "Connection succeeded with the key. Testing does not save it."
+
+#: src/settings/literature-settings.tsx
+msgid "Contact email"
+msgstr "Contact email"
+
+#: src/settings/literature-settings.tsx
+msgid "Contact settings saved."
+msgstr "Contact settings saved."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Contains as member"
@@ -1262,6 +1283,10 @@ msgstr "Correction/update"
 msgid "Could not change Overleaf sync"
 msgstr "Could not change Overleaf sync"
 
+#: src/settings/literature-settings.tsx
+msgid "Could not complete this action. Check your input and system keychain access."
+msgstr "Could not complete this action. Check your input and system keychain access."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
@@ -1277,6 +1302,10 @@ msgstr "Could not open the article in your browser"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
+
+#: src/settings/literature-settings.tsx
+msgid "Could not read the system keychain. Reopen these settings to try again."
+msgstr "Could not read the system keychain. Reopen these settings to try again."
 
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
@@ -1331,6 +1360,10 @@ msgstr "Creating an invite…"
 msgid "Cross-reference label"
 msgstr "Cross-reference label"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Crossref"
+msgstr "Crossref"
+
 #: src/project/navigator.tsx
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref citation-health metadata is currently unavailable"
@@ -1370,6 +1403,10 @@ msgstr "Dark"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Data"
 msgstr "Data"
+
+#: src/papers/bibliography-audit.tsx
+msgid "DBLP"
+msgstr "DBLP"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1783,6 +1820,10 @@ msgstr "English"
 msgid "Enter a page number"
 msgstr "Enter a page number"
 
+#: src/settings/literature-settings.tsx
+msgid "Enter a replacement key"
+msgstr "Enter a replacement key"
+
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -2040,6 +2081,10 @@ msgstr "Gather*"
 msgid "General"
 msgstr "General"
 
+#: src/settings/literature-settings.tsx
+msgid "Get API key"
+msgstr "Get API key"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Get the gist before you dive in"
 msgstr "Get the gist before you dive in"
@@ -2097,6 +2142,10 @@ msgstr "Go to section or label…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "Go to symbol"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Google Scholar"
+msgstr "Google Scholar"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Grave accent example"
@@ -2588,6 +2637,14 @@ msgstr "Keeps both sides identical. Overleaf's own history still has the file if
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
 
+#: src/settings/literature-settings.tsx
+msgid "Key saved in the system keychain."
+msgstr "Key saved in the system keychain."
+
+#: src/settings/literature-settings.tsx
+msgid "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
+msgstr "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
 msgstr "Label"
@@ -2787,6 +2844,11 @@ msgstr "Link to a page or external URL."
 msgid "Literal code / text block"
 msgstr "Literal code / text block"
 
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-dialog.tsx
+msgid "Literature services"
+msgstr "Literature services"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live · {count} other"
 msgstr "Live · {count} other"
@@ -2884,6 +2946,7 @@ msgid "Loading your Overleaf projects…"
 msgstr "Loading your Overleaf projects…"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/settings/literature-settings.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -3079,6 +3142,10 @@ msgstr "Name this version"
 msgid "Name this version…"
 msgstr "Name this version…"
 
+#: src/settings/literature-settings.tsx
+msgid "name@example.org"
+msgstr "name@example.org"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Natural"
 msgstr "Natural"
@@ -3250,6 +3317,14 @@ msgstr "No projects in this account yet. Create one on Overleaf and it will appe
 #: src/overleaf/overleaf-connect.tsx
 msgid "No projects match your search"
 msgstr "No projects match your search"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No published version found"
+msgstr "No published version found"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No published version was found in the sources checked."
+msgstr "No published version was found in the sources checked."
 
 #: src/App.tsx
 msgid "No readable paper content is available."
@@ -3529,6 +3604,11 @@ msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials sta
 msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 msgstr "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 
+#: src/papers/bibliography-audit.tsx
+#: src/settings/literature-settings.tsx
+msgid "OpenAlex"
+msgstr "OpenAlex"
+
 #: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex search"
@@ -3666,6 +3746,10 @@ msgstr "Paste clipboard image as figure"
 msgid "Paste the full invite from Copy invite"
 msgstr "Paste the full invite from Copy invite"
 
+#: src/settings/literature-settings.tsx
+msgid "Paste your API key"
+msgstr "Paste your API key"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Pause syncing"
 msgstr "Pause syncing"
@@ -3721,6 +3805,10 @@ msgstr "Percent"
 #: src/editor/insert/insert-snippets.ts
 msgid "Perpendicular"
 msgstr "Perpendicular"
+
+#: src/settings/literature-settings.tsx
+msgid "Personal key saved"
+msgstr "Personal key saved"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Phi"
@@ -3932,6 +4020,18 @@ msgstr "Providers"
 msgid "Psi"
 msgstr "Psi"
 
+#: src/settings/literature-settings.tsx
+msgid "Public access · no key"
+msgstr "Public access · no key"
+
+#: src/settings/literature-settings.tsx
+msgid "Public API connection succeeded."
+msgstr "Public API connection succeeded."
+
+#: src/papers/bibliography-audit.tsx
+msgid "Published version not confirmed"
+msgstr "Published version not confirmed"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/navigator.tsx
@@ -3958,6 +4058,10 @@ msgstr "Quote"
 #: src/editor/insert/insert-snippets.ts
 msgid "Radical"
 msgstr "Radical"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Rate limited"
+msgstr "Rate limited"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
@@ -4084,6 +4188,10 @@ msgstr "Remove citations too"
 msgid "Remove entry"
 msgstr "Remove entry"
 
+#: src/settings/literature-settings.tsx
+msgid "Remove key"
+msgstr "Remove key"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "Remove one file from the Overleaf project?"
@@ -4194,6 +4302,14 @@ msgstr "Reply to {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "Reply…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request timed out"
+msgstr "Request timed out"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Requests blocked"
+msgstr "Requests blocked"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -4349,10 +4465,6 @@ msgstr "Restored {path}."
 msgid "Restoring the conversation surface…"
 msgstr "Restoring the conversation surface…"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
-msgstr "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
 msgstr "Resume syncing"
@@ -4480,6 +4592,7 @@ msgstr "Runs on-device; no text leaves this Mac"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "Save"
 
@@ -4522,6 +4635,10 @@ msgstr "Save the current workspace before opening it in the desktop app."
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "Save version"
+
+#: src/settings/literature-settings.tsx
+msgid "Saved key removed."
+msgstr "Saved key removed."
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -4612,6 +4729,11 @@ msgstr "Select PDF to read the original PDF in Lattice, or use the external-link
 msgid "Select this record"
 msgstr "Select this record"
 
+#: src/papers/bibliography-audit.tsx
+#: src/settings/literature-settings.tsx
+msgid "Semantic Scholar"
+msgstr "Semantic Scholar"
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
 msgstr "Send message"
@@ -4619,6 +4741,10 @@ msgstr "Send message"
 #: src/collab/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
 msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
+
+#: src/settings/literature-settings.tsx
+msgid "Sent to Crossref to use its polite pool. No API key is needed."
+msgstr "Sent to Crossref to use its polite pool. No API key is needed."
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Separator"
@@ -4767,6 +4893,10 @@ msgstr "Small section heading."
 msgid "Smile relation"
 msgstr "Smile relation"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
+msgstr "Some sources could not complete the lookup. This does not mean the reference is incorrect."
+
 #: src/overleaf/use-overleaf-chat.ts
 msgid "Someone"
 msgstr "Someone"
@@ -4778,6 +4908,14 @@ msgstr "Source + PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source service error"
+msgstr "Source service error"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source unavailable"
+msgstr "Source unavailable"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Source:"
@@ -5066,6 +5204,10 @@ msgstr "Tau"
 msgid "Terms Harper should accept in this project"
 msgstr "Terms Harper should accept in this project"
 
+#: src/settings/literature-settings.tsx
+msgid "Test connection"
+msgstr "Test connection"
+
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX doctor"
@@ -5118,9 +5260,17 @@ msgstr "The preview is editable too"
 msgid "The project or its permissions changed. Check references again."
 msgstr "The project or its permissions changed. Check references again."
 
+#: src/papers/bibliography-audit.tsx
+msgid "The publication lookup could not be completed. Try again later."
+msgstr "The publication lookup could not be completed. Try again later."
+
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "The required tools"
+
+#: src/papers/bibliography-audit.tsx
+msgid "The results did not identify a unique matching publication."
+msgstr "The results did not identify a unique matching publication."
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
@@ -5134,6 +5284,14 @@ msgstr "The same conversation as the chat panel in {projectName} on Overleaf. Me
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
+
+#: src/settings/literature-settings.tsx
+msgid "The service could not be reached. No retry was made."
+msgstr "The service could not be reached. No retry was made."
+
+#: src/settings/literature-settings.tsx
+msgid "The service is rate-limiting requests. No retry was made."
+msgstr "The service is rate-limiting requests. No retry was made."
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -5412,6 +5570,10 @@ msgstr "Unnumbered single-line equation"
 msgid "Unordered list of items."
 msgstr "Unordered list of items."
 
+#: src/papers/bibliography-audit.tsx
+msgid "Unpaywall"
+msgstr "Unpaywall"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
@@ -5529,6 +5691,14 @@ msgstr "Use the Build button or Command-S. Source changes are still saved automa
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
 msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
+
+#: src/settings/literature-settings.tsx
+msgid "Use your own API quota for paper searches, imports, and citation checks."
+msgstr "Use your own API quota for paper searches, imports, and citation checks."
+
+#: src/settings/literature-settings.tsx
+msgid "Using environment key"
+msgstr "Using environment key"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"

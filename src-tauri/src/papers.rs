@@ -1742,6 +1742,7 @@ pub(crate) fn upgrade_bibliography_with_history(
     }
     let output = command
         .output()
+        .map(|output| commands::redact_bibcite_output(&command, output))
         .map_err(|e| uv_tool_spawn_error("bibcite", &e))?;
     ensure_success("bibcite", &output)?;
     let report = serde_json::from_slice(&output.stdout)
@@ -2041,6 +2042,7 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
         .arg(path)
         .arg(query)
         .output()
+        .map(|output| commands::redact_bibcite_output(&command, output))
         .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite", &output)?;
     let report = String::from_utf8(output.stdout).map_err(err)?;
@@ -2060,6 +2062,7 @@ fn run_bibcite_remove(path: &PathBuf, key: &str) -> Result<(), String> {
         .arg(path)
         .arg(key)
         .output()
+        .map(|output| commands::redact_bibcite_output(&command, output))
         .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite", &output)?;
     serde_json::from_slice::<Value>(&output.stdout)
@@ -2073,6 +2076,7 @@ fn run_bibcite_tidy(path: &Path) -> Result<(), String> {
         .arg("tidy")
         .arg(path)
         .output()
+        .map(|output| commands::redact_bibcite_output(&command, output))
         .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
     ensure_success("bibcite tidy", &output)
 }

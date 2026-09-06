@@ -2,6 +2,7 @@ mod alphaxiv;
 mod browser_host;
 mod chromium;
 mod citation_audit;
+mod citation_batch;
 mod citation_health;
 mod collab_credentials;
 mod commands;
@@ -15,6 +16,8 @@ mod harper;
 mod latex;
 mod link_preview;
 mod literature;
+mod literature_credentials;
+mod literature_service;
 #[cfg(target_os = "macos")]
 mod macos_window;
 mod models;
@@ -1681,6 +1684,20 @@ async fn bibliography_audit_scan(
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit scan", move || {
         citation_audit::scan(&root)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_batch(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    entries: Vec<citation_audit::AuditEntry>,
+) -> Result<Vec<Option<citation_audit::AuditResult>>, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    run_blocking("Bibliography audit batch", move || {
+        citation_audit::check_batch(&root, entries)
     })
     .await
 }
@@ -4448,6 +4465,10 @@ pub fn run() {
             collab_credentials::put_collab_credential,
             collab_credentials::get_collab_credential,
             collab_credentials::delete_collab_credential,
+            literature_credentials::get_literature_credentials,
+            literature_credentials::set_literature_credential,
+            literature_credentials::set_literature_contact,
+            literature_credentials::test_literature_credential,
             create_project,
             open_tutorial_project,
             get_app_log_dir,
@@ -4508,6 +4529,7 @@ pub fn run() {
             macos_window::set_pdf_copy_text,
             resolve_citation_query,
             bibliography_audit_scan,
+            bibliography_audit_batch,
             bibliography_audit_entry,
             bibliography_audit_apply,
             read_project_asset,

@@ -254,6 +254,10 @@ msgstr "接受"
 msgid "Accept all ({0})"
 msgstr "全部接受（{0}）"
 
+#: src/settings/literature-settings.tsx
+msgid "Access denied. Check the key and its permissions."
+msgstr "访问被拒绝，请检查密钥及其权限。"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Accordion"
 msgstr "折叠面板"
@@ -433,6 +437,10 @@ msgstr "匿名"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "此项目中的另一个文件"
+
+#: src/settings/literature-settings.tsx
+msgid "API key"
+msgstr "API 密钥"
 
 #: src/settings/settings-dialog.tsx
 msgid "App updates"
@@ -1196,12 +1204,25 @@ msgid "Connection"
 msgstr "连接"
 
 #: src/collab/collab-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Connection failed"
 msgstr "连接失败"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
 msgstr "无法获取连接状态。此项目仍关联到 {linkedHost}；请在上方重新检查连接"
+
+#: src/settings/literature-settings.tsx
+msgid "Connection succeeded with the key. Testing does not save it."
+msgstr "已使用密钥连接成功。测试不会保存密钥。"
+
+#: src/settings/literature-settings.tsx
+msgid "Contact email"
+msgstr "联系邮箱"
+
+#: src/settings/literature-settings.tsx
+msgid "Contact settings saved."
+msgstr "联系邮箱设置已保存。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Contains as member"
@@ -1262,6 +1283,10 @@ msgstr "更正/更新"
 msgid "Could not change Overleaf sync"
 msgstr "无法更改 Overleaf 同步设置"
 
+#: src/settings/literature-settings.tsx
+msgid "Could not complete this action. Check your input and system keychain access."
+msgstr "操作未完成，请检查输入内容及系统钥匙串访问权限。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not disconnect from Overleaf"
 msgstr "无法断开与 Overleaf 的连接"
@@ -1277,6 +1302,10 @@ msgstr "无法在浏览器中打开文章"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not open the Overleaf project"
 msgstr "无法打开该 Overleaf 项目"
+
+#: src/settings/literature-settings.tsx
+msgid "Could not read the system keychain. Reopen these settings to try again."
+msgstr "无法读取系统钥匙串，请重新打开此设置页面。"
 
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
@@ -1331,6 +1360,10 @@ msgstr "正在创建邀请…"
 msgid "Cross-reference label"
 msgstr "交叉引用标签"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Crossref"
+msgstr "Crossref"
+
 #: src/project/navigator.tsx
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref 引用状态元数据当前不可用"
@@ -1370,6 +1403,10 @@ msgstr "深色"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Data"
 msgstr "数据"
+
+#: src/papers/bibliography-audit.tsx
+msgid "DBLP"
+msgstr "DBLP"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1783,6 +1820,10 @@ msgstr "英文"
 msgid "Enter a page number"
 msgstr "输入页码"
 
+#: src/settings/literature-settings.tsx
+msgid "Enter a replacement key"
+msgstr "输入新密钥以替换"
+
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -2040,6 +2081,10 @@ msgstr "居中公式组*"
 msgid "General"
 msgstr "通用"
 
+#: src/settings/literature-settings.tsx
+msgid "Get API key"
+msgstr "申请密钥"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Get the gist before you dive in"
 msgstr "深入阅读前先了解要点"
@@ -2097,6 +2142,10 @@ msgstr "跳转到章节或标签…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "跳转到符号"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Google Scholar"
+msgstr "Google Scholar"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Grave accent example"
@@ -2588,6 +2637,14 @@ msgstr "保持两边完全一致。如果删错了，Overleaf 自己的历史记
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "已在 {path} 中用冲突标记保留重叠的外部编辑。"
 
+#: src/settings/literature-settings.tsx
+msgid "Key saved in the system keychain."
+msgstr "密钥已保存到系统钥匙串。"
+
+#: src/settings/literature-settings.tsx
+msgid "Keys stay in your system keychain, not in the project. Without a saved or environment key, requests use public access and its limits."
+msgstr "密钥保存在系统钥匙串中，不会写入项目。未配置个人密钥或环境变量时，将使用公共访问额度。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
 msgstr "标签"
@@ -2787,6 +2844,11 @@ msgstr "链接到页面或外部 URL。"
 msgid "Literal code / text block"
 msgstr "原样代码 / 文本块"
 
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-dialog.tsx
+msgid "Literature services"
+msgstr "文献服务"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live · {count} other"
 msgstr "实时 · 另有 {count} 人"
@@ -2884,6 +2946,7 @@ msgid "Loading your Overleaf projects…"
 msgstr "正在加载你的 Overleaf 项目…"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/settings/literature-settings.tsx
 msgid "Loading…"
 msgstr "正在加载…"
 
@@ -3079,6 +3142,10 @@ msgstr "为这个版本命名"
 msgid "Name this version…"
 msgstr "为这个版本命名…"
 
+#: src/settings/literature-settings.tsx
+msgid "name@example.org"
+msgstr "name@example.org"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Natural"
 msgstr "还原号"
@@ -3250,6 +3317,14 @@ msgstr "此账户下还没有项目。在 Overleaf 上创建一个，它就会�
 #: src/overleaf/overleaf-connect.tsx
 msgid "No projects match your search"
 msgstr "没有项目符合你的搜索条件"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No published version found"
+msgstr "未找到发表版本"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No published version was found in the sources checked."
+msgstr "已查询的来源中未找到正式发表版本。"
 
 #: src/App.tsx
 msgid "No readable paper content is available."
@@ -3529,6 +3604,11 @@ msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留
 msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 msgstr "在默认浏览器中打开此工作区。关闭浏览器标签页后，工作区会自动返回此窗口"
 
+#: src/papers/bibliography-audit.tsx
+#: src/settings/literature-settings.tsx
+msgid "OpenAlex"
+msgstr "OpenAlex"
+
 #: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
@@ -3666,6 +3746,10 @@ msgstr "将剪贴板图像粘贴为插图"
 msgid "Paste the full invite from Copy invite"
 msgstr "粘贴通过“复制邀请”获得的完整邀请"
 
+#: src/settings/literature-settings.tsx
+msgid "Paste your API key"
+msgstr "粘贴你的 API 密钥"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Pause syncing"
 msgstr "暂停同步"
@@ -3721,6 +3805,10 @@ msgstr "百分号"
 #: src/editor/insert/insert-snippets.ts
 msgid "Perpendicular"
 msgstr "垂直"
+
+#: src/settings/literature-settings.tsx
+msgid "Personal key saved"
+msgstr "已配置个人密钥"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Phi"
@@ -3932,6 +4020,18 @@ msgstr "模型"
 msgid "Psi"
 msgstr "普西"
 
+#: src/settings/literature-settings.tsx
+msgid "Public access · no key"
+msgstr "公共访问 · 未配置密钥"
+
+#: src/settings/literature-settings.tsx
+msgid "Public API connection succeeded."
+msgstr "公共 API 连接成功。"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Published version not confirmed"
+msgstr "暂时无法确认发表版本"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/navigator.tsx
@@ -3958,6 +4058,10 @@ msgstr "引文"
 #: src/editor/insert/insert-snippets.ts
 msgid "Radical"
 msgstr "根号"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Rate limited"
+msgstr "请求被限流"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Read the full paper here"
@@ -4082,6 +4186,10 @@ msgstr "同时移除引用"
 msgid "Remove entry"
 msgstr "移除条目"
 
+#: src/settings/literature-settings.tsx
+msgid "Remove key"
+msgstr "移除密钥"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "从 Overleaf 项目中删除 1 个文件？"
@@ -4192,6 +4300,14 @@ msgstr "回复 {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "回复…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Request timed out"
+msgstr "请求超时"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Requests blocked"
+msgstr "请求被拦截"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
@@ -4347,10 +4463,6 @@ msgstr "已恢复 {path}。"
 msgid "Restoring the conversation surface…"
 msgstr "正在恢复对话界面…"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Results reflect available sources and cached records, not a guarantee that a reference is correct or current."
-msgstr "结果基于可用来源和缓存记录，不能保证引用完全正确或已是最新。"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
 msgstr "恢复同步"
@@ -4478,6 +4590,7 @@ msgstr "在本机运行，文本不外传"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "保存"
 
@@ -4520,6 +4633,10 @@ msgstr "请先保存当前工作区，再在桌面应用中打开。"
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "保存版本"
+
+#: src/settings/literature-settings.tsx
+msgid "Saved key removed."
+msgstr "已移除保存的密钥。"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -4610,6 +4727,11 @@ msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边�
 msgid "Select this record"
 msgstr "选择此记录"
 
+#: src/papers/bibliography-audit.tsx
+#: src/settings/literature-settings.tsx
+msgid "Semantic Scholar"
+msgstr "Semantic Scholar"
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "Send message"
 msgstr "发送消息"
@@ -4617,6 +4739,10 @@ msgstr "发送消息"
 #: src/collab/collab-dialog.tsx
 msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
 msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹"
+
+#: src/settings/literature-settings.tsx
+msgid "Sent to Crossref to use its polite pool. No API key is needed."
+msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Separator"
@@ -4765,6 +4891,10 @@ msgstr "用于小节的小标题。"
 msgid "Smile relation"
 msgstr "上弧关系"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
+msgstr "部分来源未能完成查询，并不表示这条引用有误。"
+
 #: src/overleaf/use-overleaf-chat.ts
 msgid "Someone"
 msgstr "某位协作者"
@@ -4776,6 +4906,14 @@ msgstr "源码 + PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"
 msgstr "PDF 中的源位置"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source service error"
+msgstr "来源服务异常"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source unavailable"
+msgstr "来源暂不可用"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Source:"
@@ -5062,6 +5200,10 @@ msgstr "陶"
 msgid "Terms Harper should accept in this project"
 msgstr "Harper 在此项目中应接受的术语"
 
+#: src/settings/literature-settings.tsx
+msgid "Test connection"
+msgstr "测试连接"
+
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX 诊断"
@@ -5114,9 +5256,17 @@ msgstr "预览也可以编辑"
 msgid "The project or its permissions changed. Check references again."
 msgstr "项目或权限已变更，请重新检查引用。"
 
+#: src/papers/bibliography-audit.tsx
+msgid "The publication lookup could not be completed. Try again later."
+msgstr "发表版本查询未完成，请稍后重试。"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "所需工具"
+
+#: src/papers/bibliography-audit.tsx
+msgid "The results did not identify a unique matching publication."
+msgstr "查询结果未能确定唯一匹配的发表版本。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
@@ -5130,6 +5280,14 @@ msgstr "这里显示与 Overleaf 中 {projectName} 项目的聊天面板相同�
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
+
+#: src/settings/literature-settings.tsx
+msgid "The service could not be reached. No retry was made."
+msgstr "暂时无法连接服务，未自动重试。"
+
+#: src/settings/literature-settings.tsx
+msgid "The service is rate-limiting requests. No retry was made."
+msgstr "服务正在限流，未自动重试。"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -5408,6 +5566,10 @@ msgstr "不编号的单行公式"
 msgid "Unordered list of items."
 msgstr "无序项目列表。"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Unpaywall"
+msgstr "Unpaywall"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "未解决"
@@ -5525,6 +5687,14 @@ msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
 msgstr "在无限画布中绘制图表、箭头和手写笔记。每个形状都可以编辑"
+
+#: src/settings/literature-settings.tsx
+msgid "Use your own API quota for paper searches, imports, and citation checks."
+msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
+
+#: src/settings/literature-settings.tsx
+msgid "Using environment key"
+msgstr "正在使用环境变量密钥"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"

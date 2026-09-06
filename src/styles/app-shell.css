@@ -531,22 +531,58 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   height: var(--navigation-search-height);
 }
 .papers-section .paper-import-control { position: relative; }
-/* Keep the submitted query intact; temporarily show the real stage over it. */
+.papers-section .paper-import-control[data-importing] .import-box {
+  border-color: color-mix(in srgb, var(--control-active) 35%, var(--border-subtle));
+}
 .papers-section .import-box .ui-search-field-input[aria-busy="true"] {
   color: transparent;
   caret-color: transparent;
 }
+.papers-section .paper-import-control[data-importing] .ui-search-field-trailing {
+  position: relative;
+  z-index: 1;
+}
+.papers-section .paper-import-track {
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--search-control-radius) - 1px);
+  overflow: hidden;
+  pointer-events: none;
+}
+.paper-import-track > span {
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  background: color-mix(in srgb, var(--control-active) 12%, transparent);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+.paper-import-track[data-indeterminate] > span { background: transparent; }
+.paper-import-track > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--control-active) 8%, transparent), transparent);
+  animation: paper-import-flow 2.4s ease-in-out infinite;
+}
+@keyframes paper-import-flow {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paper-import-track > span::after { animation: none !important; }
+  .paper-import-track > span { transition: none; }
+}
 .papers-section .paper-import-status {
   position: absolute;
   inset-block: 0;
-  inset-inline: var(--search-control-padding-inline) var(--space-10);
-  display: block;
+  inset-inline: var(--search-control-padding-inline) var(--space-16);
   align-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: var(--navigation-search-font-size);
   line-height: var(--navigation-search-line-height);
   font-weight: var(--navigation-search-font-weight);

@@ -2594,7 +2594,7 @@ pub(crate) fn normalize_doi(value: &str) -> Option<String> {
 
 /// arXiv preprints reach a .bib in several shapes. Extract them all here so
 /// every bibliography consumer sees the same identifier.
-fn bibliography_arxiv_id(fields: &BTreeMap<String, String>) -> Option<String> {
+pub(crate) fn bibliography_arxiv_id(fields: &BTreeMap<String, String>) -> Option<String> {
     let pattern = Regex::new(
         r"(?ix)(?:
             ^\s* |
@@ -3317,6 +3317,7 @@ fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
     command
         .args(["get", "--json", query])
         .output()
+        .map(|output| commands::redact_bibcite_output(&command, output))
         .map_err(|error| crate::papers::uv_tool_spawn_error("bibcite", &error))
 }
 

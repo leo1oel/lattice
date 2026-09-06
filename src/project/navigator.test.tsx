@@ -165,13 +165,16 @@ describe("Navigator / papers", () => {
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
   });
 
-  it("shows real stages inside the input without changing the submitted query", () => {
+  it("shows real stage progress without changing the submitted query", () => {
     const { props, rerenderWith } = renderNavigator({
       importInput: "graph transformers",
       importing: true,
       importStage: "Resolving citation metadata…",
+      importStageId: "resolving",
     });
 
+    const fill = () => document.querySelector(".paper-import-track > span");
+    expect(fill()).toHaveStyle({ width: "30%" });
     const input = screen.getByRole("searchbox", { name: "Search or import papers" });
     expect(input).toHaveAttribute("aria-busy", "true");
     expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
@@ -182,15 +185,22 @@ describe("Navigator / papers", () => {
     fireEvent.click(screen.getByTitle("Import paper"));
     expect(props.onImport).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
-    for (const importStage of ["Downloading full text and figures…", "Fetching the paper overview…"]) {
-      rerenderWith({ importStage });
-      expect(screen.getByRole("status")).toHaveTextContent(importStage);
+    for (const [importStageId, importStage, width] of [
+      ["fulltext", "Downloading full text and figures…", "60%"],
+      ["overview", "Fetching the paper overview…", "90%"],
+    ] as const) {
+      rerenderWith({ importStage, importStageId });
+      expect(screen.getByRole("status").textContent).toBe(importStage);
+      expect(fill()).toHaveStyle({ width });
       expect(input).toHaveValue("graph transformers");
     }
-    rerenderWith({ importStage: undefined });
+    rerenderWith({ importStage: undefined, importStageId: "future-stage" });
     expect(screen.getByRole("status")).toHaveTextContent("Working…");
+    expect(document.querySelector(".paper-import-track")).toHaveAttribute("data-indeterminate", "true");
+    expect(document.querySelector(".paper-import-step")).toBeNull();
     rerenderWith({ importing: false });
     expect(screen.queryByRole("status")).toBeNull();
+    expect(fill()).toBeNull();
     expect(input).not.toHaveAttribute("readonly");
     expect(input).not.toHaveAttribute("aria-describedby");
     expect(input).toHaveValue("graph transformers");

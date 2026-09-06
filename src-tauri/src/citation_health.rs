@@ -15,7 +15,6 @@ const MAX_REFRESH_PER_SCAN: usize = 24;
 const MAX_CACHE_ENTRIES: usize = 512;
 const MAX_CONCURRENT_REQUESTS: usize = 4;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
-const USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
 
 /// A single, bounded summary of Crossref update metadata for one exact DOI.
 /// `kind` is intentionally small and stable while `update_type` preserves the
@@ -65,6 +64,15 @@ fn lookup_with_base(
     dois: impl IntoIterator<Item = String>,
     base_url: &str,
 ) -> BTreeMap<String, CitationHealth> {
+    lookup_with_base_and_contact(root, dois, base_url, None)
+}
+
+fn lookup_with_base_and_contact(
+    root: &Path,
+    dois: impl IntoIterator<Item = String>,
+    base_url: &str,
+    contact_override: Option<Option<String>>,
+) -> BTreeMap<String, CitationHealth> {
     let dois = dois.into_iter().collect::<BTreeSet<_>>();
     if dois.is_empty() {
         return BTreeMap::new();
@@ -89,7 +97,7 @@ fn lookup_with_base(
         .cloned()
         .collect::<Vec<_>>();
 
-    let fetched = fetch_parallel(&stale, base_url);
+    let fetched = fetch_parallel(&stale, base_url, contact_override);
     for doi in stale {
         match fetched.get(&doi) {
             Some(Ok(health)) => {
@@ -146,13 +154,32 @@ fn lookup_with_base(
 fn fetch_parallel(
     dois: &[String],
     base_url: &str,
+    contact_override: Option<Option<String>>,
 ) -> BTreeMap<String, Result<CitationHealth, String>> {
     if dois.is_empty() {
         return BTreeMap::new();
     }
+    let contact = match contact_override
+        .map(Ok)
+        .unwrap_or_else(crate::literature_credentials::crossref_contact)
+    {
+        Ok(contact) => contact,
+        Err(error) => {
+            return dois
+                .iter()
+                .cloned()
+                .map(|doi| (doi, Err(error.clone())))
+                .collect()
+        }
+    };
+    let user_agent = contact
+        .as_ref()
+        .map(|email| format!("Lattice/0.1 (research writing; mailto:{email})"))
+        .unwrap_or_else(|| "Lattice/0.1 (research writing)".to_string());
     let client = match reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
+        .user_agent(user_agent)
         .timeout(REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
     {
         Ok(client) => client,
@@ -170,9 +197,10 @@ fn fetch_parallel(
         for worker in 0..worker_count {
             let client = &client;
             let output = &output;
+            let contact = contact.as_deref();
             scope.spawn(move || {
                 for doi in dois.iter().skip(worker).step_by(worker_count) {
-                    let result = fetch_one(client, base_url, doi);
+                    let result = fetch_one(client, base_url, doi, contact);
                     output.lock().unwrap().insert(doi.clone(), result);
                 }
             });
@@ -185,15 +213,22 @@ fn fetch_one(
     client: &reqwest::blocking::Client,
     base_url: &str,
     doi: &str,
+    contact: Option<&str>,
 ) -> Result<CitationHealth, String> {
     // `updates` asks for update notices whose update-to target is this DOI.
     // That target is checked again while parsing: titles and search ranking
     // are never used to infer citation health.
-    let url = format!(
-        "{base_url}?filter=updates:{}&rows=20&select=DOI,URL,update-to&mailto=lattice%40local",
+    let mut url = format!(
+        "{base_url}?filter=updates:{}&rows=20&select=DOI,URL,update-to",
         crate::openalex::urlencoding(doi)
     );
-    let response = client.get(url).send().map_err(|error| error.to_string())?;
+    if let Some(email) = contact {
+        url.push_str("&mailto=");
+        url.push_str(&crate::openalex::urlencoding(email));
+    }
+    let response = crate::literature_service::request(client, &url, None, contact.is_none())?
+        .send()
+        .map_err(|_| "request unavailable".to_string())?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }
@@ -422,6 +457,7 @@ mod tests {
                 .unwrap()
                 .unwrap();
             assert!(request.url().contains("filter=updates:10.1234%2Fexample"));
+            assert!(request.url().contains("mailto=person%40example.org"));
             request
                 .respond(tiny_http::Response::from_string(fixture).with_header(
                     tiny_http::Header::from_bytes(b"Content-Type", b"application/json").unwrap(),
@@ -430,7 +466,12 @@ mod tests {
         });
         let root = std::env::temp_dir().join(format!("lattice-health-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
-        let online = lookup_with_base(&root, ["10.1234/example".to_string()], &endpoint);
+        let online = lookup_with_base_and_contact(
+            &root,
+            ["10.1234/example".to_string()],
+            &endpoint,
+            Some(Some("person@example.org".into())),
+        );
         responder.join().unwrap();
         assert_eq!(online["10.1234/example"].kind, "retracted");
         assert!(root.join(CACHE_PATH).is_file());

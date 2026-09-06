@@ -38,7 +38,7 @@ pub struct UvTool {
 /// bumped with app releases and `prewarm_literature_tools` rebuilds the
 /// environment right after an update instead of mid-import.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli==0.6.3",
+    requirement: "bibcite-cli==0.6.6",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
@@ -62,12 +62,19 @@ pub const ARXIV_SOURCE2MD: UvTool = UvTool {
 impl UvTool {
     /// A command that runs this tool's exact, app-tested requirement.
     pub fn command(&self) -> Result<Command, String> {
-        if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
-            let mut command = Command::new(path);
-            command.env("PATH", child_path());
-            return Ok(command);
+        let command =
+            if let Some(path) = env::var_os(self.override_env).filter(|value| !value.is_empty()) {
+                let mut command = Command::new(path);
+                command.env("PATH", child_path());
+                command
+            } else {
+                self.uvx_command()?
+            };
+        if self.binary == BIBCITE.binary {
+            configure_bibcite(command)
+        } else {
+            Ok(command)
         }
-        self.uvx_command()
     }
 
     fn uvx_command(&self) -> Result<Command, String> {
@@ -91,6 +98,77 @@ impl UvTool {
     }
 }
 
+fn configure_bibcite(command: Command) -> Result<Command, String> {
+    let openalex = crate::literature_credentials::openalex_key()?;
+    let semanticscholar = crate::literature_credentials::semanticscholar_key()?;
+    let contact = crate::literature_credentials::crossref_contact()?;
+    Ok(configure_bibcite_env(
+        command,
+        openalex,
+        semanticscholar,
+        contact,
+    ))
+}
+
+fn configure_bibcite_env(
+    mut command: Command,
+    openalex: Option<String>,
+    semanticscholar: Option<String>,
+    contact: Option<String>,
+) -> Command {
+    command.env_remove("OPENALEX_API_KEY");
+    command.env_remove("S2_API_KEY");
+    command.env_remove("SEMANTIC_SCHOLAR_API_KEY");
+    command.env_remove("BIBCITE_MAILTO");
+    command.env(
+        "BIBCITE_PUBLIC_SERVICE_URL",
+        crate::literature_service::ENDPOINT,
+    );
+    if let Some(key) = openalex {
+        command.env("OPENALEX_API_KEY", key);
+    }
+    if let Some(key) = semanticscholar {
+        // bibcite versions have recognized both names. Set both from the one
+        // effective value so an inherited alias cannot outrank a saved key.
+        command.env("S2_API_KEY", &key);
+        command.env("SEMANTIC_SCHOLAR_API_KEY", key);
+    }
+    if let Some(email) = contact {
+        command.env("BIBCITE_MAILTO", email);
+    }
+    command
+}
+
+/// Capture the command's actual keys, not the current vault (which a user may
+/// have changed while this process ran). httpx can echo query-string keys in
+/// errors; neither output stream may carry them into reports or app logs.
+pub(crate) fn redact_bibcite_output(
+    command: &Command,
+    mut output: std::process::Output,
+) -> std::process::Output {
+    for (name, value) in command.get_envs() {
+        if !matches!(
+            name.to_str(),
+            Some("OPENALEX_API_KEY" | "S2_API_KEY" | "SEMANTIC_SCHOLAR_API_KEY")
+        ) {
+            continue;
+        }
+        let Some(secret) = value.and_then(|v| v.to_str()).filter(|v| !v.is_empty()) else {
+            continue;
+        };
+        let encoded = crate::openalex::urlencoding(secret);
+        let json = serde_json::to_string(secret).unwrap_or_default();
+        for stream in [&mut output.stdout, &mut output.stderr] {
+            let mut text = String::from_utf8_lossy(stream).into_owned();
+            for variant in [encoded.as_str(), json.trim_matches('"'), secret] {
+                text = text.replace(variant, "[redacted]");
+            }
+            *stream = text.into_bytes();
+        }
+    }
+    output
+}
+
 /// Build (or confirm) the cached environments for the literature tools so
 /// the first import after install or update does not pay the download-and-
 /// build cost while the user watches a spinner. Runs `--help` because it is
@@ -104,6 +182,7 @@ pub fn prewarm_literature_tools() {
             command
                 .arg("--help")
                 .output()
+                .map(|output| redact_bibcite_output(&command, output))
                 .map_err(|error| error.to_string())
         });
         match result {
@@ -456,6 +535,39 @@ mod tests {
             "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@e19b6f6961a3df772cb6728548a7a872d438d775"
         );
         assert_eq!(ARXIV_SOURCE2MD.requirement, "arxiv-md==0.1.0");
+    }
+
+    #[test]
+    fn bibcite_receives_one_effective_value_for_both_semantic_scholar_aliases() {
+        let command = configure_bibcite_env(
+            Command::new("bibcite"),
+            Some("openalex-saved".into()),
+            Some("semantic-saved".into()),
+            Some("person@example.org".into()),
+        );
+        let envs = command
+            .get_envs()
+            .map(|(name, value)| {
+                (
+                    name.to_string_lossy().into_owned(),
+                    value.map(|value| value.to_string_lossy().into_owned()),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(envs["OPENALEX_API_KEY"].as_deref(), Some("openalex-saved"));
+        assert_eq!(
+            envs["BIBCITE_PUBLIC_SERVICE_URL"].as_deref(),
+            Some(crate::literature_service::ENDPOINT)
+        );
+        assert_eq!(envs["S2_API_KEY"].as_deref(), Some("semantic-saved"));
+        assert_eq!(
+            envs["SEMANTIC_SCHOLAR_API_KEY"].as_deref(),
+            Some("semantic-saved")
+        );
+        assert_eq!(
+            envs["BIBCITE_MAILTO"].as_deref(),
+            Some("person@example.org")
+        );
     }
 
     #[test]

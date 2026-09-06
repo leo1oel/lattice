@@ -1,0 +1,16 @@
+.literature-settings > .ui-inline-message {
+  margin-block-end: var(--space-5);
+}
+
+.literature-credential-form {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-2) var(--space-4);
+}
+
+.literature-credential-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

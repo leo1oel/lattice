@@ -9693,6 +9693,7 @@ function App() {
               importInput={importInput}
               recentImport={recentPaperImport?.projectRoot === project.root ? recentPaperImport : null}
               importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
+              importStageId={paperImportStage}
               setImportInput={setImportInput}
               onImport={importPaper}
               importing={importing}

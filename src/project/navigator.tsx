@@ -1446,9 +1446,11 @@ export function Navigator(props: {
   importing: boolean;
   /** Human-readable pipeline stage while an import or fetch is running. */
   importStage?: string | null;
+  importStageId?: string | null;
   recentImport?: { query: string; citationKey?: string; arxivId: string } | null;
 }) {
   const { t } = useLingui();
+  const importStep = ["resolving", "fulltext", "overview"].indexOf(props.importStageId ?? "");
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const paperViewportRef = useRef<HTMLDivElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();
@@ -1560,7 +1562,7 @@ export function Navigator(props: {
         />
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
-        <div className="paper-import-control">
+        <div className="paper-import-control" data-importing={props.importing || undefined}>
           <SearchField
             ref={paperImportRef}
             aria-label={t`Search or import papers`}
@@ -1588,9 +1590,15 @@ export function Navigator(props: {
             )}
           />
           {props.importing && (
-            <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
-              {props.importStage ?? t`Working…`}
-            </span>
+            <>
+              <div className="paper-import-track" aria-hidden="true" data-indeterminate={importStep < 0 || undefined}>
+                {/* Stage milestones, not elapsed time; never fill to completion while busy. */}
+                <span style={{ width: importStep < 0 ? "100%" : `${(importStep + 1) * 30}%` }} />
+              </div>
+              <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
+                {props.importStage ?? t`Working…`}
+              </span>
+            </>
           )}
         </div>
         <ScrollArea
