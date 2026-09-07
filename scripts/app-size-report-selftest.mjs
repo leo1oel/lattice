@@ -129,7 +129,7 @@ await checkAppSizeBudgets(workspace, {
   ...report,
   synaraNodeRuntime: "electron",
   bundledNodeBytes: null,
-  synaraRuntimeBytes: 175 * 1024 * 1024,
+  synaraRuntimeBytes: 200 * 1024 * 1024,
   claudeAgentSdkExecutables: [],
 });
 await assert.rejects(
@@ -137,7 +137,7 @@ await assert.rejects(
     ...report,
     synaraNodeRuntime: "electron",
     bundledNodeBytes: null,
-    synaraRuntimeBytes: 175 * 1024 * 1024 + 1,
+    synaraRuntimeBytes: 200 * 1024 * 1024 + 1,
     claudeAgentSdkExecutables: [],
   }),
   /macOS Synara runtime.*budget/,

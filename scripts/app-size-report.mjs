@@ -166,9 +166,10 @@ const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const MACOS_SYNARA_RUNTIME_BUDGET_BYTES = 250 * 1024 * 1024;
-// Synara 0.8.3 requires additional external provider dependencies. The signed
-// Electron-backed runtime measured 166.6 MiB; retain a bounded 175 MiB budget.
-const MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES = 175 * 1024 * 1024;
+// Synara 0.8.3 requires additional external provider dependencies. The fully
+// signed Electron-backed runtime measured 186.6 MiB: codesign materializes
+// npm's hardlinked esbuild copies, so unsigned-cache totals undercount it.
+const MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES = 200 * 1024 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 125 * 1024 * 1024;
 const CHROMIUM_RUNTIME_BUDGET_BYTES = 275 * 1024 * 1024;
 
