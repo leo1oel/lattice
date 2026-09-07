@@ -119,5 +119,7 @@ eviction of unpinned clean clients; pin names in `src/collab/collab-text-v2.ts`:
   comment-heavy style of tricky modules (collab, App.tsx effects).
 - Follow existing patterns for Tauri `listen()` cleanup (disposed-flag +
   unlisten race) and generation guards on async loads.
+- Before publishing a Synara pin change, follow `docs/synara-runtime.md` and run `node scripts/check-synara-upgrade.mjs <previous-lattice-ref>` with the pre-upgrade Lattice ref.
+  Preserve intended dirty/untracked fixes from the previous source checkout in the fork, and run the Lattice embed browser regressions; a clean upstream merge or successful build does not prove those behaviors survived.
 - Version is bumped in lockstep across package.json / tauri.conf.json /
   Cargo.toml / Cargo.lock by `scripts/bump-version.mjs` only.

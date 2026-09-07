@@ -245,6 +245,11 @@ constraint.
 
 ## Syncing upstream
 
+Before switching source checkouts, inspect `git status` in the checkout currently used by Lattice, including an explicit `SYNARA_SOURCE_DIR` override.
+The pinned revision does not include uncommitted local patches or untracked regression tests.
+Inventory those changes and preserve any intended fixes in the fork's history before moving the pin; do not silently discard or assume they were included in the upstream merge.
+Keep the previous checkout available until the upgrade audit passes.
+
 1. Fetch and merge the intended upstream release tag into **the branch named by `branch` in [`../scripts/synara-runtime.json`](../scripts/synara-runtime.json)**.
    The branch moves with each upstream version, so read it from the pin rather than from memory; older branches such as `codex/lattice-embed` still exist in the fork and are not what ships.
    Do not rewrite branch history.
@@ -257,9 +262,23 @@ constraint.
    upstream's frequently land in the same function, and conflict-block boundaries are often
    asymmetric, so a blanket `--theirs` can silently duplicate a function body.
 4. Run `oxfmt --check`, then the workspace type checks, then the tests.
+   Before changing the pin, run the Lattice browser regressions from the fork root (subject to the fork's `AGENTS.md` verification permissions):
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t 'embedded sidebar'
+   bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx
+   ```
+   The sidebar checks must cover widening and shrinking the same mounted view, loaded and loading model controls, and history/attachment minimums.
+   Verify minimum-width reports against rendered geometry; unused toolbar space must remain compressible, without clipping the send control.
+   Keep these regressions with the fork changes through merges; successful compilation alone does not verify Lattice's embedding behavior.
 5. Start the staged server while another process owns port 3773; confirm it selects another
    loopback port and reports `startupReady`.
-6. Push the fork commit and update the exact revision in `scripts/synara-runtime.json`.
+6. Commit the intended fork changes and update the exact revision in the local `scripts/synara-runtime.json`.
+   Before publishing it, run `node scripts/check-synara-upgrade.mjs <previous-lattice-ref>`, using the Lattice commit or release tag from before the upgrade.
+   The audit rejects dirty or untracked files in either checkout, a pin/HEAD mismatch, and missing ancestry from both the previous pin and the previous checkout's local HEAD.
+   It requires full fork history and local access to the old checkout; it deliberately does not fetch, commit, discard, or publish anything.
+   `SYNARA_SOURCE_DIR` overrides the new source location; if the old source also used an override, audit that directory manually before switching.
+   This is a local pre-publication check, not a replacement for browser regressions or a CI check that can see uncommitted files on another machine.
+   Push the verified fork commit before publishing the Lattice pin.
 7. Run `pnpm prepare:synara` and the Lattice frontend/Rust checks before producing an installer.
 
 ### Formatting must match upstream
