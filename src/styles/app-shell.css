@@ -567,9 +567,6 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   from { transform: translateX(-100%); }
   to { transform: translateX(100%); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .paper-import-track > span::after { animation: none; }
-}
 .papers-section .paper-import-status {
   position: absolute;
   inset-block: 0;
