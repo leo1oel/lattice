@@ -1,11 +1,47 @@
 use crate::citation_health::CitationHealth;
+use crate::project_fs::ProjectDir;
 use crate::{citation_health, commands, project};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
+
+const REPORT_DIRECTORY: &str = "bibliography-audits";
+
+fn report_relative_path(root: &Path) -> Result<String, String> {
+    let canonical = root.canonicalize().map_err(|error| error.to_string())?;
+    let digest = Sha256::digest(canonical.to_string_lossy().as_bytes());
+    Ok(format!("{REPORT_DIRECTORY}/v1-{digest:x}.json"))
+}
+
+pub fn load_report(
+    data_dir: &Path,
+    root: &Path,
+) -> Result<Option<Vec<(String, serde_json::Value)>>, String> {
+    let path = data_dir.join(report_relative_path(root)?);
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    };
+    serde_json::from_slice(&bytes)
+        .map(Some)
+        .map_err(|error| format!("The saved bibliography audit report is malformed: {error}"))
+}
+
+pub fn save_report(
+    data_dir: &Path,
+    root: &Path,
+    report: Vec<(String, serde_json::Value)>,
+) -> Result<(), String> {
+    let relative = report_relative_path(root)?;
+    let bytes = serde_json::to_vec(&report).map_err(|error| error.to_string())?;
+    fs::create_dir_all(data_dir).map_err(|error| error.to_string())?;
+    ProjectDir::open(data_dir)?.atomic_write(&relative, &bytes)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1224,6 +1260,52 @@ mod tests {
             std::env::temp_dir().join(format!("lattice-audit-test-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         project::create_blank(&parent, "Audit").unwrap()
+    }
+
+    #[test]
+    fn persisted_reports_are_project_scoped_and_preserve_unknown_fields() {
+        let root = project_root();
+        let parent = root.parent().unwrap();
+        let other_root = project::create_blank(parent, "Other").unwrap();
+        let data_dir = parent.join("app-data");
+        let report = vec![(
+            "citation-key".to_string(),
+            serde_json::json!({
+                "status": "checked",
+                "checkedAt": "2026-09-07T12:00:00Z",
+                "futureField": {"preserved": true}
+            }),
+        )];
+
+        assert_eq!(load_report(&data_dir, &root).unwrap(), None);
+        save_report(&data_dir, &root, report.clone()).unwrap();
+        assert_eq!(load_report(&data_dir, &root).unwrap(), Some(report));
+        assert_eq!(
+            load_report(&data_dir, &root.join(".")).unwrap().unwrap()[0].1["checkedAt"],
+            "2026-09-07T12:00:00Z"
+        );
+        assert_eq!(load_report(&data_dir, &other_root).unwrap(), None);
+
+        save_report(&data_dir, &other_root, Vec::new()).unwrap();
+        assert_eq!(
+            load_report(&data_dir, &other_root).unwrap(),
+            Some(Vec::new())
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn malformed_persisted_report_returns_an_error() {
+        let root = project_root();
+        let parent = root.parent().unwrap();
+        let data_dir = parent.join("app-data");
+        let relative = report_relative_path(&root).unwrap();
+        fs::create_dir_all(data_dir.join(REPORT_DIRECTORY)).unwrap();
+        fs::write(data_dir.join(relative), b"{not a report").unwrap();
+
+        let error = load_report(&data_dir, &root).unwrap_err();
+        assert!(error.contains("malformed"), "{error}");
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]

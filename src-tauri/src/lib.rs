@@ -1689,6 +1689,43 @@ async fn bibliography_audit_scan(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_report_load(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<Option<Vec<(String, serde_json::Value)>>, String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    run_blocking("Bibliography audit report load", move || {
+        citation_audit::load_report(&data_dir, &root)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn bibliography_audit_report_save(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    report: Vec<(String, serde_json::Value)>,
+) -> Result<(), String> {
+    let root = scoped_root(&state, &window, &project_root)?;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    run_blocking("Bibliography audit report save", move || {
+        citation_audit::save_report(&data_dir, &root, report)
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_batch(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
@@ -4530,6 +4567,8 @@ pub fn run() {
             macos_window::set_pdf_copy_text,
             resolve_citation_query,
             bibliography_audit_scan,
+            bibliography_audit_report_load,
+            bibliography_audit_report_save,
             bibliography_audit_batch,
             bibliography_audit_entry,
             bibliography_audit_apply,

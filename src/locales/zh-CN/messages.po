@@ -2581,6 +2581,10 @@ msgstr "界面音效"
 msgid "Intersection"
 msgstr "交集"
 
+#: src/papers/bibliography-audit-storage.ts
+msgid "Invalid saved bibliography audit report."
+msgstr "已保存的参考文献审查报告格式无效。"
+
 #: src/collab/collab-dialog.tsx
 msgid "Invite link"
 msgstr "邀请链接"

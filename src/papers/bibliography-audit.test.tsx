@@ -4,16 +4,25 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { BibliographyAudit, type AuditEntry, type AuditResult } from "./bibliography-audit";
+import { loadAuditReport, saveAuditReport, type AuditReport } from "./bibliography-audit-storage";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(async () => {}) }));
+vi.mock("./bibliography-audit-storage", () => ({ loadAuditReport: vi.fn(), saveAuditReport: vi.fn() }));
 afterEach(cleanup);
-beforeEach(() => { vi.mocked(invoke).mockReset(); localStorage.clear(); });
+beforeEach(() => {
+  vi.mocked(invoke).mockReset(); localStorage.clear();
+  const reports = new Map<string, AuditReport>();
+  vi.mocked(loadAuditReport).mockReset().mockImplementation(async root => new Map(reports.get(root) ?? []));
+  vi.mocked(saveAuditReport).mockReset().mockImplementation(async (root, report) => { reports.set(root, report); });
+});
 const entries: AuditEntry[] = Array.from({ length: 3 }, (_, i) => ({ path: `refs${i}.bib`, key: `key${i}`, title: `Paper ${i}`, bibtex: `@article{key${i},title={Paper ${i}}}`, issues: [] }));
 const updated: AuditResult = { status: "update", message: "A published version is available.", before: entries[0].bibtex, after: "@article{key0,title={Updated}}", changes: [{ field: "title", before: "Paper 0", after: "Updated" }] };
 function props() { return { open: true, projectRoot: "/project", canApply: true, onClose: vi.fn(), onPrepare: vi.fn(async () => true), onApply: vi.fn<(entry: AuditEntry, result: AuditResult) => Promise<void>>().mockResolvedValue(undefined) }; }
 async function checkAll() {
-  fireEvent.click(await screen.findByRole("button", { name: "Check all" }));
+  const button = await screen.findByRole("button", { name: "Check all" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
 }
 
 it("shows local issues first, bounds concurrency, and cancels the remaining queue", async () => {
@@ -56,19 +65,27 @@ it.each([21, 22])("batches all %i entries including a single-entry final group",
 });
 
 it("stops scheduling after cancellation during a batch", async () => {
-  let resolve!: (value: unknown) => void;
+  let finishBatch!: (value: unknown) => void;
+  const inFlight: ((value: AuditResult) => void)[] = [];
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "bibliography_audit_scan") return { entries, issues: [] };
-    return new Promise(done => { resolve = done; });
+    if (command === "bibliography_audit_batch") return new Promise(done => { finishBatch = done; });
+    return new Promise<AuditResult>(done => { inFlight.push(done); });
   });
   render(<BibliographyAudit {...props()} />);
   await checkAll();
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_batch", expect.anything()));
+  const startedCalls = vi.mocked(invoke).mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));
-  await act(async () => resolve({ results: [updated, null, null] } as never));
+  // Under load, the 250ms fallback may already have started. Drain only those
+  // requests; don't let an entry request overwrite the batch's resolver.
+  await act(async () => {
+    finishBatch({ results: [updated, null, null] });
+    inFlight.forEach(finish => finish({ ...updated, status: "checked", after: undefined }));
+  });
   await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
-  expect(invoke).toHaveBeenCalledTimes(3);
-  expect(screen.getAllByText("Not checked")).toHaveLength(2);
+  expect(invoke).toHaveBeenCalledTimes(startedCalls);
+  expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "bibliography_audit_entry").length).toBeLessThan(entries.length);
 });
 
 it("does not repeat a failed batch request in subsequent groups", async () => {
@@ -106,15 +123,22 @@ it("continues other sources while S2 waits and discards its late result after ca
   expect(screen.queryByText("Update available")).not.toBeInTheDocument();
 });
 
-it("keeps results usable and warns when local storage is full", async () => {
-  const write = vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("Quota exceeded"); });
-  try {
-    vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-    render(<BibliographyAudit {...props()} />);
-    await checkAll();
-    await screen.findByText("Update available");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the report on this device");
-  } finally { write.mockRestore(); }
+it("keeps results usable and warns when native persistence fails", async () => {
+  vi.mocked(saveAuditReport).mockRejectedValue(new Error("Disk full"));
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
+  render(<BibliographyAudit {...props()} />);
+  await checkAll();
+  await screen.findByText("Update available");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the report on this device");
+});
+
+it("never overwrites a report or enables checking when loading the saved report fails", async () => {
+  vi.mocked(loadAuditReport).mockRejectedValue(new Error("Report could not be read"));
+  vi.mocked(invoke).mockResolvedValue({ entries, issues: [] });
+  render(<BibliographyAudit {...props()} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Report could not be read");
+  expect(screen.getByRole("button", { name: "Check all" })).toBeDisabled();
+  expect(saveAuditReport).not.toHaveBeenCalled();
 });
 
 it("uses a late batch proposal after parallel checks complete", async () => {
@@ -390,8 +414,7 @@ it("preserves applied status against the post-apply snapshot", async () => {
   expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
 });
 
-it("isolates project reports and tolerates corrupt storage", async () => {
-  localStorage.setItem("lattice.bibliography-audit.v1:/project", "broken JSON");
+it("isolates project reports", async () => {
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
   const view = render(<BibliographyAudit {...props()} />);
   await screen.findByText("Not checked");

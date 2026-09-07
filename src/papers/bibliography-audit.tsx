@@ -12,6 +12,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { loadAuditReport, saveAuditReport, type AuditReport } from "./bibliography-audit-storage";
 import "./bibliography-audit.css";
 
 export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[] };
@@ -29,27 +30,6 @@ export type AuditResult = {
   changes: { field: string; before: string; after: string }[];
   health?: PaperSummary["citationHealth"];
 };
-
-type SavedAudit = { snapshot: string; result: AuditResult; applied: boolean };
-const auditStorageKey = (root: string) => `lattice.bibliography-audit.v1:${root}`;
-
-function loadAudit(root: string): Map<string, SavedAudit> {
-  try {
-    const saved = JSON.parse(localStorage.getItem(auditStorageKey(root)) ?? "[]") as [string, SavedAudit][];
-    return new Map(saved.filter(([key, value]) => typeof key === "string"
-      && typeof value?.snapshot === "string" && typeof value.applied === "boolean"
-      && typeof value.result?.before === "string" && typeof value.result.message === "string"
-      && ["checked", "update", "unavailable", "skipped", "conflict"].includes(value.result.status)
-      && (value.result.after === undefined || typeof value.result.after === "string")
-      && (value.result.checkedAt === undefined || (typeof value.result.checkedAt === "string" && Number.isFinite(Date.parse(value.result.checkedAt))))
-      && Array.isArray(value.result.changes) && value.result.changes.every(change =>
-        typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string")
-      && (value.result.sources === undefined || (Array.isArray(value.result.sources) && value.result.sources.every(source =>
-        typeof source?.source === "string" && typeof source.outcome === "string")))));
-  } catch {
-    return new Map();
-  }
-}
 
 // This component stays mounted when hidden so a large audit doesn't block
 // editing. Changing projects unmounts it and stops scheduling further work.
@@ -82,17 +62,19 @@ export function BibliographyAudit(props: {
 
   useEffect(() => {
     if (!scan || loading) return;
-    const saved = scan.entries.flatMap((entry, index) => results[index] ? [[`${entry.path}\0${entry.key}`, {
+    const saved: AuditReport = scan.entries.flatMap((entry, index) => results[index] ? [[`${entry.path}\0${entry.key}`, {
       snapshot: entry.bibtex, result: results[index], applied: applied.has(index),
     }]] : []);
-    try {
-      localStorage.setItem(auditStorageKey(props.projectRoot), JSON.stringify(saved));
-      queueMicrotask(() => setStorageFailed(false));
-    } catch { queueMicrotask(() => setStorageFailed(true)); }
+    let disposed = false;
+    void saveAuditReport(props.projectRoot, saved).then(
+      () => { if (!disposed) setStorageFailed(false); },
+      () => { if (!disposed) setStorageFailed(true); },
+    );
+    return () => { disposed = true; };
   }, [scan, results, applied, loading, props.projectRoot]);
 
   const start = async (only?: number[]) => {
-    if (loading || run.current.busy || applying !== null) return;
+    if (!scan || loading || run.current.busy || applying !== null) return;
     const requested = only && new Set(only.map(index => `${scan?.entries[index].path}\0${scan?.entries[index].key}`));
     const generation = ++run.current.generation;
     const current = () => run.current.generation === generation;
@@ -215,10 +197,13 @@ export function BibliographyAudit(props: {
       const generation = run.current.generation;
       let disposed = false;
       setLoading(true);
-      void invoke<AuditScan>("bibliography_audit_scan", { projectRoot: props.projectRoot })
-        .then(value => {
+      setError("");
+      void Promise.all([
+        invoke<AuditScan>("bibliography_audit_scan", { projectRoot: props.projectRoot }),
+        loadAuditReport(props.projectRoot),
+      ])
+        .then(([value, saved]) => {
           if (disposed || run.current.generation !== generation) return;
-          const saved = loadAudit(props.projectRoot);
           const restored: Record<number, AuditResult> = {};
           const restoredApplied = new Set<number>();
           value.entries.forEach((entry, index) => {
@@ -234,7 +219,12 @@ export function BibliographyAudit(props: {
           });
           setScan(value); setResults(restored); setApplied(restoredApplied); setSelected(new Set());
         })
-        .catch(reason => { if (!disposed && run.current.generation === generation) setError(String(reason)); })
+        .catch(reason => {
+          if (!disposed && run.current.generation === generation) {
+            // Do not replace an unreadable native report with stale/empty UI state.
+            setScan(null); setError(String(reason));
+          }
+        })
         .finally(() => { if (!disposed && run.current.generation === generation) setLoading(false); });
       return () => { disposed = true; };
     }
@@ -329,7 +319,7 @@ export function BibliographyAudit(props: {
         <div className="bibliography-audit-actions">
           {busy
             ? <Button size="compact" variant="ghost" disabled={stopping} onClick={() => { run.current.stop = true; cancelWait.current(); setStopping(true); }}>{stopping ? t`Stopping…` : t`Cancel check`}</Button>
-            : <Button size="compact" variant="ghost" onClick={() => void start()} disabled={loading || applying !== null}><RotateCcw size={12} aria-hidden="true" />{t`Check all`}</Button>}
+            : <Button size="compact" variant="ghost" onClick={() => void start()} disabled={!scan || loading || applying !== null}><RotateCcw size={12} aria-hidden="true" />{t`Check all`}</Button>}
         </div>
       </div>
       {scan && <div className="bibliography-audit-toolbar">

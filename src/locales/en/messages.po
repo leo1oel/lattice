@@ -2581,6 +2581,10 @@ msgstr "Interface sounds"
 msgid "Intersection"
 msgstr "Intersection"
 
+#: src/papers/bibliography-audit-storage.ts
+msgid "Invalid saved bibliography audit report."
+msgstr "Invalid saved bibliography audit report."
+
 #: src/collab/collab-dialog.tsx
 msgid "Invite link"
 msgstr "Invite link"
