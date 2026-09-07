@@ -42,27 +42,22 @@ const deviceHelperFiles = [
 
 const nodeArchives = {
   "aarch64-apple-darwin": {
-    platform: "darwin-arm64",
     archive: "node-v24.20.0-darwin-arm64.tar.gz",
     sha256: "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
   },
   "x86_64-apple-darwin": {
-    platform: "darwin-x64",
     archive: "node-v24.20.0-darwin-x64.tar.gz",
     sha256: "9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4",
   },
   "aarch64-unknown-linux-gnu": {
-    platform: "linux-arm64",
     archive: "node-v24.20.0-linux-arm64.tar.gz",
     sha256: "3515603e2487879a39bc75716f1a2affd027500c64ba50e845cf72cb33219013",
   },
   "x86_64-unknown-linux-gnu": {
-    platform: "linux-x64",
     archive: "node-v24.20.0-linux-x64.tar.gz",
     sha256: "855d581f8a4eb1a8117e3426de25fe02770592febcfb31369aee1ffbfee9e8ec",
   },
   "x86_64-pc-windows-msvc": {
-    platform: "win-x64",
     archive: "node-v24.20.0-win-x64.zip",
     sha256: "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
   },
@@ -132,7 +127,7 @@ function resolveBun() {
     }).trim();
   } catch {
     throw new Error(
-      "Bun is required to build Synara. Install dependencies or set BUN_BIN to a Bun 1.3 executable.",
+      "Bun is required to build Synara. Install dependencies or set BUN_BIN to a Bun 1.4.2 or newer executable.",
     );
   }
 }
@@ -454,40 +449,9 @@ function pruneServerRuntime(stageRoot, target) {
     // ConPTY is Windows-only; keep it when staging a Windows runtime.
     ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
   ];
-  // Top-level copies of the provider SDKs and their support libraries satisfy
-  // the top-level @earendil-works/pi-ai, which the running server never
-  // imports: the bundled dist externalizes a fixed module list, and
-  // pi-coding-agent (the only consumer of pi-ai) ships an npm-shrinkwrap that
-  // resolves its own nested copies. Verified by walking declared dependency
-  // edges from the bundle's externalized import roots — none of these are
-  // resolvable from reachable code. ajv, ajv-formats, and zod must stay at
-  // top level: the agent SDKs require them at runtime without declaring them.
-  const unreachableTopLevelPackages = [
-    "@anthropic-ai/sdk",
-    "@aws-sdk",
-    "@earendil-works/pi-agent-core",
-    "@earendil-works/pi-ai",
-    "@google",
-    "@hono/node-server",
-    "@mistralai",
-    "@modelcontextprotocol",
-    "@opentelemetry",
-    "@smithy",
-    "express",
-    "hono",
-    "ioredis",
-    "jose",
-    "openai",
-    "protobufjs",
-    "react",
-    "react-dom",
-    "scheduler",
-    "typebox",
-    "web-streams-polyfill",
-  ];
-  for (const name of unreachableTopLevelPackages) {
-    junkDirectories.push(`node_modules/${name}`);
-  }
+  // Keep installed production packages: upstream's externalized imports change
+  // between releases (0.8.3 imports top-level pi-ai providers directly).
+  // Prune unused artifacts, not packages based on an older bundle's graph.
   for (const relative of junkDirectories) {
     const path = join(serverRoot, relative);
     if (!existsSync(path)) continue;
@@ -805,6 +769,16 @@ try {
   }
   const prunedBytes =
     replaceUnusedClaudeBinary(stageRoot, target) + pruneServerRuntime(stageRoot, target);
+  // Exercise lazy provider imports after pruning, using the shipped Node rather
+  // than the development install that can hide missing production dependencies.
+  run(join(stageRoot, "bin", target.includes("windows") ? "node.exe" : "node"), [
+    join(stageRoot, "server/dist/runtimeDependencySmoke.mjs"),
+  ], { cwd: join(stageRoot, "server") });
+  // The provider smoke does not cover the server entry's static imports.
+  run(join(stageRoot, "bin", target.includes("windows") ? "node.exe" : "node"), [
+    join(stageRoot, "server/dist/index.mjs"),
+    "--help",
+  ], { cwd: join(stageRoot, "server") });
   signMacRuntime(stageRoot, target);
   writeFileSync(
     join(stageRoot, "manifest.json"),

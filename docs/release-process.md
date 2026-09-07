@@ -75,7 +75,7 @@ create the Release and upload assets.
    the Apple Silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
-3. **Toolchains.** pnpm 10, Node 22, Bun 1.3.14, stable Rust with the `aarch64-apple-darwin` target.
+3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.2, stable Rust with the `aarch64-apple-darwin` target.
 4. **Rust cache.** `Swatinem/rust-cache@v2` reads the warm dependency build produced by `release-cache.yml` on `main`.
    Its shared key includes `bundle.macOS.minimumSystemVersion`, because Tauri exports that value as `MACOSX_DEPLOYMENT_TARGET` before compiling and Cargo cannot reuse artifacts warmed without it.
    `save-if: false` prevents the tag build from writing a cache no later release could read.

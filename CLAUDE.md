@@ -26,7 +26,7 @@ touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
 
 For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at
 its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default,
-`sourceDirectory` in that same file, is `../synara-v081-sync` today and moves
+`sourceDirectory` in that same file, is `../synara-v083-sync` today and moves
 with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md and
 `scripts/setup-dev.sh`.
 
@@ -89,11 +89,9 @@ eviction of unpinned clean clients; pin names in `src/collab/collab-text-v2.ts`:
   Heavy libs (pdfjs, mermaid, katex, harper, codemirror langs, tiptap) must stay behind dynamic imports.
 - `src-tauri/Cargo.toml` has a size-tuned `[profile.release]`; `panic = "abort"`
   is intentionally off (a panic must not kill the app with unsaved edits).
-- `scripts/prepare-synara-sidecar.mjs` prunes the sidecar aggressively. If the
-  runtime gains new imports, check the unreachable-packages list there;
-  top-level `ajv`, `ajv-formats`, and the runtime JavaScript in `zod` must stay
-  (undeclared runtime requires of the agent SDKs). The Claude SDK platform
-  executable must remain a small PATH launcher: sessions use the user's CLI.
+- `scripts/prepare-synara-sidecar.mjs` prunes unused artifacts but preserves installed production packages because upstream's externalized imports change between releases.
+  Keep top-level `ajv`, `ajv-formats`, and the runtime JavaScript in `zod` (undeclared runtime requires of the agent SDKs), and verify both the dependency smoke and server entry after pruning.
+  The Claude SDK platform executable must remain a small PATH launcher: sessions use the user's CLI.
 
 ## Design-system contract (enforced by tests)
 

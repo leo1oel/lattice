@@ -245,12 +245,10 @@ constraint.
 
 ## Syncing upstream
 
-1. Fetch and merge `upstream/main` into **the branch named by `branch` in
-   [`../scripts/synara-runtime.json`](../scripts/synara-runtime.json)** — today
-   `amp/lattice-v0.8.1-sync`. The branch moves with each upstream version, so read it from the pin
-   rather than from memory; older branches such as `codex/lattice-embed` still exist in the fork and
-   are not what ships. Do not rewrite branch history. Tag a backup branch at the pre-merge commit
-   first; the merge touches enough surface that a clean abort is worth having.
+1. Fetch and merge the intended upstream release tag into **the branch named by `branch` in [`../scripts/synara-runtime.json`](../scripts/synara-runtime.json)**.
+   The branch moves with each upstream version, so read it from the pin rather than from memory; older branches such as `codex/lattice-embed` still exist in the fork and are not what ships.
+   Do not rewrite branch history.
+   Tag a backup branch at the pre-merge commit first; the merge touches enough surface that a clean abort is worth having.
 2. Prefer the host-profile seam for new work, and never reimplement an upstream tool handler. The
    fork modifies hundreds of upstream files, so expect real conflicts in `wsRpc.ts`, the contracts
    package, `GitCore.ts`, `providerMaintenance.ts`, and the chat components — merging is a review
