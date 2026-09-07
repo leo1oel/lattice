@@ -31,6 +31,10 @@ describe("presentation runtime pruning", () => {
       "some-package/dist/index.d.ts",
       "some-package/dist/types.d.mts",
       "some-package/LICENSE.md",
+      "emoji-picker-react/dist/data/emojis-fr.js",
+      "emoji-picker-react/dist/data/emojis-fr.json",
+      "emoji-picker-react/dist/data/emojis-fr.ts",
+      "emoji-picker-react/dist/data/emojis-uncompiled.ts",
       ...removablePackageDirectories.map(
         (directory) => `${directory}/fixture.js`,
       ),
@@ -48,12 +52,16 @@ describe("presentation runtime pruning", () => {
       "some-package/src/runtime.ts",
       "some-package/dist/index.js",
       "some-package/LICENSE.md",
+      "emoji-picker-react/dist/data/emojis-fr.js",
+      "emoji-picker-react/dist/data/emojis-uncompiled.ts",
     ])
       expect(existsSync(join(modules, file))).toBe(true);
     for (const file of [
       "some-package/dist/index.js.map",
       "some-package/dist/index.d.ts",
       "some-package/dist/types.d.mts",
+      "emoji-picker-react/dist/data/emojis-fr.json",
+      "emoji-picker-react/dist/data/emojis-fr.ts",
       ...removablePackageDirectories.map(
         (directory) => `${directory}/fixture.js`,
       ),

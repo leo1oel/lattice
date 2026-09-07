@@ -35,6 +35,19 @@ export function prunePresentationRuntime(runtimeRoot) {
     rmSync(join(nodeModules, relativePath), { recursive: true, force: true });
   }
 
+  // emoji-picker-react copies locale source data alongside compiled JS.
+  // Open Slide uses the package entry, and locale subpaths resolve to JS;
+  // keep every locale but omit its duplicate JSON/TS when the JS exists.
+  const emojiData = join(nodeModules, "emoji-picker-react/dist/data");
+  if (existsSync(emojiData)) {
+    for (const file of readdirSync(emojiData)) {
+      if (/^emojis(?:-[\w-]+)?\.(?:json|ts)$/.test(file) &&
+          existsSync(join(emojiData, file.replace(/\.(?:json|ts)$/, ".js")))) {
+        rmSync(join(emojiData, file));
+      }
+    }
+  }
+
   function removeBuildMetadata(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
