@@ -125,12 +125,19 @@ await assert.rejects(
   }),
   /must not bundle a standalone Node binary/,
 );
+await checkAppSizeBudgets(workspace, {
+  ...report,
+  synaraNodeRuntime: "electron",
+  bundledNodeBytes: null,
+  synaraRuntimeBytes: 175 * 1024 * 1024,
+  claudeAgentSdkExecutables: [],
+});
 await assert.rejects(
   checkAppSizeBudgets(workspace, {
     ...report,
     synaraNodeRuntime: "electron",
     bundledNodeBytes: null,
-    synaraRuntimeBytes: 130 * 1024 * 1024 + 1,
+    synaraRuntimeBytes: 175 * 1024 * 1024 + 1,
     claudeAgentSdkExecutables: [],
   }),
   /macOS Synara runtime.*budget/,
