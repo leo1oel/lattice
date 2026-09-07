@@ -5,9 +5,9 @@ import { AnimatedProductIcon } from "./product-animated-icon";
 afterEach(cleanup);
 
 describe("AnimatedProductIcon", () => {
-  it("replays from its containing control on hover without snapping on exit", () => {
+  it.each(["git-branch", "receipt", "package"] as const)("replays %s from its containing control on hover without snapping on exit", (kind) => {
     const { container } = render(
-      <button type="button"><AnimatedProductIcon kind="git-branch" /></button>,
+      <button type="button"><AnimatedProductIcon kind={kind} /></button>,
     );
     const button = container.querySelector("button")!;
     expect(container.querySelector(".bakai-icon.is-playing")).toBeNull();

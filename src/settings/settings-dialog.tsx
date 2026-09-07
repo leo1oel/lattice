@@ -150,7 +150,7 @@ export function SettingsDialog(props: {
       items: [
         { tab: "agent", label: t`Providers`, icon: "robot" },
         { tab: "mcp", label: t`MCP`, icon: "plugs" },
-        { tab: "api", label: t`Skills`, icon: "api-key" },
+        { tab: "api", label: t`Skills`, icon: "package" },
       ],
     },
     {
@@ -164,7 +164,7 @@ export function SettingsDialog(props: {
       label: t`Diagnostics`,
       items: [
         { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
-        { tab: "logs", label: t`Logs`, icon: "logs" },
+        { tab: "logs", label: t`Logs`, icon: "receipt" },
       ],
     },
   ] as const;

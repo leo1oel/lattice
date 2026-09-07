@@ -1084,3 +1084,75 @@
 .bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback calc(.7s * var(--bk-speed)) ease both; }
 .bakai-icon.is-playing.is-reduced * { animation: none !important; }
 @keyframes bakai-reduced-feedback { 0%, 100% { opacity: 1; } 45% { opacity: .35; } }
+
+/* Receipt: preserve the source sawtooth, with 16 units of overlap so the
+   cut stays invisible until the sheet rotates away from the last corner. */
+.lg-receipt, .lg-deliver { overflow: hidden; }
+.lg-receipt .rc-fall, .lg-receipt .rc-rip, .lg-receipt .rc-feed, .lg-receipt .rc-tense { transform-box: view-box; }
+.lg-receipt .rc-fall, .lg-receipt .rc-feed, .lg-receipt .rc-tense { transform-origin: 0 0; }
+.lg-receipt .rc-rip { transform-origin: 232px 40px; }
+.lg-receipt .rc-cut, .lg-receipt .rc-slot { visibility: hidden; }
+.lg-receipt .rc-tense { transform: translateY(0px); }
+.lg-receipt .rc-feed { transform: translateY(-128.94px); }
+
+@keyframes lg-receipt-cut {
+  0%, 2.69% { visibility: hidden; }
+  2.7%, 100% { visibility: visible; }
+}
+@keyframes lg-receipt-slot {
+  0%, 2.69% { visibility: hidden; }
+  2.7%, 100% { visibility: visible; }
+}
+@keyframes lg-receipt-fall {
+  0% { transform: translateY(0px); }
+  2.7% { transform: translateY(0px); animation-timing-function: cubic-bezier(0.15,0.85,0.3,1); }
+  11.5% { transform: translateY(12px); animation-timing-function: linear; }
+  19% { transform: translateY(14px); animation-timing-function: linear; }
+  32% { transform: translateY(18px); animation-timing-function: cubic-bezier(0.4,0,0.9,0.55); }
+  36% { transform: translateY(34px); animation-timing-function: cubic-bezier(0.4,0,0.85,0.5); }
+  78%, 100% { transform: translateY(224px); }
+}
+@keyframes lg-receipt-rip {
+  0% { transform: rotate(0deg); }
+  19% { transform: rotate(0deg); animation-timing-function: cubic-bezier(0.2,0.8,0.4,1); }
+  23% { transform: rotate(-4.5deg); animation-timing-function: linear; }
+  32% { transform: rotate(-9deg); animation-timing-function: cubic-bezier(0.4,0,0.8,0.6); }
+  36% { transform: rotate(-14deg); animation-timing-function: linear; }
+  78%, 100% { transform: rotate(-22deg); }
+}
+@keyframes lg-receipt-tense {
+  0% { transform: translateY(0px); }
+  2.7% { transform: translateY(0px); animation-timing-function: cubic-bezier(0.15,0.85,0.3,1); }
+  11.5% { transform: translateY(12px); animation-timing-function: linear; }
+  19% { transform: translateY(14px); animation-timing-function: cubic-bezier(0.4,0,0.6,1); }
+  32% { transform: translateY(8px); animation-timing-function: cubic-bezier(0.1,0.9,0.2,1); }
+  36% { transform: translateY(-5px); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  41% { transform: translateY(2px); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  46%, 100% { transform: translateY(0px); }
+}
+@keyframes lg-receipt-feed {
+  0% { transform: translateY(-128.94px); }
+  46% { transform: translateY(-128.94px); animation-timing-function: cubic-bezier(0.25,0.4,0.3,1); }
+  100% { transform: translateY(0px); }
+}
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-fall { animation: lg-receipt-fall calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-rip { animation: lg-receipt-rip calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-cut { animation: lg-receipt-cut calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-slot { animation: lg-receipt-slot calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-tense { animation: lg-receipt-tense calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-feed { animation: lg-receipt-feed calc(1.3s * var(--bk-speed)) both; }
+
+/* Package: reposition while invisible, then fall and squash against its base. */
+.lg-deliver .lgk-box { transform-box: view-box; transform-origin: 128px 238px; }
+@keyframes lg-drop {
+  0% { opacity: 1; transform: translateY(0) scale(1, 1); }
+  4% { opacity: 0; transform: translateY(0) scale(1, 1); }
+  11% { opacity: 0; transform: translateY(-150px) scale(1, 1); }
+  13% { opacity: 1; transform: translateY(-150px) scale(1, 1); animation-timing-function: cubic-bezier(0.55,0,0.9,0.45); }
+  44% { opacity: 1; transform: translateY(0) scale(1, 1); animation-timing-function: cubic-bezier(0.3,0,0.35,1); }
+  54% { transform: translateY(0) scale(1.09, 0.8); animation-timing-function: cubic-bezier(0.3,0,0.3,1); }
+  70% { transform: translateY(0) scale(0.97, 1.06); animation-timing-function: cubic-bezier(0.33,1,0.68,1); }
+  85% { transform: translateY(0) scale(1.01, 0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1, 1); }
+}
+.bakai-icon.is-playing:not(.is-reduced) .lg-deliver .lgk-box { animation: lg-drop calc(0.9s * var(--bk-speed)) both; }
