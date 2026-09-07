@@ -837,6 +837,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   .paper-local-action span { display: none; }
 }
 .visual-markdown-editor { position: relative; }
+/* The document-edge caret replaces an unauthored trailing paragraph. */
+.visual-markdown-editor .ProseMirror-gapcursor::after { border-top-color: var(--text-primary); }
 /* TipTap's drag-handle hit test reads the first and last block rects.
    Remove generated Contents from flow while retaining a nonzero first rect;
    `display: none` or the HTML `hidden` attribute disables every block handle. */
@@ -969,11 +971,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-stat strong { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
 /* Footnotes: no host overrides — vendored editor-globals.css owns
    .footnote-ref / .footnote-def / .footnote-backref (upstream UI). */
-/* Host product seam: this app has no "Ask AI" terminal integration, so the
-   vendored code block chrome's Ask AI button is dead UI — hide it instead
-   of hand-editing the vendored CodeBlockView (vendor --check must stay
-   clean). display:none also removes it from tab order and the a11y tree. */
-.ok-codeblock [data-testid="ok-codeblock-ask-ai-btn"] { display: none; }
 /* Host skin (explicit request): the code block Title field and the language
    filter box follow the host's field-control look. Structure and behavior
    stay upstream; only the input chrome is restyled. */

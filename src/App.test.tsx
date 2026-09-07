@@ -4201,6 +4201,86 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-selected", "true"));
   });
 
+  it("preserves an external Markdown blank-line edit through the next save and poll", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes.md"],
+      activeFile: "notes.md",
+      activeTab: "notes.md",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "split",
+      documentMode: "split",
+      paperView: "blog",
+      tabRecency: ["notes.md"],
+    });
+    let source = "# Notes\nParagraph\n";
+    let mtimeMs = 1;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return source;
+      if (command === "stat_project_file") return { exists: true, mtimeMs };
+      if (command === "harper_lint") return [];
+      if (command === "write_project_file") {
+        source = (args as { content: string }).content;
+        mtimeMs += 1;
+        return undefined;
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    await Promise.all([
+      loadTextLanguageExtensions("notes.md"),
+      loadVisualMarkdownEditorModule(),
+    ]);
+    renderApp();
+    const documentView = await screen.findByRole("tablist", { name: "Document view" });
+    fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
+    const view = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
+      expect(element).not.toBeNull();
+      const editor = EditorView.findFromDOM(element!)!;
+      expect(editor.state.doc.toString()).toBe(source);
+      return editor;
+    }, { timeout: 10_000 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("stat_project_file", {
+      path: "notes.md",
+    }), { timeout: 3_500 });
+
+    const externalSource = "# Notes\n\nParagraph\n";
+    source = externalSource;
+    mtimeMs = 2;
+    await waitFor(() => expect(view.state.doc.toString()).toBe(externalSource), { timeout: 3_500 });
+    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    const statCallsAfterExternalEdit = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "stat_project_file").length;
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === "stat_project_file").length)
+      .toBeGreaterThan(statCallsAfterExternalEdit), { timeout: 3_500 });
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
+    expect(source).toBe(externalSource);
+    expect(view.state.doc.toString()).toBe(externalSource);
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "More.\n" } }));
+    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
+      path: "notes.md",
+      content: `${externalSource}More.\n`,
+    })), { timeout: 3_500 });
+    expect(source).toBe(`${externalSource}More.\n`);
+  }, 60_000);
+
   it("lists a work that is only cited but does not offer to open it", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

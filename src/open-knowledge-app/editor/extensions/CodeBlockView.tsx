@@ -3,7 +3,7 @@
  *
  * Visual design — zero permanent chrome: the code body renders solo, with a
  * hover/selection-revealed chrome bar floating above the block edge that
- * carries the language picker, edit-source, preview toggle, settings, Ask AI,
+ * carries the language picker, edit-source, preview toggle, settings,
  * copy, and delete affordances. Mirrors the JsxComponentView chrome pattern
  * (precedent #30) so codeblocks compose visually with other rich blocks.
  */
@@ -21,12 +21,10 @@ import {
   Eye,
   EyeOff,
   Settings2,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useTheme } from '@ok-app/shims/next-themes';
 import { useEffect, useId, useRef, useState } from 'react';
-import { emitStartComment } from '@ok-app/comments/store';
 import {
   Command,
   CommandEmpty,
@@ -37,7 +35,6 @@ import {
 } from '@ok-app/components/ui/command';
 import { Input } from '@ok-app/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@ok-app/components/ui/popover';
-import { useIsEmbedded } from '@ok-app/hooks/use-is-embedded';
 import { useColorThemeEpoch } from '@ok-app/lib/color-theme-epoch';
 import { cn } from '@ok-app/lib/utils';
 import { OPT_OUT_ATTR } from '../clipboard/index.ts';
@@ -151,26 +148,6 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
   // would otherwise crowd the always-visible chrome.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState(title ?? '');
-  // Ask AI on this code block. Chrome-hosted (not the bubble menu), because
-  // the bubble menu does not show over code — marks do not apply to code text,
-  // so its formatting controls would all be dead. Hidden inside an embedded
-  // agent host, same as the text bubble menu's Ask AI button.
-  const isEmbedded = useIsEmbedded();
-
-  /**
-   * Does the live selection sit inside THIS block's content?
-   *
-   * `editor.isActive('codeBlock')` is not enough — it answers "some code
-   * block", so with two blocks on screen a pick in the first would suppress
-   * the second's button from selecting itself.
-   */
-  const selectionIsInsideThisBlock = (): boolean => {
-    const pos = typeof getPos === 'function' ? getPos() : undefined;
-    if (typeof pos !== 'number') return false;
-    const { from, to } = editor.state.selection;
-    if (from === to) return false;
-    return from > pos && to <= pos + node.nodeSize - 1;
-  };
   // Hovered state — the html preview iframe consumes 100% of the block's
   // pointer events, so the CSS `:hover` selector never fires on the wrapper.
   // Mirror mouseenter/mouseleave into a data attribute so the chrome-reveal
@@ -654,49 +631,6 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
             </PopoverContent>
           </Popover>
         ) : null}
-
-        {isEmbedded ? null : (
-          <button
-            type="button"
-            className="ok-codeblock-chrome-btn"
-            aria-label={t`Comment or ask AI about this code block`}
-            data-testid="ok-codeblock-ask-ai-btn"
-            onClick={() => {
-              // The same composer the text bubble menu's Ask AI opens, which
-              // is why this used to be the odd one out: it fired a code block
-              // straight at a fresh CLI session, with no way to file the note
-              // for a later batch. Prose got both choices from one button and
-              // code got neither.
-              //
-              // Selection first, block second. A pick INSIDE this block is the
-              // passage the reader means — node-selecting over it would quietly
-              // widen the comment to the whole fence. Only when nothing is
-              // picked here does the block itself become the subject, matching
-              // the copy / delete buttons beside it.
-              if (!selectionIsInsideThisBlock()) {
-                const pos = typeof getPos === 'function' ? getPos() : undefined;
-                if (typeof pos !== 'number') return;
-                try {
-                  editor.commands.setNodeSelection(pos);
-                } catch (err) {
-                  // Mirrors `handleDelete`'s classification — concurrent remote
-                  // edits or Observer B re-parse can shift `pos` between
-                  // getPos() and setNodeSelection, producing a RangeError. The
-                  // block has moved or vanished, so there is nothing to ask
-                  // about; keep the error off the boundary for benign races.
-                  if (!(err instanceof RangeError)) throw err;
-                  console.warn('[CodeBlockView] Ask AI failed — position race', err);
-                  return;
-                }
-              }
-              // After the selection transaction has landed, so the composer
-              // captures the range this click just established.
-              requestAnimationFrame(() => emitStartComment());
-            }}
-          >
-            <Sparkles className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
 
         <button
           type="button"

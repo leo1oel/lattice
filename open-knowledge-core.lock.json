@@ -38,7 +38,7 @@
     },
     "comments/leaf-text.ts": {
       "upstream": "56cf9ce601d93754e7ad8124e5b73bff16adbfc5",
-      "vendored": "3630749e660bde0b1d5a1d8a38266f414ccb6318"
+      "vendored": "24fa28b54831eb90d6ad5082012608d981dd3a56"
     },
     "comments/passage-match.test.ts": {
       "upstream": "c0e7f9275b2225958bcb2e48450e9bfaf86e461d",
@@ -250,7 +250,7 @@
     },
     "extensions/shared.ts": {
       "upstream": "43895f0a4866ded9f9240d96e2873f286cd434fb",
-      "vendored": "fc24652dc0b4f493cc16bf657807401a14b5b781"
+      "vendored": "9be1c23db70daeb1075f1945c49248d99a5bb5f0"
     },
     "extensions/source-literal-mark.test.ts": {
       "upstream": "9833a7ae50aa4961706eb3a03780b7780b3af7ac",
@@ -366,7 +366,7 @@
     },
     "markdown/doc-edge-blank-runs.ts": {
       "upstream": "22b26e8b443312057fecbc7d519fed47ee653412",
-      "vendored": "e12972c852fd304a320e144704d4e564e3096ee3"
+      "vendored": "a81762cf40980bb7fa97485abb3fb338635f36c9"
     },
     "markdown/empty-task-item.ts": {
       "upstream": "70eecbfa2a60bb3da4b5cd6641cd49598c38b4b7",
@@ -484,10 +484,6 @@
       "upstream": "fa3cfcd86f1f620a1856a47917aaa0f1c6fc308a",
       "vendored": "170644172c2240ac9615bb5f919ffc8fad7906c6"
     },
-    "markdown/mermaid-promoter.ts": {
-      "upstream": "17ed2b8297e59cbdcdfc12ae70c1ae2550e3dc25",
-      "vendored": "1a897fca8f5f09e382008045eb9ef59a7408ec76"
-    },
     "markdown/parse-with-fallback.ts": {
       "upstream": "4aa0490c43399456c2daae6077a9372752f73581",
       "vendored": "3afa1ccf06ad5993e909be5682675bb5f8405978"
@@ -574,7 +570,7 @@
     },
     "registry/built-ins.ts": {
       "upstream": "bf96e81b42795218d0a116565a76c2dba22c3989",
-      "vendored": "fadad7c0e8573b3fdc6878a0dd0c94a84f606b7f"
+      "vendored": "2138f0f9882ac4bedf6c2e4a5aa8a5068c40be83"
     },
     "registry/canonical-compat.test.ts": {
       "upstream": "4cccee1effedd513562049dc9138e991e516ec6e",
@@ -586,7 +582,7 @@
     },
     "registry/registry.test.ts": {
       "upstream": "91c7af0a1561896247848b6113c1fd2f0bb688e5",
-      "vendored": "d6fc1cbddfb42984d30e1860722e0b924aa21165"
+      "vendored": "543f7ebdf982fe6a77d3ce0c7a94702d65d753e8"
     },
     "registry/types.ts": {
       "upstream": "66843c886505425c85a9d3571a2cb7e90b71a3e7",

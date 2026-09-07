@@ -318,9 +318,9 @@ describe('builtInComponents manifest', () => {
     // descriptor default; `omitOnDefault: true` keeps existing images
     // (with no explicit `align`) byte-stable on save. The `hidden: true`
     // flag is the load-bearing mechanism that consolidates alignment
-    // onto the bubble menu's `ImageAlignButtons` — without it,
+    // onto the image chrome — without it,
     // PropPanel would render a Select dropdown that would sit alongside
-    // the bubble-menu trio and present a redundant second control.
+    // the chrome-bar trio and present a redundant second control.
     const img = builtInComponents.find((m) => m.name === 'img');
     const align = img?.props.find((p) => p.name === 'align');
     expect(align).toBeDefined();

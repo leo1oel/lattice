@@ -335,7 +335,7 @@ const htmlImgProps: PropDef[] = [
     name: 'align',
     type: 'enum',
     // `center` first so the descriptor's declared default matches what
-    // the wrapper-level CSS and bubble-menu buttons both treat as "no
+    // the wrapper-level CSS and chrome-bar buttons both treat as "no
     // explicit alignment" (referenced by other surfaces even though
     // PropPanel doesn't render this prop anymore).
     enumValues: ['center', 'left', 'right'],
@@ -343,11 +343,8 @@ const htmlImgProps: PropDef[] = [
     required: false,
     omitOnDefault: true,
     description: 'Alignment within the column',
-    // Single alignment surface: the bubble menu's `ImageAlignButtons`
-    // (rendered when an alignable jsxComponent is NodeSelected). Hiding
-    // here suppresses the redundant PropPanel `Align` Select dropdown
-    // that would otherwise sit alongside the bubble-menu trio + an
-    // earlier chrome-bar trio; the prop still travels through the
+    // The image chrome owns alignment. Hiding here suppresses the
+    // redundant PropPanel `Align` dropdown; the prop still travels through the
     // registry (MCP queries, descriptor docs, render path) — only the
     // auto-generated PropPanel UI skips it.
     hidden: true,
@@ -1475,10 +1472,9 @@ export const builtInComponents: JsxComponentMeta[] = [
     ],
     // Fence-only serialize. Emits a `code` mdast node with `lang: 'mermaid'`
     // so remark-stringify produces ` ```mermaid …``` ` on dirty save —
-    // matches the math-fence pattern (MathFence compat). The parse-side
-    // `mermaid-promoter` walks `code{lang:'mermaid'}` mdast →
-    // `mdxJsxFlowElement(MermaidFence, {chart})`, so the round-trip is
-    // fence → JSX (in-memory, name=MermaidFence) → fence (on disk).
+    // matches the math-fence pattern (MathFence compat). Retained for
+    // explicit MermaidFence components; ordinary Mermaid fences now stay
+    // codeBlock nodes and render their preview through CodeBlockView.
     // Pristine bytes are preserved by Phase B's position-slice walker.
     serialize: (node) => {
       const p = node.attrs.props as { chart?: string } | undefined;

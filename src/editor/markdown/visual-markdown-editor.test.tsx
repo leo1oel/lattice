@@ -1,6 +1,7 @@
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AllSelection, NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { GapCursor } from "@tiptap/pm/gapcursor";
 import { CellSelection, TableMap } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
 import { useMemo, useRef, useState } from "react";
@@ -107,6 +108,26 @@ async function replaceEditorText(text: string) {
 }
 
 describe("VisualMarkdownEditor", () => {
+  it.each([
+    ["table", "| A | B |\n| --- | --- |\n| C | D |\n"],
+    ["list", "- Item\n"],
+    ["codeBlock", "```text\nExample\n```\n"],
+  ])("does not append an unauthored paragraph after a final %s", async (type, source) => {
+    const { onChange } = renderEditor(source);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.focus("start"));
+    expect(editor.state.doc.lastChild?.type.name).toBe(type);
+    let position = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isText && position < 0) position = pos;
+    });
+    act(() => editor.commands.insertContentAt(position, "X"));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(editor.state.doc.lastChild?.type.name).toBe(type);
+    expect(onChange.mock.lastCall?.[0]).toBe(source.replace(type === "table" ? "A" : type === "list" ? "Item" : "Example", (text) => `X${text}`));
+  });
+
   it("aligns block controls to the first line of a two-line block", () => {
     expect(blockControlCrossAxisOffset(48, 24)).toBe(2);
     expect(blockControlCrossAxisOffset(72, 24)).toBe(2);
@@ -1746,10 +1767,9 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.keyDown(surface, { key: "Enter", code: "Enter" });
     }
 
-    expect(editor.state.doc.childCount).toBe(2);
+    expect(editor.state.doc.childCount).toBe(1);
     expect(editor.state.doc.firstChild?.type.name).toBe("codeBlock");
     expect(editor.state.doc.firstChild?.textContent).toBe("const value = 1\n\n\n\n");
-    expect(editor.state.doc.lastChild?.type.name).toBe("paragraph");
     expect(editor.state.selection.$from.parent.type.name).toBe("codeBlock");
     expect(editor.state.selection.from).toBe(codeNode.nodeSize + 3);
   });
@@ -2271,6 +2291,8 @@ describe("VisualMarkdownEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("ok-codeblock-title")).toHaveTextContent("Example with spaces");
     expect(document.querySelector(".ok-codeblock-pre")).toHaveTextContent("const answer = 42;");
+    // The unsupported upstream composer must be absent, not just CSS-hidden.
+    expect(screen.queryByTestId("ok-codeblock-ask-ai-btn")).not.toBeInTheDocument();
     // Change language through the upstream cmdk picker.
     fireEvent.click(screen.getByRole("button", { name: "Code block language: TypeScript. Click to change." }));
     fireEvent.click(await screen.findByRole("option", { name: "Python" }));
@@ -2597,6 +2619,31 @@ describe("VisualMarkdownEditor", () => {
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     await waitFor(() => expect(editor.state.selection).not.toBeInstanceOf(NodeSelection));
     expect(component.querySelector(".callout")).not.toBeNull();
+  });
+
+  it("rests after a final image without selecting it when properties close", async () => {
+    renderEditor("![Plot](figures/plot.png)");
+    await screen.findByRole("img", { name: "Plot" });
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.commands.setNodeSelection(0));
+    fireEvent.click(screen.getByRole("button", { name: "CommonMark Image properties" }));
+    await waitFor(() => expect(document.querySelector("[data-prop-panel]")).not.toBeNull());
+    fireEvent.keyDown(document.querySelector("[data-prop-panel]")!, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(editor.state.selection).toBeInstanceOf(GapCursor));
+    expect(editor.state.selection.from).toBe(editor.state.doc.content.size);
+    expect(editor.state.doc.childCount).toBe(1);
+    expect(editor.state.doc.firstChild?.type.name).toBe("jsxComponent");
+  });
+
+  it("keeps an authored single trailing blank line editable without growing it", () => {
+    const source = "- Item\n\n";
+    renderEditor(source);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    expect(editor.state.doc.childCount).toBe(2);
+    expect(editor.state.doc.lastChild?.type.name).toBe("paragraph");
+    expect(editorMarkdown(editor)).toBe(source);
   });
 
   it("unmounts an open slash menu without a React removeChild error", async () => {

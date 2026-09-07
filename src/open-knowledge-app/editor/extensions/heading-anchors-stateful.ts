@@ -1,7 +1,7 @@
 /* Local seam — not upstream code.
  *
- * Stateful replacement for the vendored HeadingAnchors extension
- * (./heading-anchors.ts). Upstream computes its DecorationSet inside
+ * Stateful replacement for upstream's HeadingAnchors extension
+ * (packages/app/src/editor/extensions/heading-anchors.ts). Upstream computes its DecorationSet inside
  * `props.decorations(state)`, which ProseMirror calls on EVERY view update —
  * including caret-only transactions — so each arrow-key press walked the
  * whole document and rebuilt every heading decoration. On large Markdown

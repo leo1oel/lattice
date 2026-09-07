@@ -1,18 +1,9 @@
 /**
  * Canonical set of jsxComponent descriptor names that participate in
  * the `align`-based positioning pipeline — `text-align` on the wrapper,
- * FLIP-animated transitions, chrome-bar alignment trio, and the
- * bubble-menu keyboard-reachability predicate (`isImageNodeSelected`
- * in `ImageAlignButtons.tsx`).
- *
- * Lives in a shared utility — not on JsxComponentView — so every
- * surface that gates on "is this an alignable descriptor?" reads from
- * the same Set. Adding a fifth alignable descriptor lands here and
- * propagates automatically to:
- *   - `JsxComponentView.tsx` (data-align default clamp, chrome-bar
- *     render condition, chrome-bar click handler live-reread)
- *   - `ImageAlignButtons.tsx` (`readActiveImageAlign` predicate +
- *     bubble-menu onMouseDown live-reread)
+ * FLIP-animated transitions, and the chrome-bar alignment trio.
+ * JsxComponentView uses the same set for its data-align default clamp,
+ * render condition, and click-handler selection check.
  *
  * The descriptor's own `align` PropDef in
  * `packages/core/src/registry/built-ins.ts` is a separate concern —

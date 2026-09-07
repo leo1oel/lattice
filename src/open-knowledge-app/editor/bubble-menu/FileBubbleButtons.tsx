@@ -12,7 +12,7 @@
  * temporary `<a download>` element so the browser bypasses the new-tab
  * preview and goes straight to the save flow.
  *
- * Sister to `ImageAlignButtons` — same lucide-react icon, same shadcn
+ * Sister to `InlineFormatButtons` — same lucide-react icon, same shadcn
  * `Button` size + variant, same `Tooltip` `side`/`sideOffset` for
  * positioning. Only ever rendered by `BubbleMenuBar` when a File-
  * rendering jsxComponent is NodeSelected (the parent's `useEditorState`
@@ -117,8 +117,7 @@ export function FileBubbleButtons({ editor }: FileBubbleButtonsProps) {
               // Preserve the editor's selection — `Button`'s default
               // mousedown would steal focus from the editor view and
               // collapse the NodeSelection that's keeping this bubble
-              // mode active. Mirrors `InlineFormatButtons` /
-              // `ImageAlignButtons`.
+              // mode active. Mirrors `InlineFormatButtons`.
               e.preventDefault();
               const liveSrc = readActiveFileSrc(editor);
               if (!liveSrc) return;

@@ -46,7 +46,9 @@ import {
 } from '@ok-core';
 import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { NodeViewProps } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { GapCursor } from '@tiptap/pm/gapcursor';
+import { Selection, TextSelection } from '@tiptap/pm/state';
+import { Mapping } from '@tiptap/pm/transform';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import {
   AlignCenter,
@@ -993,11 +995,10 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   // PropPanel close-handler. Two paths share the same "selection still inside
   // the node" guard (respect user intent when a click-outside has moved PM's
   // selection to a different position):
-  //  - Self-closing leaves (Image / Video / Audio): advance the caret past
-  //    the node via `TextSelection.near` so typing doesn't land in the empty
-  //    content hole. `near` is load-bearing — `setTextSelection(pos+nodeSize)`
-  //    can land on a block boundary (parent is a block container, not a
-  //    textblock) so typing wraps in a new paragraph.
+  //  - Self-closing leaves (Image / Video / Audio): advance to text after
+  //    the node, or a gap at the document edge (Open Knowledge #3994).
+  //    Selection.near can search backwards and select the leaf itself;
+  //    the next keystroke would then replace the image instead of following it.
   //  - Composites (Callout / Accordion / future Tabs+Cards+Steps): restore
   //    NodeSelection on the wrapper. After a popover round-trip, PM's
   //    selection has drifted to TextSelection inside the body (focus on a
@@ -1026,8 +1027,10 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
         const selFrom = editor.state.selection.from;
         if (selFrom < p || selFrom >= nodeEnd) return;
         if (isSelfClosingLeaf) {
-          const $end = editor.state.doc.resolve(Math.min(nodeEnd, editor.state.doc.content.size));
-          const nextSel = TextSelection.near($end, 1);
+          const $end = editor.state.doc.resolve(nodeEnd);
+          const gap: Selection = new GapCursor($end);
+          const nextSel = Selection.findFrom($end, 1, true)
+            ?? gap.map(editor.state.doc, new Mapping());
           editor.view.dispatch(editor.state.tr.setSelection(nextSel).scrollIntoView());
         } else if (descriptor.name === 'Callout') {
           const $inside = editor.state.doc.resolve(Math.min(p + 1, editor.state.doc.content.size));
@@ -1090,8 +1093,7 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
           // → `align` undefined on the prop bag, so the CSS rule
           // `[data-component-type="X"][data-align="center"]` never
           // matches without this clamp). Must stay in lockstep with the
-          // chrome-bar alignment trio condition + bubble-menu
-          // predicates in `ImageAlignButtons.tsx`.
+          // chrome-bar alignment trio condition.
           if (isAlignable) {
             return 'center';
           }

@@ -6,7 +6,7 @@
  * subscriber), and any future caller outside the bubble-menu subtree can
  * reuse it without a ref into it.
  *
- * Mirrors the `ask-ai-composer-events` idiom. The signal is intent-only — no
+ * The signal is intent-only — no
  * payload; the popover derives its initial URL from the live selection. The
  * subscriber gates on its own active-editor flag, so pooled hidden editors
  * ignore broadcasts aimed at the active one.

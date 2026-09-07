@@ -41,9 +41,7 @@ const SOURCE_ROOT = "packages/app/src";
 
 /** Files copied verbatim (modulo import rewrites) from packages/app/src/. */
 const MANIFEST = [
-  // block controls (+ / grip) and keyboard block navigation
-  "editor/extensions/drag-handle.ts",
-  "editor/extensions/block-mover.ts",
+  // Block controls and movement are Lattice-owned; only vendor keyboard navigation.
   "editor/block-ux/keyboard-nav.ts",
   // table chrome: row/column three-dot handles, drag reorder, insert bars
   "editor/table-controls/TableCellHandles.tsx",
@@ -77,7 +75,6 @@ const MANIFEST = [
   "editor/bubble-menu/LinkEditPopover.tsx",
   "editor/bubble-menu/link-edit-popover-events.ts",
   "editor/bubble-menu/bubble-menu-state.ts",
-  "editor/bubble-menu/ImageAlignButtons.tsx",
   "editor/bubble-menu/FileBubbleButtons.tsx",
   // footnotes
   "editor/extensions/footnote-anchor-scroll.ts",
@@ -136,7 +133,6 @@ const MANIFEST = [
   "editor/extensions/formatting-shortcuts.ts",
   "editor/extensions/tab-focus-trap.ts",
   "editor/extensions/table-row-enter.ts",
-  "editor/extensions/heading-anchors.ts",
   // content-visibility block chunking for read-only large-doc surfaces; the
   // consuming CSS (.ok-chunk-wrapper) is already in editor-globals.css, and
   // its '@/lib/perf' import resolves to the local lib/perf.ts seam
@@ -175,8 +171,6 @@ const MANIFEST = [
   "editor/utils/alignable-descriptors.ts",
   "editor/utils/animate-align-change.ts",
   "editor/components/File.tsx",
-  "hooks/use-is-embedded.ts",
-  "lib/workspace-paths.ts",
   // shared app libs
   "lib/keyboard-shortcuts.ts",
   "lib/doc-hash.ts",

@@ -8,8 +8,8 @@
  *     hold it in attributes. They define `renderText`, but that is a TipTap
  *     concept `textBetween` never consults, and it returns a position-faithful
  *     placeholder rather than anything readable.
- *   - Promoted fences — ` ```mermaid `, ` ```math `, `$$…$$`, and the other
- *     constructs `mermaid-promoter.ts` and its siblings rewrite into an
+ *   - Promoted math — ` ```math `, `$$…$$`, and the other
+ *     constructs the math promoters rewrite into an
  *     `mdxJsxFlowElement` — become a CHILDLESS `jsxComponent` carrying the
  *     source in `props`. Those are not leaves (`content: 'block*'`), so
  *     `textBetween`'s `leafText` hook does not fire for them at all.

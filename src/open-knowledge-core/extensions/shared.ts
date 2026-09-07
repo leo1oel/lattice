@@ -100,6 +100,9 @@ export const sharedExtensions = [
   // Keeps `renderText`'s position-faithful placeholder out of plain-text copy.
   PlainTextClipboard,
   StarterKit.configure({
+    // Open Knowledge #3994: a caret affordance must not become authored
+    // Markdown. Lattice already provides Add block below for final blocks.
+    trailingNode: false,
     undoRedo: false,
     bulletList: false,
     orderedList: false,
