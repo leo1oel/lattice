@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { activateAppLocale } from "../i18n";
 import { loadAuditReport, saveAuditReport, type AuditReport } from "./bibliography-audit-storage";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -50,6 +51,16 @@ it("rejects malformed native data without overwriting it", async () => {
   vi.mocked(invoke).mockResolvedValue({ broken: true });
   await expect(loadAuditReport("/project")).rejects.toThrow("Invalid saved");
   expect(invoke).toHaveBeenCalledTimes(1);
+});
+
+it("uses the active app locale for invalid-report errors", async () => {
+  await activateAppLocale("zh-CN");
+  try {
+    vi.mocked(invoke).mockResolvedValue({ broken: true });
+    await expect(loadAuditReport("/project")).rejects.toThrow("已保存的参考文献审查报告格式无效。");
+  } finally {
+    await activateAppLocale("en");
+  }
 });
 
 it("tolerates malformed legacy browser storage", async () => {
