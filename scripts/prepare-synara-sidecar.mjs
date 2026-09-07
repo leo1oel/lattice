@@ -18,6 +18,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import { findMachOBinaries } from "./sign-presentation-runtime.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const runtimeConfig = JSON.parse(
@@ -553,15 +554,9 @@ function signMacRuntime(stageRoot, target) {
   const signingIdentity = process.env.APPLE_SIGNING_IDENTITY?.trim();
   if (!signingIdentity || signingIdentity === "-") return;
   const entitlements = join(projectRoot, "src-tauri/Entitlements.plist");
-  const signableFiles = walkFiles(stageRoot).filter((path) => {
-    const name = path.split(/[\\/]/).at(-1);
-    return (
-      path.endsWith("/bin/node") ||
-      path.endsWith(".node") ||
-      name === "spawn-helper"
-    );
-  });
-  for (const path of signableFiles) {
+  // Provider packages can introduce extensionless binaries such as esbuild.
+  // Detect native code rather than maintaining an incomplete filename list.
+  for (const path of findMachOBinaries(stageRoot)) {
     chmodSync(path, 0o755);
     run("codesign", [
       "--force",
@@ -574,6 +569,7 @@ function signMacRuntime(stageRoot, target) {
       signingIdentity,
       path,
     ]);
+    run("codesign", ["--verify", "--strict", path]);
   }
 }
 
