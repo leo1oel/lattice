@@ -3945,7 +3945,7 @@ function App() {
         });
       }
     }
-  }, [installTexDependency, relayAgentCompileResults]);
+  }, [installTexDependency, relayAgentCompileResults, t]);
 
   const compile = useCallback(async (
     force = false,

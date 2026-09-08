@@ -702,6 +702,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     savedSourceRef,
     settleRemoteDeletes,
     sourceRef,
+    t,
   ]);
 
   // Live mode keeps a linked project close to current without anyone pressing
