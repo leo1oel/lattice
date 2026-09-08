@@ -1,5 +1,6 @@
 import { isCatalogV2, type CatalogV2, type GrantPermission } from "../../protocol/collab-v2";
 import { loadCollabFeaturePolicy, mayWriteCollabProject } from "./collab-feature-policy";
+import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
 
 // v2 is the only room type now; the env flag survives as an opt-out kill switch.
 const collabControlV2Enabled = import.meta.env.VITE_LATTICE_COLLAB_V2 !== "false";
@@ -19,8 +20,8 @@ export type PresenceEntryV2 = { name: string; color: string; path: string | null
 export class CollabControlV2Client {
   constructor(private readonly baseUrl: string, private readonly projectInstanceId: string, private readonly credential?: string) {}
 
-  async catalog(): Promise<CatalogV2> {
-    const value = await this.request("catalog");
+  async catalog(diagnostic?: DiagnosticOperationContext): Promise<CatalogV2> {
+    const value = await this.request("catalog", {}, diagnostic);
     if (!isCatalogV2(value)) throw new Error("Invalid v2 catalog response");
     return value;
   }
@@ -43,19 +44,19 @@ export class CollabControlV2Client {
     return this.request("grants") as Promise<Array<{ grantId: string; permission: "read" | "write"; revoked: boolean }>>;
   }
 
-  async operation<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
+  async operation<T>(endpoint: string, body: Record<string, unknown>, diagnostic?: DiagnosticOperationContext): Promise<T> {
     if (!mayWriteCollabProject()) throw new Error("Collaboration writes are temporarily disabled; local recovery and export remain available");
     const policy = loadCollabFeaturePolicy();
     if (endpoint === "bootstrap" && !policy.allowCreateV2) throw new Error("Creating v2 projects is not enabled");
-    return this.request(endpoint, { method: "POST", body: JSON.stringify(body) }) as Promise<T>;
+    return this.request(endpoint, { method: "POST", body: JSON.stringify(body) }, diagnostic) as Promise<T>;
   }
 
-  private async request(path: string, init: RequestInit = {}): Promise<unknown> {
+  private async request(path: string, init: RequestInit = {}, diagnostic?: DiagnosticOperationContext): Promise<unknown> {
     if (!collabControlV2Enabled) throw new Error("The v2 collaboration control plane is disabled");
-    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/v2/projects/${encodeURIComponent(this.projectInstanceId)}/${path}`, {
+    const response = await diagnosticFetch(fetch, `${this.baseUrl.replace(/\/$/, "")}/v2/projects/${encodeURIComponent(this.projectInstanceId)}/${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(this.credential ? { Authorization: `Bearer ${this.credential}` } : {}), ...init.headers },
-    });
+    }, `collab.${path.split("?")[0]}`, diagnostic);
     const value: unknown = await response.json();
     if (!response.ok) throw new CollabControlErrorV2(response.status, (value ?? {}) as Record<string, unknown>);
     return value;

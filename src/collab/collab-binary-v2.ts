@@ -1,4 +1,5 @@
 import { isBinaryContentType, isBinarySize, isOperationId, isSha256, type BinaryConflictV2, type BinaryReferenceV2 } from "../../protocol/collab-v2";
+import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
 
 export type BinaryReplaceResult = { status: "complete"; current: BinaryReferenceV2 } | { status: "conflict"; current?: BinaryReferenceV2; conflict: BinaryConflictV2 };
 export type WorkspaceLeaseCheck = () => void | Promise<void>;
@@ -33,27 +34,29 @@ export class CollabBinaryV2Client {
   }
 
   private async replaceOnce(fileId: string, documentEpoch: number, bytes: Uint8Array, contentType: string, expectedCatalogRevision: number, expectedContentRevision: number, expectedPriorHash: string | undefined, operationId: string): Promise<BinaryReplaceResult> {
+    const diagnostic = { operationId: crypto.randomUUID() };
     await this.checkWorkspaceLease?.();
     if (!isBinarySize(bytes.byteLength) || !isBinaryContentType(contentType) || !isOperationId(operationId)) throw new Error("Invalid binary replacement");
     const hash = await sha256(bytes);
     await this.checkWorkspaceLease?.();
-    const ticket = await this.json("binary/upload-tickets", { fileId, documentEpoch, declaredHash: hash, declaredSize: bytes.byteLength, contentType, expectedCatalogRevision, expectedContentRevision, expectedPriorHash, operationId }) as { ticket: string };
+    const ticket = await this.json("binary/upload-tickets", { fileId, documentEpoch, declaredHash: hash, declaredSize: bytes.byteLength, contentType, expectedCatalogRevision, expectedContentRevision, expectedPriorHash, operationId }, diagnostic) as { ticket: string };
     await this.checkWorkspaceLease?.();
-    const upload = await this.fetcher(this.url(`binary/uploads/${encodeURIComponent(ticket.ticket)}`), { method: "PUT", headers: { Authorization: `Bearer ${this.credential}`, "content-type": contentType }, body: bytes });
+    const upload = await diagnosticFetch(this.fetcher, this.url(`binary/uploads/${encodeURIComponent(ticket.ticket)}`), { method: "PUT", headers: { Authorization: `Bearer ${this.credential}`, "content-type": contentType }, body: bytes }, "collab.binary.upload", diagnostic);
     await this.checkWorkspaceLease?.();
     if (!upload.ok) throw await httpError(upload, "Binary upload failed");
     await this.checkWorkspaceLease?.();
-    const committed = await this.json("binary/commit", { ticket: ticket.ticket, operationId }) as BinaryReplaceResult;
+    const committed = await this.json("binary/commit", { ticket: ticket.ticket, operationId }, diagnostic) as BinaryReplaceResult;
     await this.checkWorkspaceLease?.();
     return committed;
   }
 
   async download(fileId: string, documentEpoch: number, conflictId?: string): Promise<Uint8Array> {
+    const diagnostic = { operationId: crypto.randomUUID() };
     await this.checkWorkspaceLease?.();
-    const issued = await this.json("binary/read-tickets", { fileId, documentEpoch, conflictId }) as { ticket: string; hash: string; size: number };
+    const issued = await this.json("binary/read-tickets", { fileId, documentEpoch, conflictId }, diagnostic) as { ticket: string; hash: string; size: number };
     await this.checkWorkspaceLease?.();
     if (!isSha256(issued.hash) || !isBinarySize(issued.size)) throw new Error("Invalid binary read authorization");
-    const response = await this.fetcher(this.url(`binary/downloads/${encodeURIComponent(issued.ticket)}`), { headers: { Authorization: `Bearer ${this.credential}` } });
+    const response = await diagnosticFetch(this.fetcher, this.url(`binary/downloads/${encodeURIComponent(issued.ticket)}`), { headers: { Authorization: `Bearer ${this.credential}` } }, "collab.binary.download", diagnostic);
     await this.checkWorkspaceLease?.();
     if (!response.ok) throw await httpError(response, "Binary download failed");
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -63,8 +66,8 @@ export class CollabBinaryV2Client {
   }
 
   private url(path: string): string { return `${this.baseUrl.replace(/\/$/, "")}/v2/projects/${encodeURIComponent(this.projectInstanceId)}/${path}`; }
-  private async json(path: string, body: object): Promise<unknown> {
-    const response = await this.fetcher(this.url(path), { method: "POST", headers: { Authorization: `Bearer ${this.credential}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+  private async json(path: string, body: object, diagnostic?: DiagnosticOperationContext): Promise<unknown> {
+    const response = await diagnosticFetch(this.fetcher, this.url(path), { method: "POST", headers: { Authorization: `Bearer ${this.credential}`, "content-type": "application/json" }, body: JSON.stringify(body) }, `collab.${path}`, diagnostic);
     // Parse the body as text first: edge errors (502/520) return HTML, and a
     // bare response.json() would throw SyntaxError, losing the typed
     // CollabBinaryHttpError and its retryable classification.

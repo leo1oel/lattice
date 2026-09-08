@@ -5,6 +5,7 @@ mod citation_audit;
 mod citation_batch;
 mod citation_health;
 mod collab_credentials;
+mod command_diagnostics;
 mod commands;
 mod doctor;
 mod firecrawl;
@@ -1842,18 +1843,29 @@ async fn build_project(
     force: Option<bool>,
     project_root: String,
     document_path: Option<String>,
+    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("The project changed before its build could start.".to_string());
+    let diagnostic =
+        command_diagnostics::CommandDiagnostic::new("build_project", diagnostic_context.clone());
+    let result = async {
+        if let Some(context) = &diagnostic_context {
+            context.validate()?;
+        }
+        let root = current_root(&state, &window)?;
+        if root != Path::new(&project_root) {
+            return Err("The project changed before its build could start.".to_string());
+        }
+        let force = force.unwrap_or(false);
+        let active = state.project(&root).active_build.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            latex::build(&root, force, &active, document_path.as_deref())
+        })
+        .await
+        .map_err(|error| format!("The LaTeX build task stopped unexpectedly: {error}"))?
     }
-    let force = force.unwrap_or(false);
-    let active = state.project(&root).active_build.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        latex::build(&root, force, &active, document_path.as_deref())
-    })
-    .await
-    .map_err(|error| format!("The LaTeX build task stopped unexpectedly: {error}"))?
+    .await;
+    diagnostic.complete(&result);
+    result
 }
 
 #[tauri::command]
@@ -3548,33 +3560,44 @@ async fn overleaf_sync(
     project_root: String,
     live: Option<Vec<String>>,
     observed_remote_version: Option<i64>,
+    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
-    let project = state.project(Path::new(&project_root));
-    // Hold this guard until the write lease is ours. That admits only one
-    // waiter at a time while document-level realtime work continues during
-    // the cooldown, then records the actual full-download start.
-    let mut previous_sync = state.overleaf_sync_started.lock().await;
-    let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
-    if !delay.is_zero() {
-        tokio::time::sleep(delay).await;
+    let diagnostic =
+        command_diagnostics::CommandDiagnostic::new("overleaf_sync", diagnostic_context.clone());
+    let result = async {
+        if let Some(context) = &diagnostic_context {
+            context.validate()?;
+        }
+        let project = state.project(Path::new(&project_root));
+        // Hold this guard until the write lease is ours. That admits only one
+        // waiter at a time while document-level realtime work continues during
+        // the cooldown, then records the actual full-download start.
+        let mut previous_sync = state.overleaf_sync_started.lock().await;
+        let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+        let _lease = project.overleaf_sync_lease.write().await;
+        *previous_sync = Some(tokio::time::Instant::now());
+        drop(previous_sync);
+        let config = overleaf_config_dir(&app)?;
+        let root = current_root(&state, &window)?;
+        if root != Path::new(&project_root) {
+            return Err("The project changed before Overleaf sync could start.".to_string());
+        }
+        let mut live = live_paths(live);
+        if let Ok(realtime) = project.realtime.lock() {
+            realtime.extend_joined_paths(&root, &mut live);
+        }
+        tauri::async_runtime::spawn_blocking(move || {
+            overleaf::sync(&config, &root, &live, observed_remote_version)
+        })
+        .await
+        .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
     }
-    let _lease = project.overleaf_sync_lease.write().await;
-    *previous_sync = Some(tokio::time::Instant::now());
-    drop(previous_sync);
-    let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("The project changed before Overleaf sync could start.".to_string());
-    }
-    let mut live = live_paths(live);
-    if let Ok(realtime) = project.realtime.lock() {
-        realtime.extend_joined_paths(&root, &mut live);
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        overleaf::sync(&config, &root, &live, observed_remote_version)
-    })
-    .await
-    .map_err(|error| format!("The Overleaf sync stopped unexpectedly: {error}"))?
+    .await;
+    diagnostic.complete(&result);
+    result
 }
 
 /// Prepare a full sync from the Share catalog's authoritative snapshot.
@@ -3589,33 +3612,46 @@ async fn overleaf_prepare_sync(
     authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>,
     live: Option<Vec<String>>,
     observed_remote_version: Option<i64>,
+    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafPreparedSync, String> {
-    let project = state.project(Path::new(&project_root));
-    let mut previous_sync = state.overleaf_sync_started.lock().await;
-    let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
-    if !delay.is_zero() {
-        tokio::time::sleep(delay).await;
+    let diagnostic = command_diagnostics::CommandDiagnostic::new(
+        "overleaf_prepare_sync",
+        diagnostic_context.clone(),
+    );
+    let result = async {
+        if let Some(context) = &diagnostic_context {
+            context.validate()?;
+        }
+        let project = state.project(Path::new(&project_root));
+        let mut previous_sync = state.overleaf_sync_started.lock().await;
+        let delay = overleaf_full_sync_delay(*previous_sync, tokio::time::Instant::now());
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+        let _lease = project.overleaf_sync_lease.write().await;
+        *previous_sync = Some(tokio::time::Instant::now());
+        drop(previous_sync);
+        let config = overleaf_config_dir(&app)?;
+        let root = current_root(&state, &window)?;
+        if root != Path::new(&project_root) {
+            return Err("The project changed before Overleaf sync could start.".to_string());
+        }
+        let live = live_paths(live);
+        tauri::async_runtime::spawn_blocking(move || {
+            overleaf::prepare_sync(
+                &config,
+                &root,
+                &authoritative_inventory,
+                &live,
+                observed_remote_version,
+            )
+        })
+        .await
+        .map_err(|error| format!("The Overleaf sync preparation stopped unexpectedly: {error}"))?
     }
-    let _lease = project.overleaf_sync_lease.write().await;
-    *previous_sync = Some(tokio::time::Instant::now());
-    drop(previous_sync);
-    let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("The project changed before Overleaf sync could start.".to_string());
-    }
-    let live = live_paths(live);
-    tauri::async_runtime::spawn_blocking(move || {
-        overleaf::prepare_sync(
-            &config,
-            &root,
-            &authoritative_inventory,
-            &live,
-            observed_remote_version,
-        )
-    })
-    .await
-    .map_err(|error| format!("The Overleaf sync preparation stopped unexpectedly: {error}"))?
+    .await;
+    diagnostic.complete(&result);
+    result
 }
 
 #[tauri::command]
@@ -3626,19 +3662,32 @@ async fn overleaf_commit_prepared_sync(
     project_root: String,
     prepared_plan_id: String,
     accepted_actions: Vec<overleaf::OverleafAcceptedAction>,
+    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
-    let project = state.project(Path::new(&project_root));
-    let _lease = project.overleaf_sync_lease.write().await;
-    let config = overleaf_config_dir(&app)?;
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("The project changed before Overleaf sync could finish.".to_string());
+    let diagnostic = command_diagnostics::CommandDiagnostic::new(
+        "overleaf_commit_prepared_sync",
+        diagnostic_context.clone(),
+    );
+    let result = async {
+        if let Some(context) = &diagnostic_context {
+            context.validate()?;
+        }
+        let project = state.project(Path::new(&project_root));
+        let _lease = project.overleaf_sync_lease.write().await;
+        let config = overleaf_config_dir(&app)?;
+        let root = current_root(&state, &window)?;
+        if root != Path::new(&project_root) {
+            return Err("The project changed before Overleaf sync could finish.".to_string());
+        }
+        tauri::async_runtime::spawn_blocking(move || {
+            overleaf::commit_prepared_sync(&config, &root, &prepared_plan_id, &accepted_actions)
+        })
+        .await
+        .map_err(|error| format!("The Overleaf sync commit stopped unexpectedly: {error}"))?
     }
-    tauri::async_runtime::spawn_blocking(move || {
-        overleaf::commit_prepared_sync(&config, &root, &prepared_plan_id, &accepted_actions)
-    })
-    .await
-    .map_err(|error| format!("The Overleaf sync commit stopped unexpectedly: {error}"))?
+    .await;
+    diagnostic.complete(&result);
+    result
 }
 
 #[tauri::command]

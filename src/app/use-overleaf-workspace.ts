@@ -18,6 +18,7 @@ import {
   type OverleafSyncMode,
 } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
+import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setError, setNotice, setWarning } from "./notify";
 import {
   confirmAction,
@@ -111,6 +112,7 @@ export type OverleafWorkspaceDeps = {
   runSharedOverleafSync: (
     observedRemoteVersion?: number | null,
     livePaths?: readonly string[],
+    diagnosticOperationId?: string,
   ) => Promise<OverleafSyncResult>;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
@@ -503,14 +505,24 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       );
       const sharedSync = collabSession !== null;
       const result = sharedSync
-        ? await runSharedOverleafSync(options?.observedRemoteVersion, livePaths)
-        : await invoke<OverleafSyncResult>("overleaf_sync", {
+        ? await runSharedOverleafSync(options?.observedRemoteVersion, livePaths, trace.id)
+        : await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
             projectRoot: syncRoot,
             live: livePaths,
             observedRemoteVersion: options?.observedRemoteVersion ?? null,
-          });
+          }, { operationId: trace.id });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
+      trace.enrich({
+        automatic: options?.auto === true,
+        shared: sharedSync,
+        pulled: result.pulled.length,
+        pushed: result.pushed.length,
+        merged: result.merged.length,
+        conflicts: result.conflicts.length,
+        deleted_local: result.deletedLocal.length,
+        read_only: result.readOnly === true,
+      });
       // Every pending whole-file path omitted from `livePaths` participated in
       // this successful sync. Forget it now so a later blur does not perform a
       // duplicate project download for work that is already remote.
@@ -624,7 +636,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       } else {
         // A background sync with nothing to do stays out of the user's way, but
         // still leaves a line in the log so a gap in sync history is explained.
-        trace.note("Overleaf: already up to date.");
+        trace.finish("success", "Overleaf: already up to date.");
       }
       const changedProjectContent = hadUnsavedEdits
         || result.pulled.length > 0
@@ -651,12 +663,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           // immediately risks another 429, while raising a toast for a brief
           // background outage interrupts work even when the next pass recovers.
           overleafTransportRetryRef.current = true;
-          trace.note(toMessage(reason));
+          trace.enrich({ retry_scheduled: true });
+          trace.fail(reason, { toast: false });
         } else {
           trace.fail(reason);
         }
       }
     } finally {
+      trace.finish("cancelled", t`Overleaf sync cancelled`);
       overleafSyncingRef.current = false;
       setOverleafSyncing(false);
       const settle = resolveOverleafSyncRef.current;

@@ -1046,9 +1046,11 @@ describe("v2 mid-share file creation", () => {
         ...(options.liveFiles ?? []).map((entry) => ({ fileId: entry.fileId, path: entry.path, kind: "text", state: "live", documentEpoch: 1 })),
       ] as Array<{ fileId: string; path: string; kind: string; state: string; documentEpoch: number }>,
     };
-    const calls = { create: 0, fileReady: 0, textImport: 0, importedText: "" };
+    const calls = { create: 0, fileReady: 0, textImport: 0, importedText: "", createBodies: [] as Array<Record<string, unknown>>, diagnostics: [] as Array<{ url: string; operationId: string | null; requestId: string | null }> };
     let createSeen = false;
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: { body?: string }) => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      calls.diagnostics.push({ url, operationId: headers.get("x-lattice-operation-id"), requestId: headers.get("x-lattice-request-id") });
       const respond = (value: unknown) => new Response(JSON.stringify(value), { headers: { "content-type": "application/json" } });
       if (url.endsWith("/catalog")) {
         if (createSeen && options.hostOnline) {
@@ -1074,7 +1076,8 @@ describe("v2 mid-share file creation", () => {
       if (url.endsWith("/create")) {
         calls.create += 1;
         createSeen = true;
-        const body = JSON.parse(init?.body ?? "{}") as { path: string; kind: string };
+        const body = JSON.parse(String(init?.body ?? "{}")) as { path: string; kind: string };
+        calls.createBodies.push(body);
         if (options.failFirstCreate && calls.create === 1) {
           // A peer's op landed first: the revision moved, so this expectedCatalogRevision is stale.
           catalogValue.catalogRevision += 1;
@@ -1087,7 +1090,7 @@ describe("v2 mid-share file creation", () => {
       }
       if (url.endsWith("/file-ready")) {
         calls.fileReady += 1;
-        const body = JSON.parse(init?.body ?? "{}") as { fileId: string };
+        const body = JSON.parse(String(init?.body ?? "{}")) as { fileId: string };
         const entry = catalogValue.files.find((candidate) => candidate.fileId === body.fileId);
         if (!entry || entry.state !== "initializing") return new Response(JSON.stringify({ error: "not_initializing", message: "File is not initializing" }), { status: 409, headers: { "content-type": "application/json" } });
         entry.state = "live";
@@ -1197,10 +1200,17 @@ describe("v2 mid-share file creation", () => {
   });
 
   it("retries the create once when a peer moved the catalog revision first", async () => {
+    let uuidSequence = 0;
+    vi.spyOn(crypto, "randomUUID").mockImplementation(() => `00000000-0000-4000-8000-${String(++uuidSequence).padStart(12, "0")}`);
     const { controller, catalogValue, calls } = await setupCreateTest({ permission: "host", failFirstCreate: true });
     await controller.create("notes/raced.md", "text", { seedText: "# Raced\n" });
     expect(calls.create).toBe(2);
     expect(calls.textImport).toBe(1);
+    // Revision conflicts change the protocol request body, but not the logical diagnostic operation.
+    expect(calls.createBodies[0]?.operationId).not.toBe(calls.createBodies[1]?.operationId);
+    const createDiagnostics = calls.diagnostics.filter((entry) => entry.url.endsWith("/create") || entry.url.includes("/text/imports/"));
+    expect(new Set(createDiagnostics.map((entry) => entry.operationId)).size).toBe(1);
+    expect(new Set(createDiagnostics.map((entry) => entry.requestId)).size).toBe(createDiagnostics.length);
     expect(calls.fileReady).toBe(0);
     expect(catalogValue.files.find((file) => file.path === "notes/raced.md")!.state).toBe("live");
     controller.destroy();

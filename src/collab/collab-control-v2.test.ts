@@ -16,9 +16,10 @@ describe("CollabControlV2Client", () => {
     vi.stubGlobal("fetch", fetch);
     const { CollabControlV2Client } = await import("./collab-control-v2");
     await new CollabControlV2Client("https://collab.example/", "project/id", "secret").catalog();
-    expect(fetch).toHaveBeenCalledWith("https://collab.example/v2/projects/project%2Fid/catalog", expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: "Bearer secret" }),
-    }));
+    const headers = fetch.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.get("authorization")).toBe("Bearer secret");
+    expect(headers.get("x-lattice-operation-id")).toMatch(/^[0-9a-f-]{36}$/);
+    expect(headers.get("x-lattice-request-id")).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("fails closed on malformed server catalogs", async () => {

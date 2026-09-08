@@ -5,6 +5,7 @@ export { TextFileV2 } from "./text-file-v2";
 import { parseTextFileV2RoomName, type TextFileV2 } from "./text-file-v2";
 import { BINARY_OBJECT_VERSION, MAX_BINARY_OBJECT_BYTES, textFileV2RoomName } from "../../protocol/collab-v2";
 import { binaryKey } from "./project-coordinator-v2";
+import { version } from "../package.json";
 
 type Env = {
   ProjectCoordinatorV2: DurableObjectNamespace<ProjectCoordinatorV2>;
@@ -19,11 +20,13 @@ function jsonResponse(value: unknown, status = 200): Response {
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
-  "access-control-allow-headers": "authorization, content-length, content-type, x-content-sha256, x-document-epoch, x-operation-id",
+  "access-control-allow-headers": "authorization, content-length, content-type, x-content-sha256, x-document-epoch, x-operation-id, x-lattice-operation-id, x-lattice-request-id",
+  "access-control-expose-headers": "x-lattice-request-id",
   "access-control-max-age": "86400",
 } as const;
 
 function withCors(response: Response): Response {
+  if (response.webSocket) return response;
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(CORS_HEADERS)) headers.set(name, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
@@ -31,45 +34,115 @@ function withCors(response: Response): Response {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const match = url.pathname.match(/^\/v2\/projects\/([^/]+)(?:\/|$)/);
-    if (match) {
-      if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
-      const projectInstanceId = decodeURIComponent(match[1]);
-      if (!/^[A-Za-z0-9_-]{16,128}$/.test(projectInstanceId)) return withCors(new Response("Invalid projectInstanceId", { status: 400 }));
-      const binary = url.pathname.match(/^\/v2\/projects\/[^/]+\/binary\/(uploads|downloads)\/([^/]+)$/);
-      if (binary) return withCors(await (binary[1] === "uploads" ? uploadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2])) : downloadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2]))));
-      const textImport = url.pathname.match(/^\/v2\/projects\/[^/]+\/text\/imports\/([^/]+)$/);
-      if (textImport) return withCors(await importText(request, env, projectInstanceId, decodeURIComponent(textImport[1])));
-      return withCors(await env.ProjectCoordinatorV2.getByName(projectInstanceId).fetch(request));
+    const startedAt = performance.now();
+    const suppliedOperationId = request.headers.get("x-lattice-operation-id");
+    const suppliedRequestId = request.headers.get("x-lattice-request-id");
+    const operationId = suppliedOperationId && isUuid(suppliedOperationId) ? suppliedOperationId : crypto.randomUUID();
+    const requestId = suppliedRequestId && isUuid(suppliedRequestId) ? suppliedRequestId : crypto.randomUUID();
+    let statusCode = 500;
+    let errorType: string | undefined;
+    let route = "other";
+    try {
+      if ((suppliedOperationId && !isUuid(suppliedOperationId)) || (suppliedRequestId && !isUuid(suppliedRequestId))) {
+        const response = withCors(new Response("Invalid diagnostic context", { status: 400 }));
+        response.headers.set("x-lattice-request-id", requestId);
+        statusCode = response.status;
+        return response;
+      }
+      const url = new URL(request.url);
+      route = normalizedRoute(url.pathname);
+      const match = url.pathname.match(/^\/v2\/projects\/([^/]+)(?:\/|$)/);
+      let response: Response;
+      if (match) {
+        if (request.method === "OPTIONS") response = withCors(new Response(null, { status: 204 }));
+        else {
+          const projectInstanceId = decodeURIComponent(match[1]);
+          if (!/^[A-Za-z0-9_-]{16,128}$/.test(projectInstanceId)) response = withCors(new Response("Invalid projectInstanceId", { status: 400 }));
+          else {
+            const binary = url.pathname.match(/^\/v2\/projects\/[^/]+\/binary\/(uploads|downloads)\/([^/]+)$/);
+            const textImport = url.pathname.match(/^\/v2\/projects\/[^/]+\/text\/imports\/([^/]+)$/);
+            if (binary) response = withCors(await (binary[1] === "uploads" ? uploadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2])) : downloadBinary(request, env, projectInstanceId, decodeURIComponent(binary[2]))));
+            else if (textImport) response = withCors(await importText(request, env, projectInstanceId, decodeURIComponent(textImport[1])));
+            else response = withCors(await env.ProjectCoordinatorV2.getByName(projectInstanceId).fetch(request));
+          }
+        }
+      } else {
+        response = (await routePartykitRequest(request, env as never, {
+          onBeforeConnect: async (incoming, lobby) => {
+            if (lobby.className !== "TextFileV2") return;
+            const identity = parseTextFileV2RoomName(lobby.name);
+            if (!identity) return typedV2Error(400, "invalid_room");
+            const sanitized = new URL(incoming.url);
+            const ticket = sanitized.searchParams.get("ticket") ?? "";
+            sanitized.searchParams.delete("ticket");
+            if (!ticket) return typedV2Error(401, "ticket_required");
+            const claims = await env.ProjectCoordinatorV2.getByName(identity.projectInstanceId).consumeSocketTicket(ticket, "file", identity.fileId, identity.documentEpoch);
+            if (!claims || claims.projectInstanceId !== identity.projectInstanceId || claims.fileId !== identity.fileId || claims.documentEpoch !== identity.documentEpoch) return typedV2Error(403, "invalid_ticket");
+            const headers = new Headers(incoming.headers);
+            headers.set("x-lattice-project", claims.projectInstanceId);
+            headers.set("x-lattice-file", claims.fileId!);
+            headers.set("x-lattice-epoch", String(claims.documentEpoch));
+            headers.set("x-lattice-grant", claims.grantId);
+            headers.set("x-lattice-permission", claims.permission);
+            headers.set("x-lattice-grant-epoch", String(claims.grantEpoch));
+            headers.set("x-lattice-authority-epoch", String(claims.projectAuthorityEpoch));
+            return new Request(sanitized, { method: incoming.method, headers });
+          },
+        })) ?? new Response("Lattice collab server", { status: 200 });
+      }
+      statusCode = response.status;
+      if (!response.webSocket) {
+        const headers = new Headers(response.headers);
+        headers.set("x-lattice-request-id", requestId);
+        response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+      }
+      return response;
+    } catch (error) {
+      errorType = boundedErrorType(error);
+      throw error;
+    } finally {
+      console.log(JSON.stringify({
+        schema_version: 1,
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+        operation_id: operationId,
+        service: "collab-server",
+        component: "collab.worker",
+        version,
+        event: "request_completed",
+        operation: route,
+        phase: "completed",
+        method: request.method,
+        route,
+        status_code: statusCode,
+        outcome: statusCode >= 400 ? "error" : "success",
+        duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+        ...(errorType ? { error_type: errorType } : {}),
+      }));
     }
-    return (
-      (await routePartykitRequest(request, env as never, {
-        onBeforeConnect: async (incoming, lobby) => {
-          if (lobby.className !== "TextFileV2") return;
-          const identity = parseTextFileV2RoomName(lobby.name);
-          if (!identity) return typedV2Error(400, "invalid_room");
-          const sanitized = new URL(incoming.url);
-          const ticket = sanitized.searchParams.get("ticket") ?? "";
-          sanitized.searchParams.delete("ticket");
-          if (!ticket) return typedV2Error(401, "ticket_required");
-          const claims = await env.ProjectCoordinatorV2.getByName(identity.projectInstanceId).consumeSocketTicket(ticket, "file", identity.fileId, identity.documentEpoch);
-          if (!claims || claims.projectInstanceId !== identity.projectInstanceId || claims.fileId !== identity.fileId || claims.documentEpoch !== identity.documentEpoch) return typedV2Error(403, "invalid_ticket");
-          const headers = new Headers(incoming.headers);
-          headers.set("x-lattice-project", claims.projectInstanceId);
-          headers.set("x-lattice-file", claims.fileId!);
-          headers.set("x-lattice-epoch", String(claims.documentEpoch));
-          headers.set("x-lattice-grant", claims.grantId);
-          headers.set("x-lattice-permission", claims.permission);
-          headers.set("x-lattice-grant-epoch", String(claims.grantEpoch));
-          headers.set("x-lattice-authority-epoch", String(claims.projectAuthorityEpoch));
-          return new Request(sanitized, { method: incoming.method, headers });
-        },
-      }))
-      ?? new Response("Lattice collab server", { status: 200 })
-    );
   },
 } satisfies ExportedHandler<Env>;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizedRoute(pathname: string): string {
+  if (/^\/v2\/projects\/[^/]+\/binary\/uploads\/[^/]+$/.test(pathname)) return "/v2/projects/:projectId/binary/uploads/:ticket";
+  if (/^\/v2\/projects\/[^/]+\/binary\/downloads\/[^/]+$/.test(pathname)) return "/v2/projects/:projectId/binary/downloads/:ticket";
+  if (/^\/v2\/projects\/[^/]+\/text\/imports\/[^/]+$/.test(pathname)) return "/v2/projects/:projectId/text/imports/:fileId";
+  if (/^\/v2\/projects\/[^/]+(?:\/|$)/.test(pathname)) return "/v2/projects/:projectId/coordinator";
+  if (/^\/parties\/[^/]+\/[^/]+(?:\/|$)/.test(pathname)) return "/parties/:party/:room";
+  return "other";
+}
+
+function boundedErrorType(error: unknown): string {
+  if (error instanceof TypeError) return "TypeError";
+  if (error instanceof RangeError) return "RangeError";
+  if (error instanceof DOMException) return "DOMException";
+  if (error instanceof Error) return "Error";
+  return "unknown";
+}
 
 async function importText(request: Request, env: Env, projectId: string, fileId: string): Promise<Response> {
   if (request.method !== "PUT") return typedV2Error(405, "method");

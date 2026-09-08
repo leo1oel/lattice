@@ -18,6 +18,7 @@
 import {
   addAppLog,
   dismissAppToastByDedupeKey,
+  type AppLogContext,
   type AppLogLevel,
   type AppToastAction,
 } from "./app-log-store";
@@ -55,6 +56,7 @@ function notify(
   source: string,
   title: string,
   options: ActionFailureOptions = {},
+  context?: AppLogContext,
 ): string {
   const detail = options.detail?.trim() ?? "";
   // The banner this replaced always offered Copy on failures, and an error you
@@ -73,6 +75,7 @@ function notify(
       source,
       title: `${title} — full text`,
       detail: copyText,
+      context: context ? { ...context, phase: "progress", outcome: undefined, duration_ms: undefined } : undefined,
       toast: false,
     });
   }
@@ -81,6 +84,7 @@ function notify(
     source,
     title,
     detail,
+    context,
     toast: options.toast,
     dedupeKey: options.dedupeKey ?? toastKey(source, title),
     toastOptions: {
@@ -103,12 +107,16 @@ export const notifyInfo = (source: string, title: string, options?: NotifyOption
   notify("info", source, title, options);
 
 export type ActionLog = {
-  /** Short correlation id shared by this action's start, notes, and outcome. */
+  /** Full correlation id; only the legacy text tag is shortened for readability. */
   id: string;
   /** A log-only breadcrumb — no toast. Use for steps worth seeing in a trace. */
   note: (message: string, detail?: string) => void;
   ok: (title: string, options?: NotifyOptions) => void;
   fail: (reason: unknown, options?: ActionFailureOptions) => void;
+  /** Enrich the terminal event with domain counts/flags, without raw content. */
+  enrich: (metrics: NonNullable<AppLogContext["metrics"]>) => void;
+  /** Log-only terminal outcome; safe to call from finally as a cancellation fallback. */
+  finish: (outcome: NonNullable<AppLogContext["outcome"]>, title?: string) => void;
   /**
    * Retract this action's outstanding toast. A retry that succeeds should not
    * leave the previous failure on screen waiting out its timeout.
@@ -116,23 +124,34 @@ export type ActionLog = {
   clear: () => void;
 };
 
-function correlationId(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 6);
-}
-
 function tagged(id: string, detail?: string): string {
-  return [detail?.trim(), `#${id}`].filter(Boolean).join("\n");
+  return [detail?.trim(), `#${id.replace(/-/g, "").slice(0, 6)}`].filter(Boolean).join("\n");
 }
 
 /**
  * Open a correlated trace for one user-initiated operation.
  *
- * The start is logged without a toast; the outcome raises one. Both carry the
- * same `#id`, so a log read back weeks later shows which action produced which
- * failure rather than a bare error floating on its own.
+ * The start is a crash breadcrumb; ok/fail raise a toast unless suppressed.
+ * Every terminal event carries the initial context, accumulated counts, and
+ * elapsed time. Use finish in finally for exits that did not reach ok/fail.
  */
 export function logAction(source: string, action: string, detail?: string): ActionLog {
-  const id = correlationId();
+  const id = crypto.randomUUID();
+  const started = performance.now();
+  let completed = false;
+  let metrics: NonNullable<AppLogContext["metrics"]> = {};
+  const context = (phase: AppLogContext["phase"]): AppLogContext => ({
+    operation_id: id,
+    operation: action,
+    phase,
+    trigger: detail,
+    metrics: { ...metrics },
+  });
+  const terminal = (outcome: NonNullable<AppLogContext["outcome"]>): AppLogContext => ({
+    ...context("completed"),
+    outcome,
+    duration_ms: Math.round(performance.now() - started),
+  });
   // Successive runs of the same action share a key, so the newer outcome
   // replaces the older toast; the correlation id is what separates the runs in
   // the log.
@@ -142,34 +161,53 @@ export function logAction(source: string, action: string, detail?: string): Acti
     source,
     title: `▶ ${action}`,
     detail: tagged(id, detail),
+    context: context("started"),
     toast: false,
   });
   return {
     id,
+    enrich: (values) => { metrics = { ...metrics, ...values }; },
+    finish: (outcome, title) => {
+      if (completed) return;
+      completed = true;
+      addAppLog({
+        level: outcome === "error" ? "error" : outcome === "success" ? "success" : "info",
+        source,
+        title: title ?? `${action} ${outcome}`,
+        detail: tagged(id),
+        context: terminal(outcome),
+        toast: false,
+      });
+    },
     note: (message, noteDetail) => {
       addAppLog({
         level: "info",
         source,
         title: message,
         detail: tagged(id, noteDetail),
+        context: context("progress"),
         toast: false,
       });
     },
     ok: (title, options) => {
+      if (completed) return;
+      completed = true;
       notify("success", source, title, {
         ...options,
         detail: tagged(id, options?.detail),
         dedupeKey: options?.dedupeKey ?? outcomeKey,
-      });
+      }, terminal("success"));
     },
     fail: (reason, options) => {
+      if (completed) return;
+      completed = true;
       const message = toMessage(reason);
       notify("error", source, `${action} failed`, {
         ...options,
         detail: tagged(id, options?.detail ?? message),
         copyText: options?.copyText ?? `${action} failed\n${message}`,
         dedupeKey: options?.dedupeKey ?? outcomeKey,
-      });
+      }, { ...terminal("error"), error_type: reason instanceof Error ? reason.name : "Error" });
     },
     clear: () => dismissAppToastByDedupeKey(outcomeKey),
   };

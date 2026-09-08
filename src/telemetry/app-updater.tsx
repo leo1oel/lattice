@@ -94,7 +94,7 @@ async function restartAfterUpdate() {
  * fails because the machine is offline is not a failed update, and saying so
  * tells people an install they never started went wrong.
  */
-export type UpdateErrorKind = "check" | "install";
+type UpdateErrorKind = "check" | "install";
 
 export type UpdaterApi = {
   mode: UpdateMode;

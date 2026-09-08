@@ -214,6 +214,58 @@ describe("AppToastStack", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
   });
 
+  it("renders chronological event rows with expandable details and search", () => {
+    act(() => {
+      addAppLog({
+        level: "warning",
+        source: "PDF",
+        title: "First event",
+        detail: "Line one\nLine two",
+        toast: false,
+      });
+      addAppLog({ level: "success", source: "Build", title: "Second event", toast: false });
+    });
+    render(<AppLogsSettings />);
+
+    const rows = [...document.querySelectorAll("[data-log-entry]")];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("First event");
+    expect(rows[1]).toHaveTextContent("Second event");
+    const details = screen.getByText("Details").closest("details");
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Details"));
+    expect(details).toHaveAttribute("open");
+    expect(details).toHaveTextContent("Line one Line two");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), {
+      target: { value: "build" },
+    });
+    expect(screen.queryByText("First event")).toBeNull();
+    expect(screen.getByText("Second event")).toBeInTheDocument();
+  });
+
+  it("searches full operation ids and shows readable metadata without duplicate tags", () => {
+    addAppLog({
+      level: "success", source: "Build", title: "Compiled", detail: "#abcdef", toast: false,
+      context: {
+        operation_id: "abcdef12-3456-7890-abcd-123456789012", operation: "Build",
+        phase: "completed", outcome: "success", duration_ms: 1200, metrics: { diagnostics: 0 },
+      },
+    });
+    render(<AppLogsSettings />);
+    expect(screen.getAllByText("1200 ms")[0]).toBeInTheDocument();
+    expect(screen.getAllByTitle("abcdef12-3456-7890-abcd-123456789012")[0]).toHaveTextContent("abcdef12");
+    expect(screen.queryByText("#abcdef")).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value: "123456789012" } });
+    expect(screen.getAllByText("Compiled")[0]).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value: "missing-operation" } });
+    expect(screen.getByText("No matching logs")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear log search" }));
+    expect(screen.getAllByText("Compiled")[0]).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByText("No logs yet")).toBeInTheDocument();
+  });
+
   it("opens at the newest entry without interrupting someone reading older logs", () => {
     const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
     let scrollHeight = 600;
@@ -248,5 +300,56 @@ describe("AppToastStack", () => {
         delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
       }
     }
+  });
+
+  it("groups an operation around its terminal summary and expands the complete timeline", () => {
+    const operationId = "123e4567-e89b-42d3-a456-426614174000";
+    const context = { operation_id: operationId, operation: "Build", metrics: {} } as const;
+    act(() => {
+      addAppLog({ level: "info", source: "Build", title: "Started build", toast: false,
+        context: { ...context, phase: "started" } });
+      addAppLog({ level: "error", source: "Build", title: "Build failed", toast: false,
+        context: { ...context, phase: "completed", outcome: "error", duration_ms: 2501 } });
+      addAppLog({ level: "info", source: "Build", title: "Cleanup breadcrumb", toast: false,
+        context: { ...context, phase: "progress" } });
+      addAppLog({ level: "success", source: "Diagnostics", title: "Late request succeeded", toast: false,
+        context: { ...context, request_id: crypto.randomUUID(), phase: "completed", outcome: "success" } });
+    });
+    render(<AppLogsSettings />);
+
+    const group = document.querySelector("[data-log-operation]")!;
+    expect(group).toHaveTextContent("Build failed");
+    expect(group.querySelector("summary")).not.toHaveTextContent("Cleanup breadcrumb");
+    expect(group.querySelector("summary")).not.toHaveTextContent("Late request succeeded");
+    fireEvent.click(group.querySelector("summary")!);
+    expect(group).toHaveAttribute("open");
+    const rows = [...group.querySelectorAll("[data-log-entry]")];
+    expect(rows.map((row) => row.textContent)).toEqual(expect.arrayContaining([
+      expect.stringContaining("Started build"), expect.stringContaining("Build failed"), expect.stringContaining("Cleanup breadcrumb"),
+    ]));
+    fireEvent.click(screen.getByLabelText("Only failures"));
+    expect(document.querySelectorAll("[data-log-operation]")).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText("Only slow (over 2000 ms)"));
+    expect(document.querySelectorAll("[data-log-operation]")).toHaveLength(1);
+  });
+
+  it("previews and copies a safe stable export, requiring consent for raw text", () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    act(() => { addAppLog({ level: "error", source: "/private/alice", title: "secret title", detail: "document body", toast: false }); });
+    render(<AppLogsSettings />);
+    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    const preview = screen.getByLabelText("Export preview");
+    expect(preview).not.toHaveTextContent("document body");
+    const original = preview.textContent;
+    act(() => { addAppLog({ level: "info", source: "App", title: "New event", toast: false }); });
+    expect(preview.textContent).toBe(original);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Include raw diagnostic text/ }));
+    expect(preview).toHaveTextContent("document body");
+    fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
+    expect(writeText).toHaveBeenCalledWith(preview.textContent);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    expect(screen.getByRole("checkbox", { name: /Include raw diagnostic text/ })).not.toBeChecked();
   });
 });

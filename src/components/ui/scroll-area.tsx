@@ -210,4 +210,4 @@ const ScrollBar = forwardRef<
   );
 });
 
-export { ScrollArea, ScrollBar };
+export { ScrollArea };

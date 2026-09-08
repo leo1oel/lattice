@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
-  <rect x="32" y="32" width="960" height="960" rx="192" fill="white"/>
-  <g transform="rotate(38 512 512)" stroke="#454545" stroke-width="22" stroke-linecap="round">
-    <path d="M340 306V718M512 306V718M684 306V718"/>
-    <path d="M306 340H718M306 512H718M306 684H718"/>
-  </g>
-</svg>

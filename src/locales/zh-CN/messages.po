@@ -732,6 +732,10 @@ msgstr "仅在请求时构建 · Command-S 立即构建。按住 Shift 点击可
 msgid "Build project"
 msgstr "构建项目"
 
+#: src/App.tsx
+msgid "Build superseded"
+msgstr "构建已被新操作取代"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper"
 msgstr "构建项目以预览论文"
@@ -777,6 +781,7 @@ msgstr "提示框"
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/project-dialogs.tsx
+#: src/telemetry/app-log.tsx
 msgid "Cancel"
 msgstr "取消"
 
@@ -787,6 +792,10 @@ msgstr "取消检查"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "取消创建"
+
+#: src/telemetry/app-log.tsx
+msgid "Cancelled"
+msgstr "已取消"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
@@ -1033,6 +1042,10 @@ msgstr "正在清理…"
 msgid "Clear"
 msgstr "清空"
 
+#: src/telemetry/app-log.tsx
+msgid "Clear log search"
+msgstr "清除日志搜索"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Clear PDF search"
 msgstr "清除 PDF 搜索"
@@ -1171,6 +1184,10 @@ msgstr "编译 LaTeX"
 msgid "Compile/PDF stays on each Mac. "
 msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
 
+#: src/telemetry/app-log.tsx
+msgid "Completed"
+msgstr "已完成"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Components"
 msgstr "组件"
@@ -1272,10 +1289,6 @@ msgstr "已复制"
 msgid "Copy"
 msgstr "复制"
 
-#: src/telemetry/app-log.tsx
-msgid "Copy all"
-msgstr "全部复制"
-
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
@@ -1285,12 +1298,24 @@ msgid "Copy invite"
 msgstr "复制邀请"
 
 #: src/telemetry/app-log.tsx
+msgid "Copy JSON"
+msgstr "复制 JSON"
+
+#: src/telemetry/app-log.tsx
 msgid "Copy notification command"
 msgstr "复制通知中的命令"
 
 #: src/project/navigator.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/telemetry/app-log.tsx
+msgid "Copy safe entry"
+msgstr "复制安全条目"
+
+#: src/telemetry/app-log.tsx
+msgid "Copy safe log entry"
+msgstr "复制安全日志条目"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
@@ -1524,6 +1549,11 @@ msgstr "描述列表"
 msgid "Details"
 msgstr "检查详情"
 
+#: src/telemetry/app-log.tsx
+msgctxt "Activity log"
+msgid "Details"
+msgstr "详情"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
@@ -1638,6 +1668,10 @@ msgstr "下载 {url}"
 #: src/project/navigator.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
+
+#: src/telemetry/app-log.tsx
+msgid "Download JSON"
+msgstr "下载 JSON"
 
 #: src/canvas/document-canvas.tsx
 msgid "Download PDF"
@@ -1926,6 +1960,10 @@ msgstr "标题完全匹配"
 msgid "Excel workbook"
 msgstr "Excel 工作簿"
 
+#: src/telemetry/app-log.tsx
+msgid "Export diagnostic log"
+msgstr "导出诊断日志"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Export Excel"
 msgstr "导出 Excel"
@@ -1934,6 +1972,10 @@ msgstr "导出 Excel"
 msgid "Export Excel workbook"
 msgstr "导出 Excel 工作簿"
 
+#: src/telemetry/app-log.tsx
+msgid "Export preview"
+msgstr "导出预览"
+
 #: src/App.tsx
 msgid "Export project ZIP"
 msgstr "导出项目 ZIP"
@@ -1941,6 +1983,10 @@ msgstr "导出项目 ZIP"
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
+
+#: src/telemetry/app-log.tsx
+msgid "Export…"
+msgstr "导出…"
 
 #: src/project/navigator.tsx
 msgid "Expression of concern"
@@ -2361,6 +2407,10 @@ msgstr "正在导入 ZIP…"
 msgid "In proceedings"
 msgstr "会议论文"
 
+#: src/telemetry/app-log.tsx
+msgid "In progress"
+msgstr "进行中"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "当前文件"
@@ -2381,6 +2431,10 @@ msgstr "引入文件"
 msgid "Include graphics"
 msgstr "插入图片"
 
+#: src/telemetry/app-log.tsx
+msgid "Include raw diagnostic text"
+msgstr "包含原始诊断文本"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Include resolved"
 msgstr "包括已解决"
@@ -2388,6 +2442,10 @@ msgstr "包括已解决"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Include resolved ({resolvedCount})"
 msgstr "包括已解决（{resolvedCount}）"
+
+#: src/telemetry/app-log.tsx
+msgid "Incomplete history"
+msgstr "历史记录不完整"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
@@ -3327,6 +3385,10 @@ msgstr "暂无日志"
 msgid "No longer in the document"
 msgstr "已不在文档中"
 
+#: src/telemetry/app-log.tsx
+msgid "No matching logs"
+msgstr "没有匹配的日志"
+
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
@@ -3490,6 +3552,14 @@ msgstr "离线"
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "欧米伽"
+
+#: src/telemetry/app-log.tsx
+msgid "Only failures"
+msgstr "仅显示失败项"
+
+#: src/telemetry/app-log.tsx
+msgid "Only slow (over 2000 ms)"
+msgstr "仅显示慢操作（超过 2000 毫秒）"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
@@ -3675,6 +3745,10 @@ msgstr "正在打开共享文档…"
 msgid "Opening…"
 msgstr "正在打开…"
 
+#: src/telemetry/app-log.tsx
+msgid "Operation metadata"
+msgstr "操作信息"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Operators"
 msgstr "运算符"
@@ -3726,6 +3800,10 @@ msgstr "Overleaf 项目操作"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf 项目"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Overleaf sync cancelled"
+msgstr "Overleaf 同步已取消"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
@@ -4764,6 +4842,14 @@ msgstr "按项目或所有者搜索…"
 msgid "Search literature"
 msgstr "搜索文献"
 
+#: src/telemetry/app-log.tsx
+msgid "Search logs"
+msgstr "搜索日志"
+
+#: src/telemetry/app-log.tsx
+msgid "Search logs…"
+msgstr "搜索日志…"
+
 #: src/project/navigator.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "按标题、arXiv ID、DOI 或 URL 搜索或添加"
@@ -5121,6 +5207,10 @@ msgstr "开始共享"
 msgid "Start tracking versions"
 msgstr "开始追踪版本"
 
+#: src/telemetry/app-log.tsx
+msgid "Started"
+msgstr "已开始"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
 msgstr "正在启动智能助手"
@@ -5385,6 +5475,10 @@ msgstr "所需工具"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "查询结果未能确定唯一匹配的发表版本。"
+
+#: src/telemetry/app-log.tsx
+msgid "The safe export contains only validated operation metadata and known counts. It stays on this device until you copy or download it."
+msgstr "安全导出仅包含经过验证的操作元数据和已知计数。在你复制或下载之前，数据会保留在此设备上。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
@@ -5661,6 +5755,7 @@ msgstr "并集"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
+#: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "未知"
 
@@ -5961,6 +6056,10 @@ msgstr "正在启动本地服务…"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"
+
+#: src/telemetry/app-log.tsx
+msgid "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
+msgstr "警告：原始诊断文本可能包含文档内容、文件路径或其他敏感信息。"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"

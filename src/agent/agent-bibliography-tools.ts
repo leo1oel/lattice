@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-export const SYNARA_BIBLIOGRAPHY_TOOL_REQUEST = "synara:bibliography-tool-request";
+const SYNARA_BIBLIOGRAPHY_TOOL_REQUEST = "synara:bibliography-tool-request";
 const LATTICE_BIBLIOGRAPHY_TOOL_RESULT = "lattice:bibliography-tool-result";
 
 type AgentBibliographyAction = "cite" | "upgrade_bibliography" | "remove_reference";

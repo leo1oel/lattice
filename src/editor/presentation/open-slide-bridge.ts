@@ -8,7 +8,7 @@ export type OpenSlideMutation = {
   previousBase64?: string;
 };
 
-export type OpenSlideComment = {
+type OpenSlideComment = {
   id: string;
   line: number;
   ts: string;

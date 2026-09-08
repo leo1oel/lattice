@@ -247,7 +247,7 @@ function disarmPdfCopyField() {
 }
 
 /** Drop a PDF text-layer range. Leaves an editor-only selection alone. */
-export function clearPdfTextSelection() {
+function clearPdfTextSelection() {
   const selection = document.getSelection();
   const selectionOwnedByPdf =
     selectionIntersectsPdf(selection) || selectionIsCopyField(selection);
@@ -276,7 +276,7 @@ function blurEditableFocus() {
   active.blur();
 }
 
-export function pdfSelectedPlainText(selection: Selection | null = document.getSelection()): string {
+function pdfSelectedPlainText(selection: Selection | null = document.getSelection()): string {
   if (selectionIsCopyField(selection)) return lastPdfCopyText || copyField?.value || "";
   if (!selectionIntersectsPdf(selection)) return "";
   const pieces: string[] = [];

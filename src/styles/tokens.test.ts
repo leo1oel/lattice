@@ -223,8 +223,10 @@ describe("design token contract", () => {
     // and composite active rows are excluded from the ring by design, so a field
     // may still suppress the native halo on its own selector. Composite controls
     // must express focus with their existing fill rather than another outline.
+    // Start at a rule boundary so a failed match doesn't rescan the same long
+    // declaration or template literal from every character in the source.
     const cancelled = sources.filter(({ rules }) =>
-      [...rules.matchAll(/([^{}]*):focus-visible[^{]*\{[^}]*outline:\s*none/g)].some(
+      [...rules.matchAll(/(?:^|[{}])([^{}]*):focus-visible[^{]*\{[^}]*outline:\s*none/g)].some(
         (match) => !/input|textarea|search/i.test(match[1]),
       ),
     )

@@ -299,6 +299,7 @@ import { useSynaraRuntime } from "./agent/use-synara-runtime";
 import { useSynaraNotificationBridge } from "./agent/synara-notifications";
 import { useSynaraConfirmationBridge } from "./agent/synara-confirmations";
 import { logAction, notifyError } from "./telemetry/app-notify";
+import { diagnosticInvoke } from "./telemetry/diagnostic-request";
 // setError / setWarning / setNotice are the ~170-call-site toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
 import { setError, setNotice, setWarning } from "./app/notify";
@@ -3712,7 +3713,7 @@ function App() {
     setBuilding(true);
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
-    const trace = logAction("Build", "Build", force ? "clean rebuild" : undefined);
+    let trace = logAction("Build", "Build", force ? "clean rebuild" : undefined);
     let buildScope: {
       operationGeneration: number;
       previewGeneration: number;
@@ -3732,6 +3733,8 @@ function App() {
       const takeQueuedBuild = () => {
         const queuedForce = queuedBuildForceRef.current;
         if (queuedForce === null) return false;
+        trace.finish("cancelled", t`Build superseded`);
+        trace = logAction("Build", "Build", queuedForce ? "clean rebuild" : "queued");
         currentForce = queuedForce;
         shouldPlayCompletionSound = shouldPlayCompletionSound || queuedBuildSoundRef.current;
         shouldConsumeAgentAssociations = queuedAgentCompileBuildRef.current;
@@ -3764,7 +3767,7 @@ function App() {
           : null;
         let result: BuildResult;
         try {
-          result = await invoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath });
+          result = await diagnosticInvoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id });
         } catch (reason) {
           if (!scopeIsCurrent()) continue;
           relayAgentCompileResults(agentCompileAssociations, null);
@@ -3772,6 +3775,12 @@ function App() {
         }
         if (!scopeIsCurrent()) continue;
         relayAgentCompileResults(agentCompileAssociations, result);
+        trace.enrich({
+          force: currentForce,
+          compiler_duration_ms: result.durationMs,
+          diagnostics: result.diagnostics.length,
+          has_pdf: result.hasPdf,
+        });
         let pdfBytes: ArrayBuffer | null = null;
         if (result.hasPdf) {
           try {
@@ -3891,7 +3900,7 @@ function App() {
           // A rebuild that succeeds retracts the previous failure instead of
           // leaving it on screen to time out on its own.
           trace.clear();
-          trace.note(`Build succeeded in ${(result.durationMs / 1000).toFixed(1)}s`);
+          trace.finish("success", `Build succeeded in ${(result.durationMs / 1000).toFixed(1)}s`);
           completionSound = "build-succeeded";
         }
       } while (takeQueuedBuild());
@@ -3910,6 +3919,7 @@ function App() {
         }
       }
     } finally {
+      trace.finish("cancelled", t`Build superseded`);
       const queuedForce = queuedBuildForceRef.current;
       const queuedBuild = queuedForce === null ? null : {
         force: queuedForce,
@@ -3988,6 +3998,7 @@ function App() {
   const runSharedOverleafSync = useCallback(async (
     observedRemoteVersion?: number | null,
     livePaths: readonly string[] = [],
+    diagnosticOperationId: string = crypto.randomUUID(),
   ): Promise<OverleafSyncResult> => {
     const controller = collabV2ControllerRef.current;
     const lease = collabWorkspaceLeaseRef.current;
@@ -4067,12 +4078,12 @@ function App() {
       );
     }
 
-    const prepared = await invoke<OverleafPreparedSync>("overleaf_prepare_sync", {
+    const prepared = await diagnosticInvoke<OverleafPreparedSync>("overleaf_prepare_sync", {
       projectRoot,
       authoritativeInventory: inventory,
       live: livePaths,
       observedRemoteVersion: observedRemoteVersion ?? null,
-    });
+    }, { operationId: diagnosticOperationId });
     const acceptedActions: OverleafAcceptedAction[] = [];
     const acceptedPaths = new Set<string>();
     const deferred = new Set<string>();
@@ -4247,11 +4258,11 @@ function App() {
     await controller.settled();
     await controller.flush();
     assertCollabWorkspaceLease(lease);
-    const result = await invoke<OverleafSyncResult>("overleaf_commit_prepared_sync", {
+    const result = await diagnosticInvoke<OverleafSyncResult>("overleaf_commit_prepared_sync", {
       projectRoot,
       preparedPlanId: prepared.planId,
       acceptedActions,
-    });
+    }, { operationId: diagnosticOperationId });
     if (concurrentTextConflicts) {
       setWarning("Overleaf and a Lattice collaborator changed the same lines; both versions were kept with conflict markers.", "Overleaf");
     } else if (deferred.size) {

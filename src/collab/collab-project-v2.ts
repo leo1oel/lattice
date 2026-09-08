@@ -13,6 +13,7 @@ import { EDITOR_COMMENTS_PATH } from "../editor/comments/editor-comment-data";
 import type { OperationResultV2 } from "../../protocol/collab-v2";
 import { putTextFileV2 } from "./collab-import-v2";
 import { isPaperLibraryPath } from "../papers/paper-link";
+import type { DiagnosticOperationContext } from "../telemetry/diagnostic-request";
 
 export type CollabProjectStatusV2 = "syncing" | "server-received" | "durable" | "offline" | "read-only" | "importing" | "closed" | "error";
 export type CollabProjectV2Options = {
@@ -53,8 +54,8 @@ export type CollabLocalMutationsV2 = {
   writeBinaryConflict?(path: string, bytes: Uint8Array, projectRoot: string): Promise<void>;
 };
 export type CollabMaterializeResultV2 = { rootPath: string; openPath: string; textCount: number; binaryCount: number; fileCount: number };
-export const EXTERNAL_TEXT_SNAPSHOT_ORIGIN_V2 = Symbol("v2-external-text-snapshot");
-export type SideloadedTextIdentityV2 = { projectInstanceId: string; fileId: string; documentEpoch: number };
+const EXTERNAL_TEXT_SNAPSHOT_ORIGIN_V2 = Symbol("v2-external-text-snapshot");
+type SideloadedTextIdentityV2 = { projectInstanceId: string; fileId: string; documentEpoch: number };
 export type SideloadedTextBindingV2 = {
   readonly bindingId: string; readonly identity: SideloadedTextIdentityV2; readonly doc: Y.Doc; readonly ytext: Y.Text;
   readonly version: number; readonly canWrite: boolean; readonly durabilityState: TextDurabilityStateV2;
@@ -957,7 +958,8 @@ export class CollabProjectControllerV2 {
       size: seedBytes.byteLength,
       hash: await sha256(seedText),
     };
-    const createOp = () => this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind, ...(initializer ? { initializer } : {}) });
+    const diagnostic: DiagnosticOperationContext = { operationId: crypto.randomUUID() };
+    const createOp = () => this.control.operation<OperationResultV2>("create", { operationId: crypto.randomUUID(), expectedCatalogRevision: this.catalogValue.catalogRevision, path, kind, ...(initializer ? { initializer } : {}) }, diagnostic);
     let result: OperationResultV2 | undefined;
     let created: CatalogFileV2 | undefined = occupied ? existing : undefined;
     let createdByThisClient = !occupied;
@@ -998,6 +1000,7 @@ export class CollabProjectControllerV2 {
         bytes: seedBytes,
         hash: initializer.hash,
         operationId: initializer.operationId,
+        diagnosticOperation: diagnostic,
       });
       try { await initialize(); }
       catch { await initialize(); }

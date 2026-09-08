@@ -56,6 +56,29 @@ describe("app-notify", () => {
     expect(log).toContain("Undefined control sequence");
   });
 
+  it("emits one complete outcome with duration, initial context and accumulated counts", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(100);
+    try {
+      const trace = logAction("Build", "Structured build", "requested");
+      trace.enrich({ diagnostics: 2 });
+      trace.enrich({ has_pdf: true });
+      clock.mockReturnValue(350);
+      trace.finish("success", "Structured build complete");
+      trace.finish("cancelled");
+      const events = () => vi.mocked(fileLog.info).mock.calls
+        .map((call) => JSON.parse(String(call[0])))
+        .filter((entry) => entry.context?.operation_id === trace.id && entry.context.phase === "completed");
+      await vi.waitFor(() => expect(events()).toHaveLength(1));
+      expect(events()[0].context).toMatchObject({
+        operation: "Structured build", outcome: "success", duration_ms: 250,
+        trigger: "requested", metrics: { diagnostics: 2, has_pdf: true },
+      });
+      expect(getVisibleAppToastIds()).toHaveLength(0);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("logs breadcrumbs without raising a toast for them", () => {
     const trace = logAction("Build", "Build");
     trace.note("Build succeeded in 1.2s");

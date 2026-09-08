@@ -30,12 +30,11 @@ function stylesheets(): { name: string; source: string }[] {
 }
 
 describe("shared popup motion", () => {
-  it("is owned by every Radix popup wrapper, including submenu surfaces", () => {
+  it("is owned by every Radix popup wrapper", () => {
     for (const source of [dropdown, context, select, popover]) {
-      expect(source).toContain("popupMotionClassName")
+      // One import and one use on each wrapper's content surface.
+      expect(source.match(/popupMotionClassName/g)).toHaveLength(2)
     }
-    expect(dropdown.match(/popupMotionClassName/g)).toHaveLength(3)
-    expect(context.match(/popupMotionClassName/g)).toHaveLength(3)
   })
 
   it("loads one shared popup-motion stylesheet", () => {

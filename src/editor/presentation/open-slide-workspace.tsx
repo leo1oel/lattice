@@ -359,5 +359,3 @@ export function OpenSlideWorkspace({
     </div>
   );
 }
-
-export default OpenSlideWorkspace;

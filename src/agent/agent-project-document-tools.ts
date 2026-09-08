@@ -3,7 +3,7 @@
 export const SYNARA_PROJECT_DOCUMENT_TOOL_REQUEST = "synara:project-document-tool-request";
 const LATTICE_PROJECT_DOCUMENT_TOOL_RESULT = "lattice:project-document-tool-result";
 
-export type AgentProjectDocumentType = "board" | "spreadsheet";
+type AgentProjectDocumentType = "board" | "spreadsheet";
 
 export type AgentProjectDocumentToolRequest = {
   type: typeof SYNARA_PROJECT_DOCUMENT_TOOL_REQUEST;

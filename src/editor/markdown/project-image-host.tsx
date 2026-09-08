@@ -13,7 +13,7 @@ type ProjectImageResource = {
   consumers: number;
 };
 
-export type ProjectImageTargetExistence = "unknown" | "exists" | "missing";
+type ProjectImageTargetExistence = "unknown" | "exists" | "missing";
 
 export type ProjectImageResult = {
   src: string | undefined;

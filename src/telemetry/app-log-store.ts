@@ -1,4 +1,20 @@
 import { useSyncExternalStore } from "react";
+import { version } from "../../package.json";
+import { AppLogFileQueue, type LogLosses } from "./app-log-file-queue";
+
+export type AppLogContext = {
+  operation_id: string;
+  request_id?: string;
+  parent_request_id?: string;
+  operation: string;
+  phase: "started" | "progress" | "completed";
+  outcome?: "success" | "error" | "cancelled";
+  duration_ms?: number;
+  trigger?: string;
+  error_type?: string;
+  /** Counts and flags only; never pass document contents or credentials here. */
+  metrics?: Record<string, number | boolean>;
+};
 
 export type AppLogLevel = "info" | "success" | "warning" | "error";
 export type AppLogEntry = {
@@ -8,6 +24,7 @@ export type AppLogEntry = {
   source: string;
   title: string;
   detail: string;
+  context?: AppLogContext;
 };
 
 export type AppToastAction = {
@@ -51,10 +68,47 @@ const toastOptionsById = new Map<string, AppToastOptions>();
 const entryIdByDedupeKey = new Map<string, string>();
 const dedupeKeyByEntryId = new Map<string, string>();
 
+// Defense in depth for diagnostic strings, not a guarantee that arbitrary
+// document output is safe to share. Preserve local paths/compiler diagnostics;
+// remove common credential forms before persistence, forwarding, and export.
+function redactLogText(value: string): string {
+  return value
+    .replace(/\b(Bearer\s+)\S+/gi, "$1[redacted]")
+    .replace(/((?:["']?)(?:authorization|cookie|set-cookie)["']?\s*[:=]\s*)[^\r\n]+/gi, "$1[redacted]")
+    .replace(/((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|ticket|password|secret)["']?\s*[:=]\s*["']?)[^\s&"',;}]+/gi, "$1[redacted]")
+    .replace(/(\/binary\/(?:uploads|downloads)\/)[^\s/?#"']+/gi, "$1[redacted]");
+}
+
+function sanitizeContext(context?: AppLogContext): AppLogContext | undefined {
+  return context ? {
+    ...context,
+    operation: redactLogText(context.operation),
+    trigger: context.trigger ? redactLogText(context.trigger).slice(0, MAX_DETAIL_LENGTH) : undefined,
+    error_type: context.error_type ? redactLogText(context.error_type) : undefined,
+    metrics: context.metrics ? { ...context.metrics } : undefined,
+  } : undefined;
+}
+
 function readEntries(): AppLogEntry[] {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(value) ? value.slice(0, MAX_ENTRIES) : [];
+    return Array.isArray(value) ? value.slice(0, MAX_ENTRIES).flatMap((entry) => {
+      if (!entry || typeof entry !== "object"
+        || !["id", "timestamp", "source", "title", "detail"].every((key) => typeof entry[key] === "string")
+        || !["info", "success", "warning", "error"].includes(entry.level)) return [];
+      try {
+        const context = entry.context;
+        return [{ ...entry,
+          source: redactLogText(entry.source), title: redactLogText(entry.title),
+          detail: redactLogText(entry.detail).slice(0, MAX_DETAIL_LENGTH),
+          context: context && typeof context.operation_id === "string" && typeof context.operation === "string"
+            && ["started", "progress", "completed"].includes(context.phase) ? sanitizeContext(context) : undefined,
+        }];
+      } catch {
+        // A malformed legacy record must not discard the remaining history.
+        return [];
+      }
+    }) : [];
   } catch {
     return [];
   }
@@ -91,8 +145,18 @@ function emit() {
 }
 
 let persistWarningIssued = false;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 function persist() {
+  // Coalesce a burst without postponing persistence indefinitely. In-memory
+  // subscribers and disk delivery remain immediate; only the snapshot waits.
+  persistTimer ??= setTimeout(flushPersistence, 100);
+}
+
+function flushPersistence() {
+  if (persistTimer === undefined) return;
+  clearTimeout(persistTimer);
+  persistTimer = undefined;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   } catch {
@@ -115,34 +179,69 @@ function persist() {
   }
 }
 
-// Durable on-disk log (tauri-plugin-log → app_log_dir/lattice.log). Entries are
-// forwarded through a serialized, never-rejecting queue so callers stay
-// synchronous and concurrent writes keep their order on disk.
-let forwardChain: Promise<void> = Promise.resolve();
-let forwardDisabled = false;
+// Browser lifecycle events are best effort, not a crash/disk flush guarantee.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", flushPersistence);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPersistence();
+  });
+}
+
+const sessionId = crypto.randomUUID();
+const lossEntryId = crypto.randomUUID();
+let pendingLossEntry: AppLogEntry | undefined;
+let lossFlushQueued = false;
+
+function serializeFileEntry(entry: AppLogEntry): string {
+  // The plugin may add its own prefix; the message itself is single-line JSON.
+  // Keep the original event time, even when IPC delivery is delayed.
+  return JSON.stringify({
+    schema_version: 1,
+    event: entry.context ? "app.operation" : "app.notification",
+    service: "lattice.frontend",
+    version,
+    session_id: sessionId,
+    ...entry,
+  });
+}
+
+function reportFileLoss(losses: LogLosses): string {
+  const entry: AppLogEntry = {
+    id: lossEntryId,
+    timestamp: new Date().toISOString(),
+    level: "warning",
+    source: "logging",
+    title: "logging.delivery.loss",
+    detail: "",
+    context: {
+      operation_id: sessionId, operation: "logging.delivery", phase: "progress",
+      metrics: { dropped_overflow: losses.overflow, dropped_failed: losses.failed },
+    },
+  };
+  pendingLossEntry = entry;
+  if (!lossFlushQueued) {
+    lossFlushQueued = true;
+    queueMicrotask(() => {
+      lossFlushQueued = false;
+      if (!pendingLossEntry) return;
+      entries = [pendingLossEntry, ...entries.filter((item) => item.id !== lossEntryId)].slice(0, MAX_ENTRIES);
+      pendingLossEntry = undefined;
+      persist();
+      emit();
+    });
+  }
+  // Deliberately bypass addAppLog/console capture: sink failures must never
+  // enqueue more sink failures. The queue writes this summary after recovery.
+  return serializeFileEntry(entry);
+}
+
+const fileQueue = new AppLogFileQueue(async (line, priority) => {
+  const fileLog = await import("@tauri-apps/plugin-log");
+  await (priority === 2 ? fileLog.error : priority === 1 ? fileLog.warn : fileLog.info)(line);
+}, reportFileLoss);
 
 function forwardToFileLog(entry: AppLogEntry): void {
-  if (forwardDisabled) return;
-  const line = `[${entry.source}] ${entry.title}${entry.detail ? `\n${entry.detail}` : ""}`;
-  forwardChain = forwardChain.then(async () => {
-    try {
-      const fileLog = await import("@tauri-apps/plugin-log");
-      const write =
-        entry.level === "error" ? fileLog.error
-        : entry.level === "warning" ? fileLog.warn
-        : fileLog.info;
-      await write(line);
-    } catch (reason) {
-      // Disable BEFORE reporting: a wrapped console.error → addAppLog →
-      // forward → fail loop is the failure mode this prevents.
-      forwardDisabled = true;
-      try {
-        console.error("Lattice file logging unavailable", reason);
-      } catch {
-        // Nothing left to report through.
-      }
-    }
-  });
+  fileQueue.enqueue(serializeFileEntry(entry), entry.level === "error" ? 2 : entry.level === "warning" ? 1 : 0);
 }
 
 function subscribe(listener: () => void) {
@@ -155,6 +254,7 @@ export function addAppLog(input: {
   source: string;
   title: string;
   detail?: string;
+  context?: AppLogContext;
   toast?: boolean;
   toastOptions?: AppToastOptions;
   /**
@@ -168,26 +268,34 @@ export function addAppLog(input: {
   if (input.dedupeKey) {
     const existingId = entryIdByDedupeKey.get(input.dedupeKey);
     if (existingId && visibleToastIds.includes(existingId)) {
-      const updated = updateAppLog(
-        existingId,
-        {
-          level: input.level,
-          source: input.source,
-          title: input.title,
-          detail: input.detail?.trim() ?? "",
-        },
-        input.toastOptions,
-      );
-      if (updated) return updated;
+      const previous = entries.find((entry) => entry.id === existingId);
+      if (input.context?.operation_id && previous?.context?.operation_id !== input.context.operation_id) {
+        // Collapse the visible toast, not the history of distinct operations.
+        dismissAppToast(existingId, false);
+      } else {
+        const updated = updateAppLog(
+          existingId,
+          {
+            level: input.level,
+            source: input.source,
+            title: input.title,
+            detail: input.detail?.trim() ?? "",
+            context: input.context,
+          },
+          input.toastOptions,
+        );
+        if (updated) return updated;
+      }
     }
   }
   const entry: AppLogEntry = {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     level: input.level,
-    source: input.source,
-    title: input.title,
-    detail: input.detail?.trim().slice(0, MAX_DETAIL_LENGTH) ?? "",
+    source: redactLogText(input.source),
+    title: redactLogText(input.title),
+    detail: redactLogText(input.detail?.trim() ?? "").slice(0, MAX_DETAIL_LENGTH),
+    context: sanitizeContext(input.context),
   };
   entries = [entry, ...entries].slice(0, MAX_ENTRIES);
   if (input.toast !== false) {
@@ -206,7 +314,7 @@ export function addAppLog(input: {
 
 export function updateAppLog(
   id: string,
-  patch: Partial<Pick<AppLogEntry, "level" | "source" | "title" | "detail">>,
+  patch: Partial<Pick<AppLogEntry, "level" | "source" | "title" | "detail" | "context">>,
   toastOptions?: AppToastOptions,
 ): AppLogEntry | null {
   const current = entries.find((entry) => entry.id === id);
@@ -218,7 +326,10 @@ export function updateAppLog(
     ...current,
     ...patch,
     timestamp: new Date().toISOString(),
-    detail: (patch.detail ?? current.detail).slice(0, MAX_DETAIL_LENGTH),
+    source: redactLogText(patch.source ?? current.source),
+    title: redactLogText(patch.title ?? current.title),
+    detail: redactLogText(patch.detail ?? current.detail).slice(0, MAX_DETAIL_LENGTH),
+    context: sanitizeContext("context" in patch ? patch.context : current.context),
   };
   entries = [updated, ...entries.filter((entry) => entry.id !== id)].slice(0, MAX_ENTRIES);
   visibleToastIds = [id, ...visibleToastIds.filter((value) => value !== id)].slice(0, 4);
@@ -236,6 +347,7 @@ export function clearAppLogs() {
   entryIdByDedupeKey.clear();
   dedupeKeyByEntryId.clear();
   persist();
+  flushPersistence();
   emit();
 }
 
@@ -243,6 +355,7 @@ export function formatAppLogs(value = entries): string {
   return value.map((entry) => [
     `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.source}] ${entry.title}`,
     entry.detail,
+    entry.context ? JSON.stringify(entry.context) : "",
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 

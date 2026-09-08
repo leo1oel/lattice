@@ -4,12 +4,24 @@
   // `<script type="module">` in index.html. `tools/icon-lab/main.tsx` is listed
   // because it is the entry of the dev-only playground shell (icon-lab.html),
   // which is deliberately not a build input, so nothing knip reads points at it.
-  "entry": [
-    "tools/icon-lab/main.tsx",
-    "scripts/*.mjs",
-    "lingui.config.ts"
-  ],
-  "project": ["src/**", "scripts/**", "protocol/**", "tools/**"],
+  // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
+  // launched by Rust or the nested package's test script, not frontend imports.
+  "workspaces": {
+    ".": {
+      "entry": [
+        "tools/icon-lab/main.tsx",
+        "scripts/*.mjs",
+        "lingui.config.ts"
+      ],
+      "project": ["src/**", "scripts/**", "protocol/**", "tools/**"]
+    },
+    "tools/open-slide-runtime": {
+      "entry": ["*.mjs"],
+      "project": ["*.mjs"],
+      // server.mjs injects a CSS import and resolves it through a Vite alias.
+      "ignoreDependencies": ["@fontsource-variable/inter"]
+    }
+  },
   // collab-server/ is a separate workspace with its own package.json and is not
   // in `project`, so knip cannot see it. The cost of skipping it: it is the only
   // consumer of most of `protocol/**`, so anything exported there and used only

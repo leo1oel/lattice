@@ -732,6 +732,10 @@ msgstr "Build only when requested · Command-S builds now. Shift-click for clean
 msgid "Build project"
 msgstr "Build project"
 
+#: src/App.tsx
+msgid "Build superseded"
+msgstr "Build superseded"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper"
 msgstr "Build the project to preview the paper"
@@ -777,6 +781,7 @@ msgstr "Callout"
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/project-dialogs.tsx
+#: src/telemetry/app-log.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -787,6 +792,10 @@ msgstr "Cancel check"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
+
+#: src/telemetry/app-log.tsx
+msgid "Cancelled"
+msgstr "Cancelled"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
@@ -1033,6 +1042,10 @@ msgstr "Cleaning…"
 msgid "Clear"
 msgstr "Clear"
 
+#: src/telemetry/app-log.tsx
+msgid "Clear log search"
+msgstr "Clear log search"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Clear PDF search"
 msgstr "Clear PDF search"
@@ -1171,6 +1184,10 @@ msgstr "Compile LaTeX"
 msgid "Compile/PDF stays on each Mac. "
 msgstr "Compile/PDF stays on each Mac. "
 
+#: src/telemetry/app-log.tsx
+msgid "Completed"
+msgstr "Completed"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Components"
 msgstr "Components"
@@ -1272,10 +1289,6 @@ msgstr "Copied"
 msgid "Copy"
 msgstr "Copy"
 
-#: src/telemetry/app-log.tsx
-msgid "Copy all"
-msgstr "Copy all"
-
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
@@ -1285,12 +1298,24 @@ msgid "Copy invite"
 msgstr "Copy invite"
 
 #: src/telemetry/app-log.tsx
+msgid "Copy JSON"
+msgstr "Copy JSON"
+
+#: src/telemetry/app-log.tsx
 msgid "Copy notification command"
 msgstr "Copy notification command"
 
 #: src/project/navigator.tsx
 msgid "Copy path"
 msgstr "Copy path"
+
+#: src/telemetry/app-log.tsx
+msgid "Copy safe entry"
+msgstr "Copy safe entry"
+
+#: src/telemetry/app-log.tsx
+msgid "Copy safe log entry"
+msgstr "Copy safe log entry"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
@@ -1524,6 +1549,11 @@ msgstr "Description"
 msgid "Details"
 msgstr "Details"
 
+#: src/telemetry/app-log.tsx
+msgctxt "Activity log"
+msgid "Details"
+msgstr "Details"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
@@ -1638,6 +1668,10 @@ msgstr "Download {url}"
 #: src/project/navigator.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
+
+#: src/telemetry/app-log.tsx
+msgid "Download JSON"
+msgstr "Download JSON"
 
 #: src/canvas/document-canvas.tsx
 msgid "Download PDF"
@@ -1926,6 +1960,10 @@ msgstr "Exact title match"
 msgid "Excel workbook"
 msgstr "Excel workbook"
 
+#: src/telemetry/app-log.tsx
+msgid "Export diagnostic log"
+msgstr "Export diagnostic log"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Export Excel"
 msgstr "Export Excel"
@@ -1934,6 +1972,10 @@ msgstr "Export Excel"
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
+#: src/telemetry/app-log.tsx
+msgid "Export preview"
+msgstr "Export preview"
+
 #: src/App.tsx
 msgid "Export project ZIP"
 msgstr "Export project ZIP"
@@ -1941,6 +1983,10 @@ msgstr "Export project ZIP"
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "Export ZIP"
+
+#: src/telemetry/app-log.tsx
+msgid "Export…"
+msgstr "Export…"
 
 #: src/project/navigator.tsx
 msgid "Expression of concern"
@@ -2361,6 +2407,10 @@ msgstr "Importing ZIP…"
 msgid "In proceedings"
 msgstr "In proceedings"
 
+#: src/telemetry/app-log.tsx
+msgid "In progress"
+msgstr "In progress"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "In this file"
@@ -2381,6 +2431,10 @@ msgstr "Include file"
 msgid "Include graphics"
 msgstr "Include graphics"
 
+#: src/telemetry/app-log.tsx
+msgid "Include raw diagnostic text"
+msgstr "Include raw diagnostic text"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Include resolved"
 msgstr "Include resolved"
@@ -2388,6 +2442,10 @@ msgstr "Include resolved"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Include resolved ({resolvedCount})"
 msgstr "Include resolved ({resolvedCount})"
+
+#: src/telemetry/app-log.tsx
+msgid "Incomplete history"
+msgstr "Incomplete history"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
@@ -3327,6 +3385,10 @@ msgstr "No logs yet"
 msgid "No longer in the document"
 msgstr "No longer in the document"
 
+#: src/telemetry/app-log.tsx
+msgid "No matching logs"
+msgstr "No matching logs"
+
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -3490,6 +3552,14 @@ msgstr "Offline"
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "Omega"
+
+#: src/telemetry/app-log.tsx
+msgid "Only failures"
+msgstr "Only failures"
+
+#: src/telemetry/app-log.tsx
+msgid "Only slow (over 2000 ms)"
+msgstr "Only slow (over 2000 ms)"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
@@ -3675,6 +3745,10 @@ msgstr "Opening the shared document…"
 msgid "Opening…"
 msgstr "Opening…"
 
+#: src/telemetry/app-log.tsx
+msgid "Operation metadata"
+msgstr "Operation metadata"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Operators"
 msgstr "Operators"
@@ -3726,6 +3800,10 @@ msgstr "Overleaf project actions"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Overleaf sync cancelled"
+msgstr "Overleaf sync cancelled"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
@@ -4766,6 +4844,14 @@ msgstr "Search by project or owner…"
 msgid "Search literature"
 msgstr "Search literature"
 
+#: src/telemetry/app-log.tsx
+msgid "Search logs"
+msgstr "Search logs"
+
+#: src/telemetry/app-log.tsx
+msgid "Search logs…"
+msgstr "Search logs…"
+
 #: src/project/navigator.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "Search or add by title, arXiv ID, DOI, or URL"
@@ -5123,6 +5209,10 @@ msgstr "Start sharing"
 msgid "Start tracking versions"
 msgstr "Start tracking versions"
 
+#: src/telemetry/app-log.tsx
+msgid "Started"
+msgstr "Started"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
 msgstr "Starting Agent"
@@ -5389,6 +5479,10 @@ msgstr "The required tools"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "The results did not identify a unique matching publication."
+
+#: src/telemetry/app-log.tsx
+msgid "The safe export contains only validated operation metadata and known counts. It stays on this device until you copy or download it."
+msgstr "The safe export contains only validated operation metadata and known counts. It stays on this device until you copy or download it."
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
@@ -5665,6 +5759,7 @@ msgstr "Union"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
+#: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "Unknown"
 
@@ -5965,6 +6060,10 @@ msgstr "Warming the local service…"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
+
+#: src/telemetry/app-log.tsx
+msgid "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
+msgstr "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"

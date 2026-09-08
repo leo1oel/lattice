@@ -5142,6 +5142,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-overleaf-paper",
       live: [],
       observedRemoteVersion: 77,
+      diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
     });
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "git_auto_commit")).toBe(false);
 
@@ -9744,6 +9745,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-slide-overleaf",
       live: ["slides/native/index.tsx"],
       observedRemoteVersion: 12,
+      diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
     }));
     probeChanged = false;
     const syncCountBeforeMutation = vi.mocked(invoke).mock.calls
@@ -9775,6 +9777,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-slide-overleaf",
       live: [],
       observedRemoteVersion: null,
+      diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
     }), { timeout: 5000 });
   });
 

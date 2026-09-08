@@ -145,6 +145,44 @@ describe("createProjectV2", () => {
     })).rejects.toThrow("v2_bootstrap_failed: invalid_request: Invalid import file kind (400)");
   });
 
+  it("preserves the diagnostic operation across resume attempts while generating new request IDs", async () => {
+    const contexts: Array<{ operationId: string | null; requestId: string | null }> = [];
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      contexts.push({ operationId: headers.get("x-lattice-operation-id"), requestId: headers.get("x-lattice-request-id") });
+      return String(input).endsWith("/catalog")
+        ? json({ error: "not_found" }, 404)
+        : json({ error: "temporarily_unavailable" }, 503);
+    });
+    const credentialStore = new MemoryCollabCredentialStore();
+    const options = {
+      deployment: "https://collab.example",
+      projectInstanceId: "project_resume_diagnostics",
+      idFactory: () => "protocol_import_operation",
+      credentialStore,
+      fetch: fetcher as typeof fetch,
+      policy,
+      source: {
+        inventory: async () => [{ path: "main.tex", kind: "text" as const }],
+        read: async () => new TextEncoder().encode("Hello"),
+      },
+      onRecord: async () => {},
+    };
+    let resume: NonNullable<Parameters<typeof createProjectV2>[0]["resume"]>;
+    try {
+      await createProjectV2(options);
+      throw new Error("Expected import to fail");
+    } catch (error) {
+      resume = (error as { resume: typeof resume }).resume;
+    }
+    await expect(createProjectV2({ ...options, resume })).rejects.toThrow("v2_bootstrap_failed");
+
+    expect(resume.operationId).toBe("protocol_import_operation");
+    expect(resume.diagnosticOperationId).not.toBe(resume.operationId);
+    expect(new Set(contexts.map((context) => context.operationId))).toEqual(new Set([resume.diagnosticOperationId!]));
+    expect(new Set(contexts.map((context) => context.requestId)).size).toBe(contexts.length);
+  });
+
   it("preserves the server error when a durable text import is rejected", async () => {
     const fetcher = vi.fn().mockResolvedValue(json({ protocol: 2, error: "import_not_authorized" }, 403));
     await expect(putTextFileV2({
