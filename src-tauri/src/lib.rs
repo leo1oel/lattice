@@ -3603,6 +3603,8 @@ async fn overleaf_sync(
 /// Prepare a full sync from the Share catalog's authoritative snapshot.
 /// Nothing mutates until the frontend has applied the returned actions to Yjs
 /// and calls `overleaf_commit_prepared_sync` with the exact accepted bytes.
+// Keep the existing IPC fields separate from the optional diagnostic context.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn overleaf_prepare_sync(
     app: tauri::AppHandle,
