@@ -397,6 +397,10 @@ pub struct ImportResult {
     /// to mention it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fetch_error: Option<String>,
+    /// The user stopped enrichment. A citation committed before cancellation
+    /// remains valid and is deliberately never rolled back.
+    #[serde(default)]
+    pub cancelled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -11,6 +11,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::process::Output;
+use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
 // Schema 4 also normalizes converter block boundaries before hashing and
@@ -477,13 +478,30 @@ pub enum HistoryMode {
 /// `progress` receives a stage id ("resolving", "fulltext", "overview")
 /// whenever the pipeline enters a network-bound step, so the UI can say what
 /// the spinner is waiting on. The agent CLI path and tests pass the no-op.
+#[cfg(test)]
 pub fn import_reference_with_progress(
     root: &Path,
     input: &str,
     progress: &dyn Fn(&str),
 ) -> Result<ImportResult, String> {
+    import_reference_cancellable(root, input, progress, &AtomicBool::new(false))
+}
+
+pub fn import_reference_cancellable(
+    root: &Path,
+    input: &str,
+    progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
+) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
-    import_citation(root, &manifest, input, HistoryMode::Record, progress)
+    import_citation(
+        root,
+        &manifest,
+        input,
+        HistoryMode::Record,
+        progress,
+        cancel,
+    )
 }
 
 pub(crate) fn import_reference_with_history(
@@ -492,7 +510,14 @@ pub(crate) fn import_reference_with_history(
     history: HistoryMode,
 ) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
-    import_citation(root, &manifest, input, history, &|_| {})
+    import_citation(
+        root,
+        &manifest,
+        input,
+        history,
+        &|_| {},
+        &AtomicBool::new(false),
+    )
 }
 
 /// Cache a complete, unfiltered arxiv2md conversion without touching the bibliography.
@@ -506,6 +531,18 @@ pub fn fetch_paper_with_progress(
     requested: &str,
     progress: &dyn Fn(&str),
 ) -> Result<FetchResult, String> {
+    fetch_paper_with_progress_and_cancel(root, requested, progress, &AtomicBool::new(false))
+}
+
+fn fetch_paper_with_progress_and_cancel(
+    root: &Path,
+    requested: &str,
+    progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
+) -> Result<FetchResult, String> {
+    if cancel.load(Ordering::Acquire) {
+        return Err("Paper import cancelled.".to_string());
+    }
     let requested =
         parse_arxiv_id(requested).ok_or_else(|| "Enter a valid arXiv id or URL.".to_string())?;
     validate_arxiv_id(&requested)?;
@@ -540,6 +577,9 @@ pub fn fetch_paper_with_progress(
         });
     }
     progress("fulltext");
+    if cancel.load(Ordering::Acquire) {
+        return Err("Paper import cancelled.".to_string());
+    }
     let papers_root = project::safe_path(root, ".research/papers")?;
     fs::create_dir_all(&papers_root).map_err(err)?;
     let temp_root = papers_root.join(format!(".fetch-{}", Uuid::new_v4()));
@@ -557,7 +597,11 @@ pub fn fetch_paper_with_progress(
             let base = base.clone();
             move || crate::alphaxiv::fetch_overview(&base)
         });
-        let (converted, converter) = convert_paper(&requested, &base, &output_dir, &output_path)?;
+        let (converted, converter) =
+            convert_paper(&requested, &base, &output_dir, &output_path, cancel)?;
+        if cancel.load(Ordering::Acquire) {
+            return Err("Paper import cancelled.".to_string());
+        }
         let markdown =
             localize_arxiv_fragment_links(&normalize_imported_markdown(&converted), &base);
         fs::write(&output_path, &markdown).map_err(err)?;
@@ -696,6 +740,18 @@ fn fetch_web_reference_with_page(
     url: &str,
     page: Option<crate::firecrawl::ScrapedPage>,
 ) -> Result<FetchResult, String> {
+    fetch_web_reference_with_page_and_cancel(root, url, page, &AtomicBool::new(false))
+}
+
+fn fetch_web_reference_with_page_and_cancel(
+    root: &Path,
+    url: &str,
+    page: Option<crate::firecrawl::ScrapedPage>,
+    cancel: &AtomicBool,
+) -> Result<FetchResult, String> {
+    if cancel.load(Ordering::Acquire) {
+        return Err("Paper import cancelled.".to_string());
+    }
     let url = url.trim();
     if !is_web_url(url) {
         return Err("Enter an http(s) URL.".to_string());
@@ -762,6 +818,9 @@ fn fetch_web_reference_with_page(
                 .unwrap_or_else(|| url.to_string());
             (title, page.markdown, "web", FIRECRAWL_CONVERTER)
         };
+        if cancel.load(Ordering::Acquire) {
+            return Err("Paper import cancelled.".to_string());
+        }
         let fidelity = if source == "pdf-text-layer" {
             "fidelity: \"Converted from the PDF text layer. Figures are absent and equations may be garbled; verify against the PDF before quoting.\"\n"
         } else {
@@ -838,9 +897,10 @@ fn convert_paper(
     base: &str,
     output_dir: &Path,
     output_path: &Path,
+    cancel: &AtomicBool,
 ) -> Result<(String, &'static str), String> {
     let mut command = commands::ARXIV2MD.command()?;
-    let output = command
+    command
         .current_dir(output_dir)
         // Without this the converter caches its source HTML relative to the
         // working directory, which is the bundle being built — every paper
@@ -860,9 +920,12 @@ fn convert_paper(
         .arg("--section")
         .arg("Acknowledgments")
         .arg("-o")
-        .arg(output_path)
-        .output()
-        .map_err(|e| uv_tool_spawn_error("arxiv2md", &e))?;
+        .arg(output_path);
+    let output = commands::bibcite_output_cancellable(
+        &mut command,
+        std::time::Duration::from_secs(600),
+        cancel,
+    )?;
     match ensure_success("arxiv2md", &output) {
         Ok(()) => {
             if !output_path.is_file() {
@@ -882,10 +945,11 @@ fn convert_paper(
                 base,
                 output_dir,
                 "arxiv2md produced an empty document from a failed ar5iv rendering.",
+                cancel,
             )
         }
         Err(error) if error.contains("does not have an HTML version") => {
-            source_then_pdf_fallback(requested, base, output_dir, &error)
+            source_then_pdf_fallback(requested, base, output_dir, &error, cancel)
         }
         Err(error) => Err(error),
     }
@@ -900,30 +964,40 @@ fn source_then_pdf_fallback(
     base: &str,
     output_dir: &Path,
     html_error: &str,
+    cancel: &AtomicBool,
 ) -> Result<(String, &'static str), String> {
-    match arxiv_source_markdown(requested, base, output_dir) {
+    match arxiv_source_markdown(requested, base, output_dir, cancel) {
         Ok(markdown) => Ok((markdown, commands::ARXIV_SOURCE2MD.requirement)),
-        Err(source_error) => pdf_fallback(
+        Err(source_error) if !cancel.load(Ordering::Acquire) => pdf_fallback(
             requested,
             base,
             output_dir,
             &format!("{html_error}\nThe arXiv source fallback also failed: {source_error}"),
         ),
+        Err(error) => Err(error),
     }
 }
 
-fn arxiv_source_markdown(requested: &str, base: &str, output_dir: &Path) -> Result<String, String> {
+fn arxiv_source_markdown(
+    requested: &str,
+    base: &str,
+    output_dir: &Path,
+    cancel: &AtomicBool,
+) -> Result<String, String> {
     let work_dir = output_dir.join(format!(".source-conversion-{}", Uuid::new_v4()));
     let converted_dir = work_dir.join("converted");
     fs::create_dir_all(&converted_dir).map_err(err)?;
     let convert = || -> Result<String, String> {
         let source = download_arxiv_source(requested)?;
+        if cancel.load(Ordering::Acquire) {
+            return Err("Paper import cancelled.".to_string());
+        }
         let extension = arxiv_source_extension(&source)?;
         let source_path = work_dir.join(format!("source{extension}"));
         fs::write(&source_path, source).map_err(err)?;
 
         let mut command = commands::ARXIV_SOURCE2MD.command()?;
-        let output = command
+        command
             .current_dir(&work_dir)
             .arg(&source_path)
             .arg("--outdir")
@@ -932,9 +1006,12 @@ fn arxiv_source_markdown(requested: &str, base: &str, output_dir: &Path) -> Resu
             // Avoiding optional PDFium/Pillow binaries keeps the tool's cache
             // under 2 MB; figures still retain their captions in the text.
             .arg("--no-assets")
-            .arg("--json")
-            .output()
-            .map_err(|error| uv_tool_spawn_error("arxiv source converter", &error))?;
+            .arg("--json");
+        let output = commands::bibcite_output_cancellable(
+            &mut command,
+            std::time::Duration::from_secs(600),
+            cancel,
+        )?;
         ensure_success("arxiv source converter", &output)?;
         let document_path = converted_dir.join("document.md");
         if !document_path.is_file() {
@@ -1160,10 +1237,9 @@ fn download_pdf_text(url: &str) -> Result<String, String> {
     Ok(body)
 }
 
-/// Download through the native host so a publisher without CORS headers can
-/// still be viewed in the app. Import and preview enforce the same size/type
-/// limits; preview never needs to convert or write a second copy to disk.
-pub(crate) fn download_pdf_bytes(url: &str) -> Result<Vec<u8>, String> {
+/// Download the complete PDF for import and text extraction. Interactive
+/// viewing uses paper_pdf_proxy so it can stream without waiting for this buffer.
+fn download_pdf_bytes(url: &str) -> Result<Vec<u8>, String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "Enter an http(s) PDF URL.".to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err("Enter an http(s) PDF URL.".to_string());
@@ -2022,6 +2098,7 @@ fn import_existing_arxiv_citation(
     bibliography: &str,
     query: &str,
     progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Option<Result<ImportResult, String>> {
     let (arxiv_id, citation_key, entry_title) =
         existing_explicit_arxiv_citation(bibliography, query)?;
@@ -2029,7 +2106,7 @@ fn import_existing_arxiv_citation(
     // Ask for the canonical id so any complete bundle for another version is
     // reusable. If the bundle is absent or incomplete, the normal fetch path
     // repairs it without allowing bibcite to rewrite the existing entry.
-    let fetched = match fetch_paper_with_progress(root, &arxiv_id, progress) {
+    let fetched = match fetch_paper_with_progress_and_cancel(root, &arxiv_id, progress, cancel) {
         Ok(fetched) => Some(fetched),
         Err(error) => {
             fetch_error = Some(error);
@@ -2052,6 +2129,7 @@ fn import_existing_arxiv_citation(
         citation_output,
         already_imported: true,
         fetch_error,
+        cancelled: cancel.load(Ordering::Acquire),
     }))
 }
 
@@ -2472,6 +2550,7 @@ fn import_pdf_citation(
     before: &str,
     history: HistoryMode,
     progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     progress("fulltext");
     let encoded_url = url
@@ -2479,7 +2558,22 @@ fn import_pdf_citation(
         .replace('}', "%7D")
         .replace('\\', "%5C");
     let url = encoded_url.as_str();
-    let fetched = fetch_web_reference(root, url)?;
+    let fetched = match fetch_web_reference_with_page_and_cancel(root, url, None, cancel) {
+        Ok(fetched) => fetched,
+        Err(_) if cancel.load(Ordering::Acquire) => {
+            return Ok(ImportResult {
+                arxiv_id: String::new(),
+                title: url.to_string(),
+                paper_path: String::new(),
+                citation_key: None,
+                citation_output: String::new(),
+                already_imported: false,
+                fetch_error: None,
+                cancelled: true,
+            });
+        }
+        Err(error) => return Err(error),
+    };
     let metadata_path = project::safe_path(
         root,
         &format!(".research/papers/{}/metadata.json", fetched.arxiv_id),
@@ -2491,6 +2585,18 @@ fn import_pdf_citation(
     progress("resolving");
     let raw = pdf_citation_bibtex(&markdown, &metadata.title, url);
     let (bibliography, key, already_imported) = merge_supplied_bibtex(before, &raw)?;
+    if cancel.load(Ordering::Acquire) {
+        return Ok(ImportResult {
+            arxiv_id: fetched.arxiv_id,
+            title: metadata.title,
+            paper_path: fetched.paper_path,
+            citation_key: None,
+            citation_output: String::new(),
+            already_imported: false,
+            fetch_error: None,
+            cancelled: true,
+        });
+    }
     if bibliography != before {
         commit_bibliography(
             root,
@@ -2508,6 +2614,7 @@ fn import_pdf_citation(
         citation_output: serde_json::json!({"action": if already_imported { "already-present" } else { "added" }, "key": key, "source": "pdf"}).to_string(),
         already_imported,
         fetch_error: None,
+        cancelled: false,
     })
 }
 
@@ -2518,10 +2625,23 @@ fn import_citation(
     query: &str,
     history: HistoryMode,
     progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     let query = query.trim();
     if query.is_empty() {
         return Err("Enter an arXiv id, a DOI, a URL, or a paper title.".to_string());
+    }
+    if cancel.load(Ordering::Acquire) {
+        return Ok(ImportResult {
+            arxiv_id: String::new(),
+            title: query.to_string(),
+            paper_path: String::new(),
+            citation_key: None,
+            citation_output: String::new(),
+            already_imported: false,
+            fetch_error: None,
+            cancelled: true,
+        });
     }
     let project_bibliography = project::safe_path(root, &manifest.primary_bibliography)?;
     let before = if project_bibliography.exists() {
@@ -2529,11 +2649,11 @@ fn import_citation(
     } else {
         String::new()
     };
-    if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress) {
+    if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress, cancel) {
         return result;
     }
     if is_pdf_url(query) {
-        return import_pdf_citation(root, manifest, query, &before, history, progress);
+        return import_pdf_citation(root, manifest, query, &before, history, progress, cancel);
     }
 
     let temp = std::env::temp_dir().join(format!("research-writer-cite-{}", Uuid::new_v4()));
@@ -2556,6 +2676,19 @@ fn import_citation(
     } else {
         None
     };
+    if cancel.load(Ordering::Acquire) {
+        let _ = fs::remove_dir_all(&temp);
+        return Ok(ImportResult {
+            arxiv_id: String::new(),
+            title: query.to_string(),
+            paper_path: String::new(),
+            citation_key: None,
+            citation_output: String::new(),
+            already_imported: false,
+            fetch_error: None,
+            cancelled: true,
+        });
+    }
     let mut rendered_page = None;
     let citation_output = if let Some(citation) = supplied {
         rendered_page = citation.page;
@@ -2564,11 +2697,28 @@ fn import_citation(
         fs::write(&bibliography_path, bibliography).map_err(err)?;
         serde_json::json!({"key":key,"source":"webpage","action":if already_imported {"exists"} else {"added"}}).to_string()
     } else {
-        let output =
-            run_bibcite(&bibliography_path, &bibcite_query).map_err(|error| match &web_error {
-                Some(web_error) => format!("{web_error}\n{error}"),
-                None => error,
-            })?;
+        let output = match run_bibcite_cancellable(&bibliography_path, &bibcite_query, cancel) {
+            Ok(output) => output,
+            Err(_) if cancel.load(Ordering::Acquire) => {
+                let _ = fs::remove_dir_all(&temp);
+                return Ok(ImportResult {
+                    arxiv_id: String::new(),
+                    title: query.to_string(),
+                    paper_path: String::new(),
+                    citation_key: None,
+                    citation_output: String::new(),
+                    already_imported: false,
+                    fetch_error: None,
+                    cancelled: true,
+                });
+            }
+            Err(error) => {
+                return Err(match &web_error {
+                    Some(web_error) => format!("{web_error}\n{error}"),
+                    None => error,
+                })
+            }
+        };
         // DOI and other scholarly resolvers may succeed despite blocked HTML.
         // A generic webpage fallback must not resurrect a rejected app-shell title.
         if bibcite_report_source(&output).as_deref() == Some("webpage") {
@@ -2599,6 +2749,19 @@ fn import_citation(
     // record came from OpenReview without an eprint, retain the arXiv identity
     // found from the title so re-importing repairs the missing full text too.
     let resolved_arxiv = resolved_entry.arxiv_id.or(preferred_arxiv);
+    if cancel.load(Ordering::Acquire) {
+        let _ = fs::remove_dir_all(&temp);
+        return Ok(ImportResult {
+            arxiv_id: resolved_arxiv.unwrap_or_default(),
+            title,
+            paper_path: String::new(),
+            citation_key: None,
+            citation_output,
+            already_imported,
+            fetch_error: None,
+            cancelled: true,
+        });
+    }
     // The bibliography is the deliverable; the fetched text is enrichment.
     // Commit it before attempting any download: a work whose text cannot be
     // fetched (no HTML rendering, network trouble) is still a full citation —
@@ -2614,12 +2777,25 @@ fn import_citation(
             history,
         )?;
     }
+    if cancel.load(Ordering::Acquire) {
+        let _ = fs::remove_dir_all(&temp);
+        return Ok(ImportResult {
+            arxiv_id: resolved_arxiv.unwrap_or_default(),
+            title,
+            paper_path: String::new(),
+            citation_key: Some(citation_key),
+            citation_output,
+            already_imported,
+            fetch_error: None,
+            cancelled: true,
+        });
+    }
     // A DOI/title may resolve to an entry carrying an arXiv eprint. Attach its
     // cache only after bibcite has told us the identity; fetching never edits
     // the bibliography itself.
     let mut fetch_error = None;
     let fetched = match resolved_arxiv.as_deref() {
-        Some(id) => match fetch_paper_with_progress(root, id, progress) {
+        Some(id) => match fetch_paper_with_progress_and_cancel(root, id, progress, cancel) {
             Ok(fetched) => Some(fetched),
             Err(error) => {
                 fetch_error = Some(error);
@@ -2639,7 +2815,12 @@ fn import_citation(
             {
                 Some(page_url) => {
                     progress("fulltext");
-                    match fetch_web_reference_with_page(root, page_url, rendered_page.take()) {
+                    match fetch_web_reference_with_page_and_cancel(
+                        root,
+                        page_url,
+                        rendered_page.take(),
+                        cancel,
+                    ) {
                         Ok(fetched) => Some(fetched),
                         Err(error) => {
                             fetch_error = Some(error);
@@ -2653,6 +2834,7 @@ fn import_citation(
         None => None,
     };
     let _ = fs::remove_dir_all(&temp);
+    let cancelled = cancel.load(Ordering::Acquire);
     Ok(ImportResult {
         // The fetched bundle's key when there is one — for a webpage that is
         // the digest id, which is what the UI needs to open and share it.
@@ -2667,21 +2849,44 @@ fn import_citation(
         citation_output,
         already_imported,
         fetch_error,
+        cancelled,
     })
 }
 
+#[cfg(test)]
 fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
     run_bibcite_input(path, query, false)
 }
 
+fn run_bibcite_cancellable(
+    path: &PathBuf,
+    query: &str,
+    cancel: &AtomicBool,
+) -> Result<String, String> {
+    run_bibcite_input_cancellable(path, query, false, cancel)
+}
+
 fn run_bibcite_input(path: &PathBuf, query: &str, supplied: bool) -> Result<String, String> {
+    run_bibcite_input_cancellable(path, query, supplied, &AtomicBool::new(false))
+}
+
+fn run_bibcite_input_cancellable(
+    path: &PathBuf,
+    query: &str,
+    supplied: bool,
+    cancel: &AtomicBool,
+) -> Result<String, String> {
     let mut command = commands::BIBCITE.command()?;
     command.arg("add").arg("--no-tidy").arg(path);
     if supplied {
         command.arg("--bibtex");
     }
     command.arg(query);
-    let output = commands::bibcite_output(&mut command, std::time::Duration::from_secs(60))?;
+    let output = commands::bibcite_output_cancellable(
+        &mut command,
+        std::time::Duration::from_secs(60),
+        cancel,
+    )?;
     ensure_success("bibcite", &output)?;
     let report = String::from_utf8(output.stdout).map_err(err)?;
     serde_json::from_str::<Value>(&report)
@@ -4153,6 +4358,74 @@ mod tests {
         assert!(result.paper_path.is_empty());
         let error = result.fetch_error.expect("the failed download is reported");
         assert!(error.contains("fixture conversion failure"), "got: {error}");
+        let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
+        assert!(bibliography.contains("stub2024"), "got: {bibliography}");
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_before_bibliography_commit_is_a_neutral_result() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent = std::env::temp_dir().join(format!("lattice-cite-cancel-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let before = fs::read_to_string(root.join("references.bib")).unwrap();
+        let cancel = AtomicBool::new(false);
+
+        let result = import_reference_cancellable(
+            &root,
+            "10.1234/example",
+            &|stage| {
+                if stage == "resolving" {
+                    cancel.store(true, Ordering::Release);
+                }
+            },
+            &cancel,
+        )
+        .unwrap();
+
+        assert!(result.cancelled);
+        assert!(result.citation_key.is_none());
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            before
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_after_bibliography_commit_preserves_the_citation() {
+        let _tool_override = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent =
+            std::env::temp_dir().join(format!("lattice-cite-cancel-commit-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let tools = parent.join("tools");
+        fs::create_dir_all(&tools).unwrap();
+        let bibcite = fake_bibcite(&tools);
+        let _bibcite_override = ScopedToolOverride::set(commands::BIBCITE.override_env, &bibcite);
+        let converter = tools.join("converter");
+        write_test_tool(&converter, "#!/bin/sh\ntouch \"$0.called\"\nexit 1\n");
+        let _converter_override =
+            ScopedToolOverride::set(commands::ARXIV2MD.override_env, &converter);
+        let cancel = AtomicBool::new(false);
+
+        let result = import_reference_cancellable(
+            &root,
+            "10.1234/example",
+            &|stage| {
+                if stage == "fulltext" {
+                    cancel.store(true, Ordering::Release);
+                }
+            },
+            &cancel,
+        )
+        .unwrap();
+
+        assert!(result.cancelled);
+        assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
+        assert!(result.paper_path.is_empty());
+        assert!(!tools.join("converter.called").exists());
         let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
         assert!(bibliography.contains("stub2024"), "got: {bibliography}");
         fs::remove_dir_all(parent).unwrap();

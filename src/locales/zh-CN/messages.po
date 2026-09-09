@@ -780,6 +780,7 @@ msgstr "提示框"
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/navigator.tsx
 #: src/project/project-dialogs.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
@@ -792,6 +793,11 @@ msgstr "取消检查"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "取消创建"
+
+#. placeholder {0}: result.title
+#: src/App.tsx
+msgid "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
+msgstr "收到取消请求时，《{0}》及其全文已导入完成。可使用 {citationCommand} 引用。"
 
 #: src/telemetry/app-log.tsx
 msgid "Cancelled"
@@ -2354,6 +2360,11 @@ msgstr "虚部"
 msgid "Implies"
 msgstr "蕴含"
 
+#. placeholder {0}: result.title
+#: src/App.tsx
+msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
+msgstr "已取消导入。《{0}》仍保留在参考文献中，可使用 {citationCommand} 引用；已停止获取全文。"
+
 #: src/app/use-collab-v2-session.ts
 msgid "Import failed — retry Start sharing"
 msgstr "导入失败——请重新点击“开始共享”"
@@ -3008,6 +3019,7 @@ msgstr "正在加载文件…"
 msgid "Loading Overleaf's history…"
 msgstr "正在加载 Overleaf 的历史记录…"
 
+#: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Loading PDF…"
 msgstr "正在加载 PDF…"
@@ -3818,6 +3830,14 @@ msgstr "论文操作"
 msgid "Paper content"
 msgstr "论文内容"
 
+#: src/App.tsx
+msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
+msgstr "已取消论文导入，参考文献未修改；已下载的全文仍可使用。"
+
+#: src/App.tsx
+msgid "Paper import cancelled before making changes."
+msgstr "已取消论文导入，未作任何修改。"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 msgstr "论文视图以可搜索的 Markdown 显示完整文本、章节、公式和图片，并与草稿并排呈现"
@@ -3893,7 +3913,7 @@ msgstr "PDF"
 msgid "PDF document"
 msgstr "PDF 文档"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
 msgstr "PDF 加载进度"
 
@@ -3998,10 +4018,6 @@ msgstr "正在准备 HTML 预览…"
 #: src/canvas/document-canvas.tsx
 msgid "Preparing Markdown editor"
 msgstr "正在准备 Markdown 编辑器"
-
-#: src/canvas/document-canvas.tsx
-msgid "Preparing PDF preview…"
-msgstr "正在准备 PDF 预览…"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"

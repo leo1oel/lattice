@@ -3,6 +3,7 @@ import { CloseButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { SearchField } from "../components/ui/search-field";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 function scorePath(path: string, query: string): number {
   const hay = path.toLocaleLowerCase();
@@ -105,7 +106,8 @@ function QuickOpenDialogForm(props: {
             }
           />
         </div>
-        <div className="quick-open-list" role="listbox">
+        <div className="quick-open-list fluid-hover-surface" role="listbox">
+          <FluidHoverSurface />
           {results.map((path, index) => (
             <button
               key={path}

@@ -25,6 +25,7 @@ mod models;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
+mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod presentation;
@@ -407,6 +408,9 @@ struct AppState {
     /// through here rather than shared storage means it cannot be read twice,
     /// cannot be picked up by the wrong window, and dies with the window.
     pending_actions: Mutex<HashMap<String, String>>,
+    /// One import per window. The request id prevents a late Cancel click from
+    /// stopping the next import after the UI has already moved on.
+    paper_imports: Mutex<HashMap<String, (String, Arc<std::sync::atomic::AtomicBool>)>>,
 }
 
 /// State that belongs to one project.
@@ -453,6 +457,7 @@ impl AppState {
             projects: Mutex::new(HashMap::new()),
             overleaf_sync_started: tokio::sync::Mutex::new(None),
             pending_actions: Mutex::new(HashMap::new()),
+            paper_imports: Mutex::new(HashMap::new()),
         }
     }
 
@@ -3848,16 +3853,60 @@ async fn import_reference(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     input: String,
+    request_id: String,
 ) -> Result<ImportResult, String> {
     let root = current_root(&state, &window)?;
     let window_label = window.label().to_string();
-    tauri::async_runtime::spawn_blocking(move || {
-        papers::import_reference_with_progress(&root, &input, &|stage| {
-            emit_paper_progress(&app, &window_label, stage);
-        })
+    let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    state
+        .paper_imports
+        .lock()
+        .map_err(|_| "Paper import state is unavailable.".to_string())?
+        .insert(
+            window_label.clone(),
+            (request_id.clone(), Arc::clone(&cancel)),
+        );
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        papers::import_reference_cancellable(
+            &root,
+            &input,
+            &|stage| {
+                emit_paper_progress(&app, &window_label, stage);
+            },
+            &cancel,
+        )
     })
     .await
-    .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"))?
+    .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"));
+    if let Ok(mut imports) = state.paper_imports.lock() {
+        if imports
+            .get(window.label())
+            .is_some_and(|(id, _)| id == &request_id)
+        {
+            imports.remove(window.label());
+        }
+    }
+    result?
+}
+
+#[tauri::command]
+fn cancel_reference_import(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    request_id: String,
+) -> Result<bool, String> {
+    let imports = state
+        .paper_imports
+        .lock()
+        .map_err(|_| "Paper import state is unavailable.".to_string())?;
+    let Some((active_id, cancel)) = imports.get(window.label()) else {
+        return Ok(false);
+    };
+    if active_id != &request_id {
+        return Ok(false);
+    }
+    cancel.store(true, std::sync::atomic::Ordering::Release);
+    Ok(true)
 }
 
 #[tauri::command]
@@ -3879,17 +3928,13 @@ async fn fetch_paper(
 }
 
 #[tauri::command]
-async fn fetch_paper_pdf(
+async fn paper_pdf_preview_url(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     url: String,
-) -> Result<tauri::ipc::Response, String> {
+) -> Result<String, String> {
     current_root(&state, &window)?;
-    let bytes = run_blocking("Paper PDF download", move || {
-        papers::download_pdf_bytes(&url)
-    })
-    .await?;
-    Ok(tauri::ipc::Response::new(bytes))
+    paper_pdf_proxy::preview_url(&url).await
 }
 
 #[tauri::command]
@@ -4730,8 +4775,9 @@ pub fn run() {
             synctex_edit,
             synctex_view,
             import_reference,
+            cancel_reference_import,
             fetch_paper,
-            fetch_paper_pdf,
+            paper_pdf_preview_url,
             fetch_web_reference,
             upgrade_bibliography,
             agent_bibliography_mutation,

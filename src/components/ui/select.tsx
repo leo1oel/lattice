@@ -9,6 +9,7 @@ import {
   menuViewportClassName,
 } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
+import { FluidHoverSurface } from "./fluid-hover-surface"
 import "./form-controls.css"
 
 function Select({
@@ -76,9 +77,11 @@ function SelectContent({
         <SelectPrimitive.Viewport
           className={cn(
             menuViewportClassName,
+            "fluid-hover-surface",
             position === "popper" && "scroll-my-1"
           )}
         >
+          <FluidHoverSurface />
           {children}
         </SelectPrimitive.Viewport>
       </SelectPrimitive.Content>

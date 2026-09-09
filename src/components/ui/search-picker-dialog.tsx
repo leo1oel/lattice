@@ -3,6 +3,7 @@ import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
 import { SearchField } from "./search-field";
+import { FluidHoverSurface } from "./fluid-hover-surface";
 
 export type SearchPickerItem = {
   id: string;
@@ -109,7 +110,8 @@ function SearchPickerDialogForm(props: {
             }
           />
         </div>
-        <div className="quick-open-list" role="listbox">
+        <div className="quick-open-list fluid-hover-surface" role="listbox">
+          <FluidHoverSurface />
           {results.map((item, index) => (
             <button
               key={item.id}

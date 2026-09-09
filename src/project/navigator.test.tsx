@@ -76,6 +76,7 @@ function baseProps(): NavigatorProps {
     importInput: "",
     setImportInput: vi.fn(),
     onImport: vi.fn(),
+    onCancelImport: vi.fn(),
     importing: false,
   };
 }
@@ -196,8 +197,8 @@ describe("Navigator / papers", () => {
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
     expect(input).toHaveAttribute("readonly");
     fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.click(screen.getByTitle("Import paper"));
-    expect(props.onImport).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(props.onCancelImport).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
     for (const [importStageId, importStage] of [
       ["fulltext", "Downloading full text and figures…"],
@@ -218,6 +219,25 @@ describe("Navigator / papers", () => {
     expect(input).not.toHaveAttribute("readonly");
     expect(input).not.toHaveAttribute("aria-describedby");
     expect(input).toHaveValue("graph transformers");
+  });
+
+  it("ranks a title prefix ahead of metadata and full-text matches", async () => {
+    vi.useFakeTimers();
+    try {
+      const spatial = { ...attention, citationKey: "spatial", arxivId: "2501.00001", title: "S-Space: Exploring Spatial Workspace in Multimodal Models" };
+      const metadata = { ...vit, authors: "The S-Space Consortium" };
+      const titleMatch = { ...vit, citationKey: "evaluating", arxivId: "2501.00002", title: "Evaluating S-Space representations" };
+      const exact = { ...vit, citationKey: "exact", arxivId: "2501.00003", title: "S-Space" };
+      vi.mocked(invoke).mockResolvedValue([
+        { arxivId: attention.arxivId, title: attention.title, snippet: "We evaluate s-space representations." },
+      ]);
+      const { search } = renderNavigator({ papers: [attention, metadata, titleMatch, spatial, exact] });
+      search("s-space");
+      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+      expect(paperTitles()).toEqual([exact.title, spatial.title, titleMatch.title, metadata.title, attention.title]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps a freshly imported paper visible under its retained raw URL query", () => {

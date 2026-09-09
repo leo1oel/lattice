@@ -293,6 +293,30 @@ describe("LaTeX citation editing", () => {
     view.destroy();
   });
 
+  it("finds citation keys by a multiword title while typing", async () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: "\\citep{Spatial}",
+        selection: { anchor: 14 },
+        extensions: latexEditorExtensions([], [
+          { key: "lee2026", title: "Exploring Spatial Workspace", authors: "Lee", year: "2026", venue: "" },
+          { key: "other2025", title: "Other work", authors: "Other", year: "2025", venue: "" },
+        ]),
+      }),
+    });
+    try {
+      startCompletion(view);
+      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual(["lee2026"]));
+      typeText(view, " Workspace");
+      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual(["lee2026"]));
+      typeText(view, " nonexistent");
+      await vi.waitFor(() => expect(currentCompletions(view.state)).toEqual([]));
+    } finally {
+      view.destroy();
+    }
+  });
+
   it("lets an immediately pressed arrow and Enter choose a citation", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     const view = new EditorView({

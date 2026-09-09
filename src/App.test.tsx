@@ -224,6 +224,7 @@ vi.mock("@pdfslick/core", () => ({
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
     linkService = { goToDestination: vi.fn(async () => undefined) };
+    l10n = { get: vi.fn(async (id: string) => id) };
     unbindEvents = vi.fn();
     viewer: {
       cleanup: ReturnType<typeof vi.fn>;
@@ -3795,6 +3796,53 @@ describe("project workspace", () => {
     expect(splitDivider).toHaveAttribute("aria-valuenow", "50");
   });
 
+  it("resizes the loaded Agent below the bootstrap sidebar minimum", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
+    await switchSidebarMode("Agent");
+    const agentFrame = await waitFor(() => {
+      const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(frame).not.toBeNull();
+      return frame!;
+    });
+    const reportMinimum = (minimumSidebarWidth: number) => act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: agentFrame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "synara:layout-metrics", minimumSidebarWidth },
+      }));
+    });
+    // Once the real controls load, their measured width replaces the bootstrap
+    // limit, including updates that arrive while the pointer is still down.
+    reportMinimum(280);
+    fireEvent.pointerDown(divider, { clientX: 320 });
+    fireEvent.pointerMove(window, { clientX: 100 });
+    expect(divider).toHaveAttribute("aria-valuenow", "280");
+    reportMinimum(240);
+    fireEvent.pointerMove(window, { clientX: 90 });
+    expect(divider).toHaveAttribute("aria-valuenow", "240");
+    fireEvent.pointerUp(window);
+    expect(divider).toHaveAttribute("aria-valuenow", "240");
+  });
+
   it("automatically refreshes the project tree when files appear on disk", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -4523,6 +4571,7 @@ describe("project workspace", () => {
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_reference", {
       input: "10.1109/CVPR.2016.90",
+      requestId: expect.any(String),
     }));
     // The DOI must not be mistaken for an arXiv id, and the message has to
     // admit there is nothing to open rather than imply a paper was fetched.
@@ -4534,6 +4583,64 @@ describe("project workspace", () => {
     expect(checkReferences.textContent).toBe("");
     fireEvent.click(checkReferences);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_scan", { projectRoot: snapshot.root }));
+  });
+
+  it.each([
+    [false, false, "en"], [true, false, "en"],
+    [false, false, "zh-CN"], [true, false, "zh-CN"],
+    [false, true, "zh-CN"], [true, true, "zh-CN"],
+  ] as const)("cancels the active import with its request id (bibliography: %s, full text: %s, locale: %s)", async (committed, fullText, locale) => {
+    await activateAppLocale(locale);
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: locale }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: true,
+      },
+      files: [],
+    };
+    let finishImport: (value: unknown) => void = () => {};
+    let requestId: string | undefined;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "import_reference") {
+        requestId = (args as { requestId: string }).requestId;
+        return new Promise((resolve) => { finishImport = resolve; });
+      }
+      if (command === "cancel_reference_import") return true;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文)$/ }));
+    const box = await screen.findByRole("searchbox", { name: /^(Search or import papers|搜索或导入论文)$/ });
+    fireEvent.change(box, { target: { value: "A new paper" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    const cancel = await screen.findByRole("button", { name: /^(Cancel|取消)$/ });
+    expect(requestId).toBeTruthy();
+    fireEvent.click(cancel);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("cancel_reference_import", { requestId }));
+    // Do not claim cancellation finished while the backend is still stopping.
+    expect(box).toHaveAttribute("readonly");
+    await act(async () => finishImport({
+      arxivId: "", title: "A new paper", paperPath: fullText ? ".research/papers/new/paper.md" : "", alreadyImported: false,
+      cancelled: true, citationKey: committed ? "new2026" : undefined,
+    }));
+    await waitFor(() => expect(box).not.toHaveAttribute("readonly"));
+    if (locale === "en") {
+      await expectNotification(committed ? /remains in the bibliography.*\\cite\{new2026\}/ : /cancelled before making changes/);
+    } else {
+      await expectNotification(committed
+        ? fullText
+          ? /收到取消请求时，《A new paper》及其全文已导入完成。可使用 \\cite\{new2026\} 引用。/
+          : /已取消导入。《A new paper》仍保留在参考文献中，可使用 \\cite\{new2026\} 引用；已停止获取全文。/
+        : fullText
+          ? /已取消论文导入，参考文献未修改；已下载的全文仍可使用。/
+          : /已取消论文导入，未作任何修改。/);
+    }
+    expect(box).toHaveValue("A new paper");
   });
 
   it("shows imported papers by title while keeping the arXiv id", async () => {
@@ -5422,7 +5529,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
   });
 
-  it("fetches ordinary PDFs through Tauri and isolates failures and stale requests", async () => {
+  it("streams ordinary PDFs, reuses complete bytes, and isolates failures and stale requests", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -5437,11 +5544,11 @@ describe("project workspace", () => {
     };
     const firstUrl = "https://mirros.ai/report/s-space.PDF?download=1#page=1";
     const secondUrl = "https://example.com/papers/second.pdf";
-    const firstBytes = new TextEncoder().encode("%PDF first").buffer;
+    const secondPreviewUrl = "http://127.0.0.1:3456/paper.pdf?token=test&url=second";
     const secondBytes = new TextEncoder().encode("%PDF second").buffer;
     const expectedSecondBytes = new Uint8Array(secondBytes.slice(0));
-    let resolveFirst!: (bytes: ArrayBuffer) => void;
-    const pendingFirst = new Promise<ArrayBuffer>((resolve) => { resolveFirst = resolve; });
+    let resolveFirst!: (url: string) => void;
+    const pendingFirst = new Promise<string>((resolve) => { resolveFirst = resolve; });
     let secondAttempts = 0;
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
@@ -5453,12 +5560,12 @@ describe("project workspace", () => {
       if (command === "list_history") return [];
       if (command === "read_paper") return `# ${(args as { arxivId: string }).arxivId}`;
       if (command === "read_paper_blog") return null;
-      if (command === "fetch_paper_pdf") {
+      if (command === "paper_pdf_preview_url") {
         const url = (args as { url: string }).url;
         if (url === firstUrl) return pendingFirst;
         secondAttempts += 1;
         if (secondAttempts === 1) throw new Error("remote PDF unavailable");
-        return secondBytes;
+        return secondPreviewUrl;
       }
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
@@ -5478,7 +5585,7 @@ describe("project workspace", () => {
             getAnnotations: async () => [],
             cleanup: vi.fn(),
           })),
-          getData: vi.fn(async () => new Uint8Array(firstBytes)),
+          getData: vi.fn(async () => new Uint8Array(secondBytes)),
           getDestination: vi.fn(),
           getPageIndex: vi.fn(),
           cleanup: vi.fn(),
@@ -5491,8 +5598,9 @@ describe("project workspace", () => {
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("First PDF"));
     fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper_pdf", { url: firstUrl }));
-    expect(screen.getByRole("status")).toHaveTextContent("Preparing PDF preview…");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("paper_pdf_preview_url", { url: firstUrl }));
+    expect(screen.getByRole("status")).toHaveTextContent("Loading PDF…");
+    expect(screen.getByRole("status")).toHaveClass("pdf-loading");
     expect(getDocument).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));
@@ -5501,14 +5609,19 @@ describe("project workspace", () => {
     await screen.findByRole("heading", { name: "Second PDF" });
     fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Could not load PDF"));
-    expect(invoke).toHaveBeenCalledWith("fetch_paper_pdf", { url: secondUrl });
-    resolveFirst(firstBytes);
+    expect(invoke).toHaveBeenCalledWith("paper_pdf_preview_url", { url: secondUrl });
+    resolveFirst("http://127.0.0.1:3456/paper.pdf?token=test&url=first");
     await Promise.resolve();
     expect(getDocument).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Back to Paper" }));
     fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
-    await waitFor(() => expect(getDocument).toHaveBeenCalled());
+    await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: secondPreviewUrl })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Back to Paper" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(getDocument).toHaveBeenCalledTimes(2));
+    expect(secondAttempts).toBe(2);
     const loadedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
       data?: ArrayBuffer;
       url?: string;
@@ -5518,7 +5631,7 @@ describe("project workspace", () => {
     expect(screen.getByRole("textbox", { name: "PDF page number" })).toHaveValue("1");
   });
 
-  it("streams an arXiv PDF without persisting a second app cache", async () => {
+  it("streams an arXiv PDF and reopens its complete in-memory bytes", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -5599,13 +5712,13 @@ describe("project workspace", () => {
       const remoteLoads = vi.mocked(getDocument).mock.calls.filter(([source]) => (
         source as { url?: string }
       ).url === "https://arxiv.org/pdf/1706.03762v7");
-      expect(remoteLoads).toHaveLength(2);
+      expect(remoteLoads).toHaveLength(1);
       const reopenedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
         data?: Uint8Array;
         url?: string;
       } | undefined;
-      expect(reopenedSource?.url).toBe("https://arxiv.org/pdf/1706.03762v7");
-      expect(reopenedSource?.data).toBeUndefined();
+      expect(reopenedSource?.url).toBeUndefined();
+      expect(new Uint8Array(reopenedSource?.data ?? new ArrayBuffer(0))).toEqual(new Uint8Array(pdfBytes));
     });
   });
 

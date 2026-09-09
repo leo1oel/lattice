@@ -10,6 +10,7 @@ import {
   menuViewportClassName,
 } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
+import { FluidHoverSurface } from "./fluid-hover-surface"
 
 function ContextMenu({
   ...props
@@ -27,6 +28,7 @@ function ContextMenuTrigger({
 
 function ContextMenuContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
   return (
@@ -36,12 +38,16 @@ function ContextMenuContent({
         className={cn(
           floatingSurfaceClassName,
           menuViewportClassName,
+          "fluid-hover-surface",
           "max-h-(--radix-context-menu-content-available-height) min-w-[9rem] origin-(--radix-context-menu-content-transform-origin)",
           popupMotionClassName,
           className
         )}
         {...props}
-      />
+      >
+        <FluidHoverSurface />
+        {children}
+      </ContextMenuPrimitive.Content>
     </ContextMenuPrimitive.Portal>
   )
 }

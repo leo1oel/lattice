@@ -9,6 +9,7 @@ import {
   menuViewportClassName,
 } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
+import { FluidHoverSurface } from "./fluid-hover-surface"
 
 function DropdownMenu({
   ...props
@@ -30,6 +31,7 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
@@ -40,12 +42,16 @@ function DropdownMenuContent({
         className={cn(
           floatingSurfaceClassName,
           menuViewportClassName,
+          "fluid-hover-surface",
           "max-h-(--radix-dropdown-menu-content-available-height) min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin)",
           popupMotionClassName,
           className
         )}
         {...props}
-      />
+      >
+        <FluidHoverSurface />
+        {children}
+      </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   )
 }

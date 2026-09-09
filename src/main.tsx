@@ -7,6 +7,7 @@ import "react-medium-image-zoom/dist/styles.css";
 import "./index.css";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "@lingui/react";
+import { MotionConfig } from "motion/react";
 import "@fontsource-variable/inter";
 import "./assets/fonts/ioskeley-mono/ioskeley-mono.css";
 import "@fontsource/instrument-serif/400.css";
@@ -33,17 +34,19 @@ async function startApp() {
 
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <I18nProvider i18n={i18n}>
-      <RootErrorBoundary>
-        <UpdaterProvider>
-          <ConfirmActionProvider>
-            <App />
-            <UpdateBanner corner="top-right" />
-            <AppToastStack />
-          </ConfirmActionProvider>
-        </UpdaterProvider>
-      </RootErrorBoundary>
-    </I18nProvider>,
+    <MotionConfig reducedMotion="user">
+      <I18nProvider i18n={i18n}>
+        <RootErrorBoundary>
+          <UpdaterProvider>
+            <ConfirmActionProvider>
+              <App />
+              <UpdateBanner corner="top-right" />
+              <AppToastStack />
+            </ConfirmActionProvider>
+          </UpdaterProvider>
+        </RootErrorBoundary>
+      </I18nProvider>
+    </MotionConfig>,
   );
 }
 

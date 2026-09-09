@@ -478,7 +478,8 @@ const SYNARA_OPEN_SETTINGS = "synara:open-settings";
 const SYNARA_OPEN_REVIEW = "synara:open-review";
 const SYNARA_OPEN_FILE = "synara:open-file";
 const SYNARA_OPEN_EXTERNAL = "synara:open-external";
-const SYNARA_SIDEBAR_MINIMUM = 310;
+const SYNARA_SIDEBAR_INITIAL_MINIMUM = 310;
+const SYNARA_SIDEBAR_MINIMUM = 180;
 const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
@@ -1204,6 +1205,7 @@ function App() {
   const [importInput, setImportInput] = useState("");
   const [importing, setImporting] = useState(false);
   const paperImportInFlight = useRef(false);
+  const paperImportRequestId = useRef<string | null>(null);
   const [recentPaperImport, setRecentPaperImport] = useState<{ projectRoot: string; query: string; citationKey?: string; arxivId: string } | null>(null);
   // Which network step the literature pipeline is in, from the backend's
   // "paper-import-progress" events. Cleared by whichever operation owned the
@@ -1482,7 +1484,7 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const [synaraMinimumSidebarWidth, setSynaraMinimumSidebarWidth] = useState(
-    SYNARA_SIDEBAR_MINIMUM,
+    SYNARA_SIDEBAR_INITIAL_MINIMUM,
   );
   const {
     sidebarOpen,
@@ -5841,6 +5843,8 @@ function App() {
     if (!trimmed) return;
     if (paperImportInFlight.current) return;
     paperImportInFlight.current = true;
+    const requestId = crypto.randomUUID();
+    paperImportRequestId.current = requestId;
     const importRoot = projectRootRef.current;
     setImporting(true);
     try {
@@ -5850,8 +5854,11 @@ function App() {
         citationKey?: string;
         alreadyImported: boolean;
         fetchError?: string;
+        cancelled?: boolean;
+        paperPath?: string;
       }>("import_reference", {
         input: trimmed,
+        requestId,
       });
       if (projectRootRef.current !== importRoot) return;
       if (importRoot) setRecentPaperImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
@@ -5880,7 +5887,16 @@ function App() {
       // point is being pasted into the manuscript, so the notice hands over
       // the exact command instead of assuming the reader parses BibTeX-ese.
       const citeHint = result.citationKey ? ` — cite it with \\cite{${result.citationKey}}` : "";
-      setNotice(result.alreadyImported
+      const citationCommand = String.raw`\cite{${result.citationKey}}`;
+      setNotice(result.cancelled
+        ? result.citationKey
+          ? result.paperPath
+            ? t`Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.`
+            : t`Import cancelled. “${result.title}” remains in the bibliography — cite it with ${citationCommand}; full-text enrichment stopped.`
+          : result.paperPath
+            ? t`Paper import cancelled before changing the bibliography; the downloaded full text remains available.`
+            : t`Paper import cancelled before making changes.`
+        : result.alreadyImported
         ? `“${result.title}” is already in Papers${citeHint}.`
         : result.arxivId
           ? result.fetchError
@@ -5892,6 +5908,7 @@ function App() {
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
       paperImportInFlight.current = false;
+      if (paperImportRequestId.current === requestId) paperImportRequestId.current = null;
       setImporting(false);
       setPaperImportStage(null);
     }
@@ -5900,7 +5917,13 @@ function App() {
     // then pin the closure that answers `false` for the rest of the share (see
     // `publishTextToCollabV2`). An imported reference would reach disk here and
     // never reach the people sharing the project.
-  }, [collabSession, publishTextToCollabV2, refreshHistory, refreshProject]);
+  }, [collabSession, publishTextToCollabV2, refreshHistory, refreshProject, t]);
+
+  const cancelPaperImport = useCallback(() => {
+    const requestId = paperImportRequestId.current;
+    if (!requestId) return;
+    void invoke("cancel_reference_import", { requestId }).catch((reason) => setError(toMessage(reason)));
+  }, []);
 
   const importPaper = useCallback(async () => {
     if (!importInput.trim()) return;
@@ -9707,6 +9730,7 @@ function App() {
               importStageId={paperImportStage}
               setImportInput={setImportInput}
               onImport={importPaper}
+              onCancelImport={cancelPaperImport}
               importing={importing}
             />
             </Suspense>

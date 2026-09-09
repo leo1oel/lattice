@@ -4,7 +4,9 @@ use std::env;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
+#[cfg(not(test))]
 const SERVICE: &str = "app.leo1oel.researchwriter.literature";
+#[cfg(not(test))]
 const ACCOUNT: &str = "credential-vault-v1";
 const MAX_SECRET: usize = 16 * 1024;
 const MAX_EMAIL: usize = 320;
@@ -73,9 +75,19 @@ fn vault_lock() -> Result<MutexGuard<'static, Option<CredentialVault>>, String> 
         .map_err(|_| "secure credential store unavailable".to_string())
 }
 
+#[cfg(not(test))]
 fn entry() -> Result<keyring::Entry, String> {
     keyring::Entry::new(SERVICE, ACCOUNT)
         .map_err(|_| "secure credential store unavailable".to_string())
+}
+
+#[cfg(test)]
+fn entry() -> Result<keyring::Entry, String> {
+    // Paper-import tests also resolve credentials. Never prompt for or expose
+    // the developer's real vault while exercising fake literature tools.
+    Ok(keyring::Entry::new_with_credential(Box::new(
+        keyring::mock::MockCredential::default(),
+    )))
 }
 
 fn loaded_vault() -> Result<CredentialVault, String> {
@@ -349,6 +361,14 @@ fn test_provider_at(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unit_tests_use_an_in_memory_credential_entry() {
+        assert!(entry()
+            .unwrap()
+            .get_credential()
+            .is::<keyring::mock::MockCredential>());
+    }
 
     #[test]
     #[cfg(target_os = "macos")]

@@ -780,6 +780,7 @@ msgstr "Callout"
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/navigator.tsx
 #: src/project/project-dialogs.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
@@ -792,6 +793,11 @@ msgstr "Cancel check"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
+
+#. placeholder {0}: result.title
+#: src/App.tsx
+msgid "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
+msgstr "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
 
 #: src/telemetry/app-log.tsx
 msgid "Cancelled"
@@ -2354,6 +2360,11 @@ msgstr "Imaginary part"
 msgid "Implies"
 msgstr "Implies"
 
+#. placeholder {0}: result.title
+#: src/App.tsx
+msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
+msgstr "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
+
 #: src/app/use-collab-v2-session.ts
 msgid "Import failed — retry Start sharing"
 msgstr "Import failed — retry Start sharing"
@@ -3008,6 +3019,7 @@ msgstr "Loading files…"
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
 
+#: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Loading PDF…"
 msgstr "Loading PDF…"
@@ -3818,6 +3830,14 @@ msgstr "Paper actions"
 msgid "Paper content"
 msgstr "Paper content"
 
+#: src/App.tsx
+msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
+msgstr "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
+
+#: src/App.tsx
+msgid "Paper import cancelled before making changes."
+msgstr "Paper import cancelled before making changes."
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
@@ -3893,7 +3913,7 @@ msgstr "PDF"
 msgid "PDF document"
 msgstr "PDF document"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
 msgstr "PDF loading progress"
 
@@ -3998,10 +4018,6 @@ msgstr "Preparing HTML preview…"
 #: src/canvas/document-canvas.tsx
 msgid "Preparing Markdown editor"
 msgstr "Preparing Markdown editor"
-
-#: src/canvas/document-canvas.tsx
-msgid "Preparing PDF preview…"
-msgstr "Preparing PDF preview…"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing preview…"

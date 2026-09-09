@@ -267,8 +267,9 @@ Keep the previous checkout available until the upgrade audit passes.
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t 'embedded sidebar'
    bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx
    ```
-   The sidebar checks must cover widening and shrinking the same mounted view, loaded and loading model controls, and history/attachment minimums.
+   The sidebar checks must cover widening and shrinking the same mounted view, loaded and loading model controls, responsive history popups, and attachment minimums.
    Verify minimum-width reports against rendered geometry; unused toolbar space must remain compressible, without clipping the send control.
+   A closed history menu must not reserve its preferred width, and Lattice must accept measured widths below its bootstrap minimum.
    Keep these regressions with the fork changes through merges; successful compilation alone does not verify Lattice's embedding behavior.
 5. Start the staged server while another process owns port 3773; confirm it selects another
    loopback port and reports `startupReady`.

@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { PdfLoading } from "./pdf-loading";
 import { SearchField } from "../components/ui/search-field";
 import { MotionButton } from "../components/ui/motion";
 import type { PdfFileViewState } from "../app-types";
@@ -59,6 +60,7 @@ import {
   PDF_STANDARD_FONT_DATA_URL,
   normalizePdfSelection,
   parsePdfZoomPercent,
+  pdfSlickTranslationId,
 } from "./pdf-viewer-utils";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
@@ -621,6 +623,11 @@ export function PdfPreview({
         loadFailure = reason;
       },
     });
+    // Preserve PDF.js's Fluent catalog and methods, translating only the stale
+    // IDs used by PDFSlick's metadata parser before it loads the document.
+    const getTranslation = slick.l10n.get.bind(slick.l10n);
+    slick.l10n.get = (ids: string | string[], args, fallback) =>
+      getTranslation(Array.isArray(ids) ? ids.map(pdfSlickTranslationId) : pdfSlickTranslationId(ids), args, fallback);
     const linkService = slick.linkService;
     const originalGoToDestination = linkService.goToDestination;
     const trackedGoToDestination: typeof originalGoToDestination = async (destination) => {
@@ -1560,29 +1567,7 @@ export function PdfPreview({
           : null}
         {showBlockingLoader || showQuietLoader
           ? (
-              <div
-                className={`pdf-loading smooth-shadow-ring-md${showQuietLoader ? " pdf-loading-quiet" : ""}`}
-                role="status"
-                aria-live="polite"
-              >
-                <InfinityLoader size={showBlockingLoader ? 17 : 14} />
-                <span>{loadLabel}</span>
-                {loadPercent !== null ? (
-                  <>
-                    <div
-                      className="pdf-load-progress"
-                      role="progressbar"
-                      aria-label={t`PDF loading progress`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={loadPercent}
-                    >
-                      <div className="pdf-load-progress-fill" style={{ width: `${loadPercent}%` }} />
-                    </div>
-                    <span className="pdf-load-percent" aria-hidden="true">{loadPercent}%</span>
-                  </>
-                ) : null}
-              </div>
+              <PdfLoading label={loadLabel} percent={loadPercent} quiet={showQuietLoader} />
             )
           : null}
       </div>

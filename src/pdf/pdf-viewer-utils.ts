@@ -11,6 +11,14 @@ function pdfAssetUrl(relative: string): string {
 export const PDF_CMAP_URL = pdfAssetUrl("pdfjs/cmaps/");
 export const PDF_STANDARD_FONT_DATA_URL = pdfAssetUrl("pdfjs/standard_fonts/");
 
+/** PDFSlick 4.0.2 still asks PDF.js 6 for legacy document-property IDs. */
+export function pdfSlickTranslationId(id: string): string {
+  if (!id.startsWith("document_properties_page_size_")) return id;
+  return `pdfjs-${id.replaceAll("_", "-")}`
+    .replace(/-name-a3$/, "-name-a-three")
+    .replace(/-name-a4$/, "-name-a-four");
+}
+
 /** Normalize a browser text selection from the PDF text layer for agent context. */
 export function normalizePdfSelection(raw: string): string {
   return raw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();

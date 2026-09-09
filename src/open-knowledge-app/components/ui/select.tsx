@@ -3,6 +3,7 @@ import { Select as SelectPrimitive } from 'radix-ui';
 import type * as React from 'react';
 
 import { cn } from '@ok-app/lib/utils';
+import { FluidHoverSurface } from '@/components/ui/fluid-hover-surface';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
@@ -71,11 +72,12 @@ function SelectContent({
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
           className={cn(
-            'p-1',
+            'p-1 fluid-hover-surface',
             position === 'popper' &&
               'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1',
           )}
         >
+          <FluidHoverSurface />
           {children}
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />

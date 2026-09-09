@@ -24,6 +24,7 @@ import {
   Pencil,
   Plus,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import {
   ContextMenu,
@@ -1444,6 +1445,7 @@ export function Navigator(props: {
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
+  onCancelImport: () => void;
   importing: boolean;
   /** Human-readable pipeline stage while an import or fetch is running. */
   importStage?: string | null;
@@ -1502,11 +1504,22 @@ export function Navigator(props: {
       props.recentImport.citationKey ? props.recentImport.citationKey === paper.citationKey
         : props.recentImport.arxivId && baseArxivId(props.recentImport.arxivId) === baseArxivId(paper.arxivId)
     );
-    return props.papers.filter((paper) => (
+    const query = trimmedPaperQuery.toLocaleLowerCase();
+    const relevance = (paper: PaperSummary) => {
+      const title = paper.title.trim().toLocaleLowerCase();
+      if (title === query) return 4;
+      if (title.startsWith(query)) return 3;
+      if (title.includes(query)) return 2;
+      if (metadataMatches.has(paperKey(paper))) return 1;
+      return 0;
+    };
+    return props.papers.map((paper, index) => ({ paper, index })).filter(({ paper }) => (
       metadataMatches.has(paperKey(paper))
       || textHitByPaper.has(paperSearchIdentity(paper.arxivId, paper.title))
       || isRecent(paper)
-    )).sort((a, b) => Number(Boolean(isRecent(b))) - Number(Boolean(isRecent(a))));
+    )).sort((a, b) => Number(Boolean(isRecent(b.paper))) - Number(Boolean(isRecent(a.paper)))
+      || relevance(b.paper) - relevance(a.paper)
+      || a.index - b.index).map(({ paper }) => paper);
   }, [props.importInput, props.papers, props.recentImport, textHitByPaper, trimmedPaperQuery]);
   const matchingSnippet = (paper: PaperSummary) => (
     textHitByPaper.get(paperSearchIdentity(paper.arxivId, paper.title))?.snippet.trim()
@@ -1591,8 +1604,13 @@ export function Navigator(props: {
             }}
             showIcon={false}
             trailing={(
-              <button onClick={importOrOpenPaper} disabled={props.importing || !props.importInput.trim()} title={t`Import paper`}>
-                {props.importing ? <InfinityLoader size={14} /> : <Plus size={14} />}
+              <button
+                onClick={props.importing ? props.onCancelImport : importOrOpenPaper}
+                disabled={!props.importing && !props.importInput.trim()}
+                title={props.importing ? t`Cancel` : t`Import paper`}
+                aria-label={props.importing ? t`Cancel` : undefined}
+              >
+                {props.importing ? <X size={14} /> : <Plus size={14} />}
               </button>
             )}
           />

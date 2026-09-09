@@ -68,10 +68,10 @@ describe("shared popup motion", () => {
     expect([...selectors]).toEqual([".popup-motion"])
   })
 
-  it("uses the shared disclosure duration and subtle travel in both directions", () => {
+  it("uses moderate-tier entrance and faster exit with subtle travel", () => {
     const { source } = stylesheets().find(({ name }) => name === "components/ui/popup-motion.css")!
-    expect(source).toMatch(/popup-motion-open var\(--duration-disclosure\) var\(--ease-out\)/)
-    expect(source).toMatch(/popup-motion-close var\(--duration-disclosure\) var\(--ease-out\)/)
+    expect(source).toMatch(/popup-motion-open var\(--duration-base\) var\(--ease-out\)/)
+    expect(source).toMatch(/popup-motion-close var\(--duration-quick\) var\(--ease-out\)/)
     expect(source).toContain("translateY(-4px) scale(.97)")
     // Durations come off the shared scale, never as a local number.
     expect(source).not.toMatch(/\d+ms/)

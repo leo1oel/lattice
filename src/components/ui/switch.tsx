@@ -1,12 +1,9 @@
-import { useEffect, useRef } from "react";
 import {
-  animate,
   motion,
-  useMotionValue,
   useReducedMotion,
 } from "motion/react";
 import * as stylex from "@stylexjs/stylex";
-import { PRESS_SPRING, SETTLE_SPRING } from "@/components/ui/motion-values";
+import { spring } from "@/components/ui/motion-values";
 import { cn } from "@/lib/utils";
 import { uiTokens } from "./stylex-tokens.stylex";
 
@@ -40,7 +37,6 @@ const styles = stylex.create({
     borderRadius: uiTokens.radiusPill,
     display: "block",
     height: uiTokens.controlSizeSwitchThumb,
-    transformOrigin: "center",
     width: uiTokens.controlSizeSwitchThumb,
   },
 });
@@ -49,24 +45,26 @@ export type SwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  id?: string;
   disabled?: boolean;
   className?: string;
 };
 
 /**
- * App-level binary setting control with a visible travelling thumb.
+ * Fluid Functionalism switch motion, adapted to the existing compact geometry
+ * and controlled API. Keep click/keyboard activation native rather than adding
+ * drag-to-toggle or a second clickable label around settings rows.
+ * Source: https://www.fluidfunctionalism.com/r/base/switch.json
  */
 export function Switch({
   checked,
   className,
   disabled,
   label,
+  id,
   onChange,
 }: SwitchProps) {
   const reduceMotion = useReducedMotion();
-  const x = useMotionValue(checked ? 10 : 0);
-  const scaleX = useMotionValue(1);
-  const previous = useRef(checked);
   const rootStyleProps = stylex.props(
     styles.root,
     checked && styles.checked,
@@ -74,22 +72,10 @@ export function Switch({
   );
   const thumbStyleProps = stylex.props(styles.thumb);
 
-  useEffect(() => {
-    if (previous.current === checked) return;
-    previous.current = checked;
-    const target = checked ? 10 : 0;
-    if (reduceMotion) x.set(target);
-    else void animate(x, target, SETTLE_SPRING);
-  }, [checked, reduceMotion, x]);
-
-  const squash = (to: number) => {
-    if (reduceMotion || disabled) return;
-    void animate(scaleX, to, to > 1 ? PRESS_SPRING : SETTLE_SPRING);
-  };
-
   return (
-    <button
+    <motion.button
       {...rootStyleProps}
+      id={id}
       type="button"
       role="switch"
       aria-checked={checked}
@@ -98,16 +84,24 @@ export function Switch({
       data-slot="switch"
       className={cn("ui-switch", rootStyleProps.className, className)}
       onClick={() => onChange(!checked)}
-      onPointerDown={() => squash(1.18)}
-      onPointerUp={() => squash(1)}
-      onPointerLeave={() => squash(1)}
-      onPointerCancel={() => squash(1)}
+      initial={false}
+      animate="rest"
+      whileHover={disabled || reduceMotion ? "rest" : "hover"}
+      whileTap={disabled || reduceMotion ? "rest" : "press"}
     >
       <motion.span
         {...thumbStyleProps}
+        aria-hidden="true"
+        data-slot="switch-thumb"
         className={cn("ui-switch-thumb", thumbStyleProps.className)}
-        style={{ x, scaleX }}
+        style={{ transformOrigin: checked ? "right center" : "left center" }}
+        variants={{
+          rest: { x: checked ? 10 : 0, scaleX: 1, scaleY: 1 },
+          hover: { x: checked ? 10 : 0, scaleX: 1.2, scaleY: 1 },
+          press: { x: checked ? 10 : 0, scaleX: 1.4, scaleY: 0.8 },
+        }}
+        transition={reduceMotion ? { duration: 0 } : spring.moderate}
       />
-    </button>
+    </motion.button>
   );
 }

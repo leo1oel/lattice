@@ -4,6 +4,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 pub const MANAGED_UV_VERSION: &str = "0.12.3";
@@ -176,7 +177,19 @@ pub(crate) fn redact_bibcite_output(command: &Command, mut output: Output) -> Ou
 
 /// Run bibcite without pipe backpressure and stop its complete uv process tree
 /// if it outlives the caller's deadline.
+#[cfg(test)]
 pub(crate) fn bibcite_output(command: &mut Command, timeout: Duration) -> Result<Output, String> {
+    bibcite_output_cancellable(command, timeout, &AtomicBool::new(false))
+}
+
+pub(crate) fn bibcite_output_cancellable(
+    command: &mut Command,
+    timeout: Duration,
+    cancel: &AtomicBool,
+) -> Result<Output, String> {
+    if cancel.load(Ordering::Acquire) {
+        return Err("Paper import cancelled.".to_string());
+    }
     let capture = BibciteCapture::new()?;
     let stdout_path = capture.path.join("stdout");
     let stderr_path = capture.path.join("stderr");
@@ -209,6 +222,10 @@ pub(crate) fn bibcite_output(command: &mut Command, timeout: Duration) -> Result
                 return Ok(redact_bibcite_output(command, output));
             }
             Ok(None) if Instant::now() < deadline => {
+                if cancel.load(Ordering::Acquire) {
+                    terminate_bibcite(&mut child);
+                    return Err("Paper import cancelled.".to_string());
+                }
                 std::thread::sleep(
                     Duration::from_millis(25)
                         .min(deadline.saturating_duration_since(Instant::now())),
@@ -726,6 +743,38 @@ mod tests {
         let result = unsafe { libc::kill(pid, 0) };
         let _ = fs::remove_file(pid_file);
         assert_eq!(result, -1, "descendant {pid} survived the timeout");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_terminates_the_running_converter_tree() {
+        let pid_file = env::temp_dir().join(format!("lattice-cancel-{}", uuid::Uuid::new_v4()));
+        let cancel = AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                let mut command = bibcite_helper_command("parent");
+                command.env("LATTICE_BIBCITE_TEST_PID_FILE", &pid_file);
+                bibcite_output_cancellable(&mut command, Duration::from_secs(10), &cancel)
+            });
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !pid_file.exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            cancel.store(true, Ordering::Release);
+            let error = worker.join().unwrap().unwrap_err();
+            assert_eq!(error, "Paper import cancelled.");
+        });
+        let pid: i32 = fs::read_to_string(&pid_file).unwrap().parse().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while unsafe { libc::kill(pid, 0) } == 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        fs::remove_file(pid_file).unwrap();
+        assert_eq!(
+            unsafe { libc::kill(pid, 0) },
+            -1,
+            "converter survived cancellation"
+        );
     }
 
     fn bibcite_helper_command(mode: &str) -> Command {

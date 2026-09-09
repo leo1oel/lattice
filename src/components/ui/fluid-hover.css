@@ -1,0 +1,18 @@
+/* The fill stays behind text without wrapping/reparenting primitive items. */
+.fluid-hover-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.fluid-hover-highlight {
+  z-index: -1;
+  border-radius: var(--nested-radius, var(--radius-icon));
+  background: var(--control-hover-surface);
+}
+
+/* Only replace the hovered row's fill once a measured overlay is available.
+   Focus rings, checked marks, text colors and destructive states stay native. */
+.fluid-hover-surface[data-fluid-hover-painted] [data-fluid-hover-item][data-fluid-hover-active] {
+  background-color: transparent;
+  transition-property: color, border-color;
+}

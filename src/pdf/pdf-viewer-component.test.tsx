@@ -63,6 +63,7 @@ vi.mock("pdfjs-dist", () => ({
 
 vi.mock("@pdfslick/core", () => ({
   PDFSlick: class PDFSlickMock {
+    l10n = { get: vi.fn(async (id: string) => id) };
     args: MockPdfSlick["args"];
     dispatch: ReturnType<typeof vi.fn>;
     gotoPage: ReturnType<typeof vi.fn>;

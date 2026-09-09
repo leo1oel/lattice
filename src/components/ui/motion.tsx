@@ -16,7 +16,10 @@ import {
   POP_SPRING,
   PRESS_SPRING,
   SETTLE_SPRING,
+  spring,
+  springExit,
 } from "./motion-values";
+import { FluidHoverSurface } from "./fluid-hover-surface";
 import "./motion.css";
 
 type MotionButtonProps = HTMLMotionProps<"button"> & {
@@ -37,11 +40,12 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
     forwardedRef,
   ) {
     const localRef = useRef<HTMLButtonElement | null>(null);
+    const reduceMotion = useReducedMotion();
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     const springX = useSpring(x, MAGNET_SPRING);
     const springY = useSpring(y, MAGNET_SPRING);
-    const active = magnetic && !disabled;
+    const active = magnetic && !disabled && !reduceMotion;
 
     return (
       <motion.button
@@ -52,7 +56,7 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
         }}
         disabled={disabled}
         style={active ? { ...style, x: springX, y: springY } : style}
-        whileHover={disabled ? undefined : { scale: 1.03 }}
+        whileHover={disabled || reduceMotion ? undefined : { scale: 1.03 }}
         transition={PRESS_SPRING}
         onMouseMove={(event) => {
           if (active && localRef.current) {
@@ -83,16 +87,17 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
  * deliberate transformation instead of an instant flip.
  */
 export function IconSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
   return (
     <span style={{ display: "inline-flex", position: "relative" }}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={swapKey}
           style={{ display: "inline-flex" }}
-          initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5, rotate: -45 }}
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          exit={{ opacity: 0, scale: 0.5, rotate: 45 }}
-          transition={{ type: "spring", stiffness: 620, damping: 26, mass: 0.5 }}
+          exit={{ opacity: 0, ...(reduceMotion ? {} : { scale: 0.5, rotate: 45 }), transition: springExit.fast }}
+          transition={spring.fast}
         >
           {children}
         </motion.span>
@@ -103,12 +108,13 @@ export function IconSwap({ swapKey, children }: { swapKey: string; children: Rea
 
 /** Spring pop-in wrapper for overlays (dialogs, menus, cards). */
 export function PopIn({ children, ...rest }: HTMLMotionProps<"div">) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.96, y: 6 }}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 6 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97, y: 4 }}
-      transition={POP_SPRING}
+      exit={{ opacity: 0, ...(reduceMotion ? {} : { scale: 0.97, y: 4 }), transition: springExit.slow }}
+      transition={spring.slow}
       {...rest}
     >
       {children}
@@ -127,6 +133,7 @@ export function PopIn({ children, ...rest }: HTMLMotionProps<"div">) {
  */
 export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: number }) {
   const [over, setOver] = useState(false);
+  const reduceMotion = useReducedMotion();
   const size = props.size ?? 16;
   return (
     <span
@@ -138,9 +145,9 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={over ? "hover" : "idle"}
-          initial={{ scale: 0.5, opacity: 0 }}
+          initial={reduceMotion ? { opacity: 0 } : { scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.5, opacity: 0 }}
+          exit={{ opacity: 0, ...(reduceMotion ? {} : { scale: 0.5 }), transition: springExit.moderate }}
           transition={POP_SPRING}
         >
           {over ? props.hover : props.idle}
@@ -186,7 +193,8 @@ export function SlidingTabs(props: {
   const pillId = useId();
   const reduceMotion = useReducedMotion();
   return (
-    <div className={`sliding-tabs${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
+    <div className={`sliding-tabs fluid-hover-surface${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
+      <FluidHoverSurface selector='[role="tab"]' />
       {props.items.map((item, index) => {
         const selected = item.value === props.value;
         return (

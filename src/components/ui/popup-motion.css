@@ -1,11 +1,11 @@
-/* One disclosure motion for menus, selects, and popovers. The embedded Agent
- * uses the same disclosure duration, ease-out curve, 4px travel, and .97 scale. */
+/* CSS counterpart of the moderate spring tier, with a faster exit.
+ * The embedded Agent uses the same timing, travel and reduced-motion policy. */
 .popup-motion {
-  animation: popup-motion-open var(--duration-disclosure) var(--ease-out) both;
+  animation: popup-motion-open var(--duration-base) var(--ease-out) both;
 }
 
 .popup-motion[data-state="closed"] {
-  animation: popup-motion-close var(--duration-disclosure) var(--ease-out) both;
+  animation: popup-motion-close var(--duration-quick) var(--ease-out) both;
 }
 
 @keyframes popup-motion-open {

@@ -110,6 +110,7 @@ import type { InsertSnippet } from "../editor/insert/insert-snippets";
 import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "../editor/insert/snippet-placeholders";
 import { MathPreview } from "../editor/latex/math-preview";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { PdfLoading } from "../pdf/pdf-loading";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import { pdfBase64ToBytes } from "../pdf/pdf-bytes";
@@ -799,9 +800,9 @@ function PdfPreviewLoading() {
   const { t } = useLingui();
   return (
     <div className="pdf-preview">
-      <div className="pdf-placeholder">
-        <FileText size={28} />
-        <p>{t`Preparing PDF preview…`}</p>
+      <div className="pdf-toolbar" />
+      <div className="pdf-scroll-area">
+        <PdfLoading label={t`Loading PDF…`} />
       </div>
     </div>
   );
@@ -823,6 +824,7 @@ type PaperPdfView = {
   fileName: string;
   generic: boolean;
   bytes: ArrayBuffer | null;
+  previewUrl: string | null;
   error: boolean;
   initialPage: number;
 };
@@ -1563,6 +1565,9 @@ export function DocumentCanvas(props: {
   );
   const [paperPdfView, setPaperPdfView] = useState<PaperPdfView | null>(null);
   const paperPdfPagesRef = useRef(new Map<string, number>());
+  // Retain only the last complete PDF, not an unbounded library of buffers.
+  // PdfPreview copies bytes before transferring them to its worker.
+  const paperPdfBytesRef = useRef<{ key: string; bytes: ArrayBuffer } | null>(null);
   const paperPdfRequestRef = useRef(0);
   useEffect(() => {
     paperPdfRequestRef.current += 1;
@@ -1581,17 +1586,20 @@ export function DocumentCanvas(props: {
   const openPaperPdf = useCallback(() => {
     if (!activePaperPdfSource) return;
     const request = ++paperPdfRequestRef.current;
+    const cached = paperPdfBytesRef.current;
+    const bytes = cached?.key === activePaperPdfSource.key ? cached.bytes : null;
     setPaperPdfView({
       ...activePaperPdfSource,
-      bytes: null,
+      bytes,
+      previewUrl: activePaperPdfSource.generic || bytes ? null : activePaperPdfSource.url,
       error: false,
       initialPage: paperPdfPagesRef.current.get(activePaperPdfSource.key) ?? 1,
     });
-    if (!activePaperPdfSource.generic) return;
-    void invoke<ArrayBuffer>("fetch_paper_pdf", { url: activePaperPdfSource.url }).then((bytes) => {
+    if (!activePaperPdfSource.generic || bytes) return;
+    void invoke<string>("paper_pdf_preview_url", { url: activePaperPdfSource.url }).then((previewUrl) => {
       if (paperPdfRequestRef.current !== request) return;
       setPaperPdfView((current) => current?.key === activePaperPdfSource.key
-        ? { ...current, bytes }
+        ? { ...current, previewUrl }
         : current);
     }).catch(() => {
       if (paperPdfRequestRef.current !== request) return;
@@ -1606,6 +1614,7 @@ export function DocumentCanvas(props: {
   }, []);
   const captureActivePaperPdf = useCallback((bytes: ArrayBuffer) => {
     if (!activePaperPdfSource) return;
+    paperPdfBytesRef.current = { key: activePaperPdfSource.key, bytes };
     setPaperPdfView((current) => (
       current?.key === activePaperPdfSource.key
         ? { ...current, bytes }
@@ -3785,21 +3794,24 @@ export function DocumentCanvas(props: {
       onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
       onFocusCapture={() => props.onContextSurfaceActivate("paper")}
     >
-      {paperPdfView.generic && !paperPdfView.bytes ? (
+      {!paperPdfView.previewUrl && !paperPdfView.bytes ? (
         <div className="pdf-preview">
           <div className="pdf-toolbar">
             <div className="pdf-navigation-controls">{paperPdfToolbarStart}</div>
             <div className="pdf-zoom-controls">{paperPdfToolbarEnd}</div>
           </div>
-          <div className="pdf-placeholder" role="status" aria-live="polite">
-            {paperPdfView.error ? <FileText size={28} /> : <InfinityLoader size={20} />}
-            <p>{paperPdfView.error ? t`Could not load PDF` : t`Preparing PDF preview…`}</p>
+          <div className="pdf-scroll-area">
+            {paperPdfView.error ? (
+              <div className="pdf-placeholder" role="status" aria-live="polite">
+                <FileText size={28} /><p>{t`Could not load PDF`}</p>
+              </div>
+            ) : <PdfLoading label={t`Loading PDF…`} />}
           </div>
         </div>
       ) : <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
           key={`paper-pdf:${paperPdfView.key}`}
-          url={paperPdfView.generic ? null : paperPdfView.url}
+          url={paperPdfView.previewUrl}
           pdfBase64={null}
           pdfBytes={paperPdfView.bytes}
           fileName={paperPdfView.fileName}
@@ -3810,7 +3822,7 @@ export function DocumentCanvas(props: {
           onPageChange={rememberPaperPdfPage}
           initialViewState={props.getFileViewState?.(activeFile)?.pdf}
           onViewState={(pdf) => props.onFileViewState?.(activeFile, { pdf })}
-          onDocumentData={paperPdfView.bytes || paperPdfView.generic ? undefined : captureActivePaperPdf}
+          onDocumentData={paperPdfView.bytes ? undefined : captureActivePaperPdf}
           toolbarStart={paperPdfToolbarStart}
           toolbarEnd={paperPdfToolbarEnd}
         />

@@ -67,8 +67,8 @@
 .pdf-link-annotation:hover, .pdf-link-annotation:focus-visible { outline-color: color-mix(in srgb, var(--control-active) 65%, transparent); background: color-mix(in srgb, var(--control-active) 12%, transparent); }
 .pdf-zoom-controls button { position: relative; }
 .pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
-.pdf-loading { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
-.pdf-loading-quiet { opacity: 0.85; }
+.pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
+.pdf-loading-quiet { top: var(--space-6); transform: translateX(-50%); opacity: 0.85; }
 .pdf-load-progress { width: calc(var(--space-16) * 2); height: var(--space-2); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
 .pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }
 .pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }

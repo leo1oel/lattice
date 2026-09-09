@@ -33,7 +33,8 @@ import {
   SelectValue,
 } from '@ok-app/components/ui/select';
 import { Spinner } from '@ok-app/components/ui/spinner';
-import { Switch } from '@ok-app/components/ui/switch';
+// Lattice's embedded property controls share the host switch and motion.
+import { Switch } from '@/components/ui/switch';
 import { ColorPickerInput } from '@ok-app/editor/components/ColorPickerInput.tsx';
 import { IconPickerInput } from '@ok-app/editor/components/IconPickerInput.tsx';
 import { SrcAutocomplete } from '@ok-app/editor/components/SrcAutocomplete.tsx';
@@ -581,8 +582,9 @@ function PropControl({
           </label>
           <Switch
             id={boolId}
+            label={boolLabel}
             checked={Boolean(value)}
-            onCheckedChange={(checked) => onChange(checked)}
+            onChange={(checked) => onChange(checked)}
           />
         </div>
       );

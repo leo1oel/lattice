@@ -575,9 +575,13 @@ function citationCompletions(citations: CitationInfo[]) {
     const query = range.query.toLocaleLowerCase();
     return {
       from: range.from,
+      // We filter titles as well as keys. CodeMirror's default label-only
+      // filter would discard title matches; recompute on each edit instead.
+      filter: false,
       options: citations
         .filter((citation) => !query || citation.key.toLocaleLowerCase().includes(query)
           || citation.title.toLocaleLowerCase().includes(query))
+        .sort((a, b) => a.key.localeCompare(b.key))
         .map((citation) => ({
           label: citation.key,
           type: "reference",
@@ -586,7 +590,6 @@ function citationCompletions(citations: CitationInfo[]) {
             || [citation.authors, citation.year].filter(Boolean).join(" · ")
             || undefined,
         })),
-      validFor: /^[^,}\s]*$/,
     };
   };
 }
