@@ -5887,12 +5887,12 @@ function App() {
       // point is being pasted into the manuscript, so the notice hands over
       // the exact command instead of assuming the reader parses BibTeX-ese.
       const citeHint = result.citationKey ? ` — cite it with \\cite{${result.citationKey}}` : "";
-      const citationCommand = String.raw`\cite{${result.citationKey}}`;
+      const citationCommand = `\\cite{${result.citationKey}}`;
       setNotice(result.cancelled
         ? result.citationKey
           ? result.paperPath
-            ? t`Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.`
-            : t`Import cancelled. “${result.title}” remains in the bibliography — cite it with ${citationCommand}; full-text enrichment stopped.`
+            ? t({ message: `Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.` })
+            : t({ message: `Import cancelled. “${result.title}” remains in the bibliography — cite it with ${citationCommand}; full-text enrichment stopped.` })
           : result.paperPath
             ? t`Paper import cancelled before changing the bibliography; the downloaded full text remains available.`
             : t`Paper import cancelled before making changes.`
