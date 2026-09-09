@@ -9,6 +9,7 @@ const ACCOUNT: &str = "credential-vault-v1";
 const MAX_SECRET: usize = 16 * 1024;
 const MAX_EMAIL: usize = 320;
 const TEST_TIMEOUT: Duration = Duration::from_secs(8);
+const FIRECRAWL_CREDIT_USAGE_URL: &str = "https://api.firecrawl.dev/v2/team/credit-usage";
 
 static VAULT: Mutex<Option<CredentialVault>> = Mutex::new(None);
 
@@ -19,6 +20,8 @@ struct CredentialVault {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     semanticscholar: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    firecrawl: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     crossref_email: Option<String>,
 }
 
@@ -27,6 +30,7 @@ struct CredentialVault {
 pub enum LiteratureProvider {
     OpenAlex,
     SemanticScholar,
+    Firecrawl,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -35,6 +39,8 @@ pub enum CredentialSource {
     Saved,
     Environment,
     Anonymous,
+    Shared,
+    Missing,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -42,6 +48,7 @@ pub enum CredentialSource {
 pub struct LiteratureCredentialStatus {
     openalex: CredentialSource,
     semanticscholar: CredentialSource,
+    firecrawl: CredentialSource,
     crossref_email: String,
 }
 
@@ -162,6 +169,16 @@ fn effective(vault: &CredentialVault, provider: LiteratureProvider) -> Option<St
             .semanticscholar
             .clone()
             .or_else(|| env_value(&["SEMANTIC_SCHOLAR_API_KEY", "S2_API_KEY"])),
+        LiteratureProvider::Firecrawl => vault
+            .firecrawl
+            .clone()
+            .or_else(|| env_value(&["LATTICE_FIRECRAWL_KEY"]))
+            .or_else(|| {
+                option_env!("LATTICE_FIRECRAWL_KEY")
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_string)
+            }),
     }
 }
 
@@ -169,9 +186,21 @@ fn source(vault: &CredentialVault, provider: LiteratureProvider) -> CredentialSo
     let saved = match provider {
         LiteratureProvider::OpenAlex => vault.openalex.is_some(),
         LiteratureProvider::SemanticScholar => vault.semanticscholar.is_some(),
+        LiteratureProvider::Firecrawl => vault.firecrawl.is_some(),
     };
     if saved {
         CredentialSource::Saved
+    } else if matches!(provider, LiteratureProvider::Firecrawl)
+        && env_value(&["LATTICE_FIRECRAWL_KEY"]).is_none()
+    {
+        if option_env!("LATTICE_FIRECRAWL_KEY")
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+        {
+            CredentialSource::Shared
+        } else {
+            CredentialSource::Missing
+        }
     } else if effective(vault, provider).is_some() {
         CredentialSource::Environment
     } else {
@@ -183,6 +212,7 @@ fn status(vault: &CredentialVault) -> LiteratureCredentialStatus {
     LiteratureCredentialStatus {
         openalex: source(vault, LiteratureProvider::OpenAlex),
         semanticscholar: source(vault, LiteratureProvider::SemanticScholar),
+        firecrawl: source(vault, LiteratureProvider::Firecrawl),
         crossref_email: vault.crossref_email.clone().unwrap_or_else(|| {
             env_value(&["BIBCITE_MAILTO"])
                 .and_then(|email| normalized_email(email).ok().flatten())
@@ -200,6 +230,12 @@ pub(crate) fn semanticscholar_key() -> Result<Option<String>, String> {
         &loaded_vault()?,
         LiteratureProvider::SemanticScholar,
     ))
+}
+
+/// Returns the personal Firecrawl key when saved, then the runtime override,
+/// then the build-time shared key. The shared fallback is intentionally last.
+pub(crate) fn firecrawl_key() -> Result<Option<String>, String> {
+    Ok(effective(&loaded_vault()?, LiteratureProvider::Firecrawl))
 }
 
 pub(crate) fn crossref_contact() -> Result<Option<String>, String> {
@@ -226,6 +262,7 @@ pub async fn set_literature_credential(
         update_vault(|vault| match provider {
             LiteratureProvider::OpenAlex => vault.openalex = secret,
             LiteratureProvider::SemanticScholar => vault.semanticscholar = secret,
+            LiteratureProvider::Firecrawl => vault.firecrawl = secret,
         })?;
         loaded_vault().map(|vault| status(&vault))
     })
@@ -271,6 +308,7 @@ fn test_provider(
         LiteratureProvider::SemanticScholar => {
             "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1038/nphys1170?fields=paperId"
         }
+        LiteratureProvider::Firecrawl => FIRECRAWL_CREDIT_USAGE_URL,
     };
     test_provider_at(provider, key, url)
 }
@@ -290,6 +328,7 @@ fn test_provider_at(
         request = match provider {
             LiteratureProvider::OpenAlex => request.bearer_auth(secret),
             LiteratureProvider::SemanticScholar => request.header("x-api-key", secret),
+            LiteratureProvider::Firecrawl => request.bearer_auth(secret),
         };
     }
     let authenticated = key.is_some();
@@ -347,6 +386,7 @@ mod tests {
         update_cached_vault(&mut cache, &entry, |vault| {
             vault.openalex = Some("first".into());
             vault.semanticscholar = Some("second".into());
+            vault.firecrawl = Some("third".into());
         })
         .unwrap();
         assert_eq!(
@@ -373,6 +413,7 @@ mod tests {
         let reloaded = read_vault(&entry).unwrap();
         assert!(reloaded.openalex.is_none());
         assert_eq!(reloaded.semanticscholar.as_deref(), Some("second"));
+        assert_eq!(reloaded.firecrawl.as_deref(), Some("third"));
     }
 
     #[test]
@@ -393,12 +434,37 @@ mod tests {
         let vault = CredentialVault {
             openalex: Some("not-for-the-frontend".into()),
             semanticscholar: Some("also-secret".into()),
+            firecrawl: Some("firecrawl-secret".into()),
             crossref_email: Some("person@example.org".into()),
         };
         let json = serde_json::to_string(&status(&vault)).unwrap();
         assert!(json.contains("saved"));
         assert!(!json.contains("not-for-the-frontend"));
         assert!(!json.contains("also-secret"));
+        assert!(!json.contains("firecrawl-secret"));
+    }
+
+    #[test]
+    fn saved_firecrawl_key_has_priority_and_missing_status_is_explicit() {
+        let saved = CredentialVault {
+            firecrawl: Some("personal-key".into()),
+            ..CredentialVault::default()
+        };
+        assert_eq!(
+            effective(&saved, LiteratureProvider::Firecrawl).as_deref(),
+            Some("personal-key")
+        );
+        assert_eq!(
+            source(&saved, LiteratureProvider::Firecrawl),
+            CredentialSource::Saved
+        );
+
+        let empty = CredentialVault::default();
+        let empty_source = source(&empty, LiteratureProvider::Firecrawl);
+        assert!(matches!(
+            empty_source,
+            CredentialSource::Environment | CredentialSource::Shared | CredentialSource::Missing
+        ));
     }
 
     #[test]
@@ -426,5 +492,29 @@ mod tests {
         assert!(!serde_json::to_string(&result)
             .unwrap()
             .contains("draft-secret"));
+    }
+
+    #[test]
+    fn firecrawl_connection_test_uses_bearer_auth() {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}/v2/team/credit-usage", server.server_addr());
+        let responder = std::thread::spawn(move || {
+            let request = server.recv().unwrap();
+            assert_eq!(request.method(), &tiny_http::Method::Get);
+            assert!(request.headers().iter().any(|header| {
+                header.field.equiv("authorization")
+                    && header.value.as_str() == "Bearer firecrawl-draft"
+            }));
+            request.respond(tiny_http::Response::empty(200)).unwrap();
+        });
+        let result = test_provider_at(
+            LiteratureProvider::Firecrawl,
+            Some("firecrawl-draft".into()),
+            &endpoint,
+        )
+        .unwrap();
+        responder.join().unwrap();
+        assert_eq!(result.status, CredentialTestState::Ok);
+        assert!(result.authenticated);
     }
 }

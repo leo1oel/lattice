@@ -12,8 +12,8 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import "./literature-settings.css";
 
-type Provider = "openalex" | "semanticscholar";
-type CredentialSource = "saved" | "environment" | "anonymous";
+type Provider = "openalex" | "semanticscholar" | "firecrawl";
+type CredentialSource = "saved" | "environment" | "anonymous" | "shared" | "missing";
 type Credentials = Record<Provider, CredentialSource> & { crossrefEmail: string };
 type TestResult = {
   status: "ok" | "unauthorized" | "rate_limited" | "unavailable";
@@ -22,12 +22,13 @@ type TestResult = {
 const providers = [
   { id: "openalex", name: msg`OpenAlex`, url: "https://openalex.org/settings/api" },
   { id: "semanticscholar", name: msg`Semantic Scholar`, url: "https://www.semanticscholar.org/product/api" },
+  { id: "firecrawl", name: msg`Firecrawl`, url: "https://www.firecrawl.dev/app/api-keys" },
 ] as const;
 
 export function LiteratureSettings() {
   const { t } = useLingui();
   const [credentials, setCredentials] = useState<Credentials | null>(null);
-  const [drafts, setDrafts] = useState<Record<Provider, string>>({ openalex: "", semanticscholar: "" });
+  const [drafts, setDrafts] = useState<Record<Provider, string>>({ openalex: "", semanticscholar: "", firecrawl: "" });
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState<string | null>("load");
   const [notice, setNotice] = useState<{ target: string; text: string; level: InlineMessageLevel } | null>(null);
@@ -87,12 +88,12 @@ export function LiteratureSettings() {
     return notice?.target === target ? <InlineMessage level={notice.level}>{notice.text}</InlineMessage> : null;
   }
   const disabled = busy !== null || !credentials;
-  const sourceLabel = (provider: Provider, source?: CredentialSource) => source === "saved" ? t`Personal key saved` : source === "environment" ? t`Using environment key` : provider === "semanticscholar" ? t`Not enabled · personal API key required` : t`Public access · no key`;
+  const sourceLabel = (provider: Provider, source?: CredentialSource) => source === "saved" ? t`Personal key saved` : source === "environment" ? t`Using environment key` : source === "shared" ? t`Using shared quota` : source === "missing" ? t`Not enabled · API key required` : provider === "semanticscholar" ? t`Not enabled · personal API key required` : t`Public access · no key`;
 
   return (
     <div className="settings-section literature-settings" aria-busy={busy !== null}>
       <SettingsSectionHeader title={t`Literature services`} description={t`Use your own API quota for paper searches, imports, and citation checks.`} />
-      <InlineMessage>{t`Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key.`}</InlineMessage>
+      <InlineMessage>{t`Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials.`}</InlineMessage>
       {busy === "load" && <InfinityLoader size={16} />}
       {message("load")}
       {providers.map(({ id, name, url }) => (
@@ -108,7 +109,7 @@ export function LiteratureSettings() {
               value={drafts[id]} onChange={(event) => { setDrafts({ ...drafts, [id]: event.target.value }); setNotice(null); }} />
             <div className="literature-credential-actions">
               <Button size="compact" type="submit" disabled={disabled || !drafts[id].trim()}>{t`Save`}</Button>
-              <Button size="compact" variant="secondary" disabled={disabled || (id === "semanticscholar" && credentials?.[id] === "anonymous" && !drafts[id].trim())} onClick={() => void run(id, () => test(id))}>{t`Test connection`}</Button>
+              <Button size="compact" variant="secondary" disabled={disabled || ((id === "semanticscholar" && credentials?.[id] === "anonymous") || credentials?.[id] === "missing") && !drafts[id].trim()} onClick={() => void run(id, () => test(id))}>{t`Test connection`}</Button>
               {credentials?.[id] === "saved" && <Button size="compact" variant="ghost" disabled={disabled} onClick={() => void run(id, () => save(id, null))}>{t`Remove key`}</Button>}
               {busy === id && <InfinityLoader size={14} />}
             </div>

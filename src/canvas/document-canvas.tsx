@@ -17,6 +17,7 @@ import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/comm
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { latex } from "codemirror-lang-latex";
 import {
@@ -817,9 +818,12 @@ function MarkdownPreviewLoading() {
 }
 
 type PaperPdfView = {
-  arxivId: string;
+  key: string;
   url: string;
+  fileName: string;
+  generic: boolean;
   bytes: ArrayBuffer | null;
+  error: boolean;
   initialPage: number;
 };
 
@@ -838,7 +842,38 @@ function arxivPdfUrl(arxivId: string): string {
   return `https://arxiv.org/pdf/${encodedArxivPath(arxivId)}`;
 }
 
-function paperBrowserUrl(paper: PaperSummary): string | null {
+type PaperPdfSource = {
+  key: string;
+  url: string;
+  fileName: string;
+  generic: boolean;
+};
+
+function paperPdfSource(paper: Pick<PaperSummary, "arxivId" | "url">): PaperPdfSource | null {
+  const arxivId = normalizedArxivId(paper.arxivId);
+  if (arxivId) {
+    const url = arxivPdfUrl(arxivId);
+    return { key: url, url, fileName: `${arxivId.replace("/", "-")}.pdf`, generic: false };
+  }
+  if (!paper.url) return null;
+  try {
+    const parsed = new URL(paper.url);
+    if ((parsed.protocol !== "https:" && parsed.protocol !== "http:")
+      || !parsed.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
+    const pathName = parsed.pathname.split("/").at(-1) || "paper.pdf";
+    let fileName = pathName;
+    try {
+      fileName = decodeURIComponent(pathName);
+    } catch {
+      // A malformed escape in the display name must not make an otherwise safe PDF URL unusable.
+    }
+    return { key: parsed.href, url: parsed.href, fileName, generic: true };
+  } catch {
+    return null;
+  }
+}
+
+function paperBrowserUrl(paper: Pick<PaperSummary, "arxivId" | "url">): string | null {
   const arxivId = normalizedArxivId(paper.arxivId);
   if (arxivId) return arxivPdfUrl(arxivId);
   if (paper.url) {
@@ -1516,49 +1551,70 @@ export function DocumentCanvas(props: {
     return () => props.onVisualMarkdownFlushChange?.(null);
   }, [props.onVisualMarkdownFlushChange]);
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
-  const activePaperArxivId = normalizedArxivId(props.activePaper?.arxivId ?? "");
+  const activePaperId = props.activePaper?.arxivId;
+  const activePaperUrl = props.activePaper?.url;
+  const activePaperPdfSource = useMemo(
+    () => activePaperId !== undefined ? paperPdfSource({ arxivId: activePaperId, url: activePaperUrl }) : null,
+    [activePaperId, activePaperUrl],
+  );
   const activePaperBrowserUrl = useMemo(
-    () => props.activePaper ? paperBrowserUrl(props.activePaper) : null,
-    [props.activePaper],
+    () => activePaperId !== undefined ? paperBrowserUrl({ arxivId: activePaperId, url: activePaperUrl }) : null,
+    [activePaperId, activePaperUrl],
   );
   const [paperPdfView, setPaperPdfView] = useState<PaperPdfView | null>(null);
   const paperPdfPagesRef = useRef(new Map<string, number>());
+  const paperPdfRequestRef = useRef(0);
   useEffect(() => {
-    setPaperPdfView((current) => current?.arxivId === activePaperArxivId ? current : null);
-  }, [activePaperArxivId]);
+    paperPdfRequestRef.current += 1;
+    setPaperPdfView((current) => current?.key === activePaperPdfSource?.key ? current : null);
+  }, [activePaperPdfSource]);
   useEffect(() => {
     // The paper article is already useful while this local chunk initializes.
-    // Start it here so a later PDF click waits only for arXiv and PDF.js.
-    if (activePaperArxivId) void loadPdfPreviewModule();
-  }, [activePaperArxivId]);
+    // Start it here so a later PDF click waits only for the remote source and PDF.js.
+    if (activePaperPdfSource) void loadPdfPreviewModule();
+  }, [activePaperPdfSource]);
   useEffect(() => {
     // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
     // Choosing one while the PDF is open exits the alternate PDF surface.
     setPaperPdfView(null);
   }, [activeFile, props.mode]);
   const openPaperPdf = useCallback(() => {
-    if (!activePaperArxivId) return;
+    if (!activePaperPdfSource) return;
+    const request = ++paperPdfRequestRef.current;
     setPaperPdfView({
-      arxivId: activePaperArxivId,
-      url: arxivPdfUrl(activePaperArxivId),
+      ...activePaperPdfSource,
       bytes: null,
-      initialPage: paperPdfPagesRef.current.get(activePaperArxivId) ?? 1,
+      error: false,
+      initialPage: paperPdfPagesRef.current.get(activePaperPdfSource.key) ?? 1,
     });
-  }, [activePaperArxivId]);
+    if (!activePaperPdfSource.generic) return;
+    void invoke<ArrayBuffer>("fetch_paper_pdf", { url: activePaperPdfSource.url }).then((bytes) => {
+      if (paperPdfRequestRef.current !== request) return;
+      setPaperPdfView((current) => current?.key === activePaperPdfSource.key
+        ? { ...current, bytes }
+        : current);
+    }).catch(() => {
+      if (paperPdfRequestRef.current !== request) return;
+      setPaperPdfView((current) => current?.key === activePaperPdfSource.key
+        ? { ...current, error: true }
+        : current);
+    });
+  }, [activePaperPdfSource]);
   const closePaperPdf = useCallback(() => {
+    paperPdfRequestRef.current += 1;
     setPaperPdfView(null);
   }, []);
   const captureActivePaperPdf = useCallback((bytes: ArrayBuffer) => {
-    if (!activePaperArxivId) return;
+    if (!activePaperPdfSource) return;
     setPaperPdfView((current) => (
-      current?.arxivId === activePaperArxivId
+      current?.key === activePaperPdfSource.key
         ? { ...current, bytes }
         : current
     ));
-  }, [activePaperArxivId]);
+  }, [activePaperPdfSource]);
   const rememberPaperPdfPage = useCallback((page: number) => {
-    if (activePaperArxivId) paperPdfPagesRef.current.set(activePaperArxivId, page);
-  }, [activePaperArxivId]);
+    if (activePaperPdfSource) paperPdfPagesRef.current.set(activePaperPdfSource.key, page);
+  }, [activePaperPdfSource]);
   const openActivePaperInBrowser = useCallback(() => {
     if (!activePaperBrowserUrl) return;
     void openUrl(activePaperBrowserUrl).catch((reason) => {
@@ -3677,15 +3733,15 @@ export function DocumentCanvas(props: {
   const paperPdfActive = Boolean(
     props.activePaper
     && paperPdfView
-    && paperPdfView.arxivId === activePaperArxivId,
+    && paperPdfView.key === activePaperPdfSource?.key,
   );
   const paperReturnLabel = activeFile.toLocaleLowerCase().endsWith("/blog.md") ? t`Blog` : t`Paper`;
-  const paperBrowserActionLabel = activePaperArxivId
+  const paperBrowserActionLabel = activePaperPdfSource
     ? t`Open PDF in browser`
     : t`Open article in browser`;
   const paperActions = props.activePaper && !paperPdfActive ? (
     <div className="paper-local-actions" aria-label={t`Paper actions`} data-tour="paper-actions">
-      {activePaperArxivId ? (
+      {activePaperPdfSource ? (
         <button
           type="button"
           className="paper-local-action"
@@ -3709,19 +3765,44 @@ export function DocumentCanvas(props: {
       ) : null}
     </div>
   ) : null;
+  const paperPdfToolbarStart = (
+    <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
+      <button type="button" onClick={closePaperPdf}>
+        <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+      </button>
+    </Tip>
+  );
+  const paperPdfToolbarEnd = activePaperBrowserUrl ? (
+    <Tip label={paperBrowserActionLabel}>
+      <button type="button" onClick={openActivePaperInBrowser}>
+        <ExternalLink size={14} aria-hidden="true" />
+      </button>
+    </Tip>
+  ) : undefined;
   const paperPdfPreview = paperPdfActive && paperPdfView ? (
     <div
       className="paper-pdf-preview"
       onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
       onFocusCapture={() => props.onContextSurfaceActivate("paper")}
     >
-      <Suspense fallback={<PdfPreviewLoading />}>
+      {paperPdfView.generic && !paperPdfView.bytes ? (
+        <div className="pdf-preview">
+          <div className="pdf-toolbar">
+            <div className="pdf-navigation-controls">{paperPdfToolbarStart}</div>
+            <div className="pdf-zoom-controls">{paperPdfToolbarEnd}</div>
+          </div>
+          <div className="pdf-placeholder" role="status" aria-live="polite">
+            {paperPdfView.error ? <FileText size={28} /> : <InfinityLoader size={20} />}
+            <p>{paperPdfView.error ? t`Could not load PDF` : t`Preparing PDF preview…`}</p>
+          </div>
+        </div>
+      ) : <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
-          key={`paper-pdf:${paperPdfView.arxivId}`}
-          url={paperPdfView.url}
+          key={`paper-pdf:${paperPdfView.key}`}
+          url={paperPdfView.generic ? null : paperPdfView.url}
           pdfBase64={null}
           pdfBytes={paperPdfView.bytes}
-          fileName={`${paperPdfView.arxivId.replace("/", "-")}.pdf`}
+          fileName={paperPdfView.fileName}
           initialPage={paperPdfView.initialPage}
           saveLabel={t`Download PDF`}
           timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
@@ -3729,23 +3810,11 @@ export function DocumentCanvas(props: {
           onPageChange={rememberPaperPdfPage}
           initialViewState={props.getFileViewState?.(activeFile)?.pdf}
           onViewState={(pdf) => props.onFileViewState?.(activeFile, { pdf })}
-          onDocumentData={paperPdfView.bytes ? undefined : captureActivePaperPdf}
-          toolbarStart={(
-            <Tip label={t({ message: `Back to ${{ view: paperReturnLabel }}` })}>
-              <button type="button" onClick={closePaperPdf}>
-                <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
-              </button>
-            </Tip>
-          )}
-          toolbarEnd={activePaperBrowserUrl ? (
-            <Tip label={paperBrowserActionLabel}>
-              <button type="button" onClick={openActivePaperInBrowser}>
-                <ExternalLink size={14} aria-hidden="true" />
-              </button>
-            </Tip>
-          ) : undefined}
+          onDocumentData={paperPdfView.bytes || paperPdfView.generic ? undefined : captureActivePaperPdf}
+          toolbarStart={paperPdfToolbarStart}
+          toolbarEnd={paperPdfToolbarEnd}
         />
-      </Suspense>
+      </Suspense>}
     </div>
   ) : null;
   const paperPreview = props.activePaper ? (

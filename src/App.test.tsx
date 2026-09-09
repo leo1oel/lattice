@@ -5422,6 +5422,102 @@ describe("project workspace", () => {
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
   });
 
+  it("fetches ordinary PDFs through Tauri and isolates failures and stale requests", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const firstUrl = "https://mirros.ai/report/s-space.PDF?download=1#page=1";
+    const secondUrl = "https://example.com/papers/second.pdf";
+    const firstBytes = new TextEncoder().encode("%PDF first").buffer;
+    const secondBytes = new TextEncoder().encode("%PDF second").buffer;
+    const expectedSecondBytes = new Uint8Array(secondBytes.slice(0));
+    let resolveFirst!: (bytes: ArrayBuffer) => void;
+    const pendingFirst = new Promise<ArrayBuffer>((resolve) => { resolveFirst = resolve; });
+    let secondAttempts = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{main}";
+      if (command === "list_papers") return [
+        { arxivId: "web-first", url: firstUrl, title: "First PDF", hasFullText: true, hasBlog: false },
+        { arxivId: "web-second", url: secondUrl, title: "Second PDF", hasFullText: true, hasBlog: false },
+      ];
+      if (command === "list_history") return [];
+      if (command === "read_paper") return `# ${(args as { arxivId: string }).arxivId}`;
+      if (command === "read_paper_blog") return null;
+      if (command === "fetch_paper_pdf") {
+        const url = (args as { url: string }).url;
+        if (url === firstUrl) return pendingFirst;
+        secondAttempts += 1;
+        if (secondAttempts === 1) throw new Error("remote PDF unavailable");
+        return secondBytes;
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    vi.mocked(getDocument).mockImplementation(() => {
+      return {
+        promise: Promise.resolve({
+          numPages: 2,
+          getPage: vi.fn(async () => ({
+            getViewport: () => ({
+              width: 600,
+              height: 800,
+              convertToViewportPoint: (x: number, y: number) => [x, y],
+            }),
+            render: () => renderTask,
+            streamTextContent: () => new ReadableStream(),
+            getAnnotations: async () => [],
+            cleanup: vi.fn(),
+          })),
+          getData: vi.fn(async () => new Uint8Array(firstBytes)),
+          getDestination: vi.fn(),
+          getPageIndex: vi.fn(),
+          cleanup: vi.fn(),
+        }),
+        destroy: vi.fn(),
+      } as never;
+    });
+
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("First PDF"));
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper_pdf", { url: firstUrl }));
+    expect(screen.getByRole("status")).toHaveTextContent("Preparing PDF preview…");
+    expect(getDocument).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));
+
+    fireEvent.click(screen.getByTitle("Second PDF"));
+    await screen.findByRole("heading", { name: "Second PDF" });
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Could not load PDF"));
+    expect(invoke).toHaveBeenCalledWith("fetch_paper_pdf", { url: secondUrl });
+    resolveFirst(firstBytes);
+    await Promise.resolve();
+    expect(getDocument).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Paper" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(getDocument).toHaveBeenCalled());
+    const loadedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
+      data?: ArrayBuffer;
+      url?: string;
+    } | undefined;
+    expect(loadedSource?.url).toBeUndefined();
+    expect(new Uint8Array(loadedSource?.data ?? new ArrayBuffer(0))).toEqual(expectedSecondBytes);
+    expect(screen.getByRole("textbox", { name: "PDF page number" })).toHaveValue("1");
+  });
+
   it("streams an arXiv PDF without persisting a second app cache", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

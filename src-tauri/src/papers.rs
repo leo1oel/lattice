@@ -3,6 +3,7 @@ use crate::models::{ImportResult, PaperSummary, ProjectSearchResult};
 use crate::project;
 use flate2::read::GzDecoder;
 use regex::Regex;
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -50,8 +51,8 @@ struct PaperMetadata {
     converter: String,
     /// What the markdown was derived from: `arxiv-html` for a LaTeXML
     /// rendering, `arxiv-source` for the TeX parser, `arxiv-pdf` for the
-    /// text-layer fallback, or `web` for a scraped page. Empty on bundles from
-    /// before the field existed, which are all HTML-derived.
+    /// text-layer fallback, `pdf-text-layer` for a direct PDF URL, or `web`
+    /// for a scraped page. Empty on older, HTML-derived bundles.
     #[serde(default)]
     source: String,
     /// The page a `web` bundle captured. This is the join key back to the
@@ -669,12 +670,32 @@ fn is_web_url(url: &str) -> bool {
     url.starts_with("https://") || url.starts_with("http://")
 }
 
-/// Capture a webpage as a readable bundle under `.research/papers/web-…`.
+// arXiv PDFs retain their identifier-based citation and semantic conversion.
+fn is_pdf_url(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|url| {
+        matches!(url.scheme(), "http" | "https")
+            && url.path().to_ascii_lowercase().ends_with(".pdf")
+            && !matches!(
+                url.host_str(),
+                Some("arxiv.org" | "www.arxiv.org" | "export.arxiv.org")
+            )
+    })
+}
+
+/// Capture a webpage or direct PDF as a bundle under `.research/papers/web-…`.
 ///
 /// The same contract as an arXiv fetch — atomic swap, sha-validated bundle,
 /// honest frontmatter — with one difference: there is never a blog, so the
 /// reader shows a single content view.
 pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String> {
+    fetch_web_reference_with_page(root, url, None)
+}
+
+fn fetch_web_reference_with_page(
+    root: &Path,
+    url: &str,
+    page: Option<crate::firecrawl::ScrapedPage>,
+) -> Result<FetchResult, String> {
     let url = url.trim();
     if !is_web_url(url) {
         return Err("Enter an http(s) URL.".to_string());
@@ -707,18 +728,50 @@ pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String
     let output_dir = temp_root.join("output");
     fs::create_dir_all(&output_dir).map_err(err)?;
     let build = || -> Result<(), String> {
-        let page = crate::firecrawl::scrape(url)?;
-        let title = page
-            .title
-            .as_deref()
-            .map(str::trim)
-            .filter(|title| !title.is_empty())
-            .unwrap_or(url);
+        // Direct PDFs have no HTML title and must not go through the webpage
+        // scraper. Reuse its URL-keyed bundle so readers and bibliography joins
+        // keep the same contract, without pretending the PDF is an arXiv work.
+        let (title, body, source, converter) = if is_pdf_url(url) {
+            let body = download_pdf_text(url)?;
+            let title = body
+                .lines()
+                .find_map(|line| {
+                    line.strip_prefix("# ")
+                        .map(str::trim)
+                        .filter(|title| !title.is_empty())
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| {
+                    url.split(['?', '#'])
+                        .next()
+                        .unwrap_or(url)
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or(url)
+                        .to_string()
+                });
+            (title, body, "pdf-text-layer", ANYDOC_CONVERTER)
+        } else {
+            let page = match page {
+                Some(page) => page,
+                None => crate::firecrawl::scrape(url)?,
+            };
+            let title = page
+                .title
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or_else(|| url.to_string());
+            (title, page.markdown, "web", FIRECRAWL_CONVERTER)
+        };
+        let fidelity = if source == "pdf-text-layer" {
+            "fidelity: \"Converted from the PDF text layer. Figures are absent and equations may be garbled; verify against the PDF before quoting.\"\n"
+        } else {
+            ""
+        };
         let markdown = normalize_imported_markdown(&format!(
-            "---\ntitle: \"{}\"\nurl: \"{}\"\nsource: \"web\"\n---\n\n{}",
-            title.replace('"', "'"),
-            url,
-            page.markdown,
+            "---\ntitle: {}\nurl: {}\nsource: \"{source}\"\n{fidelity}---\n\n{}",
+            serde_json::to_string(&title).map_err(err)?,
+            serde_json::to_string(url).map_err(err)?,
+            body,
         ));
         fs::write(output_dir.join("paper.md"), &markdown).map_err(err)?;
         fs::create_dir_all(output_dir.join("paper_assets")).map_err(err)?;
@@ -733,8 +786,8 @@ pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String
             title: title.to_string(),
             schema_version: PAPER_SCHEMA_VERSION,
             complete: true,
-            converter: FIRECRAWL_CONVERTER.to_string(),
-            source: "web".to_string(),
+            converter: converter.to_string(),
+            source: source.to_string(),
             source_url: url.to_string(),
             paper_sha256: sha256_hex(markdown.as_bytes()),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
@@ -1079,41 +1132,7 @@ fn pdf_fallback(
 /// renders `{W_i}` as `fWig`). Both the reader and the agent read this file
 /// raw, so the caveat rides in the file itself rather than in UI state.
 fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("Lattice research writer (paper import)")
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-        .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
-    let response = client
-        .get(format!("https://arxiv.org/pdf/{requested}"))
-        .send()
-        .map_err(|error| format!("PDF download failed: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "arXiv returned HTTP {} for the PDF.",
-            response.status().as_u16()
-        ));
-    }
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_PAPER_PDF_BYTES as u64)
-    {
-        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
-    }
-    let bytes = response
-        .bytes()
-        .map_err(|error| format!("PDF download failed: {error}"))?;
-    if bytes.len() > MAX_PAPER_PDF_BYTES {
-        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
-    }
-    let body = anydoc::to_markdown_bytes(&bytes, anydoc::Format::Pdf)
-        .map_err(|error| format!("PDF conversion failed: {error}"))?;
-    if body.trim().len() < 200 {
-        return Err(
-            "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
-                .to_string(),
-        );
-    }
+    let body = download_pdf_text(&format!("https://arxiv.org/pdf/{requested}"))?;
     let title = body
         .lines()
         .find_map(|line| {
@@ -1126,6 +1145,62 @@ fn pdf_text_markdown(requested: &str, base: &str) -> Result<String, String> {
         title.replace('"', "'"),
         body,
     ))
+}
+
+fn download_pdf_text(url: &str) -> Result<String, String> {
+    let bytes = download_pdf_bytes(url)?;
+    let body = anydoc::to_markdown_bytes(&bytes, anydoc::Format::Pdf)
+        .map_err(|error| format!("PDF conversion failed: {error}"))?;
+    if body.trim().len() < 200 {
+        return Err(
+            "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
+                .to_string(),
+        );
+    }
+    Ok(body)
+}
+
+/// Download through the native host so a publisher without CORS headers can
+/// still be viewed in the app. Import and preview enforce the same size/type
+/// limits; preview never needs to convert or write a second copy to disk.
+pub(crate) fn download_pdf_bytes(url: &str) -> Result<Vec<u8>, String> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| "Enter an http(s) PDF URL.".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Enter an http(s) PDF URL.".to_string());
+    }
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("Lattice research writer (paper import)")
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
+    let response = client
+        .get(url)
+        .send()
+        .map_err(|error| format!("PDF download failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "The server returned HTTP {} for the PDF.",
+            response.status().as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_PAPER_PDF_BYTES as u64)
+    {
+        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
+    }
+    let mut bytes = Vec::new();
+    response
+        .take(MAX_PAPER_PDF_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("PDF download failed: {error}"))?;
+    if bytes.len() > MAX_PAPER_PDF_BYTES {
+        return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
+    }
+    if !bytes.starts_with(b"%PDF-") {
+        return Err("The URL did not return a PDF document.".to_string());
+    }
+    Ok(bytes)
 }
 
 fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(), String> {
@@ -1248,6 +1323,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         });
         let by_title = imported.iter().position(|(_, metadata, _, _, _)| {
             metadata.source != "web"
+                && metadata.source != "pdf-text-layer"
                 && !metadata.title.is_empty()
                 && paper_titles_match(&citation.title, &metadata.title)
         });
@@ -1888,18 +1964,18 @@ fn arxiv_id_from_title_feed(feed: &str, requested_title: &str) -> Option<String>
     matched
 }
 
-fn paper_titles_match(requested: &str, candidate: &str) -> bool {
-    fn normalize(value: &str) -> String {
-        value
-            .split(|character: char| !character.is_alphanumeric())
-            .filter(|part| !part.is_empty())
-            .map(|part| part.to_lowercase())
-            .collect::<Vec<_>>()
-            .join(" ")
-    }
+fn normalized_paper_title(value: &str) -> String {
+    value
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|part| !part.is_empty())
+        .map(|part| part.to_lowercase())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
-    let requested = normalize(requested);
-    let candidate = normalize(candidate);
+fn paper_titles_match(requested: &str, candidate: &str) -> bool {
+    let requested = normalized_paper_title(requested);
+    let candidate = normalized_paper_title(candidate);
     if requested.is_empty() || candidate.is_empty() {
         return false;
     }
@@ -1979,8 +2055,463 @@ fn import_existing_arxiv_citation(
     }))
 }
 
-/// Everything that is not an arXiv paper: resolve it, write the `.bib` entry,
-/// and stop there. There is no text to fetch and none is pretended.
+fn same_citation_url(left: &str, right: &str) -> bool {
+    let normalize = |value: &str| {
+        reqwest::Url::parse(value).ok().map(|mut url| {
+            url.set_fragment(None);
+            let path = url.path().trim_end_matches('/').to_string();
+            url.set_path(&path);
+            url.to_string()
+        })
+    };
+    normalize(left).is_some_and(|left| Some(left) == normalize(right))
+}
+
+/// A code block may cite a related paper rather than the page itself. Require
+/// a matching URL (including a plain URL in note), or an exact title when no
+/// source URL was supplied, and reject
+/// conflicting candidates instead of silently picking the first reference.
+fn matching_supplied_bibtex(text: &str, url: &str, title: &str) -> Option<String> {
+    let mut candidates = Vec::new();
+    for (_, start, end) in project::bibliography_entry_spans(text) {
+        let raw = &text[start..end];
+        if raw.len() > 64 * 1024 {
+            continue;
+        }
+        if !raw.ends_with(['}', ')']) {
+            continue;
+        }
+        let Some(entry) = project::parse_bibliography(raw).into_iter().next() else {
+            continue;
+        };
+        let source_url = entry.url.or_else(|| {
+            let body = &raw[raw.find(',')? + 1..raw.len() - 1];
+            project::parse_bibliography_fields_raw(body)
+                .remove("note")
+                .filter(|note| is_web_url(note))
+        });
+        let matches = !entry.title.is_empty()
+            && match source_url.as_deref() {
+                Some(cited_url) => same_citation_url(cited_url, url),
+                None => {
+                    !title.is_empty()
+                        && normalized_paper_title(&entry.title) == normalized_paper_title(title)
+                }
+            };
+        if matches && !candidates.iter().any(|candidate| candidate == raw) {
+            candidates.push(raw.to_string());
+        }
+    }
+    (candidates.len() == 1).then(|| candidates.remove(0))
+}
+
+fn supplied_web_bibtex(html: &str, url: &str) -> Option<String> {
+    // Only rendered citation blocks count; Next.js hydration scripts can
+    // repeat the same entry and arbitrary script strings are not page copy.
+    let scripts = Regex::new(r"(?is)<(?:script|style)\b[^>]*>.*?</(?:script|style)\s*>").unwrap();
+    let html = scripts.replace_all(html, "");
+    let tags = Regex::new(r"(?s)<[^>]*>").unwrap();
+    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title\s*>")
+        .unwrap()
+        .captures(&html)
+        .map(|c| html_escape::decode_html_entities(&tags.replace_all(&c[1], "")).into_owned())
+        .unwrap_or_default();
+    let document = Html::parse_document(&html);
+    let blocks = Selector::parse("pre, code, .citation, .bibtex").unwrap();
+    let line_breaks = Regex::new(r"(?i)<br\b[^>]*>").unwrap();
+    let text = document
+        .select(&blocks)
+        .map(|element| {
+            let inner = element.inner_html();
+            let block = line_breaks.replace_all(&inner, "\n");
+            // HTML layout spaces are not BibTeX syntax whitespace. Normalize
+            // them after entity decoding, preserving Unicode author names.
+            html_escape::decode_html_entities(&tags.replace_all(&block, ""))
+                .chars()
+                .map(|ch| {
+                    if ch.is_whitespace() && !ch.is_ascii() {
+                        ' '
+                    } else {
+                        ch
+                    }
+                })
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    matching_supplied_bibtex(&text, url, &title)
+}
+
+fn fetch_supplied_web_bibtex(url: &str) -> Option<String> {
+    let html = fetch_web_html(url).ok()?;
+    let raw = supplied_web_bibtex(&html, url)?;
+    Some(supplied_bibtex_with_source(raw, url))
+}
+
+struct WebCitation {
+    bibtex: String,
+    page: Option<crate::firecrawl::ScrapedPage>,
+}
+
+fn webpage_bibtex(html: &str, url: &str) -> Option<String> {
+    supplied_web_bibtex(html, url)
+        .map(|raw| supplied_bibtex_with_source(raw, url))
+        .or_else(|| crate::web_metadata::citation(html, url))
+}
+
+fn resolve_web_citation(url: &str) -> Result<Option<WebCitation>, String> {
+    resolve_web_citation_with(url, fetch_web_html(url), crate::firecrawl::scrape)
+}
+
+fn resolve_web_citation_with(
+    url: &str,
+    html: Result<String, String>,
+    render: impl FnOnce(&str) -> Result<crate::firecrawl::ScrapedPage, String>,
+) -> Result<Option<WebCitation>, String> {
+    let reason = match html {
+        Ok(html) => {
+            if let Some(bibtex) = webpage_bibtex(&html, url) {
+                return Ok(Some(WebCitation { bibtex, page: None }));
+            }
+            if crate::web_metadata::has_doi(&html) {
+                return Ok(None);
+            }
+            "The page has no readable citation metadata; it may require JavaScript.".to_string()
+        }
+        Err(error) => error,
+    };
+    let mut page = render(url)
+        .map_err(|error| format!("{reason}\nBrowser-rendered extraction failed: {error}"))?;
+    let bibtex = supplied_web_bibtex(&page.html, url).map(|raw| supplied_bibtex_with_source(raw, url))
+        .or_else(|| matching_supplied_bibtex(&page.markdown, url, page.title.as_deref().unwrap_or_default())
+            .map(|raw| supplied_bibtex_with_source(raw, url)))
+        .or_else(|| crate::web_metadata::citation(&page.html, url))
+        .ok_or_else(|| "The rendered page still has no reliable citation metadata. Supply its official BibTeX or DOI instead.".to_string())?;
+    if let Some(entry) = project::parse_bibliography(&bibtex).first() {
+        page.title = Some(entry.title.clone());
+    }
+    Ok(Some(WebCitation {
+        bibtex,
+        page: Some(page),
+    }))
+}
+
+fn fetch_web_html(url: &str) -> Result<String, String> {
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(LITERATURE_USER_AGENT)
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(err)?;
+    let response = client
+        .get(url)
+        .send()
+        .map_err(err)?
+        .error_for_status()
+        .map_err(err)?;
+    let mut bytes = Vec::new();
+    response
+        .take(4 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(err)?;
+    if bytes.len() > 4 * 1024 * 1024 {
+        return Err("The webpage HTML exceeds the 4 MB citation extraction limit.".into());
+    }
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn supplied_bibtex_with_source(raw: String, url: &str) -> String {
+    if project::parse_bibliography(&raw)
+        .first()
+        .is_some_and(|entry| entry.url.is_some())
+    {
+        return raw;
+    }
+    // Keep a source identity even when the recommended entry omitted its URL.
+    let url = url
+        .replace('{', "%7B")
+        .replace('}', "%7D")
+        .replace('\\', "%5C");
+    format!(
+        "{},\n  url = {{{url}}}\n{}",
+        raw[..raw.len() - 1].trim_end().trim_end_matches(','),
+        &raw[raw.len() - 1..]
+    )
+}
+
+fn pdf_citation_bibtex(markdown: &str, title: &str, url: &str) -> String {
+    if let Some(raw) = matching_supplied_bibtex(markdown, url, title) {
+        return supplied_bibtex_with_source(raw, url);
+    }
+    // A labelled, same-origin project URL on the first page is evidence of an
+    // official landing page. Never search arbitrary URLs in the references.
+    let first_page: String = markdown.chars().take(6000).collect();
+    let website = Regex::new(r"(?im)(?:^|\s)(?:\*\*)?(?:Website|Project(?: page)?|Homepage)(?:\*\*)?:\s*(?:\[[^\]]*\]\()?<?(https?://[^\s)>]+)").unwrap();
+    let source_origin = reqwest::Url::parse(url).ok().map(|url| url.origin());
+    let supplied = website
+        .captures_iter(&first_page)
+        .take(3)
+        .find_map(|capture| {
+            let page_url = &capture[1];
+            let page = reqwest::Url::parse(page_url).ok()?;
+            if Some(page.origin()) != source_origin {
+                return None;
+            }
+            let raw = fetch_supplied_web_bibtex(page_url)?;
+            let entry = project::parse_bibliography(&raw).into_iter().next()?;
+            (normalized_paper_title(&entry.title) == normalized_paper_title(title)).then_some(raw)
+        });
+    if let Some(raw) = supplied {
+        let entry = project::parse_bibliography(&raw).remove(0);
+        let body = &raw[raw.find(',').unwrap() + 1..raw.len() - 1];
+        let mut fields = project::parse_bibliography_fields_raw(body);
+        fields.insert("url".to_string(), url.to_string());
+        if fields
+            .get("note")
+            .is_some_and(|note| note.trim().eq_ignore_ascii_case("Blog post"))
+        {
+            fields.remove("note");
+        }
+        fields.remove("howpublished");
+        let fields = fields
+            .iter()
+            .map(|(name, value)| format!("  {name} = {{{value}}}"))
+            .collect::<Vec<_>>()
+            .join(",\n");
+        return format!("@misc{{{}pdf,\n{fields}\n}}\n", entry.key);
+    }
+    // Missing metadata stays missing. Internal review instructions must never
+    // be printed as a bibliographic note in the user's manuscript.
+    let key = normalized_paper_title(title)
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .take(32)
+        .collect::<String>();
+    let title = title
+        .chars()
+        .map(|ch| match ch {
+            '\\' => "\\textbackslash{}".to_string(),
+            '{' => "\\textbraceleft{}".to_string(),
+            '}' => "\\textbraceright{}".to_string(),
+            '&' | '%' | '$' | '#' | '_' => format!("\\{ch}"),
+            '^' => "\\textasciicircum{}".to_string(),
+            '~' => "\\textasciitilde{}".to_string(),
+            _ => ch.to_string(),
+        })
+        .collect::<String>();
+    format!("@misc{{{key}pdf,\n  title = {{{title}}},\n  url = {{{url}}}\n}}\n")
+}
+
+/// Same key policy as bibcite-cli 0.6.9's normalize.make_key / _finalize.
+/// Supplied BibTeX bypasses that policy upstream, so apply it here without
+/// round-tripping publisher fields through bibcite's lossy normalization.
+fn supplied_citation_key(raw: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    let (_, start, end) = project::bibliography_entry_spans(raw)
+        .into_iter()
+        .next()
+        .unwrap();
+    let raw = &raw[start..end];
+    let hash = |value: &str| -> String {
+        value
+            .nfkd()
+            .filter(char::is_ascii)
+            .flat_map(char::to_lowercase)
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+            .collect()
+    };
+    let fields =
+        project::parse_bibliography_fields_raw(&raw[raw.find(',').unwrap() + 1..raw.len() - 1]);
+    let author = fields
+        .get("author")
+        .filter(|s| !s.is_empty())
+        .map(String::as_str)
+        .unwrap_or("anonymous");
+    let separator = regex::Regex::new(r"(?i)\s+and\s+").unwrap();
+    let first = separator
+        .split(author.trim())
+        .next()
+        .unwrap()
+        .trim()
+        .trim_matches(['{', '}']);
+    let surname = first
+        .split_once(',')
+        .map(|(last, _)| last)
+        .unwrap_or_else(|| first.split_whitespace().last().unwrap_or("anon"));
+    let surname = hash(surname);
+    let year = fields
+        .get("year")
+        .filter(|s| !s.is_empty())
+        .map(String::as_str)
+        .unwrap_or("XXXX");
+    let stopwords = "i me my myself we our ours ourselves you your yours yourself yourselves he him his himself she her hers herself it its itself they them their theirs themselves what which who whom this that these those am is are was were be been being have has had having do does did doing a an the and but if or because as until while of at by for with about against between into through during before after above below to from up down in out on off over under again further then once here there when where why how all any both each few more most other some such no nor not only own same so than too very s t can will just don should now";
+    let words: Vec<String> = fields
+        .get("title")
+        .map(String::as_str)
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(hash)
+        .filter(|s| !s.is_empty())
+        .collect();
+    let word = words
+        .iter()
+        .find(|word| {
+            !stopwords
+                .split_whitespace()
+                .any(|stop| stop == word.as_str())
+        })
+        .or_else(|| words.first())
+        .map(String::as_str)
+        .unwrap_or("paper");
+    format!(
+        "{}{year}{word}",
+        if surname.is_empty() { "anon" } else { &surname }
+    )
+}
+
+/// Let bibcite validate/normalize the supplied record without tidying the
+/// user's bibliography. Merge by URL here: bibcite's title-only dedupe would
+/// otherwise collapse a report and its identically titled blog into one entry.
+fn merge_supplied_bibtex(before: &str, raw: &str) -> Result<(String, String, bool), String> {
+    let temp = std::env::temp_dir().join(format!("lattice-supplied-cite-{}", Uuid::new_v4()));
+    fs::create_dir_all(&temp).map_err(err)?;
+    let result = (|| {
+        let path = temp.join("references.bib");
+        run_bibcite_input(&path, raw, true)?;
+        let normalized = fs::read_to_string(&path).map_err(err)?;
+        let entry = project::parse_bibliography(&normalized)
+            .into_iter()
+            .next()
+            .ok_or_else(|| "bibcite did not return a citation.".to_string())?;
+        // Even --no-tidy drops fields such as month during bibcite's internal
+        // record conversion. Use it to validate the entry and key, but keep
+        // the publisher's original field values rather than that lossy output.
+        let normalized = raw;
+        let entries = project::parse_bibliography(before);
+        let existing = entries.iter().find(|item| {
+            entry
+                .url
+                .as_deref()
+                .zip(item.url.as_deref())
+                .is_some_and(|(a, b)| same_citation_url(a, b))
+        });
+        let mut key = existing
+            .map(|item| item.key.clone())
+            .unwrap_or_else(|| supplied_citation_key(raw));
+        if existing.is_none() {
+            let base = key.clone();
+            let mut suffix = 2;
+            while entries
+                .iter()
+                .any(|item| item.key.eq_ignore_ascii_case(&key))
+            {
+                key = format!("{base}-{suffix}");
+                suffix += 1;
+            }
+        }
+        let (_, start, end) = project::bibliography_entry_spans(normalized)
+            .into_iter()
+            .next()
+            .unwrap();
+        let normalized = &normalized[start..end];
+        let opening = normalized.find(['{', '(']).unwrap();
+        let comma = normalized.find(',').unwrap();
+        let mut replacement = format!(
+            "{}{}{}",
+            &normalized[..opening + 1],
+            key,
+            &normalized[comma..]
+        );
+        let bibliography = if let Some((_, start, end)) = existing.and_then(|item| {
+            project::bibliography_entry_spans(before)
+                .into_iter()
+                .find(|(key, _, _)| key.eq_ignore_ascii_case(&item.key))
+        }) {
+            // Re-import may enrich fields, but missing metadata must not erase
+            // information the user already supplied. Remove only our old
+            // internal note, not legitimate publisher/user notes.
+            let old = &before[start..end];
+            let mut fields = project::parse_bibliography_fields_syntax(
+                &old[old.find(',').unwrap() + 1..old.len() - 1],
+            );
+            if fields.get("note").is_some_and(|note| {
+                note.trim_matches(['{', '}', '"'])
+                    == "Imported from PDF; bibliographic metadata needs review"
+            }) {
+                fields.remove("note");
+            }
+            fields.extend(project::parse_bibliography_fields_syntax(
+                &normalized[comma + 1..normalized.len() - 1],
+            ));
+            let body = fields
+                .iter()
+                .map(|(name, value)| format!("  {name} = {value}"))
+                .collect::<Vec<_>>()
+                .join(",\n");
+            replacement = format!(
+                "{}{},\n{body}\n{}",
+                &normalized[..opening + 1],
+                key,
+                &normalized[normalized.len() - 1..]
+            );
+            format!("{}{replacement}{}", &before[..start], &before[end..])
+        } else {
+            format!("{before}\n{replacement}\n")
+        };
+        Ok((bibliography, key, existing.is_some()))
+    })();
+    let _ = fs::remove_dir_all(temp);
+    result
+}
+
+/// Import the report itself, enriching its citation from explicitly supplied
+/// metadata rather than treating a binary URL as an HTML webpage.
+fn import_pdf_citation(
+    root: &Path,
+    manifest: &crate::models::ProjectManifest,
+    url: &str,
+    before: &str,
+    history: HistoryMode,
+    progress: &dyn Fn(&str),
+) -> Result<ImportResult, String> {
+    progress("fulltext");
+    let encoded_url = url
+        .replace('{', "%7B")
+        .replace('}', "%7D")
+        .replace('\\', "%5C");
+    let url = encoded_url.as_str();
+    let fetched = fetch_web_reference(root, url)?;
+    let metadata_path = project::safe_path(
+        root,
+        &format!(".research/papers/{}/metadata.json", fetched.arxiv_id),
+    )?;
+    let metadata: PaperMetadata =
+        serde_json::from_slice(&fs::read(metadata_path).map_err(err)?).map_err(err)?;
+    let markdown =
+        fs::read_to_string(project::safe_path(root, &fetched.paper_path)?).map_err(err)?;
+    progress("resolving");
+    let raw = pdf_citation_bibtex(&markdown, &metadata.title, url);
+    let (bibliography, key, already_imported) = merge_supplied_bibtex(before, &raw)?;
+    if bibliography != before {
+        commit_bibliography(
+            root,
+            &manifest.primary_bibliography,
+            &bibliography,
+            &format!("Cite {key}"),
+            history,
+        )?;
+    }
+    Ok(ImportResult {
+        arxiv_id: fetched.arxiv_id,
+        title: metadata.title,
+        paper_path: fetched.paper_path,
+        citation_key: Some(key.clone()),
+        citation_output: serde_json::json!({"action": if already_imported { "already-present" } else { "added" }, "key": key, "source": "pdf"}).to_string(),
+        already_imported,
+        fetch_error: None,
+    })
+}
+
+/// Resolve a citation and attach full text when its source is supported.
 fn import_citation(
     root: &Path,
     manifest: &crate::models::ProjectManifest,
@@ -2001,6 +2532,9 @@ fn import_citation(
     if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress) {
         return result;
     }
+    if is_pdf_url(query) {
+        return import_pdf_citation(root, manifest, query, &before, history, progress);
+    }
 
     let temp = std::env::temp_dir().join(format!("research-writer-cite-{}", Uuid::new_v4()));
     fs::create_dir_all(&temp).map_err(err)?;
@@ -2010,7 +2544,40 @@ fn import_citation(
     progress("resolving");
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
     let preferred_arxiv = parse_arxiv_id(&bibcite_query);
-    let citation_output = run_bibcite(&bibliography_path, &bibcite_query)?;
+    let mut web_error = None;
+    let supplied = if is_web_url(query) && preferred_arxiv.is_none() {
+        match resolve_web_citation(query) {
+            Ok(citation) => citation,
+            Err(error) => {
+                web_error = Some(error);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let mut rendered_page = None;
+    let citation_output = if let Some(citation) = supplied {
+        rendered_page = citation.page;
+        let (bibliography, key, already_imported) =
+            merge_supplied_bibtex(&before, &citation.bibtex)?;
+        fs::write(&bibliography_path, bibliography).map_err(err)?;
+        serde_json::json!({"key":key,"source":"webpage","action":if already_imported {"exists"} else {"added"}}).to_string()
+    } else {
+        let output =
+            run_bibcite(&bibliography_path, &bibcite_query).map_err(|error| match &web_error {
+                Some(web_error) => format!("{web_error}\n{error}"),
+                None => error,
+            })?;
+        // DOI and other scholarly resolvers may succeed despite blocked HTML.
+        // A generic webpage fallback must not resurrect a rejected app-shell title.
+        if bibcite_report_source(&output).as_deref() == Some("webpage") {
+            if let Some(error) = web_error {
+                return Err(error);
+            }
+        }
+        output
+    };
     let bibliography = fs::read_to_string(&bibliography_path).map_err(err)?;
     let citation_key = parse_citation_key(&citation_output)
         .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
@@ -2072,7 +2639,7 @@ fn import_citation(
             {
                 Some(page_url) => {
                     progress("fulltext");
-                    match fetch_web_reference(root, page_url) {
+                    match fetch_web_reference_with_page(root, page_url, rendered_page.take()) {
                         Ok(fetched) => Some(fetched),
                         Err(error) => {
                             fetch_error = Some(error);
@@ -2104,15 +2671,17 @@ fn import_citation(
 }
 
 fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
+    run_bibcite_input(path, query, false)
+}
+
+fn run_bibcite_input(path: &PathBuf, query: &str, supplied: bool) -> Result<String, String> {
     let mut command = commands::BIBCITE.command()?;
-    let output = command
-        .arg("add")
-        .arg("--no-tidy")
-        .arg(path)
-        .arg(query)
-        .output()
-        .map(|output| commands::redact_bibcite_output(&command, output))
-        .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
+    command.arg("add").arg("--no-tidy").arg(path);
+    if supplied {
+        command.arg("--bibtex");
+    }
+    command.arg(query);
+    let output = commands::bibcite_output(&mut command, std::time::Duration::from_secs(60))?;
     ensure_success("bibcite", &output)?;
     let report = String::from_utf8(output.stdout).map_err(err)?;
     serde_json::from_str::<Value>(&report)
@@ -3616,6 +4185,520 @@ mod tests {
         assert!(after.starts_with(existing));
         assert!(after.contains("new2024"));
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    fn fake_raw_bibcite(parent: &Path) -> PathBuf {
+        let tool = parent.join("bibcite-raw");
+        write_test_tool(
+            &tool,
+            concat!(
+                "#!/bin/sh\nset -eu\n",
+                "[ \"$1\" = add ] && [ \"$2\" = --no-tidy ] && [ \"$4\" = --bibtex ] || exit 23\n",
+                "printf '%s\\n' \"$5\" > \"$3\"\n",
+                "printf '{\"key\":\"fixture\"}\\n'\n",
+            ),
+        );
+        tool
+    }
+
+    const SUPPLIED_BLOG: &str = "@misc{mirros2026sspace,\n title={S-Space: Exploring Spatial Workspace in Multimodal Models},\n author={{MirroS Team}},\n year={2026},\n month={September},\n url={https://mirros.ai/blog/s-space},\n note={Blog post}\n}";
+
+    #[test]
+    fn supplied_keys_follow_bibcite_arxiv_policy() {
+        for (author, year, title, expected) in [
+            (
+                "Ashish Vaswani and Noam Shazeer",
+                "2017",
+                "Attention Is All You Need",
+                "vaswani2017attention",
+            ),
+            (
+                "García, María AND Other, Author",
+                "2025",
+                "The Éléphant in the Room",
+                "garcia2025elephant",
+            ),
+            (
+                "{Thinking Machines Lab}",
+                "2026",
+                "Introducing Inkling-Small",
+                "lab2026introducing",
+            ),
+            ("", "2026", "GLM-5.3: Frontier Coding", "anonymous2026glm53"),
+            ("", "", "The and a", "anonymousXXXXthe"),
+            ("李", "2024", "研究", "anon2024paper"),
+        ] {
+            let raw = format!(
+                "@misc{{publisherKey,author={{{author}}},year={{{year}}},title={{{title}}}}}\n"
+            );
+            assert_eq!(supplied_citation_key(&raw), expected);
+        }
+    }
+
+    #[test]
+    fn supplied_bibtex_prefers_the_page_itself_not_its_references_or_scripts() {
+        let html = format!("<title>Publisher title</title><script><pre>@misc{{noise,title={{Wrong}},url={{https://mirros.ai/blog/s-space}}}}</pre></script><pre>@article{{other,title={{Other work}},url={{https://example.org/other}}}}</pre><pre><code>{SUPPLIED_BLOG}</code></pre>");
+        let raw = supplied_web_bibtex(&html, "https://mirros.ai/blog/s-space#citation").unwrap();
+        assert_eq!(raw, SUPPLIED_BLOG);
+        assert!(raw.contains("author={{MirroS Team}}"));
+        let conflict = format!(
+            "{html}<code>{}</code>",
+            SUPPLIED_BLOG.replace("2026", "2025")
+        );
+        assert!(supplied_web_bibtex(&conflict, "https://mirros.ai/blog/s-space").is_none());
+        let highlighted = "<title>A &amp; B</title><pre><code><span>@misc</span>{a,title={A &amp; B},author={{A Team}}}</code></pre>";
+        assert_eq!(
+            supplied_web_bibtex(highlighted, "https://example.org/a").as_deref(),
+            Some("@misc{a,title={A & B},author={{A Team}}}")
+        );
+        assert!(supplied_web_bibtex(
+            "<code>@misc{broken,title={Missing braces",
+            "https://example.org/"
+        )
+        .is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn supplied_citations_keep_existing_keys_and_do_not_merge_report_with_blog() {
+        let _lock = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent = std::env::temp_dir().join(format!("lattice-raw-cite-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let tool = fake_raw_bibcite(&parent);
+        let _override = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
+        let (fresh, key, _) = merge_supplied_bibtex("", SUPPLIED_BLOG).unwrap();
+        assert_eq!(key, "team2026sspace");
+        assert_eq!(
+            fresh.trim(),
+            SUPPLIED_BLOG.replacen("mirros2026sspace", "team2026sspace", 1)
+        );
+        let (unchanged, key, exists) = merge_supplied_bibtex(SUPPLIED_BLOG, SUPPLIED_BLOG).unwrap();
+        assert!(exists);
+        assert_eq!(key, "mirros2026sspace");
+        assert!(unchanged.contains("month = {September}"));
+        let before = "@misc{team2026sspace,title={S-Space: Exploring Spatial Workspace in Multimodal Models},url={https://mirros.ai/report/s-space.pdf}}\n";
+        let (added, key, existing) = merge_supplied_bibtex(before, SUPPLIED_BLOG).unwrap();
+        assert!(!existing);
+        assert_eq!(key, "team2026sspace-2");
+        assert!(added.starts_with(before));
+        assert_eq!(project::parse_bibliography(&added).len(), 2);
+        assert!(added.contains("author={{MirroS Team}}"));
+        assert!(added.contains("note={Blog post}"));
+        let (_, key, existing) = merge_supplied_bibtex(&added, SUPPLIED_BLOG).unwrap();
+        assert!(existing);
+        assert_eq!(key, "team2026sspace-2");
+        let old = "@misc{keepMyKey,title={Old},author={{User Team}},year={2024},url={https://example.org/a.pdf},note={Imported from PDF; bibliographic metadata needs review},keywords={keep this}}";
+        let raw = "@misc{newKey,title={New},url={https://example.org/a.pdf}}";
+        let (repaired, key, existing) = merge_supplied_bibtex(old, raw).unwrap();
+        assert!(existing);
+        assert_eq!(key, "keepMyKey");
+        assert!(repaired.contains("author = {{User Team}}"));
+        assert!(repaired.contains("year = {2024}"));
+        assert!(repaired.contains("keywords = {keep this}"));
+        assert!(!repaired.contains("needs review"));
+        let old = "@misc{keep,title={Study},url={https://example.org/macro},month=jul,journal=publisher,howpublished=\"Blog\"}";
+        let update = "@misc{new,title={Study},url={https://example.org/macro},year={2026}}";
+        let (merged, key, _) = merge_supplied_bibtex(old, update).unwrap();
+        assert_eq!(key, "keep");
+        assert!(merged.contains("month = jul,"));
+        assert!(merged.contains("journal = publisher,"));
+        assert!(merged.contains("howpublished = \"Blog\","));
+        assert!(merged.contains("year = {2026}"));
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn pdf_citation_borrows_official_fields_but_keeps_the_pdf_source() {
+        let title = "S-Space: Exploring Spatial Workspace in Multimodal Models";
+        let (page_url, server) = serve_pdf_response(
+            format!(
+                "<title>{title}</title><pre>{}</pre>",
+                SUPPLIED_BLOG.replace("url={https://mirros.ai/blog/s-space},", "")
+            )
+            .into_bytes(),
+        );
+        let pdf_url = reqwest::Url::parse(&page_url)
+            .unwrap()
+            .join("/original.pdf")
+            .unwrap()
+            .to_string();
+        let raw = pdf_citation_bibtex(
+            &format!("# {title}\n\nDate:September 7, 2026 Website:[{page_url}]({page_url}) Code:https://example.org/code\n"),
+            title,
+            &pdf_url,
+        );
+        server.join().unwrap();
+        assert!(raw.contains("author = {{MirroS Team}}"), "{raw}");
+        assert!(raw.contains("year = {2026}"));
+        assert!(raw.contains("month = {September}"));
+        assert!(raw.contains(&format!("url = {{{pdf_url}}}")));
+        assert!(!raw.contains("Blog post"));
+        let fallback = pdf_citation_bibtex(
+            "# Plain PDF\n\nNo supplied citation.",
+            "Plain PDF",
+            "https://example.org/plain.pdf",
+        );
+        assert!(fallback.contains("url = {https://example.org/plain.pdf}"));
+        assert!(!fallback.contains("note"));
+        assert!(!fallback.contains("year"));
+        let embedded = pdf_citation_bibtex(
+            "@misc{official,title={Plain PDF},author={{Example Team}},year={2025}}",
+            "Plain PDF",
+            "https://example.org/plain.pdf",
+        );
+        assert!(embedded.contains("url = {https://example.org/plain.pdf}"));
+        assert!(embedded.contains("author={{Example Team}}"));
+        assert!(embedded.contains("year={2025}"));
+    }
+
+    #[test]
+    fn direct_pdf_urls_do_not_steal_arxiv_or_webpage_queries() {
+        assert!(is_pdf_url("https://mirros.ai/report/s-space.pdf"));
+        assert!(is_pdf_url(
+            "https://example.org/report.PDF?download=1#page=2"
+        ));
+        assert!(is_pdf_url("https://example.org/2609.01147.pdf"));
+        for query in [
+            "https://arxiv.org/pdf/2609.01147.pdf",
+            "https://export.arxiv.org/pdf/2609.01147.pdf",
+            "https://example.org/page?file=paper.pdf",
+            "file:///paper.pdf",
+            "A paper.pdf",
+        ] {
+            assert!(!is_pdf_url(query), "{query}");
+        }
+    }
+
+    fn serve_pdf_response(body: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{BufRead, BufReader, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!(
+            "http://{}/report.PDF?download=1",
+            listener.local_addr().unwrap()
+        );
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(&mut stream);
+            loop {
+                let mut line = String::new();
+                assert!(reader.read_line(&mut line).unwrap() > 0);
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/pdf\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
+            stream.write_all(&body).unwrap();
+        });
+        (url, server)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn direct_pdf_import_creates_readable_citation_and_reuses_it_offline() {
+        let _lock = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        // A complete one-page PDF, with asymmetric title/body and enough text
+        // to distinguish successful conversion from an empty placeholder.
+        let stream = format!(
+            "BT /F1 22 Tf 50 750 Td (Direct PDF Study) Tj /F1 12 Tf {} ET",
+            "0 -18 Td (Evidence from the imported report remains readable.) Tj ".repeat(8)
+        );
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".to_string(),
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+            format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
+        ];
+        let mut pdf = "%PDF-1.4\n".to_string();
+        let mut offsets = vec![0];
+        for (index, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.push_str(&format!("{} 0 obj\n{object}\nendobj\n", index + 1));
+        }
+        let xref = pdf.len();
+        pdf.push_str("xref\n0 6\n0000000000 65535 f \n");
+        for offset in &offsets[1..] {
+            pdf.push_str(&format!("{offset:010} 00000 n \n"));
+        }
+        pdf.push_str(&format!(
+            "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+        ));
+        let (url, server) = serve_pdf_response(pdf.into_bytes());
+        let parent = std::env::temp_dir().join(format!("lattice-pdf-import-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let tool = fake_raw_bibcite(&parent);
+        let _override = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
+        // A key collision must preserve the unrelated citation verbatim.
+        let key = "anonymousXXXXdirect";
+        let before = format!("@article{{{key}, title={{Keep me}}, doi={{10.1234/existing}}}}\n");
+        fs::write(root.join("references.bib"), &before).unwrap();
+        let imported = import_reference_with_progress(&root, &url, &|_| {}).unwrap();
+        server.join().unwrap();
+        assert!(!imported.already_imported);
+        assert_eq!(
+            imported.citation_key.as_deref(),
+            Some(format!("{key}-2").as_str())
+        );
+        let markdown = read_paper(&root, &imported.arxiv_id).unwrap();
+        assert!(markdown.contains("Evidence from the imported report remains readable."));
+        assert!(markdown.contains("pdf-text-layer"));
+        let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
+        assert!(bibliography.starts_with(&before));
+        let entries = project::parse_bibliography(&bibliography);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[1].url.as_deref(), Some(url.as_str()));
+        let listed = list_papers(&root).unwrap();
+        assert!(listed
+            .iter()
+            .any(|paper| paper.arxiv_id == imported.arxiv_id
+                && paper.has_full_text
+                && !paper.has_blog));
+        let again = import_reference_with_progress(&root, &url, &|_| {}).unwrap();
+        assert!(again.already_imported);
+        assert_eq!(again.citation_key, imported.citation_key);
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            bibliography
+        );
+        // Only arXiv bundles may be joined by title. A generic PDF must not
+        // get attached to a different citation just because titles coincide.
+        fs::write(
+            root.join("references.bib"),
+            format!(
+                "@misc{{decoy, title={{{}}}}}\n{bibliography}",
+                imported.title
+            ),
+        )
+        .unwrap();
+        let listed = list_papers(&root).unwrap();
+        assert!(
+            !listed
+                .iter()
+                .find(|paper| paper.citation_key.as_deref() == Some("decoy"))
+                .unwrap()
+                .has_full_text
+        );
+        assert!(
+            listed
+                .iter()
+                .find(|paper| paper.citation_key == imported.citation_key)
+                .unwrap()
+                .has_full_text
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn direct_pdf_import_rejects_html_without_writing_a_citation() {
+        let (url, server) = serve_pdf_response(b"<html><title>Not a PDF</title></html>".to_vec());
+        let parent = std::env::temp_dir().join(format!("lattice-pdf-reject-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let before = fs::read(root.join("references.bib")).unwrap();
+        let error = import_reference_with_progress(&root, &url, &|_| {}).unwrap_err();
+        server.join().unwrap();
+        assert!(error.contains("did not return a PDF"), "{error}");
+        assert_eq!(fs::read(root.join("references.bib")).unwrap(), before);
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires network access"]
+    fn direct_pdf_import_live_s_space() {
+        let parent = std::env::temp_dir().join(format!("lattice-s-space-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let result = import_reference_with_progress(
+            &root,
+            "https://mirros.ai/report/s-space.pdf",
+            &|stage| eprintln!("{stage}"),
+        )
+        .unwrap();
+        let markdown = read_paper(&root, &result.arxiv_id).unwrap();
+        assert!(
+            markdown.contains("S-Space"),
+            "expected the actual report text"
+        );
+        assert!(markdown.len() > 10_000);
+        assert!(result.citation_key.is_some());
+        assert!(result.fetch_error.is_none());
+        let bib = fs::read_to_string(root.join("references.bib")).unwrap();
+        let entry = project::parse_bibliography(&bib)
+            .into_iter()
+            .find(|entry| Some(&entry.key) == result.citation_key.as_ref())
+            .unwrap();
+        assert_eq!(entry.authors, "MirroS Team");
+        assert_eq!(entry.year, "2026");
+        assert_eq!(
+            entry.url.as_deref(),
+            Some("https://mirros.ai/report/s-space.pdf")
+        );
+        assert!(!bib.contains("needs review"));
+        assert!(!bib.contains("Blog post"));
+        eprintln!(
+            "Imported title: {}; {} bytes of Markdown",
+            result.title,
+            markdown.len()
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires network access and bibcite"]
+    fn supplied_blog_live_s_space() {
+        let raw = fetch_supplied_web_bibtex("https://mirros.ai/blog/s-space").unwrap();
+        let (bib, key, _) = merge_supplied_bibtex("", &raw).unwrap();
+        let entry = project::parse_bibliography(&bib).remove(0);
+        assert_eq!(key, "team2026sspace");
+        assert_eq!(entry.authors, "MirroS Team");
+        assert_eq!(entry.year, "2026");
+        assert!(bib.contains("September"));
+        assert!(bib.contains("Blog post"));
+        assert_eq!(entry.url.as_deref(), Some("https://mirros.ai/blog/s-space"));
+        eprintln!("{bib}");
+    }
+
+    #[test]
+    fn supplied_web_citations_handle_html_spaces_and_note_urls() {
+        let html = "<title>Atlas: A World Model | World Labs</title><pre><code>@article{atlas,<br>&nbsp;author={World Labs Team},<br>\u{202f}title={Atlas: A World Model},<br> year={2026}, note={https://www.worldlabs.ai/blog/atlas}}</code></pre>";
+        let raw = supplied_web_bibtex(html, "https://www.worldlabs.ai/blog/atlas#citation")
+            .expect("a matching note URL identifies the official citation despite the site suffix");
+        assert!(!raw.contains(['\u{a0}', '\u{202f}']));
+        assert!(raw.contains("author={World Labs Team}"));
+        let raw = supplied_bibtex_with_source(raw, "https://www.worldlabs.ai/blog/atlas");
+        assert!(raw.contains("url = {https://www.worldlabs.ai/blog/atlas}"));
+        assert!(raw.contains("note={https://www.worldlabs.ai/blog/atlas}"));
+        // A cited reference must not become the page's citation merely because
+        // its title matches; an explicit conflicting source takes precedence.
+        let other = "<title>Atlas: A World Model</title><pre>@article{other,title={Atlas: A World Model},note={https://example.org/other}}</pre>";
+        assert!(supplied_web_bibtex(other, "https://www.worldlabs.ai/blog/atlas").is_none());
+        let conflict = html.replace("year={2026}", "url={https://example.org/other},year={2026}");
+        assert!(supplied_web_bibtex(&conflict, "https://www.worldlabs.ai/blog/atlas").is_none());
+    }
+
+    #[test]
+    #[ignore = "requires network access and bibcite"]
+    fn supplied_web_citations_live_workspace_and_atlas() {
+        for (url, key, journal, author) in [
+            (
+                "https://transformer-circuits.pub/2026/workspace/index.html",
+                "gurnee2026verbalizable",
+                "Transformer Circuits Thread",
+                "Gurnee, Wes",
+            ),
+            (
+                "https://www.worldlabs.ai/blog/atlas",
+                "team2026atlas",
+                "World Labs Blog",
+                "World Labs Team",
+            ),
+        ] {
+            let raw = fetch_supplied_web_bibtex(url).expect(url);
+            let (bib, actual_key, _) = merge_supplied_bibtex("", &raw).expect(url);
+            let entry = project::parse_bibliography(&bib).remove(0);
+            assert_eq!(actual_key, key);
+            assert!(bib.starts_with("\n@article{"), "{bib}");
+            assert!(bib.contains(author), "{bib}");
+            assert!(bib.contains(journal), "{bib}");
+            assert_eq!(entry.year, "2026");
+            assert_eq!(entry.url.as_deref(), Some(url));
+            eprintln!("{bib}");
+        }
+    }
+
+    #[test]
+    fn webpage_citation_resolver_uses_rendered_metadata_and_reuses_capture() {
+        let url = "https://example.org/js-page";
+        let html = "<meta property='og:title' content='Rendered study'><meta name='authors' content='Ada One,Bea Two'><meta property='article:published_time' content='2026-09-02'>";
+        let markdown =
+            "# Rendered study\n\n".to_string() + &"Actual captured research content. ".repeat(15);
+        let result =
+            resolve_web_citation_with(url, Ok("<div id='root'></div>".into()), |requested| {
+                assert_eq!(requested, url);
+                Ok(crate::firecrawl::ScrapedPage {
+                    html: html.into(),
+                    title: Some("Rendered study".into()),
+                    markdown: markdown.clone(),
+                })
+            })
+            .unwrap()
+            .unwrap();
+        assert!(result.bibtex.contains("Ada One and Bea Two"));
+        assert!(result.bibtex.contains("year = {2026}"));
+        let parent =
+            std::env::temp_dir().join(format!("lattice-rendered-citation-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let fetched = fetch_web_reference_with_page(&root, url, result.page).unwrap();
+        assert!(read_paper(&root, &fetched.arxiv_id)
+            .unwrap()
+            .contains("Actual captured research content."));
+        // No supplied page is necessary on the second visit, and no network
+        // scrape occurs: the first render already populated the complete cache.
+        assert!(fetch_web_reference(&root, url).unwrap().reused);
+        fs::remove_dir_all(parent).unwrap();
+
+        assert!(resolve_web_citation_with(url, Ok(html.into()), |_| panic!(
+            "static metadata must not spend a scrape"
+        ))
+        .unwrap()
+        .unwrap()
+        .page
+        .is_none());
+        let failure = resolve_web_citation_with(url, Err("HTTP 567".into()), |_| {
+            Err("blocked after rendering".into())
+        })
+        .err()
+        .unwrap();
+        assert!(failure.contains("HTTP 567"));
+        assert!(failure.contains("blocked after rendering"));
+        assert!(resolve_web_citation_with(
+            url,
+            Ok(
+                "<meta name='citation_doi' content='10.1/example'><title>Publication</title>"
+                    .into()
+            ),
+            |_| panic!("DOI resolution must not scrape")
+        )
+        .unwrap()
+        .is_none());
+    }
+
+    #[test]
+    fn webpage_citation_reads_official_nested_div_before_metadata() {
+        let url = "https://generalistai.com/blog/gen-1.5";
+        let html = "<meta property='og:title' content='Wrong site suffix'><div class='citation monospace'>@article&lbrace;generalist2026gen15,<br><span>author={Generalist Team},title={<span>GEN-1.5</span>: One-Shot Learners},year={2026},note={https://generalistai.com/blog/gen-1.5},</span><br>&rbrace;</div>";
+        let bib = webpage_bibtex(html, url).unwrap();
+        assert!(bib.starts_with("@article{generalist2026gen15,"));
+        assert!(bib.contains("title={GEN-1.5: One-Shot Learners}"));
+        assert!(bib.contains("url = {https://generalistai.com/blog/gen-1.5}"));
+    }
+
+    #[test]
+    #[ignore = "requires network access and bibcite; set LATTICE_TEST_CITATION_URL"]
+    fn webpage_citation_live_requested_url() {
+        let url = std::env::var("LATTICE_TEST_CITATION_URL").unwrap();
+        let result = resolve_web_citation(&url).unwrap().unwrap();
+        let (bib, _, _) = merge_supplied_bibtex("", &result.bibtex).unwrap();
+        eprintln!("{bib}");
+        if std::env::var_os("LATTICE_TEST_FULL_WEB_IMPORT").is_some() {
+            let parent = std::env::temp_dir().join(format!("lattice-live-web-{}", Uuid::new_v4()));
+            let root = project::create(&parent, "paper").unwrap();
+            let fetched = fetch_web_reference_with_page(&root, &url, result.page).unwrap();
+            let markdown = read_paper(&root, &fetched.arxiv_id).unwrap();
+            assert!(
+                markdown.len() > 1000,
+                "captured article is unexpectedly short"
+            );
+            assert!(fetch_web_reference(&root, &url).unwrap().reused);
+            eprintln!(
+                "Captured {} bytes of Markdown; repeat import reused cache.",
+                markdown.len()
+            );
+            fs::remove_dir_all(parent).unwrap();
+        }
+        assert_eq!(
+            project::parse_bibliography(&bib).remove(0).url.as_deref(),
+            Some(url.as_str())
+        );
     }
 
     /// A webpage capture keys its bundle by URL digest; the readers accept

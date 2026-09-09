@@ -3,7 +3,8 @@ use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 
 pub const MANAGED_UV_VERSION: &str = "0.12.3";
 
@@ -149,10 +150,7 @@ fn configure_bibcite_env(
 /// Capture the command's actual keys, not the current vault (which a user may
 /// have changed while this process ran). httpx can echo query-string keys in
 /// errors; neither output stream may carry them into reports or app logs.
-pub(crate) fn redact_bibcite_output(
-    command: &Command,
-    mut output: std::process::Output,
-) -> std::process::Output {
+pub(crate) fn redact_bibcite_output(command: &Command, mut output: Output) -> Output {
     for (name, value) in command.get_envs() {
         if !matches!(
             name.to_str(),
@@ -174,6 +172,103 @@ pub(crate) fn redact_bibcite_output(
         }
     }
     output
+}
+
+/// Run bibcite without pipe backpressure and stop its complete uv process tree
+/// if it outlives the caller's deadline.
+pub(crate) fn bibcite_output(command: &mut Command, timeout: Duration) -> Result<Output, String> {
+    let capture = BibciteCapture::new()?;
+    let stdout_path = capture.path.join("stdout");
+    let stderr_path = capture.path.join("stderr");
+    command
+        .stdout(Stdio::from(
+            fs::File::create(&stdout_path).map_err(|error| error.to_string())?,
+        ))
+        .stderr(Stdio::from(
+            fs::File::create(&stderr_path).map_err(|error| error.to_string())?,
+        ));
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("could not start bibcite: {error}"))?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let output = Output {
+                    status,
+                    stdout: fs::read(stdout_path).map_err(|error| error.to_string())?,
+                    stderr: fs::read(stderr_path).map_err(|error| error.to_string())?,
+                };
+                return Ok(redact_bibcite_output(command, output));
+            }
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(
+                    Duration::from_millis(25)
+                        .min(deadline.saturating_duration_since(Instant::now())),
+                );
+            }
+            Ok(None) => {
+                terminate_bibcite(&mut child);
+                let elapsed = if timeout.subsec_nanos() == 0 {
+                    format!("{} seconds", timeout.as_secs())
+                } else {
+                    format!("{timeout:?}")
+                };
+                return Err(format!("bibcite timed out after {elapsed}"));
+            }
+            Err(error) => {
+                terminate_bibcite(&mut child);
+                return Err(error.to_string());
+            }
+        }
+    }
+}
+
+fn terminate_bibcite(child: &mut std::process::Child) {
+    #[cfg(unix)]
+    if let Ok(group) = i32::try_from(child.id()) {
+        // uv launches the requested CLI as a descendant. Because each command
+        // gets its own process group, a negative pid cannot affect Lattice.
+        unsafe {
+            libc::kill(-group, libc::SIGKILL);
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+struct BibciteCapture {
+    path: PathBuf,
+}
+
+impl BibciteCapture {
+    fn new() -> Result<Self, String> {
+        let path = env::temp_dir().join(format!(
+            "lattice-bibcite-output-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let mut builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        builder.create(&path).map_err(|error| error.to_string())?;
+        Ok(Self { path })
+    }
+}
+
+impl Drop for BibciteCapture {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
 }
 
 /// Build (or confirm) the cached environments for the literature tools so
@@ -468,6 +563,7 @@ fn macos_path_helper_directories() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[test]
     fn finds_a_standard_system_command() {
@@ -588,6 +684,88 @@ mod tests {
             .collect::<std::collections::BTreeMap<_, _>>();
         assert_eq!(envs["BIBCITE_S2_BATCH_STATUS"].as_deref(), Some("disabled"));
         assert_eq!(envs["S2_API_KEY"], None);
+    }
+
+    #[test]
+    fn bibcite_output_captures_large_streams_and_redacts_credentials() {
+        let mut command = bibcite_helper_command("output");
+        command.env("OPENALEX_API_KEY", "test-secret");
+        let output = bibcite_output(&mut command, Duration::from_secs(5)).unwrap();
+        assert!(output.status.success());
+        assert!(output
+            .stdout
+            .windows(256 * 1024)
+            .any(|bytes| bytes.iter().all(|byte| *byte == b'o')));
+        assert!(output
+            .stderr
+            .windows(256 * 1024)
+            .any(|bytes| bytes.iter().all(|byte| *byte == b'e')));
+        assert!(String::from_utf8_lossy(&output.stdout).contains("[redacted]"));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("[redacted]"));
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("test-secret"));
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("test-secret"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bibcite_output_timeout_terminates_descendants() {
+        let pid_file = env::temp_dir().join(format!(
+            "lattice-bibcite-descendant-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let mut command = bibcite_helper_command("parent");
+        command.env("LATTICE_BIBCITE_TEST_PID_FILE", &pid_file);
+        let error = bibcite_output(&mut command, Duration::from_millis(500)).unwrap_err();
+        assert!(error.contains("timed out after 500ms"), "{error}");
+
+        let pid: i32 = fs::read_to_string(&pid_file).unwrap().parse().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while unsafe { libc::kill(pid, 0) } == 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let result = unsafe { libc::kill(pid, 0) };
+        let _ = fs::remove_file(pid_file);
+        assert_eq!(result, -1, "descendant {pid} survived the timeout");
+    }
+
+    fn bibcite_helper_command(mode: &str) -> Command {
+        let mut command = Command::new(env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "commands::tests::bibcite_output_helper",
+                "--nocapture",
+            ])
+            .env("LATTICE_BIBCITE_TEST_HELPER", mode);
+        command
+    }
+
+    #[test]
+    fn bibcite_output_helper() {
+        match env::var("LATTICE_BIBCITE_TEST_HELPER").as_deref() {
+            Ok("output") => {
+                std::io::stdout()
+                    .write_all(&vec![b'o'; 256 * 1024])
+                    .unwrap();
+                std::io::stdout().write_all(b"test-secret").unwrap();
+                std::io::stderr()
+                    .write_all(&vec![b'e'; 256 * 1024])
+                    .unwrap();
+                std::io::stderr().write_all(b"test-secret").unwrap();
+            }
+            Ok("parent") => {
+                let mut child = bibcite_helper_command("descendant").spawn().unwrap();
+                fs::write(
+                    env::var_os("LATTICE_BIBCITE_TEST_PID_FILE").unwrap(),
+                    child.id().to_string(),
+                )
+                .unwrap();
+                std::thread::sleep(Duration::from_secs(30));
+                let _ = child.wait();
+            }
+            Ok("descendant") => std::thread::sleep(Duration::from_secs(30)),
+            _ => {}
+        }
     }
 
     #[test]

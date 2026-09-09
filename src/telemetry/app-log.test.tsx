@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addAppLog,
@@ -12,6 +12,7 @@ import {
 import { AppLogsSettings, AppToastStack } from "./app-log";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 
 describe("AppToastStack", () => {
   beforeEach(() => {
@@ -198,15 +199,18 @@ describe("AppToastStack", () => {
     expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 
-  it("keeps the level filter on the right without showing the log directory", async () => {
+  it("keeps aligned search and action rows without optional failure or slow filters", async () => {
     act(() => {
       addAppLog({ level: "info", source: "Build", title: "Built", toast: false });
     });
     render(<AppLogsSettings />);
 
-    const actions = document.querySelector(".app-log-actions");
     const filter = screen.getByRole("combobox", { name: "Log level filter" });
-    expect(actions?.lastElementChild).toBe(filter);
+    expect(within(document.querySelector(".app-log-action-row")! as HTMLElement).getByRole("button", { name: "Export…" })).toBeEnabled();
+    expect(document.querySelector(".app-log-query-row")).toContainElement(screen.getByRole("searchbox", { name: "Search logs" }));
+    expect(document.querySelector(".app-log-query-row")).toContainElement(filter);
+    expect(screen.queryByLabelText("Only failures")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Only slow (over 2000 ms)")).not.toBeInTheDocument();
     expect(filter).toHaveClass("app-log-level-filter");
     expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
     expect(screen.getByText("Shows 300 recent entries; disk logs rotate"))
@@ -231,9 +235,13 @@ describe("AppToastStack", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("First event");
     expect(rows[1]).toHaveTextContent("Second event");
-    const details = screen.getByText("Details").closest("details");
+    expect(rows[0].querySelector(".app-log-severity")).toHaveTextContent("WARN");
+    expect(rows[1].querySelector(".app-log-severity")).toHaveTextContent("OK");
+    expect(rows[0].querySelector("summary time")?.textContent).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
+    expect(rows[0].querySelector("summary .app-log-inline-fields")).toHaveTextContent("source=PDF");
+    const details = rows[0];
     expect(details).not.toHaveAttribute("open");
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(details.querySelector("summary")!);
     expect(details).toHaveAttribute("open");
     expect(details).toHaveTextContent("Line one Line two");
 
@@ -241,7 +249,36 @@ describe("AppToastStack", () => {
       target: { value: "build" },
     });
     expect(screen.queryByText("First event")).toBeNull();
-    expect(screen.getByText("Second event")).toBeInTheDocument();
+    expect(screen.getAllByText("Second event")[0]).toBeInTheDocument();
+  });
+
+  it("surfaces the captured diagnostic while preserving the original console event", () => {
+    addAppLog({ level: "warning", source: "App", title: "console.warn", detail: "Preview unavailable\nRetry scheduled", toast: false });
+    render(<AppLogsSettings />);
+    const row = document.querySelector("[data-log-entry]")!;
+    expect(row.querySelector("summary")).toHaveTextContent("Preview unavailable");
+    expect(row.querySelector("summary")).not.toHaveTextContent("console.warn");
+    fireEvent.click(row.querySelector("summary")!);
+    expect(row.querySelector(".app-log-message")).toHaveTextContent("console.warn Preview unavailable Retry scheduled");
+  });
+
+  it("keeps per-entry export inside details and previews exactly the selected entry", () => {
+    act(() => {
+      addAppLog({ level: "error", source: "private source", title: "secret title", detail: "secret detail", toast: false });
+    });
+    render(<AppLogsSettings />);
+
+    expect(screen.queryByRole("button", { name: "Copy redacted log" })).not.toBeInTheDocument();
+    const entry = document.querySelector("[data-log-entry]")!;
+    expect(entry).not.toHaveAttribute("open");
+    expect(entry.querySelector("summary button")).toBeNull();
+    fireEvent.click(entry.querySelector("summary")!);
+    fireEvent.click(entry.querySelector("button")!);
+    const preview = screen.getByLabelText("Export preview");
+    expect(JSON.parse(preview.textContent!).entries).toHaveLength(1);
+    expect(preview).not.toHaveTextContent("secret detail");
+    fireEvent.click(screen.getByRole("checkbox", { name: /Include raw diagnostic text/ }));
+    expect(preview).toHaveTextContent("secret detail");
   });
 
   it("searches full operation ids and shows readable metadata without duplicate tags", () => {
@@ -327,9 +364,6 @@ describe("AppToastStack", () => {
     expect(rows.map((row) => row.textContent)).toEqual(expect.arrayContaining([
       expect.stringContaining("Started build"), expect.stringContaining("Build failed"), expect.stringContaining("Cleanup breadcrumb"),
     ]));
-    fireEvent.click(screen.getByLabelText("Only failures"));
-    expect(document.querySelectorAll("[data-log-operation]")).toHaveLength(1);
-    fireEvent.click(screen.getByLabelText("Only slow (over 2000 ms)"));
     expect(document.querySelectorAll("[data-log-operation]")).toHaveLength(1);
   });
 
@@ -338,7 +372,8 @@ describe("AppToastStack", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     act(() => { addAppLog({ level: "error", source: "/private/alice", title: "secret title", detail: "document body", toast: false }); });
     render(<AppLogsSettings />);
-    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    const exportButton = within(document.querySelector(".app-log-action-row")! as HTMLElement).getByRole("button", { name: "Export…" });
+    fireEvent.click(exportButton);
     const preview = screen.getByLabelText("Export preview");
     expect(preview).not.toHaveTextContent("document body");
     const original = preview.textContent;
@@ -349,7 +384,7 @@ describe("AppToastStack", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
     expect(writeText).toHaveBeenCalledWith(preview.textContent);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    fireEvent.click(exportButton);
     expect(screen.getByRole("checkbox", { name: /Include raw diagnostic text/ })).not.toBeChecked();
   });
 });

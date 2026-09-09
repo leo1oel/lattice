@@ -6,7 +6,7 @@ import { LiteratureSettings } from "./literature-settings";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(async () => {}) }));
-const anonymous = { openalex: "anonymous", semanticscholar: "anonymous", crossrefEmail: "" };
+const anonymous = { openalex: "anonymous", semanticscholar: "anonymous", firecrawl: "shared", crossrefEmail: "" };
 afterEach(cleanup);
 beforeEach(() => { vi.mocked(invoke).mockReset().mockResolvedValue(anonymous); });
 
@@ -53,16 +53,34 @@ it("tests the effective credentials when the input is empty", async () => {
   expect(invoke).toHaveBeenLastCalledWith("test_literature_credential", { provider: "openalex", secret: null });
 });
 
+it("shows shared Firecrawl quota and lets a personal key override it", async () => {
+  await ready();
+  expect(screen.getByText("Using shared quota")).toBeInTheDocument();
+  const field = screen.getAllByLabelText("API key")[2];
+  vi.mocked(invoke).mockResolvedValueOnce({ ...anonymous, firecrawl: "saved" });
+  fireEvent.change(field, { target: { value: "fc-personal" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[2]);
+  await screen.findByText("Personal key saved");
+  expect(invoke).toHaveBeenLastCalledWith("set_literature_credential", { provider: "firecrawl", secret: "fc-personal" });
+});
+
+it("requires a Firecrawl key when no shared default is available", async () => {
+  vi.mocked(invoke).mockResolvedValue({ ...anonymous, firecrawl: "missing" });
+  await ready();
+  expect(screen.getByText("Not enabled · API key required")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Test connection" })[2]).toBeDisabled();
+});
+
 it("saves and clears the optional Crossref email", async () => {
   await ready();
   vi.mocked(invoke).mockResolvedValueOnce({ ...anonymous, crossrefEmail: "person@example.org" });
   fireEvent.change(screen.getByLabelText("Contact email"), { target: { value: "person@example.org" } });
-  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[2]);
+  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[3]);
   await screen.findByText("Contact settings saved.");
   expect(invoke).toHaveBeenLastCalledWith("set_literature_contact", { email: "person@example.org" });
   vi.mocked(invoke).mockResolvedValueOnce(anonymous);
   fireEvent.change(screen.getByLabelText("Contact email"), { target: { value: "" } });
-  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[2]);
+  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[3]);
   await screen.findByText("Contact settings saved.");
   expect(invoke).toHaveBeenLastCalledWith("set_literature_contact", { email: "" });
 });

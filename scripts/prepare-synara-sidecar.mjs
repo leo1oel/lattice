@@ -19,6 +19,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { findMachOBinaries } from "./sign-presentation-runtime.mjs";
+import { pruneEsbuildPlatforms } from "./synara-runtime-platforms.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const runtimeConfig = JSON.parse(
@@ -509,6 +510,7 @@ function pruneServerRuntime(stageRoot, target) {
   }
 
   const platformDirectory = runtimePlatformDirectory(target);
+  if (platformDirectory) removedBytes += pruneEsbuildPlatforms(serverRoot, platformDirectory);
   const nodePtyPrebuilds = join(serverRoot, "node_modules/node-pty/prebuilds");
   if (platformDirectory && existsSync(nodePtyPrebuilds)) {
     for (const entry of readdirSync(nodePtyPrebuilds)) {
@@ -608,6 +610,7 @@ const buildKey = createHash("sha256")
   .update(target)
   .update(fingerprint)
   .update(readFileSync(fileURLToPath(import.meta.url)))
+  .update(readFileSync(join(projectRoot, "scripts/synara-runtime-platforms.mjs")))
   .digest("hex");
 const existingManifestPath = join(runtimeRoot, "manifest.json");
 const sourceDeviceHelperRoot = join(sourceRoot, "apps/server/native/device-helper");

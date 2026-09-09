@@ -40,25 +40,33 @@ const LOG_ICON = {
   warning: CircleAlert,
   error: CircleAlert,
 };
+const LOG_LEVEL = { info: "INFO", success: "OK", warning: "WARN", error: "ERROR" };
 
-function LogEntryRow({ entry, onOperationFilter }: { entry: AppLogEntry; onOperationFilter: (id: string) => void }) {
+function LogEntryRow({ entry, onOperationFilter, onExport }: { entry: AppLogEntry; onOperationFilter: (id: string) => void; onExport: (entries: AppLogEntry[]) => void }) {
   const { t } = useLingui();
-  const Icon = LOG_ICON[entry.level] ?? Info;
   const date = new Date(entry.timestamp);
-  const displayTime = Number.isNaN(date.getTime()) ? entry.timestamp : date.toLocaleString();
   const detail = entry.context ? visibleToastDetail(entry.detail) : entry.detail;
+  // Console capture's event name is less useful than the actual diagnostic.
+  // Keep the original event and full text in the expanded record and export.
+  const summary = /^console\.(warn|error|info|log)$/.test(entry.title) && detail.trim()
+    ? detail.trim().split("\n")[0] : entry.title;
   const levels = { info: t`Info`, success: t`Success`, warning: t`Warning`, error: t`Error` };
   const phases = { started: t`Started`, progress: t`In progress`, completed: t`Completed` };
   const outcomes = { success: t`Success`, error: t`Error`, cancelled: t`Cancelled` };
   return (
-    <article className={`app-log-entry ${entry.level}`} data-log-entry="">
-      <Icon className="app-log-entry-icon" size={15} aria-hidden="true" />
+    <details className={`app-log-entry ${entry.level}`} data-log-entry="">
+      <summary className="app-log-entry-summary" tabIndex={0}>
+        <time dateTime={entry.timestamp} title={date.toLocaleString()}><span className="app-log-date">{entry.timestamp.slice(0, 11)}</span>{entry.timestamp.slice(11)}</time>
+        <span className="app-log-severity" title={levels[entry.level] ?? t`Unknown`}>{LOG_LEVEL[entry.level]}</span>
+        <span className="app-log-entry-title">{summary}<span className="app-log-inline-fields">{` source=${entry.source}`}</span></span>
+        <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
+      </summary>
       <div className="app-log-entry-content">
         <div className="app-log-entry-heading">
-          <span className="app-log-entry-source">{entry.source} · {levels[entry.level] ?? t`Unknown`}</span>
-          <time dateTime={entry.timestamp} title={entry.timestamp}>{displayTime}</time>
+          <span>{entry.source} · {levels[entry.level] ?? t`Unknown`} · {date.toLocaleString()}</span>
+          <Button size="compact" onClick={() => onExport([entry])}><Download size={12} />{t`Export…`}</Button>
         </div>
-        <div className="app-log-entry-title">{entry.title}</div>
+        <pre className="app-log-message">{[entry.title, detail].filter(Boolean).join("\n\n")}</pre>
         {entry.context && (
           <div className="app-log-context" aria-label={t`Operation metadata`}>
             <span>{entry.context.operation}</span>
@@ -69,18 +77,9 @@ function LogEntryRow({ entry, onOperationFilter }: { entry: AppLogEntry; onOpera
             </button>
           </div>
         )}
-        <CopyButton className="app-log-copy" text={serializeAppLogExport([entry])} title={t`Copy safe log entry`}>
-          {t`Copy safe entry`}
-        </CopyButton>
-        {(detail || Object.keys(entry.context?.metrics ?? {}).length > 0) && (
-          <details className="app-log-detail">
-            <summary><ChevronRight size={12} aria-hidden="true" />{t({ message: "Details", context: "Activity log" })}</summary>
-            <pre>{[detail, entry.context?.metrics && Object.keys(entry.context.metrics).length > 0
-              ? JSON.stringify(entry.context.metrics, null, 2) : ""].filter(Boolean).join("\n\n")}</pre>
-          </details>
-        )}
+        {entry.context && <pre className="app-log-fields">{JSON.stringify(entry.context, null, 2)}</pre>}
       </div>
-    </article>
+    </details>
   );
 }
 
@@ -252,8 +251,6 @@ export function AppLogsSettings() {
   const logs = useAppLogSnapshot();
   const [levelFilter, setLevelFilter] = useState<"all" | AppLogLevel>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [onlyFailures, setOnlyFailures] = useState(false);
-  const [onlySlow, setOnlySlow] = useState(false);
   const [exportEntries, setExportEntries] = useState<AppLogEntry[] | null>(null);
   const [logFolderAvailable, setLogFolderAvailable] = useState(false);
   const logViewportRef = useRef<HTMLDivElement>(null);
@@ -266,8 +263,6 @@ export function AppLogsSettings() {
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const groups = groupLogs(logs);
   const visibleGroups = groups.filter((group) => {
-    if (onlyFailures && !group.entries.some((entry) => entry.level === "error" || entry.context?.outcome === "error")) return false;
-    if (onlySlow && !group.entries.some((entry) => typeof entry.context?.duration_ms === "number" && entry.context.duration_ms > 2_000)) return false;
     return group.entries.some((entry) => {
       if (levelFilter !== "all" && entry.level !== levelFilter) return false;
       if (!normalizedQuery) return true;
@@ -311,34 +306,36 @@ export function AppLogsSettings() {
       />
       <SettingsGroup title={t`Activity log`}>
         <div className="app-log-actions">
-          <Button size="compact" disabled={visible.length === 0} onClick={() => setExportEntries([...visible])}>{t`Export…`}</Button>
-          <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>{t`Clear`}</Button>
-          <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}>
-            <FolderOpen size={13} />
-            {t`Open log folder`}
-          </Button>
-          <CheckboxField checked={onlyFailures} onChange={(event) => setOnlyFailures(event.target.checked)} label={t`Only failures`} />
-          <CheckboxField checked={onlySlow} onChange={(event) => setOnlySlow(event.target.checked)} label={t`Only slow (over 2000 ms)`} />
-          <SearchField
-            aria-label={t`Search logs`}
-            placeholder={t`Search logs…`}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            onClear={() => setSearchQuery("")}
-            clearLabel={t`Clear log search`}
-            controlSize="compact"
-            containerClassName="app-log-search"
-          />
-          <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | AppLogLevel)}>
-            <SelectTrigger className="app-log-level-filter" size="form" aria-label={t`Log level filter`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="all">{t`All levels`}</SelectItem>
-              <SelectItem value="info">{t`Info`}</SelectItem>
-              <SelectItem value="success">{t`Success`}</SelectItem>
-              <SelectItem value="warning">{t`Warning`}</SelectItem>
-              <SelectItem value="error">{t`Error`}</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="app-log-query-row">
+            <SearchField
+              aria-label={t`Search logs`}
+              placeholder={t`Search logs…`}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onClear={() => setSearchQuery("")}
+              clearLabel={t`Clear log search`}
+              controlSize="compact"
+              containerClassName="app-log-search"
+            />
+            <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | AppLogLevel)}>
+              <SelectTrigger className="app-log-level-filter" size="form" aria-label={t`Log level filter`}><SelectValue /></SelectTrigger>
+              <SelectContent data-settings-control="true" position="popper" align="end">
+                <SelectItem value="all">{t`All levels`}</SelectItem>
+                <SelectItem value="info">{t`Info`}</SelectItem>
+                <SelectItem value="success">{t`Success`}</SelectItem>
+                <SelectItem value="warning">{t`Warning`}</SelectItem>
+                <SelectItem value="error">{t`Error`}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="app-log-action-row">
+            <Button size="compact" disabled={visible.length === 0} onClick={() => setExportEntries([...visible])}><Download size={13} />{t`Export…`}</Button>
+            <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>{t`Clear`}</Button>
+            <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}>
+              <FolderOpen size={13} />
+              {t`Open log folder`}
+            </Button>
+          </div>
         </div>
         {visible.length === 0 ? (
           <EmptyState align="start" density="compact" description={logs.length === 0 ? t`No logs yet` : normalizedQuery ? t`No matching logs` : t`No logs at this level`} />
@@ -346,22 +343,18 @@ export function AppLogsSettings() {
           <ScrollArea className="app-log-scroll" viewportRef={logViewportRef} fadeEdges={false}>
             <div className="app-log-list">
               {visibleGroups.map((group) => group.operationId ? (
-                <details className="app-log-operation" key={group.key} data-log-operation="">
-                  <summary>
-                    <ChevronRight size={13} aria-hidden="true" />
-                    <span>{group.summary.title}</span>
-                    <span>{statuses[group.summary.context?.outcome ?? group.summary.context?.phase ?? "progress"] ?? t`Incomplete history`}</span>
-                    {typeof group.summary.context?.duration_ms === "number" && <span>{group.summary.context.duration_ms} ms</span>}
-                    <button type="button" title={group.operationId} onClick={(event) => {
-                      event.preventDefault();
-                      setSearchQuery(group.operationId!);
-                    }}>{group.operationId.slice(0, 8)}</button>
+                <details className={`app-log-operation ${group.summary.level}`} key={group.key} data-log-operation="">
+                  <summary tabIndex={0}>
+                    <time dateTime={group.summary.timestamp} title={new Date(group.summary.timestamp).toLocaleString()}><span className="app-log-date">{group.summary.timestamp.slice(0, 11)}</span>{group.summary.timestamp.slice(11)}</time>
+                    <span className="app-log-severity" title={statuses[group.summary.context?.outcome ?? group.summary.context?.phase ?? "progress"] ?? t`Incomplete history`}>{LOG_LEVEL[group.summary.level]}</span>
+                    <span className="app-log-operation-title">{group.summary.title}<span className="app-log-inline-fields">{`${group.summary.context?.duration_ms !== undefined ? ` duration_ms=${group.summary.context.duration_ms}` : ""} operation_id=${group.operationId}`}</span></span>
+                    <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
                   </summary>
                   <div className="app-log-operation-timeline">
-                    {group.entries.map((entry) => <LogEntryRow key={entry.id} entry={entry} onOperationFilter={setSearchQuery} />)}
+                    {group.entries.map((entry) => <LogEntryRow key={entry.id} entry={entry} onOperationFilter={setSearchQuery} onExport={setExportEntries} />)}
                   </div>
                 </details>
-              ) : <LogEntryRow key={group.key} entry={group.summary} onOperationFilter={setSearchQuery} />)}
+              ) : <LogEntryRow key={group.key} entry={group.summary} onOperationFilter={setSearchQuery} onExport={setExportEntries} />)}
             </div>
           </ScrollArea>
         )}

@@ -2633,6 +2633,16 @@ fn parse_bibliography_fields(body: &str) -> BTreeMap<String, String> {
 }
 
 pub(crate) fn parse_bibliography_fields_raw(body: &str) -> BTreeMap<String, String> {
+    parse_bibliography_field_values(body, false)
+}
+
+/// Preserve braces, quotes and bare macros when merging BibTeX records.
+/// `jul` and `{jul}` have different meanings to the bibliography processor.
+pub(crate) fn parse_bibliography_fields_syntax(body: &str) -> BTreeMap<String, String> {
+    parse_bibliography_field_values(body, true)
+}
+
+fn parse_bibliography_field_values(body: &str, preserve_syntax: bool) -> BTreeMap<String, String> {
     let bytes = body.as_bytes();
     let mut fields = BTreeMap::new();
     let mut position = 0;
@@ -2663,6 +2673,7 @@ pub(crate) fn parse_bibliography_fields_raw(body: &str) -> BTreeMap<String, Stri
         while position < bytes.len() && bytes[position].is_ascii_whitespace() {
             position += 1;
         }
+        let expression_start = position;
         let value = match bytes.get(position) {
             Some(b'{') => parse_braced_bibliography_value(body, &mut position),
             Some(b'"') => parse_quoted_bibliography_value(body, &mut position),
@@ -2675,7 +2686,14 @@ pub(crate) fn parse_bibliography_fields_raw(body: &str) -> BTreeMap<String, Stri
             }
             None => String::new(),
         };
-        fields.insert(name, value);
+        fields.insert(
+            name,
+            if preserve_syntax {
+                body[expression_start..position].trim().to_string()
+            } else {
+                value
+            },
+        );
     }
     fields
 }

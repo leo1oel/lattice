@@ -35,6 +35,7 @@ mod synara;
 mod tex_setup;
 mod texcount;
 mod texlab;
+mod web_metadata;
 mod xlsx;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -3878,6 +3879,20 @@ async fn fetch_paper(
 }
 
 #[tauri::command]
+async fn fetch_paper_pdf(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    url: String,
+) -> Result<tauri::ipc::Response, String> {
+    current_root(&state, &window)?;
+    let bytes = run_blocking("Paper PDF download", move || {
+        papers::download_pdf_bytes(&url)
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
 async fn fetch_web_reference(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
@@ -4716,6 +4731,7 @@ pub fn run() {
             synctex_view,
             import_reference,
             fetch_paper,
+            fetch_paper_pdf,
             fetch_web_reference,
             upgrade_bibliography,
             agent_bibliography_mutation,

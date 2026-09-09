@@ -1309,14 +1309,6 @@ msgstr "复制通知中的命令"
 msgid "Copy path"
 msgstr "复制路径"
 
-#: src/telemetry/app-log.tsx
-msgid "Copy safe entry"
-msgstr "复制安全条目"
-
-#: src/telemetry/app-log.tsx
-msgid "Copy safe log entry"
-msgstr "复制安全日志条目"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
 msgstr "版权符号"
@@ -1337,6 +1329,7 @@ msgstr "操作未完成，请检查输入内容及系统钥匙串访问权限。
 msgid "Could not disconnect from Overleaf"
 msgstr "无法断开与 Overleaf 的连接"
 
+#: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
 msgstr "无法加载 PDF"
@@ -1548,11 +1541,6 @@ msgstr "描述列表"
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
 msgstr "检查详情"
-
-#: src/telemetry/app-log.tsx
-msgctxt "Activity log"
-msgid "Details"
-msgstr "详情"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Determinant-style matrix"
@@ -2074,6 +2062,10 @@ msgstr "完成"
 #: src/build/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "正在完成设置…"
+
+#: src/settings/literature-settings.tsx
+msgid "Firecrawl"
+msgstr "Firecrawl"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -2729,8 +2721,8 @@ msgid "Key saved in the system keychain."
 msgstr "密钥已保存到系统钥匙串。"
 
 #: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
-msgstr "密钥保存在系统钥匙串中，不会写入项目。OpenAlex 支持公共访问；Semantic Scholar 仅在你提供自己的密钥后启用。"
+msgid "Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials."
+msgstr "密钥存储在系统钥匙串中，而不是项目中。个人密钥优先于共享或环境凭据。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
@@ -3478,6 +3470,10 @@ msgid "Not enabled · add your own API key in Settings"
 msgstr "未启用 · 请在设置中填写自己的 API key"
 
 #: src/settings/literature-settings.tsx
+msgid "Not enabled · API key required"
+msgstr "未启用 · 需要 API 密钥"
+
+#: src/settings/literature-settings.tsx
 msgid "Not enabled · personal API key required"
 msgstr "未启用 · 需要填写自己的 API key"
 
@@ -3552,14 +3548,6 @@ msgstr "离线"
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "欧米伽"
-
-#: src/telemetry/app-log.tsx
-msgid "Only failures"
-msgstr "仅显示失败项"
-
-#: src/telemetry/app-log.tsx
-msgid "Only slow (over 2000 ms)"
-msgstr "仅显示慢操作（超过 2000 毫秒）"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
@@ -5908,6 +5896,10 @@ msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "正在使用环境变量密钥"
+
+#: src/settings/literature-settings.tsx
+msgid "Using shared quota"
+msgstr "正在使用共享配额"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"

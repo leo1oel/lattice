@@ -1309,14 +1309,6 @@ msgstr "Copy notification command"
 msgid "Copy path"
 msgstr "Copy path"
 
-#: src/telemetry/app-log.tsx
-msgid "Copy safe entry"
-msgstr "Copy safe entry"
-
-#: src/telemetry/app-log.tsx
-msgid "Copy safe log entry"
-msgstr "Copy safe log entry"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
 msgstr "Copyright"
@@ -1337,6 +1329,7 @@ msgstr "Could not complete this action. Check your input and system keychain acc
 msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
 
+#: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
 msgstr "Could not load PDF"
@@ -1546,11 +1539,6 @@ msgid "Description"
 msgstr "Description"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Details"
-msgstr "Details"
-
-#: src/telemetry/app-log.tsx
-msgctxt "Activity log"
 msgid "Details"
 msgstr "Details"
 
@@ -2074,6 +2062,10 @@ msgstr "Finish"
 #: src/build/tex-setup-wizard.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
+
+#: src/settings/literature-settings.tsx
+msgid "Firecrawl"
+msgstr "Firecrawl"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -2729,8 +2721,8 @@ msgid "Key saved in the system keychain."
 msgstr "Key saved in the system keychain."
 
 #: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
-msgstr "Keys stay in your system keychain, not in the project. OpenAlex supports public access. Semantic Scholar is only queried when you provide your own key."
+msgid "Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials."
+msgstr "Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Label"
@@ -3478,6 +3470,10 @@ msgid "Not enabled · add your own API key in Settings"
 msgstr "Not enabled · add your own API key in Settings"
 
 #: src/settings/literature-settings.tsx
+msgid "Not enabled · API key required"
+msgstr "Not enabled · API key required"
+
+#: src/settings/literature-settings.tsx
 msgid "Not enabled · personal API key required"
 msgstr "Not enabled · personal API key required"
 
@@ -3552,14 +3548,6 @@ msgstr "Offline"
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "Omega"
-
-#: src/telemetry/app-log.tsx
-msgid "Only failures"
-msgstr "Only failures"
-
-#: src/telemetry/app-log.tsx
-msgid "Only slow (over 2000 ms)"
-msgstr "Only slow (over 2000 ms)"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
@@ -5912,6 +5900,10 @@ msgstr "Use your own API quota for paper searches, imports, and citation checks.
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "Using environment key"
+
+#: src/settings/literature-settings.tsx
+msgid "Using shared quota"
+msgstr "Using shared quota"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Variant epsilon"

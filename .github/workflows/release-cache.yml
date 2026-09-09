@@ -26,6 +26,7 @@ on:
       - "rust-toolchain.toml"
       - "scripts/synara-runtime.json"
       - "scripts/prepare-synara-sidecar.mjs"
+      - "scripts/synara-runtime-platforms.mjs"
       - ".github/workflows/release-cache.yml"
   # Actions evicts caches untouched for 7 days. Releases are less frequent than
   # that, so refresh it on a schedule to keep releases off the cold path.
@@ -141,7 +142,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src-tauri/synara-runtime
-          key: synara-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/synara-runtime.json', 'scripts/prepare-synara-sidecar.mjs') }}
+          key: synara-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/synara-runtime.json', 'scripts/prepare-synara-sidecar.mjs', 'scripts/synara-runtime-platforms.mjs') }}
 
       - name: Build the prepared Synara runtime after a cache miss
         if: steps.synara-runtime-cache.outputs.cache-hit != 'true'

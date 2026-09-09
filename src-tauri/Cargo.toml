@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.1.296"
+version = "0.1.297"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -87,6 +87,7 @@ anydoc = "0.1.9"
 unicode-normalization = "0.1"
 harper-core = { version = "2.7.0", features = ["concurrent"] }
 notify = "8"
+scraper = "0.24"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Provider CLIs are ordinary child processes and do not use CFNetwork, so a

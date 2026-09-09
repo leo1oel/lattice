@@ -67,52 +67,51 @@
 .app-toast-action:hover { background: var(--border-subtle); }
 .app-toast > button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); }
 .app-toast > button:hover { background: var(--border-subtle); color: var(--text-primary); }
-.app-log-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: var(--space-6) 0 var(--space-8); }
-.app-logs-settings .app-log-actions > label.ui-checkbox-field { display: inline-flex; flex-direction: row; align-items: center; flex: 0 0 auto; max-width: 100%; gap: var(--space-3); }
-.app-log-search { width: min(220px, 100%); margin-inline-start: auto; }
-.app-log-level-filter { width: var(--settings-control-width); margin-inline-start: auto; }
-.app-log-search + .app-log-level-filter { margin-inline-start: 0; }
+.app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-5) 0; overflow-x: auto; flex: none; }
+.app-log-action-row, .app-log-query-row { display: flex; align-items: center; gap: var(--space-3); }
+.app-log-query-row { flex: 1 0 260px; min-width: 0; }
+.app-log-action-row { flex: none; }
+.app-log-action-row > button { flex: none; white-space: nowrap; }
+.app-log-search { width: auto; min-width: 0; flex: 1; }
+.app-log-level-filter { width: max-content; min-width: max-content; flex: none; }
 /* Logs tab: pin the settings scroll chain to the viewport so the settings
    page itself never scrolls — the log panel takes the remaining height and
    scrolls internally with the app's own ScrollArea scrollbar. */
 .settings-content [data-slot="scroll-area-content-shell"]:has(.app-logs-settings) { height: 100%; }
 .settings-content [data-slot="scroll-area-content"]:has(.app-logs-settings) { height: 100%; }
-.app-logs-settings { height: 100%; display: flex; flex-direction: column; }
+.app-logs-settings { height: 100%; max-width: none; display: flex; flex-direction: column; }
 .app-logs-settings .ui-settings-group { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.app-log-scroll { flex: 1; min-height: 140px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-app); }
+.app-log-scroll { flex: 1; min-height: 140px; background: var(--surface-app); }
 .app-log-scroll [data-slot="scroll-area-viewport"] { overscroll-behavior-y: contain; }
-.app-log-list { display: flex; flex-direction: column; }
-.app-log-entry { display: grid; grid-template-columns: 15px minmax(0, 1fr); gap: var(--space-4); padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); user-select: text; }
-.app-log-entry:last-child { border-bottom: 0; }
-.app-log-entry-icon { margin-top: var(--space-1); }
-.app-log-entry.info .app-log-entry-icon { color: var(--status-info); }
-.app-log-entry.success .app-log-entry-icon { color: var(--status-success); }
-.app-log-entry.warning .app-log-entry-icon { color: var(--status-warning); }
-.app-log-entry.error .app-log-entry-icon { color: var(--status-danger); }
-.app-log-entry-content { min-width: 0; }
+.app-log-list { display: flex; flex-direction: column; padding-block: var(--space-4); font: var(--type-label-size)/1.8 var(--editor-font); user-select: text; }
+.app-log-entry { user-select: text; }
+.app-log-entry-summary, .app-log-operation > summary { display: grid; grid-template-columns: 24ch 6ch minmax(0, 1fr) 13px; align-items: baseline; gap: var(--space-5); padding: var(--space-1) var(--space-5); list-style: none; cursor: pointer; font: inherit; color: var(--text-secondary); }
+.app-log-entry-summary::-webkit-details-marker, .app-log-operation > summary::-webkit-details-marker { display: none; }
+.app-log-entry-summary:hover, .app-log-operation > summary:hover { background: var(--surface-panel); }
+.app-log-entry-summary time, .app-log-operation > summary time { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-log-entry-title, .app-log-operation-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.app-log-severity { font-weight: 500; }
+.info > summary .app-log-severity { color: var(--status-info); }
+.success > summary .app-log-severity { color: var(--status-success); }
+.warning > summary .app-log-severity { color: var(--status-warning); }
+.error > summary .app-log-severity { color: var(--status-danger); }
+.app-log-inline-fields { color: var(--text-secondary); }
+.app-log-entry-content { min-width: 0; padding: var(--space-4) var(--space-5); margin: var(--space-3) var(--space-5); border-inline-start: 1px solid var(--border-strong); background: var(--surface-panel); }
 .app-log-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; }
-.app-log-entry-heading time { flex: none; font-variant-numeric: tabular-nums; }
-.app-log-entry-source { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.app-log-entry-title { margin-top: var(--space-1); color: var(--text-primary); font-size: var(--type-label-size); line-height: var(--type-label-line-height); overflow-wrap: anywhere; }
 .app-log-context { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .app-log-context > * { max-width: 100%; padding: var(--space-1) var(--space-3); border-radius: var(--radius-icon); background: var(--surface-panel-raised); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-log-context button, .app-log-operation summary button { padding: var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-icon); background: var(--surface-panel-raised); color: inherit; font: inherit; cursor: pointer; }
-.app-log-context button:hover, .app-log-operation summary button:hover { color: var(--text-primary); }
-.app-log-detail { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
-.app-log-detail summary { width: max-content; display: flex; align-items: center; gap: var(--space-1); cursor: pointer; list-style: none; }
-.app-log-detail summary::-webkit-details-marker { display: none; }
-.app-log-detail summary svg { transition: transform var(--duration-quick) var(--ease-out); }
-.app-log-detail[open] summary svg { transform: rotate(90deg); }
-.app-log-detail pre { margin: var(--space-3) 0 0; padding: var(--space-4); border-radius: var(--radius-control); background: var(--surface-panel); color: var(--text-primary); font: var(--type-micro-size)/1.5 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; }
-.app-log-copy { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-icon); background: var(--surface-panel); color: var(--text-secondary); font-size: var(--type-micro-size); cursor: pointer; }
-.app-log-copy:hover { background: var(--surface-panel-raised); color: var(--text-primary); }
-.app-log-operation { border-bottom: 1px solid var(--border-subtle); }
-.app-log-operation > summary { display: grid; grid-template-columns: 15px minmax(0, 1fr) auto auto auto; align-items: center; gap: var(--space-4); padding: var(--space-5) var(--space-6); color: var(--text-secondary); font-size: var(--type-micro-size); cursor: pointer; list-style: none; }
-.app-log-operation > summary::-webkit-details-marker { display: none; }
-.app-log-operation > summary > span:first-of-type { color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; overflow-wrap: anywhere; }
-.app-log-operation > summary > svg { transition: transform var(--duration-quick) var(--ease-out); }
-.app-log-operation[open] > summary > svg { transform: rotate(90deg); }
-.app-log-operation-timeline { margin-inline-start: var(--space-6); border-inline-start: 1px solid var(--border-subtle); }
+.app-log-context button { padding: var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-icon); background: var(--surface-panel-raised); color: inherit; font: inherit; cursor: pointer; }
+.app-log-context button:hover { color: var(--text-primary); }
+.app-log-message, .app-log-fields { margin: var(--space-4) 0 0; color: var(--text-primary); font: var(--type-micro-size)/1.6 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-log-fields { padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); }
+.app-log-chevron { align-self: center; opacity: 0; transition: transform var(--duration-quick) var(--ease-out); }
+.app-log-entry-summary:is(:hover, :focus-visible) .app-log-chevron, .app-log-operation > summary:is(:hover, :focus-visible) .app-log-chevron, details[open] > summary .app-log-chevron { opacity: 1; }
+.app-log-entry[open] > summary .app-log-chevron, .app-log-operation[open] > summary .app-log-chevron { transform: rotate(90deg); }
+.app-log-operation-timeline { margin-block: var(--space-3); border-inline-start: 1px solid var(--border-strong); background: var(--surface-panel); }
+@media (max-width: 680px) {
+  .app-log-entry-summary, .app-log-operation > summary { grid-template-columns: 13ch 5ch minmax(0, 1fr) 13px; gap: var(--space-3); padding-inline: var(--space-4); }
+  .app-log-date { display: none; }
+}
 .app-log-export-dialog { width: min(720px, calc(100vw - var(--space-10))); max-height: min(720px, calc(100vh - var(--space-10))); display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-8); border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel); }
 .app-log-export-dialog h2, .app-log-export-dialog p { margin: 0; }
 .app-log-export-dialog p { color: var(--text-secondary); font-size: var(--type-label-size); }
