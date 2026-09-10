@@ -755,6 +755,9 @@ describe("welcome screen", () => {
     expect(vi.mocked(invoke).mock.calls
       .filter(([command]) => command === "build_project")[1]?.[1])
       .toEqual(expect.objectContaining({ force: true }));
+    // The queued build can finish before the lazy editor imports do. Let the
+    // real canvas mount before teardown so those imports keep a live test host.
+    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });
 
   it("shows an existing compiled PDF without waiting for the initial build", async () => {
