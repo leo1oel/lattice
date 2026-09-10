@@ -35,7 +35,9 @@ beforeEach(() => {
   git(projectRoot, "add", ".");
   commit(projectRoot, "previous pin");
   pin("../new", git(newSource, "rev-parse", "HEAD"));
-});
+  // Creating three real Git repositories can exceed Vitest's 10s hook
+  // default while the release gate also runs the web and Rust builds.
+}, 60_000);
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

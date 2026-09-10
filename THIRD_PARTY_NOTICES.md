@@ -18446,11 +18446,11 @@ DEALINGS IN THE SOFTWARE.
 
 The prepare script additionally stages these notices by hand: `src-tauri/synara-runtime/licenses/Node-LICENSE.txt`, `src-tauri/synara-runtime/licenses/Synara-MIT.txt`.
 
-**341 packages.**
+**340 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 223 |
+| `MIT` | 222 |
 | `Apache-2.0` | 76 |
 | `BSD-3-Clause` | 18 |
 | `ISC` | 14 |
@@ -18489,10 +18489,10 @@ The SPDX identifier is known, but the package contains no `LICENSE`,
 to reproduce is not available from the artifact we distribute.
 
 - `@aws-sdk/credential-provider-http@3.972.39` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/credential-provider-http@3.972.72` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/credential-provider-http@3.972.73` (sidecar) — declared `Apache-2.0`
 - `@aws-sdk/credential-provider-login@3.972.41` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/credential-provider-login@3.972.77` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/nested-clients@3.997.44` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/credential-provider-login@3.972.78` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/nested-clients@3.997.45` (sidecar) — declared `Apache-2.0`
 - `@aws-sdk/nested-clients@3.997.9` (sidecar) — declared `Apache-2.0`
 - `@earendil-works/chord@0.85.1` (sidecar) — declared `MIT`
 - `@earendil-works/pi-agent-core@0.85.1` (sidecar) — declared `MIT`
@@ -18513,13 +18513,13 @@ to reproduce is not available from the artifact we distribute.
 - `standardwebhooks@1.1.1` (sidecar) — declared `MIT`
 - `xml-naming@0.1.0` (sidecar) — declared `MIT`
 
-### License texts (43 distinct texts across 341 packages)
+### License texts (43 distinct texts across 340 packages)
 
-#### 1. MIT — 93 package(s), from `license`
+#### 1. MIT — 92 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bibtex-tidy@1.15.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.1`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.9.0`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.7`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici-types@8.9.0`, `undici@7.29.1`, `undici@8.9.0`, `wsl-utils@0.1.0`, `zod@4.3.6`
+`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bibtex-tidy@1.15.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.1`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.9.0`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.7`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici@7.29.1`, `undici@8.9.0`, `wsl-utils@0.1.0`, `zod@4.3.6`
 
 </details>
 
@@ -18686,7 +18686,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@aws-crypto/crc32@5.2.0`, `@aws-crypto/sha256-js@5.2.0`, `@aws-crypto/util@5.2.0`, `@aws-sdk/client-bedrock-runtime@3.1048.0`, `@aws-sdk/credential-provider-env@3.972.37`, `@aws-sdk/credential-provider-env@3.972.70`, `@aws-sdk/credential-provider-ini@3.972.41`, `@aws-sdk/credential-provider-ini@3.973.15`, `@aws-sdk/credential-provider-node@3.972.42`, `@aws-sdk/credential-provider-node@3.972.82`, `@aws-sdk/credential-provider-process@3.972.37`, `@aws-sdk/credential-provider-process@3.972.70`, `@aws-sdk/credential-provider-sso@3.972.41`, `@aws-sdk/credential-provider-sso@3.973.14`, `@aws-sdk/credential-provider-web-identity@3.972.41`, `@aws-sdk/credential-provider-web-identity@3.972.76`, `@aws-sdk/eventstream-handler-node@3.972.16`, `@aws-sdk/eventstream-handler-node@3.972.34`, `@aws-sdk/middleware-eventstream@3.972.12`, `@aws-sdk/middleware-eventstream@3.972.29`, `@aws-sdk/middleware-websocket@3.972.19`, `@aws-sdk/middleware-websocket@3.972.52`, `@aws-sdk/signature-v4-multi-region@3.996.27`, `@aws-sdk/signature-v4-multi-region@3.996.46`, `@aws-sdk/token-providers@3.1048.0`, `@aws-sdk/token-providers@3.1116.0`, `@aws-sdk/types@3.973.8`, `@aws-sdk/types@3.974.5`, `@aws-sdk/util-locate-window@3.965.10`, `@aws-sdk/util-locate-window@3.965.5`, `@aws-sdk/xml-builder@3.972.24`, `@aws-sdk/xml-builder@3.972.40`, `@smithy/core@3.24.3`, `@smithy/core@3.33.3`, `@smithy/credential-provider-imds@4.3.3`, `@smithy/credential-provider-imds@4.5.2`, `@smithy/fetch-http-handler@5.4.3`, `@smithy/fetch-http-handler@5.8.0`, `@smithy/is-array-buffer@2.2.0`, `@smithy/node-http-handler@4.12.1`, `@smithy/node-http-handler@4.7.3`, `@smithy/signature-v4@5.4.3`, `@smithy/signature-v4@5.7.3`, `@smithy/types@4.14.2`, `@smithy/types@4.18.0`, `@smithy/util-buffer-from@2.2.0`, `@smithy/util-utf8@2.3.0`, `detect-libc@2.1.2`, `ecdsa-sig-formatter@1.0.11`
+`@aws-crypto/crc32@5.2.0`, `@aws-crypto/sha256-js@5.2.0`, `@aws-crypto/util@5.2.0`, `@aws-sdk/client-bedrock-runtime@3.1048.0`, `@aws-sdk/credential-provider-env@3.972.37`, `@aws-sdk/credential-provider-env@3.972.71`, `@aws-sdk/credential-provider-ini@3.972.41`, `@aws-sdk/credential-provider-ini@3.973.16`, `@aws-sdk/credential-provider-node@3.972.42`, `@aws-sdk/credential-provider-node@3.972.83`, `@aws-sdk/credential-provider-process@3.972.37`, `@aws-sdk/credential-provider-process@3.972.71`, `@aws-sdk/credential-provider-sso@3.972.41`, `@aws-sdk/credential-provider-sso@3.973.15`, `@aws-sdk/credential-provider-web-identity@3.972.41`, `@aws-sdk/credential-provider-web-identity@3.972.77`, `@aws-sdk/eventstream-handler-node@3.972.16`, `@aws-sdk/eventstream-handler-node@3.972.34`, `@aws-sdk/middleware-eventstream@3.972.12`, `@aws-sdk/middleware-eventstream@3.972.29`, `@aws-sdk/middleware-websocket@3.972.19`, `@aws-sdk/middleware-websocket@3.972.53`, `@aws-sdk/signature-v4-multi-region@3.996.27`, `@aws-sdk/signature-v4-multi-region@3.996.46`, `@aws-sdk/token-providers@3.1048.0`, `@aws-sdk/token-providers@3.1129.0`, `@aws-sdk/types@3.973.8`, `@aws-sdk/types@3.974.5`, `@aws-sdk/util-locate-window@3.965.10`, `@aws-sdk/util-locate-window@3.965.5`, `@aws-sdk/xml-builder@3.972.24`, `@aws-sdk/xml-builder@3.972.40`, `@smithy/core@3.24.3`, `@smithy/core@3.33.3`, `@smithy/credential-provider-imds@4.3.3`, `@smithy/credential-provider-imds@4.5.2`, `@smithy/fetch-http-handler@5.4.3`, `@smithy/fetch-http-handler@5.8.0`, `@smithy/is-array-buffer@2.2.0`, `@smithy/node-http-handler@4.12.1`, `@smithy/node-http-handler@4.7.3`, `@smithy/signature-v4@5.4.3`, `@smithy/signature-v4@5.7.3`, `@smithy/types@4.14.2`, `@smithy/types@4.18.0`, `@smithy/util-buffer-from@2.2.0`, `@smithy/util-utf8@2.3.0`, `detect-libc@2.1.2`, `ecdsa-sig-formatter@1.0.11`
 
 </details>
 
@@ -18977,7 +18977,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@aws-crypto/sha256-browser@5.2.0`, `@aws-crypto/supports-web-crypto@5.2.0`, `@aws-sdk/core@3.974.11`, `@aws-sdk/core@3.977.9`, `@google/genai@1.52.0`, `@silvia-odwyer/photon-node@0.3.4`, `denque@2.1.0`, `gaxios@7.1.4`, `gaxios@7.3.1`, `gcp-metadata@8.1.2`, `google-auth-library@10.6.2`, `google-auth-library@10.9.1`, `google-logging-utils@1.1.3`, `grok-mermaid@0.2.2`, `long@5.3.2`, `openai@6.40.0`
+`@aws-crypto/sha256-browser@5.2.0`, `@aws-crypto/supports-web-crypto@5.2.0`, `@aws-sdk/core@3.974.11`, `@aws-sdk/core@3.978.0`, `@google/genai@1.52.0`, `@silvia-odwyer/photon-node@0.3.4`, `denque@2.1.0`, `gaxios@7.1.4`, `gaxios@7.3.1`, `gcp-metadata@8.1.2`, `google-auth-library@10.6.2`, `google-auth-library@10.9.1`, `google-logging-utils@1.1.3`, `grok-mermaid@0.2.2`, `long@5.3.2`, `openai@6.40.0`
 
 </details>
 
