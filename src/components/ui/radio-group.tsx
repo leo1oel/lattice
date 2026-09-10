@@ -4,7 +4,6 @@ import {
   Children,
   useRef,
   useState,
-  useEffect,
   createContext,
   useContext,
   forwardRef,
@@ -20,7 +19,8 @@ import { spring } from "@/lib/springs";
 import { fontWeights } from "@/lib/font-weight";
 import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/use-fluid-hover";
 import { useShape } from "@/lib/shape-context";
-import { SizeProvider, useSize, type SizeVariant } from "@/lib/size-context";
+import { useSize, type SizeVariant } from "@/lib/size-context";
+import { SizeProvider } from "@/lib/size-provider";
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight";
 
 interface RadioGroupContextValue {
@@ -267,7 +267,6 @@ interface RadioItemProps extends HTMLAttributes<HTMLDivElement> {
 const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
   ({ label, index, selected, onSelect, value, className, ...props }, ref) => {
     const internalRef = useRef<HTMLDivElement>(null);
-    const hasMounted = useRef(false);
     const {
       registerItem,
       activeIndex,
@@ -279,12 +278,7 @@ const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
 
     useRegisterFluidHoverItem(registerItem, index, internalRef);
 
-    useEffect(() => {
-      hasMounted.current = true;
-    }, []);
-
     const isActive = activeIndex === index;
-    const skipAnimation = !hasMounted.current;
     const shape = useShape();
     const sizeClasses = useSize();
     const compact = sizeClasses.variant === "compact";
@@ -362,13 +356,13 @@ const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
             )}
           />
           {/* Dot */}
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {isSelected && (
               <motion.div
                 className="absolute inset-0 flex items-center justify-center"
                 initial={{
-                  opacity: skipAnimation ? 1 : 0,
-                  scale: skipAnimation ? 1 : 0.3,
+                  opacity: 0,
+                  scale: 0.3,
                 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.3, transition: { duration: 0.04 } }}

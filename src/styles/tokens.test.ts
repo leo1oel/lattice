@@ -288,9 +288,9 @@ describe("design token contract", () => {
     for (const { file, rules } of sources) {
       if (file.endsWith("foundations.css")) continue
       // Fluid Functionalism's installed size ladder is an upstream token
-      // definition, like foundations. Keep it unmodified; app compositions
+      // definition, like foundations. App compositions
       // still use our typography tokens rather than adding raw sizes.
-      if (file === "src/lib/size-context.tsx") continue
+      if (file === "src/lib/size-context.ts") continue
       for (const match of rules.matchAll(RAW_SIZE)) {
         offenders.push(`${file}: ${match[0]}`)
       }

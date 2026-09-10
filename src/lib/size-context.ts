@@ -3,10 +3,6 @@
 import {
   createContext,
   useContext,
-  useState,
-  useCallback,
-  useMemo,
-  type ReactNode,
 } from "react";
 
 type SizeVariant = "default" | "compact";
@@ -148,42 +144,8 @@ function useSizeContext() {
   return ctx;
 }
 
-function SizeProvider({
-  children,
-  size,
-  defaultSize = "default",
-}: {
-  children: ReactNode;
-  /** Controlled variant — pin a whole region to one size (e.g. a compact
-   *  filter bar). Overrides internal state. */
-  size?: SizeVariant;
-  defaultSize?: SizeVariant;
-}) {
-  const [internalSize, setInternalSize] = useState<SizeVariant>(defaultSize);
-  const isControlled = size !== undefined;
-  const resolved = size ?? internalSize;
-
-  // Controlled providers ignore setSize entirely — a background write to the
-  // shadowed internal state would pop back out if the size prop were later
-  // removed.
-  const setSize = useCallback(
-    (next: SizeVariant) => {
-      if (isControlled) return;
-      setInternalSize(next);
-    },
-    [isControlled]
-  );
-
-  const value = useMemo(
-    () => ({ size: resolved, setSize, classes: sizeMap[resolved] }),
-    [resolved, setSize]
-  );
-
-  return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>;
-}
-
 export {
-  SizeProvider,
+  SizeContext,
   useSize,
   useSizeVariant,
   useSizeContext,
