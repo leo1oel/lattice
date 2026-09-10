@@ -354,9 +354,6 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .sidebar-resizer:hover::before { opacity: .5; }
 .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { opacity: 1; }
 body.resizing-panels .sidebar-resizer::before { transition: none; }
-@media (prefers-reduced-motion: reduce) {
-  .workspace, .workspace-sidebar-content, .sidebar-resizer::before { transition: none; }
-}
 body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { position: relative; height: var(--navigation-header-height); flex: none; padding: 5px var(--space-4) 5px var(--space-6); display: flex; align-items: center; gap: var(--space-4); }
