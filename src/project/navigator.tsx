@@ -38,6 +38,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { SearchField } from "../components/ui/search-field";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { spring } from "../components/ui/motion-values";
 import fluidHoverCSS from "../components/ui/fluid-hover.css?inline";
 import { ProjectTreeHover } from "./project-tree-hover";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
@@ -1645,7 +1646,7 @@ export function Navigator(props: {
           contentClassName="paper-list-content fluid-hover-surface"
           viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
-          <FluidHoverSurface selector=".paper-row" preserveSelection />
+          <FluidHoverSurface selector=".paper-row" preserveSelection transition={spring.moderate} />
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;

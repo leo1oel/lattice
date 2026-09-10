@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { attachProjectTreeMotion } from "./project-tree-motion";
 
 /** Pierre owns the virtualized Shadow DOM. Mount behind the rows themselves,
  * not behind their opaque virtual window; keep its scroll/drag model intact. */
@@ -11,6 +12,7 @@ export function ProjectTreeHover({ getViewport }: { getViewport: () => HTMLEleme
     let attempts = 0;
     let target: HTMLElement | null = null;
     let observer: MutationObserver | null = null;
+    let stopMotion: (() => void) | undefined;
     const attach = () => {
       const scroller = getViewport();
       if (!scroller) {
@@ -18,7 +20,9 @@ export function ProjectTreeHover({ getViewport }: { getViewport: () => HTMLEleme
         return;
       }
       const syncRows = () => {
-        const next = scroller.querySelector('button[data-type="item"]')?.parentElement ?? null;
+        // Sticky folder mirrors can precede the real rows after expansion.
+        // They must not steal the hover surface from the virtualized window.
+        const next = scroller.querySelector<HTMLElement>('[data-file-tree-virtualized-sticky="true"]');
         if (next === target) return;
         target?.classList.remove("fluid-hover-surface");
         target = next;
@@ -29,11 +33,13 @@ export function ProjectTreeHover({ getViewport }: { getViewport: () => HTMLEleme
       observer = new MutationObserver(syncRows);
       observer.observe(scroller, { childList: true, subtree: true });
       syncRows();
+      stopMotion = attachProjectTreeMotion(scroller);
     };
     attach();
     return () => {
       cancelAnimationFrame(frame);
       observer?.disconnect();
+      stopMotion?.();
       target?.classList.remove("fluid-hover-surface");
     };
   }, [getViewport]);

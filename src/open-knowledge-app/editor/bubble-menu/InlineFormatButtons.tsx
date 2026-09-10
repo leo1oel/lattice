@@ -8,11 +8,14 @@ import {
   formatShortcut,
   type KeyboardShortcutId,
 } from '@ok-app/lib/keyboard-shortcuts';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { useLingui } from '@lingui/react/macro';
 
 const formatActions = [
   {
     name: 'bold',
+    label: msg`Bold`,
     icon: Bold,
     command: (editor: Editor) => editor.chain().focus().toggleBold().run(),
     isActive: (editor: Editor) => editor.isActive('strong'),
@@ -20,6 +23,7 @@ const formatActions = [
   },
   {
     name: 'italic',
+    label: msg`Italic`,
     icon: Italic,
     command: (editor: Editor) => editor.chain().focus().toggleItalic().run(),
     isActive: (editor: Editor) => editor.isActive('emphasis'),
@@ -27,6 +31,7 @@ const formatActions = [
   },
   {
     name: 'underline',
+    label: msg`Underline`,
     icon: Underline,
     command: (editor: Editor) => editor.chain().focus().toggleUnderline().run(),
     isActive: (editor: Editor) => editor.isActive('underline'),
@@ -34,6 +39,7 @@ const formatActions = [
   },
   {
     name: 'strikethrough',
+    label: msg`Strikethrough`,
     icon: Strikethrough,
     command: (editor: Editor) => editor.chain().focus().toggleStrike().run(),
     isActive: (editor: Editor) => editor.isActive('strike'),
@@ -41,6 +47,7 @@ const formatActions = [
   },
   {
     name: 'code',
+    label: msg`Inline code`,
     icon: Code,
     command: (editor: Editor) => editor.chain().focus().toggleCode().run(),
     isActive: (editor: Editor) => editor.isActive('code'),
@@ -48,6 +55,7 @@ const formatActions = [
   },
   {
     name: 'highlight',
+    label: msg`Highlight`,
     icon: Highlighter,
     command: (editor: Editor) => editor.chain().focus().toggleHighlight({ color: '#FFD875' }).run(),
     isActive: (editor: Editor) => editor.isActive('highlight'),
@@ -55,6 +63,7 @@ const formatActions = [
   },
 ] as const satisfies readonly {
   name: string;
+  label: MessageDescriptor;
   icon: typeof Bold;
   command: (editor: Editor) => boolean;
   isActive: (editor: Editor) => boolean;
@@ -114,7 +123,7 @@ export function InlineFormatButtons({ editor }: { editor: Editor }) {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label={action.name}
+                aria-label={t(action.label)}
                 className={active ? 'bg-accent text-primary' : 'text-accent-foreground'}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -125,7 +134,7 @@ export function InlineFormatButtons({ editor }: { editor: Editor }) {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={8}>
-              <span className="capitalize">{action.name} ({formatShortcut(action.shortcutId)})</span>
+              <span>{t(action.label)} ({formatShortcut(action.shortcutId)})</span>
             </TooltipContent>
           </Tooltip>
         );

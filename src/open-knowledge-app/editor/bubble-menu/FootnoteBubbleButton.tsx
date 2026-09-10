@@ -40,7 +40,7 @@ import {
   findFootnoteDefinitionInsertPos,
   nextFootnoteIdentifier,
 } from '@ok-core';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import { Superscript } from 'lucide-react';

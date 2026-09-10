@@ -1,6 +1,6 @@
-import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
-import { msg } from '@ok-app/shims/lingui-core-macro';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import {

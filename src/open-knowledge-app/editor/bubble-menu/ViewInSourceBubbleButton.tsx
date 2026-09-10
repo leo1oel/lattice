@@ -2,6 +2,7 @@
 import type { Editor } from "@tiptap/react";
 import { FileCode2 } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Button } from "@ok-app/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,6 +23,7 @@ export function ViewInSourceProvider({
 }
 
 export function ViewInSourceBubbleButton({ editor }: { editor: Editor }): ReactNode {
+  const { t } = useLingui();
   const onViewInSource = useContext(ViewInSourceContext);
   if (!onViewInSource) return null;
 
@@ -34,7 +36,7 @@ export function ViewInSourceBubbleButton({ editor }: { editor: Editor }): ReactN
           size="icon-xs"
           data-testid="view-in-source-bubble-button"
           className="text-accent-foreground/80"
-          aria-label="View in source Markdown"
+          aria-label={t`View in source Markdown`}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onViewInSource(editor)}
         >
@@ -42,7 +44,7 @@ export function ViewInSourceBubbleButton({ editor }: { editor: Editor }): ReactN
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={8}>
-        View in source Markdown
+        {t`View in source Markdown`}
       </TooltipContent>
     </Tooltip>
   );

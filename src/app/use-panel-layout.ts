@@ -16,6 +16,8 @@ export type PanelLayout = {
   sidebarWidth: number;
   sidebarResizing: boolean;
   sidebarCollapsePreview: boolean;
+  sidebarRestoring: boolean;
+  finishSidebarRestore: () => void;
   beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
   nudgeSidebar: (delta: number) => void;
   fitSidebarToContent: () => void;
@@ -23,7 +25,7 @@ export type PanelLayout = {
 
 const MIN_TAB_STRIP_WIDTH = 220;
 const FALLBACK_MIN_EDITOR_WIDTH = 600;
-const COLLAPSE_SLOP = 56;
+const COLLAPSE_SLOP = 96;
 
 const minimumTabStripWidth = () => {
   const strip = document.querySelector<HTMLElement>(".titlebar-main > .editor-tabs .editor-tabs-scroll");
@@ -73,6 +75,8 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   );
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [sidebarCollapsePreview, setSidebarCollapsePreview] = useState(false);
+  const [sidebarRestoring, setSidebarRestoring] = useState(false);
+  const finishSidebarRestore = useCallback(() => setSidebarRestoring(false), []);
   const finishResizeRef = useRef<(() => void) | null>(null);
   // Synara discovers its intrinsic minimum while the pointer is already moving.
   // A ref lets that active resize session use the new limit immediately instead
@@ -119,6 +123,9 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     finishResizeRef.current?.();
     const startX = event.clientX;
     const startWidth = sidebarWidth;
+    // Freeze the collapse boundary for this gesture. A newly reported Agent
+    // minimum must not turn a small movement into an accidental collapse.
+    const collapseBoundary = Math.min(startWidth, minimumSidebarWidthRef.current) - COLLAPSE_SLOP;
     const pointerId = event.pointerId;
     const target = event.currentTarget;
     let latest = sidebarWidth;
@@ -130,10 +137,16 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
       const delta = moveEvent.clientX - startX;
-      if (!moved && Math.abs(delta) < 4) return;
+      if (!moved && Math.abs(delta) < 2) return;
       moved = true;
-      collapse = startWidth + delta < minimumSidebarWidthRef.current - COLLAPSE_SLOP;
-      setSidebarCollapsePreview(collapse);
+      const nextCollapse = startWidth + delta < collapseBoundary + (collapse ? COLLAPSE_SLOP / 2 : 0);
+      if (nextCollapse !== collapse) {
+        collapse = nextCollapse;
+        setSidebarCollapsePreview(collapse);
+        // Do not re-enable direct tracking until the returning sidebar has
+        // finished its transition; disabling it immediately snaps the grid open.
+        setSidebarRestoring(!collapse);
+      }
       // Keep pointer capture alive through the preview. Pulling back rescues
       // the sidebar; releasing commits the close and retains its prior width.
       if (collapse) return;
@@ -154,6 +167,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       setSidebarWidth(latest);
       setSidebarResizing(false);
       setSidebarCollapsePreview(false);
+      setSidebarRestoring(false);
       if (commit && (collapse || !moved)) setSidebarOpen(false);
       document.body.classList.remove("resizing-panels");
       window.removeEventListener("pointermove", move);
@@ -188,6 +202,8 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     sidebarWidth,
     sidebarResizing,
     sidebarCollapsePreview,
+    sidebarRestoring,
+    finishSidebarRestore,
     beginSidebarResize,
     nudgeSidebar,
     fitSidebarToContent,

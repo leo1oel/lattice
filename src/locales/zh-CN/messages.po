@@ -466,6 +466,10 @@ msgstr "外观"
 msgid "Applies to the LaTeX source editor only"
 msgstr "仅应用于 LaTeX 源码编辑器"
 
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Apply link"
+msgstr "应用链接"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Apply this update"
 msgstr "应用此更新"
@@ -691,6 +695,7 @@ msgid "Body words ({source}): text {text}, headers {headers}, captions {captions
 msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Bold"
 msgstr "粗体"
 
@@ -769,6 +774,7 @@ msgid "Bullet"
 msgstr "实心圆点"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Bullet List"
 msgstr "无序列表"
 
@@ -1129,6 +1135,7 @@ msgid "Club suit"
 msgstr "梅花"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Code Block"
 msgstr "代码块"
 
@@ -1181,6 +1188,7 @@ msgid "comment"
 msgstr "评论"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "评论"
 
@@ -1310,6 +1318,14 @@ msgstr "要继续吗？"
 #: src/editor/insert/insert-snippets.ts
 msgid "Contour integral"
 msgstr "环路积分"
+
+#: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
+msgid "Convert selection to footnote"
+msgstr "将所选文字转换为脚注"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Convert selection to inline math"
+msgstr "将所选文字转换为行内公式"
 
 #: src/collab/collab-dialog.tsx
 msgid "Copied"
@@ -2289,26 +2305,32 @@ msgid "Hat accent example"
 msgstr "帽号示例"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 1"
 msgstr "一级标题"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 2"
 msgstr "二级标题"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 3"
 msgstr "三级标题"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 4"
 msgstr "四级标题"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 5"
 msgstr "五级标题"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 6"
 msgstr "六级标题"
 
@@ -2323,6 +2345,10 @@ msgstr "红桃"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "隐藏侧边栏"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Highlight"
+msgstr "高亮"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Highlight tips, warnings, and notes."
@@ -2507,6 +2533,10 @@ msgstr "信息"
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Inline code"
+msgstr "行内代码"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
@@ -2572,6 +2602,10 @@ msgstr "保存后在光标处插入引用"
 #: src/editor/insert/insert-palette.tsx
 msgid "Insert LaTeX snippets"
 msgstr "插入 LaTeX 片段"
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Insert link"
+msgstr "插入链接"
 
 #: src/App.tsx
 #: src/app/app-search-dialogs.tsx
@@ -2685,6 +2719,10 @@ msgstr "邀请链接"
 #: src/editor/insert/insert-snippets.ts
 msgid "Iota"
 msgstr "约塔"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Italic"
+msgstr "斜体"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Itemize"
@@ -2959,12 +2997,17 @@ msgid "Line under an expression"
 msgstr "表达式下方加横线"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link"
 msgstr "链接"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Link to a page or external URL."
 msgstr "链接到页面或外部 URL。"
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Link URL"
+msgstr "链接地址"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
@@ -3662,6 +3705,10 @@ msgstr "在 Overleaf 中打开"
 msgid "Open landing page"
 msgstr "打开论文主页"
 
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Open link in new tab"
+msgstr "在新标签页打开链接"
+
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "打开日志文件夹"
@@ -3786,6 +3833,7 @@ msgid "Operators"
 msgstr "运算符"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Ordered List"
 msgstr "有序列表"
 
@@ -4227,6 +4275,7 @@ msgstr "快速打开文件"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Quote"
 msgstr "引文"
 
@@ -4372,6 +4421,10 @@ msgstr "移除条目"
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
 msgstr "移除密钥"
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Remove link"
+msgstr "移除链接"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -5306,6 +5359,10 @@ msgstr "停止当前 LaTeX 构建"
 msgid "Stopping…"
 msgstr "正在停止…"
 
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Strikethrough"
+msgstr "删除线"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Structure"
 msgstr "结构"
@@ -5437,6 +5494,7 @@ msgid "Tabs"
 msgstr "标签页"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Task List"
 msgstr "任务列表"
 
@@ -5455,6 +5513,10 @@ msgstr "测试连接"
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX 诊断"
+
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
+msgid "Text"
+msgstr "正文"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Text in math"
@@ -5777,6 +5839,7 @@ msgid "Unavailable"
 msgstr "不可用"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Underline"
 msgstr "下划线"
 
@@ -6055,6 +6118,10 @@ msgstr "版本"
 #: src/App.tsx
 msgid "View"
 msgstr "视图"
+
+#: src/open-knowledge-app/editor/bubble-menu/ViewInSourceBubbleButton.tsx
+msgid "View in source Markdown"
+msgstr "在 Markdown 源码中查看"
 
 #: src/canvas/document-canvas.tsx
 msgid "View original PDF"

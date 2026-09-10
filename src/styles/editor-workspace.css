@@ -837,6 +837,25 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   .paper-local-action span { display: none; }
 }
 .visual-markdown-editor { position: relative; }
+/* A zero-width text strut follows the first line's font/spacing, including
+   WebKit live font changes where a cached `lh` length can lag behind. */
+.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label {
+  display: flex;
+  align-items: center;
+  margin-top: 0;
+}
+.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label::before {
+  content: "\200b";
+}
+.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  font: inherit;
+}
+.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
+  width: 0.65em;
+  height: 0.65em;
+}
 /* The document-edge caret replaces an unauthored trailing paragraph. */
 .visual-markdown-editor .ProseMirror-gapcursor::after { border-top-color: var(--text-primary); }
 /* TipTap's drag-handle hit test reads the first and last block rects.
@@ -1365,7 +1384,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 [data-testid="bubble-menu-bar"] [data-slot="button"].bg-accent { background: var(--control-active-soft); color: var(--text-primary); }
 [data-testid="bubble-menu-bar"] [data-slot="button"]:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 [data-testid="bubble-menu-bar"] [data-slot="button"] svg { width: 14px; height: 14px; stroke-width: 1.8; }
-[data-testid="block-type-selector"] { height: 28px; min-height: 28px; padding-inline: var(--pad-inline-control-tight); }
+[data-testid="block-type-selector"] {
+  height: 28px;
+  min-height: 28px;
+  padding-inline: var(--pad-inline-control-tight);
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-icon);
+  background: transparent;
+  color: var(--text-secondary);
+  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+  transform: none;
+}
 [data-testid="footnote-bubble-button"] svg { width: 16px; height: 16px; }
 [data-testid="bubble-menu-bar"] > .flex { align-items: center; }
 [data-testid="bubble-menu-bar"] [data-slot="separator"] { height: 22px; margin-inline: 3px; background: var(--border-subtle); }

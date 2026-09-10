@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { FluidHoverHighlight } from "./fluid-hover-highlight";
+import { FluidHoverHighlight, type FluidHoverHighlightProps } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
 import "./fluid-hover.css";
 
@@ -13,7 +13,11 @@ const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading
  * rather than wrapping them, which would break Radix's asChild/collection API.
  * Mount inside a positioned `fluid-hover-surface`, in the scrolling viewport.
  */
-export function FluidHoverSurface({ selector = menuItems, preserveSelection = false }: { selector?: string; preserveSelection?: boolean }) {
+export function FluidHoverSurface({ selector = menuItems, preserveSelection = false, transition }: {
+  selector?: string;
+  preserveSelection?: boolean;
+  transition?: FluidHoverHighlightProps["transition"];
+}) {
   const containerRef = useRef<HTMLElement | null>(null);
   const hover = useFluidHover(containerRef, { gapClick: false });
   const { registerItem, setActiveIndex, sessionRef, remeasure } = hover;
@@ -33,7 +37,7 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
     };
     const syncItems = () => {
       const next = Array.from(container.querySelectorAll<HTMLElement>(selector))
-        .filter((item) => owns(item) && !item.closest('[hidden]'));
+        .filter((item) => owns(item) && !item.closest('[hidden], [inert]'));
       if (next.length === items.length && next.every((item, i) => item === items[i])) return;
       clear();
       items.forEach((item, i) => {
@@ -80,7 +84,7 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
         remeasure();
       }
     });
-    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "data-item-path"] });
+    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "inert", "data-item-path"] });
     container.addEventListener("pointermove", move);
     container.addEventListener("pointerdown", clear);
     container.addEventListener("pointerleave", clear);
@@ -115,6 +119,6 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
 
   return <>
     <span hidden aria-hidden="true" ref={attach} />
-    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" />
+    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" transition={transition} />
   </>;
 }

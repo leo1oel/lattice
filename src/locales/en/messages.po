@@ -466,6 +466,10 @@ msgstr "Appearance"
 msgid "Applies to the LaTeX source editor only"
 msgstr "Applies to the LaTeX source editor only"
 
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Apply link"
+msgstr "Apply link"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Apply this update"
 msgstr "Apply this update"
@@ -691,6 +695,7 @@ msgid "Body words ({source}): text {text}, headers {headers}, captions {captions
 msgstr "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Bold"
 msgstr "Bold"
 
@@ -769,6 +774,7 @@ msgid "Bullet"
 msgstr "Bullet"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Bullet List"
 msgstr "Bullet List"
 
@@ -1129,6 +1135,7 @@ msgid "Club suit"
 msgstr "Club suit"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Code Block"
 msgstr "Code Block"
 
@@ -1181,6 +1188,7 @@ msgid "comment"
 msgstr "comment"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "Comment"
 
@@ -1310,6 +1318,14 @@ msgstr "Continue?"
 #: src/editor/insert/insert-snippets.ts
 msgid "Contour integral"
 msgstr "Contour integral"
+
+#: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
+msgid "Convert selection to footnote"
+msgstr "Convert selection to footnote"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Convert selection to inline math"
+msgstr "Convert selection to inline math"
 
 #: src/collab/collab-dialog.tsx
 msgid "Copied"
@@ -2289,26 +2305,32 @@ msgid "Hat accent example"
 msgstr "Hat accent example"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 1"
 msgstr "Heading 1"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 2"
 msgstr "Heading 2"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 3"
 msgstr "Heading 3"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 4"
 msgstr "Heading 4"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 5"
 msgstr "Heading 5"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 6"
 msgstr "Heading 6"
 
@@ -2323,6 +2345,10 @@ msgstr "Heart suit"
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Highlight"
+msgstr "Highlight"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Highlight tips, warnings, and notes."
@@ -2507,6 +2533,10 @@ msgstr "Info"
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Inline code"
+msgstr "Inline code"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "Inline LaTeX math rendered with KaTeX."
@@ -2572,6 +2602,10 @@ msgstr "Insert cite at cursor after saving"
 #: src/editor/insert/insert-palette.tsx
 msgid "Insert LaTeX snippets"
 msgstr "Insert LaTeX snippets"
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Insert link"
+msgstr "Insert link"
 
 #: src/App.tsx
 #: src/app/app-search-dialogs.tsx
@@ -2685,6 +2719,10 @@ msgstr "Invite link"
 #: src/editor/insert/insert-snippets.ts
 msgid "Iota"
 msgstr "Iota"
+
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Italic"
+msgstr "Italic"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Itemize"
@@ -2959,12 +2997,17 @@ msgid "Line under an expression"
 msgstr "Line under an expression"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link"
 msgstr "Link"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Link to a page or external URL."
 msgstr "Link to a page or external URL."
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Link URL"
+msgstr "Link URL"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
@@ -3662,6 +3705,10 @@ msgstr "Open in Overleaf"
 msgid "Open landing page"
 msgstr "Open landing page"
 
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Open link in new tab"
+msgstr "Open link in new tab"
+
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"
@@ -3786,6 +3833,7 @@ msgid "Operators"
 msgstr "Operators"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Ordered List"
 msgstr "Ordered List"
 
@@ -4227,6 +4275,7 @@ msgstr "Quick open file"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Quote"
 msgstr "Quote"
 
@@ -4374,6 +4423,10 @@ msgstr "Remove entry"
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
 msgstr "Remove key"
+
+#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
+msgid "Remove link"
+msgstr "Remove link"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -5310,6 +5363,10 @@ msgstr "Stop the current LaTeX build"
 msgid "Stopping…"
 msgstr "Stopping…"
 
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
+msgid "Strikethrough"
+msgstr "Strikethrough"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Structure"
 msgstr "Structure"
@@ -5441,6 +5498,7 @@ msgid "Tabs"
 msgstr "Tabs"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Task List"
 msgstr "Task List"
 
@@ -5459,6 +5517,10 @@ msgstr "Test connection"
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX doctor"
+
+#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
+msgid "Text"
+msgstr "Text"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Text in math"
@@ -5781,6 +5843,7 @@ msgid "Unavailable"
 msgstr "Unavailable"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Underline"
 msgstr "Underline"
 
@@ -6059,6 +6122,10 @@ msgstr "Versions"
 #: src/App.tsx
 msgid "View"
 msgstr "View"
+
+#: src/open-knowledge-app/editor/bubble-menu/ViewInSourceBubbleButton.tsx
+msgid "View in source Markdown"
+msgstr "View in source Markdown"
 
 #: src/canvas/document-canvas.tsx
 msgid "View original PDF"

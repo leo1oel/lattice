@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { MessageSquareText } from 'lucide-react';
+import { useLingui } from '@lingui/react/macro';
 import { Button } from '@ok-app/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -17,6 +18,7 @@ export function VisualCommentProvider({
 
 /** Local bridge from the vendored bubble menu to Research Writer comments. */
 export function CommentBubbleButton(): ReactNode {
+  const { t } = useLingui();
   const onComment = useContext(VisualCommentContext);
   if (!onComment) return null;
   return (
@@ -26,14 +28,14 @@ export function CommentBubbleButton(): ReactNode {
           type="button"
           variant="ghost"
           size="icon-xs"
-          aria-label="Comment"
+          aria-label={t`Comment`}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onComment}
         >
           <MessageSquareText aria-hidden="true" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Comment</TooltipContent>
+      <TooltipContent side="bottom">{t`Comment`}</TooltipContent>
     </Tooltip>
   );
 }

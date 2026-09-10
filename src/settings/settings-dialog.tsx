@@ -31,6 +31,7 @@ import {
 } from "../components/ui/select";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { spring } from "../components/ui/motion-values";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
@@ -652,6 +653,7 @@ export function SettingsDialog(props: {
             <FluidHoverSurface
               selector=".settings-nav-group > button"
               preserveSelection
+              transition={spring.moderate}
             />
             {settingsNavGroups.map((group, groupIndex) => (
               <div

@@ -6496,7 +6496,7 @@ dependencies = [
 
 [[package]]
 name = "research-writer"
-version = "0.1.299"
+version = "0.1.300"
 dependencies = [
  "anydoc",
  "axum",

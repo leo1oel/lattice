@@ -1854,7 +1854,7 @@ describe("VisualMarkdownEditor", () => {
     const view = (editor as HTMLElement & { editor: Editor }).editor.view;
     view.focus();
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)));
-    fireEvent.mouseDown(await screen.findByRole("button", { name: "bold" }));
+    fireEvent.mouseDown(await screen.findByRole("button", { name: "Bold" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("**Hello**", "Hello"));
   });
 
@@ -1864,7 +1864,7 @@ describe("VisualMarkdownEditor", () => {
     const view = (editor as HTMLElement & { editor: Editor }).editor.view;
     view.focus();
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)));
-    fireEvent.mouseDown(await screen.findByRole("button", { name: "italic" }));
+    fireEvent.mouseDown(await screen.findByRole("button", { name: "Italic" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("*Hello*", "Hello"));
     expect(editor.querySelector("em")).not.toBeNull();
   });
@@ -1876,7 +1876,7 @@ describe("VisualMarkdownEditor", () => {
     editor.view.focus();
     editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 6)));
 
-    const highlightButton = await screen.findByRole("button", { name: "highlight" });
+    const highlightButton = await screen.findByRole("button", { name: "Highlight" });
     fireEvent.mouseDown(highlightButton);
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("==Hello==", "Hello"));
@@ -2015,12 +2015,12 @@ describe("VisualMarkdownEditor", () => {
     // Query the toolbar's content, not the portal container: a previous
     // test's hidden floating-ui container can linger in document.body for a
     // tick after unmount, which made a container-existence check flaky.
-    expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bold" })).not.toBeInTheDocument();
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
     const editor = (surface as HTMLElement & { editor: Editor }).editor;
     editor.view.focus();
     editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 6)));
-    const bold = await screen.findByRole("button", { name: "bold" });
+    const bold = await screen.findByRole("button", { name: "Bold" });
     const toolbar = bold.closest<HTMLElement>('[data-testid="bubble-menu-bar"]')!;
     expect(bold).toBeEnabled();
     expect(
@@ -2040,7 +2040,34 @@ describe("VisualMarkdownEditor", () => {
     document.body.appendChild(outside);
     fireEvent.blur(surface, { relatedTarget: outside });
     outside.focus();
-    await waitFor(() => expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Bold" })).not.toBeInTheDocument());
+  });
+
+  it("updates the mounted selection toolbar when the interface language changes", async () => {
+    const { onChange } = renderEditor("中文格式测试");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    act(() => editor.chain().focus().setTextSelection({ from: 1, to: 3 }).run());
+    expect(await screen.findByRole("button", { name: "Bold" })).toBeEnabled();
+    try {
+      await act(() => activateAppLocale("zh-CN"));
+      expect(await screen.findByTestId("block-type-selector")).toHaveTextContent("正文");
+      // jsdom has no selection geometry, so Floating UI may hide the portal
+      // during the locale update. This checks its live labels, not placement.
+      for (const name of ["粗体", "斜体", "下划线", "删除线", "行内代码", "高亮", "插入链接", "将所选文字转换为脚注", "将所选文字转换为行内公式", "在 Markdown 源码中查看"]) {
+        expect(screen.getByLabelText(name, { selector: "button" })).toBeEnabled();
+      }
+      fireEvent.mouseDown(screen.getByLabelText("粗体", { selector: "button" }));
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith("**中文**格式测试", "中文格式测试"));
+      fireEvent.pointerDown(screen.getByTestId("block-type-selector"), { button: 0, ctrlKey: false });
+      expect(await screen.findByRole("menuitem", { name: "一级标题" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "任务列表" })).toBeInTheDocument();
+      await act(() => activateAppLocale("en"));
+      expect(await screen.findByRole("menuitem", { name: "Heading 1" })).toBeInTheDocument();
+      expect(screen.getByTestId("block-type-selector")).toHaveTextContent("Text");
+    } finally {
+      await act(() => activateAppLocale("en"));
+    }
   });
 
   it("offers all Markdown heading levels in the contextual block menu", async () => {
@@ -2135,7 +2162,7 @@ describe("VisualMarkdownEditor", () => {
     editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 6)));
 
     expect(await screen.findByRole("button", { name: "Comment" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bold" })).not.toBeInTheDocument();
   });
 
   it("offers View in source and keeps the footnote icon legible", async () => {
@@ -3015,7 +3042,7 @@ describe("VisualMarkdownEditor", () => {
     openLinkEditor();
     const input = await screen.findByRole("textbox", { name: "Link URL" });
     expect(input).toHaveValue("https://old.example");
-    expect(screen.queryByRole("button", { name: "bold" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bold" })).not.toBeInTheDocument();
     fireEvent.change(input, { target: { value: "https://new.example" } });
     const outside = document.createElement("button");
     outside.textContent = "Outside";

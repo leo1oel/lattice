@@ -1492,6 +1492,8 @@ function App() {
     sidebarWidth,
     sidebarResizing,
     sidebarCollapsePreview,
+    sidebarRestoring,
+    finishSidebarRestore,
     beginSidebarResize,
     nudgeSidebar,
     fitSidebarToContent,
@@ -9662,7 +9664,10 @@ function App() {
 
       <main
         className={`workspace ${sidebarOpen && !sidebarCollapsePreview ? "" : "sidebar-hidden"}`}
-        data-sidebar-tracking={sidebarResizing && !sidebarCollapsePreview || undefined}
+        data-sidebar-tracking={sidebarResizing && !sidebarCollapsePreview && !sidebarRestoring || undefined}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") finishSidebarRestore();
+        }}
         style={{
           gridTemplateColumns: sidebarOpen && !sidebarCollapsePreview ? `${sidebarWidth}px 1px minmax(0, 1fr)` : "0px 0px minmax(0, 1fr)",
           gridTemplateAreas: '"sidebar sidebar-resizer canvas"',

@@ -1,4 +1,4 @@
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { readText } from '@tauri-apps/plugin-clipboard-manager';
 import { ArrowUpRight, CornerDownLeft, Link, Trash2 } from 'lucide-react';

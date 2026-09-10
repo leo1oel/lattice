@@ -128,4 +128,20 @@ describe("FluidHoverSurface", () => {
     expect(container.firstElementChild).not.toHaveAttribute("data-fluid-hover-active-index");
     expect(screen.getByRole("option", { name: "Nested" })).toHaveAttribute("data-fluid-hover-active");
   });
+
+  it("keeps inert exit pictures out of the hover collection", async () => {
+    const { container } = render(<div className="fluid-hover-surface">
+      <FluidHoverSurface />
+      <button role="option">First</button>
+      <div inert><button role="option">Exiting</button></div>
+    </div>);
+    const picture = screen.getByText("Exiting");
+    expect(picture).not.toHaveAttribute("data-fluid-hover-item");
+    move(screen.getByText("First"));
+    expect(container.firstElementChild).toHaveAttribute("data-fluid-hover-active-index", "0");
+    await act(async () => { picture.parentElement!.removeAttribute("inert"); });
+    expect(picture).toHaveAttribute("data-fluid-hover-item");
+    move(picture);
+    expect(container.firstElementChild).toHaveAttribute("data-fluid-hover-active-index", "1");
+  });
 });

@@ -267,6 +267,7 @@ function PanelResizer(props: {
 }) {
   const { t } = useLingui();
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [pointerOffset, setPointerOffset] = useState<number | null>(null);
   return (
     <TooltipProvider delayDuration={280}>
     <Tooltip open={tooltipOpen && !props.resizing && props.open} onOpenChange={setTooltipOpen}>
@@ -280,6 +281,12 @@ function PanelResizer(props: {
       aria-hidden={!props.open}
       tabIndex={props.open ? 0 : -1}
       onPointerDown={props.onPointerDown}
+      onPointerMove={(event) => {
+        if (event.pointerType === "mouse") setPointerOffset(event.clientY - event.currentTarget.getBoundingClientRect().top);
+      }}
+      onFocus={(event) => {
+        if (event.currentTarget.matches(":focus-visible")) setPointerOffset(null);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -295,7 +302,7 @@ function PanelResizer(props: {
       }}
     />
     </TooltipTrigger>
-    <TooltipContent side="right" sideOffset={8}>
+    <TooltipContent side="right" sideOffset={8} align={pointerOffset === null ? "center" : "start"} alignOffset={pointerOffset ?? 0}>
       <div>{t`Drag to resize`}</div>
       <div>{t`Click to collapse`}</div>
     </TooltipContent>

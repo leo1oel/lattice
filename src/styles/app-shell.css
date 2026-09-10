@@ -350,7 +350,7 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .sidebar-resizer:hover, .sidebar-resizer:focus-visible, body.resizing-panels .sidebar-resizer { background: transparent; box-shadow: none; }
 /* A wide invisible grab strip, but only a hairline of paint. Fade the ends
    clear of the canvas corner; resizing itself stays glued to the pointer. */
-.sidebar-resizer::before { content: ""; position: absolute; inset: 0; background: var(--text-secondary); opacity: 0; pointer-events: none; mask-image: linear-gradient(to bottom, transparent, black var(--space-12), black calc(100% - var(--space-12)), transparent); transition: opacity var(--duration-quick) var(--ease-out); }
+.sidebar-resizer::before { content: ""; position: absolute; inset: var(--space-6) -1px 0 1px; background: var(--text-secondary); opacity: 0; pointer-events: none; mask-image: linear-gradient(to bottom, transparent, black var(--space-12), black calc(100% - var(--space-12)), transparent); transition: opacity var(--duration-quick) var(--ease-out); }
 .sidebar-resizer:hover::before { opacity: .5; }
 .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { opacity: 1; }
 body.resizing-panels .sidebar-resizer::before { transition: none; }

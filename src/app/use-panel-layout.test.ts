@@ -7,7 +7,7 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 function setup() {
-  const hook = renderHook(() => usePanelLayout(180));
+  const hook = renderHook(({ minimum }) => usePanelLayout(minimum), { initialProps: { minimum: 180 } });
   const target = document.createElement("div");
   const begin = (button = 0) => act(() => hook.result.current.beginSidebarResize({
     button, clientX: hook.result.current.sidebarWidth, pointerId: 7,
@@ -25,13 +25,18 @@ it("distinguishes click jitter, real resizing, and unrelated pointer releases", 
   begin(2);
   expect(result.current.sidebarResizing).toBe(false);
   begin();
-  pointer("pointermove", start + 3);
-  pointer("pointerup", start + 3, 8);
+  pointer("pointermove", start + 1);
+  pointer("pointerup", start + 1, 8);
   expect(result.current.sidebarResizing).toBe(true);
-  pointer("pointerup", start + 3);
+  pointer("pointerup", start + 1);
   expect(result.current.sidebarOpen).toBe(false);
   expect(result.current.sidebarWidth).toBe(start);
   act(() => result.current.setSidebarOpen(true));
+  begin();
+  pointer("pointermove", start - 2.5);
+  pointer("pointerup", start - 2.5);
+  expect(result.current.sidebarOpen).toBe(true);
+  expect(result.current.sidebarWidth).toBe(start - 2.5);
   begin();
   pointer("pointermove", start + 37);
   pointer("pointerup", start + 37);
@@ -42,19 +47,26 @@ it("distinguishes click jitter, real resizing, and unrelated pointer releases", 
 it("previews only beyond the collapse threshold, rescues before release, and restores width on reopen", () => {
   const { result, begin, pointer } = setup();
   begin();
-  pointer("pointermove", 124); // Minimum 180 minus the 56px overshoot.
+  pointer("pointermove", 84); // Minimum 180 minus the 96px overshoot.
   expect(result.current.sidebarCollapsePreview).toBe(false);
   expect(result.current.sidebarWidth).toBe(180);
-  pointer("pointermove", 123);
+  pointer("pointermove", 83);
   expect(result.current.sidebarCollapsePreview).toBe(true);
   expect(result.current.sidebarOpen).toBe(true);
+  pointer("pointermove", 100); // Reversing a little must not flicker open.
+  expect(result.current.sidebarCollapsePreview).toBe(true);
+  pointer("pointermove", 132);
+  expect(result.current.sidebarCollapsePreview).toBe(false);
+  expect(result.current.sidebarRestoring).toBe(true);
+  act(() => result.current.finishSidebarRestore());
+  expect(result.current.sidebarRestoring).toBe(false);
   pointer("pointermove", 231);
   expect(result.current.sidebarCollapsePreview).toBe(false);
   pointer("pointerup", 231);
   expect(result.current.sidebarWidth).toBe(231);
   begin();
-  pointer("pointermove", 110);
-  pointer("pointerup", 110);
+  pointer("pointermove", 80);
+  pointer("pointerup", 80);
   expect(result.current.sidebarOpen).toBe(false);
   act(() => result.current.setSidebarOpen(true));
   expect(result.current.sidebarWidth).toBe(231);
@@ -65,10 +77,21 @@ it.each(["pointercancel", "blur"])("cancels a collapse preview on %s without clo
   const { result, begin, pointer } = setup();
   const start = result.current.sidebarWidth;
   begin();
-  pointer("pointermove", 100);
+  pointer("pointermove", 80);
   act(() => window.dispatchEvent(event === "blur" ? new Event(event) : new PointerEvent(event, { pointerId: 7 })));
   expect(result.current.sidebarOpen).toBe(true);
   expect(result.current.sidebarWidth).toBe(start);
   expect(result.current.sidebarCollapsePreview).toBe(false);
   expect(document.body).not.toHaveClass("resizing-panels");
+});
+
+it("uses a new minimum for sizing without moving the active gesture's collapse threshold", () => {
+  const { result, begin, pointer, rerender } = setup();
+  begin();
+  rerender({ minimum: 400 });
+  pointer("pointermove", 290);
+  expect(result.current.sidebarWidth).toBe(400);
+  expect(result.current.sidebarCollapsePreview).toBe(false);
+  pointer("pointerup", 290);
+  expect(result.current.sidebarOpen).toBe(true);
 });
