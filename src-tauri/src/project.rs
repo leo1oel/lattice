@@ -6142,6 +6142,9 @@ const BUILD_ARTIFACT_SUFFIXES: &[&str] = &[
     ".run.xml",
     ".snm",
     ".synctex",
+    // SyncTeX appends `(busy)` while writing, then renames the completed file.
+    ".synctex(busy)",
+    ".synctex.gz(busy)",
     ".toc",
     ".vrb",
     ".xdv",
@@ -7287,6 +7290,38 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(visible, vec!["data.xml", "main.tex", "references.bib"]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn project_refresh_hides_synctex_files_during_compilation() {
+        let root = temp_root("synctex-busy");
+        fs::write(root.join("main.tex"), "\\documentclass{article}\n").unwrap();
+        // A user-owned file containing `(busy)` must remain visible.
+        fs::write(root.join("notes(busy)"), "notes").unwrap();
+        let expected = vec!["main.tex", "notes(busy)"];
+        for suffix in [".synctex", ".synctex.gz"] {
+            let busy = root.join(format!("main{suffix}(busy)"));
+            let finished = root.join(format!("main{suffix}"));
+            fs::write(&busy, "SyncTeX data").unwrap();
+            // Use the same entry point as the desktop's refresh_project command.
+            let snapshot = open(&root).unwrap();
+            let visible: Vec<_> = snapshot
+                .files
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect();
+            assert_eq!(visible, expected, "while writing {suffix}");
+            assert!(busy.exists(), "hiding must not delete the compiler's file");
+            fs::rename(&busy, &finished).unwrap();
+            let snapshot = open(&root).unwrap();
+            let visible: Vec<_> = snapshot
+                .files
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect();
+            assert_eq!(visible, expected, "after finishing {suffix}");
+        }
         fs::remove_dir_all(root).unwrap();
     }
 

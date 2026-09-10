@@ -221,6 +221,36 @@ describe("Navigator / papers", () => {
     expect(input).toHaveValue("graph transformers");
   });
 
+  it("shows download progress until the last loading paper finishes without enabling import cancellation", () => {
+    const { props, rerenderWith } = renderNavigator({
+      importInput: "Adam",
+      paperFetchStates: { first: "loading", second: "loading" },
+      importStageId: "fulltext",
+      importStage: "Downloading full text and figures…",
+    });
+    const input = screen.getByRole("searchbox", { name: "Search or import papers" });
+    expect(input).toHaveAttribute("aria-busy", "true");
+    expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
+    expect(input).toHaveAttribute("readonly");
+    expect(screen.getByTitle("Import paper")).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onImport).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Downloading full text and figures…");
+    expect(document.querySelector(".paper-import-track > span")).toBeInTheDocument();
+    rerenderWith({ paperFetchStates: { first: "success", second: "loading" }, importStageId: "overview", importStage: "Fetching the paper overview…" });
+    expect(screen.getByRole("status")).toHaveTextContent("Fetching the paper overview…");
+    // Failed fetches are removed; successful ones linger briefly for the row checkmark.
+    rerenderWith({ paperFetchStates: { first: "success" } });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(document.querySelector(".paper-import-track")).toBeNull();
+    expect(input).toHaveAttribute("aria-busy", "false");
+    expect(input).not.toHaveAttribute("aria-describedby");
+    expect(input).not.toHaveAttribute("readonly");
+    expect(input).toHaveValue("Adam");
+    expect(screen.getByTitle("Import paper")).toBeEnabled();
+  });
+
   it("ranks a title prefix ahead of metadata and full-text matches", async () => {
     vi.useFakeTimers();
     try {

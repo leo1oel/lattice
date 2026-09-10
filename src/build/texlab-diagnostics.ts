@@ -22,6 +22,15 @@ export function editorTexlabDiagnosticsForFile(
   if (!doc.lines) return [];
   return diagnostics.flatMap((diagnostic) => {
     if (!diagnosticMatchesFile(diagnostic.file, activeFile)) return [];
+    // TexLab can attach box warnings from generated files (e.g. main.bbl)
+    // to the root document with an empty range at its origin. That is not a
+    // source location: keep the diagnostic data, but don't underline the
+    // documentclass command. Other diagnostics at the origin can be real errors.
+    if (
+      diagnostic.line === 1 && diagnostic.column === 1 &&
+      diagnostic.endLine === 1 && diagnostic.endColumn === 1 &&
+      /^(?:Under|Over)full \\[hv]box\b/.test(diagnostic.message)
+    ) return [];
     const startLineNumber = Math.min(Math.max(diagnostic.line ?? 1, 1), doc.lines);
     const endLineNumber = Math.min(Math.max(diagnostic.endLine ?? startLineNumber, 1), doc.lines);
     const startLine = doc.line(startLineNumber);

@@ -551,6 +551,9 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   color: transparent;
   caret-color: transparent;
 }
+.papers-section .import-box .ui-search-field-input[aria-busy="true"]::placeholder {
+  color: transparent;
+}
 .papers-section .paper-import-control[data-importing] .ui-search-field-trailing {
   position: relative;
   z-index: 1;

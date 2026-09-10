@@ -4392,6 +4392,8 @@ describe("project workspace", () => {
   }, 60_000);
 
   it("lists a work that is only cited but does not offer to open it", async () => {
+    let finishFetch!: (value: unknown) => void;
+    const pendingFetch = new Promise((resolve) => { finishFetch = resolve; });
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4418,7 +4420,7 @@ describe("project workspace", () => {
       }
       if (command === "list_history") return [];
       if (command === "fetch_paper") {
-        return { paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", reused: false };
+        return pendingFetch;
       }
       // Importing refreshes the project afterwards.
       if (command === "refresh_project") return snapshot;
@@ -4426,6 +4428,8 @@ describe("project workspace", () => {
     });
 
     renderApp();
+    // Let the lazy workspace finish mounting before switching its sidebar.
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull(), { timeout: 30_000 });
     await switchSidebarMode("Papers");
     const papers = within(await screen.findByRole("list", { name: "Papers" }));
     // Its preprint is known, so the row offers to fetch rather than going dead.
@@ -4443,7 +4447,16 @@ describe("project workspace", () => {
 
     fireEvent.click(citedOnly);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("fetch_paper", { arxivId: "1412.6980" }));
-  });
+    const input = screen.getByRole("searchbox", { name: "Search or import papers" });
+    expect(input).toHaveAttribute("aria-busy", "true");
+    expect(document.querySelector(".paper-import-track")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    await act(async () => {
+      finishFetch({ paperPath: ".research/papers/1412.6980/paper.md", arxivId: "1412.6980", reused: false });
+    });
+    await waitFor(() => expect(input).toHaveAttribute("aria-busy", "false"));
+    expect(document.querySelector(".paper-import-track")).toBeNull();
+  }, 60_000);
 
   it("warns about DOI-exact citation updates and opens the Crossref notice", async () => {
     const snapshot = {

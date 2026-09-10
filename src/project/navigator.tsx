@@ -1466,7 +1466,8 @@ export function Navigator(props: {
   recentImport?: { query: string; citationKey?: string; arxivId: string } | null;
 }) {
   const { t } = useLingui();
-  const importFillRef = usePaperImportProgressFill(props.mode === "papers" && props.importing, props.importStageId);
+  const paperProgressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
+  const importFillRef = usePaperImportProgressFill(props.mode === "papers" && paperProgressActive, props.importStageId);
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const paperViewportRef = useRef<HTMLDivElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();
@@ -1595,22 +1596,22 @@ export function Navigator(props: {
         />
       </div>}
       {props.mode === "papers" && <div className="navigator-section papers-section">
-        <div className="paper-import-control" data-importing={props.importing || undefined}>
+        <div className="paper-import-control" data-importing={paperProgressActive || undefined}>
           <SearchField
             ref={paperImportRef}
             aria-label={t`Search or import papers`}
-            aria-busy={props.importing}
-            readOnly={props.importing}
-            title={props.importing ? props.importStage ?? t`Working…` : undefined}
-            aria-describedby={props.importing ? "paper-import-status" : undefined}
+            aria-busy={paperProgressActive}
+            readOnly={paperProgressActive}
+            title={paperProgressActive ? props.importStage ?? t`Working…` : undefined}
+            aria-describedby={paperProgressActive ? "paper-import-status" : undefined}
             containerClassName="import-box"
             controlSize="compact"
             placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
-            onClear={props.importing ? undefined : () => props.setImportInput("")}
+            onClear={paperProgressActive ? undefined : () => props.setImportInput("")}
             onKeyDown={(event) => {
-              if (event.key !== "Enter" || props.importing) return;
+              if (event.key !== "Enter" || paperProgressActive) return;
               const localMatch = filteredPapers[0];
               if (localMatch) activatePaper(localMatch);
               else props.onImport();
@@ -1619,7 +1620,7 @@ export function Navigator(props: {
             trailing={(
               <button
                 onClick={props.importing ? props.onCancelImport : importOrOpenPaper}
-                disabled={!props.importing && !props.importInput.trim()}
+                disabled={!props.importing && (paperProgressActive || !props.importInput.trim())}
                 title={props.importing ? t`Cancel` : t`Import paper`}
                 aria-label={props.importing ? t`Cancel` : undefined}
               >
@@ -1627,7 +1628,7 @@ export function Navigator(props: {
               </button>
             )}
           />
-          {props.importing && (
+          {paperProgressActive && (
             <>
               <div className="paper-import-track" aria-hidden="true">
                 <span ref={importFillRef} style={{ width: "0%" }} />
