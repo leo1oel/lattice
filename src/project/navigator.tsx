@@ -37,6 +37,9 @@ import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { SearchField } from "../components/ui/search-field";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import fluidHoverCSS from "../components/ui/fluid-hover.css?inline";
+import { ProjectTreeHover } from "./project-tree-hover";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
@@ -174,6 +177,13 @@ function findPierreItemPath(event: { nativeEvent: Event }): string | null {
 }
 
 const PIERRE_TREE_CSS = `
+${fluidHoverCSS}
+/* The virtual window is already positioned; its sticky offsets must retain
+   Pierre's scroll model rather than the generic surface's relative default. */
+[data-file-tree-virtualized-sticky="true"].fluid-hover-surface {
+  position: sticky;
+}
+
 :host {
   display: block;
   min-height: 0;
@@ -1262,7 +1272,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           menu.style.left = `${Math.min(Math.max(viewportInset, menuLeft), maxLeft)}px`;
           menu.style.top = `${Math.min(Math.max(viewportInset, menuTop), maxTop)}px`;
         }}
-        className="file-tree-context-menu"
+        className="file-tree-context-menu fluid-hover-surface popup-motion"
         data-file-tree-context-menu-root="true"
         role="menu"
         style={{
@@ -1272,6 +1282,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           zIndex: "var(--z-radix-popper)",
         }}
       >
+        <FluidHoverSurface />
         <button role="menuitem" onClick={() => closeThen(context, () => beginInlineCreate(targetDirectory, "file"))}>
           <FilePlus size={14} />{t`New file`}
         </button>
@@ -1392,6 +1403,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
             }}
           />
           <ExternalScrollbar getViewport={getTreeScrollViewport} />
+          <ProjectTreeHover getViewport={getTreeScrollViewport} />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
@@ -1629,9 +1641,11 @@ export function Navigator(props: {
           className="paper-list"
           viewportRef={paperViewportRef}
           orientation="both"
-          contentClassName="paper-list-content"
+          // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS classes, not UI copy.
+          contentClassName="paper-list-content fluid-hover-surface"
           viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
+          <FluidHoverSurface selector=".paper-row" preserveSelection />
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;

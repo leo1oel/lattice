@@ -29,7 +29,7 @@
 .pdf-zoom-value span { position: absolute; right: 8px; width: 7px; text-align: left; pointer-events: none; }
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; background: var(--border-strong); }
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
-.pdf-search { min-width: 0; padding-right: var(--space-2); gap: var(--gap-tight); }
+.pdf-search { min-width: 0; padding-right: var(--space-2); }
 .pdf-search.disabled { opacity: .52; }
 .pdf-search small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .pdf-search .pdf-search-position { min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }

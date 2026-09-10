@@ -4,7 +4,7 @@ import { useFluidHover } from "./use-fluid-hover";
 import "./fluid-hover.css";
 
 const menuItems = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]';
-const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading]';
+const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading], .settings-nav-group-label';
 
 /**
  * Visual-only bridge for existing Radix and app lists. The primitive still
@@ -13,7 +13,7 @@ const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading
  * rather than wrapping them, which would break Radix's asChild/collection API.
  * Mount inside a positioned `fluid-hover-surface`, in the scrolling viewport.
  */
-export function FluidHoverSurface({ selector = menuItems }: { selector?: string }) {
+export function FluidHoverSurface({ selector = menuItems, preserveSelection = false }: { selector?: string; preserveSelection?: boolean }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const hover = useFluidHover(containerRef, { gapClick: false });
   const { registerItem, setActiveIndex, sessionRef, remeasure } = hover;
@@ -49,7 +49,9 @@ export function FluidHoverSurface({ selector = menuItems }: { selector?: string 
     const move = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") return;
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>(selector) : null;
-      if (!target || !owns(target) || target.matches(':disabled, [data-disabled]:not([data-disabled="false"]), [aria-disabled="true"], [data-variant="destructive"], [role="tab"][aria-selected="true"]')) {
+      if (event.buttons || !target || !owns(target)
+        || target.matches(':disabled, [data-disabled]:not([data-disabled="false"]), [aria-disabled="true"], [data-variant="destructive"], .destructive')
+        || (preserveSelection && target.matches('.active, [aria-current="page"], [data-item-selected="true"]'))) {
         clear();
         return;
       }
@@ -70,14 +72,21 @@ export function FluidHoverSurface({ selector = menuItems }: { selector?: string 
     // Filtering, asynchronous items and force-mounted popups can change the
     // collection without mounting this bridge again. Ignore our own attributes
     // and the animated overlay's style writes to avoid observer feedback.
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((records) => {
       syncItems();
+      // Virtualizers can reuse the same row nodes for different paths.
+      if (records.some((record) => record.attributeName === "data-item-path")) {
+        clear();
+        remeasure();
+      }
     });
-    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden"] });
+    observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "data-item-path"] });
     container.addEventListener("pointermove", move);
     container.addEventListener("pointerdown", clear);
     container.addEventListener("pointerleave", clear);
-    container.addEventListener("scroll", clear, true);
+    // ScrollArea and virtual trees put the scroll owner ABOVE the row scope.
+    const eventRoot = container.getRootNode();
+    eventRoot.addEventListener("scroll", clear, true);
     container.addEventListener("pointerenter", remeasure);
     // Keyboard navigation immediately returns to the primitive's focus/selected
     // background, even for listboxes whose focus stays in a sibling search box.
@@ -87,7 +96,7 @@ export function FluidHoverSurface({ selector = menuItems }: { selector?: string 
       container.removeEventListener("pointermove", move);
       container.removeEventListener("pointerdown", clear);
       container.removeEventListener("pointerleave", clear);
-      container.removeEventListener("scroll", clear, true);
+      eventRoot.removeEventListener("scroll", clear, true);
       container.removeEventListener("pointerenter", remeasure);
       container.ownerDocument.removeEventListener("keydown", clear, true);
       items.forEach((item, i) => {
@@ -95,7 +104,7 @@ export function FluidHoverSurface({ selector = menuItems }: { selector?: string 
         item.removeAttribute("data-fluid-hover-item");
       });
     };
-  }, [registerItem, remeasure, selector, sessionRef, setActiveIndex]);
+  }, [registerItem, remeasure, selector, preserveSelection, sessionRef, setActiveIndex]);
 
   useEffect(() => {
     const container = containerRef.current;

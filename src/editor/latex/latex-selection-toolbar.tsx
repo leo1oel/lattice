@@ -16,6 +16,7 @@ import { Tip } from "../../components/icon-tip";
 import { AppleColorPicker } from "../../components/ui/apple-color-picker";
 import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
+import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 
 export type LatexSelectionAction =
   | "bold"
@@ -137,7 +138,8 @@ export function LatexSelectionToolbar(props: {
             <Tip label="Heading level" side="top">
               <PopoverTrigger asChild><button type="button" aria-label="Heading level"><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu">
+            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu fluid-hover-surface">
+              <FluidHoverSurface selector=".heading-menu > button" />
               {headingLevels.map(([label, command]) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{label}</span><code>\{command}</code></button>)}
             </PopoverContent>
           </Popover>

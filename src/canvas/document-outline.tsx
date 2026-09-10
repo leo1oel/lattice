@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { Tip } from "../components/icon-tip";
 import type { OutlineNode } from "../editor/latex/latex-outline";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 function OutlineBranch({
   nodes,
@@ -55,7 +56,8 @@ export function DocumentOutline(props: {
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="start" sideOffset={7} className="document-outline-popover" aria-label={t`Document outline`}>
+      <PopoverContent align="start" sideOffset={7} className="document-outline-popover fluid-hover-surface" aria-label={t`Document outline`}>
+        <FluidHoverSurface selector=".document-outline-list button" preserveSelection />
         <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
           ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={props.onSelect} />

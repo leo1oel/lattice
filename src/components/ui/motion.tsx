@@ -15,11 +15,9 @@ import {
   MAGNET_SPRING,
   POP_SPRING,
   PRESS_SPRING,
-  SETTLE_SPRING,
   spring,
   springExit,
 } from "./motion-values";
-import { FluidHoverSurface } from "./fluid-hover-surface";
 import "./motion.css";
 
 type MotionButtonProps = HTMLMotionProps<"button"> & {
@@ -193,8 +191,7 @@ export function SlidingTabs(props: {
   const pillId = useId();
   const reduceMotion = useReducedMotion();
   return (
-    <div className={`sliding-tabs fluid-hover-surface${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
-      <FluidHoverSurface selector='[role="tab"]' />
+    <div className={`sliding-tabs${props.className ? ` ${props.className}` : ""}`} role="tablist" aria-label={props.ariaLabel}>
       {props.items.map((item, index) => {
         const selected = item.value === props.value;
         return (
@@ -228,7 +225,7 @@ export function SlidingTabs(props: {
                 aria-hidden
                 className={props.variant === "underline" ? "sliding-tab-underline" : "sliding-tab-pill"}
                 layoutId={reduceMotion ? undefined : `${pillId}-pill`}
-                transition={reduceMotion ? { duration: 0 } : SETTLE_SPRING}
+                transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26, mass: 1 }}
               />
             )}
             <span className="sliding-tab-label">{item.label}</span>

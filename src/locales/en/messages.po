@@ -325,6 +325,10 @@ msgstr "Agent"
 msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
 msgstr "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "Agent permissions: {label}"
+msgstr "Agent permissions: {label}"
+
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
 msgid "Agent task: {0}"
@@ -466,6 +470,10 @@ msgstr "Applies to the LaTeX source editor only"
 msgid "Apply this update"
 msgstr "Apply this update"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "Approve for me"
+msgstr "Approve for me"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
@@ -490,6 +498,18 @@ msgstr "Article"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "Ask before deleting"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask before external edits and network access"
+msgstr "Ask before external edits and network access"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask for approval"
+msgstr "Ask for approval"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask only for potentially unsafe actions"
+msgstr "Ask only for potentially unsafe actions"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Asterisk operator"
@@ -1071,6 +1091,10 @@ msgstr "Click Paper to read the full text"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Click Papers"
 msgstr "Click Papers"
+
+#: src/app/app-workspace-sidebar.tsx
+msgid "Click to collapse"
+msgstr "Click to collapse"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
@@ -1697,6 +1721,10 @@ msgstr "Downloading full text and figures…"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "Drag to resize"
+msgstr "Drag to resize"
+
 #: src/canvas/document-canvas.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
@@ -2133,6 +2161,10 @@ msgstr "Fraction"
 #: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
 msgstr "Frown relation"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Full access"
+msgstr "Full access"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gamma"
@@ -4737,6 +4769,10 @@ msgstr "Run TeX doctor"
 #: src/settings/settings-dialog.tsx
 msgid "Run the doctor to inspect this Mac’s TeX toolchain"
 msgstr "Run the doctor to inspect this Mac’s TeX toolchain"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Run without asking for approval"
+msgstr "Run without asking for approval"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"

@@ -23,6 +23,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { SearchField } from "../components/ui/search-field";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 export type ResolvedCitationDraft = {
   key: string;
@@ -334,7 +335,8 @@ export function BibEntryDialog(props: {
                   onBlur={() => setVenueOpen(false)}
                 />
                 {venueOpen && venueMatches.length > 0 && (
-                  <div className={`venue-menu ${popupMotionClassName}`} role="listbox">
+                  <div className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
+                    <FluidHoverSurface />
                     {venueMatches.map((item) => (
                       <button
                         key={item.name}

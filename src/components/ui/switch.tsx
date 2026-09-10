@@ -96,9 +96,9 @@ export function Switch({
         className={cn("ui-switch-thumb", thumbStyleProps.className)}
         style={{ transformOrigin: checked ? "right center" : "left center" }}
         variants={{
-          rest: { x: checked ? 10 : 0, scaleX: 1, scaleY: 1 },
-          hover: { x: checked ? 10 : 0, scaleX: 1.2, scaleY: 1 },
-          press: { x: checked ? 10 : 0, scaleX: 1.4, scaleY: 0.8 },
+          rest: { x: checked ? 12 : 0, scaleX: 1, scaleY: 1 },
+          hover: { x: checked ? 12 : 0, scaleX: 1.2, scaleY: 1 },
+          press: { x: checked ? 12 : 0, scaleX: 1.4, scaleY: 0.8 },
         }}
         transition={reduceMotion ? { duration: 0 } : spring.moderate}
       />

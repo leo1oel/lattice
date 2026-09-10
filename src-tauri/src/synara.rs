@@ -40,6 +40,38 @@ const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
     "(deny file-write* (regex #\".*[.][bB][iI][bB]$\"))",
 );
 
+#[cfg(target_os = "macos")]
+fn prepare_process_inspector(home: &Path) -> Result<PathBuf, String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Seatbelt refuses exec of the system setuid ps, even with allow-default.
+    // Inspecting our own provider processes needs no elevated privileges. Copy
+    // the installed OS binary without setuid; do not weaken the .bib sandbox or
+    // treat a failed process snapshot as proof that a provider has exited.
+    let directory = home.join("process-tools");
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Could not prepare process tools: {error}"))?;
+    let temporary = directory.join(format!("ps-{}", uuid::Uuid::new_v4()));
+    let destination = directory.join("ps");
+    let result = (|| -> std::io::Result<()> {
+        let mut source = File::open("/bin/ps")?;
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        std::io::copy(&mut source, &mut output)?;
+        output.set_permissions(fs::Permissions::from_mode(0o755))?;
+        fs::rename(&temporary, &destination)
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!(
+            "Could not prepare unprivileged process inspector: {error}"
+        ));
+    }
+    Ok(destination)
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SynaraRuntimeInfo {
@@ -347,7 +379,11 @@ impl SynaraRuntime {
             command
                 .arg("-p")
                 .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
-                .arg(&self.javascript_runtime_path);
+                .arg(&self.javascript_runtime_path)
+                .env(
+                    "SYNARA_PROCESS_PS_PATH",
+                    prepare_process_inspector(&self.home_dir)?,
+                );
             command
         };
         #[cfg(not(target_os = "macos"))]
@@ -1002,6 +1038,28 @@ mod tests {
             command.arg(arg);
         }
         command.status().expect("run sandboxed command").success()
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn bibliography_sandbox_can_inspect_provider_processes_without_setuid() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let home =
+            std::env::temp_dir().join(format!("lattice-process-tools-{}", uuid::Uuid::new_v4()));
+        let inspector = super::prepare_process_inspector(&home).unwrap();
+        assert_eq!(
+            fs::metadata(&inspector).unwrap().permissions().mode() & 0o7777,
+            0o755
+        );
+        assert_eq!(fs::read(&inspector).unwrap(), fs::read("/bin/ps").unwrap());
+        assert!(run_bibliography_sandbox(
+            "sleep 30 & child=$!; trap 'kill $child 2>/dev/null; wait $child 2>/dev/null' EXIT; observed=$(\"$1\" -p \"$child\" -o pid= | tr -d ' '); test \"$observed\" = \"$child\"",
+            &[&inspector],
+        ));
+        // A subsequent launch atomically refreshes from the installed OS binary.
+        assert_eq!(super::prepare_process_inspector(&home).unwrap(), inspector);
+        fs::remove_dir_all(home).unwrap();
     }
 
     #[test]

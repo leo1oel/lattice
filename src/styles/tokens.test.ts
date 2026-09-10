@@ -287,6 +287,10 @@ describe("design token contract", () => {
     const offenders: string[] = []
     for (const { file, rules } of sources) {
       if (file.endsWith("foundations.css")) continue
+      // Fluid Functionalism's installed size ladder is an upstream token
+      // definition, like foundations. Keep it unmodified; app compositions
+      // still use our typography tokens rather than adding raw sizes.
+      if (file === "src/lib/size-context.tsx") continue
       for (const match of rules.matchAll(RAW_SIZE)) {
         offenders.push(`${file}: ${match[0]}`)
       }
@@ -346,8 +350,8 @@ describe("design token contract", () => {
   it("keeps host CSS out of the embedded Synara document", () => {
     // The iframe is a hard boundary: the host may size and frame it, never style
     // through it. Anything past the frame travels over the bridge instead.
-    expect(appCss).not.toMatch(/iframe\s+(?:[.#a-z]|\[)/)
-    expect(appCss).not.toMatch(/\.synara-[a-z-]*\s+\.(?!synara)/)
+    expect(stripComments(appCss)).not.toMatch(/iframe\s+(?:[.#a-z]|\[)/)
+    expect(stripComments(appCss)).not.toMatch(/\.synara-[a-z-]*\s+\.(?!synara)/)
   })
 
   it("keeps the embedded Synara surface visible while panels resize", () => {

@@ -14,6 +14,7 @@ import { BookOpen } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { PaperSummary } from "../../app-types";
 import { paperLinkHref } from "../../papers/paper-link";
+import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 
 const MAX_ITEMS = 8;
 const suggestionKey = new PluginKey("visualPaperCitationSuggestion");
@@ -59,7 +60,8 @@ function VisualPaperCitationMenu({ items, selectedIndex, idBase, onSelect, onHov
     );
   }
   return (
-    <div ref={containerRef} id={idBase} role="listbox" aria-label="Paper citation suggestions" aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+    <div ref={containerRef} id={idBase} role="listbox" aria-label="Paper citation suggestions" aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+      <FluidHoverSurface />
       <span className="sr-only" aria-live="polite" aria-atomic="true">{items[selectedIndex]?.title}</span>
       {items.map((item, index) => {
         const active = index === selectedIndex;

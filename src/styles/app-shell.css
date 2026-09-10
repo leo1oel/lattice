@@ -324,10 +324,17 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
-.workspace { flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; background: var(--surface-sidebar); }
+.workspace { flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; background: var(--surface-sidebar); transition: grid-template-columns var(--duration-slow) var(--ease-emphasized); }
+.workspace[data-sidebar-tracking] { transition: none; }
 .workspace > * { min-width: 0; }
 .navigator { min-width: 0; }
 .shared-sidebar { position: relative; grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); container-type: inline-size; }
+/* Keep the iframe and file tree at their real width while the grid closes its
+   clipping column. Reopening does not remount the assistant or squeeze rows. */
+.workspace-sidebar-content { position: relative; height: 100%; flex: none; display: flex; flex-direction: column; transform: translateX(0); transition: transform var(--duration-slow) var(--ease-emphasized); }
+.sidebar-hidden .workspace-sidebar-content { transform: translateX(-100%); }
+.workspace[data-sidebar-tracking] .workspace-sidebar-content { transition: none; }
+.sidebar-hidden .sidebar-resizer { visibility: hidden; }
 .sidebar-pane { min-width: 0; min-height: 0; flex: 1; display: flex; overflow: hidden; }
 .sidebar-pane[hidden] { display: none; }
 .sidebar-pane:not([hidden]) { animation: sidebar-pane-in var(--duration-base) var(--ease-emphasized); }
@@ -341,8 +348,15 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .panel-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .panel-resizer:hover, .panel-resizer:focus-visible, body.resizing-panels .panel-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 .sidebar-resizer:hover, .sidebar-resizer:focus-visible, body.resizing-panels .sidebar-resizer { background: transparent; box-shadow: none; }
-.sidebar-resizer::before { content: ""; position: absolute; top: 10px; bottom: 0; left: 0; width: 1px; background: transparent; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
-.sidebar-resizer:hover::before, .sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
+/* A wide invisible grab strip, but only a hairline of paint. Fade the ends
+   clear of the canvas corner; resizing itself stays glued to the pointer. */
+.sidebar-resizer::before { content: ""; position: absolute; inset: 0; background: var(--text-secondary); opacity: 0; pointer-events: none; mask-image: linear-gradient(to bottom, transparent, black var(--space-12), black calc(100% - var(--space-12)), transparent); transition: opacity var(--duration-quick) var(--ease-out); }
+.sidebar-resizer:hover::before { opacity: .5; }
+.sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { opacity: 1; }
+body.resizing-panels .sidebar-resizer::before { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .workspace, .workspace-sidebar-content, .sidebar-resizer::before { transition: none; }
+}
 body.resizing-panels { cursor: col-resize; user-select: none; }
 .navigator { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-mode-header { position: relative; height: var(--navigation-header-height); flex: none; padding: 5px var(--space-4) 5px var(--space-6); display: flex; align-items: center; gap: var(--space-4); }
@@ -476,8 +490,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .synara-loading-surface > button:hover { background: var(--border-subtle); }
 .agent-permission-trigger:focus { box-shadow: none; }
 .agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: 5px; width: 292px; padding: var(--surface-inset); border-radius: var(--surface-radius); background: var(--editor-bg); }
-.agent-permission-menu [data-slot="dropdown-menu-radio-item"] { min-height: 42px; padding: 5px var(--space-4); gap: var(--space-5); border-radius: var(--nested-radius); font-family: var(--ui-font); }
-.agent-permission-menu [data-slot="dropdown-menu-radio-item"] > span:first-child { display: none; }
+.agent-permission-option { position: relative; }
+.agent-permission-option[data-disabled] { opacity: var(--control-disabled-opacity); }
+.agent-permission-radio { height: 50px; align-items: flex-start; padding: var(--space-4) var(--space-5); font-family: var(--ui-font); }
+.agent-permission-radio > div:first-child { align-self: center; }
+.agent-permission-menu [data-slot="fluid-hover-highlight"] { background: var(--control-hover-surface); }
+.agent-permission-radio[aria-disabled] { cursor: default; pointer-events: none; }
+.agent-permission-description { position: absolute; top: 27px; left: calc(var(--space-5) + var(--space-8) + var(--space-4)); right: var(--space-5); pointer-events: none; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.3; white-space: nowrap; }
 .ui-radio-dot {
   position: relative;
   width: 15px;
@@ -516,9 +535,6 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
-.agent-permission-copy { min-width: 0; display: flex; flex-direction: column; gap: var(--gap-hairline); }
-.agent-permission-copy strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; line-height: 1.25; }
-.agent-permission-copy small { color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.3; white-space: nowrap; }
 .navigator-section { min-height: 0; padding: var(--space-5); }
 .project-section { flex: 1; padding: 7px var(--space-5) var(--space-3); display: flex; flex-direction: column; overflow: hidden; }
 .papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-6) 0; overflow: hidden; }

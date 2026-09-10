@@ -20,6 +20,27 @@ function move(element: Element, pointerType = "mouse") {
 }
 
 describe("FluidHoverSurface", () => {
+  it("preserves sidebar selection and clears recycled tree rows and drag gestures", async () => {
+    render(<div className="fluid-hover-surface">
+      <FluidHoverSurface selector="button" preserveSelection />
+      <button aria-current="page">Selected</button>
+      <button data-item-path="old.tex">File</button>
+    </div>);
+    const selected = screen.getByText("Selected");
+    const file = screen.getByText("File");
+    move(selected);
+    expect(selected).not.toHaveAttribute("data-fluid-hover-active");
+    move(file);
+    expect(file).toHaveAttribute("data-fluid-hover-active");
+    await act(async () => { file.setAttribute("data-item-path", "new.tex"); });
+    expect(file).not.toHaveAttribute("data-fluid-hover-active");
+    move(file);
+    const drag = new MouseEvent("pointermove", { bubbles: true, buttons: 1 });
+    Object.defineProperty(drag, "pointerType", { value: "mouse" });
+    fireEvent(file, drag);
+    expect(file).not.toHaveAttribute("data-fluid-hover-active");
+  });
+
   it("moves one measured fill without taking focus or forwarding whitespace clicks", async () => {
     const onClick = vi.fn();
     const { container } = render(<div className="fluid-hover-surface">

@@ -528,6 +528,7 @@ describe("panel layout", () => {
     act(() => {
       result.current.beginSidebarResize({
         preventDefault: vi.fn(),
+        button: 0,
         clientX: 320,
         pointerId: 1,
         currentTarget: target,
@@ -536,7 +537,8 @@ describe("panel layout", () => {
     rerender({ minimum: 300 });
     const move = new Event("pointermove") as PointerEvent;
     Object.defineProperties(move, {
-      clientX: { value: 100 },
+      // Below the new minimum, but above the intentional collapse threshold.
+      clientX: { value: 260 },
       pointerId: { value: 1 },
     });
     act(() => window.dispatchEvent(move));
@@ -1011,7 +1013,7 @@ describe("welcome screen", () => {
       button: 0,
     });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Providers" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Providers" }, { timeout: 10_000 }));
     const frame = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>(
         'iframe[title="Synara Providers settings"]',
@@ -1064,6 +1066,50 @@ describe("welcome screen", () => {
       }));
     });
     await waitFor(() => expect(settingsViewport.scrollTop).toBe(2_130));
+
+    // Skills replaces a list with a detail page, unlike the disclosure above.
+    // The iframe does not own the scroll in embed mode: navigation must reset
+    // this host viewport, including when detail content arrives asynchronously.
+    fireEvent.click(screen.getByRole("button", { name: "Skills" }));
+    const skillsFrame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Synara Skills settings"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    let scrollTop = 0;
+    Object.defineProperties(settingsViewport, {
+      scrollHeight: { configurable: true, get: () => Number.parseInt(skillsFrame.style.height, 10) },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => { scrollTop = Math.max(0, Math.min(value, settingsViewport.scrollHeight - 470)); },
+      },
+    });
+    const message = (data: object) => act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: skillsFrame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { section: "skills", ...data },
+      }));
+    });
+    const settle = () => act(() => new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    }));
+    message({ type: "synara:settings-content-height", height: 2_400 });
+    await settle();
+    settingsViewport.scrollTop = 615;
+    message({ type: "synara:settings-navigation", view: "detail" });
+    message({ type: "synara:settings-content-height", height: 470 });
+    await settle();
+    message({ type: "synara:settings-content-height", height: 1_600 });
+    await settle();
+    expect(settingsViewport.scrollTop).toBe(0);
+    message({ type: "synara:settings-content-height", height: 470 });
+    message({ type: "synara:settings-navigation", view: "list" });
+    await settle();
+    message({ type: "synara:settings-content-height", height: 2_400 });
+    await settle();
+    expect(settingsViewport.scrollTop).toBe(615);
   });
 
   it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
@@ -3761,7 +3807,9 @@ describe("project workspace", () => {
     await switchSidebarMode("Agent");
     expect(divider).toHaveAttribute("aria-valuenow", "424");
 
-    const splitDivider = screen.getByRole("separator", { name: "Resize editor and PDF preview" });
+    // This test can run alone with a cold lazy canvas; sidebar controls mount
+    // before its editor modules finish loading.
+    const splitDivider = await screen.findByRole("separator", { name: "Resize editor and PDF preview" }, { timeout: 15_000 });
     expect(splitDivider.closest(".split-canvas")).toHaveAttribute(
       "data-minimum-workspace-width",
       "901",
@@ -3834,13 +3882,24 @@ describe("project workspace", () => {
     // limit, including updates that arrive while the pointer is still down.
     reportMinimum(280);
     fireEvent.pointerDown(divider, { clientX: 320 });
-    fireEvent.pointerMove(window, { clientX: 100 });
+    fireEvent.pointerMove(window, { clientX: 250 });
     expect(divider).toHaveAttribute("aria-valuenow", "280");
     reportMinimum(240);
-    fireEvent.pointerMove(window, { clientX: 90 });
+    fireEvent.pointerMove(window, { clientX: 220 });
     expect(divider).toHaveAttribute("aria-valuenow", "240");
     fireEvent.pointerUp(window);
     expect(divider).toHaveAttribute("aria-valuenow", "240");
+
+    // A click closes the column, but keeps the live assistant document mounted.
+    fireEvent.pointerDown(divider, { clientX: 240 });
+    fireEvent.pointerUp(window);
+    expect(screen.queryByRole("separator", { name: "Resize workspace sidebar" })).toBeNull();
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(agentFrame);
+    expect(agentFrame.closest(".shared-sidebar")).toHaveAttribute("inert");
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+    expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBe(divider);
+    expect(divider).toHaveAttribute("aria-valuenow", "240");
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(agentFrame);
   });
 
   it("automatically refreshes the project tree when files appear on disk", async () => {

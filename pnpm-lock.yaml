@@ -296,6 +296,9 @@ importers:
       exceljs:
         specifier: 4.4.0
         version: 4.4.0
+      framer-motion:
+        specifier: ^12.43.0
+        version: 12.43.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       frimousse:
         specifier: ^0.3.0
         version: 0.3.0(react@19.2.7)(typescript@5.8.3)

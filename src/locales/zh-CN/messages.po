@@ -325,6 +325,10 @@ msgstr "智能助手"
 msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
 msgstr "Agent 可以读取你的论文、笔记、文献、电子表格和 Open Slide 演示文稿。你可以让它起草文本、根据来源核实论点、分析结果、制作幻灯片，或修改项目中的文件"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "Agent permissions: {label}"
+msgstr "智能助手权限：{label}"
+
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
 msgid "Agent task: {0}"
@@ -466,6 +470,10 @@ msgstr "仅应用于 LaTeX 源码编辑器"
 msgid "Apply this update"
 msgstr "应用此更新"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "Approve for me"
+msgstr "代我批准"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Approve the macOS prompt to continue"
@@ -490,6 +498,18 @@ msgstr "期刊论文"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "删除前询问"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask before external edits and network access"
+msgstr "在外部修改和网络访问前请求批准"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask for approval"
+msgstr "请求批准"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Ask only for potentially unsafe actions"
+msgstr "仅对可能不安全的操作请求批准"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Asterisk operator"
@@ -1071,6 +1091,10 @@ msgstr "点击“论文”阅读全文"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Click Papers"
 msgstr "点击“论文”"
+
+#: src/app/app-workspace-sidebar.tsx
+msgid "Click to collapse"
+msgstr "点击收起侧栏"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
@@ -1697,6 +1721,10 @@ msgstr "正在下载全文和图片…"
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "Drag to resize"
+msgstr "拖拽调整宽度"
+
 #: src/canvas/document-canvas.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入"
@@ -2133,6 +2161,10 @@ msgstr "分式"
 #: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
 msgstr "下弧关系"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Full access"
+msgstr "完全访问"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gamma"
@@ -4735,6 +4767,10 @@ msgstr "运行 TeX 诊断"
 #: src/settings/settings-dialog.tsx
 msgid "Run the doctor to inspect this Mac’s TeX toolchain"
 msgstr "运行诊断以检查这台 Mac 上的 TeX 工具链"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "Run without asking for approval"
+msgstr "无需请求批准即可运行"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"

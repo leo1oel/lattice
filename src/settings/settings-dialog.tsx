@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
@@ -83,6 +84,7 @@ const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
 const LATTICE_SETTINGS_SECTION_SET = "lattice:set-settings-section";
 const SYNARA_SETTINGS_CONTENT_HEIGHT = "synara:settings-content-height";
 const SYNARA_SETTINGS_WHEEL = "synara:settings-wheel";
+const SYNARA_SETTINGS_NAVIGATION = "synara:settings-navigation";
 const SYNARA_OPEN_EXTERNAL = "synara:open-external";
 const SYNARA_SHOW_IN_FOLDER = "synara:show-in-folder";
 const SYNARA_EMBED_READY = "synara:embed-ready";
@@ -176,6 +178,13 @@ export function SettingsDialog(props: {
   const synaraSettingsFrameHeightRef = useRef(470);
   const settingsBottomPinFrameRef = useRef<number | null>(null);
   const settingsTopResetFrameRef = useRef<number | null>(null);
+  const settingsNavigationFrameRef = useRef<number | null>(null);
+  const synaraSettingsListScrollRef = useRef<Record<string, number>>({});
+  const synaraSettingsDetailSectionsRef = useRef(new Set<string>());
+  const synaraSettingsPendingRestoreRef = useRef<{
+    key: string;
+    top: number;
+  } | null>(null);
   const [synaraSettingsFrameHeight, setSynaraSettingsFrameHeight] = useState(470);
   const [readySynaraSettingsUrl, setReadySynaraSettingsUrl] = useState<string | null>(null);
   const [projectWordDraft, setProjectWordDraft] = useState("");
@@ -294,6 +303,8 @@ export function SettingsDialog(props: {
       window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
       settingsBottomPinFrameRef.current = null;
     }
+    synaraSettingsDetailSectionsRef.current.clear();
+    synaraSettingsPendingRestoreRef.current = null;
     const nextHeight = synaraSettingsHeightKey
       ? (synaraSettingsHeightsRef.current[synaraSettingsHeightKey] ?? 470)
       : 470;
@@ -345,6 +356,9 @@ export function SettingsDialog(props: {
       if (settingsTopResetFrameRef.current !== null) {
         window.cancelAnimationFrame(settingsTopResetFrameRef.current);
       }
+      if (settingsNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(settingsNavigationFrameRef.current);
+      }
     },
     [],
   );
@@ -371,9 +385,11 @@ export function SettingsDialog(props: {
           const previousHeight = synaraSettingsFrameHeightRef.current;
           const viewport = settingsViewportRef.current;
           const keepPinnedToBottom = Boolean(
-            viewport
-            && height > previousHeight
-            && isSettingsViewportNearBottom(viewport),
+            viewport &&
+            height > previousHeight &&
+            !synaraSettingsDetailSectionsRef.current.has(heightKey) &&
+            synaraSettingsPendingRestoreRef.current?.key !== heightKey &&
+            isSettingsViewportNearBottom(viewport),
           );
           synaraSettingsFrameHeightRef.current = height;
           // Height and wheel messages from the iframe are ordered, but a React
@@ -386,20 +402,94 @@ export function SettingsDialog(props: {
             active: true,
           });
           setSynaraSettingsFrameHeight(height);
+          const pendingRestore = synaraSettingsPendingRestoreRef.current;
+          if (pendingRestore?.key === heightKey) {
+            if (settingsNavigationFrameRef.current !== null) {
+              window.cancelAnimationFrame(settingsNavigationFrameRef.current);
+            }
+            settingsNavigationFrameRef.current = window.requestAnimationFrame(
+              () => {
+                settingsNavigationFrameRef.current = null;
+                const currentViewport = settingsViewportRef.current;
+                if (!currentViewport) return;
+                currentViewport.scrollTop = pendingRestore.top;
+                if (
+                  Math.abs(currentViewport.scrollTop - pendingRestore.top) <= 1
+                ) {
+                  synaraSettingsPendingRestoreRef.current = null;
+                }
+              },
+            );
+          }
           if (keepPinnedToBottom) {
             // A disclosure expanding at the old bottom otherwise leaves the
             // scrollbar there, with the newly added controls below the viewport.
             if (settingsBottomPinFrameRef.current !== null) {
               window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
             }
-            settingsBottomPinFrameRef.current = window.requestAnimationFrame(() => {
-              settingsBottomPinFrameRef.current = null;
-              const currentViewport = settingsViewportRef.current;
-              if (currentViewport) {
-                currentViewport.scrollTop = currentViewport.scrollHeight;
-              }
-            });
+            settingsBottomPinFrameRef.current = window.requestAnimationFrame(
+              () => {
+                settingsBottomPinFrameRef.current = null;
+                const currentViewport = settingsViewportRef.current;
+                if (currentViewport) {
+                  currentViewport.scrollTop = currentViewport.scrollHeight;
+                }
+              },
+            );
           }
+        }
+        return;
+      }
+      if (
+        event.data?.type === SYNARA_SETTINGS_NAVIGATION &&
+        event.data.section === synaraSettingsSection &&
+        (event.data.view === "detail" || event.data.view === "list") &&
+        synaraSettingsHeightKey
+      ) {
+        const viewport = settingsViewportRef.current;
+        if (!viewport) return;
+        if (settingsBottomPinFrameRef.current !== null) {
+          window.cancelAnimationFrame(settingsBottomPinFrameRef.current);
+          settingsBottomPinFrameRef.current = null;
+        }
+        if (settingsNavigationFrameRef.current !== null) {
+          window.cancelAnimationFrame(settingsNavigationFrameRef.current);
+          settingsNavigationFrameRef.current = null;
+        }
+        if (event.data.view === "detail") {
+          if (
+            !synaraSettingsDetailSectionsRef.current.has(
+              synaraSettingsHeightKey,
+            )
+          ) {
+            synaraSettingsListScrollRef.current[synaraSettingsHeightKey] =
+              viewport.scrollTop;
+          }
+          synaraSettingsDetailSectionsRef.current.add(synaraSettingsHeightKey);
+          synaraSettingsPendingRestoreRef.current = null;
+          viewport.scrollTop = 0;
+        } else {
+          synaraSettingsDetailSectionsRef.current.delete(
+            synaraSettingsHeightKey,
+          );
+          const top =
+            synaraSettingsListScrollRef.current[synaraSettingsHeightKey] ?? 0;
+          synaraSettingsPendingRestoreRef.current = {
+            key: synaraSettingsHeightKey,
+            top,
+          };
+          viewport.scrollTop = 0;
+          settingsNavigationFrameRef.current = window.requestAnimationFrame(
+            () => {
+              settingsNavigationFrameRef.current = null;
+              const currentViewport = settingsViewportRef.current;
+              if (!currentViewport) return;
+              currentViewport.scrollTop = top;
+              if (Math.abs(currentViewport.scrollTop - top) <= 1) {
+                synaraSettingsPendingRestoreRef.current = null;
+              }
+            },
+          );
         }
         return;
       }
@@ -558,7 +648,11 @@ export function SettingsDialog(props: {
           onDoubleClick={toggleWindowFullscreen}
         />
         <div className="settings-body">
-          <nav className="settings-nav" aria-label={t`Settings sections`}>
+          <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
+            <FluidHoverSurface
+              selector=".settings-nav-group > button"
+              preserveSelection
+            />
             {settingsNavGroups.map((group, groupIndex) => (
               <div
                 key={group.label}

@@ -1,7 +1,7 @@
 {
   "name": "research-writer",
   "private": true,
-  "version": "0.1.298",
+  "version": "0.1.299",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -126,6 +126,7 @@
     "decode-named-character-reference": "^1.3.0",
     "diff": "^9.0.0",
     "exceljs": "4.4.0",
+    "framer-motion": "^12.43.0",
     "frimousse": "^0.3.0",
     "highlight.js": "^11.11.1",
     "katex": "^0.17.0",

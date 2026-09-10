@@ -1491,6 +1491,7 @@ function App() {
     setSidebarOpen,
     sidebarWidth,
     sidebarResizing,
+    sidebarCollapsePreview,
     beginSidebarResize,
     nudgeSidebar,
     fitSidebarToContent,
@@ -9660,13 +9661,13 @@ function App() {
       )}
 
       <main
-        className={`workspace ${sidebarOpen ? "" : "sidebar-hidden"}`}
+        className={`workspace ${sidebarOpen && !sidebarCollapsePreview ? "" : "sidebar-hidden"}`}
+        data-sidebar-tracking={sidebarResizing && !sidebarCollapsePreview || undefined}
         style={{
-          gridTemplateColumns: sidebarOpen ? `${sidebarWidth}px 1px minmax(0, 1fr)` : "minmax(0, 1fr)",
-          gridTemplateAreas: sidebarOpen ? '"sidebar sidebar-resizer canvas"' : '"canvas"',
+          gridTemplateColumns: sidebarOpen && !sidebarCollapsePreview ? `${sidebarWidth}px 1px minmax(0, 1fr)` : "0px 0px minmax(0, 1fr)",
+          gridTemplateAreas: '"sidebar sidebar-resizer canvas"',
         }}
       >
-        {sidebarOpen && (
           <AppWorkspaceSidebar
             agentPanelDropActive={agentPanelDropActive}
             appLocale={appLocale}
@@ -9752,6 +9753,9 @@ function App() {
             sidebarModeHeaderRef={sidebarModeHeaderRef}
             sidebarModeTier={sidebarModeTier}
             sidebarWidth={sidebarWidth}
+            sidebarOpen={sidebarOpen}
+            sidebarResizing={sidebarResizing}
+            onCollapseSidebar={() => setSidebarOpen(false)}
             synaraAutoModeAvailable={synaraAutoModeAvailable}
             synaraFrameMounted={synaraFrameMounted}
             synaraFrameReady={synaraFrameReady}
@@ -9761,7 +9765,6 @@ function App() {
             synaraRuntime={synaraRuntime}
             theme={theme}
           />
-        )}
 
         <section className="canvas-panel" data-tour="canvas">
           <div className="canvas-body">

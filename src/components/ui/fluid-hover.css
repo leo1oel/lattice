@@ -1,10 +1,14 @@
 /* The fill stays behind text without wrapping/reparenting primitive items. */
-.fluid-hover-surface {
+:where(.fluid-hover-surface) {
   position: relative;
   isolation: isolate;
 }
 
 .fluid-hover-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
   z-index: -1;
   border-radius: var(--nested-radius, var(--radius-icon));
   background: var(--control-hover-surface);

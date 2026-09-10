@@ -8,7 +8,7 @@
  * else in the sidebar touches, and it is behind `lazy()`, so the element has to
  * be created where the loader lives.
  */
-import { type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   BookMarked,
@@ -21,97 +21,27 @@ import {
   Presentation,
   Search,
   Shapes,
-  Shield,
-  ShieldCheck,
   Table2,
-  Hand,
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { SlidingTabs } from "../components/ui/motion";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
-import { isSynaraPermissionMode, synaraEmbedUrl, type SynaraPermissionMode } from "./app-synara-embed";
+import { synaraEmbedUrl, type SynaraPermissionMode } from "./app-synara-embed";
 import { type SidebarModeTier } from "./sidebar-mode-layout";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
 import type { ProjectFindHit } from "../project/project-find-dialog";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { ProjectSnapshot } from "../app-types";
 
-const SYNARA_PERMISSION_PRESENTATION: Record<
-  SynaraPermissionMode,
-  { label: string; description: string }
-> = {
-  "full-access": {
-    label: "Full access",
-    description: "Run without asking for approval",
-  },
-  auto: {
-    label: "Approve for me",
-    description: "Ask only for potentially unsafe actions",
-  },
-  "approval-required": {
-    label: "Ask for approval",
-    description: "Ask before external edits and network access",
-  },
-};
-
-function SynaraPermissionIcon({ mode }: { mode: SynaraPermissionMode }) {
-  if (mode === "full-access") return <ShieldCheck size={14} />;
-  if (mode === "auto") return <Shield size={14} />;
-  return <Hand size={14} />;
-}
-
-function SynaraPermissionPicker(props: {
-  value: SynaraPermissionMode;
-  autoModeAvailable: boolean;
-  onChange: (value: SynaraPermissionMode) => void;
-}) {
-  const presentation = SYNARA_PERMISSION_PRESENTATION[props.value];
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="agent-permission-trigger"
-          aria-label={`Agent permissions: ${presentation.label}`}
-          title={`Agent permissions: ${presentation.label}`}
-        >
-          <SynaraPermissionIcon mode={props.value} />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="agent-permission-menu">
-        <DropdownMenuRadioGroup value={props.value} onValueChange={(value) => {
-          if (isSynaraPermissionMode(value)) props.onChange(value);
-        }}>
-          {(["full-access", "auto", "approval-required"] as const).map((mode) => {
-            const option = SYNARA_PERMISSION_PRESENTATION[mode];
-            return (
-              <DropdownMenuRadioItem
-                key={mode}
-                value={mode}
-                disabled={mode === "auto" && !props.autoModeAvailable}
-                className="ui-radio-choice"
-              >
-                <span className="ui-radio-dot" aria-hidden="true" />
-                <span className="agent-permission-copy">
-                  <strong>{option.label}</strong>
-                  <small>{option.description}</small>
-                </span>
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+// The installed RadioGroup's Base UI dependency stays outside startup chunks.
+const SynaraPermissionPicker = lazy(() => import("../agent/synara-permission-picker"));
 
 export type AppWorkspaceSidebarProps = {
   agentPanelDropActive: boolean;
@@ -138,6 +68,9 @@ export type AppWorkspaceSidebarProps = {
   sidebarModeHeaderRef: RefObject<HTMLDivElement | null>;
   sidebarModeTier: SidebarModeTier;
   sidebarWidth: number;
+  sidebarOpen: boolean;
+  sidebarResizing: boolean;
+  onCollapseSidebar: () => void;
   synaraAutoModeAvailable: boolean;
   synaraFrameMounted: boolean;
   synaraFrameReady: boolean;
@@ -186,7 +119,8 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
   } = props;
   return (
     <>
-      <section className="shared-sidebar" data-tour="sidebar">
+      <section className="shared-sidebar" data-tour="sidebar" inert={!props.sidebarOpen} aria-hidden={!props.sidebarOpen}>
+        <div className="workspace-sidebar-content" style={{ width: sidebarWidth }}>
         <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
           <SlidingTabs
             value={sidebarMode}
@@ -260,11 +194,13 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
               </>
             )}
             {sidebarMode === "agent" && synaraOrigin && (
-              <SynaraPermissionPicker
-                value={synaraPermissionMode}
-                autoModeAvailable={synaraAutoModeAvailable}
-                onChange={changeSynaraPermissionMode}
-              />
+              <Suspense fallback={null}>
+                <SynaraPermissionPicker
+                  value={synaraPermissionMode}
+                  autoModeAvailable={synaraAutoModeAvailable}
+                  onChange={changeSynaraPermissionMode}
+                />
+              </Suspense>
             )}
           </div>
         </div>
@@ -305,10 +241,14 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
             )}
           </div>
         </div>
+        </div>
       </section>
       <PanelResizer
         label={t`Resize workspace sidebar`}
         value={sidebarWidth}
+        open={props.sidebarOpen}
+        resizing={props.sidebarResizing}
+        onCollapse={props.onCollapseSidebar}
         onPointerDown={beginSidebarResize}
         onNudge={nudgeSidebar}
       />
@@ -319,20 +259,33 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
 function PanelResizer(props: {
   label: string;
   value: number;
+  open: boolean;
+  resizing: boolean;
+  onCollapse: () => void;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
   onNudge: (delta: number) => void;
 }) {
+  const { t } = useLingui();
+  const [tooltipOpen, setTooltipOpen] = useState(false);
   return (
+    <TooltipProvider delayDuration={280}>
+    <Tooltip open={tooltipOpen && !props.resizing && props.open} onOpenChange={setTooltipOpen}>
+    <TooltipTrigger asChild>
     <div
       className="panel-resizer sidebar-resizer"
       role="separator"
       aria-label={props.label}
       aria-orientation="vertical"
       aria-valuenow={Math.round(props.value)}
-      tabIndex={0}
+      aria-hidden={!props.open}
+      tabIndex={props.open ? 0 : -1}
       onPointerDown={props.onPointerDown}
       onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onCollapse();
+          document.querySelector<HTMLButtonElement>(".titlebar-sidebar-toggle button")?.focus();
+        } else if (event.key === "ArrowLeft") {
           event.preventDefault();
           props.onNudge(-16);
         } else if (event.key === "ArrowRight") {
@@ -341,5 +294,12 @@ function PanelResizer(props: {
         }
       }}
     />
+    </TooltipTrigger>
+    <TooltipContent side="right" sideOffset={8}>
+      <div>{t`Drag to resize`}</div>
+      <div>{t`Click to collapse`}</div>
+    </TooltipContent>
+    </Tooltip>
+    </TooltipProvider>
   );
 }

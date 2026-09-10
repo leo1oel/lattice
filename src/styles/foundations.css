@@ -219,9 +219,9 @@
      painted. See the `data-hit-area` note in styles/surfaces.css. */
   --hit-area-min: 24px;
   --control-size-checkbox: 14px;
-  --control-width-switch: 24px;
-  --control-height-switch: 14px;
-  --control-size-switch-thumb: 10px;
+  --control-width-switch: 28px;
+  --control-height-switch: 16px;
+  --control-size-switch-thumb: 12px;
 
   /* Host navigation contract. These semantic values preserve the current
      sidebar geometry while keeping its states independent from component

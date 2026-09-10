@@ -4,6 +4,7 @@ import type * as React from 'react';
 
 import { cn } from '@ok-app/lib/utils';
 import { FluidHoverSurface } from '@/components/ui/fluid-hover-surface';
+import { popupMotionClassName } from '@/components/ui/popup-motion';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
@@ -62,7 +63,8 @@ function SelectContent({
         data-ok-layer-spawned=""
         position={position}
         className={cn(
-          'relative z-50 max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md outline-hidden duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[align-trigger=true]:animate-none motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none motion-reduce:duration-0',
+          'relative z-50 max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md outline-hidden data-[align-trigger=true]:animate-none',
+          popupMotionClassName,
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className,

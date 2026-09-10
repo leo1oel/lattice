@@ -15,6 +15,7 @@ import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@
 import { FilePlus2, FileText } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
+import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 
 const MAX_ITEMS = 8;
 const suggestionKey = new PluginKey("visualWikiLinkSuggestion");
@@ -61,7 +62,8 @@ function VisualWikiLinkMenu({ items, query, selectedIndex, idBase, onSelect, onH
   }
   const selected = items[selectedIndex];
   return (
-    <div ref={containerRef} id={idBase} role="listbox" aria-label={parsed.mode === "anchor" ? "Heading suggestions" : "Wiki link suggestions"} aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+    <div ref={containerRef} id={idBase} role="listbox" aria-label={parsed.mode === "anchor" ? "Heading suggestions" : "Wiki link suggestions"} aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+      <FluidHoverSurface />
       <span className="sr-only" aria-live="polite" aria-atomic="true">
         {selected?.kind === "anchor" ? `Heading H${selected.level}: ${selected.text}` : selected?.kind === "create" ? selected.actionLabel : selected?.title}
       </span>
