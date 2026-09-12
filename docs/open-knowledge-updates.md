@@ -1,5 +1,11 @@
 # Open Knowledge selective updates
 
+## 2026-09-12
+
+Selectively adopted the animation-start technique from [PR #4251](https://github.com/inkeep/open-knowledge/pull/4251).
+Replacement frozen-header animations start at scroll-timeline zero; engines without percentage start-time support retain the existing fallback.
+The local geometry tolerance and optional occluder remain intact.
+
 ## 2026-09-07
 
 Reviewed upstream through [83e6aa94](https://github.com/inkeep/open-knowledge/commit/83e6aa94455d47f8d68baf380cb1dcbd8e4c439f) against our August 30 baseline.

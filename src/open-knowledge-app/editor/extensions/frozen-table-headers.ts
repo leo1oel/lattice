@@ -262,7 +262,7 @@ function buildOccluderKeyframes(range: FreezeRange, scrollMax: number): Keyframe
 }
 
 /** Scroll-driven path: the compositor maps scroll offset → translateY. */
-function applyScrollDrivenFreeze(
+export function applyScrollDrivenFreeze(
   cell: HTMLTableCellElement,
   timeline: AnimationTimeline,
   range: FreezeRange,
@@ -293,6 +293,23 @@ function applyScrollDrivenFreeze(
         pseudoElement: '::before',
       })
     : null;
+  // Newly-created scroll-driven animations have an unresolved start time.
+  // Pinning them to timeline zero prevents a one-frame discontinuity when a
+  // geometry refresh replaces the previous animations. WebKit may omit the
+  // Typed OM helper or reject CSSUnitValue start times, so retain its fallback.
+  const css = globalThis.CSS as typeof CSS & {
+    percent?: (value: number) => CSSNumberish;
+  };
+  if (typeof css?.percent === 'function') {
+    try {
+      const timelineStart = css.percent(0);
+      transformAnimation.startTime = timelineStart;
+      chromeAnimation.startTime = timelineStart;
+      if (occluderAnimation) occluderAnimation.startTime = timelineStart;
+    } catch {
+      // Leave start times unresolved on engines that reject CSSUnitValue.
+    }
+  }
   appliedFreezes.set(cell, {
     kind: 'sd',
     zIndex,
