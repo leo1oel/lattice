@@ -3,7 +3,9 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
+import { Fragment } from 'react';
 import {
+  Check,
   ChevronDown,
   Heading1,
   Heading2,
@@ -23,6 +25,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@ok-app/components/ui/dropdown-menu';
 
@@ -169,22 +172,25 @@ export function BlockTypeSelector({ editor }: { editor: Editor }) {
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        className="w-44 max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto subtle-scrollbar"
+        className="visual-block-type-menu max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto subtle-scrollbar"
       >
         {blockTypes.map((bt) => {
           const Icon = bt.icon;
           const active = activeStates[bt.name];
           return (
-            <DropdownMenuItem
-              key={bt.name}
-              className={active ? 'bg-accent text-accent-foreground' : ''}
-              onSelect={() => {
-                bt.command(editor);
-              }}
-            >
-              <Icon className="size-4" />
-              <span>{t(bt.label)}</span>
-            </DropdownMenuItem>
+            <Fragment key={bt.name}>
+              {['heading1', 'bulletList', 'blockquote'].includes(bt.name) && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                data-active={active ? '' : undefined}
+                onSelect={() => {
+                  bt.command(editor);
+                }}
+              >
+                <Icon className="size-3.5" />
+                <span>{t(bt.label)}</span>
+                {active && <Check className="visual-block-type-check" aria-hidden="true" />}
+              </DropdownMenuItem>
+            </Fragment>
           );
         })}
       </DropdownMenuContent>

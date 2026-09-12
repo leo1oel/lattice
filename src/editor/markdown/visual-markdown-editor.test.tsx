@@ -2173,6 +2173,10 @@ describe("VisualMarkdownEditor", () => {
       pointerType: "mouse",
     });
     const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(12);
+    expect(within(menu).getAllByRole("separator")).toHaveLength(3);
+    expect(within(menu).getByRole("menuitem", { name: "Text" })).toHaveAttribute("data-active");
+    expect(within(menu).getByRole("menuitem", { name: "Text" }).querySelector(".lucide-check")).not.toBeNull();
     for (const level of [4, 5, 6]) {
       expect(within(menu).getByRole("menuitem", { name: `Heading ${level}` })).toBeInTheDocument();
     }

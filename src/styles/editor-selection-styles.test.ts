@@ -12,11 +12,12 @@ describe("visual editor selection styles", () => {
 
   it("hides WebKit's native range paint behind the local block-selection surface", () => {
     expect(css).toContain(
-      ".visual-markdown-editor .tiptap:has(.ProseMirror-selectednode)::selection",
+      '.visual-markdown-editor .tiptap[data-node-selection="true"]::selection',
     );
     expect(css).toContain(
-      ".visual-markdown-editor .tiptap:has(.ProseMirror-selectednode) *::selection { background: transparent; }",
+      '.visual-markdown-editor .tiptap[data-node-selection="true"] *::selection { background: transparent; }',
     );
+    expect(css).not.toContain(".tiptap:has(.ProseMirror-selectednode)");
   });
 
   it("removes the image baseline gap from the block-selection halo", () => {
