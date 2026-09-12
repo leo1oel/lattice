@@ -6,6 +6,16 @@ Selectively adopted the animation-start technique from [PR #4251](https://github
 Replacement frozen-header animations start at scroll-timeline zero; engines without percentage start-time support retain the existing fallback.
 The local geometry tolerance and optional occluder remain intact.
 
+Adapted the sibling-reordering behavior of [PR #4350](https://github.com/inkeep/open-knowledge/pull/4350) to Lattice's own block controls.
+Dragging and the existing move-up/down shortcuts can reorder individual or selected sibling list items, including inside nested lists.
+Moves preserve task state and selection direction, and ordered lists renumber from their existing start.
+Cross-list movement and list-type conversion are deliberately excluded.
+A document update during a pointer gesture cancels that gesture rather than applying stale positions.
+
+Did not import upstream's Hocuspocus stale-write ledger or snapshot-based convergence wait.
+Lattice already merges editor saves against their loaded disk baseline, and its collaboration tests do not use state-vector equality as a convergence check.
+This does not add protection against arbitrary external programs restoring old files, nor a new restart-recovery guarantee.
+
 ## 2026-09-07
 
 Reviewed upstream through [83e6aa94](https://github.com/inkeep/open-knowledge/commit/83e6aa94455d47f8d68baf380cb1dcbd8e4c439f) against our August 30 baseline.

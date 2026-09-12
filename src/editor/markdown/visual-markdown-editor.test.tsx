@@ -79,6 +79,19 @@ function stubElementsFromPoint(elements: Element[]) {
     configurable: true,
     value: mock,
   });
+  // Nested drag handles use ProseMirror's coordinate hit testing. jsdom has
+  // no layout/caret hit-testing APIs, so resolve the same mocked hit stack
+  // through the real editor DOM rather than fabricating a document position.
+  const surface = elements.find((element) => element.classList.contains("ProseMirror"));
+  const editor = (surface as (HTMLElement & { editor: Editor }) | undefined)?.editor;
+  if (editor) {
+    vi.spyOn(editor.view, "posAtCoords").mockImplementation(({ left, top }) => {
+      const element = document.elementsFromPoint(left, top)[0];
+      if (!element || !surface?.contains(element)) return null;
+      const pos = editor.view.posAtDOM(element, 0);
+      return { pos, inside: pos - 1 };
+    });
+  }
   return mock;
 }
 
@@ -2372,6 +2385,31 @@ describe("VisualMarkdownEditor", () => {
     await waitFor(() => expect(controls.style.visibility).not.toBe("hidden"));
     expect(controls.style.pointerEvents).toBe("auto");
     expect(elementsFromPoint).toHaveBeenCalled();
+  });
+
+  it("targets the hovered list item and publishes its reorder without moving surrounding prose", async () => {
+    const { onChange } = renderEditor("Before\n\n- Alpha\n- Bravo longer\n\nAfter");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    await waitFor(() => expect(editor.isEditable).toBe(true));
+    const item = surface.querySelectorAll("li")[1];
+    const paragraph = item.querySelector("p")!;
+    vi.spyOn(surface.firstElementChild!, "getBoundingClientRect").mockReturnValue(rect({ top: 80, bottom: 108 }));
+    vi.spyOn(surface.lastElementChild!, "getBoundingClientRect").mockReturnValue(rect({ top: 220, bottom: 248 }));
+    vi.spyOn(item, "getBoundingClientRect").mockReturnValue(rect({ top: 156, bottom: 184 }));
+    vi.spyOn(paragraph, "getBoundingClientRect").mockReturnValue(rect({ top: 156, bottom: 184 }));
+    stubElementsFromPoint([paragraph, item, surface]);
+    fireEvent.mouseMove(paragraph, { clientX: 50, clientY: 170 });
+    const grip = await screen.findByRole("button", { name: "Select list item" });
+    expect(screen.queryByRole("button", { name: "Add block below" })).toBeNull();
+    fireEvent.click(grip);
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect((editor.state.selection as NodeSelection).node.type.name).toBe("listItem");
+    act(() => { expect(moveBlockUp(editor.state, editor.view.dispatch)).toBe(true); });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(
+      "Before\n\n- Bravo longer\n- Alpha\n\nAfter",
+      "Before\n\n- Alpha\n- Bravo longer\n\nAfter",
+    ));
   });
 
   it("deletes a selected block as one unit", async () => {

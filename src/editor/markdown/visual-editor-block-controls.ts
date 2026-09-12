@@ -58,6 +58,7 @@ export function restoreVisualViewportWithReveal(
 
 function blockLabel(node: ProseMirrorNode | null): string {
   if (!node) return "Select block";
+  if (node.type.name === "listItem") return "Select list item";
   if (node.type.name === "list") {
     const task = node.firstChild?.attrs.checked != null;
     return `Select ${task ? "task list" : node.attrs.ordered ? "numbered list" : "bullet list"}`;
@@ -131,6 +132,81 @@ function topLevelBlockAt(state: EditorState, position: number): { from: number; 
     return node ? { from: safePosition, to: safePosition + node.nodeSize } : null;
   }
   return { from: $position.before(1), to: $position.after(1) };
+}
+
+/** Resolve the nearest item, keeping nested lists in their own sibling group. */
+function listItemAt(state: EditorState, position: number) {
+  const $pos = state.doc.resolve(position);
+  if ($pos.nodeAfter?.type.name === "listItem") {
+    return { from: position, to: position + $pos.nodeAfter.nodeSize, parent: $pos.start() };
+  }
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.name === "listItem") {
+      return { from: $pos.before(depth), to: $pos.after(depth), parent: $pos.start(depth - 1) };
+    }
+  }
+  return null;
+}
+
+function selectedListItems(state: EditorState) {
+  const first = listItemAt(state, state.selection.from);
+  const last = listItemAt(state, Math.max(state.selection.from, state.selection.to - 1));
+  return first && last && first.parent === last.parent
+    ? { from: first.from, to: last.to, parent: first.parent }
+    : null;
+}
+
+/** Reorder siblings without converting list types or changing nesting. */
+export function moveListItems(
+  state: EditorState,
+  dispatch: ((transaction: Transaction) => void) | undefined,
+  sourcePosition: number,
+  targetPosition: number,
+  placeAfter: boolean,
+): boolean {
+  const item = listItemAt(state, sourcePosition);
+  const target = listItemAt(state, targetPosition);
+  if (!item || !target || item.parent !== target.parent) return false;
+  const selected = selectedListItems(state);
+  const preserveSelection = selected && item.from >= selected.from && item.to <= selected.to;
+  const source = preserveSelection ? selected : item;
+  const insertAt = placeAfter ? target.to : target.from;
+  if (insertAt >= source.from && insertAt <= source.to) return false;
+  if (!dispatch) return true;
+
+  const content = state.doc.slice(source.from, source.to).content;
+  const tr = state.tr.delete(source.from, source.to);
+  const destination = tr.mapping.map(insertAt);
+  tr.insert(destination, content);
+  const list = tr.doc.nodeAt(item.parent - 1)!;
+  // Source ordinals preserve authored numbering during normal edits, but must
+  // follow the new order after an explicit reorder (including non-1 starts).
+  if (list.attrs.ordered) {
+    list.forEach((child, offset, index) => {
+      tr.setNodeMarkup(item.parent + offset, undefined, {
+        ...child.attrs, sourceOrdinal: Number(list.attrs.start) + index,
+      });
+    });
+  }
+  if (preserveSelection && state.selection instanceof TextSelection) {
+    tr.setSelection(TextSelection.create(
+      tr.doc,
+      destination + state.selection.anchor - source.from,
+      destination + state.selection.head - source.from,
+    ));
+  } else {
+    tr.setSelection(NodeSelection.create(tr.doc, destination));
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function moveSelectedListItems(state: EditorState, dispatch: ((tr: Transaction) => void) | undefined, down: boolean) {
+  const items = selectedListItems(state);
+  if (!items) return false;
+  const parent = state.doc.nodeAt(items.parent - 1)!;
+  if (down ? items.to === items.parent + parent.content.size : items.from === items.parent) return false;
+  return moveListItems(state, dispatch, items.from, down ? items.to : items.from - 1, down);
 }
 
 export function moveTopLevelBlock(
@@ -207,6 +283,7 @@ export function moveBlockUp(
   state: EditorState,
   dispatch: ((transaction: Transaction) => void) | undefined,
 ): boolean {
+  if (listItemAt(state, state.selection.from)) return moveSelectedListItems(state, dispatch, false);
   const block = currentTopLevelBlock(state);
   if (!block || block.from === 0) return false;
   const $above = state.doc.resolve(block.from - 1);
@@ -231,10 +308,11 @@ export function moveBlockUp(
   return true;
 }
 
-function moveBlockDown(
+export function moveBlockDown(
   state: EditorState,
   dispatch: ((transaction: Transaction) => void) | undefined,
 ): boolean {
+  if (listItemAt(state, state.selection.from)) return moveSelectedListItems(state, dispatch, true);
   const block = currentTopLevelBlock(state);
   if (!block || block.to >= state.doc.content.size) return false;
   const $below = state.doc.resolve(block.to + 1);
@@ -376,7 +454,10 @@ export const VisualBlockControls = Extension.create({
         dropLine.hidden = true;
         return;
       }
-      const target = topLevelBlockAt(editor.state, coordinates.pos);
+      const sourceItem = listItemAt(editor.state, pointerStart.sourcePosition);
+      const target = sourceItem
+        ? listItemAt(editor.state, coordinates.pos)
+        : topLevelBlockAt(editor.state, coordinates.pos);
       if (!target || target.from === pointerStart.sourcePosition) {
         pointerTarget = null;
         dropLine.hidden = true;
@@ -386,6 +467,11 @@ export const VisualBlockControls = Extension.create({
       if (!(targetDom instanceof HTMLElement)) return;
       const rect = targetDom.getBoundingClientRect();
       const placeAfter = event.clientY >= rect.top + rect.height / 2;
+      if (sourceItem && !moveListItems(editor.state, undefined, sourceItem.from, target.from, placeAfter)) {
+        pointerTarget = null;
+        dropLine.hidden = true;
+        return;
+      }
       pointerTarget = { position: target.from, placeAfter };
       Object.assign(dropLine.style, {
         left: `${rect.left}px`,
@@ -398,9 +484,11 @@ export const VisualBlockControls = Extension.create({
       if (!pointerStart || event.pointerId !== pointerStart.id) return;
       const start = pointerStart;
       const target = pointerTarget;
+      const wasDragging = didPointerDrag;
       if (didPointerDrag && target) {
         event.preventDefault();
-        moveTopLevelBlock(
+        const move = listItemAt(editor.state, start.sourcePosition) ? moveListItems : moveTopLevelBlock;
+        move(
           editor.state,
           editor.view.dispatch,
           start.sourcePosition,
@@ -408,7 +496,7 @@ export const VisualBlockControls = Extension.create({
           target.placeAfter,
         );
       }
-      suppressNextClick = didPointerDrag;
+      suppressNextClick = wasDragging;
       resetPointerDrag();
     };
     container.addEventListener("dragstart", (event) => {
@@ -442,6 +530,14 @@ export const VisualBlockControls = Extension.create({
     return [
       new Plugin({
         view: () => ({
+          update: (_view, previousState) => {
+            // External edits can invalidate pointer-held positions. Cancel
+            // rather than moving a different item after a collaborative update.
+            if (pointerStart && previousState.doc !== editor.state.doc) {
+              suppressNextClick = didPointerDrag;
+              resetPointerDrag();
+            }
+          },
           destroy: () => {
             resetPointerDrag();
             dropLine.remove();
@@ -451,11 +547,20 @@ export const VisualBlockControls = Extension.create({
       DragHandlePlugin({
         editor,
         element: container,
-        nestedOptions: normalizeNestedOptions(false),
+        nestedOptions: normalizeNestedOptions({
+          defaultRules: false,
+          edgeDetection: "none",
+          rules: [{
+            id: "lattice-list-items",
+            evaluate: ({ node, depth }) => depth > 1 && node.type.name !== "listItem" ? 1000 : 0,
+          }],
+        }),
         onNodeChange({ node, pos }: { node: ProseMirrorNode | null; pos: number }) {
           currentNode = node;
           currentNodePosition = pos ?? -1;
           grip.setAttribute("aria-label", blockLabel(node));
+          // A paragraph cannot be inserted as a sibling of a list item.
+          addButton.style.display = node?.type.name === "listItem" ? "none" : "";
         },
         computePositionConfig: {
           placement: getComputedStyle(editor.view.dom).direction === "rtl" ? "right-start" : "left-start",
