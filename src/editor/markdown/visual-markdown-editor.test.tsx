@@ -109,6 +109,61 @@ async function replaceEditorText(text: string) {
 }
 
 describe("VisualMarkdownEditor", () => {
+  it("hides native selection only for a NodeSelection, not ranges containing selected NodeViews", async () => {
+    renderEditor('Before\n\n<Callout type="note">\n\nInside\n\n</Callout>\n\nAfter\n');
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    const css = readFileSync("src/styles/editor-workspace.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const hiddenSelectionSelectors = [...css.matchAll(/([^{}]+)\{\s*background: transparent;\s*\}/g)]
+      .map((match) => match[1])
+      .filter((selector) => selector.includes(".visual-markdown-editor") && selector.includes("::selection"))
+      .flatMap((selector) => selector.split(",").map((part) => part.replace("::selection", "").trim()));
+    expect(hiddenSelectionSelectors.length).toBeGreaterThan(0);
+    const hidesNativeSelection = () => hiddenSelectionSelectors.some((selector) =>
+      surface.matches(selector) || surface.querySelector(selector) !== null);
+    const calloutPosition = editor.state.doc.firstChild!.nodeSize;
+    act(() => editor.commands.setNodeSelection(calloutPosition));
+    expect(surface).toHaveAttribute("data-node-selection", "true");
+    expect(hidesNativeSelection()).toBe(true);
+    act(() => editor.commands.selectAll());
+    await waitFor(() => expect(surface.querySelector(".ProseMirror-selectednode")).not.toBeNull());
+    expect(surface).toHaveAttribute("data-node-selection", "false");
+    expect(hidesNativeSelection()).toBe(false);
+    act(() => editor.commands.setTextSelection({ from: 2, to: editor.state.doc.content.size - 2 }));
+    expect(surface).toHaveAttribute("data-node-selection", "false");
+    expect(hidesNativeSelection()).toBe(false);
+    act(() => editor.commands.setTextSelection(2));
+    expect(surface).toHaveAttribute("data-node-selection", "false");
+  });
+
+  it.each([
+    ["footnote", "Body[^note]\n\n[^note]: Last words.\n", ".footnote-backref", ".footnote-body"],
+    ["code block", "Body\n\n```text\nLast words.\n```\n", ".ok-codeblock-chrome", ".ok-codeblock-pre"],
+  ])("excludes trailing %s controls from native selection without excluding its content", async (_name, source, chromeSelector, contentSelector) => {
+    renderEditor(source);
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface.querySelector(chromeSelector)).not.toBeNull());
+    // jsdom cannot reproduce Chromium's native AllSelection boundary bug.
+    // Check the real DOM/CSS contract here; native selection paint also needs
+    // browser verification with Cmd+A on a document ending in these blocks.
+    const css = readFileSync("src/styles/editor-workspace.css", "utf8");
+    const rule = css.match(/\.visual-markdown-editor \.footnote-backref,[^{}]+\{[^}]+\}/);
+    expect(rule).not.toBeNull();
+    const style = document.createElement("style");
+    style.textContent = rule![0];
+    document.head.appendChild(style);
+    try {
+      expect(getComputedStyle(surface.querySelector(chromeSelector)!).userSelect).toBe("none");
+      expect(getComputedStyle(surface.querySelector(contentSelector)!).userSelect).not.toBe("none");
+      const editor = (surface as HTMLElement & { editor: Editor }).editor;
+      act(() => editor.commands.selectAll());
+      expect(editor.state.selection).toBeInstanceOf(AllSelection);
+      expect(editor.state.selection.content().content.textBetween(0, editor.state.doc.content.size)).toContain("Last words.");
+    } finally {
+      style.remove();
+    }
+  });
+
   it.each([
     ["table", "| A | B |\n| --- | --- |\n| C | D |\n"],
     ["list", "- Item\n"],

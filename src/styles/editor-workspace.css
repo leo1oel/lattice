@@ -988,8 +988,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-chart span { min-width: 36px; padding: 3px; border-radius: 4px 4px 0 0; background: var(--control-active); color: var(--surface-panel-raised); font-size: var(--type-nano-size); text-align: center; }
 .visual-stat { display: flex; flex-direction: column; padding: var(--space-4); border-radius: var(--radius-compact); background: var(--surface-panel-raised); }
 .visual-stat strong { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
-/* Footnotes: no host overrides — vendored editor-globals.css owns
-   .footnote-ref / .footnote-def / .footnote-backref (upstream UI). */
+/* Chromium can paint an empty native selection for AllSelection when the
+   document ends in selectable contenteditable=false chrome. Exclude only
+   these controls, not the editable body or rendered document content. */
+.visual-markdown-editor .footnote-backref,
+.visual-markdown-editor .ok-codeblock-chrome { user-select: none; }
 /* Host skin (explicit request): the code block Title field and the language
    filter box follow the host's field-control look. Structure and behavior
    stay upstream; only the input chrome is restyled. */
@@ -1296,8 +1299,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 /* A NodeSelection already has the local block surface above. WebKit also
    paints its DOM range over the trailing block boundary as a full-width blue
    line, so mirror ProseMirror's hidden-selection treatment for this state. */
-.visual-markdown-editor .tiptap:has(.ProseMirror-selectednode)::selection,
-.visual-markdown-editor .tiptap:has(.ProseMirror-selectednode) *::selection { background: transparent; }
+.visual-markdown-editor .tiptap[data-node-selection="true"]::selection,
+.visual-markdown-editor .tiptap[data-node-selection="true"] *::selection { background: transparent; }
 .tiptap-editor .tiptap li.ProseMirror-selectednode { border-radius: var(--radius-compact); background: var(--control-active-soft); }
 .tiptap-editor .tiptap li.ProseMirror-selectednode::after { content: none; }
 .tiptap-editor .tiptap > .tableWrapper.ProseMirror-selectednode { position: relative; }

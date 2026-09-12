@@ -3063,11 +3063,15 @@ function CompleteVisualMarkdownEditor({
     ],
     content: initialContent,
     editorProps: {
-      attributes: {
+      attributes: (state) => ({
         "aria-label": "Markdown document editor",
         "aria-multiline": "true",
         role: "textbox",
-      },
+        // React NodeViews also carry ProseMirror-selectednode when enclosed
+        // by a text range or AllSelection. Only a real NodeSelection should
+        // suppress the browser's native text-selection paint.
+        "data-node-selection": String(state.selection instanceof NodeSelection),
+      }),
       handleKeyDown: (_view, event) => {
         // Return used to commit a macOS IME candidate is not an editing Enter.
         // Consuming it here keeps lower-priority container shortcuts from
