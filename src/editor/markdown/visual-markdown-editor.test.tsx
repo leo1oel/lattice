@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AllSelection, NodeSelection, TextSelection } from "@tiptap/pm/state";
@@ -2035,6 +2036,25 @@ describe("VisualMarkdownEditor", () => {
     // BubbleMenu in [data-tippy-root], so host styles must target this node.
     expect(toolbar.parentElement).toBe(document.body);
     expect(toolbar.closest("[data-tippy-root]")).toBeNull();
+    // Vitest strips CSS imports. Apply the real host icon rule to the actual
+    // composed buttons: TooltipTrigger replaces data-slot="button", which
+    // previously left these SVGs at Lucide's heavier default stroke.
+    const css = readFileSync("src/styles/editor-workspace.css", "utf8");
+    const iconRules = css.match(/^\[data-testid="bubble-menu-bar"\][^{]* svg \{[^}]+\}/gm);
+    expect(iconRules).not.toBeNull();
+    const style = document.createElement("style");
+    style.textContent = iconRules!.join("\n");
+    document.head.appendChild(style);
+    try {
+      for (const icon of toolbar.querySelectorAll("button svg")) {
+        const size = icon.closest('[data-testid="footnote-bubble-button"]') ? "16px" : "14px";
+        expect(getComputedStyle(icon).width).toBe(size);
+        expect(getComputedStyle(icon).height).toBe(size);
+        expect(getComputedStyle(icon).strokeWidth).toBe("1.8");
+      }
+    } finally {
+      style.remove();
+    }
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     const outside = document.createElement("button");
     document.body.appendChild(outside);
