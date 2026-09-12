@@ -1490,6 +1490,7 @@ function App() {
     sidebarOpen,
     setSidebarOpen,
     sidebarWidth,
+    sidebarDragWidth,
     sidebarResizing,
     sidebarCollapsePreview,
     sidebarRestoring,
@@ -9669,7 +9670,7 @@ function App() {
           if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") finishSidebarRestore();
         }}
         style={{
-          gridTemplateColumns: sidebarOpen && !sidebarCollapsePreview ? `${sidebarWidth}px 1px minmax(0, 1fr)` : "0px 0px minmax(0, 1fr)",
+          gridTemplateColumns: sidebarOpen && !sidebarCollapsePreview ? `${sidebarDragWidth ?? sidebarWidth}px 1px minmax(0, 1fr)` : "0px 0px minmax(0, 1fr)",
           gridTemplateAreas: '"sidebar sidebar-resizer canvas"',
         }}
       >

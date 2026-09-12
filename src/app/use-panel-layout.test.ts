@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { afterEach, beforeEach, expect, it } from "vitest";
+import { loadSidebarWidth } from "../settings/app-settings";
 import { usePanelLayout } from "./use-panel-layout";
 
 beforeEach(() => localStorage.clear());
@@ -83,6 +84,36 @@ it.each(["pointercancel", "blur"])("cancels a collapse preview on %s without clo
   expect(result.current.sidebarWidth).toBe(start);
   expect(result.current.sidebarCollapsePreview).toBe(false);
   expect(document.body).not.toHaveClass("resizing-panels");
+});
+
+it("rubber-bands below the minimum without persisting the visual width", () => {
+  const { result, begin, pointer } = setup();
+  begin();
+  pointer("pointermove", 240);
+  expect(result.current.sidebarDragWidth).toBe(240);
+  pointer("pointermove", 120);
+  expect(result.current.sidebarWidth).toBe(180);
+  expect(result.current.sidebarDragWidth).toBeGreaterThan(150);
+  expect(result.current.sidebarDragWidth).toBeLessThan(180);
+  expect(result.current.sidebarCollapsePreview).toBe(false);
+  pointer("pointerup", 120);
+  expect(result.current.sidebarOpen).toBe(true);
+  expect(result.current.sidebarDragWidth).toBeNull();
+  expect(result.current.sidebarWidth).toBe(180);
+  expect(loadSidebarWidth()).toBe(180);
+});
+
+it("bounds the upper overshoot and clears it on cancellation", () => {
+  const { result, begin, pointer } = setup();
+  begin();
+  pointer("pointermove", window.innerWidth + 1000);
+  const maximum = window.innerWidth - 600;
+  expect(result.current.sidebarWidth).toBe(maximum);
+  expect(result.current.sidebarDragWidth).toBeGreaterThan(maximum);
+  expect(result.current.sidebarDragWidth).toBeLessThanOrEqual(maximum + 48);
+  pointer("pointercancel");
+  expect(result.current.sidebarDragWidth).toBeNull();
+  expect(result.current.sidebarOpen).toBe(true);
 });
 
 it("uses a new minimum for sizing without moving the active gesture's collapse threshold", () => {

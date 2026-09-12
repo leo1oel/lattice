@@ -324,14 +324,16 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
-.workspace { flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; background: var(--surface-sidebar); transition: grid-template-columns var(--duration-slow) var(--ease-emphasized); }
+/* One damped spring for the clipping column and its content: direct dragging
+   bypasses it, while release and fold reversals settle with a small overshoot. */
+.workspace { --sidebar-spring: linear(0, .16 8%, .48 18%, .78 30%, .96 43%, 1.035 56%, 1.045 65%, 1.025 78%, 1.006 90%, 1); flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; background: var(--surface-sidebar); transition: grid-template-columns var(--duration-slow) var(--sidebar-spring); }
 .workspace[data-sidebar-tracking] { transition: none; }
 .workspace > * { min-width: 0; }
 .navigator { min-width: 0; }
 .shared-sidebar { position: relative; grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); container-type: inline-size; }
 /* Keep the iframe and file tree at their real width while the grid closes its
    clipping column. Reopening does not remount the assistant or squeeze rows. */
-.workspace-sidebar-content { position: relative; height: 100%; flex: none; display: flex; flex-direction: column; transform: translateX(0); transition: transform var(--duration-slow) var(--ease-emphasized); }
+.workspace-sidebar-content { position: relative; height: 100%; flex: none; display: flex; flex-direction: column; transform: translateX(0); transition: transform var(--duration-slow) var(--sidebar-spring); }
 .sidebar-hidden .workspace-sidebar-content { transform: translateX(-100%); }
 .workspace[data-sidebar-tracking] .workspace-sidebar-content { transition: none; }
 .sidebar-hidden .sidebar-resizer { visibility: hidden; }

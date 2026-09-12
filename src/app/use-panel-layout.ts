@@ -14,6 +14,7 @@ export type PanelLayout = {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
   sidebarWidth: number;
+  sidebarDragWidth: number | null;
   sidebarResizing: boolean;
   sidebarCollapsePreview: boolean;
   sidebarRestoring: boolean;
@@ -74,6 +75,8 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     resizedWidth(loadSidebarWidth(), 0, minimumSidebarWidth),
   );
   const [sidebarResizing, setSidebarResizing] = useState(false);
+  // Visual overshoot never becomes the saved width or squeezes sidebar content.
+  const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [sidebarCollapsePreview, setSidebarCollapsePreview] = useState(false);
   const [sidebarRestoring, setSidebarRestoring] = useState(false);
   const finishSidebarRestore = useCallback(() => setSidebarRestoring(false), []);
@@ -155,6 +158,8 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
         delta,
         minimumSidebarWidthRef.current,
       );
+      const overshoot = startWidth + delta - latest;
+      setSidebarDragWidth(latest + Math.sign(overshoot) * 48 * (1 - Math.exp(-Math.abs(overshoot) / 120)));
       setSidebarWidth(latest);
     };
     const finish = (endEvent?: Event) => {
@@ -165,6 +170,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       if (collapse) latest = startWidth;
       latest = resizedWidth(latest, 0, minimumSidebarWidthRef.current);
       setSidebarWidth(latest);
+      setSidebarDragWidth(null);
       setSidebarResizing(false);
       setSidebarCollapsePreview(false);
       setSidebarRestoring(false);
@@ -200,6 +206,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     sidebarOpen,
     setSidebarOpen,
     sidebarWidth,
+    sidebarDragWidth,
     sidebarResizing,
     sidebarCollapsePreview,
     sidebarRestoring,
