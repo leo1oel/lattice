@@ -83,6 +83,7 @@ export default tseslint.config(
       "src/project/navigator.tsx",
       "src/canvas/canvas-toolbar.tsx",
       "src/canvas/document-canvas.tsx",
+      "src/canvas/split-resizer.ts",
       "src/editor/editor-languages.ts",
       "src/editor/presentation/open-slide-workspace.tsx",
       "src/onboarding/onboarding-tour.tsx",
