@@ -1494,6 +1494,7 @@ function App() {
     sidebarResizing,
     sidebarCollapsePreview,
     sidebarRestoring,
+    sidebarRebounding,
     finishSidebarRestore,
     beginSidebarResize,
     nudgeSidebar,
@@ -9666,6 +9667,7 @@ function App() {
       <main
         className={`workspace ${sidebarOpen && !sidebarCollapsePreview ? "" : "sidebar-hidden"}`}
         data-sidebar-tracking={sidebarResizing && !sidebarCollapsePreview && !sidebarRestoring || undefined}
+        data-sidebar-rebounding={sidebarRebounding || undefined}
         onTransitionEnd={(event) => {
           if (event.target === event.currentTarget && event.propertyName === "grid-template-columns") finishSidebarRestore();
         }}

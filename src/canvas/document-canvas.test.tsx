@@ -572,11 +572,61 @@ describe("DocumentCanvas / split ratio", () => {
     return screen.getByRole("separator", { name: "Resize editor and PDF preview" });
   }
 
+  it.each([
+    { mode: "split", label: "Resize editor and PDF preview", inside: 700, saved: 1099 / 1599, key: SPLIT_RATIO_KEY },
+    { mode: "dual", label: "Resize dual source panes", inside: 700, saved: 0.8, key: SPLIT_RATIO_KEY },
+    { mode: "columns", label: "Resize dual source panes", inside: 600, saved: 0.75, key: SPLIT_RATIO_KEY },
+    { mode: "columns", label: "Resize PDF pane", inside: 1100, saved: 0.22, key: "lattice.columns-pdf-ratio.v1" },
+  ] as const)("adds boundary-only resistance to $mode / $label without saving the offset", ({ mode, label, inside, saved, key }) => {
+    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
+    const split = container.querySelector<HTMLElement>(".split-canvas")!;
+    vi.spyOn(split, "getBoundingClientRect").mockReturnValue({ left: 100, right: 1700, width: 1600 } as DOMRect);
+    const grip = screen.getByRole("separator", { name: label });
+    const offset = () => Number.parseFloat(grip.style.getPropertyValue("--split-resizer-offset"));
+    fireEvent.pointerDown(grip, { clientX: inside });
+    fireEvent.pointerMove(window, { clientX: inside });
+    expect(offset()).toBeCloseTo(0);
+    fireEvent.pointerMove(window, { clientX: 50 });
+    expect(offset()).toBeLessThan(0);
+    expect(offset()).toBeGreaterThanOrEqual(-24);
+    fireEvent.pointerCancel(window);
+    expect(offset()).toBe(0);
+    expect(document.body).not.toHaveClass("resizing-split");
+    fireEvent.pointerDown(grip, { clientX: inside });
+    fireEvent.pointerMove(window, { clientX: 1800 });
+    expect(offset()).toBeGreaterThan(0);
+    expect(offset()).toBeLessThanOrEqual(24);
+    fireEvent.pointerMove(window, { clientX: inside });
+    expect(offset()).toBeCloseTo(0);
+    fireEvent.pointerMove(window, { clientX: 1800 });
+    fireEvent.pointerUp(window);
+    expect(offset()).toBe(0);
+    expect(Number(localStorage.getItem(key))).toBeCloseTo(saved);
+    fireEvent.pointerMove(window, { clientX: 50 });
+    expect(offset()).toBe(0);
+  });
+
   it("opens at the ratio the last session left behind", () => {
     localStorage.setItem(SPLIT_RATIO_KEY, "0.6");
     renderCanvas({ mode: "split" });
 
     expect(separator()).toHaveAttribute("aria-valuenow", "60");
+  });
+
+  it.each([
+    { mode: "dual", label: "Resize dual source panes", width: 800, x: 200, direction: -1 },
+    { mode: "columns", label: "Resize PDF pane", width: 1200, x: 760, direction: 1 },
+  ] as const)("respects pixel minimums before ratio limits in $mode", ({ mode, label, width, x, direction }) => {
+    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
+    const split = container.querySelector<HTMLElement>(".split-canvas")!;
+    vi.spyOn(split, "getBoundingClientRect").mockReturnValue({ left: 0, right: width, width } as DOMRect);
+    const grip = screen.getByRole("separator", { name: label });
+    fireEvent.pointerDown(grip, { clientX: width / 2 });
+    fireEvent.pointerMove(window, { clientX: x });
+    expect(Number.parseFloat(grip.style.getPropertyValue("--split-resizer-offset")) * direction).toBeGreaterThan(0);
+    fireEvent.blur(window);
+    expect(grip.style.getPropertyValue("--split-resizer-offset")).toBe("0px");
+    expect(document.body).not.toHaveClass("resizing-split");
   });
 
   it("falls back to the default when nothing usable is stored", () => {

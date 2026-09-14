@@ -18,6 +18,7 @@ export type PanelLayout = {
   sidebarResizing: boolean;
   sidebarCollapsePreview: boolean;
   sidebarRestoring: boolean;
+  sidebarRebounding: boolean;
   finishSidebarRestore: () => void;
   beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
   nudgeSidebar: (delta: number) => void;
@@ -79,7 +80,11 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [sidebarCollapsePreview, setSidebarCollapsePreview] = useState(false);
   const [sidebarRestoring, setSidebarRestoring] = useState(false);
-  const finishSidebarRestore = useCallback(() => setSidebarRestoring(false), []);
+  const [sidebarRebounding, setSidebarRebounding] = useState(false);
+  const finishSidebarRestore = useCallback(() => {
+    setSidebarRestoring(false);
+    setSidebarRebounding(false);
+  }, []);
   const finishResizeRef = useRef<(() => void) | null>(null);
   // Synara discovers its intrinsic minimum while the pointer is already moving.
   // A ref lets that active resize session use the new limit immediately instead
@@ -135,6 +140,9 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     let finished = false;
     let moved = false;
     let collapse = false;
+    let rescued = false;
+    let overshoot = 0;
+    setSidebarRebounding(false);
     setSidebarResizing(true);
     document.body.classList.add("resizing-panels");
     const move = (moveEvent: PointerEvent) => {
@@ -146,6 +154,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       if (nextCollapse !== collapse) {
         collapse = nextCollapse;
         setSidebarCollapsePreview(collapse);
+        if (!collapse) rescued = true;
         // Do not re-enable direct tracking until the returning sidebar has
         // finished its transition; disabling it immediately snaps the grid open.
         setSidebarRestoring(!collapse);
@@ -158,7 +167,9 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
         delta,
         minimumSidebarWidthRef.current,
       );
-      const overshoot = startWidth + delta - latest;
+      // A rescued panel opens directly to a valid width. Stretching it below
+      // the minimum here would add a second movement when the pointer releases.
+      overshoot = rescued ? 0 : startWidth + delta - latest;
       setSidebarDragWidth(latest + Math.sign(overshoot) * 48 * (1 - Math.exp(-Math.abs(overshoot) / 120)));
       setSidebarWidth(latest);
     };
@@ -171,6 +182,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       latest = resizedWidth(latest, 0, minimumSidebarWidthRef.current);
       setSidebarWidth(latest);
       setSidebarDragWidth(null);
+      setSidebarRebounding(!collapse && overshoot !== 0);
       setSidebarResizing(false);
       setSidebarCollapsePreview(false);
       setSidebarRestoring(false);
@@ -210,6 +222,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
     sidebarResizing,
     sidebarCollapsePreview,
     sidebarRestoring,
+    sidebarRebounding,
     finishSidebarRestore,
     beginSidebarResize,
     nudgeSidebar,

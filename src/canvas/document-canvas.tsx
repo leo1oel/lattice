@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { setSplitResizerResistance } from "./split-resizer";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
 import { completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
@@ -4437,6 +4438,7 @@ export function DocumentCanvas(props: {
     const editorsShare = 1 - columnsPdfRatio;
     const beginDualResize = (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
+      const grip = event.currentTarget;
       let latest = splitRatio;
       document.body.classList.add("resizing-split");
       const handleMove = (moveEvent: PointerEvent) => {
@@ -4446,22 +4448,32 @@ export function DocumentCanvas(props: {
           // Resize only across the two editor panes (everything left of the PDF).
           const editorsWidth = bounds.width * editorsShare;
           latest = clamp((moveEvent.clientX - bounds.left) / Math.max(editorsWidth, 1), 0.25, 0.75);
+          const edge = clamp(latest * editorsWidth, 160, Math.max(160, editorsWidth - 160));
+          setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
         } else {
           latest = clamp((moveEvent.clientX - bounds.left) / bounds.width, 0.2, 0.8);
+          const edge = clamp(latest * bounds.width, 220, Math.max(220, bounds.width - 220));
+          setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
         }
         setSplitRatio(latest);
       };
       const handleUp = () => {
         document.body.classList.remove("resizing-split");
+        setSplitResizerResistance(grip, 0);
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleUp);
+        window.removeEventListener("pointercancel", handleUp);
+        window.removeEventListener("blur", handleUp);
         persistSplitRatio(latest);
       };
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
+      window.addEventListener("blur", handleUp);
     };
     const beginColumnsPdfResize = (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
+      const grip = event.currentTarget;
       let latest = columnsPdfRatio;
       document.body.classList.add("resizing-split");
       const handleMove = (moveEvent: PointerEvent) => {
@@ -4469,16 +4481,23 @@ export function DocumentCanvas(props: {
         if (!bounds?.width) return;
         const fromRight = (bounds.right - moveEvent.clientX) / bounds.width;
         latest = clamp(fromRight, 0.22, 0.55);
+        const edge = clamp(latest * bounds.width, SPLIT_PDF_MIN_WIDTH, Math.max(SPLIT_PDF_MIN_WIDTH, bounds.width - 320));
+        setSplitResizerResistance(grip, edge - fromRight * bounds.width);
         setColumnsPdfRatio(latest);
       };
       const handleUp = () => {
         document.body.classList.remove("resizing-split");
+        setSplitResizerResistance(grip, 0);
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleUp);
+        window.removeEventListener("pointercancel", handleUp);
+        window.removeEventListener("blur", handleUp);
         persistColumnsPdfRatio(latest);
       };
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
+      window.addEventListener("blur", handleUp);
     };
     const primaryPane = props.activeAsset ? (
       <div
@@ -4650,7 +4669,7 @@ export function DocumentCanvas(props: {
       </div>
     );
   }
-  const resizeSplit = (clientX: number) => {
+  const resizeSplit = (clientX: number, grip: HTMLElement) => {
     const split = splitRef.current;
     const bounds = split?.getBoundingClientRect();
     if (!split || !bounds?.width) return splitRatio;
@@ -4659,6 +4678,7 @@ export function DocumentCanvas(props: {
     const maximum = Math.max(minimum, Math.floor(tracksWidth - SPLIT_PDF_MIN_WIDTH));
     const sourceWidth = clamp(Math.round(clientX - bounds.left), minimum, maximum);
     const next = constrainSplitRatio(sourceWidth / tracksWidth);
+    setSplitResizerResistance(grip, Math.round(clientX - bounds.left) - sourceWidth);
 
     // Keep the hot drag path outside React. Re-rendering the PDF viewer for
     // every pointer event made WebKit repeatedly lay out and repaint the
@@ -4670,20 +4690,26 @@ export function DocumentCanvas(props: {
   };
   const beginSplitResize = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
+    const grip = event.currentTarget;
     let latest = splitRatio;
     document.body.classList.add("resizing-split");
     const handleMove = (moveEvent: PointerEvent) => {
-      latest = resizeSplit(moveEvent.clientX);
+      latest = resizeSplit(moveEvent.clientX, grip);
     };
     const handleUp = () => {
       document.body.classList.remove("resizing-split");
+      setSplitResizerResistance(grip, 0);
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      window.removeEventListener("blur", handleUp);
       setSplitRatio(latest);
       persistSplitRatio(latest);
     };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    window.addEventListener("blur", handleUp);
   };
   const nudgeSplit = (delta: number) => {
     const next = constrainSplitRatio(splitRatio + delta);

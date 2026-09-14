@@ -74,6 +74,30 @@ it("previews only beyond the collapse threshold, rescues before release, and res
   expect(result.current.sidebarCollapsePreview).toBe(false);
 });
 
+it("rescues directly to the minimum without a second rebound on release", () => {
+  const { result, begin, pointer } = setup();
+  begin();
+  pointer("pointermove", 80);
+  expect(result.current.sidebarCollapsePreview).toBe(true);
+  pointer("pointermove", 140);
+  expect(result.current.sidebarRestoring).toBe(true);
+  expect(result.current.sidebarDragWidth).toBe(180);
+  act(() => result.current.finishSidebarRestore());
+  pointer("pointermove", 150);
+  expect(result.current.sidebarDragWidth).toBe(180);
+  pointer("pointerup", 150);
+  expect(result.current.sidebarWidth).toBe(180);
+  expect(result.current.sidebarRebounding).toBe(false);
+  expect(result.current.sidebarOpen).toBe(true);
+  // A new inward drag still gets elastic feedback and can close the panel.
+  begin();
+  pointer("pointermove", 120);
+  expect(result.current.sidebarDragWidth).toBeLessThan(180);
+  pointer("pointermove", 80);
+  pointer("pointerup", 80);
+  expect(result.current.sidebarOpen).toBe(false);
+});
+
 it.each(["pointercancel", "blur"])("cancels a collapse preview on %s without closing", (event) => {
   const { result, begin, pointer } = setup();
   const start = result.current.sidebarWidth;
@@ -101,6 +125,9 @@ it("rubber-bands below the minimum without persisting the visual width", () => {
   expect(result.current.sidebarDragWidth).toBeNull();
   expect(result.current.sidebarWidth).toBe(180);
   expect(loadSidebarWidth()).toBe(180);
+  expect(result.current.sidebarRebounding).toBe(true);
+  act(() => result.current.finishSidebarRestore());
+  expect(result.current.sidebarRebounding).toBe(false);
 });
 
 it("bounds the upper overshoot and clears it on cancellation", () => {
