@@ -7,6 +7,15 @@ afterEach(() => {
 });
 
 describe("CollabControlV2Client", () => {
+  it("makes no requests without the sharing build opt-in", async () => {
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    const { CollabControlV2Client } = await import("./collab-control-v2");
+    await expect(new CollabControlV2Client("https://collab.example", "project", "secret").catalog()).rejects.toThrow("disabled");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("localizes exhausted service quota while preserving the server code", async () => {
     const { activateAppLocale } = await import("../i18n");
     const { CollabControlErrorV2 } = await import("./collab-control-v2");

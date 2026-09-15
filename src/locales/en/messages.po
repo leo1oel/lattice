@@ -3857,6 +3857,10 @@ msgstr "Overleaf"
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv source pack"
 
+#: src/onboarding/onboarding-tour.tsx
+msgid "Overleaf and history"
+msgstr "Overleaf and history"
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf chat messages"
@@ -3880,6 +3884,10 @@ msgstr "Overleaf comments and chat · {count} waiting"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "Overleaf doesn’t support live editing for this file, so it will use regular sync."
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
+msgstr "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"

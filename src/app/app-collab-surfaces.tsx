@@ -10,6 +10,7 @@
 import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { SHARE_SOURCE } from "./use-collab-v2-session";
 import { notifyWarning } from "../telemetry/app-notify";
+import { isCollabEnabled } from "../collab/collab-feature-policy";
 import type { CollabDialogMode } from "../collab/collab-dialog";
 import type { CollabPeer, CollabStatus, EditorCollabSession } from "../collab/collab-session";
 import type { CollabProjectRecordV2 } from "../collab/collab-rooms";
@@ -109,7 +110,7 @@ export function AppCollabDialog(props: AppCollabDialogProps) {
   } = props;
   return (
     <>
-      {collabOpen && (
+      {isCollabEnabled() && collabOpen && (
         <Suspense fallback={null}>
           <CollabDialog
             open

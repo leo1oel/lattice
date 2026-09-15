@@ -17,6 +17,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "../app-types";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
+import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import {
   DropdownMenu,
@@ -231,7 +232,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </button>
             </Tip>
-            <Tip label={props.collabLive
+            {isCollabEnabled() && <Tip label={props.collabLive
               ? (props.collabPeers > 0
                 ? props.collabPeers === 1
                   ? t({ message: `Live · ${{ count: props.collabPeers }} other` })
@@ -248,8 +249,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 <AnimatedProductIcon source="provided" kind="radio" size={14} />
                 {props.collabLive ? <em className="collab-peer-badge collab-live-badge">{props.collabPeers}</em> : null}
               </button>
-            </Tip>
-            {props.collabPresence}
+            </Tip>}
+            {isCollabEnabled() && props.collabPresence}
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (

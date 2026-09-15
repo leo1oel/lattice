@@ -11,6 +11,7 @@ import {
   type TooltipRenderProps,
 } from "react-joyride";
 import { TUTORIAL_STEPS } from "./onboarding-steps";
+import { isCollabEnabled } from "../collab/collab-feature-policy";
 
 const ACTION_BUTTONS: Step["buttons"] = ["back", "skip"];
 const READING_BUTTONS: Step["buttons"] = ["back", "skip", "primary"];
@@ -485,8 +486,10 @@ export function OnboardingTour(props: {
     {
       id: "workspace-actions",
       target: '[data-tour="workspace-actions"]',
-      title: t`Collaboration, Overleaf, and history`,
-      content: t`Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`,
+      title: isCollabEnabled() ? t`Collaboration, Overleaf, and history` : t`Overleaf and history`,
+      content: isCollabEnabled()
+        ? t`Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`
+        : t`Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`,
       buttons: READING_BUTTONS,
       placement: "bottom-end",
     },

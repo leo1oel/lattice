@@ -14,6 +14,7 @@ import type { OperationResultV2 } from "../../protocol/collab-v2";
 import { putTextFileV2 } from "./collab-import-v2";
 import { isPaperLibraryPath } from "../papers/paper-link";
 import type { DiagnosticOperationContext } from "../telemetry/diagnostic-request";
+import { mayResumeCollabProject } from "./collab-feature-policy";
 
 export type CollabProjectStatusV2 = "syncing" | "server-received" | "durable" | "offline" | "read-only" | "importing" | "closed" | "error";
 export type CollabProjectV2Options = {
@@ -244,6 +245,7 @@ export class CollabProjectControllerV2 {
   }
 
   static async start(options: CollabProjectV2Options): Promise<CollabProjectControllerV2> {
+    if (!mayResumeCollabProject(2)) throw new Error("collaboration_reads_disabled");
     const now = options.now ?? Date.now; const controller = new CollabProjectControllerV2(options, now());
     const credential = await options.credentialStore.get(options.credentialRef, options.projectInstanceId, options.deployment);
     if (!credential) throw new Error("Collaboration credential is unavailable");

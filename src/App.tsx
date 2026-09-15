@@ -149,7 +149,7 @@ import {
   type EditorCollabSession,
 } from "./collab/collab-session";
 import { collabCredentialStore } from "./collab/collab-credentials";
-import { loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
+import { isCollabEnabled, loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
 import {
@@ -5203,6 +5203,7 @@ function App() {
   }, [cancelProjectTransition, project?.root, revealNewProject, startProjectTransition]);
 
   const joinCollabShare = useCallback(() => {
+    if (!isCollabEnabled()) return;
     const v2Raw = collabInvite.trim() || collabRoom.trim();
     let v2Invite;
     try {
@@ -5300,6 +5301,7 @@ function App() {
   const pendingJoinRef = useRef<((record: CollabProjectRecordV2) => void) | null>(null);
 
   const rejoinCollabProjectV2 = useCallback((record: CollabProjectRecordV2) => {
+    if (!isCollabEnabled()) return;
     void (async () => {
       setBusyLabel("Rejoining v2 collaboration…");
       let controller: CollabProjectControllerV2 | null = null;
@@ -5599,7 +5601,7 @@ function App() {
         const raw = await invoke<string | null>("take_pending_window_action");
         if (!active || !raw) return;
         const action = JSON.parse(raw) as PendingWindowAction;
-        if (action.kind === "join-collab-v2") {
+        if (isCollabEnabled() && action.kind === "join-collab-v2") {
           const record = loadCollabProjectsV2().find(
             (item) => item.host === action.host
               && item.projectInstanceId === action.projectInstanceId,
@@ -9403,7 +9405,7 @@ function App() {
           onInstallTex={openTexSetupWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
-        {collabOpen && (
+        {isCollabEnabled() && collabOpen && (
           <Suspense fallback={null}>
             <CollabDialog
               open
@@ -10328,14 +10330,14 @@ function App() {
           ...(canInsert
             ? [{ id: "insert", label: t`Insert snippet`, detail: "⌘⇧I", group: t`Edit` }]
             : []),
-          {
+          ...(isCollabEnabled() ? [{
             id: "collab",
             label: collabSession ? t`Live sharing…` : t`Start / join live sharing`,
             detail: collabSession
               ? t({ message: `${collabPeers} connected · ${collabSession.room}` })
               : t`Share invite with a collaborator`,
             group: t`Edit`,
-          },
+          }] : []),
           { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit` },
           { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit` },
           { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit` },

@@ -475,6 +475,7 @@ afterEach(() => {
   clearAppLogs();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 function renderApp() {
@@ -8820,6 +8821,43 @@ describe("project workspace", () => {
       path: sharedSnapshot.root,
     }));
     expect(invoke).not.toHaveBeenCalledWith("open_project_window", expect.anything());
+  });
+
+  it.each([false, true])("hides paused sharing and keeps saved rooms without autojoining (project: %s)", async (hasProject) => {
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
+    const records = JSON.stringify([{
+      version: 2, projectInstanceId: "project_saved_room", host: "https://collab.example",
+      credentialRef: "saved-credential", permission: "host", title: "Saved room", projectRoot: "/tmp/notes", lastUsed: 1,
+    }]);
+    localStorage.setItem("lattice.collab.projects.v2", records);
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return hasProject ? {
+        root: "/tmp/notes",
+        manifest: { schemaVersion: 1, projectId: "notes-id", name: "Notes", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
+        files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+      } : null;
+      if (command === "take_pending_window_action") return JSON.stringify({ kind: "join-collab-v2", host: "https://collab.example", projectInstanceId: "project_saved_room" });
+      if (command === "read_project_file") return "# Local draft";
+      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    if (hasProject) {
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith("take_pending_window_action"));
+      fireEvent.keyDown(window, { key: "P", metaKey: true, shiftKey: true });
+      expect(await screen.findByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
+      expect(screen.queryByText("Start / join live sharing")).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByRole("button", { name: "Open from Overleaf" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Import ZIP" })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Join share" })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-tour="collaboration"]')).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith("get_collab_credential", expect.anything());
+    expect(fetcher.mock.calls.filter(([input]) => String(input).includes("collab"))).toHaveLength(0);
+    expect(localStorage.getItem("lattice.collab.projects.v2")).toBe(records);
   });
 
   it("shows share-start progress in the selected interface language", async () => {

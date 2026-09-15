@@ -26,6 +26,7 @@ import {
 import { collabDeploymentOrigin } from "../collab/collab-config";
 import { collabCredentialStore } from "../collab/collab-credentials";
 import { createProjectV2 } from "../collab/collab-import-v2";
+import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "../collab/collab-control-v2";
 import {
   CollabProjectControllerV2,
@@ -544,6 +545,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [activeCollabVersion, collabDiskWriteQueueRef, collabV2ControllerRef, collabWorkspaceLeaseRef, publishTextToCollabV2]);
 
   const startCollabShare = useCallback(() => {
+    if (!isCollabEnabled()) return;
     if (collabStartingRef.current) return;
     if (!collabName.trim()) {
       setError("Enter your name before starting a share.", SHARE_SOURCE);
@@ -707,6 +709,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [collabV2ControllerRef]);
 
   const openCollabDialog = useCallback((mode: CollabDialogMode = "start") => {
+    if (!isCollabEnabled()) return;
     // Only an explicit "join" opens Join; guard against a stray event object
     // (e.g. an onClick handler) landing here and leaving neither tab selected.
     setCollabMode(mode === "join" ? "join" : "start");

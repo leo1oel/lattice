@@ -1,15 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CatalogV2 } from "../../protocol/collab-v2";
 import { MemoryCollabCredentialStore } from "./collab-credentials";
 import { createProjectV2, putTextFileV2, type ImportFileV2 } from "./collab-import-v2";
 
 const policy = { allowCreateV2: true, preferV2ForNewProjects: true, emergencyDisableWrites: false, emergencyDisableReads: false };
 
+afterEach(() => vi.unstubAllEnvs());
+
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 }
 
 describe("createProjectV2", () => {
+  it("does not read files or create credentials when sharing is disabled", async () => {
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
+    const fetcher = vi.fn();
+    const source = { inventory: vi.fn(), read: vi.fn() };
+    const credentialStore = new MemoryCollabCredentialStore();
+    const put = vi.spyOn(credentialStore, "put");
+    await expect(createProjectV2({
+      deployment: "https://collab.example", credentialStore, fetch: fetcher, source, policy, onRecord: vi.fn(),
+    })).rejects.toThrow("v2_creation_disabled");
+    expect(source.inventory).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it.each([503, 401, "network"])("does not bootstrap after a catalog failure (%s)", async (failure) => {
     const fetcher = vi.fn(async () => {
       if (failure === "network") throw new TypeError("Load failed");

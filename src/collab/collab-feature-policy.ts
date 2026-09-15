@@ -7,6 +7,12 @@ export type CollabFeaturePolicy = {
 
 const POLICY_KEY = "lattice.collab.feature-policy.v1";
 
+// Public sharing is paused while the hosted service has no available quota.
+// Keep the implementation and saved rooms for an explicitly opted-in build.
+export function isCollabEnabled(): boolean {
+  return import.meta.env.VITE_LATTICE_COLLAB_V2 === "true";
+}
+
 export const DEFAULT_COLLAB_FEATURE_POLICY: CollabFeaturePolicy = {
   // v1 rooms are retired: new shares are always v2 projects. The flags remain
   // so a build can still opt back out via env/localStorage if v2 ever needs a
@@ -41,6 +47,11 @@ export function loadCollabFeaturePolicy(): CollabFeaturePolicy {
   for (const key of Object.keys(environment) as (keyof CollabFeaturePolicy)[]) {
     const value = envBoolean(environment[key]!);
     if (value !== undefined) policy[key] = value;
+  }
+  if (!isCollabEnabled()) {
+    policy.allowCreateV2 = false;
+    policy.emergencyDisableWrites = true;
+    policy.emergencyDisableReads = true;
   }
   return policy;
 }

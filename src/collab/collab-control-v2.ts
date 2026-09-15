@@ -1,11 +1,8 @@
 import { isCatalogV2, type CatalogV2, type GrantPermission } from "../../protocol/collab-v2";
-import { loadCollabFeaturePolicy, mayWriteCollabProject } from "./collab-feature-policy";
+import { isCollabEnabled, loadCollabFeaturePolicy, mayWriteCollabProject } from "./collab-feature-policy";
 import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
-
-// v2 is the only room type now; the env flag survives as an opt-out kill switch.
-const collabControlV2Enabled = import.meta.env.VITE_LATTICE_COLLAB_V2 !== "false";
 
 /** Non-2xx control-plane response, preserving the parsed error body (e.g. the events stream's 409 refetch hint). */
 export class CollabControlErrorV2 extends Error {
@@ -56,7 +53,7 @@ export class CollabControlV2Client {
   }
 
   private async request(path: string, init: RequestInit = {}, diagnostic?: DiagnosticOperationContext): Promise<unknown> {
-    if (!collabControlV2Enabled) throw new Error("The v2 collaboration control plane is disabled");
+    if (!isCollabEnabled()) throw new Error("The v2 collaboration control plane is disabled");
     const response = await diagnosticFetch(fetch, `${this.baseUrl.replace(/\/$/, "")}/v2/projects/${encodeURIComponent(this.projectInstanceId)}/${path}`, {
       ...init,
       headers: { "content-type": "application/json", ...(this.credential ? { Authorization: `Bearer ${this.credential}` } : {}), ...init.headers },

@@ -168,6 +168,20 @@ describe("v2 offline catalog reopening", () => {
     });
   }
 
+  it("does not reopen a cached shared project when sharing is disabled", async () => {
+    vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
+    const { IDBFactory } = await import("fake-indexeddb");
+    const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());
+    await store.persistCatalog(deployment, projectInstanceId, sharedCatalog());
+    await primeText(store, "cached text");
+    const fetchMock = vi.fn();
+    const statuses: string[] = [];
+    await expect(startController({ store, fetchMock, statuses })).rejects.toThrow("collaboration_reads_disabled");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(statuses).toEqual([]);
+    expect(await store.load(namespace)).not.toBeNull();
+  });
+
   it("cold-opens a validated catalog and durable text while clearly offline", async () => {
     const { IDBFactory } = await import("fake-indexeddb");
     const store = new (await import("./collab-text-v2-store")).CollabTextDurableStoreV2(new IDBFactory());

@@ -3857,6 +3857,10 @@ msgstr "Overleaf"
 msgid "Overleaf / arXiv source pack"
 msgstr "Overleaf / arXiv 源文件包"
 
+#: src/onboarding/onboarding-tour.tsx
+msgid "Overleaf and history"
+msgstr "Overleaf 与历史"
+
 #: src/overleaf/overleaf-chat.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf 聊天消息"
@@ -3880,6 +3884,10 @@ msgstr "Overleaf 评论与聊天 · {count} 条待处理"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "Overleaf 不支持实时编辑此文件，将改用常规同步。"
+
+#: src/onboarding/onboarding-tour.tsx
+msgid "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
+msgstr "Overleaf 按钮用于打开或同步 Overleaf 项目。“Git”和“历史”用于提交和查看版本"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"

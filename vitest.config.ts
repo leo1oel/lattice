@@ -61,6 +61,9 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "collab-server/**", ".tmp/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],
+    // Keep exercising the paused sharing implementation. Disabled-build tests
+    // explicitly unset this opt-in to cover the shipping default.
+    env: { VITE_LATTICE_COLLAB_V2: "true" },
     // Several suites mount the complete app or visual Markdown editor. Running
     // those memory-heavy files beside each other on a high-core machine starves
     // their async UI assertions and makes unrelated tests fail nondeterministically.

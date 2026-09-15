@@ -1,7 +1,7 @@
 import type { CatalogV2 } from "../../protocol/collab-v2";
 import type { CollabCredentialStore } from "./collab-credentials";
 import { createCredentialRef } from "./collab-credentials";
-import { loadCollabFeaturePolicy, type CollabFeaturePolicy } from "./collab-feature-policy";
+import { isCollabEnabled, loadCollabFeaturePolicy, type CollabFeaturePolicy } from "./collab-feature-policy";
 import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
 import { CollabControlErrorV2 } from "./collab-control-v2";
 
@@ -25,6 +25,7 @@ async function canonicalImportManifestHash(entries: Omit<ImportFileV2, "bytes" |
 export async function createProjectV2(options: ImportV2Options): Promise<ImportProjectRecordV2> { return run(options); }
 
 async function run(options: ImportV2Options): Promise<ImportProjectRecordV2> {
+  if (!isCollabEnabled()) throw new Error("v2_creation_disabled");
   const policy = options.policy ?? loadCollabFeaturePolicy();
   if (policy.emergencyDisableWrites) throw new Error("collaboration_writes_disabled");
   if (!policy.allowCreateV2) throw new Error("v2_creation_disabled");
