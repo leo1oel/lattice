@@ -5526,6 +5526,10 @@ msgstr "公式中的文字"
 msgid "The bundled Agent service could not start"
 msgstr "内置智能助手服务无法启动"
 
+#: src/collab/collab-control-v2.ts
+msgid "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
+msgstr "共享服务今日请求额度已用完。请在 UTC 00:00（北京时间 08:00）额度重置后重试，或联系服务管理员升级 Workers 套餐。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"

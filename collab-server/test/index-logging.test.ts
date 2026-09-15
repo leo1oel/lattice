@@ -80,15 +80,31 @@ describe("worker completion logging", () => {
     expect(entry()).toMatchObject({ status_code: status, outcome: "error" });
   });
 
-  it("logs a bounded exception type once and rethrows the original error", async () => {
+  it("returns a CORS-readable error without exposing the original exception", async () => {
     const { spy, entry } = captureLog();
     const error = new Error("raw-private-error-message");
-    const promise = worker.fetch(new Request(`https://worker/v2/projects/${projectId}/catalog`), envReturning(error));
+    const response = await worker.fetch(new Request(`https://worker/v2/projects/${projectId}/catalog`), envReturning(error));
 
-    await expect(promise).rejects.toBe(error);
+    expect(response.status).toBe(500);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("x-lattice-request-id")).toBe(entry().request_id);
+    expect(await response.json()).toEqual({ error: "internal_error", message: "Collaboration service failed. Please try again later." });
     expect(spy).toHaveBeenCalledTimes(1);
     expect(entry()).toMatchObject({ status_code: 500, outcome: "error", error_type: "Error" });
     expect(spy.mock.calls.flat().join(" ")).not.toContain(error.message);
+  });
+
+  it("reports exhausted Durable Object request quota through CORS instead of a platform 1101", async () => {
+    const { entry } = captureLog();
+    const response = await worker.fetch(new Request(`https://worker/v2/projects/${projectId}/catalog`), envReturning(
+      new Error("Exceeded allowed volume of requests in Durable Objects free tier."),
+    ));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("x-lattice-request-id")).toBe(entry().request_id);
+    expect(await response.json()).toEqual({ error: "collab_quota_exceeded", message: "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan." });
+    expect(entry()).toMatchObject({ status_code: 503, outcome: "error", error_type: "Error" });
   });
 
   it("returns the original WebSocket response and never logs its ticket", async () => {

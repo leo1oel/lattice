@@ -7,6 +7,17 @@ afterEach(() => {
 });
 
 describe("CollabControlV2Client", () => {
+  it("localizes exhausted service quota while preserving the server code", async () => {
+    const { activateAppLocale } = await import("../i18n");
+    const { CollabControlErrorV2 } = await import("./collab-control-v2");
+    await activateAppLocale("zh-CN");
+    const error = new CollabControlErrorV2(503, { error: "collab_quota_exceeded", message: "Server quota exceeded" });
+    expect(error.message).toContain("共享服务今日请求额度已用完");
+    expect(error.body.error).toBe("collab_quota_exceeded");
+    expect(new CollabControlErrorV2(503, { error: "other", message: "Other failure" }).message).toBe("Other failure");
+    await activateAppLocale("en");
+  });
+
   it("routes authenticated requests and validates catalog responses", async () => {
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", "true");
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({

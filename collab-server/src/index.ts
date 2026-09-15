@@ -99,7 +99,16 @@ export default {
       return response;
     } catch (error) {
       errorType = boundedErrorType(error);
-      throw error;
+      // Platform exceptions otherwise become Cloudflare 1101 responses without
+      // CORS headers, hiding the actual failure behind WebKit's "Load failed".
+      const quotaExceeded = error instanceof Error
+        && error.message.includes("Exceeded allowed volume of requests in Durable Objects free tier");
+      statusCode = quotaExceeded ? 503 : 500;
+      const response = withCors(jsonResponse(quotaExceeded
+        ? { error: "collab_quota_exceeded", message: "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan." }
+        : { error: "internal_error", message: "Collaboration service failed. Please try again later." }, statusCode));
+      response.headers.set("x-lattice-request-id", requestId);
+      return response;
     } finally {
       console.log(JSON.stringify({
         schema_version: 1,

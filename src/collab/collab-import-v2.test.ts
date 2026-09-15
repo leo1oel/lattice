@@ -10,6 +10,24 @@ function json(value: unknown, status = 200): Response {
 }
 
 describe("createProjectV2", () => {
+  it.each([503, 401, "network"])("does not bootstrap after a catalog failure (%s)", async (failure) => {
+    const fetcher = vi.fn(async () => {
+      if (failure === "network") throw new TypeError("Load failed");
+      return json({ error: "service_unavailable", message: "Service unavailable" }, failure as number);
+    });
+    const onRecord = vi.fn();
+    await expect(createProjectV2({
+      deployment: "https://collab.example",
+      credentialStore: new MemoryCollabCredentialStore(),
+      fetch: fetcher,
+      policy,
+      source: { inventory: async () => [], read: async () => new Uint8Array() },
+      onRecord,
+    })).rejects.toThrow(failure === "network" ? "Load failed" : "Service unavailable");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(onRecord).not.toHaveBeenCalled();
+  });
+
   it("reads and uploads text files concurrently without refetching the catalog after every file", async () => {
     const paths = ["data.lattice-sheet", ...Array.from({ length: 11 }, (_, index) => `chapter-${index}.md`)];
     let activeReads = 0; let maxReads = 0; let activeUploads = 0; let maxUploads = 0; let catalogRequests = 0;

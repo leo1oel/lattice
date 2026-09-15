@@ -5530,6 +5530,10 @@ msgstr "Text in math"
 msgid "The bundled Agent service could not start"
 msgstr "The bundled Agent service could not start"
 
+#: src/collab/collab-control-v2.ts
+msgid "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
+msgstr "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."

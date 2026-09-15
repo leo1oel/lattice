@@ -1,6 +1,8 @@
 import { isCatalogV2, type CatalogV2, type GrantPermission } from "../../protocol/collab-v2";
 import { loadCollabFeaturePolicy, mayWriteCollabProject } from "./collab-feature-policy";
 import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 
 // v2 is the only room type now; the env flag survives as an opt-out kill switch.
 const collabControlV2Enabled = import.meta.env.VITE_LATTICE_COLLAB_V2 !== "false";
@@ -8,7 +10,9 @@ const collabControlV2Enabled = import.meta.env.VITE_LATTICE_COLLAB_V2 !== "false
 /** Non-2xx control-plane response, preserving the parsed error body (e.g. the events stream's 409 refetch hint). */
 export class CollabControlErrorV2 extends Error {
   constructor(readonly status: number, readonly body: Record<string, unknown>) {
-    super(typeof body.message === "string" ? body.message : `Control-plane request failed (${status})`);
+    super(body.error === "collab_quota_exceeded"
+      ? i18n._(msg`The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan.`)
+      : typeof body.message === "string" ? body.message : `Control-plane request failed (${status})`);
   }
   /** The coordinator's event buffer no longer covers our cursor; a full catalog pull is required. */
   get requiresRefetch(): boolean { return this.body.refetch === true; }
