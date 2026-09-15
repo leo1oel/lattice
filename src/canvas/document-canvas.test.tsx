@@ -582,13 +582,16 @@ describe("DocumentCanvas / split ratio", () => {
     const split = container.querySelector<HTMLElement>(".split-canvas")!;
     vi.spyOn(split, "getBoundingClientRect").mockReturnValue({ left: 100, right: 1700, width: 1600 } as DOMRect);
     const grip = screen.getByRole("separator", { name: label });
-    const offset = () => Number.parseFloat(grip.style.getPropertyValue("--split-resizer-offset"));
+    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
+    const offset = () => Number.parseFloat(split.style.getPropertyValue(property));
     fireEvent.pointerDown(grip, { clientX: inside });
     fireEvent.pointerMove(window, { clientX: inside });
     expect(offset()).toBeCloseTo(0);
     fireEvent.pointerMove(window, { clientX: 50 });
     expect(offset()).toBeLessThan(0);
     expect(offset()).toBeGreaterThanOrEqual(-24);
+    expect(grip.style.transform).toBe("");
+    expect(grip.style.getPropertyValue(property)).toBe("");
     fireEvent.pointerCancel(window);
     expect(offset()).toBe(0);
     expect(document.body).not.toHaveClass("resizing-split");
@@ -623,9 +626,10 @@ describe("DocumentCanvas / split ratio", () => {
     const grip = screen.getByRole("separator", { name: label });
     fireEvent.pointerDown(grip, { clientX: width / 2 });
     fireEvent.pointerMove(window, { clientX: x });
-    expect(Number.parseFloat(grip.style.getPropertyValue("--split-resizer-offset")) * direction).toBeGreaterThan(0);
+    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
+    expect(Number.parseFloat(split.style.getPropertyValue(property)) * direction).toBeGreaterThan(0);
     fireEvent.blur(window);
-    expect(grip.style.getPropertyValue("--split-resizer-offset")).toBe("0px");
+    expect(split.style.getPropertyValue(property)).toBe("0px");
     expect(document.body).not.toHaveClass("resizing-split");
   });
 

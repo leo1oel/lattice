@@ -802,10 +802,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .figure-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-width: 220px; height: 28px; padding: 0 var(--pad-inline-control); display: flex; align-items: center; gap: var(--space-3); border-radius: var(--radius-chrome); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; pointer-events: none; transform: translateZ(0); }
 .figure-drag-ghost.ready { --smooth-ring-color: var(--control-active-border-strong); background: color-mix(in srgb, var(--control-active-soft) 70%, var(--surface-panel-raised)); color: var(--control-active); }
 .figure-drag-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.split-resizer { --split-resizer-offset: 0px; position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--border-subtle); outline: none; touch-action: none; transform: translateX(var(--split-resizer-offset)); transition: transform var(--duration-disclosure) var(--ease-emphasized), background var(--duration-quick), box-shadow var(--duration-quick); }
+/* Keep the saved grid proportions intact, but resize the adjacent pane boxes
+   with the grip. All three surfaces return on the same curve, without a gap. */
+.split-canvas { --split-resizer-offset: 0px; --split-pdf-offset: 0px; }
+.split-canvas > :nth-child(1), .split-canvas > :nth-child(3), .split-canvas > :nth-child(5) { min-width: 0; max-width: none; transition: width var(--duration-disclosure) var(--ease-emphasized), margin-left var(--duration-disclosure) var(--ease-emphasized); }
+.split-canvas > :nth-child(1) { width: calc(100% + var(--split-resizer-offset)); }
+.split-canvas > :nth-child(3) { margin-left: var(--split-resizer-offset); width: calc(100% - var(--split-resizer-offset) + var(--split-pdf-offset)); }
+.split-canvas > :nth-child(5) { margin-left: var(--split-pdf-offset); width: calc(100% - var(--split-pdf-offset)); }
+.split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--border-subtle); outline: none; touch-action: none; transform: translateX(var(--split-resizer-offset)); transition: transform var(--duration-disclosure) var(--ease-emphasized), background var(--duration-quick), box-shadow var(--duration-quick); }
+.columns-canvas > .split-resizer:nth-child(4) { transform: translateX(var(--split-pdf-offset)); }
 .split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
-.resizing-split .split-resizer { transition: none; }
+.resizing-split .split-canvas > * { transition: none; }
 .resizing-split { cursor: col-resize; user-select: none; }
 .markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
