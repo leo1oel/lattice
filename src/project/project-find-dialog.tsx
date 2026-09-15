@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
@@ -32,6 +33,7 @@ export function ProjectFindDialog(props: {
   onSearch: (query: string) => void;
   onOpenHit: (path: string, line?: number) => void;
 }) {
+  const { t } = useLingui();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
@@ -112,18 +114,18 @@ export function ProjectFindDialog(props: {
       <aside
         className="project-replace project-find"
         onMouseDown={(event) => event.stopPropagation()}
-        aria-label="Find in project"
+        aria-label={t`Find in project`}
       >
         <PanelHeader
           className="drawer-header"
           icon={<Search size={16} />}
-          title="Find in project"
+          title={t`Find in project`}
           onClose={close}
         />
         <SearchField
           ref={inputRef}
           autoFocus
-          aria-label="Find in project"
+          aria-label={t`Find in project`}
           value={query}
           onChange={(event) => {
             setDebouncing(Boolean(event.target.value.trim()));

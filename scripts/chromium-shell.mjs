@@ -225,6 +225,11 @@ async function createWindow(rawUrl) {
       .titlebar-main > .editor-tabs .editor-tab {
         -webkit-app-region: no-drag;
       }
+      /* Native drag regions ignore DOM stacking, so a drawer covering the
+         titlebar must explicitly subtract its interactive area. */
+      .resizable-drawer {
+        -webkit-app-region: no-drag;
+      }
     `);
   });
   window.once("ready-to-show", () => window.show());

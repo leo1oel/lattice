@@ -2100,6 +2100,7 @@ msgstr "在 PDF 中查找"
 
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
+#: src/project/project-find-dialog.tsx
 msgid "Find in project"
 msgstr "在项目中查找"
 

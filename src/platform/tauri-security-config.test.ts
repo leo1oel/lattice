@@ -200,8 +200,11 @@ describe("Tauri security boundary", () => {
       }
       .titlebar-main > .editor-tabs .editor-tab {
         -webkit-app-region: no-drag;
-      }
-    `);
+      }`);
+    expect(chromiumShell).toContain(`
+      .resizable-drawer {
+        -webkit-app-region: no-drag;
+      }`);
   });
 
   it("gives loopback browser tabs the product icon", () => {

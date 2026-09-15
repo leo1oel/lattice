@@ -2100,6 +2100,7 @@ msgstr "Find in PDF"
 
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
+#: src/project/project-find-dialog.tsx
 msgid "Find in project"
 msgstr "Find in project"
 

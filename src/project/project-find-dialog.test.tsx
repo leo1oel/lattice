@@ -1,11 +1,33 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectFindDialog } from "./project-find-dialog";
+import { activateAppLocale } from "../i18n";
 
 describe("ProjectFindDialog", () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.useRealTimers();
+    await activateAppLocale("en");
+  });
+
+  it("updates the panel title and search label when switching to Chinese", async () => {
+    render(
+      <ProjectFindDialog
+        open
+        busy={false}
+        error={null}
+        hits={[]}
+        onClose={vi.fn()}
+        onSearch={vi.fn()}
+        onOpenHit={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Find in project")).toBeInTheDocument();
+    await act(() => activateAppLocale("zh-CN"));
+    expect(screen.getByText("在项目中查找")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "在项目中查找" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "在项目中查找" })).toBeInTheDocument();
+    expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
   });
 
   it("lists hits and opens the selected file line", () => {
