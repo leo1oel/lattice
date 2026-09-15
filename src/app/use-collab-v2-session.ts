@@ -576,8 +576,14 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
           const nativeInventory = await invoke<{ files: Array<{ path: string; contentKind: "text" | "binary"; size: number }>; excluded: Array<{ pathOrPattern: string; reason: string }> }>("collab_project_inventory_v2");
           assertCurrentStart();
           if (nativeInventory.excluded.length) {
-            const details = nativeInventory.excluded.map(item => `• ${item.pathOrPattern} — ${item.reason}`).join("\n");
-            if (!await confirmAction(`Some project items won't be included in this share:\n\n${details}\n\nContinue with the listed regular files?`)) {
+            const reasons: Record<string, string> = {
+              "git-internals": t`Git internal data`,
+              "app-private-state": t`Private app data`,
+              "generated-directory": t`Generated directory`,
+              "symlink-not-followed": t`Symbolic links are not followed`,
+            };
+            const details = nativeInventory.excluded.map(item => `• ${item.pathOrPattern} — ${reasons[item.reason] ?? item.reason}`).join("\n");
+            if (!await confirmAction(t({ message: `Some project items won't be included in this share:\n\n${details}\n\nContinue sharing the remaining regular files?` }))) {
               setCollabStatus("disconnected");
               setCollabStatusDetail(null);
               return;
@@ -660,8 +666,9 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
             return;
           }
           setCollabStatus("error");
-          setCollabStatusDetail(t`Import failed — retry Start sharing`);
-          setError(toMessage(reason));
+          const detail = toMessage(reason);
+          setCollabStatusDetail(`${t`Import failed — retry Start sharing`}: ${detail}`);
+          setError(detail, SHARE_SOURCE);
         } finally {
           if (collabStartGenerationRef.current === startGeneration) collabStartingRef.current = false;
         }

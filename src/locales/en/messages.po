@@ -2198,6 +2198,10 @@ msgstr "Gather*"
 msgid "General"
 msgstr "General"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Generated directory"
+msgstr "Generated directory"
+
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "Get API key"
@@ -2217,6 +2221,10 @@ msgstr "Gimel"
 #: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git bridge"
+
+#: src/app/use-collab-v2-session.ts
+msgid "Git internal data"
+msgstr "Git internal data"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Git status and commit"
@@ -4160,6 +4168,10 @@ msgstr "Previous search result"
 msgid "Prime"
 msgstr "Prime"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Private app data"
+msgstr "Private app data"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
 msgstr "Product"
@@ -5190,6 +5202,18 @@ msgstr "Small section heading."
 msgid "Smile relation"
 msgstr "Smile relation"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Some project items won't be included in this share:\n"
+"\n"
+"{details}\n"
+"\n"
+"Continue sharing the remaining regular files?"
+msgstr "Some project items won't be included in this share:\n"
+"\n"
+"{details}\n"
+"\n"
+"Continue sharing the remaining regular files?"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
 msgstr "Some sources could not complete the lookup. This does not mean the reference is incorrect."
@@ -5446,6 +5470,10 @@ msgstr "Swap editor panes"
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "Switch project"
+
+#: src/app/use-collab-v2-session.ts
+msgid "Symbolic links are not followed"
+msgstr "Symbolic links are not followed"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Symbols"

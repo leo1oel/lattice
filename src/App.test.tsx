@@ -8852,13 +8852,51 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('[data-tour="collaboration"]')).not.toBeNull());
     fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
-    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
+    // The first sharing test also loads the lazy dialog and its dependencies.
+    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }, { timeout: 20_000 }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("正在扫描项目文件…");
     await act(async () => inventoryFailure.reject?.(new Error("stop after localized status")));
     expect(await screen.findByRole("status")).toHaveTextContent("导入失败——请重新点击“开始共享”");
+    expect(await screen.findByRole("status")).toHaveTextContent("stop after localized status");
+  }, 40_000);
+
+  it("translates share exclusions before asking for confirmation", async () => {
+    await activateAppLocale("zh-CN");
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    localStorage.setItem("lattice.collab.name", "Ada");
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return {
+        root: "/tmp/notes",
+        manifest: { schemaVersion: 1, projectId: "notes-id", name: "Notes", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
+        files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
+      };
+      if (command === "read_project_file") return "# Private draft";
+      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
+      if (command === "collab_project_inventory_v2") return {
+        files: [],
+        excluded: [
+          { pathOrPattern: ".git/**", reason: "git-internals" },
+          { pathOrPattern: ".research/**", reason: "app-private-state" },
+          { pathOrPattern: "node_modules/**", reason: "generated-directory" },
+          { pathOrPattern: "linked.tex", reason: "symlink-not-followed" },
+        ],
+      };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    await waitFor(() => expect(document.querySelector('[data-tour="collaboration"]')).not.toBeNull());
+    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
+    const dialog = await screen.findByRole("dialog", { name: "要继续吗？" });
+    expect(dialog).toHaveTextContent("以下项目内容不会包含在此次共享中");
+    expect(dialog).toHaveTextContent(".git/** — Git 内部数据");
+    expect(dialog).toHaveTextContent(".research/** — 应用私有数据");
+    expect(dialog).toHaveTextContent("node_modules/** — 自动生成的目录");
+    expect(dialog).toHaveTextContent("linked.tex — 不跟随符号链接");
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
   });
 
   it("gives a newly created project its own window when one is already open", async () => {

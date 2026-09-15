@@ -2198,6 +2198,10 @@ msgstr "居中公式组*"
 msgid "General"
 msgstr "通用"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Generated directory"
+msgstr "自动生成的目录"
+
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "申请密钥"
@@ -2217,6 +2221,10 @@ msgstr "吉梅尔"
 #: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git 桥接"
+
+#: src/app/use-collab-v2-session.ts
+msgid "Git internal data"
+msgstr "Git 内部数据"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Git status and commit"
@@ -4160,6 +4168,10 @@ msgstr "上一个搜索结果"
 msgid "Prime"
 msgstr "撇号"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Private app data"
+msgstr "应用私有数据"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
 msgstr "连乘"
@@ -5188,6 +5200,18 @@ msgstr "用于小节的小标题。"
 msgid "Smile relation"
 msgstr "上弧关系"
 
+#: src/app/use-collab-v2-session.ts
+msgid "Some project items won't be included in this share:\n"
+"\n"
+"{details}\n"
+"\n"
+"Continue sharing the remaining regular files?"
+msgstr "以下项目内容不会包含在此次共享中：\n"
+"\n"
+"{details}\n"
+"\n"
+"要继续共享其余普通文件吗？"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
 msgstr "部分来源未能完成查询，并不表示这条引用有误。"
@@ -5442,6 +5466,10 @@ msgstr "交换编辑器窗格"
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "切换项目"
+
+#: src/app/use-collab-v2-session.ts
+msgid "Symbolic links are not followed"
+msgstr "不跟随符号链接"
 
 #: src/editor/insert/insert-palette.tsx
 msgid "Symbols"
