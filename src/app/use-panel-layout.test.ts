@@ -158,6 +158,40 @@ it("bounds the upper overshoot and clears it on cancellation", () => {
   expect(result.current.sidebarOpen).toBe(true);
 });
 
+it("keeps live drag widths when fitting content or receiving new agent minimums", () => {
+  persistSidebarWidth(320);
+  const { result, begin, pointer, rerender } = setup();
+  begin();
+  pointer("pointermove", 260);
+  act(() => result.current.fitSidebarToContent());
+  expect(result.current.sidebarWidth).toBe(260);
+  expect(result.current.sidebarDragWidth).toBe(260);
+  for (const minimum of [200, 199, 201]) {
+    rerender({ minimum });
+    expect(result.current.sidebarWidth).toBe(260);
+    expect(result.current.sidebarDragWidth).toBe(260);
+  }
+  expect(loadSidebarWidth()).toBe(320);
+  pointer("pointerup", 260);
+  expect(loadSidebarWidth()).toBe(260);
+  rerender({ minimum: 300 });
+  expect(result.current.sidebarWidth).toBe(300);
+  rerender({ minimum: 180 });
+  expect(result.current.sidebarWidth).toBe(260);
+});
+
+it("applies a changed minimum on release even without another pointer move", () => {
+  const { result, begin, pointer, rerender } = setup();
+  begin();
+  pointer("pointermove", 260);
+  rerender({ minimum: 290 });
+  pointer("pointerup", 260);
+  expect(result.current.sidebarWidth).toBe(290);
+  expect(result.current.sidebarDragWidth).toBeNull();
+  expect(loadSidebarWidth()).toBe(290);
+  expect(result.current.sidebarOpen).toBe(true);
+});
+
 it("uses a new minimum for sizing without moving the active gesture's collapse threshold", () => {
   const { result, begin, pointer, rerender } = setup();
   begin();

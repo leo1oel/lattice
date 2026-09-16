@@ -3922,7 +3922,14 @@ describe("project workspace", () => {
     fireEvent.pointerDown(divider, { clientX: 320 });
     fireEvent.pointerMove(window, { clientX: 250 });
     expect(divider).toHaveAttribute("aria-valuenow", "280");
+    const workspaceColumns = document.querySelector<HTMLElement>(".workspace")!.style.gridTemplateColumns;
     reportMinimum(240);
+    // A layout report must not restore the saved 320px content width behind
+    // the still-dragging column, nor reload the embedded assistant.
+    expect(divider).toHaveAttribute("aria-valuenow", "280");
+    expect(document.querySelector(".workspace-sidebar-content")).toHaveStyle({ width: "280px" });
+    expect(document.querySelector<HTMLElement>(".workspace")!.style.gridTemplateColumns).toBe(workspaceColumns);
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(agentFrame);
     fireEvent.pointerMove(window, { clientX: 220 });
     expect(divider).toHaveAttribute("aria-valuenow", "240");
     fireEvent.pointerUp(window);

@@ -101,6 +101,10 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
   useEffect(() => () => finishResizeRef.current?.(), []);
   const fitSidebarToContent = useCallback(() => {
+    // The gesture owns both content and elastic widths until release. Restoring
+    // the saved preference here would resize the iframe behind a stationary
+    // divider. Move/finish already read the latest constraints.
+    if (finishResizeRef.current) return;
     // Window and panel minimums constrain the display, not the user's saved
     // preference. Reapply that preference when space becomes available again.
     setSidebarWidth(resizedWidth(preferredSidebarWidthRef.current, 0, minimumSidebarWidth));
