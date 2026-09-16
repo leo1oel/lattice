@@ -338,6 +338,33 @@ describe("PDFSlick viewer integration", () => {
     expect(onNumPages).toHaveBeenLastCalledWith(3);
   });
 
+  it("draws the pane's scrollbars as hover-reveal overlay bars on the PDF.js viewport", async () => {
+    const view = render(<PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} />);
+    expect(await view.findByLabelText("PDF page 1")).toBeInTheDocument();
+
+    const area = view.container.querySelector(".pdf-scroll-area")!;
+    expect(area.querySelectorAll(":scope > .overlay-scrollbar")).toHaveLength(2);
+
+    // PDF.js creates the scrolling element, so prove the bars found it.
+    const viewport = view.container.querySelector<HTMLElement>(".pdf-scroll-area-viewport")!;
+    const vertical = area.querySelector<HTMLElement>(
+      '.overlay-scrollbar[data-orientation="vertical"]',
+    )!;
+    for (const [element, sizes] of [
+      [viewport, { clientHeight: 200, scrollHeight: 800 }],
+      [vertical, { clientHeight: 200 }],
+    ] as const) {
+      for (const [name, value] of Object.entries(sizes)) {
+        Object.defineProperty(element, name, { configurable: true, value });
+      }
+    }
+    await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-end"));
+    expect(vertical.firstElementChild).toHaveStyle({ height: "48px" });
+
+    fireEvent.scroll(viewport);
+    expect(vertical).toHaveAttribute("data-scrolling");
+  });
+
   it("shows real network progress and the first-page rendering stage", async () => {
     pdfSlickMock.deferLoad = true;
     const view = render(

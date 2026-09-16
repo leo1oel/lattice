@@ -1,3 +1,5 @@
+// Vitest empties CSS imports, so read the stylesheet off disk.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   normalizePdfSelection,
@@ -33,3 +35,27 @@ describe("PDF viewer helpers", () => {
     expect(parsePdfZoomPercent("nope")).toBeNull();
   });
 });
+
+describe("PDF scroll viewport", () => {
+  const viewerCss = String(readFileSync("src/pdf/pdf-viewer.css", "utf8"))
+  const viewport = /\.pdf-scroll-area-viewport \{[^}]*\}/.exec(viewerCss)?.[0] ?? ""
+
+  // PDF.js scales a fitted page to `container.clientWidth`, which counts
+  // padding but not a border, and `removePageBorders` stops it from reserving
+  // anything for the scrollbar. Padding here made every "fit width" page
+  // exactly the horizontal inset too wide, so the pane always had a sideways
+  // scrollbar it could never satisfy.
+  it("insets the pages with a border so a fitted page still fits", () => {
+    expect(viewport).toContain("border: var(--space-10) solid transparent")
+    expect(viewport).toContain("box-sizing: border-box")
+    expect(viewport).not.toContain("padding")
+  })
+
+  // PDFSlick styles this same element through `.pdfSlick`, so the override has
+  // to out-specify it instead of relying on which chunk loads last.
+  it("leaves its scrollbar to the Lattice overlay bars", () => {
+    expect(viewport).not.toContain("scrollbar-width")
+    expect(viewerCss).toContain(".pdf-scroll-area-viewport.pdfSlick { scrollbar-width: none; }")
+    expect(viewerCss).toContain(".pdf-scroll-area-viewport::-webkit-scrollbar { display: none;")
+  })
+})

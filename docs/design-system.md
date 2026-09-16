@@ -233,6 +233,11 @@ the primitive standardizes density without changing those semantics.
   A container whose exact native viewport is observed by feature code uses
   `native-hover-scrollbar`; this is an explicit compatibility path, not a second
   general scrollbar implementation.
+  When an embedded engine owns the scroller and its layout depends on the
+  viewport's own width — the PDF viewer, whose fitted page is scaled to
+  `clientWidth` — `OverlayScrollbars` draws the same bars outside that width and
+  reveals them on the bar rather than on the whole surface, matching the
+  editor's.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 

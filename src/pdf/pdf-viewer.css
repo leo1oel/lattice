@@ -37,10 +37,28 @@
 .pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .pdf-viewer-host { position: absolute; inset: 0; overflow: hidden; }
-.pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; padding: var(--space-10); box-sizing: border-box; }
+/* The breathing room around the pages is a transparent border, not padding, and
+   that is load-bearing. PDF.js derives its `page-width` / `page-fit` scale from
+   `container.clientWidth`, which includes padding but excludes a border, and
+   with `removePageBorders` it subtracts nothing for the scrollbar. Padding here
+   therefore sized every fitted page to the padded width and left the pane
+   permanently scrolled sideways by exactly the horizontal padding. */
+.pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; border: var(--space-10) solid transparent; box-sizing: border-box; }
+/* One scrollbar per surface: the Lattice overlay bars draw this pane's. The
+   compound selector is deliberate — PDFSlick's stylesheet sets
+   `scrollbar-width: thin` on this very element through `.pdfSlick`, at equal
+   specificity and from a different CSS chunk, so order cannot be relied on. It
+   is also why the pane used to show a platform scrollbar rather than Lattice's:
+   WebKit ignores every `::-webkit-scrollbar` rule on a scroller that sets the
+   standard property. */
+.pdf-scroll-area-viewport.pdfSlick { scrollbar-width: none; }
+.pdf-scroll-area-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
 .pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
 .pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto 18px; background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
+/* The viewport's border already ends the column, and a trailing gap inside the
+   scroll extent would make a height-fitted page scrollable by that gap. */
+.pdf-preview .pdfViewer.removePageBorders .page:last-child { margin-bottom: 0; }
 .pdf-preview .pdfViewer .page.synctex-enabled { cursor: text; }
 .pdf-preview .pdfViewer .canvasWrapper canvas { background: var(--pdf-page-surface); image-rendering: auto; }
 /* Glyph spans stay unselectable so Command-A in the editor (or anywhere else

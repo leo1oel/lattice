@@ -34,7 +34,8 @@
 }
 
 .lattice-scrollbar[data-hovering],
-.lattice-scrollbar[data-scrolling] {
+.lattice-scrollbar[data-scrolling],
+.overlay-scrollbar:hover {
   opacity: 1;
   transition-duration: var(--duration-base);
   transition-delay: 0ms;
@@ -44,8 +45,18 @@
   pointer-events: auto;
 }
 
-.external-scrollbar .lattice-scrollbar-thumb {
+.external-scrollbar .lattice-scrollbar-thumb,
+.overlay-scrollbar .lattice-scrollbar-thumb {
   flex: none;
+}
+
+/* Leave the corner to whichever bar the pointer is not aiming for. */
+.overlay-scrollbar[data-orientation="vertical"][data-cross-axis] {
+  height: calc(100% - 10px);
+}
+
+.overlay-scrollbar[data-orientation="horizontal"][data-cross-axis] {
+  width: calc(100% - 10px);
 }
 
 .lattice-scrollbar[data-orientation="vertical"]:not([data-overflow-y-start]):not([data-overflow-y-end]),

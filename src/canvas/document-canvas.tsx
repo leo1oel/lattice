@@ -4785,7 +4785,9 @@ function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     const travel = Math.max(0, trackHeight - thumbHeight);
     const top = 4 + travel * (scroller.scrollTop / maxScroll);
     const nextHeight = `${thumbHeight}px`;
-    const nextTransform = `translateY(${top}px)`;
+    // The -2px keeps this thumb on the same line as every other Lattice
+    // scrollbar, which the shared stylesheet insets from the track's edge.
+    const nextTransform = `translate3d(-2px, ${top}px, 0)`;
     if (thumb.style.height !== nextHeight) thumb.style.height = nextHeight;
     if (thumb.style.transform !== nextTransform) thumb.style.transform = nextTransform;
   }, [view]);

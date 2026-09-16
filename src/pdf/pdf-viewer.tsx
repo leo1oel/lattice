@@ -38,6 +38,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
 import { SearchField } from "../components/ui/search-field";
 import { MotionButton } from "../components/ui/motion";
+import { OverlayScrollbars } from "../components/ui/overlay-scrollbar";
 import type { PdfFileViewState } from "../app-types";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { isBrowserHosted } from "../platform/browser-runtime";
@@ -424,6 +425,9 @@ export function PdfPreview({
   // React-owned signal whenever staged document replacement promotes a viewer.
   const [activeViewerGeneration, setActiveViewerGeneration] = useState(0);
   const hasActiveViewer = activeViewerGeneration > 0;
+  // PDF.js owns the scrolling element, so the overlay bars read it through the
+  // ref that document promotion writes; the generation keys them to re-attach.
+  const getScrollViewport = useCallback(() => scrollAreaRef.current, []);
   const [pageNumber, setPageNumber] = useState(() => Math.max(
     1,
     Math.floor(initialViewStateSnapshot?.page ?? initialPage),
@@ -1562,6 +1566,7 @@ export function PdfPreview({
       </div>
       <div className="pdf-scroll-area">
         <div ref={hostRef} className="pdf-viewer-host" />
+        <OverlayScrollbars key={activeViewerGeneration} getViewport={getScrollViewport} />
         {pdfError && !hasActiveViewer
           ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
           : null}
