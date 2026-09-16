@@ -18446,11 +18446,11 @@ DEALINGS IN THE SOFTWARE.
 
 The prepare script additionally stages these notices by hand: `src-tauri/synara-runtime/licenses/Node-LICENSE.txt`, `src-tauri/synara-runtime/licenses/Synara-MIT.txt`.
 
-**341 packages.**
+**340 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 223 |
+| `MIT` | 222 |
 | `Apache-2.0` | 76 |
 | `BSD-3-Clause` | 18 |
 | `ISC` | 14 |
@@ -18505,7 +18505,7 @@ to reproduce is not available from the artifact we distribute.
 - `@mariozechner/clipboard@0.3.9` (sidecar) — declared `MIT`
 - `@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4` (sidecar) — declared `MIT`
 - `@nodable/entities@2.1.0` (sidecar) — declared `MIT`
-- `@opencode-ai/sdk@1.18.30` (sidecar) — declared `MIT`
+- `@opencode-ai/sdk@1.18.31` (sidecar) — declared `MIT`
 - `@xterm/headless@6.0.0` (sidecar) — declared `MIT`
 - `data-uri-to-buffer@4.0.1` (sidecar) — declared `MIT`
 - `kubernetes-types@1.30.0` (sidecar) — declared `Apache-2.0`
@@ -18513,13 +18513,13 @@ to reproduce is not available from the artifact we distribute.
 - `standardwebhooks@1.1.1` (sidecar) — declared `MIT`
 - `xml-naming@0.1.0` (sidecar) — declared `MIT`
 
-### License texts (43 distinct texts across 341 packages)
+### License texts (43 distinct texts across 340 packages)
 
-#### 1. MIT — 93 package(s), from `license`
+#### 1. MIT — 92 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bibtex-tidy@1.15.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.1`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.10.0`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.7`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici-types@8.9.0`, `undici@7.29.1`, `undici@8.9.0`, `wsl-utils@0.1.0`, `zod@4.3.6`
+`@babel/runtime@7.29.2`, `@babel/runtime@7.29.7`, `@effect/platform-node-shared@4.0.0-beta.25`, `@effect/platform-node@4.0.0-beta.25`, `@effect/sql-sqlite-bun@4.0.0-beta.25`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.4.3`, `@shikijs/types@4.4.3`, `@standard-schema/spec@1.1.0`, `ajv-formats@3.0.1`, `bibtex-tidy@1.15.1`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `chalk@5.6.2`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@3.0.0`, `dunder-proto@1.0.1`, `effect@4.0.0-beta.25`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.1`, `eventsource-parser@3.1.1`, `express-rate-limit@8.7.0`, `fast-check@4.10.1`, `fast-deep-equal@3.1.3`, `fast-xml-builder@1.2.0`, `fast-xml-parser@5.7.3`, `fetch-blob@3.2.0`, `find-my-way-ts@0.1.6`, `formdata-polyfill@4.0.10`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-proto@1.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.8`, `is-docker@3.0.0`, `is-inside-container@1.0.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-to-ts@3.1.1`, `json-schema-traverse@1.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mime@4.1.0`, `msgpackr-extract@3.0.4`, `msgpackr@1.12.1`, `multipasta@0.2.8`, `node-domexception@1.0.0`, `object-inspect@1.13.4`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `open@10.2.0`, `p-retry@4.6.2`, `partial-json@0.1.7`, `path-expression-matcher@1.5.0`, `path-key@3.1.1`, `pkce-challenge@5.0.1`, `pure-rand@8.4.2`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `shiki@4.4.3`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `standard-as-callback@2.1.0`, `strnum@2.3.0`, `toidentifier@1.0.1`, `tree-kill@1.2.2`, `ts-algebra@2.0.0`, `undici-types@6.21.0`, `undici@7.29.1`, `undici@8.9.0`, `wsl-utils@0.1.0`, `zod@4.3.6`
 
 </details>
 
@@ -18602,7 +18602,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 <details><summary>Packages sharing this text</summary>
 
-`accepts@2.0.0`, `agent-base@7.1.4`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `express@5.2.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@7.0.2`, `https-proxy-agent@7.0.6`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.1.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.7`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
+`accepts@2.0.0`, `agent-base@7.1.4`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `express@5.2.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@7.0.2`, `https-proxy-agent@7.0.6`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.1.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.8`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
 
 </details>
 
@@ -19207,7 +19207,7 @@ Copyright 2026 Alexey Zaytsev
 
 <details><summary>Packages sharing this text</summary>
 
-`@anthropic-ai/sdk@0.100.1`, `@anthropic-ai/sdk@0.123.0`, `function-bind@1.1.2`, `iconv-lite@0.7.3`, `ip-address@10.7.0`, `ipaddr.js@1.9.1`, `is-promise@4.0.0`, `jwa@2.0.1`, `jws@4.0.1`, `toml@3.0.0`
+`@anthropic-ai/sdk@0.100.1`, `@anthropic-ai/sdk@0.123.0`, `function-bind@1.1.2`, `iconv-lite@0.7.3`, `ip-address@10.7.2`, `ipaddr.js@1.9.1`, `is-promise@4.0.0`, `jwa@2.0.1`, `jws@4.0.1`, `toml@3.0.0`
 
 </details>
 
@@ -19994,7 +19994,7 @@ Apache License
 
 <details><summary>Packages sharing this text</summary>
 
-`fast-uri@3.1.7`
+`fast-uri@3.1.8`
 
 </details>
 

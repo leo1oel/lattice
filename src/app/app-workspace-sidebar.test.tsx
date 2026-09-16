@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { EMPTY_SYNARA_RUNTIME } from "../agent/synara-runtime";
 import { activateAppLocale } from "../i18n";
 import type { SynaraPermissionMode } from "./app-synara-embed";
 import { AppWorkspaceSidebar, type AppWorkspaceSidebarProps } from "./app-workspace-sidebar";
@@ -19,12 +20,28 @@ function renderSidebar() {
   const onChange = vi.fn();
   // No iframe or navigator is mounted: exercise the real sidebar's agent controls.
   const props = {
+    appLocale: "en",
+    theme: "light",
+    project: {
+      root: "/tmp/sidebar-permissions",
+      files: [],
+      manifest: {
+        schemaVersion: 1,
+        projectId: "sidebar-permissions",
+        name: "Sidebar permissions",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+    },
     sidebarMode: "agent",
     sidebarModeTier: "full",
     sidebarWidth: 420,
     sidebarOpen: true,
     chooseSidebarMode: vi.fn(),
     synaraOrigin: "http://localhost:9999",
+    synaraRuntime: EMPTY_SYNARA_RUNTIME,
+    synaraFrameMounted: false,
     synaraPermissionMode: "full-access",
     synaraAutoModeAvailable: false,
     synaraFrameReady: true,
