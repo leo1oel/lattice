@@ -72,8 +72,10 @@ const resizedWidth = (start: number, delta: number, minimumSidebarWidth: number)
 /** Owns the single workspace sidebar's visibility and width. */
 export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
+  const [initialSidebarWidth] = useState(loadSidebarWidth);
+  const preferredSidebarWidthRef = useRef(initialSidebarWidth);
   const [sidebarWidth, setSidebarWidth] = useState(() =>
-    resizedWidth(loadSidebarWidth(), 0, minimumSidebarWidth),
+    resizedWidth(initialSidebarWidth, 0, minimumSidebarWidth),
   );
   const [sidebarResizing, setSidebarResizing] = useState(false);
   // Visual overshoot never becomes the saved width or squeezes sidebar content.
@@ -99,11 +101,9 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
   useEffect(() => () => finishResizeRef.current?.(), []);
   const fitSidebarToContent = useCallback(() => {
-    setSidebarWidth((current) => {
-      const next = resizedWidth(current, 0, minimumSidebarWidth);
-      if (next !== current) persistSidebarWidth(next);
-      return next;
-    });
+    // Window and panel minimums constrain the display, not the user's saved
+    // preference. Reapply that preference when space becomes available again.
+    setSidebarWidth(resizedWidth(preferredSidebarWidthRef.current, 0, minimumSidebarWidth));
   }, [minimumSidebarWidth]);
   useEffect(() => fitSidebarToContent(), [fitSidebarToContent]);
   useEffect(() => {
@@ -194,7 +194,10 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       window.removeEventListener("blur", finish);
       target.removeEventListener("lostpointercapture", finish);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
-      persistSidebarWidth(latest);
+      if (moved && !collapse) {
+        preferredSidebarWidthRef.current = latest;
+        persistSidebarWidth(latest);
+      }
       if (finishResizeRef.current === finish) finishResizeRef.current = null;
     };
     finishResizeRef.current = finish;
@@ -209,6 +212,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
   const nudgeSidebar = useCallback((delta: number) => {
     setSidebarWidth((current) => {
       const next = resizedWidth(current, delta, minimumSidebarWidth);
+      preferredSidebarWidthRef.current = next;
       persistSidebarWidth(next);
       return next;
     });

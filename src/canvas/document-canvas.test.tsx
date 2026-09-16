@@ -616,6 +616,25 @@ describe("DocumentCanvas / split ratio", () => {
     expect(separator()).toHaveAttribute("aria-valuenow", "60");
   });
 
+  it("does not replace the saved split preference when a restored window is temporarily narrow", () => {
+    localStorage.setItem(SPLIT_RATIO_KEY, "0.6");
+    const { container, rerenderWith } = renderCanvas({ mode: "source" });
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 0, width: 700, right: 700 } as DOMRect);
+    try {
+      rerenderWith({ mode: "split" });
+      expect(Number(separator().getAttribute("aria-valuenow"))).toBeLessThan(60);
+      expect(localStorage.getItem(SPLIT_RATIO_KEY)).toBe("0.6");
+      rerenderWith({ mode: "source" });
+      bounds.mockReturnValue({ left: 0, width: 1400, right: 1400 } as DOMRect);
+      rerenderWith({ mode: "split" });
+      expect(container.querySelector(".split-canvas")).not.toBeNull();
+      expect(separator()).toHaveAttribute("aria-valuenow", "60");
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
   it.each([
     { mode: "dual", label: "Resize dual source panes", width: 800, x: 200, direction: -1 },
     { mode: "columns", label: "Resize PDF pane", width: 1200, x: 760, direction: 1 },

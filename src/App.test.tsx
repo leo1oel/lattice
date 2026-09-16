@@ -3090,7 +3090,9 @@ describe("project workspace", () => {
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });
 
-  it("defers a restored Agent frame until a post-startup interaction", async () => {
+  it.each([true, false])("restores the Agent selection and sidebar visibility (open: %s)", async (open) => {
+    // Finish cold compilation before DOM waits and unmount/remount assertions.
+    await Promise.all([import("./settings/settings-dialog"), import("./canvas/document-canvas")]);
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -3110,19 +3112,25 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+    localStorage.setItem("lattice.sidebar-open.v1", open ? "1" : "0");
+    localStorage.setItem("lattice.agent-thread.v1:/tmp/lattice-paper", "saved-thread");
 
-    renderApp();
+    const view = renderApp();
     await screen.findByRole("button", { name: "Switch project" });
-    expect(screen.getByRole("tab", { name: "Project" })).toHaveAttribute("aria-selected", "true");
-    expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
-    expect(synaraHook.enabledCalls).not.toContain(true);
-    await switchSidebarMode("Agent");
+    if (!open) {
+      expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
+      expect(synaraHook.enabledCalls).not.toContain(true);
+      expect(localStorage.getItem("lattice.sidebar-open.v1")).toBe("0");
+      fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+    }
+    expect(screen.getByRole("tab", { name: "Agent" })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
     const frame = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
       expect(element).not.toBeNull();
       return element!;
     });
+    expect(new URL(frame.src).pathname).toBe("/saved-thread");
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
 
     fireEvent.load(frame);
@@ -3147,6 +3155,25 @@ describe("project workspace", () => {
       window.dispatchEvent(new MessageEvent("message", {
         source: frame.contentWindow,
         origin: "https://untrusted.example",
+        data: { type: "lattice:project-history", activeThreadId: "wrong-thread", entries: [] },
+      }));
+    });
+    expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("saved-thread");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: synaraHook.runtime.origin!,
+        data: { type: "lattice:project-history", activeThreadId: "selected-thread", entries: [] },
+      }));
+    });
+    expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("selected-thread");
+    // Recording navigation must not reload the live iframe or interrupt a turn.
+    expect(new URL(frame.src).pathname).toBe("/saved-thread");
+
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow,
+        origin: "https://untrusted.example",
         data: { type: "synara:open-settings", section: "providers" },
       }));
     });
@@ -3162,6 +3189,13 @@ describe("project workspace", () => {
     const settings = await screen.findByRole("dialog", { name: "Settings" });
     expect(within(settings).getByRole("button", { name: "Providers" }))
       .toHaveAttribute("aria-current", "page");
+    view.unmount();
+    renderApp();
+    await waitFor(() => {
+      const restored = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(restored).not.toBeNull();
+      expect(new URL(restored!.src).pathname).toBe("/selected-thread");
+    });
   });
 
   it("starts Synara when source control is requested", async () => {

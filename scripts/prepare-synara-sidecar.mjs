@@ -20,6 +20,7 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { findMachOBinaries } from "./sign-presentation-runtime.mjs";
 import { pruneEsbuildPlatforms } from "./synara-runtime-platforms.mjs";
+import { patchProcessInspectorFailures } from "./synara-process-inspector.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const runtimeConfig = JSON.parse(
@@ -338,6 +339,8 @@ exit 127
     "@echo off\r\n\"%~dp0node.exe\" \"%~dp0..\\tools\\bibtex-tidy.mjs\" %*\r\n",
   );
   silenceExpectedSessionProbeWarnings(serverRoot);
+  const bundle = join(serverRoot, "dist/index.mjs");
+  writeFileSync(bundle, patchProcessInspectorFailures(readFileSync(bundle, "utf8")));
   mkdirSync(join(stageRoot, "licenses"), { recursive: true });
   cpSync(join(sourceRoot, "LICENSE"), join(stageRoot, "licenses/Synara-MIT.txt"));
   return serverPackage.version;
@@ -611,6 +614,7 @@ const buildKey = createHash("sha256")
   .update(fingerprint)
   .update(readFileSync(fileURLToPath(import.meta.url)))
   .update(readFileSync(join(projectRoot, "scripts/synara-runtime-platforms.mjs")))
+  .update(readFileSync(join(projectRoot, "scripts/synara-process-inspector.mjs")))
   .digest("hex");
 const existingManifestPath = join(runtimeRoot, "manifest.json");
 const sourceDeviceHelperRoot = join(sourceRoot, "apps/server/native/device-helper");

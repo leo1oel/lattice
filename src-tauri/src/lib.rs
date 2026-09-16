@@ -29,6 +29,8 @@ mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod presentation;
+#[cfg(target_os = "macos")]
+mod process_inspector;
 mod project;
 mod project_fs;
 mod semantic_search;
@@ -4476,6 +4478,8 @@ fn restart_after_update(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    process_inspector::run_if_requested();
     if run_cli() {
         return;
     }

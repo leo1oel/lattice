@@ -48,6 +48,12 @@ Ownership stays split at that boundary. Synara owns provider adapters, turns, ch
 provider-facing trace producer. Lattice owns live editor host context, the literature, canvas,
 spreadsheet, and project-document brokers, and the host-side compile bridge.
 In particular, Lattice does not copy a provider adapter.
+On macOS, `SYNARA_PROCESS_PS_PATH` points to a shell launcher for the signed Lattice executable's `--lattice-process-snapshot` mode, which exits before Tauri starts.
+The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox; it must not copy `/bin/ps`, whose non-setuid copy can be killed on older macOS even when static signature verification passes.
+The two supported `ps`-shaped queries return PID/parent relationships and opaque birth-time identities rather than command-line arguments.
+A missing PID is a successful empty result; a failed snapshot is a nonzero exit, which `scripts/synara-process-inspector.mjs` patches the staged Synara runtime to treat as unknown rather than proof of exit.
+Startup verifies the launcher inside the sandbox before admitting agent work.
+
 Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
 plus an omission count when an explicit selection is truncated to the
 `MAX_SELECTION_LENGTH` = 12,000-character model limit (`src/agent/agent-host-context.ts`).

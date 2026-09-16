@@ -16,6 +16,16 @@ export function isSynaraPermissionMode(value: unknown): value is SynaraPermissio
   return value === "approval-required" || value === "auto" || value === "full-access";
 }
 
+const THREAD_KEY_PREFIX = "lattice.agent-thread.v1:";
+
+export function persistSynaraThread(projectRoot: string, threadId: string): void {
+  try {
+    localStorage.setItem(THREAD_KEY_PREFIX + projectRoot, threadId);
+  } catch {
+    // The active conversation remains usable without storage.
+  }
+}
+
 export function synaraEmbedUrl(
   origin: string,
   authToken: string | null,
@@ -23,8 +33,18 @@ export function synaraEmbedUrl(
   theme: "light" | "dark",
   locale: AppLocale,
 ): string {
+  let path = "/";
+  try {
+    const threadId = localStorage.getItem(THREAD_KEY_PREFIX + projectRoot);
+    if (threadId && /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,511}$/.test(threadId)) {
+      path = `/${encodeURIComponent(threadId)}`;
+    }
+  } catch {
+    // Let Synara choose its normal landing page when storage is unavailable.
+  }
   return synaraFrameUrl({
     origin,
+    path,
     workspaceRoot: projectRoot,
     theme,
     locale,

@@ -82,6 +82,7 @@ import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import {
   isSynaraPermissionMode,
+  persistSynaraThread,
   type AgentTurnReview,
   type SynaraPermissionMode,
 } from "./app/app-synara-embed";
@@ -1503,10 +1504,7 @@ function App() {
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
-      // Mounting the cross-origin Agent iframe during React's first root render
-      // can corrupt React's development scheduler in WebKit. Restore Papers,
-      // but let Agent mount only after an explicit post-startup interaction.
-      return saved === "papers" ? saved : "project";
+      return saved === "papers" || saved === "agent" ? saved : "project";
     } catch {
       return "project";
     }
@@ -1605,6 +1603,16 @@ function App() {
   });
   const [synaraFrameMounted, setSynaraFrameMounted] = useState(false);
   const [readySynaraFrameKey, setReadySynaraFrameKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!project || !sidebarOpen || sidebarMode !== "agent") return;
+    // Keep the cross-origin iframe out of the initial WebKit root render,
+    // without requiring a click to restore the user's last workspace.
+    const frame = window.requestAnimationFrame(() => {
+      setSynaraRuntimeRequested(true);
+      setSynaraFrameMounted(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [project, sidebarOpen, sidebarMode]);
   const synaraFrameKey = synaraOrigin && project
     ? `${synaraOrigin}\0${project.root}`
     : null;
@@ -2027,6 +2035,8 @@ function App() {
       }
       const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
       if (historySnapshot) {
+        const projectRoot = projectRef.current?.root;
+        if (projectRoot) persistSynaraThread(projectRoot, historySnapshot.activeThreadId);
         setAgentHistoryByThread((current) => ({
           ...current,
           [historySnapshot.activeThreadId]: historySnapshot.entries,

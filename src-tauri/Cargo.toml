@@ -19,6 +19,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+cc = "1"
 
 # Halves the release binary (measured 26.6 MB -> 12.9 MB on aarch64-darwin).
 # panic="abort" would save ~3 MB more but turns any panic into a hard crash

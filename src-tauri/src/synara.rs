@@ -41,25 +41,31 @@ const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
 );
 
 #[cfg(target_os = "macos")]
-fn prepare_process_inspector(home: &Path) -> Result<PathBuf, String> {
+fn prepare_process_inspector(home: &Path, executable: &Path) -> Result<PathBuf, String> {
+    use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
 
-    // Seatbelt refuses exec of the system setuid ps, even with allow-default.
-    // Inspecting our own provider processes needs no elevated privileges. Copy
-    // the installed OS binary without setuid; do not weaken the .bib sandbox or
-    // treat a failed process snapshot as proof that a provider has exited.
+    // Keep the executable inside the signed bundle. Copying Apple's /bin/ps
+    // without setuid can pass signature verification but still die on launch.
+    let executable = executable
+        .to_str()
+        .ok_or("The app executable path is not valid UTF-8")?
+        .replace('\'', "'\\''");
+    let script = format!(
+        "#!/bin/sh\nexec '{executable}' {} \"$@\"\n",
+        crate::process_inspector::FLAG
+    );
     let directory = home.join("process-tools");
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not prepare process tools: {error}"))?;
     let temporary = directory.join(format!("ps-{}", uuid::Uuid::new_v4()));
     let destination = directory.join("ps");
     let result = (|| -> std::io::Result<()> {
-        let mut source = File::open("/bin/ps")?;
         let mut output = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&temporary)?;
-        std::io::copy(&mut source, &mut output)?;
+        output.write_all(script.as_bytes())?;
         output.set_permissions(fs::Permissions::from_mode(0o755))?;
         fs::rename(&temporary, &destination)
     })();
@@ -70,6 +76,46 @@ fn prepare_process_inspector(home: &Path) -> Result<PathBuf, String> {
         ));
     }
     Ok(destination)
+}
+
+#[cfg(target_os = "macos")]
+fn verify_process_inspector(inspector: &Path) -> Result<(), String> {
+    // Check actual execution under the provider sandbox, not just signatures.
+    // Fail at startup with an actionable error, before a chat is quarantined.
+    let mut child = Command::new("/usr/bin/sandbox-exec")
+        .args(["-p", BIBLIOGRAPHY_SANDBOX_PROFILE])
+        .arg(inspector)
+        .args(["-p", &std::process::id().to_string(), "-o", "pid=,command="])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start the process inspector: {error}"))?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+            result => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "Process inspector startup check did not complete: {result:?}"
+                ));
+            }
+        }
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Could not read the process inspector result: {error}"))?;
+    let expected = format!("{} lattice-process:", std::process::id());
+    if !output.status.success() || !output.stdout.starts_with(expected.as_bytes()) {
+        return Err(format!(
+            "Process inspector startup check failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -375,15 +421,16 @@ impl SynaraRuntime {
         // bibliography mutations.
         #[cfg(target_os = "macos")]
         let mut command = {
+            let executable = std::env::current_exe()
+                .map_err(|error| format!("Could not locate the app executable: {error}"))?;
+            let inspector = prepare_process_inspector(&self.home_dir, &executable)?;
+            verify_process_inspector(&inspector)?;
             let mut command = Command::new("/usr/bin/sandbox-exec");
             command
                 .arg("-p")
                 .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
                 .arg(&self.javascript_runtime_path)
-                .env(
-                    "SYNARA_PROCESS_PS_PATH",
-                    prepare_process_inspector(&self.home_dir)?,
-                );
+                .env("SYNARA_PROCESS_PS_PATH", inspector);
             command
         };
         #[cfg(not(target_os = "macos"))]
@@ -1042,23 +1089,36 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn bibliography_sandbox_can_inspect_provider_processes_without_setuid() {
+    fn process_inspector_launcher_preserves_paths_and_replaces_legacy_binary() {
         use std::os::unix::fs::PermissionsExt;
 
         let home =
-            std::env::temp_dir().join(format!("lattice-process-tools-{}", uuid::Uuid::new_v4()));
-        let inspector = super::prepare_process_inspector(&home).unwrap();
+            std::env::temp_dir().join(format!("lattice's process tools-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(home.join("process-tools")).unwrap();
+        fs::write(home.join("process-tools/ps"), "legacy system binary").unwrap();
+        let executable = home.join("Lattice's executable");
+        fs::write(&executable, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n").unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        let inspector = super::prepare_process_inspector(&home, &executable).unwrap();
         assert_eq!(
             fs::metadata(&inspector).unwrap().permissions().mode() & 0o7777,
             0o755
         );
-        assert_eq!(fs::read(&inspector).unwrap(), fs::read("/bin/ps").unwrap());
-        assert!(run_bibliography_sandbox(
-            "sleep 30 & child=$!; trap 'kill $child 2>/dev/null; wait $child 2>/dev/null' EXIT; observed=$(\"$1\" -p \"$child\" -o pid= | tr -d ' '); test \"$observed\" = \"$child\"",
-            &[&inspector],
-        ));
-        // A subsequent launch atomically refreshes from the installed OS binary.
-        assert_eq!(super::prepare_process_inspector(&home).unwrap(), inspector);
+        let output = Command::new(&inspector)
+            .args(["-eo", "pid=,ppid=,command="])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(
+            String::from_utf8(output.stdout).unwrap(),
+            "--lattice-process-snapshot\n-eo\npid=,ppid=,command=\n"
+        );
+        // A non-query executable must fail preflight, even if it exits zero.
+        assert!(super::verify_process_inspector(&inspector).is_err());
+        assert_eq!(
+            super::prepare_process_inspector(&home, &executable).unwrap(),
+            inspector
+        );
         fs::remove_dir_all(home).unwrap();
     }
 

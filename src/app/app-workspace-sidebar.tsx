@@ -8,7 +8,7 @@
  * else in the sidebar touches, and it is behind `lazy()`, so the element has to
  * be created where the loader lives.
  */
-import { lazy, Suspense, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, useMemo, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   BookMarked,
@@ -117,6 +117,12 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     synaraRuntime,
     theme,
   } = props;
+  // Read the saved route only when creating a frame URL. Recording navigation
+  // in that frame must not change its src and reload an in-progress turn.
+  const agentFrameUrl = useMemo(() => synaraOrigin
+    ? synaraEmbedUrl(synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale)
+    : undefined,
+  [synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale]);
   return (
     <>
       <section className="shared-sidebar" data-tour="sidebar" inert={!props.sidebarOpen} aria-hidden={!props.sidebarOpen}>
@@ -218,15 +224,10 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
           >
             {synaraFrameMounted && synaraOrigin && (
               <iframe
+                key={project.root}
                 ref={synaraIframeRef}
                 className="synara-poc-frame"
-                src={synaraEmbedUrl(
-                  synaraOrigin,
-                  synaraRuntime.authToken,
-                  project.root,
-                  theme,
-                  appLocale,
-                )}
+                src={agentFrameUrl}
                 title={t`Agent`}
                 allow="clipboard-read; clipboard-write; microphone"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"

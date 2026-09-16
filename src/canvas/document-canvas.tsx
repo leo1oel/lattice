@@ -1732,6 +1732,7 @@ export function DocumentCanvas(props: {
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
+  const preferredSplitRatioRef = useRef(splitRatio);
   const handledDualRatioResetRef = useRef(props.dualRatioResetGeneration);
   const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
   const [figureDropActive, setFigureDropActive] = useState(false);
@@ -1808,6 +1809,7 @@ export function DocumentCanvas(props: {
       || handledDualRatioResetRef.current === props.dualRatioResetGeneration
     ) return;
     handledDualRatioResetRef.current = props.dualRatioResetGeneration;
+    preferredSplitRatioRef.current = 0.5;
     setSplitRatio(0.5);
     persistSplitRatio(0.5);
   }, [props.dualRatioResetGeneration, props.mode]);
@@ -1908,11 +1910,9 @@ export function DocumentCanvas(props: {
     const split = splitRef.current;
     if (!split || props.mode !== "split" || typeof ResizeObserver === "undefined") return;
     const fitRatio = () => {
-      setSplitRatio((current) => {
-        const next = constrainSplitRatio(current);
-        if (next !== current) persistSplitRatio(next);
-        return next;
-      });
+      // A smaller window must not overwrite the divider position to restore
+      // next time. Only explicit resize gestures change the preference.
+      setSplitRatio(constrainSplitRatio(preferredSplitRatioRef.current));
     };
     const observer = new ResizeObserver(fitRatio);
     observer.observe(split);
@@ -4464,6 +4464,7 @@ export function DocumentCanvas(props: {
         window.removeEventListener("pointerup", handleUp);
         window.removeEventListener("pointercancel", handleUp);
         window.removeEventListener("blur", handleUp);
+        preferredSplitRatioRef.current = latest;
         persistSplitRatio(latest);
       };
       window.addEventListener("pointermove", handleMove);
@@ -4703,6 +4704,7 @@ export function DocumentCanvas(props: {
       window.removeEventListener("pointerup", handleUp);
       window.removeEventListener("pointercancel", handleUp);
       window.removeEventListener("blur", handleUp);
+      preferredSplitRatioRef.current = latest;
       setSplitRatio(latest);
       persistSplitRatio(latest);
     };
@@ -4713,6 +4715,7 @@ export function DocumentCanvas(props: {
   };
   const nudgeSplit = (delta: number) => {
     const next = constrainSplitRatio(splitRatio + delta);
+    preferredSplitRatioRef.current = next;
     setSplitRatio(next);
     persistSplitRatio(next);
   };

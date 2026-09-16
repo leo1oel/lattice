@@ -135,6 +135,7 @@ description = "Rust unit and integration tests"
 run = "cargo test --manifest-path src-tauri/Cargo.toml"
 sources = [
   "src-tauri/**/*.rs",
+  "src-tauri/src/**/*.c",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
@@ -147,6 +148,7 @@ description = "Clippy with warnings denied"
 run = "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings"
 sources = [
   "src-tauri/**/*.rs",
+  "src-tauri/src/**/*.c",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",

@@ -1,11 +1,26 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { loadSidebarWidth } from "../settings/app-settings";
+import { loadSidebarWidth, persistSidebarOpen, persistSidebarWidth } from "../settings/app-settings";
 import { usePanelLayout } from "./use-panel-layout";
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
+
+it("restores a collapsed sidebar and preserves its preferred width through temporary constraints", () => {
+  persistSidebarOpen(false);
+  persistSidebarWidth(700);
+  const { result, rerender, unmount } = setup();
+  expect(result.current.sidebarOpen).toBe(false);
+  expect(result.current.sidebarWidth).toBe(window.innerWidth - 600);
+  rerender({ minimum: 500 });
+  expect(result.current.sidebarWidth).toBe(500);
+  rerender({ minimum: 180 });
+  expect(result.current.sidebarWidth).toBe(window.innerWidth - 600);
+  expect(loadSidebarWidth()).toBe(700);
+  unmount();
+  expect(loadSidebarWidth()).toBe(700);
+});
 
 function setup() {
   const hook = renderHook(({ minimum }) => usePanelLayout(minimum), { initialProps: { minimum: 180 } });
