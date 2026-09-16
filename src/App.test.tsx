@@ -3945,6 +3945,9 @@ describe("project workspace", () => {
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBe(divider);
     expect(divider).toHaveAttribute("aria-valuenow", "240");
     expect(document.querySelector('iframe[title="Agent"]')).toBe(agentFrame);
+    // This scenario never opens an editor, but project startup still prewarms
+    // it. Let that import finish before an isolated test tears down its runner.
+    await vi.dynamicImportSettled();
   });
 
   it("automatically refreshes the project tree when files appear on disk", async () => {
