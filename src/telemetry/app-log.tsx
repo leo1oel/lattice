@@ -19,7 +19,7 @@ import {
 import { CopyButton } from "../components/copy-button";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { CheckboxField } from "../components/ui/checkbox-field";
-import { serializeAppLogExport } from "./app-log-export";
+import { createAppLogExport } from "./app-log-export";
 import {
   clearAppLogs,
   dismissAppToast,
@@ -106,11 +106,33 @@ function groupLogs(entries: readonly AppLogEntry[]): LogGroup[] {
   return [...groups.values()].sort((a, b) => Date.parse(a.summary.timestamp) - Date.parse(b.summary.timestamp));
 }
 
+type RuntimeLogs = {
+  platform: string;
+  arch: string;
+  files: { name: string; content: string; truncated: boolean; error?: string }[];
+};
+
 function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; onClose: () => void }) {
   const { t } = useLingui();
   const [includeRaw, setIncludeRaw] = useState(false);
-  const [snapshot] = useState(() => ({ safe: serializeAppLogExport(entries), raw: serializeAppLogExport(entries, true) }));
-  const text = includeRaw ? snapshot.raw : snapshot.safe;
+  const [includeRuntime, setIncludeRuntime] = useState(false);
+  const [runtime, setRuntime] = useState<{ logs?: RuntimeLogs; error?: string }>({});
+  const request = useRef(0);
+  const [snapshot] = useState(() => ({ safe: createAppLogExport(entries), raw: createAppLogExport(entries, true) }));
+  const text = JSON.stringify({
+    ...(includeRaw ? snapshot.raw : snapshot.safe),
+    ...(includeRuntime && runtime.logs ? { runtime_logs: runtime.logs } : {}),
+  }, null, 2);
+  const ready = !includeRuntime || Boolean(runtime.logs);
+  useEffect(() => () => { request.current += 1; }, []);
+  const collectRuntime = () => {
+    const generation = ++request.current;
+    setRuntime({});
+    void invoke<RuntimeLogs>("collect_diagnostic_logs").then(
+      (logs) => { if (generation === request.current) setRuntime({ logs }); },
+      (error: unknown) => { if (generation === request.current) setRuntime({ error: String(error) }); },
+    );
+  };
   const download = () => {
     const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
     const link = document.createElement("a");
@@ -130,11 +152,27 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
           label={t`Include raw diagnostic text`}
           description={t`Warning: raw diagnostic text may contain document content, file paths, or other sensitive information.`}
         />
+        <CheckboxField
+          checked={includeRuntime}
+          onChange={(event) => {
+            setIncludeRuntime(event.target.checked);
+            if (event.target.checked) collectRuntime();
+            else { request.current += 1; setRuntime({}); }
+          }}
+          label={t`Include app and Agent runtime logs`}
+          description={t`For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing.`}
+        />
+        {includeRuntime && !runtime.logs && (runtime.error ? (
+          <div role="alert">
+            <p>{t`Could not collect runtime logs.`} {runtime.error}</p>
+            <Button size="compact" onClick={collectRuntime}>{t`Retry`}</Button>
+          </div>
+        ) : <p role="status">{t`Collecting runtime logs…`}</p>)}
         <pre className="app-log-export-preview" aria-label={t`Export preview`}>{text}</pre>
         <div className="modal-actions">
           <Button onClick={onClose}>{t`Cancel`}</Button>
-          <Button onClick={() => void navigator.clipboard.writeText(text)}>{t`Copy JSON`}</Button>
-          <Button variant="primary" onClick={download}><Download size={13} />{t`Download JSON`}</Button>
+          <Button disabled={!ready} onClick={() => void navigator.clipboard.writeText(text)}>{t`Copy JSON`}</Button>
+          <Button disabled={!ready} variant="primary" onClick={download}><Download size={13} />{t`Download JSON`}</Button>
         </div>
       </div>
     </ModalDialog>
@@ -329,7 +367,7 @@ export function AppLogsSettings() {
             </Select>
           </div>
           <div className="app-log-action-row">
-            <Button size="compact" disabled={visible.length === 0} onClick={() => setExportEntries([...visible])}><Download size={13} />{t`Export…`}</Button>
+            <Button size="compact" onClick={() => setExportEntries([...visible])}><Download size={13} />{t`Export…`}</Button>
             <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>{t`Clear`}</Button>
             <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}>
               <FolderOpen size={13} />

@@ -430,6 +430,9 @@ impl SynaraRuntime {
                 .arg("-p")
                 .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
                 .arg(&self.javascript_runtime_path)
+                // Children inherit this profile. A second sandbox-exec can
+                // fail sandbox_apply on older macOS before Codex even starts.
+                .env("LATTICE_BIBLIOGRAPHY_SANDBOX", "1")
                 .env("SYNARA_PROCESS_PS_PATH", inspector);
             command
         };

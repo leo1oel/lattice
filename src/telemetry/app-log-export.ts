@@ -85,7 +85,3 @@ export function createAppLogExport(entries: readonly AppLogEntry[], includeRawDi
     }),
   };
 }
-
-export function serializeAppLogExport(entries: readonly AppLogEntry[], includeRawDiagnostic = false): string {
-  return JSON.stringify(createAppLogExport(entries, includeRawDiagnostic), null, 2);
-}

@@ -7,6 +7,7 @@ mod citation_health;
 mod collab_credentials;
 mod command_diagnostics;
 mod commands;
+mod diagnostic_logs;
 mod doctor;
 mod firecrawl;
 mod format_latex;
@@ -4624,6 +4625,7 @@ pub fn run() {
             literature_credentials::test_literature_credential,
             create_project,
             open_tutorial_project,
+            diagnostic_logs::collect_diagnostic_logs,
             get_app_log_dir,
             open_app_log_dir,
             open_in_browser,

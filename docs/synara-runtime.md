@@ -54,6 +54,14 @@ The two supported `ps`-shaped queries return PID/parent relationships and opaque
 A missing PID is a successful empty result; a failed snapshot is a nonzero exit, which `scripts/synara-process-inspector.mjs` patches the staged Synara runtime to treat as unknown rather than proof of exit.
 Startup verifies the launcher inside the sandbox before admitting agent work.
 
+The macOS host sets `LATTICE_BIBLIOGRAPHY_SANDBOX=1` only when launching the service through its bibliography sandbox.
+`scripts/synara-codex-host.mjs` makes Codex inherit that protection instead of running a second `sandbox-exec`, which can fail before Codex starts on older macOS.
+The standalone Lattice-profile Codex guard remains in place when the marker is absent.
+The same staging patch records classified Codex stderr and process exit even after stdout EOF has begun teardown; it does not relax process-tree exit verification or unblock failed threads automatically.
+After staging, run `node scripts/check-codex-host.mjs /absolute/path/to/codex` on macOS to check a real initialize/thread/start/command/exec cycle, inherited `.bib` denial, permitted `.tex` writes, and clean exit in a disposable home, without sending model requests.
+For the packaged JavaScript engine, run the same script using `ELECTRON_RUN_AS_NODE=1` and the staged `Lattice Chromium.app/Contents/MacOS/Electron` executable instead of `node`.
+Settings → Logs → Export can collect bounded tails of `lattice.log`, `sidecar.log`, `sidecar-error.log`, and `server.log` after explicit consent, with known credential redaction and a preview before copying or downloading.
+
 Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
 plus an omission count when an explicit selection is truncated to the
 `MAX_SELECTION_LENGTH` = 12,000-character model limit (`src/agent/agent-host-context.ts`).

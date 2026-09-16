@@ -1175,6 +1175,10 @@ msgstr "可折叠内容块（类似 Notion 的折叠块）。"
 msgid "Collapsible section with a clickable summary."
 msgstr "带可点击摘要的折叠章节。"
 
+#: src/telemetry/app-log.tsx
+msgid "Collecting runtime logs…"
+msgstr "正在收集运行日志…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "颜色主题"
@@ -1366,6 +1370,10 @@ msgstr "更正/更新"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
 msgstr "无法更改 Overleaf 同步设置"
+
+#: src/telemetry/app-log.tsx
+msgid "Could not collect runtime logs."
+msgstr "无法收集运行日志。"
 
 #: src/settings/literature-settings.tsx
 msgid "Could not complete this action. Check your input and system keychain access."
@@ -2151,6 +2159,10 @@ msgstr "脚注"
 msgid "Footnote at the cursor"
 msgstr "在光标处插入脚注"
 
+#: src/telemetry/app-log.tsx
+msgid "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
+msgstr "用于排查 Agent 启动或连接失败。包含最近的 lattice、sidecar 和 server 日志（每份最多 128 KiB）。已遮盖已知凭据，但仍可能包含路径或文档内容，请在分享前检查。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "任意"
@@ -2492,6 +2504,10 @@ msgstr "此房间中的成员"
 #: src/editor/insert/insert-snippets.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
+
+#: src/telemetry/app-log.tsx
+msgid "Include app and Agent runtime logs"
+msgstr "包含应用和 Agent 运行日志"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Include file"
@@ -4746,6 +4762,7 @@ msgstr "检索记录信息"
 
 #: src/agent/synara-loading-surface.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "重试"
 

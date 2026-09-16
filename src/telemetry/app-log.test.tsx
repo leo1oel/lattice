@@ -367,6 +367,57 @@ describe("AppToastStack", () => {
     expect(document.querySelectorAll("[data-log-operation]")).toHaveLength(1);
   });
 
+  it("exports backend logs without frontend entries, only after consent, and copies the preview", async () => {
+    let resolveLogs!: (value: unknown) => void;
+    const bundle = { platform: "macos", arch: "aarch64", files: [
+      { name: "sidecar-error.log", content: "sandbox-exec: sandbox_apply: Operation not permitted", truncated: true },
+      { name: "server.log", content: "", truncated: false, error: "not found" },
+    ] };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "collect_diagnostic_logs") return new Promise((resolve) => { resolveLogs = resolve; });
+      return "/tmp/lattice-logs";
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(<AppLogsSettings />);
+    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    const consent = screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
+    expect(consent).not.toBeChecked();
+    expect(invoke).not.toHaveBeenCalledWith("collect_diagnostic_logs");
+    fireEvent.click(consent);
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download JSON" })).toBeDisabled();
+    await act(async () => resolveLogs(bundle));
+    const preview = screen.getByLabelText("Export preview");
+    expect(JSON.parse(preview.textContent!).runtime_logs).toEqual(bundle);
+    fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
+    expect(writeText).toHaveBeenCalledWith(preview.textContent);
+    fireEvent.click(consent);
+    expect(JSON.parse(preview.textContent!)).not.toHaveProperty("runtime_logs");
+  });
+
+  it("does not include a late collection after consent is withdrawn and can retry failures", async () => {
+    let rejectLogs!: (error: Error) => void;
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "collect_diagnostic_logs") return new Promise((_, reject) => { rejectLogs = reject; });
+      return "/tmp/lattice-logs";
+    });
+    render(<AppLogsSettings />);
+    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+    const consent = screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
+    fireEvent.click(consent);
+    await act(async () => rejectLogs(new Error("Unavailable")));
+    expect(screen.getByRole("alert")).toHaveTextContent("Unavailable");
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeDisabled();
+    let resolveLogs!: (value: unknown) => void;
+    vi.mocked(invoke).mockImplementation(async () => new Promise((resolve) => { resolveLogs = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(consent);
+    await act(async () => resolveLogs({ files: [{ name: "server.log", content: "late diagnostic" }] }));
+    expect(screen.getByLabelText("Export preview")).not.toHaveTextContent("late diagnostic");
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeEnabled();
+  });
+
   it("previews and copies a safe stable export, requiring consent for raw text", () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });

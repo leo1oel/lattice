@@ -1175,6 +1175,10 @@ msgstr "Collapsible content block (Notion-style toggle)."
 msgid "Collapsible section with a clickable summary."
 msgstr "Collapsible section with a clickable summary."
 
+#: src/telemetry/app-log.tsx
+msgid "Collecting runtime logs…"
+msgstr "Collecting runtime logs…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "Color theme"
@@ -1366,6 +1370,10 @@ msgstr "Correction/update"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
 msgstr "Could not change Overleaf sync"
+
+#: src/telemetry/app-log.tsx
+msgid "Could not collect runtime logs."
+msgstr "Could not collect runtime logs."
 
 #: src/settings/literature-settings.tsx
 msgid "Could not complete this action. Check your input and system keychain access."
@@ -2151,6 +2159,10 @@ msgstr "Footnote"
 msgid "Footnote at the cursor"
 msgstr "Footnote at the cursor"
 
+#: src/telemetry/app-log.tsx
+msgid "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
+msgstr "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "For all"
@@ -2492,6 +2504,10 @@ msgstr "In this room"
 #: src/editor/insert/insert-snippets.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
+
+#: src/telemetry/app-log.tsx
+msgid "Include app and Agent runtime logs"
+msgstr "Include app and Agent runtime logs"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Include file"
@@ -4748,6 +4764,7 @@ msgstr "Retrieved record information"
 
 #: src/agent/synara-loading-surface.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "Retry"
 
