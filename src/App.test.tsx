@@ -2204,6 +2204,74 @@ describe("project workspace", () => {
     });
   });
 
+  it.each([
+    ["references.bib", "primary"], ["other.bib", "primary"], ["other.bib", "secondary"],
+  ] as const)("formats %s in %s on save and refreshes Papers without losing later edits", async (path, pane) => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: path, path, kind: "bib", children: [] },
+      ],
+    };
+    const original = "@article{x,title={Old},author={Ada},year={2024}}";
+    const edited = "@article{x,title={New},author={Ada},year={2024}}";
+    const formatted = "@article{x,\n  title = {New},\n  author = {Ada},\n  year = {2024}\n}";
+    let finishWrite: (() => void) | undefined;
+    let saved = false;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return (args as { path: string }).path === path ? original : "Main";
+      if (command === "list_papers") return [{
+        arxivId: "bib:x", title: saved ? "New" : "Old", authors: "Ada",
+        hasFullText: false, hasBlog: false,
+      }];
+      // The bibliography refresh must not wait for unrelated project scans.
+      if (command === "list_history" && saved) return new Promise(() => {});
+      if (command === "write_project_file") {
+        await new Promise<void>(resolve => { finishWrite = resolve; });
+        saved = true;
+        return { content: (args as { content: string }).content, hadConflicts: false };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["main.tex", path], activeFile: pane === "primary" ? path : "main.tex", activeTab: path,
+      secondaryFile: pane === "secondary" ? path : null, focusedPane: pane,
+      canvasMode: pane === "secondary" ? "dual" : "source", documentMode: "source", paperView: "fulltext", tabRecency: [path, "main.tex"],
+    });
+    renderApp();
+    const view = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(`.source-editor[data-editor-pane='${pane}'] .cm-editor`);
+      const editor = element && EditorView.findFromDOM(element);
+      expect(editor?.state.doc.toString()).toBe(original);
+      return editor!;
+    }, { timeout: 10_000 });
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: edited } });
+    if (path === "references.bib") await switchSidebarMode("Papers");
+    else if (pane === "primary") fireEvent.keyDown(window, { key: "s", metaKey: true });
+    // The secondary case deliberately relies on idle autosave.
+    await waitFor(() => expect(finishWrite).toBeDefined(), { timeout: 3000 });
+    expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path, content: formatted, baseContent: original }));
+    await waitFor(() => expect(view.state.doc.toString()).toBe(formatted));
+    const paperCalls = vi.mocked(invoke).mock.calls.filter(([command]) => command === "list_papers").length;
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% later edit" } });
+    finishWrite!();
+    await waitFor(() => {
+      expect(saved).toBe(true);
+      expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "list_papers").length).toBeGreaterThan(paperCalls);
+    });
+    expect(view.state.doc.toString()).toBe(`${formatted}\n% later edit`);
+    await switchSidebarMode("Papers");
+    await screen.findByText("New", { selector: "strong" });
+    expect(screen.queryByText("Old", { selector: "strong" })).not.toBeInTheDocument();
+  });
+
   it("overlaps the pre-switch save with the next file's read and gates the commit on it", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

@@ -20,6 +20,7 @@ import {
   type SymbolTarget,
 } from "./editor/latex/latex-text";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./papers/bib-entry";
+import { formatBibDocument } from "./papers/bib-format";
 import { type ResolvedCitationDraft } from "./papers/bib-entry-dialog";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
@@ -742,6 +743,7 @@ function App() {
   }, []);
   const projectTreeMutationCountRef = useRef(0);
   const postSaveRefreshGenerationRef = useRef(0);
+  const bibliographyRefreshGenerationRef = useRef(0);
   useLayoutEffect(() => {
     projectRef.current = project;
     projectBeforeTransitionRef.current = null;
@@ -1899,6 +1901,9 @@ function App() {
     }
     setSidebarMode(mode);
     setSidebarOpen(true);
+    if (mode === "papers" && (/\.bib$/i.test(activeFile) || /\.bib$/i.test(secondaryFile ?? ""))) {
+      void saveRef.current();
+    }
     if (tutorialActive && tutorialStep === TUTORIAL_STEPS.openPapers && mode === "papers") {
       setTutorialStep(TUTORIAL_STEPS.papers);
     } else if (tutorialActive && tutorialStep === TUTORIAL_STEPS.openAgent && mode === "agent") {
@@ -2380,21 +2385,29 @@ function App() {
   ) => {
     const generation = postSaveRefreshGenerationRef.current + 1;
     postSaveRefreshGenerationRef.current = generation;
+    // A subsequent .tex save must not discard a pending bibliography refresh,
+    // and slow history/word-count scans must not delay the Papers update.
+    if (wroteBib) {
+      const bibliographyGeneration = ++bibliographyRefreshGenerationRef.current;
+      void Promise.allSettled([
+        invoke<string[]>("list_citation_keys"),
+        invoke<CitationInfo[]>("list_citations"),
+        invoke<PaperSummary[]>("list_papers"),
+      ]).then(([keys, citations, papers]) => {
+        if (projectRef.current?.root !== projectRoot || bibliographyGeneration !== bibliographyRefreshGenerationRef.current) return;
+        if (keys.status === "fulfilled") setCitationKeys(keys.value);
+        if (citations.status === "fulfilled") setCitations(citations.value);
+        if (papers.status === "fulfilled") setPapers(papers.value);
+      });
+    }
     const refresh = async () => {
       const [
-        citationResult,
         referenceResult,
         unusedResult,
         historyResult,
         todoResult,
         wordCountResult,
       ] = await Promise.allSettled([
-        wroteBib
-          ? Promise.all([
-              invoke<string[]>("list_citation_keys"),
-              invoke<CitationInfo[]>("list_citations"),
-            ])
-          : Promise.resolve(null),
         wroteTex
           ? invoke<ReferenceInfo[]>("list_references")
           : Promise.resolve(null),
@@ -2403,17 +2416,8 @@ function App() {
         invoke<TodoHit[]>("list_todos"),
         invoke<WordCount>("count_project_words"),
       ] as const);
-      if (
-        generation !== postSaveRefreshGenerationRef.current
-        || projectRef.current?.root !== projectRoot
-      ) {
-        return;
-      }
-      if (citationResult.status === "fulfilled" && citationResult.value) {
-        const [nextCitationKeys, nextCitations] = citationResult.value;
-        setCitationKeys(nextCitationKeys);
-        setCitations(nextCitations);
-      }
+      if (projectRef.current?.root !== projectRoot) return;
+      if (generation !== postSaveRefreshGenerationRef.current) return;
       if (referenceResult.status === "fulfilled" && referenceResult.value) {
         setReferences(referenceResult.value ?? []);
       }
@@ -2927,13 +2931,23 @@ function App() {
       const writtenPaths: string[] = [];
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
+        const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource) : primarySource;
+        // Format before awaiting disk I/O: subsequent typing must remain a dirty
+        // edit, not be replaced by the formatted snapshot when the write returns.
+        if (content !== primarySource) {
+          if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === primaryPath) {
+            mergeTextIntoYText(collabSessionRef.current.ytext, content);
+          }
+          sourceRef.current = content;
+          setSource(content);
+        }
         let writeResult: EditorWriteResult | undefined;
         if (workspaceLease) {
           writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, primaryPath, () => (
             mutationGeneration === collabPathMutationGeneration(primaryPath)
               ? invoke<EditorWriteResult>("write_project_file", {
                 path: primaryPath,
-                content: primarySource,
+                content,
                 baseContent: primarySavedSource,
                 projectRoot: workspaceLease.projectRoot,
               })
@@ -2942,14 +2956,14 @@ function App() {
         } else {
           writeResult = await invoke<EditorWriteResult>("write_project_file", {
             path: primaryPath,
-            content: primarySource,
+            content,
             baseContent: primarySavedSource,
             projectRoot: project.root,
           });
         }
         if (mutationGeneration !== collabPathMutationGeneration(primaryPath)) return true;
-        const writtenSource = writeResult?.content ?? primarySource;
-        if (writtenSource !== primarySource) {
+        const writtenSource = writeResult?.content ?? content;
+        if (writtenSource !== content && activeFileRef.current === primaryPath && sourceRef.current === content) {
           if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === primaryPath) {
             mergeTextIntoYText(collabSessionRef.current.ytext, writtenSource);
           }
@@ -2963,8 +2977,8 @@ function App() {
         // character-by-character by yCollab. Re-publishing it as a full
         // delete+insert of the whole Y.Text on every autosave collapses remote
         // carets and bounces recompiles between peers (the "cursors freeze /
-        // PDF re-renders forever" bug). Only a backend three-way merge is
-        // applied above because those external edits never reached Yjs.
+        // PDF re-renders forever" bug). Only formatting and a backend three-way
+        // merge are applied above because those edits never reached Yjs.
         savedSourceRef.current = writtenSource;
         setSavedSource(writtenSource);
         if (activeCollabVersion === 2) await collabV2ControllerRef.current?.settled();
@@ -2974,25 +2988,34 @@ function App() {
         // hide the Agent edit indefinitely.
         diskMtimeRef.current = -1;
         wroteTex = wroteTex || primaryPath.endsWith(".tex");
-        wroteBib = wroteBib || primaryPath === project.manifest.primaryBibliography;
+        wroteBib = wroteBib || /\.bib$/i.test(primaryPath);
         wroteSemanticSource = /\.(?:md|mdx|tex)$/i.test(primaryPath);
         writtenPaths.push(primaryPath);
       }
-      if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource) {
+      if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource
+        && secondaryFileRef.current === secondaryPath && secondarySourceRef.current === currentSecondarySource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryPath);
+        const content = /\.bib$/i.test(secondaryPath) ? formatBibDocument(currentSecondarySource) : currentSecondarySource;
+        if (content !== currentSecondarySource) {
+          secondarySourceRef.current = content;
+          setSecondarySource(content);
+        }
         // A visible secondary text editor has its own yCollab binding. Its
         // Y.Text is already current, so saving mirrors that buffer to disk
         // without replacing a concurrently edited shared span.
         const secondaryBinding = activeCollabVersion === 2
           ? await collabV2ControllerRef.current?.openSecondaryPath(secondaryPath)
           : null;
+        if (content !== currentSecondarySource && secondaryBinding && secondarySourceRef.current === content) {
+          mergeTextIntoYText(secondaryBinding.ytext, content);
+        }
         let writeResult: EditorWriteResult | undefined;
         if (workspaceLease) {
           writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, secondaryPath, () => (
             mutationGeneration === collabPathMutationGeneration(secondaryPath)
               ? invoke<EditorWriteResult>("write_project_file", {
                 path: secondaryPath,
-                content: currentSecondarySource,
+                content,
                 baseContent: currentSecondarySavedSource,
                 projectRoot: workspaceLease.projectRoot,
               })
@@ -3001,19 +3024,20 @@ function App() {
         } else {
           writeResult = await invoke<EditorWriteResult>("write_project_file", {
             path: secondaryPath,
-            content: currentSecondarySource,
+            content,
             baseContent: currentSecondarySavedSource,
             projectRoot: project.root,
           });
         }
         if (mutationGeneration !== collabPathMutationGeneration(secondaryPath)) return true;
-        const writtenSource = writeResult?.content ?? currentSecondarySource;
-        if (activeCollabVersion === 2) {
+        const writtenSource = writeResult?.content ?? content;
+        const secondaryUnchanged = secondaryFileRef.current === secondaryPath && secondarySourceRef.current === content;
+        if (activeCollabVersion === 2 && secondaryUnchanged) {
           if (secondaryBinding) mergeTextIntoYText(secondaryBinding.ytext, writtenSource);
           else await publishTextToCollabV2(secondaryPath, writtenSource, mutationGeneration);
           await collabV2ControllerRef.current?.settled();
         }
-        if (writtenSource !== currentSecondarySource) {
+        if (writtenSource !== content && secondaryUnchanged) {
           secondarySourceRef.current = writtenSource;
           setSecondarySource(writtenSource);
         }
@@ -3026,7 +3050,7 @@ function App() {
         setSecondarySavedSource(writtenSource);
         secondaryMtimeRef.current = -1;
         wroteTex = wroteTex || secondaryPath.endsWith(".tex");
-        wroteBib = wroteBib || secondaryPath === project.manifest.primaryBibliography;
+        wroteBib = wroteBib || /\.bib$/i.test(secondaryPath);
         wroteSemanticSource = wroteSemanticSource || /\.(?:md|mdx|tex)$/i.test(secondaryPath);
         writtenPaths.push(secondaryPath);
       }
@@ -5805,10 +5829,10 @@ function App() {
     source,
   ]);
 
-  // The secondary yCollab binding publishes edits live; autosave only mirrors
-  // the settled buffer to disk and advances the local dirty-state baseline.
+  // Bibliographies also autosave outside collaboration so formatting and the
+  // Papers index follow secondary-pane edits just as they follow primary edits.
   useEffect(() => {
-    if (!project || activeCollabVersion !== 2 || !secondaryFile) return;
+    if (!project || !secondaryFile || (activeCollabVersion !== 2 && !/\.bib$/i.test(secondaryFile))) return;
     if (secondarySource === secondarySavedSource) return;
     const timer = window.setTimeout(() => {
       void save();
