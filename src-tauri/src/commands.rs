@@ -40,7 +40,7 @@ pub struct UvTool {
 /// bumped with app releases and `prewarm_literature_tools` rebuilds the
 /// environment right after an update instead of mid-import.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli==0.6.9",
+    requirement: "bibcite-cli==0.6.10",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };

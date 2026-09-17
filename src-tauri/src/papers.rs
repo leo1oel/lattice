@@ -2379,7 +2379,7 @@ fn pdf_citation_bibtex(markdown: &str, title: &str, url: &str) -> String {
     format!("@misc{{{key}pdf,\n  title = {{{title}}},\n  url = {{{url}}}\n}}\n")
 }
 
-/// Same key policy as bibcite-cli 0.6.9's normalize.make_key / _finalize.
+/// Same key policy as bibcite-cli 0.6.10's normalize.make_key / _finalize.
 /// Supplied BibTeX bypasses that policy upstream, so apply it here without
 /// round-tripping publisher fields through bibcite's lossy normalization.
 fn supplied_citation_key(raw: &str) -> String {

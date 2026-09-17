@@ -593,6 +593,15 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
         );
     }
     let sources = project::iter_bibliography_sources(root)?;
+    // Evidence independent of the title: a DOI that another entry already
+    // claims means this proposal duplicates that paper rather than correcting
+    // this one, which is the shape a wrong publication match takes.
+    if let Some(conflict) = doi_owned_by_another_entry(&sources, path, key, after) {
+        return Err(format!(
+            "That update would give this entry the DOI already used by '{conflict}', \
+             so it describes a different paper. Check the record before applying it."
+        ));
+    }
     let (_, whole) = sources
         .into_iter()
         .find(|(p, _)| p == path)
@@ -612,6 +621,28 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
         vec![(path.to_string(), whole, next)],
     )?;
     Ok(())
+}
+
+/// The key of a different entry that already carries `after`'s DOI, if any.
+fn doi_owned_by_another_entry(
+    sources: &[(String, String)],
+    path: &str,
+    key: &str,
+    after: &str,
+) -> Option<String> {
+    let doi = fields(after).get("doi").and_then(|v| normalize_doi(v))?;
+    sources.iter().find_map(|(other_path, source)| {
+        project::bibliography_entry_spans(source)
+            .into_iter()
+            .find(|(other_key, start, end)| {
+                !(other_path == path && other_key == key)
+                    && fields(&source[*start..*end])
+                        .get("doi")
+                        .and_then(|v| normalize_doi(v))
+                        .is_some_and(|v| v == doi)
+            })
+            .map(|(other_key, _, _)| other_key)
+    })
 }
 
 fn registered_entry(root: &Path, path: &str, key: &str) -> Result<Option<String>, String> {
@@ -722,6 +753,16 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
         ));
     }
     let after = after[spans[0].1..spans[0].2].to_string();
+    if renamed_paper(before, &after) {
+        let mut checked = result(
+            "unavailable",
+            "The published record found for this entry describes a different paper.",
+            before.into(),
+        );
+        checked.publication_reason = Some("identity_conflict".into());
+        checked.sources = publication_sources(&String::from_utf8_lossy(&output.stderr));
+        return Ok(checked);
+    }
     let mut checked = proposal(before, after, "A published version is available.");
     let stderr = String::from_utf8_lossy(&output.stderr);
     checked.sources = publication_sources(&stderr);
@@ -738,6 +779,42 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
         });
     }
     Ok(checked)
+}
+
+/// The short name a title gives itself before a colon — "GMT" in "GMT: General
+/// Motion Tracking for Humanoid Whole-Body Control". A longer head introduces
+/// an ordinary subtitle instead of naming the work, so it does not count.
+fn title_acronym(title: &str) -> Option<String> {
+    let (head, rest) = title.split_once(':')?;
+    if rest.trim().is_empty() || head.split_whitespace().count() > 3 {
+        return None;
+    }
+    let key = head
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    (!key.is_empty()).then_some(key)
+}
+
+/// Whether a proposed record renamed the paper, which means it is not the same
+/// paper at all.
+///
+/// The preprint-upgrade path is the one place a provider may legitimately
+/// return a title different from the one we asked about, so unlike the batch
+/// path it cannot require the titles to be equal. It can still require this:
+/// a camera-ready version rewords its description, but it does not give itself
+/// a new name. Without the check, a provider matching "GMT: General Motion
+/// Tracking for Humanoid Whole-Body Control" onto "SONIC: Supersizing Motion
+/// Tracking for Natural Humanoid Whole-Body Control" — six of eight shared
+/// significant words — silently rewrites the entry into someone else's paper.
+fn renamed_paper(before: &str, after: &str) -> bool {
+    let name_of = |entry: &str| {
+        fields(entry)
+            .get("title")
+            .and_then(|title| title_acronym(&clean(title)))
+    };
+    matches!((name_of(before), name_of(after)), (Some(a), Some(b)) if a != b)
 }
 
 fn upgrade_miss(before: &str, record: &serde_json::Value) -> AuditResult {
@@ -1784,6 +1861,38 @@ mod tests {
             .unwrap_err()
             .contains("changed"));
         assert!(root.join(".research/history").is_dir());
+        let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn a_publication_match_that_renames_the_paper_is_not_a_correction() {
+        let gmt = "@article{chen2025gmt, title={GMT: General Motion Tracking for Humanoid Whole-Body Control}, author={Zixuan Chen}, year={2025}}";
+        let sonic = "@article{chen2025gmt, title={SONIC: Supersizing motion tracking for natural humanoid whole-body control}, author={Zixuan Chen}, year={2026}, doi={10.1126/SCIROBOTICS.AED4592}}";
+        assert!(renamed_paper(gmt, sonic));
+        // Camera-ready case change, or dropping a short name, is still the same paper.
+        assert!(!renamed_paper(
+            gmt,
+            "@article{chen2025gmt, title={GMT: General motion tracking for humanoid whole-body control}, author={Zixuan Chen}, year={2025}}"
+        ));
+        assert!(!renamed_paper(
+            "@article{a, title={HOVER: Versatile Neural Whole-Body Controller for Humanoid Robots}, author={A}, year={2024}}",
+            "@article{a, title={Versatile Neural Whole-Body Controller for Humanoid Robots}, author={A}, year={2024}}"
+        ));
+    }
+
+    #[test]
+    fn apply_rejects_a_doi_already_claimed_by_another_entry() {
+        let root = project_root();
+        let gmt = "@article{chen2025gmt, title={GMT: General Motion Tracking for Humanoid Whole-Body Control}, author={Zixuan Chen}, year={2025}}";
+        let sonic = "@article{luo2026sonic, title={SONIC: Supersizing Motion Tracking for Natural Humanoid Whole-Body Control}, author={Zhengyi Luo}, year={2026}, doi={10.1126/scirobotics.aed4592}}";
+        fs::write(root.join("references.bib"), format!("{gmt}\n\n{sonic}\n")).unwrap();
+        let proposed = "@article{chen2025gmt, title={SONIC: Supersizing motion tracking for natural humanoid whole-body control}, author={Zixuan Chen}, year={2026}, doi={10.1126/SCIROBOTICS.AED4592}}";
+        let error = apply(&root, "references.bib", "chen2025gmt", gmt, proposed).unwrap_err();
+        assert!(error.contains("luo2026sonic"), "{error}");
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            format!("{gmt}\n\n{sonic}\n")
+        );
         let _ = fs::remove_dir_all(root.parent().unwrap());
     }
 }
