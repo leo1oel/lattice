@@ -358,6 +358,10 @@ describe("PDFSlick viewer integration", () => {
         Object.defineProperty(element, name, { configurable: true, value });
       }
     }
+    // The bars measure on attach, and these sizes only exist afterwards. Scroll
+    // the PDF.js viewport to ask for a fresh measurement: only a listener bound
+    // to that element can answer, which is the attachment this test is about.
+    fireEvent.scroll(viewport);
     await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-end"));
     expect(vertical.firstElementChild).toHaveStyle({ height: "48px" });
 
