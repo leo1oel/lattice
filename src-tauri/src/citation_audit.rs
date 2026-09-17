@@ -14,7 +14,8 @@ const REPORT_DIRECTORY: &str = "bibliography-audits";
 fn report_relative_path(root: &Path) -> Result<String, String> {
     let canonical = root.canonicalize().map_err(|error| error.to_string())?;
     let digest = Sha256::digest(canonical.to_string_lossy().as_bytes());
-    Ok(format!("{REPORT_DIRECTORY}/v1-{digest:x}.json"))
+    // Older reports contain proposals made before independent identity checks.
+    Ok(format!("{REPORT_DIRECTORY}/v2-{digest:x}.json"))
 }
 
 pub fn load_report(
@@ -141,12 +142,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
             }
             let fields = fields(&bibtex);
             let title = clean(fields.get("title").map(String::as_str).unwrap_or(""));
-            let mut local = Vec::new();
-            for required in ["title", "author", "year"] {
-                if fields.get(required).is_none_or(|v| v.trim().is_empty()) {
-                    local.push(format!("Missing {required} field."));
-                }
-            }
+            let local = local_validation(&bibtex);
             for message in &local {
                 issues.push(AuditIssue {
                     path: path.clone(),
@@ -301,12 +297,7 @@ fn batch_id(before: &str) -> Option<String> {
     }
     let id = project::bibliography_arxiv_id(&local)?;
     // Versioned arXiv identifiers refer to the same S2 paper.
-    let id = id
-        .rsplit_once('v')
-        .filter(|(_, v)| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit()))
-        .map(|(id, _)| id)
-        .unwrap_or(&id);
-    Some(format!("ARXIV:{id}"))
+    Some(format!("ARXIV:{}", unversioned_arxiv(&id)))
 }
 
 fn batch_comparison(
@@ -351,6 +342,12 @@ fn batch_comparison(
         );
     }
     if preprint {
+        let arxiv = paper.external_ids.get("ArXiv")?.as_str()?;
+        if batch_id(before)? != format!("ARXIV:{}", unversioned_arxiv(arxiv))
+            || !metadata_identity_matches(before, &remote)
+        {
+            return None;
+        }
         let venue = canonical_venue?.trim();
         if venue.is_empty()
             || ["arxiv", "corr", "preprint", "biorxiv", "medrxiv"]
@@ -366,24 +363,7 @@ fn batch_comparison(
         }
         let year = local.get("year")?.parse::<u32>().ok()?;
         let published_year = other.get("year")?.parse::<u32>().ok()?;
-        let author_tokens = |authors: &str| {
-            let normalized = normalize_text(authors);
-            let mut tokens = normalized
-                .split(" and ")
-                .next()
-                .unwrap_or("")
-                .split(|c: char| !c.is_alphanumeric())
-                .filter(|s| !s.is_empty() && *s != "and")
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            tokens.sort();
-            tokens
-        };
-        let first_author = author_tokens(local.get("author")?);
-        if year.abs_diff(published_year) > 2
-            || first_author.is_empty()
-            || first_author != author_tokens(other.get("author")?)
-        {
+        if year.abs_diff(published_year) > 2 || local.get("author")?.trim().is_empty() {
             return None;
         }
         let after = merge_metadata(before, &remote, true).after?;
@@ -602,6 +582,9 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
              so it describes a different paper. Check the record before applying it."
         ));
     }
+    if !metadata_identity_matches(before, after) {
+        return Err("The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.".into());
+    }
     let (_, whole) = sources
         .into_iter()
         .find(|(p, _)| p == path)
@@ -763,7 +746,34 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
         checked.sources = publication_sources(&String::from_utf8_lossy(&output.stderr));
         return Ok(checked);
     }
-    let mut checked = proposal(before, after, "A published version is available.");
+    // `upgrade` preserves the input author field, so comparing that output to
+    // the input cannot verify the authors. Dereference the candidate DOI and
+    // check independent metadata before offering an applicable replacement.
+    let remote = fields(&after)
+        .get("doi")
+        .and_then(|doi| normalize_doi(doi))
+        .filter(|doi| !doi.starts_with("10.48550/"))
+        .ok_or_else(|| "No publication DOI for independent verification.".to_string())
+        .and_then(|doi| {
+            run_bibcite(
+                &["get", "--json", &doi],
+                Some(audit_command(s2_batch_status)?),
+            )
+            .and_then(|output| parse_get_output(&output))
+        });
+    let mut checked = match remote {
+        Ok(remote)
+            if metadata_identity_matches(before, &remote)
+                && metadata_identity_matches(&after, &remote) =>
+        {
+            let mut checked = merge_metadata(before, &remote, true);
+            if checked.after.is_some() {
+                checked.message = "A published version is available.".into();
+            }
+            checked
+        }
+        _ => identity_conflict(before),
+    };
     let stderr = String::from_utf8_lossy(&output.stderr);
     checked.sources = publication_sources(&stderr);
     if let Some(source) = record.get("source").and_then(|value| value.as_str()) {
@@ -912,16 +922,118 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
 fn compare_doi_entry(before: &str, remote: &str) -> AuditResult {
     let local = fields(before);
     let other = fields(remote);
-    if local.get("doi").and_then(|v| normalize_doi(v))
-        != other.get("doi").and_then(|v| normalize_doi(v))
-    {
+    let doi = local.get("doi").and_then(|v| normalize_doi(v));
+    if doi.is_none() || doi != other.get("doi").and_then(|v| normalize_doi(v)) {
         return result(
             "unavailable",
             "The retrieved record did not confirm the requested DOI.",
             before.into(),
         );
     }
+    if !metadata_identity_matches(before, remote) {
+        return identity_conflict(before);
+    }
     merge_metadata(before, remote, false)
+}
+
+fn identity_conflict(before: &str) -> AuditResult {
+    result("unavailable", "Paper identity could not be confirmed. Review the title, authors, identifiers, year, and venue manually; no replacement is offered.", before.into())
+}
+
+fn unversioned_arxiv(id: &str) -> &str {
+    id.rsplit_once('v')
+        .filter(|(_, version)| !version.is_empty() && version.chars().all(|c| c.is_ascii_digit()))
+        .map(|(id, _)| id)
+        .unwrap_or(id)
+}
+
+/// A conservative compatibility check, not proof of identity. Never infer that
+/// two people are the same from a surname or initials. Allow additional trailing
+/// authors to repair truncated lists, but require every supplied author in order.
+fn metadata_identity_matches(before: &str, remote: &str) -> bool {
+    let remote = remote.trim();
+    let spans = project::bibliography_entry_spans(remote);
+    if spans.len() != 1 || spans[0].1 != 0 || spans[0].2 != remote.len() || !complete_entry(remote)
+    {
+        return false;
+    }
+    let local = fields(before);
+    let other = fields(remote);
+    let value = |fields: &BTreeMap<String, String>, name: &str| {
+        fields.get(name).cloned().unwrap_or_default()
+    };
+    let title = normalize_title(&value(&local, "title"));
+    let remote_title = normalize_title(&value(&other, "title"));
+    if remote_title.is_empty() || (!title.is_empty() && title != remote_title) {
+        return false;
+    }
+    let names = |authors: &str| {
+        normalize_text(authors)
+            .split(" and ")
+            .map(|name| {
+                let mut words = name
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|word| !word.is_empty())
+                    .map(str::to_string)
+                    .collect::<Vec<_>>();
+                words.sort();
+                words
+            })
+            .filter(|name| !name.is_empty())
+            .collect::<Vec<_>>()
+    };
+    let authors = names(&value(&local, "author"));
+    let remote_authors = names(&value(&other, "author"));
+    if remote_authors.is_empty()
+        || (title.is_empty() && authors.is_empty())
+        || !remote_authors.starts_with(&authors)
+    {
+        return false;
+    }
+    if let Some(doi) = local
+        .get("doi")
+        .and_then(|v| normalize_doi(v))
+        .filter(|v| !v.starts_with("10.48550/"))
+    {
+        if other.get("doi").and_then(|v| normalize_doi(v)).as_ref() != Some(&doi) {
+            return false;
+        }
+    }
+    if let (Some(a), Some(b)) = (
+        project::bibliography_arxiv_id(&local),
+        project::bibliography_arxiv_id(&other),
+    ) {
+        if unversioned_arxiv(&a) != unversioned_arxiv(&b) {
+            return false;
+        }
+    }
+    if let (Ok(a), Ok(b)) = (
+        value(&local, "year").trim().parse::<u32>(),
+        value(&other, "year").trim().parse::<u32>(),
+    ) {
+        if a.abs_diff(b) > 2 {
+            return false;
+        }
+    }
+    let venue = |fields: &BTreeMap<String, String>| {
+        let venue = fields
+            .get("booktitle")
+            .or_else(|| fields.get("journal"))
+            .or_else(|| fields.get("journaltitle"));
+        let normalized = normalize_title(venue.map(String::as_str).unwrap_or(""));
+        // A leading proceedings year is not part of the venue's identity.
+        normalized
+            .split_once(' ')
+            .filter(|(head, _)| head.len() == 4 && head.chars().all(|c| c.is_ascii_digit()))
+            .map(|(_, rest)| rest.to_string())
+            .unwrap_or(normalized)
+    };
+    let local_venue = venue(&local);
+    local_venue.is_empty()
+        || ["arxiv", "preprint", "corr", "biorxiv", "medrxiv"]
+            .iter()
+            .any(|marker| local_venue.contains(marker))
+        || local_venue == venue(&other)
 }
 
 fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
@@ -1086,6 +1198,228 @@ fn fields(entry: &str) -> BTreeMap<String, String> {
         })
         .unwrap_or_default()
 }
+
+fn local_validation(entry: &str) -> Vec<String> {
+    let kind = entry_type(entry);
+    let values = fields(entry);
+    let syntax = field_expressions(entry);
+    let mut issues = Vec::new();
+    let supported = [
+        "article",
+        "book",
+        "booklet",
+        "conference",
+        "inbook",
+        "incollection",
+        "inproceedings",
+        "manual",
+        "mastersthesis",
+        "misc",
+        "phdthesis",
+        "proceedings",
+        "techreport",
+        "unpublished",
+        "collection",
+        "electronic",
+        "mvbook",
+        "mvcollection",
+        "mvproceedings",
+        "online",
+        "patent",
+        "periodical",
+        "reference",
+        "report",
+        "suppbook",
+        "suppcollection",
+        "suppperiodical",
+        "thesis",
+        "www",
+        // Additional BibLaTeX core and standard-style types. Their schemas are
+        // intentionally not guessed below when requirements vary by style.
+        "artwork",
+        "audio",
+        "bibnote",
+        "commentary",
+        "customa",
+        "customb",
+        "customc",
+        "customd",
+        "custome",
+        "customf",
+        "dataset",
+        "entryset",
+        "image",
+        "jurisdiction",
+        "legal",
+        "legislation",
+        "letter",
+        "movie",
+        "music",
+        "performance",
+        "review",
+        "set",
+        "software",
+        "standard",
+        "video",
+        "xdata",
+    ];
+    if !supported.contains(&kind.as_str()) {
+        issues.push(format!("Unknown bibliography entry type `{kind}`."));
+    }
+
+    for (name, value) in &values {
+        if value.trim().is_empty() {
+            issues.push(format!("Empty {name} field."));
+        }
+    }
+
+    // A cross-referenced child may inherit every type-required field. Without
+    // resolving the parent bibliography, reporting those fields as absent is
+    // misleading; checks on fields explicitly present still apply.
+    let inherits = values
+        .get("crossref")
+        .or_else(|| values.get("xref"))
+        .or_else(|| values.get("xdata"))
+        .is_some_and(|value| !value.trim().is_empty());
+    if !inherits {
+        let present = |name: &str| values.get(name).is_some_and(|v| !v.trim().is_empty());
+        let require = |name: &str, issues: &mut Vec<String>| {
+            if !present(name) {
+                issues.push(format!("Missing {name} field for {kind} entry."));
+            }
+        };
+        let contributor = |issues: &mut Vec<String>| {
+            if !present("author") && !present("editor") {
+                issues.push(format!("Missing author or editor field for {kind} entry."));
+            }
+        };
+        let year = |issues: &mut Vec<String>| {
+            if !present("year") && !present("date") {
+                issues.push(format!("Missing year or date field for {kind} entry."));
+            }
+        };
+
+        match kind.as_str() {
+            "article" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                if !present("journaltitle") {
+                    require("journal", &mut issues);
+                }
+                year(&mut issues);
+            }
+            "book" | "mvbook" | "reference" | "suppbook" => {
+                contributor(&mut issues);
+                require("title", &mut issues);
+                require("publisher", &mut issues);
+                year(&mut issues);
+            }
+            "inproceedings" | "conference" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("booktitle", &mut issues);
+                year(&mut issues);
+            }
+            "incollection" | "suppcollection" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("booktitle", &mut issues);
+                require("publisher", &mut issues);
+                year(&mut issues);
+            }
+            "inbook" => {
+                contributor(&mut issues);
+                require("title", &mut issues);
+                if !present("chapter") && !present("pages") {
+                    issues.push("Missing chapter or pages field for inbook entry.".into());
+                }
+                require("publisher", &mut issues);
+                year(&mut issues);
+            }
+            "mastersthesis" | "phdthesis" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("school", &mut issues);
+                year(&mut issues);
+            }
+            "thesis" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("institution", &mut issues);
+                year(&mut issues);
+            }
+            "techreport" | "report" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("institution", &mut issues);
+                year(&mut issues);
+            }
+            "proceedings" | "collection" | "mvcollection" | "mvproceedings" => {
+                require("title", &mut issues);
+                year(&mut issues);
+            }
+            "unpublished" => {
+                require("author", &mut issues);
+                require("title", &mut issues);
+                require("note", &mut issues);
+            }
+            "online" | "electronic" | "www" => {
+                contributor(&mut issues);
+                require("title", &mut issues);
+                require("url", &mut issues);
+                year(&mut issues);
+            }
+            "booklet" | "manual" | "periodical" | "suppperiodical" => {
+                require("title", &mut issues);
+            }
+            "patent" => {
+                contributor(&mut issues);
+                require("title", &mut issues);
+                require("number", &mut issues);
+                year(&mut issues);
+            }
+            // BibTeX deliberately defines no required fields for misc.
+            _ => {}
+        }
+    }
+
+    if kind == "article"
+        && !values.contains_key("journal")
+        && !values.contains_key("journaltitle")
+        && values.contains_key("booktitle")
+    {
+        issues.push("Article entry uses booktitle instead of journal.".into());
+    }
+    if matches!(kind.as_str(), "inproceedings" | "conference")
+        && !values.contains_key("booktitle")
+        && (values.contains_key("journal") || values.contains_key("journaltitle"))
+    {
+        let label = if kind == "conference" {
+            "Conference"
+        } else {
+            "Inproceedings"
+        };
+        issues.push(format!("{label} entry uses journal instead of booktitle."));
+    }
+
+    if let Some(year) = syntax.get("year") {
+        let expression = year.trim();
+        let value = values.get("year").map(String::as_str).unwrap_or("");
+        let literal = expression == format!("{{{value}}}")
+            || expression == format!("\"{value}\"")
+            || expression
+                .chars()
+                .all(|character| character.is_ascii_digit());
+        let value = value.trim();
+        if literal
+            && !value.is_empty()
+            && (value.len() != 4 || !value.chars().all(|character| character.is_ascii_digit()))
+        {
+            issues.push("Invalid literal year; expected four digits.".into());
+        }
+    }
+    issues
+}
 fn clean(value: &str) -> String {
     value.trim().to_string()
 }
@@ -1134,6 +1468,7 @@ fn entry_type(entry: &str) -> String {
         .split(['{', '('])
         .next()
         .unwrap_or("")
+        .trim()
         .to_lowercase()
 }
 
@@ -1516,9 +1851,14 @@ mod tests {
         let root = project_root();
         fs::write(root.join("references.bib"), before).unwrap();
         let mock = root.parent().unwrap().join("mock-bibcite");
+        let published = before.replace(
+            "  year =",
+            "  doi = {10.1234/amradio},\n  pages = {12830--12840},\n  year =",
+        );
+        let remote = serde_json::json!({"bibtex": published}).to_string();
         fs::write(
             &mock,
-            "#!/bin/sh\ncat >\"$2\" <<'EOF'\n@inproceedings{ranzinger2024amradio,\n  archiveprefix = {arXiv},\n  author = {Mike Ranzinger and Greg Heinrich and Jan Kautz and Pavlo Molchanov},\n  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},\n  eprint = {2312.06709},\n  pages = {12830--12840},\n  primaryclass = {cs.CV},\n  title = {{AM-RADIO:} Agglomerative Vision Foundation Model Reduce All Domains Into One},\n  url = {https://arxiv.org/abs/2312.06709},\n  year = {2024}\n}\nEOF\nprintf '%s\\n' '{\"entries\":[{\"matched\":true}]}'\n",
+            format!("#!/bin/sh\nif [ \"$1\" = get ]; then\nprintf '%s\\n' '{remote}'\nexit 0\nfi\ncat >\"$2\" <<'EOF'\n{published}\nEOF\nprintf '%s\\n' '{{\"entries\":[{{\"matched\":true}}]}}'\n"),
         )
         .unwrap();
         fs::set_permissions(&mock, fs::Permissions::from_mode(0o700)).unwrap();
@@ -1535,7 +1875,18 @@ mod tests {
             None,
         )
         .unwrap();
+        // The upgrade still preserves the original authors, but the independent
+        // DOI record names someone else. It must no longer yield a proposal.
+        let script = fs::read_to_string(&mock).unwrap();
+        fs::write(
+            &mock,
+            script.replace(&remote, &remote.replace("Greg Heinrich", "Someone Else")),
+        )
+        .unwrap();
+        let rejected = upgrade_preprint(before, None).unwrap();
         unsafe { std::env::remove_var("LATTICE_BIBCITE_BIN") };
+        assert!(rejected.after.is_none());
+        assert_eq!(rejected.status, "unavailable");
         let after = checked
             .after
             .expect("mocked published metadata is proposed");
@@ -1604,9 +1955,50 @@ mod tests {
     }
 
     #[test]
+    fn doi_lookup_does_not_establish_paper_author_or_venue_identity() {
+        let before = "@article{mine,title={A specific paper},author={Alice Smith and Bob Jones},year={2024},journal={Journal One},doi={10.1234/a}}";
+        for remote in [
+            before.replace("A specific paper", "A different paper"),
+            before.replace("Alice Smith", "Adam Smith"),
+            before.replace("Bob Jones", "Carol Jones"),
+            before.replace("Journal One", "Journal Two"),
+            before.replace("2024", "2014"),
+            format!("{before}\n{before}"),
+        ] {
+            let checked = compare_doi_entry(before, &remote);
+            assert!(checked.after.is_none(), "unsafe proposal: {remote}");
+            assert_eq!(checked.status, "unavailable");
+        }
+        let missing_author = before.replace("author={Alice Smith and Bob Jones},", "");
+        assert!(compare_doi_entry(&missing_author, before).after.is_some());
+        let reordered_names =
+            before.replace("Alice Smith and Bob Jones", "Smith, Alice and Jones, Bob");
+        assert_ne!(
+            compare_doi_entry(&reordered_names, before).status,
+            "unavailable"
+        );
+    }
+
+    #[test]
+    fn batch_rejects_wrong_arxiv_record_and_changed_coauthor() {
+        let before = "@article{mine,title={A paper},author={Alice Smith and Bob Jones},year={2024},eprint={2401.12345},journal={arXiv}}";
+        let paper = |arxiv: &str, author: &str| {
+            serde_json::from_value::<crate::citation_batch::Paper>(serde_json::json!({
+            "externalIds":{"ArXiv":arxiv}, "title":"A paper", "venue":"ICML", "year":2024,
+            "citationStyles":{"bibtex":format!("@inproceedings{{x,title={{A paper}},author={{{author}}},year={{2024}},booktitle={{ICML}}}}")}
+        })).unwrap()
+        };
+        assert!(
+            compare_batch(before, &paper("2401.12345", "Alice Smith and Carol Jones")).is_none()
+        );
+        assert!(compare_batch(before, &paper("2401.99999", "Alice Smith and Bob Jones")).is_none());
+        assert!(compare_batch(before, &paper("2401.12345", "Alice Smith and Bob Jones")).is_some());
+    }
+
+    #[test]
     fn metadata_merge_keeps_key_and_custom_fields() {
         let before = "@article{mine,\n title={Old},\n author={A},\n year={2020},\n doi={10.1234/x},\n custom={keep}, month=jan, note={Keep {NASA}}, howpublished={\\url{https://example.org}}\n}";
-        let remote = "@article{remote, title={New}, author={A}, year={2021}, doi={10.1234/x}}";
+        let remote = "@article{remote, title={Old}, author={A}, year={2021}, doi={10.1234/x}}";
         let got = compare_doi_entry(before, remote);
         let after = got.after.unwrap();
         assert!(after.contains("@article{mine,"));
@@ -1662,6 +2054,64 @@ mod tests {
                 >= 2
         );
         let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn local_validation_applies_type_specific_bibtex_rules() {
+        assert!(local_validation("@misc{x, year={20#24}}")
+            .contains(&"Invalid literal year; expected four digits.".to_string()));
+        let issues = local_validation(
+            "@article{paper, title={}, author={Ada}, year={twenty twenty}, booktitle={Proceedings}}",
+        );
+        assert!(issues.contains(&"Empty title field.".to_string()));
+        assert!(issues.contains(&"Missing journal field for article entry.".to_string()));
+        assert!(issues.contains(&"Article entry uses booktitle instead of journal.".to_string()));
+        assert!(issues.contains(&"Invalid literal year; expected four digits.".to_string()));
+
+        let issues = local_validation(
+            "@inproceedings{paper, title={T}, author={A}, year={2024}, journal={J}}",
+        );
+        assert!(issues.contains(&"Missing booktitle field for inproceedings entry.".to_string()));
+        assert!(
+            issues.contains(&"Inproceedings entry uses journal instead of booktitle.".to_string())
+        );
+    }
+
+    #[test]
+    fn local_validation_supports_standard_and_biblatex_entry_types() {
+        assert!(local_validation(
+            "@Article {a, author={A}, title={T}, journaltitle={J}, date={2024-05}}"
+        )
+        .is_empty());
+        assert!(
+            local_validation("@article{a, editor={E}, title={T}, journal={J}, year={2024}}")
+                .contains(&"Missing author field for article entry.".to_string())
+        );
+        assert!(
+            local_validation("@book{b, editor={E}, title={T}, publisher={P}, year={2024}}")
+                .is_empty()
+        );
+        assert!(local_validation(
+            "@online{o, author={A}, title={T}, date={2024-05}, url={https://example.test}}"
+        )
+        .is_empty());
+        assert!(
+            local_validation("@madeup{x, title={T}, author={A}, year={2024}}")
+                .contains(&"Unknown bibliography entry type `madeup`.".to_string())
+        );
+    }
+
+    #[test]
+    fn local_validation_avoids_inheritance_and_expression_false_positives() {
+        assert!(local_validation("@incollection{x, crossref={parent}, pages={1--2}}").is_empty());
+        assert!(local_validation("@misc{x, year={20} # {24}}").is_empty());
+        assert!(local_validation("@misc{x, year={ 2024 }}").is_empty());
+        assert!(local_validation("@misc{x, year={ bad }}")
+            .contains(&"Invalid literal year; expected four digits.".to_string()));
+        assert!(local_validation(
+            "@article{x, title=titlemacro # { suffix}, author=authorsmacro, year=yearmacro, journal=jmacro}"
+        )
+        .is_empty());
     }
 
     #[test]
@@ -1852,7 +2302,15 @@ mod tests {
         let before = "@article{one, title={Old}, author={A}, year={2020}}";
         let other = "@article{two, title={Other}, author={B}, year={2021}}";
         fs::write(root.join(path), format!("{before}\n\n{other}\n")).unwrap();
-        let after = "@article{one, title={New}, author={A}, year={2020}}";
+        let after = "@article{one, title={Old}, author={A}, year={2020}, pages={1--9}}";
+        assert!(apply(
+            &root,
+            path,
+            "one",
+            before,
+            &after.replace("author={A}", "author={Someone Else}")
+        )
+        .is_err());
         apply(&root, path, "one", before, after).unwrap();
         let contents = fs::read_to_string(root.join(path)).unwrap();
         assert!(contents.contains(after));

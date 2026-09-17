@@ -41,13 +41,7 @@ export async function loadAuditReport(projectRoot: string): Promise<Map<string, 
     return new Map(report);
   }
 
-  // Import the old WebView report only when no native report exists. Keep the
-  // original as a recovery copy; a failed native write must not lose it.
-  let legacy: AuditReport = [];
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(`lattice.bibliography-audit.v1:${projectRoot}`) ?? "[]");
-    if (Array.isArray(value)) legacy = value.filter(validRecord);
-  } catch { /* Old browser storage may be unavailable or malformed. */ }
-  if (legacy.length) await saveAuditReport(projectRoot, legacy);
-  return new Map(legacy);
+  // Legacy WebView reports predate the stricter identity checks. Keep their
+  // storage untouched, but require a fresh check instead of restoring proposals.
+  return new Map();
 }

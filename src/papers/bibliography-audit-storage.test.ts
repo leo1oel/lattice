@@ -19,10 +19,8 @@ beforeEach(() => {
   });
 });
 
-it("migrates old results once and restores them after WebView storage is cleared", async () => {
-  localStorage.setItem("lattice.bibliography-audit.v1:/project", JSON.stringify(report));
-  expect(await loadAuditReport("/project")).toEqual(new Map(report));
-  expect(disk.get("/project")).toEqual(report);
+it("restores new native results after WebView storage is cleared", async () => {
+  await saveAuditReport("/project", report);
   localStorage.clear();
   vi.mocked(invoke).mockClear();
   expect(await loadAuditReport("/project")).toEqual(new Map(report));
@@ -40,10 +38,10 @@ it("uses native reports instead of stale legacy data and isolates projects", asy
   expect(await loadAuditReport("/project")).toEqual(new Map());
 });
 
-it("retains legacy records if migration fails and reports the failure", async () => {
+it("does not restore proposals made before independent identity checks", async () => {
   localStorage.setItem("lattice.bibliography-audit.v1:/project", JSON.stringify(report));
-  vi.mocked(invoke).mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("Disk full"));
-  await expect(loadAuditReport("/project")).rejects.toThrow("Disk full");
+  expect(await loadAuditReport("/project")).toEqual(new Map());
+  expect(invoke).toHaveBeenCalledTimes(1);
   expect(JSON.parse(localStorage.getItem("lattice.bibliography-audit.v1:/project")!)).toEqual(report);
 });
 
