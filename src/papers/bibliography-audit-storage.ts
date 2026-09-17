@@ -18,6 +18,12 @@ function validRecord(record: unknown): record is [string, SavedAudit] {
     && (value.result.checkedAt === undefined || (typeof value.result.checkedAt === "string" && Number.isFinite(Date.parse(value.result.checkedAt))))
     && Array.isArray(value.result.changes) && value.result.changes.every((change: AuditResult["changes"][number]) =>
       typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string")
+    && (value.result.candidate === undefined || (
+      typeof value.result.candidate === "object" && value.result.candidate !== null
+      && typeof value.result.candidate.bibtex === "string"
+      && Array.isArray(value.result.candidate.reasons) && value.result.candidate.reasons.every((reason: unknown) => typeof reason === "string")
+      && Array.isArray(value.result.candidate.changes) && value.result.candidate.changes.every((change: AuditResult["changes"][number]) =>
+        typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string")))
     && (value.result.sources === undefined || (Array.isArray(value.result.sources) && value.result.sources.every((source: NonNullable<AuditResult["sources"]>[number]) =>
       typeof source?.source === "string" && typeof source.outcome === "string")));
 }

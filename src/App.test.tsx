@@ -28,6 +28,9 @@ import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
 import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
 import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
+// Keep the cold Vite transform of this large graph outside interaction-test
+// deadlines. The canvas still mounts its real lazy editor, not a test double.
+import "./editor/markdown/visual-markdown-editor";
 import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
@@ -2202,6 +2205,55 @@ describe("project workspace", () => {
       path: "method.tex",
       projectRoot: "/tmp/lattice-paper",
     });
+  });
+
+  it.each([false, true])("loads Papers even when a file is opened while the initial paper scan is pending (save: %s)", async (saveBeforeScan) => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+      ],
+    };
+    const paper = {
+      arxivId: "", citationKey: "hinton06", title: "A Fast Learning Algorithm for Deep Belief Nets",
+      authors: "Hinton, Geoffrey E.", hasFullText: false, hasBlog: false,
+    };
+    let finishScan: ((papers: unknown[]) => void) | undefined;
+    let scanCalls = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "list_papers") {
+        if (++scanCalls === 1) return new Promise(resolve => { finishScan = resolve; });
+        return [{ ...paper, title: "Updated title" }];
+      }
+      if (command === "write_project_file") return { content: (args as { content: string }).content, hadConflicts: false };
+      if (command === "read_project_file") return (args as { path: string }).path === "references.bib"
+        ? "@article{hinton06,title={A Fast Learning Algorithm for Deep Belief Nets}}" : "Main";
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await waitFor(() => expect(finishScan).toBeDefined());
+    fireEvent.click(await findProjectTreeItem("references.bib", 10_000));
+    await waitFor(() => expect(document.querySelector(".source-editor .cm-content"))
+      .toHaveTextContent("@article{hinton06"), { timeout: 10_000 });
+    if (saveBeforeScan) {
+      const view = EditorView.findFromDOM(document.querySelector<HTMLElement>(".source-editor .cm-editor")!)!;
+      act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "@article{hinton06,title={Updated title}}" } }));
+      fireEvent.keyDown(window, { key: "s", metaKey: true });
+      await waitFor(() => expect(scanCalls).toBe(2));
+      await switchSidebarMode("Papers");
+      expect(await screen.findByText("Updated title")).toBeInTheDocument();
+    }
+    await act(async () => finishScan!([paper]));
+    await switchSidebarMode("Papers");
+    expect(await screen.findByText(saveBeforeScan ? "Updated title" : paper.title)).toBeInTheDocument();
+    expect(document.querySelector(".source-editor .cm-content")).toHaveTextContent("@article{hinton06");
   });
 
   it.each([
@@ -4872,8 +4924,8 @@ describe("project workspace", () => {
     expect(invoke).toHaveBeenCalledWith("read_paper_blog_local", { arxivId: "1706.03762" });
     expect(invoke).not.toHaveBeenCalledWith("read_paper_blog", { arxivId: "1706.03762" });
     expect(document.querySelector(".paper-reader")).toBeNull();
-    expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
+    expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));

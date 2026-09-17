@@ -77,5 +77,5 @@ export type Venue = { name: string; entryType: "article" | "inproceedings"; sear
 export const VENUES: Venue[] = ${JSON.stringify(venues, null, 2)};
 `;
 
-writeFileSync(resolve(root, "src", "venues.ts"), out);
+writeFileSync(resolve(root, "src", "papers", "venues.ts"), out);
 console.log(`wrote src/papers/venues.ts — ${venues.length} venues from ${stringsPath}`);

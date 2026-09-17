@@ -36,6 +36,7 @@
 .bibliography-audit-changes { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
 .bibliography-audit-changes > summary { color: var(--text-primary); font-weight: var(--weight-medium); }
 .bibliography-audit-changes > summary > span:first-of-type { flex: 1; }
+.bibliography-audit-changes > .bibliography-audit-copy { margin-top: var(--space-4); }
 .bibliography-audit-diff { display: grid; gap: var(--space-6); margin: var(--space-6) 0; }
 .bibliography-audit-diff dt { margin-bottom: var(--space-3); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); color: var(--text-secondary); font-weight: var(--weight-medium); }
 .bibliography-audit-diff dd { margin: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-icon); overflow: hidden; font-size: var(--type-caption-size); line-height: var(--type-diff-code-line-height); }

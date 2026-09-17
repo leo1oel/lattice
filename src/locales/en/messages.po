@@ -233,6 +233,10 @@ msgstr "A published version is available."
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
 msgstr "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
 
+#: src/papers/bibliography-audit.tsx
+msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
+msgstr "A source returned a possible record, but its identifying metadata conflicts with this reference."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "A sync that finds a file missing here offers to remove it from Overleaf too"
 msgstr "A sync that finds a file missing here offers to remove it from Overleaf too"
@@ -266,6 +270,10 @@ msgstr "Accept all updates"
 msgid "Access denied. Check the key and its permissions."
 msgstr "Access denied. Check the key and its permissions."
 
+#: src/papers/bibliography-audit.tsx
+msgid "Access forbidden by provider"
+msgstr "Access forbidden by provider"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Accordion"
 msgstr "Accordion"
@@ -286,6 +294,10 @@ msgstr "Ada"
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "Add"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
+msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
@@ -499,6 +511,10 @@ msgstr "Arrows"
 msgid "Article"
 msgstr "Article"
 
+#: src/papers/bibliography-audit.tsx
+msgid "arXiv identifier"
+msgstr "arXiv identifier"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "Ask before deleting"
@@ -530,6 +546,10 @@ msgstr "Attention paper"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "Author"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Authorization failed"
+msgstr "Authorization failed"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Authors"
@@ -828,6 +848,18 @@ msgstr "Cancellation arrived after “{0}” was added — cite it with {citatio
 #: src/telemetry/app-log.tsx
 msgid "Cancelled"
 msgstr "Cancelled"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Candidate does not match reference"
+msgstr "Candidate does not match reference"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Candidate record considered, not verified"
+msgstr "Candidate record considered, not verified"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Candidate record considered, not verified · cached record"
+msgstr "Candidate record considered, not verified · cached record"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
@@ -1245,6 +1277,10 @@ msgstr "conference"
 #: src/build/tex-setup-wizard.tsx
 msgid "Conference font verification is missing."
 msgstr "Conference font verification is missing."
+
+#: src/papers/bibliography-audit.tsx
+msgid "Conflicting or insufficient fields"
+msgstr "Conflicting or insufficient fields"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Congruent"
@@ -1943,6 +1979,7 @@ msgid "Entry changed"
 msgstr "Entry changed"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "Entry type"
 
@@ -2541,6 +2578,10 @@ msgstr "Increment year"
 msgid "Indented blockquote for citations."
 msgstr "Indented blockquote for citations."
 
+#: src/papers/bibliography-audit.tsx
+msgid "Independent metadata unavailable"
+msgstr "Independent metadata unavailable"
+
 #. placeholder {0}: status.totalChunks
 #: src/settings/settings-dialog.tsx
 msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
@@ -2709,6 +2750,10 @@ msgstr "Installing update…"
 msgid "Installing uv for paper imports and bibliography tools"
 msgstr "Installing uv for paper imports and bibliography tools"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Insufficient identifying metadata"
+msgstr "Insufficient identifying metadata"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Integral"
 msgstr "Integral"
@@ -2732,6 +2777,10 @@ msgstr "Interface sounds"
 #: src/editor/insert/insert-snippets.ts
 msgid "Intersection"
 msgstr "Intersection"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Invalid response from source"
+msgstr "Invalid response from source"
 
 #: src/papers/bibliography-audit-storage.ts
 msgid "Invalid saved bibliography audit report."
@@ -3365,6 +3414,10 @@ msgstr "Navigate"
 msgid "Negation / not"
 msgstr "Negation / not"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Network connection failed"
+msgstr "Network connection failed"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
@@ -3477,6 +3530,10 @@ msgstr "No history yet"
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
 
+#: src/papers/bibliography-audit.tsx
+msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
+msgstr "No independent metadata was available to verify a possible record. The reference may still be valid."
+
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
 msgstr "No logs at this level"
@@ -3496,6 +3553,14 @@ msgstr "No matching logs"
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No matching publication found"
+msgstr "No matching publication found"
+
+#: src/papers/bibliography-audit.tsx
+msgid "No matching publication was found in the sources checked."
+msgstr "No matching publication was found in the sources checked."
 
 #: src/editor/insert/insert-palette.tsx
 msgid "No matching snippets. Try fraction, implies, align*, or eqref"
@@ -3528,10 +3593,6 @@ msgstr "No projects match your search"
 #: src/papers/bibliography-audit.tsx
 msgid "No published version found"
 msgstr "No published version found"
-
-#: src/papers/bibliography-audit.tsx
-msgid "No published version was found in the sources checked."
-msgstr "No published version was found in the sources checked."
 
 #: src/App.tsx
 msgid "No readable paper content is available."
@@ -4288,10 +4349,6 @@ msgstr "Public daily quota exhausted"
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Published version not confirmed"
-msgstr "Published version not confirmed"
-
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/navigator.tsx
@@ -4363,6 +4420,10 @@ msgstr "Recent projects"
 msgid "Reconnect to Overleaf"
 msgstr "Reconnect to Overleaf"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Record identity"
+msgstr "Record identity"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "Reference"
@@ -4382,6 +4443,10 @@ msgstr "Reference changed since the last check. Check this reference again."
 #: src/papers/bibliography-audit.tsx
 msgid "Reference check progress"
 msgstr "Reference check progress"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference lacks identifying metadata"
+msgstr "Reference lacks identifying metadata"
 
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
@@ -4775,6 +4840,10 @@ msgstr "Reveal cursor in PDF (⌘⇧J)"
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Review candidate"
+msgstr "Review candidate"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Review proposed changes"
@@ -5244,6 +5313,10 @@ msgstr "Some project items won't be included in this share:\n"
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
 msgstr "Some sources could not complete the lookup. This does not mean the reference is incorrect."
 
+#: src/papers/bibliography-audit.tsx
+msgid "Some sources unavailable"
+msgstr "Some sources unavailable"
+
 #: src/overleaf/use-overleaf-chat.ts
 msgid "Someone"
 msgstr "Someone"
@@ -5257,12 +5330,24 @@ msgid "Source location in PDF"
 msgstr "Source location in PDF"
 
 #: src/papers/bibliography-audit.tsx
+msgid "Source rate limit reached"
+msgstr "Source rate limit reached"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source record considered, not verified"
+msgstr "Source record considered, not verified"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source record considered, not verified · cached record"
+msgstr "Source record considered, not verified · cached record"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Source service error"
 msgstr "Source service error"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Source unavailable"
-msgstr "Source unavailable"
+msgid "Source temporarily unavailable"
+msgstr "Source temporarily unavailable"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Source:"
@@ -5791,6 +5876,10 @@ msgstr "This session uses a local sync host, so only people on your network can 
 msgid "This shared project is closed"
 msgstr "This shared project is closed"
 
+#: src/papers/bibliography-audit.tsx
+msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
+msgstr "This source record is shown for comparison only. It was not verified and cannot be applied."
+
 #: src/build/tex-setup-wizard.tsx
 msgid "This step may take a minute"
 msgstr "This step may take a minute"
@@ -5927,6 +6016,10 @@ msgstr "Unknown"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Unknown owner"
 msgstr "Unknown owner"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Unknown source response"
+msgstr "Unknown source response"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Unnumbered aligned equations"
@@ -6111,6 +6204,7 @@ msgid "Vector arrow over a symbol"
 msgstr "Vector arrow over a symbol"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Venue"
 msgstr "Venue"
 

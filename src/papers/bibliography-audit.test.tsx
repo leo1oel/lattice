@@ -243,7 +243,7 @@ it("explains partial publication lookups without exposing internal error codes",
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : result);
   render(<BibliographyAudit {...props()} />);
   await checkAll();
-  await screen.findByText("Published version not confirmed");
+  await screen.findByText("Some sources unavailable");
   expect(screen.queryByText(/sources_unavailable/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Results reflect available sources/)).not.toBeInTheDocument();
   expect(screen.getByText("Rate limited")).not.toBeVisible();
@@ -264,8 +264,22 @@ it("distinguishes a completed publication search from unavailable sources", asyn
   await checkAll();
   await screen.findByText("No update found");
   fireEvent.click(screen.getByText("Details"));
-  expect(screen.getByText("No published version was found in the sources checked.")).toBeVisible();
-  expect(screen.queryByText("Published version not confirmed")).not.toBeInTheDocument();
+  expect(screen.getByText("No matching publication was found in the sources checked.")).toBeVisible();
+  expect(screen.queryByText("Some sources unavailable")).not.toBeInTheDocument();
+});
+
+it.each([
+  ["skipped", "missing_identity", "Reference lacks identifying metadata", "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."],
+  ["checked", "no_match", "No matching publication found", "No matching publication was found in the sources checked."],
+] as const)("uses publication reason %s statuses for %s", async (status, publicationReason, label, explanation) => {
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
+    ? { entries: entries.slice(0, 1), issues: [] }
+    : { status, publicationReason, message: publicationReason, before: entries[0].bibtex, changes: [] });
+  render(<BibliographyAudit {...props()} />);
+  await checkAll();
+  expect(await screen.findByText(label)).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Details"));
+  expect(screen.getByText(explanation)).toBeVisible();
 });
 
 it("only performs the local scan when opened", async () => {
@@ -368,6 +382,65 @@ it("shows the selected metadata source and cache attribution for updates", async
   await checkAll();
   expect(await screen.findByText("Crossref")).toBeInTheDocument();
   expect(screen.getByText("Metadata source · cached")).toBeInTheDocument();
+});
+
+it("explains a candidate with localized identity fields and no apply action", async () => {
+  const candidate: AuditResult = {
+    status: "unavailable", message: "identity_conflict", publicationReason: "identity_conflict",
+    before: entries[0].bibtex, changes: [], sources: [
+      { source: "dblp", outcome: "candidate_cached" },
+      { source: "crossref", outcome: "forbidden" },
+    ],
+    candidate: {
+      bibtex: "@inproceedings{other,title={Another paper}}",
+      changes: [
+        { field: "ENTRYTYPE", before: "article", after: "inproceedings" },
+        { field: "publisher", before: "Original Press", after: "Candidate Press" },
+      ],
+      reasons: ["title", "author", "year", "venue", "arxiv", "insufficient_identity"],
+    },
+  };
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
+    ? { entries: entries.slice(0, 1), issues: [] } : candidate);
+  render(<BibliographyAudit {...props()} />);
+  await checkAll();
+  expect(await screen.findByText("Candidate does not match reference")).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Details"));
+  expect(screen.getByText("A source returned a possible record, but its identifying metadata conflicts with this reference.")).toBeVisible();
+  expect(screen.getByText("Candidate record considered, not verified · cached record")).toBeVisible();
+  expect(screen.getByText("Access forbidden by provider")).toBeVisible();
+  fireEvent.click(screen.getByText("Review candidate"));
+  expect(screen.getByText("Entry type")).toBeVisible();
+  expect(screen.getByText("Publisher")).toBeVisible();
+  expect(screen.getByText(/Title, Authors, Year, Venue, arXiv identifier, Insufficient identifying metadata/)).toBeVisible();
+  expect(screen.getByText("Candidate Press")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
+});
+
+it("never offers individual or bulk apply when a restored payload contains a malformed candidate", async () => {
+  const malformed = { ...updated, candidate: { changes: "invalid" } } as unknown as AuditResult;
+  vi.mocked(loadAuditReport).mockResolvedValue(new Map([[`${entries[0].path}\0${entries[0].key}`, {
+    snapshot: entries[0].bibtex, result: malformed, applied: false,
+  }]]));
+  vi.mocked(invoke).mockResolvedValue({ entries: entries.slice(0, 1), issues: [] });
+  render(<BibliographyAudit {...props()} />);
+  await screen.findByText("Update available");
+  expect(screen.queryByText("Review proposed changes")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
+});
+
+it("does not present legacy selected cached sources as accepted for unavailable results", async () => {
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
+    ? { entries: entries.slice(0, 1), issues: [] }
+    : { ...updated, status: "unavailable", after: undefined, publicationReason: "metadata_unavailable", sources: [{ source: "dblp", outcome: "selected_cached" }] });
+  render(<BibliographyAudit {...props()} />);
+  await checkAll();
+  expect(await screen.findByText("Independent metadata unavailable")).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Details"));
+  expect(screen.getByText("Source record considered, not verified · cached record")).toBeVisible();
+  expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
 });
 
 it("restores checked results after remount without making any remote checks", async () => {

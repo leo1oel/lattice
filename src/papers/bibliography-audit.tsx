@@ -28,6 +28,11 @@ export type AuditResult = {
   before: string;
   after?: string;
   changes: { field: string; before: string; after: string }[];
+  candidate?: {
+    bibtex: string;
+    changes: { field: string; before: string; after: string }[];
+    reasons: string[];
+  };
   health?: PaperSummary["citationHealth"];
 };
 
@@ -243,7 +248,8 @@ export function BibliographyAudit(props: {
     finally { setApplying(null); props.onApplied?.(); }
   };
 
-  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && results[index].status !== "conflict" && !applied.has(index));
+  const hasCandidate = (result?: AuditResult) => !!result && Object.prototype.hasOwnProperty.call(result, "candidate") && result.candidate != null;
+  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index));
   const applyAll = async () => {
     if (!scan || loading || busy || applying !== null || !props.canApply) return;
     setApplying(-1); setError("");
@@ -265,22 +271,30 @@ export function BibliographyAudit(props: {
   const progressTotal = busy ? checkCount : total;
   const statusLabel = (result?: AuditResult) => !result ? t`Not checked`
     : result.status === "update" ? t`Update available`
-      : result.status === "unavailable" ? result.publicationReason ? t`Published version not confirmed` : t`Check incomplete`
+      : result.publicationReason === "missing_identity" ? t`Reference lacks identifying metadata`
+        : result.publicationReason === "no_match" ? t`No matching publication found`
+      : result.status === "unavailable" ? result.publicationReason === "identity_conflict" ? t`Candidate does not match reference`
+        : result.publicationReason === "metadata_unavailable" ? t`Independent metadata unavailable`
+          : result.publicationReason === "sources_unavailable" ? t`Some sources unavailable`
+            : t`Check incomplete`
         : result.status === "skipped" ? t`Not verified`
           : result.status === "conflict" ? t`Entry changed`
             : t`No update found`;
   const fieldLabels: Record<string, string> = {
     title: t`Title`, author: t`Authors`, year: t`Year`, journal: t`Journal`,
     booktitle: t`Booktitle`, publisher: t`Publisher`, volume: t`Volume`,
-    number: t`Number`, pages: t`Pages`, doi: "DOI", url: t`URL`,
+    number: t`Number`, pages: t`Pages`, doi: "DOI", url: t`URL`, ENTRYTYPE: t`Entry type`,
   };
   const publicationMessage = (result: AuditResult) => !result.publicationReason
     ? result.message === "A published version is available." ? t`A published version is available.`
       : result.message === "Reference changed since the last check. Check this reference again." ? t`Reference changed since the last check. Check this reference again.`
       : result.message === "No update found." ? t`No update found` : result.message
-    : result.publicationReason === "no_published_version" ? t`No published version was found in the sources checked.`
+    : result.publicationReason === "identity_conflict" ? t`A source returned a possible record, but its identifying metadata conflicts with this reference.`
+      : result.publicationReason === "metadata_unavailable" ? t`No independent metadata was available to verify a possible record. The reference may still be valid.`
+        : result.publicationReason === "missing_identity" ? t`Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference.`
+          : result.publicationReason === "no_match" || result.publicationReason === "no_published_version" ? t`No matching publication was found in the sources checked.`
       : result.publicationReason === "sources_unavailable" ? t`Some sources could not complete the lookup. This does not mean the reference is incorrect.`
-        : result.publicationReason === "ambiguous" || result.publicationReason === "identity_conflict" ? t`The results did not identify a unique matching publication.`
+        : result.publicationReason === "ambiguous" ? t`The results did not identify a unique matching publication.`
           : t`The publication lookup could not be completed. Try again later.`;
   const sourceNames: Record<string, string> = {
     dblp: t`DBLP`, semanticscholar: t`Semantic Scholar`, googlescholar: t`Google Scholar`,
@@ -290,6 +304,8 @@ export function BibliographyAudit(props: {
     matched: t`Verified publication match`,
     selected: t`Metadata source`,
     selected_cached: t`Metadata source · cached`,
+    candidate: t`Candidate record considered, not verified`,
+    candidate_cached: t`Candidate record considered, not verified · cached record`,
     not_configured: t`Not enabled · add your own API key in Settings`,
     no_match: t`No published version found`, rate_limited: t`Rate limited`,
     batch_reused: t`Batch result reused`, queue_busy: t`Request queue busy`,
@@ -304,9 +320,25 @@ export function BibliographyAudit(props: {
     batch_timeout: t`Semantic Scholar request timed out; subsequent queries skipped`,
     batch_unavailable: t`Semantic Scholar unavailable; subsequent queries skipped`,
     blocked: t`Requests blocked`, timeout: t`Request timed out`,
-    connection_failed: t`Connection failed`, server_error: t`Source service error`,
-    unavailable: t`Source unavailable`,
+    connection_failed: t`Connection failed`, network: t`Network connection failed`,
+    unauthorized: t`Authorization failed`, malformed: t`Invalid response from source`,
+    forbidden: t`Access forbidden by provider`,
+    upstream_rate_limit: t`Source rate limit reached`, server_error: t`Source service error`,
+    unavailable: t`Source temporarily unavailable`,
   };
+  const sourceOutcome = (result: AuditResult, outcome: string) => {
+    // Reports saved before candidate outcomes existed may say that a source was
+    // selected even though the final result was unavailable. Do not present
+    // those records as verified or accepted.
+    if (result.status === "unavailable" && outcome === "selected") return t`Source record considered, not verified`;
+    if (result.status === "unavailable" && outcome === "selected_cached") return t`Source record considered, not verified · cached record`;
+    return sourceOutcomes[outcome] ?? t`Unknown source response`;
+  };
+  const reasonLabel = (reason: string) => reason === "insufficient_identity" ? t`Insufficient identifying metadata`
+    : reason === "record" ? t`Record identity`
+      : reason === "venue" ? t`Venue`
+        : reason === "arxiv" ? t`arXiv identifier`
+          : fieldLabels[reason] ?? reason;
   return <ResizableDrawer className="bibliography-audit" ariaLabel={t`Check references`} onClose={props.onClose}>
     <PanelHeader className="drawer-header" icon={<ClipboardCheck size={16} />} title={t`Check references`} titleAfter={scan && <Badge>{total}</Badge>} onClose={props.onClose} />
     <div className="bibliography-audit-overview">
@@ -346,6 +378,10 @@ export function BibliographyAudit(props: {
       const notice = health && !["unknown", "unavailable"].includes(health.kind);
       const isApplied = applied.has(index);
       const incomplete = result?.status === "unavailable" || result?.status === "conflict";
+      const candidatePresent = hasCandidate(result);
+      const candidate = candidatePresent && result?.candidate && typeof result.candidate === "object"
+        && Array.isArray(result.candidate.changes) && Array.isArray(result.candidate.reasons)
+        ? result.candidate : undefined;
       return <article className="bibliography-audit-entry" key={`${entry.path}:${entry.key}:${index}`}>
         <div className="bibliography-audit-entry-heading">
           <Checkbox aria-label={t`Select ${entry.key}`} checked={selected.has(index)} disabled={busy || applying !== null} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />
@@ -371,12 +407,22 @@ export function BibliographyAudit(props: {
           {!!result.sources?.length && <dl className="bibliography-audit-sources">
             {result.sources.map(source => <div key={source.source}>
               <dt>{sourceNames[source.source] ?? source.source}</dt>
-              <dd>{sourceOutcomes[source.outcome] ?? t`Source unavailable`}</dd>
+              <dd>{sourceOutcome(result, source.outcome)}</dd>
             </div>)}
           </dl>}
           {health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={health.checkedAt}>{new Date(health.checkedAt).toLocaleString(i18n.locale)}</time>{health.stale ? ` · ${t`Stale result`}` : ""}</p>}
         </details>}
-        {result?.after && <details className="bibliography-audit-changes">
+        {candidate && <details className="bibliography-audit-changes">
+          <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><span>{t`Review candidate`}</span><Badge size="compact">{candidate.changes.length}</Badge></summary>
+          <p className="bibliography-audit-copy">{t`This source record is shown for comparison only. It was not verified and cannot be applied.`}</p>
+          {candidate.reasons.length > 0 && <p className="bibliography-audit-copy">{t`Conflicting or insufficient fields`}: {candidate.reasons.map(reasonLabel).join(", ")}</p>}
+          <dl className="bibliography-audit-diff">{candidate.changes.map((change, changeIndex) => <div key={`${change.field}:${changeIndex}`}>
+            <dt>{fieldLabels[change.field] ?? change.field}</dt>
+            <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
+          </div>)}</dl>
+          {candidate.bibtex && <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />BibTeX</summary><pre>{candidate.bibtex}</pre></details>}
+        </details>}
+        {result?.after && !candidatePresent && <details className="bibliography-audit-changes">
           <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><span>{t`Review proposed changes`}</span><Badge size="compact">{result.changes.length}</Badge></summary>
           <dl className="bibliography-audit-diff">{result.changes.map(change => <div key={change.field}>
             <dt>{fieldLabels[change.field] ?? change.field}</dt>

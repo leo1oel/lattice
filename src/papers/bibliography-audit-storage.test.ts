@@ -51,6 +51,25 @@ it("rejects malformed native data without overwriting it", async () => {
   expect(invoke).toHaveBeenCalledTimes(1);
 });
 
+it.each([
+  { bibtex: 4, changes: [], reasons: [] },
+  { bibtex: "@article{x}", changes: {}, reasons: [] },
+  { bibtex: "@article{x}", changes: [{ field: "title", before: "Old" }], reasons: [] },
+  { bibtex: "@article{x}", changes: [], reasons: ["title", 4] },
+])("rejects a malformed candidate payload: $candidate", async candidate => {
+  vi.mocked(invoke).mockResolvedValue([["refs.bib\0paper", {
+    ...report[0][1], result: { ...report[0][1].result, candidate },
+  }]]);
+  await expect(loadAuditReport("/project")).rejects.toThrow("Invalid saved");
+});
+
+it("restores a well-formed rejected candidate", async () => {
+  const candidate = { bibtex: "@article{candidate}", changes: [{ field: "title", before: "Old", after: "New" }], reasons: ["title"] };
+  const candidateReport: AuditReport = [[report[0][0], { ...report[0][1], result: { ...report[0][1].result, candidate } }]];
+  vi.mocked(invoke).mockResolvedValue(candidateReport);
+  expect(await loadAuditReport("/project")).toEqual(new Map(candidateReport));
+});
+
 it("uses the active app locale for invalid-report errors", async () => {
   await activateAppLocale("zh-CN");
   try {

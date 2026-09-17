@@ -1,4 +1,4 @@
-// Snapshot of bibcite's canonical venues (172 entries), used by the
+// Snapshot of bibcite's canonical venues (173 entries), used by the
 // bibliography-entry editor's venue autocomplete. The category from bibcite sets
 // the entry type: journal -> @article, conference/workshop -> @inproceedings.
 //
@@ -743,6 +743,11 @@ export const VENUES: Venue[] = [
     "name": "Proceedings of the Annual Meeting of the Association for Computational Linguistics (ACL)",
     "entryType": "inproceedings",
     "search": "acl proceedings of the annual meeting of the association for computational linguistics acl acl association for computational linguistics"
+  },
+  {
+    "name": "Proceedings of the Conference of the European Chapter of the Association for Computational Linguistics (EACL)",
+    "entryType": "inproceedings",
+    "search": "eacl proceedings of the conference of the european chapter of the association for computational linguistics eacl eacl conference european chapter association for computational linguistics"
   },
   {
     "name": "Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP)",

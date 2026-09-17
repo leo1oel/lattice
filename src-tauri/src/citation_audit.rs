@@ -89,6 +89,14 @@ pub struct FieldChange {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AuditCandidate {
+    pub bibtex: String,
+    pub changes: Vec<FieldChange>,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditResult {
     pub status: String,
     pub message: String,
@@ -99,6 +107,8 @@ pub struct AuditResult {
     pub before: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<AuditCandidate>,
     pub changes: Vec<FieldChange>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<CitationHealth>,
@@ -503,19 +513,68 @@ pub fn check_entry(
         ));
     }
     let Some(doi) = doi else {
-        return Ok(annotate_s2(
-            result(
+        let missing = identity_missing_fields(&before);
+        if !missing.is_empty() {
+            let mut checked = result(
                 "skipped",
-                "No DOI or arXiv identifier is available for an exact check.",
+                "A title, full author list, and year are required for a safe title lookup.",
                 before,
-            ),
-            s2_batch_status,
-        ));
+            );
+            checked.publication_reason = Some("missing_identity".into());
+            return Ok(annotate_s2(checked, s2_batch_status));
+        }
+        let title = clean(local.get("title").expect("checked above")).replace(['{', '}'], "");
+        let metadata = audit_command(s2_batch_status).and_then(|command| {
+            run_bibcite(
+                &["get", &title, "--json", "--require-published"],
+                Some(command),
+            )
+        });
+        let checked = match metadata {
+            Ok(output) if is_clean_lookup_miss(&output) => {
+                let mut checked =
+                    result("checked", "No matching metadata record was found.", before);
+                checked.publication_reason = Some("no_match".into());
+                checked.sources = publication_sources(&String::from_utf8_lossy(&output.stderr));
+                checked
+            }
+            Ok(output) => match parse_get_output(&output) {
+                Ok(remote) => {
+                    let mut checked = compare_title_entry(&before, &remote);
+                    checked.sources = metadata_sources(&output, &checked);
+                    checked
+                }
+                Err(error) => {
+                    let mut checked = result(
+                        "unavailable",
+                        &format!("Metadata check incomplete: {error}"),
+                        before,
+                    );
+                    checked.publication_reason = Some("metadata_unavailable".into());
+                    checked.sources = publication_sources(&String::from_utf8_lossy(&output.stderr));
+                    checked
+                }
+            },
+            Err(error) => {
+                let mut checked = result(
+                    "unavailable",
+                    &format!("Metadata check incomplete: {error}"),
+                    before,
+                );
+                checked.publication_reason = Some("metadata_unavailable".into());
+                checked
+            }
+        };
+        return Ok(annotate_s2(checked, s2_batch_status));
     };
     let health = citation_health::lookup(root, [doi.clone()]).remove(&doi);
     let metadata = audit_command(s2_batch_status)
         .and_then(|command| run_bibcite(&["get", "--json", &doi], Some(command)));
-    let mut checked = match metadata.and_then(|o| parse_get_output(&o)) {
+    let mut checked = match metadata
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(parse_get_output)
+    {
         Ok(remote) => compare_doi_entry(&before, &remote),
         Err(error) => result(
             "unavailable",
@@ -523,6 +582,9 @@ pub fn check_entry(
             before,
         ),
     };
+    if let Ok(output) = &metadata {
+        checked.sources = metadata_sources(output, &checked);
+    }
     checked.health = health;
     if checked
         .health
@@ -741,24 +803,43 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
             before.into(),
         );
         checked.publication_reason = Some("identity_conflict".into());
-        checked.sources = publication_sources(&String::from_utf8_lossy(&output.stderr));
+        checked.candidate = Some(AuditCandidate {
+            bibtex: after.clone(),
+            changes: differing_fields(before, &after),
+            reasons: vec!["title".into()],
+        });
+        checked.sources = metadata_sources(&output, &checked);
         return Ok(checked);
     }
     // `upgrade` preserves the input author field, so comparing that output to
     // the input cannot verify the authors. Dereference the candidate DOI and
     // check independent metadata before offering an applicable replacement.
-    let remote = fields(&after)
+    let candidate_fields = fields(&after);
+    let remote_output = candidate_fields
         .get("doi")
         .and_then(|doi| normalize_doi(doi))
         .filter(|doi| !doi.starts_with("10.48550/"))
-        .ok_or_else(|| "No publication DOI for independent verification.".to_string())
-        .and_then(|doi| {
+        .map(|doi| doi.to_string())
+        .map_or_else(
+            || {
+                candidate_fields
+                    .get("title")
+                    .map(|title| clean(title).replace(['{', '}'], ""))
+                    .filter(|title| !title.is_empty())
+                    .ok_or_else(|| "The publication has no independently searchable title.".into())
+            },
+            Ok,
+        )
+        .and_then(|identity| {
             run_bibcite(
-                &["get", "--json", &doi],
+                &["get", &identity, "--json", "--require-published"],
                 Some(audit_command(s2_batch_status)?),
             )
-            .and_then(|output| parse_get_output(&output))
         });
+    let remote = remote_output
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(parse_get_output);
     let mut checked = match remote {
         Ok(remote)
             if metadata_identity_matches(before, &remote)
@@ -770,21 +851,52 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
             }
             checked
         }
-        _ => identity_conflict(before),
+        Ok(remote) => {
+            let mut checked = identity_conflict(before, &remote);
+            if let Some(candidate) = checked.candidate.as_mut() {
+                candidate
+                    .reasons
+                    .extend(identity_conflicts(&after, &remote));
+                candidate.reasons.sort();
+                candidate.reasons.dedup();
+            }
+            checked
+        }
+        Err(_) => {
+            let mut checked = result(
+                "unavailable",
+                "Independent publication metadata was unavailable; no replacement is offered.",
+                before.into(),
+            );
+            checked.publication_reason = Some("metadata_unavailable".into());
+            checked
+        }
     };
     let stderr = String::from_utf8_lossy(&output.stderr);
-    checked.sources = publication_sources(&stderr);
+    checked.sources = metadata_sources(&output, &checked);
     if let Some(source) = record.get("source").and_then(|value| value.as_str()) {
         checked.sources.retain(|row| row.source != source);
         checked.sources.push(SourceCheck {
             source: source.into(),
-            outcome: if stderr.lines().any(|line| line.starts_with("[cache] hit:")) {
-                "selected_cached"
+            outcome: if checked.status == "update" || checked.status == "checked" {
+                if stderr.lines().any(|line| line.starts_with("[cache] hit:")) {
+                    "selected_cached"
+                } else {
+                    "selected"
+                }
+            } else if stderr.lines().any(|line| line.starts_with("[cache] hit:")) {
+                "candidate_cached"
             } else {
-                "selected"
+                "candidate"
             }
             .into(),
         });
+    }
+    if let Ok(output) = &remote_output {
+        for source in metadata_sources(output, &checked) {
+            checked.sources.retain(|row| row.source != source.source);
+            checked.sources.push(source);
+        }
     }
     Ok(checked)
 }
@@ -885,6 +997,10 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
             "rate_limited"
         } else if detail.contains("captcha") {
             "blocked"
+        } else if detail.contains("401") || detail.contains("unauthorized") {
+            "unauthorized"
+        } else if detail.contains("403") || detail.contains("forbidden") {
+            "forbidden"
         } else if detail.contains("429") || detail.contains("rate-limit") {
             "rate_limited"
         } else if detail.contains("timeout")
@@ -897,7 +1013,11 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
             || detail.contains("remoteprotocolerror")
         {
             "connection_failed"
-        } else if detail.contains("server error") {
+        } else if detail.contains("server error")
+            || ["500", "502", "503", "504"]
+                .iter()
+                .any(|code| detail.contains(code))
+        {
             "server_error"
         } else if detail.contains("no publication found") {
             "no_match"
@@ -907,7 +1027,7 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         {
             "unavailable"
         } else {
-            continue;
+            "unknown"
         };
         sources.insert(source.to_string(), outcome.to_string());
     }
@@ -917,25 +1037,71 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         .collect()
 }
 
+fn metadata_sources(output: &Output, checked: &AuditResult) -> Vec<SourceCheck> {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let mut sources = publication_sources(&stderr);
+    let verified = checked.status == "checked" || checked.status == "update";
+    if !verified {
+        for source in &mut sources {
+            if source.outcome == "matched" {
+                source.outcome = "candidate".into();
+            }
+        }
+    }
+    if let Some(source) = serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("source")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
+    {
+        sources.retain(|row| row.source != source);
+        let cached = stderr.lines().any(|line| line.starts_with("[cache] hit:"));
+        sources.push(SourceCheck {
+            source,
+            outcome: match (verified, cached) {
+                (true, false) => "selected",
+                (true, true) => "selected_cached",
+                (false, false) => "candidate",
+                (false, true) => "candidate_cached",
+            }
+            .into(),
+        });
+    }
+    sources
+}
+
 fn compare_doi_entry(before: &str, remote: &str) -> AuditResult {
     let local = fields(before);
     let other = fields(remote);
     let doi = local.get("doi").and_then(|v| normalize_doi(v));
     if doi.is_none() || doi != other.get("doi").and_then(|v| normalize_doi(v)) {
-        return result(
-            "unavailable",
-            "The retrieved record did not confirm the requested DOI.",
-            before.into(),
-        );
+        return identity_conflict(before, remote);
     }
     if !metadata_identity_matches(before, remote) {
-        return identity_conflict(before);
+        return identity_conflict(before, remote);
     }
     merge_metadata(before, remote, false)
 }
 
-fn identity_conflict(before: &str) -> AuditResult {
-    result("unavailable", "Paper identity could not be confirmed. Review the title, authors, identifiers, year, and venue manually; no replacement is offered.", before.into())
+fn compare_title_entry(before: &str, remote: &str) -> AuditResult {
+    if !metadata_identity_matches(before, remote) {
+        return identity_conflict(before, remote);
+    }
+    merge_metadata(before, remote, false)
+}
+
+fn identity_conflict(before: &str, remote: &str) -> AuditResult {
+    let mut checked = result("unavailable", "Paper identity could not be confirmed. Review the candidate manually; no replacement is offered.", before.into());
+    checked.publication_reason = Some("identity_conflict".into());
+    checked.candidate = Some(AuditCandidate {
+        bibtex: remote.into(),
+        changes: differing_fields(before, remote),
+        reasons: identity_conflicts(before, remote),
+    });
+    checked
 }
 
 fn unversioned_arxiv(id: &str) -> &str {
@@ -953,16 +1119,91 @@ fn is_preprint_venue(venue: &str) -> bool {
         .any(|word| matches!(word, "arxiv" | "preprint" | "corr" | "biorxiv" | "medrxiv"))
 }
 
+fn identity_missing_fields(entry: &str) -> Vec<String> {
+    let values = fields(entry);
+    ["title", "author", "year"]
+        .into_iter()
+        .filter(|name| {
+            values
+                .get(*name)
+                .is_none_or(|value| clean(value).is_empty())
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn is_clean_lookup_miss(output: &Output) -> bool {
+    output.status.code() == Some(2)
+        && publication_sources(&String::from_utf8_lossy(&output.stderr))
+            .iter()
+            .all(|source| {
+                matches!(
+                    source.outcome.as_str(),
+                    "no_match" | "not_configured" | "batch_reused"
+                )
+            })
+        && String::from_utf8_lossy(&output.stderr).lines().any(|line| {
+            line.starts_with("[bibcite] No match found anywhere for:")
+                || line.starts_with("[bibcite] Only an arXiv preprint was found for:")
+        })
+}
+
+fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
+    let a = fields(before);
+    let b = fields(remote);
+    [
+        "title",
+        "author",
+        "year",
+        "journal",
+        "booktitle",
+        "doi",
+        "eprint",
+    ]
+    .into_iter()
+    .filter_map(|field| {
+        let before = a.get(field).map(|v| clean(v)).unwrap_or_default();
+        let after = b.get(field).map(|v| clean(v)).unwrap_or_default();
+        (normalize_text(&before) != normalize_text(&after)).then(|| FieldChange {
+            field: field.into(),
+            before,
+            after,
+        })
+    })
+    .collect()
+}
+
+fn author_names(authors: &str) -> Vec<Vec<String>> {
+    normalize_text(authors)
+        .split(" and ")
+        .map(|name| {
+            let mut words = name
+                .split(|c: char| !c.is_alphanumeric())
+                .filter(|word| !word.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            words.sort();
+            words
+        })
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 /// A conservative compatibility check, not proof of identity. Never infer that
 /// two people are the same from a surname or initials. Allow additional trailing
 /// authors to repair truncated lists, but require every supplied author in order.
 fn metadata_identity_matches(before: &str, remote: &str) -> bool {
+    identity_conflicts(before, remote).is_empty()
+}
+
+fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
     let remote = remote.trim();
     let spans = project::bibliography_entry_spans(remote);
     if spans.len() != 1 || spans[0].1 != 0 || spans[0].2 != remote.len() || !complete_entry(remote)
     {
-        return false;
+        return vec!["record".into()];
     }
+    let mut reasons = Vec::new();
     let local = fields(before);
     let other = fields(remote);
     let value = |fields: &BTreeMap<String, String>, name: &str| {
@@ -971,30 +1212,15 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
     let title = normalize_title(&value(&local, "title"));
     let remote_title = normalize_title(&value(&other, "title"));
     if remote_title.is_empty() || (!title.is_empty() && title != remote_title) {
-        return false;
+        reasons.push("title".into());
     }
-    let names = |authors: &str| {
-        normalize_text(authors)
-            .split(" and ")
-            .map(|name| {
-                let mut words = name
-                    .split(|c: char| !c.is_alphanumeric())
-                    .filter(|word| !word.is_empty())
-                    .map(str::to_string)
-                    .collect::<Vec<_>>();
-                words.sort();
-                words
-            })
-            .filter(|name| !name.is_empty())
-            .collect::<Vec<_>>()
-    };
-    let authors = names(&value(&local, "author"));
-    let remote_authors = names(&value(&other, "author"));
+    let authors = author_names(&value(&local, "author"));
+    let remote_authors = author_names(&value(&other, "author"));
     if remote_authors.is_empty()
         || (title.is_empty() && authors.is_empty())
         || !remote_authors.starts_with(&authors)
     {
-        return false;
+        reasons.push("author".into());
     }
     if let Some(doi) = local
         .get("doi")
@@ -1002,7 +1228,7 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
         .filter(|v| !v.starts_with("10.48550/"))
     {
         if other.get("doi").and_then(|v| normalize_doi(v)).as_ref() != Some(&doi) {
-            return false;
+            reasons.push("doi".into());
         }
     }
     if let (Some(a), Some(b)) = (
@@ -1010,7 +1236,7 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
         project::bibliography_arxiv_id(&other),
     ) {
         if unversioned_arxiv(&a) != unversioned_arxiv(&b) {
-            return false;
+            reasons.push("arxiv".into());
         }
     }
     if let (Ok(a), Ok(b)) = (
@@ -1018,7 +1244,7 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
         value(&other, "year").trim().parse::<u32>(),
     ) {
         if a.abs_diff(b) > 2 {
-            return false;
+            reasons.push("year".into());
         }
     }
     let venue = |fields: &BTreeMap<String, String>| {
@@ -1035,7 +1261,10 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
             .unwrap_or(normalized)
     };
     let local_venue = venue(&local);
-    local_venue.is_empty() || is_preprint_venue(&local_venue) || local_venue == venue(&other)
+    if !local_venue.is_empty() && !is_preprint_venue(&local_venue) && local_venue != venue(&other) {
+        reasons.push("venue".into());
+    }
+    reasons
 }
 
 fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
@@ -1059,7 +1288,12 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
         .filter_map(|name| {
             let a = local.get(*name).map(|v| clean(v)).unwrap_or_default();
             let b = other.get(*name).map(|v| clean(v)).unwrap_or_default();
-            (!b.is_empty() && normalize_text(&a) != normalize_text(&b)).then(|| FieldChange {
+            let equivalent = if *name == "author" {
+                author_names(&a) == author_names(&b)
+            } else {
+                normalize_text(&a) == normalize_text(&b)
+            };
+            (!b.is_empty() && !equivalent).then(|| FieldChange {
                 field: (*name).into(),
                 before: a,
                 after: b,
@@ -1079,7 +1313,7 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
             merged.insert(change.field.clone(), format!("{{{raw}}}"));
         }
     }
-    if published {
+    if published || entry_type(before) != entry_type(remote) {
         for name in ["journal", "booktitle"] {
             if !other.contains_key(name) {
                 merged.remove(name);
@@ -1110,17 +1344,25 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
     {
         merged.remove("howpublished");
     }
-    let entry_type =
-        if published && other.contains_key("booktitle") && !other.contains_key("journal") {
-            "inproceedings"
-        } else {
-            (if published { remote } else { before })
-                .trim_start()
-                .trim_start_matches('@')
-                .split(['{', '('])
-                .next()
-                .unwrap_or("article")
-        };
+    // The remote record's explicit type is evidence. A booktitle alone is not:
+    // chapters and conference papers both commonly carry one.
+    let remote_type = remote
+        .trim_start()
+        .trim_start_matches('@')
+        .split(['{', '('])
+        .next()
+        .unwrap_or("article");
+    // S2 sometimes emits @article with only a conference booktitle. Correct
+    // that known malformed shape, but never generalize booktitle to conference
+    // for explicit chapter/book types.
+    let entry_type = if remote_type.eq_ignore_ascii_case("article")
+        && other.contains_key("booktitle")
+        && !other.contains_key("journal")
+    {
+        "inproceedings"
+    } else {
+        remote_type
+    };
     let spans = project::bibliography_entry_spans(before);
     let key = spans.first().map(|v| v.0.as_str()).unwrap_or("citation");
     let mut after = format!("@{entry_type}{{{key},\n");
@@ -1167,6 +1409,7 @@ fn proposal(before: &str, after: String, message: &str) -> AuditResult {
         sources: vec![],
         before: before.into(),
         after: Some(after),
+        candidate: None,
         changes,
         health: None,
     }
@@ -1180,6 +1423,7 @@ fn result(status: &str, message: &str, before: String) -> AuditResult {
         sources: vec![],
         before,
         after: None,
+        candidate: None,
         changes: vec![],
         health: None,
     }
@@ -1883,6 +2127,78 @@ mod tests {
         )
         .unwrap();
         let rejected = upgrade_preprint(before, None).unwrap();
+        // A publication without a DOI must still be independently checked by
+        // title. The mock rejects any lookup that allows a preprint fallback.
+        let no_doi = published.replace("  doi = {10.1234/amradio},\n", "");
+        let no_doi_json = serde_json::json!({"bibtex": no_doi, "source": "dblp"}).to_string();
+        fs::write(&mock, format!("#!/bin/sh\nif [ \"$1\" = get ]; then\ncase \"$*\" in *--require-published*) ;; *) exit 3;; esac\nprintf '%s\\n' '{no_doi_json}'\nexit 0\nfi\ncat >\"$2\" <<'EOF'\n{no_doi}\nEOF\nprintf '%s\\n' '{{\"entries\":[{{\"matched\":true,\"source\":\"dblp\"}}]}}'\n")).unwrap();
+        let verified = upgrade_preprint(before, None).unwrap();
+        assert!(verified.after.is_some());
+        assert!(verified
+            .sources
+            .iter()
+            .any(|row| row.source == "dblp" && row.outcome == "selected"));
+
+        let title_only =
+            "@misc{titleonly, title={Safe Paper}, author={Alice Smith and Bob Jones}, year={2024}}";
+        fs::write(root.join("references.bib"), title_only).unwrap();
+        let title_remote = "@inproceedings{remote, title={Safe Paper}, author={Smith, Alice and Jones, Bob}, year={2024}, booktitle={ICLR}}";
+        let title_json = serde_json::json!({"bibtex": title_remote, "source":"dblp"}).to_string();
+        fs::write(&mock, format!("#!/bin/sh\ncase \"$*\" in *--require-published*) ;; *) exit 3;; esac\nprintf '%s\\n' '{title_json}'\n")).unwrap();
+        let request = || AuditEntry {
+            path: "references.bib".into(),
+            key: "titleonly".into(),
+            title: "Safe Paper".into(),
+            bibtex: title_only.into(),
+            issues: vec![],
+        };
+        let title_checked = check_entry(&root, request(), None).unwrap();
+        assert_eq!(title_checked.status, "update");
+        assert!(title_checked
+            .after
+            .as_ref()
+            .unwrap()
+            .starts_with("@inproceedings{titleonly,"));
+        assert!(!title_checked
+            .changes
+            .iter()
+            .any(|change| change.field == "author"));
+        for (code, message, reason) in [
+            (
+                2,
+                "[bibcite] No match found anywhere for: Safe Paper",
+                "no_match",
+            ),
+            (
+                3,
+                "[bibcite] No match found anywhere for: Safe Paper",
+                "metadata_unavailable",
+            ),
+            (3, "[openalex] host not found", "metadata_unavailable"),
+            (2, "[dblp-fuzzy] transient failure: request timed out\n[bibcite] No match found anywhere for: Safe Paper", "metadata_unavailable"),
+        ] {
+            fs::write(
+                &mock,
+                format!("#!/bin/sh\nprintf '%s\\n' '{message}' >&2\nexit {code}\n"),
+            )
+            .unwrap();
+            let outcome = check_entry(&root, request(), None).unwrap();
+            assert_eq!(outcome.publication_reason.as_deref(), Some(reason));
+            assert!(outcome.after.is_none());
+        }
+        let unavailable = upgrade_preprint(before, None).unwrap();
+        assert!(unavailable.after.is_none());
+        apply(
+            &root,
+            "references.bib",
+            "titleonly",
+            title_only,
+            title_checked.after.as_ref().unwrap(),
+        )
+        .unwrap();
+        assert!(fs::read_to_string(root.join("references.bib"))
+            .unwrap()
+            .contains("booktitle = {ICLR}"));
         unsafe { std::env::remove_var("LATTICE_BIBCITE_BIN") };
         assert!(rejected.after.is_none());
         assert_eq!(rejected.status, "unavailable");
@@ -1908,6 +2224,66 @@ mod tests {
         assert_eq!(checked.status, "checked");
         assert!(checked.after.is_none());
         assert!(checked.changes.is_empty());
+    }
+
+    #[test]
+    fn title_candidates_require_full_identity_and_expose_non_applicable_conflicts() {
+        let before = "@inproceedings{x, title={Safe Paper}, author={Smith, Alice and Jones, Bob}, year={2024}, booktitle={ICLR}}";
+        let good = "@inproceedings{r, title={Safe Paper}, author={Alice Smith and Bob Jones}, year={2024}, booktitle={ICLR}, doi={10.1234/good}}";
+        let accepted = compare_title_entry(before, good);
+        assert_eq!(accepted.status, "update");
+        assert!(accepted.after.is_some());
+        assert!(!accepted
+            .changes
+            .iter()
+            .any(|change| change.field == "author"));
+
+        for (remote, reason) in [
+            (good.replace("Safe Paper", "Wrong Paper"), "title"),
+            (good.replace("Bob Jones", "Eve Wrong"), "author"),
+            (good.replace("ICLR", "NeurIPS"), "venue"),
+        ] {
+            let rejected = compare_title_entry(before, &remote);
+            assert!(rejected.after.is_none());
+            assert_eq!(
+                rejected.publication_reason.as_deref(),
+                Some("identity_conflict")
+            );
+            assert!(rejected
+                .candidate
+                .unwrap()
+                .reasons
+                .iter()
+                .any(|r| r == reason));
+        }
+    }
+
+    #[test]
+    fn remote_type_corrects_doi_entries_without_turning_chapters_into_conferences() {
+        let article = "@inproceedings{x, title={Paper}, author={A}, year={2024}, journal={Journal}, doi={10.1234/x}}";
+        let remote_article =
+            "@article{r, title={Paper}, author={A}, year={2024}, journal={Journal}, doi={10.1234/x}}";
+        assert!(compare_doi_entry(article, remote_article)
+            .after
+            .unwrap()
+            .starts_with("@article{x,"));
+
+        let chapter = "@inproceedings{c, title={Chapter}, author={A}, year={2024}, booktitle={Collected Work}, doi={10.1234/c}}";
+        let remote_chapter = "@incollection{r, title={Chapter}, author={A}, year={2024}, booktitle={Collected Work}, doi={10.1234/c}}";
+        assert!(compare_doi_entry(chapter, remote_chapter)
+            .after
+            .unwrap()
+            .starts_with("@incollection{c,"));
+    }
+
+    #[test]
+    fn missing_identity_and_provider_outcomes_stay_distinct() {
+        assert_eq!(
+            identity_missing_fields("@misc{x,title={Only title}}"),
+            vec!["author", "year"]
+        );
+        let outcomes = publication_sources("[openalex] HTTP 401 unauthorized\n[openalex] HTTP 403 forbidden\n[openalex] HTTP 503 server error");
+        assert_eq!(outcomes[0].outcome, "server_error");
     }
 
     #[test]

@@ -4994,12 +4994,23 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
         ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
         ?? snapshot.manifest.rootDocuments[0];
+      const bibliographyGeneration = ++bibliographyRefreshGenerationRef.current;
       const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
         invoke<PaperSummary[]>("list_papers"),
         invoke<string[]>("list_citation_keys"),
         invoke<CitationInfo[]>("list_citations"),
         invoke<ReferenceInfo[]>("list_references"),
       ]);
+      if (!ownsProjectRestore()) return;
+      // Opening a file cancels workspace restoration, not the project's paper
+      // scan. Apply metadata before the editor-generation guards below, but do
+      // not overwrite a newer bibliography refresh triggered by a save.
+      if (bibliographyGeneration === bibliographyRefreshGenerationRef.current) {
+        setPapers(nextPapers);
+        setCitationKeys(nextCitationKeys);
+        setCitations(nextCitations);
+      }
+      setReferences(nextReferences ?? []);
       const allPaths = flattenProjectPaths(snapshot.files);
       const assetPaths = collectAssetPaths(snapshot.files);
       const sourcePaths = new Set(allPaths.filter((path) => (
@@ -5109,10 +5120,6 @@ function App() {
             ? "split"
             : restored?.canvasMode ?? "split";
       if (isHtmlFilePath(activeTab)) htmlViewModesRef.current.set(activeTab, restoredMode as DocumentViewMode);
-      setPapers(nextPapers);
-      setCitationKeys(nextCitationKeys);
-      setCitations(nextCitations);
-      setReferences(nextReferences ?? []);
       setOpenTabs(restoredTabs);
       tabRecency.current = restored?.tabRecency.filter((path) => restoredTabs.includes(path)) ?? [];
       for (const path of restoredTabs) {
