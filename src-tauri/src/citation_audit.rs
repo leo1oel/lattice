@@ -350,9 +350,7 @@ fn batch_comparison(
         }
         let venue = canonical_venue?.trim();
         if venue.is_empty()
-            || ["arxiv", "corr", "preprint", "biorxiv", "medrxiv"]
-                .iter()
-                .any(|v| venue.to_ascii_lowercase().contains(v))
+            || is_preprint_venue(venue)
             || !["journal", "booktitle"].iter().any(|name| {
                 other
                     .get(*name)
@@ -947,6 +945,14 @@ fn unversioned_arxiv(id: &str) -> &str {
         .unwrap_or(id)
 }
 
+fn is_preprint_venue(venue: &str) -> bool {
+    // Match markers as words, not substrings of journals such as Corrosion Science.
+    venue
+        .to_ascii_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| matches!(word, "arxiv" | "preprint" | "corr" | "biorxiv" | "medrxiv"))
+}
+
 /// A conservative compatibility check, not proof of identity. Never infer that
 /// two people are the same from a surname or initials. Allow additional trailing
 /// authors to repair truncated lists, but require every supplied author in order.
@@ -1029,11 +1035,7 @@ fn metadata_identity_matches(before: &str, remote: &str) -> bool {
             .unwrap_or(normalized)
     };
     let local_venue = venue(&local);
-    local_venue.is_empty()
-        || ["arxiv", "preprint", "corr", "biorxiv", "medrxiv"]
-            .iter()
-            .any(|marker| local_venue.contains(marker))
-        || local_venue == venue(&other)
+    local_venue.is_empty() || is_preprint_venue(&local_venue) || local_venue == venue(&other)
 }
 
 fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
@@ -1094,10 +1096,7 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
                 return false;
             }
             let value = clean(value).to_lowercase();
-            !value.is_empty()
-                && !value.contains("arxiv")
-                && !value.contains("preprint")
-                && !value.contains("corr")
+            !value.is_empty() && !is_preprint_venue(&value)
         })
     });
     if has_publication
@@ -1955,6 +1954,16 @@ mod tests {
     }
 
     #[test]
+    fn preprint_markers_are_words_not_fragments_of_journal_names() {
+        assert!(is_preprint_venue("CoRR abs/2401.12345"));
+        assert!(is_preprint_venue("arXiv preprint arXiv:2401.12345"));
+        assert!(!is_preprint_venue("Corrosion Science"));
+        assert!(!is_preprint_venue(
+            "Corrosion Engineering, Science and Technology"
+        ));
+    }
+
+    #[test]
     fn doi_lookup_does_not_establish_paper_author_or_venue_identity() {
         let before = "@article{mine,title={A specific paper},author={Alice Smith and Bob Jones},year={2024},journal={Journal One},doi={10.1234/a}}";
         for remote in [
@@ -1971,6 +1980,8 @@ mod tests {
         }
         let missing_author = before.replace("author={Alice Smith and Bob Jones},", "");
         assert!(compare_doi_entry(&missing_author, before).after.is_some());
+        let corrosion = before.replace("Journal One", "Corrosion Science");
+        assert!(compare_doi_entry(&corrosion, before).after.is_none());
         let reordered_names =
             before.replace("Alice Smith and Bob Jones", "Smith, Alice and Jones, Bob");
         assert_ne!(
