@@ -1517,6 +1517,10 @@ msgstr "花括号矩阵"
 msgid "Current BibTeX"
 msgstr "当前 BibTeX"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Current reference"
+msgstr "当前参考文献"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "带实时预览窗格的自定义 HTML（在沙盒 iframe 中运行）。"
@@ -5330,6 +5334,10 @@ msgstr "某位协作者"
 #: src/App.tsx
 msgid "Source + PDF"
 msgstr "源码 + PDF"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source candidate (not applied)"
+msgstr "来源候选（未采用）"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"

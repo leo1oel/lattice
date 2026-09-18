@@ -1,6 +1,7 @@
 const SPECIAL_ENTRY_TYPES = new Set(["string", "preamble", "comment"]);
 
 type EntryBounds = { end: number; open: "{" | "("; close: "}" | ")" };
+type FormattedEntry = { start: number; end: number; formatted: string };
 
 function findEntryEnd(source: string, openIndex: number): EntryBounds | null {
   const open = source[openIndex] as "{" | "(";
@@ -104,6 +105,16 @@ function formatEntry(type: string, body: string, open: "{" | "(", newline: strin
   return `@${type}${open}${key},${newline}${renderedFields}${trailingComma ? "," : ""}${newline}${close}`;
 }
 
+function formattedEntryAt(source: string, start: number, newline: string): FormattedEntry | null {
+  const header = /^@([A-Za-z][A-Za-z0-9_-]*)[\t ]*([({])/.exec(source.slice(start));
+  if (!header) return null;
+  const openIndex = start + header[0].length - 1;
+  const bounds = findEntryEnd(source, openIndex);
+  if (!bounds) return null;
+  const formatted = formatEntry(header[1], source.slice(openIndex + 1, bounds.end), bounds.open, newline);
+  return formatted ? { start, end: bounds.end, formatted } : null;
+}
+
 /**
  * Formats only complete, conventional BibTeX entries. Anything the scanner
  * cannot classify without interpreting BibTeX is copied byte-for-byte.
@@ -111,8 +122,7 @@ function formatEntry(type: string, body: string, open: "{" | "(", newline: strin
 export function formatBibDocument(source: string): string {
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
   const entryStart = /(^|\n)([\t ]*)@([A-Za-z][A-Za-z0-9_-]*)[\t ]*([({])/g;
-  let output = "";
-  let copiedThrough = 0;
+  const entries: FormattedEntry[] = [];
   let match: RegExpExecArray | null;
 
   while ((match = entryStart.exec(source)) !== null) {
@@ -122,10 +132,32 @@ export function formatBibDocument(source: string): string {
     if (!bounds) break;
     const formatted = formatEntry(match[3], source.slice(openIndex + 1, bounds.end), bounds.open, newline);
     if (formatted) {
-      output += source.slice(copiedThrough, at) + formatted;
-      copiedThrough = bounds.end + 1;
+      entries.push({ start: at, end: bounds.end, formatted });
+
+      // Once an entry establishes a BibTeX boundary, another entry may follow
+      // without a line break. Only cross whitespace here: a general search for
+      // "@" would mistake values and arbitrary prose for entry boundaries.
+      let previousEnd = bounds.end;
+      while (previousEnd + 1 < source.length) {
+        const gap = /^[\t \r\n]*/.exec(source.slice(previousEnd + 1))![0];
+        const adjacent = formattedEntryAt(source, previousEnd + 1 + gap.length, newline);
+        if (!adjacent) break;
+        entries.push(adjacent);
+        previousEnd = adjacent.end;
+      }
+      entryStart.lastIndex = previousEnd + 1;
+    } else {
+      entryStart.lastIndex = bounds.end + 1;
     }
-    entryStart.lastIndex = bounds.end + 1;
+  }
+
+  let output = "";
+  let copiedThrough = 0;
+  for (const [index, entry] of entries.entries()) {
+    const gap = source.slice(copiedThrough, entry.start);
+    const normalizedGap = index > 0 && /^[\t \r\n]*$/.test(gap) ? `${newline}${newline}` : gap;
+    output += normalizedGap + entry.formatted;
+    copiedThrough = entry.end + 1;
   }
   return output + source.slice(copiedThrough);
 }

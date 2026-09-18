@@ -425,7 +425,10 @@ export function BibliographyAudit(props: {
           {candidate.reasons.length > 0 && <p className="bibliography-audit-copy">{t`Conflicting or insufficient fields`}: {candidate.reasons.map(reasonLabel).join(", ")}</p>}
           <dl className="bibliography-audit-diff">{candidate.changes.map((change, changeIndex) => <div key={`${change.field}:${changeIndex}`}>
             <dt>{fieldLabels[change.field] ?? change.field}</dt>
-            <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
+            <dd className="bibliography-audit-candidate-values">
+              <div><span>{t`Current reference`}</span><span>{change.before || "—"}</span></div>
+              <div><span>{t`Source candidate (not applied)`}</span><span>{change.after || "—"}</span></div>
+            </dd>
           </div>)}</dl>
           {candidate.bibtex && <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Unverified candidate BibTeX`}</summary><pre>{candidate.bibtex}</pre></details>}
         </details>}

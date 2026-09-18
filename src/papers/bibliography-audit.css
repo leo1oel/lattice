@@ -46,6 +46,9 @@
 .bibliography-audit-after { background: var(--status-success-soft); color: var(--status-success); }
 .bibliography-audit-diff del,
 .bibliography-audit-diff ins { text-decoration: none; color: var(--text-primary); white-space: pre-wrap; }
+.bibliography-audit-diff .bibliography-audit-candidate-values > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.bibliography-audit-candidate-values > div + div { border-top: 1px solid var(--border-subtle); }
+.bibliography-audit-candidate-values > div > span:first-child { font-size: var(--type-micro-size); color: var(--text-secondary); }
 .bibliography-audit-source { color: var(--text-secondary); }
 .bibliography-audit-current-source { margin-top: var(--space-4); }
 .bibliography-audit-source pre { max-height: 240px; overflow: auto; margin: var(--space-4) 0 0; padding: var(--space-5); border-radius: var(--radius-icon); background: var(--surface-input); color: var(--text-secondary); white-space: pre-wrap; font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); }

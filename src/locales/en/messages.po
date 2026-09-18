@@ -1517,6 +1517,10 @@ msgstr "Curly matrix"
 msgid "Current BibTeX"
 msgstr "Current BibTeX"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Current reference"
+msgstr "Current reference"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "Custom HTML with a live preview pane (sandboxed iframe)."
@@ -5332,6 +5336,10 @@ msgstr "Someone"
 #: src/App.tsx
 msgid "Source + PDF"
 msgstr "Source + PDF"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source candidate (not applied)"
+msgstr "Source candidate (not applied)"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Source location in PDF"

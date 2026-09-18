@@ -429,6 +429,10 @@ it("explains a candidate with localized identity fields and no apply action", as
   expect(screen.getByText("Publisher")).toBeVisible();
   expect(screen.getByText(/Title, Authors, Year, Venue, arXiv identifier, Insufficient identifying metadata/)).toBeVisible();
   expect(screen.getByText("Candidate Press")).toBeVisible();
+  const comparison = screen.getByText("Review candidate").closest("details")!;
+  expect(comparison.querySelector("del, ins, .bibliography-audit-before, .bibliography-audit-after")).toBeNull();
+  expect(screen.getAllByText("Current reference")).toHaveLength(2);
+  expect(screen.getAllByText("Source candidate (not applied)")).toHaveLength(2);
   expect(screen.getByText("Unverified candidate BibTeX")).toBeInTheDocument();
   fireEvent.click(screen.getByText("Current BibTeX"));
   expect(screen.getByText(entries[0].bibtex)).toBeVisible();
