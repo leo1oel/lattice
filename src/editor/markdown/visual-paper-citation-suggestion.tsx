@@ -15,8 +15,9 @@ import { useEffect, useRef } from "react";
 import type { PaperSummary } from "../../app-types";
 import { paperLinkHref } from "../../papers/paper-link";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
-import { floatingSurfaceClassName, menuViewportClassName } from "../../components/ui/menu-surface";
+import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
+import { ScrollArea } from "../../components/ui/scroll-area";
 
 const suggestionKey = new PluginKey("visualPaperCitationSuggestion");
 
@@ -60,7 +61,14 @@ function VisualPaperCitationMenu({ items, selectedIndex, idBase, onSelect, onHov
     );
   }
   return (
-    <div ref={containerRef} id={idBase} role="listbox" aria-label="Paper citation suggestions" aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className={`visual-paper-citation-menu fluid-hover-surface ${floatingSurfaceClassName} ${menuViewportClassName} ${popupMotionClassName}`} style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+    <ScrollArea
+      className={`visual-paper-citation-menu ${floatingSurfaceClassName} ${popupMotionClassName}`}
+      viewportRef={containerRef}
+      viewportProps={{ id: idBase, role: "listbox", "aria-label": "Paper citation suggestions", "aria-activedescendant": `${idBase}-option-${selectedIndex}`, tabIndex: -1, style: { maxHeight: "var(--visual-menu-height, 40vh)" } }}
+      contentClassName="fluid-hover-surface p-[var(--surface-inset)]"
+      fadeEdges={false}
+      onMouseDown={(event) => event.preventDefault()}
+    >
       <FluidHoverSurface />
       <span className="sr-only" aria-live="polite" aria-atomic="true">{items[selectedIndex]?.title}</span>
       {items.map((item, index) => {
@@ -76,7 +84,7 @@ function VisualPaperCitationMenu({ items, selectedIndex, idBase, onSelect, onHov
           </button>
         );
       })}
-    </div>
+    </ScrollArea>
   );
 }
 

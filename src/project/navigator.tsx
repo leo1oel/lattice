@@ -1520,7 +1520,7 @@ export function Navigator(props: {
 }) {
   const { t } = useLingui();
   const paperProgressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
-  const importFillRef = usePaperImportProgressFill(props.mode === "papers" && paperProgressActive, props.importStageId);
+  const importFillRef = usePaperImportProgressFill(paperProgressActive, props.importStageId);
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const paperViewportRef = useRef<HTMLDivElement | null>(null);
   const trimmedPaperQuery = props.importInput.trim();

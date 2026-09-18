@@ -1,7 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { i18n } from "../i18n";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 /** Tauri event carrying the literature pipeline's current stage id. */
 export const PAPER_IMPORT_PROGRESS_EVENT = "paper-import-progress";
@@ -47,22 +47,25 @@ export function paperImportProgressAt(start: number, stage: ImportStage, elapsed
 export function usePaperImportProgressFill(active: boolean, stage?: string | null) {
   const fill = useRef<HTMLSpanElement>(null);
   const progress = useRef(0);
+  // The Papers DOM unmounts on sidebar switches; the task's clock must not.
+  const attachFill = useCallback((element: HTMLSpanElement | null) => {
+    fill.current = element;
+    if (element) element.style.width = `${progress.current}%`;
+  }, []);
   const phase: ImportStage = stage === "fulltext" || stage === "overview" ? stage : "resolving";
   useEffect(() => {
     if (!active) { progress.current = 0; return; }
-    const element = fill.current;
-    if (!element) return;
     const start = progress.current;
     const startedAt = performance.now();
     let frame: number;
     const draw = (now: number) => {
       progress.current = paperImportProgressAt(start, phase, now - startedAt);
-      element.style.width = `${progress.current}%`;
+      if (fill.current) fill.current.style.width = `${progress.current}%`;
       frame = requestAnimationFrame(draw);
     };
-    element.style.width = `${start}%`;
+    if (fill.current) fill.current.style.width = `${start}%`;
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
   }, [active, phase]);
-  return fill;
+  return attachFill;
 }

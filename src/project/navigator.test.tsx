@@ -221,6 +221,47 @@ describe("Navigator / papers", () => {
     expect(input).toHaveValue("graph transformers");
   });
 
+  it("preserves import progress across sidebar switches and resets only when the task ends", () => {
+    let now = 0;
+    const frames = new Map<number, FrameRequestCallback>();
+    let id = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.set(++id, callback);
+      return id;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((key) => { frames.delete(key); });
+    const tick = (time: number) => act(() => {
+      now = time;
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach((callback) => callback(time));
+    });
+    try {
+      const { rerenderWith } = renderNavigator({ importing: true, importStageId: "resolving" });
+      const width = () => parseFloat(document.querySelector<HTMLElement>(".paper-import-track > span")!.style.width);
+      tick(2000);
+      expect(width()).toBeCloseTo(14.85);
+      // App maps both Project and Agent to Navigator's project mode.
+      rerenderWith({ mode: "project" });
+      tick(3000);
+      rerenderWith({ mode: "papers" });
+      expect(width()).toBeCloseTo(22.275);
+      rerenderWith({ mode: "project", importStageId: "fulltext" });
+      tick(9000);
+      rerenderWith({ mode: "papers" });
+      expect(width()).toBeCloseTo(41.95125);
+      rerenderWith({ mode: "project", importing: false });
+      rerenderWith({ importing: true, importStageId: "resolving" });
+      tick(10000);
+      rerenderWith({ mode: "papers" });
+      expect(width()).toBeCloseTo(7.425);
+    } finally {
+      cleanup();
+      vi.restoreAllMocks();
+    }
+  });
+
   it("shows download progress until the last loading paper finishes without enabling import cancellation", () => {
     const { props, rerenderWith } = renderNavigator({
       importInput: "Adam",

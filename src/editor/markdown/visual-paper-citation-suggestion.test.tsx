@@ -62,6 +62,10 @@ describe("visual paper citation suggestion", () => {
     const menu = await screen.findByRole("listbox", { name: "Paper citation suggestions" });
     expect(within(menu).getAllByRole("option")).toHaveLength(12);
     expect(menu).not.toHaveTextContent("Showing top");
+    expect(menu).toHaveAttribute("data-slot", "scroll-area-viewport");
+    // jsdom has no layout/overflow; the shared ScrollArea mounts its thumb
+    // only when the browser measures content taller than this viewport.
+    expect(menu.closest('[data-slot="scroll-area"]')).toBeInTheDocument();
     for (let index = 0; index < 9; index += 1) {
       fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
     }
