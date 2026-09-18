@@ -95,6 +95,32 @@ describe("literature proxy", () => {
     fetchMock.assertNoPendingInterceptors();
   });
 
+  it("searches literal paper titles without sending OpenAlex wildcard syntax", async () => {
+    const title = "Why Solve It Twice? Hierarchical Accumulation of Skills for Transfer-Efficient ML Engineering";
+    const clean = "Why Solve It Twice Hierarchical Accumulation of Skills for Transfer-Efficient ML Engineering";
+    const upstream = fetchMock.get("https://api.openalex.org");
+    upstream.intercept({ path: /\/works\?.*/ }).reply(200, JSON.stringify({ results: [{ title }] }));
+    const response = await query("openalex", "/works", { search: title, "per-page": "5" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ results: [{ title }] });
+    const sent = new URL(String(vi.mocked(fetch).mock.calls.at(-1)![0]));
+    expect(sent.searchParams.get("search")).toBe(clean);
+    expect(sent.searchParams.get("per-page")).toBe("5");
+    upstream.intercept({ path: /\/works\?.*/ }).reply(200, "{}");
+    expect((await query("openalex", "/works", { search: "A* search?" })).status).toBe(200);
+    expect(new URL(String(vi.mocked(fetch).mock.calls.at(-1)![0])).searchParams.get("search")).toBe("A search");
+    expect((await query("openalex", "/works", { search: "? *" })).status).toBe(400);
+    fetchMock.assertNoPendingInterceptors();
+  });
+
+  it("does not report a rejected upstream query as a server outage", async () => {
+    fetchMock.get("https://api.openalex.org").intercept({ path: /\/works\?.*/ }).reply(400, "upstream details with api_key=secret");
+    const response = await query("openalex", "/works", { search: "invalid query" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "provider rejected query", code: "upstream_bad_request" });
+    fetchMock.assertNoPendingInterceptors();
+  });
+
   it("selects OpenAlex keys from the pool without exposing them", async () => {
     const upstream = fetchMock.get("https://api.openalex.org");
     upstream.intercept({ path: /\/works\/W201.*/ }).reply(200, "{}");

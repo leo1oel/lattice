@@ -132,6 +132,13 @@ export function validateQuery(input: unknown): Query {
     }
     params[key] = raw;
   }
+  // Callers search for literal paper titles, not wildcard expressions. OpenAlex
+  // rejects ? and * in its stemmed search API. Normalize only the search query;
+  // returned titles and the caller's independent identity checks stay untouched.
+  if (provider === "openalex" && params.search && /[?*]/.test(params.search)) {
+    params.search = params.search.replace(/[?*]/g, " ").replace(/\s+/g, " ").trim();
+    if (!params.search) throw new ClientError(400, "search must contain text");
+  }
   const limitKeys = provider === "openalex" ? ["per-page", "per_page"] : provider === "crossref" ? ["rows"] : ["limit"];
   for (const limitKey of limitKeys) {
     if (params[limitKey] === undefined) continue;
@@ -362,6 +369,7 @@ export class LiteratureBudget extends DurableObject<Env> {
     if (!upstream.ok) {
       clearTimeout(timeout);
       console.warn("literature upstream status", query.provider, upstream.status);
+      if (upstream.status === 400) return jsonError(400, "provider rejected query", "upstream_bad_request");
       if (upstream.status === 404) return jsonError(404, "not found");
       if (upstream.status === 429) {
         await this.establishCooldown(query.provider, reservation.key, upstream);
