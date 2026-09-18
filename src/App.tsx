@@ -575,6 +575,11 @@ function normalizeProjectRelativePath(path: string): string | null {
   return parts.join("/") || null;
 }
 
+// Keep import expressions outside the component: React Compiler cannot lower them.
+function loadAgentEditorComments() {
+  return import("./agent/agent-editor-comments");
+}
+
 function App() {
   const { t } = useLingui();
   const browserHosted = isBrowserHosted();
@@ -1830,7 +1835,7 @@ function App() {
       const context = message as AgentHostContextSnapshot;
       const options = agentCommentsOptionsRef.current?.();
       if (options?.workspaceRoot === context.workspaceRoot) {
-        const { buildAgentCommentsSnapshot } = await import("./agent/agent-editor-comments");
+        const { buildAgentCommentsSnapshot } = await loadAgentEditorComments();
         if (projectRootRef.current !== context.workspaceRoot) return;
         message = {
           ...context,
@@ -2019,7 +2024,7 @@ function App() {
           visualMarkdownFlushRef.current?.();
           const options = agentCommentsOptionsRef.current?.();
           if (!options || options.workspaceRoot !== workspaceRoot) return;
-          void import("./agent/agent-editor-comments").then(({ readAgentCommentsSnapshot }) => readAgentCommentsSnapshot({
+          void loadAgentEditorComments().then(({ readAgentCommentsSnapshot }) => readAgentCommentsSnapshot({
             ...options, path: hostContext.paper?.path ?? hostContext.editor?.path, limit: 10,
           })).then((editorComments) => {
             // Never publish a previous project's comments after navigation.
@@ -2061,7 +2066,7 @@ function App() {
         return;
       }
       if (event.data?.type === "synara:editor-comments-tool-request") {
-        void import("./agent/agent-editor-comments").then(async (tools) => {
+        void loadAgentEditorComments().then(async (tools) => {
           const request = tools.parseAgentEditorCommentsToolRequest(event.data);
           if (!request) return;
           const result = await tools.executeAgentEditorCommentsToolRequest(
