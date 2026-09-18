@@ -31,6 +31,9 @@ import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
 // Keep the cold Vite transform of this large graph outside interaction-test
 // deadlines. The canvas still mounts its real lazy editor, not a test double.
 import "./editor/markdown/visual-markdown-editor";
+// File-tree assertions likewise need the real lazy navigator's cold transform
+// outside their interaction deadlines when these tests run in isolation.
+import "./project/navigator";
 import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
@@ -420,7 +423,7 @@ function queryProjectTreeItem(path: string): HTMLElement | null {
 async function findProjectTreeItem(path: string, timeout = 1000): Promise<HTMLElement> {
   return waitFor(() => {
     const item = queryProjectTreeItem(path);
-    expect(item).not.toBeNull();
+    expect(item, `Project tree item: ${path}`).not.toBeNull();
     return item!;
   }, { timeout });
 }
@@ -1308,6 +1311,7 @@ describe("project workspace", () => {
   });
 
   it("temporarily reveals auxiliary sources without forgetting the selected document view", async () => {
+    localStorage.setItem("lattice:show-hidden-files", "true");
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -1327,6 +1331,7 @@ describe("project workspace", () => {
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
+      if (command === "list_project_tree_with_hidden") return snapshot.files;
       if (command === "read_project_file") {
         const path = (args as { path: string }).path;
         if (path === "references.bib") return "@article{lattice, title={Lattice}}";
@@ -4101,6 +4106,7 @@ describe("project workspace", () => {
   });
 
   it("uses Pierre's default density, flattened folders, and Git decorations", async () => {
+    localStorage.setItem("lattice:show-hidden-files", "true");
     localStorage.setItem(
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["chapters", "chapters/method"]),
@@ -4147,6 +4153,7 @@ describe("project workspace", () => {
     };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "list_project_tree_with_hidden") return snapshot.files;
       if (command === "git_status") {
         return {
           available: true,
