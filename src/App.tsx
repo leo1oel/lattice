@@ -128,6 +128,13 @@ import {
   type AgentProjectDocumentToolRequest,
 } from "./agent/agent-project-document-tools";
 import {
+  buildAgentCommentsSnapshot,
+  readAgentCommentsSnapshot,
+  executeAgentEditorCommentsToolRequest,
+  parseAgentEditorCommentsToolRequest,
+  type BuildAgentCommentsOptions,
+} from "./agent/agent-editor-comments";
+import {
   executeAgentSpreadsheetToolRequest,
   parseAgentSpreadsheetToolRequest,
   registerAgentSpreadsheetDocumentResolver,
@@ -281,6 +288,7 @@ import {
 } from "./agent/synara-runtime";
 import {
   buildAgentHostContext,
+  LATTICE_HOST_CONTEXT,
   LATTICE_HOST_CONTEXT_REQUEST,
   LATTICE_HOST_CONTEXT_SELECTION_CLEAR,
   selectedMarkdownImageProjectPath,
@@ -675,6 +683,7 @@ function App() {
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
   const visualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
+  const agentCommentsOptionsRef = useRef<(() => BuildAgentCommentsOptions | null) | null>(null);
   const saveBeforeProjectTransitionRef = useRef<() => Promise<boolean>>(async () => true);
   const flushWholeFilesBeforeProjectTransitionRef = useRef<() => Promise<void>>(async () => {});
   const hasLateProjectTransitionEditRef = useRef<() => boolean>(() => false);
@@ -1823,6 +1832,18 @@ function App() {
   }, [agentPaperLibrary]);
   const postSynaraMessage = useCallback((message: object) => {
     if (!synaraOrigin) return;
+    if ("type" in message && message.type === LATTICE_HOST_CONTEXT && !("editorComments" in message)) {
+      const context = message as AgentHostContextSnapshot;
+      const options = agentCommentsOptionsRef.current?.();
+      if (options?.workspaceRoot === context.workspaceRoot) {
+        message = {
+          ...context,
+          editorComments: buildAgentCommentsSnapshot({
+            ...options, path: context.paper?.path ?? context.editor?.path, limit: 10,
+          }),
+        };
+      }
+    }
     synaraIframeRef.current?.contentWindow?.postMessage(
       message,
       synaraOrigin,
@@ -1995,7 +2016,22 @@ function App() {
       }
       if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {
         const hostContext = latestAgentHostContextRef.current;
-        if (hostContext) postSynaraMessage(hostContext);
+        if (!hostContext) return;
+        const { requestId, workspaceRoot, refreshComments } = event.data;
+        if (refreshComments === true && typeof requestId === "string" && requestId.length <= 128
+          && workspaceRoot === hostContext.workspaceRoot) {
+          visualMarkdownFlushRef.current?.();
+          const options = agentCommentsOptionsRef.current?.();
+          if (!options || options.workspaceRoot !== workspaceRoot) return;
+          void readAgentCommentsSnapshot({
+            ...options, path: hostContext.paper?.path ?? hostContext.editor?.path, limit: 10,
+          }).then((editorComments) => {
+            // Never publish a previous project's comments after navigation.
+            const latest = latestAgentHostContextRef.current;
+            if (projectRootRef.current !== workspaceRoot || latest?.workspaceRoot !== workspaceRoot) return;
+            postSynaraMessage({ ...hostContext, requestId, editorComments });
+          });
+        } else if (refreshComments !== true) postSynaraMessage(hostContext);
         return;
       }
       if (event.data?.type === LATTICE_PAPER_LIBRARY_REQUEST) {
@@ -2025,6 +2061,20 @@ function App() {
         void executeAgentProjectDocumentToolRequest(
           projectDocumentRequest,
           agentProjectDocumentCreatorRef.current,
+        ).then(postSynaraMessage);
+        return;
+      }
+      const commentsRequest = parseAgentEditorCommentsToolRequest(event.data);
+      if (commentsRequest) {
+        void executeAgentEditorCommentsToolRequest(
+          commentsRequest,
+          () => projectRootRef.current,
+          async (request) => {
+            visualMarkdownFlushRef.current?.();
+            const options = agentCommentsOptionsRef.current?.();
+            if (!options) throw new Error("editor_comments_host_unavailable");
+            return readAgentCommentsSnapshot({ ...options, ...request.args });
+          },
         ).then(postSynaraMessage);
         return;
       }
@@ -4659,6 +4709,24 @@ function App() {
     [editorComments, overleafEditorComments],
   );
 
+  useLayoutEffect(() => {
+    agentCommentsOptionsRef.current = () => {
+      if (!project || projectRootRef.current !== project.root) return null;
+      return {
+        workspaceRoot: project.root,
+        localComments: editorCommentsRef.current,
+        overleafThreads: overleafComments.threads,
+        overleafAnchors: [...overleafComments.anchors.values()],
+        docPaths: overleafDocPaths,
+        currentSources: new Map([
+          [activeFileRef.current, sourceRef.current],
+          ...(secondaryFileRef.current ? [[secondaryFileRef.current, secondarySourceRef.current] as const] : []),
+        ]),
+        overleaf: { status: overleafLink ? "cached" : "not-linked" },
+      };
+    };
+    return () => { agentCommentsOptionsRef.current = null; };
+  }, [project, overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafLink]);
 
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
@@ -5836,36 +5904,37 @@ function App() {
     source,
   ]);
 
-  // Bibliographies also autosave outside collaboration so formatting and the
-  // Papers index follow secondary-pane edits just as they follow primary edits.
+  // Every secondary text buffer needs an idle save, even without collaboration.
   useEffect(() => {
-    if (!project || !secondaryFile || (activeCollabVersion !== 2 && !/\.bib$/i.test(secondaryFile))) return;
+    if (!project || !secondaryFile) return;
     if (secondarySource === secondarySavedSource) return;
     const timer = window.setTimeout(() => {
       void save();
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [activeCollabVersion, project, save, secondaryFile, secondarySavedSource, secondarySource]);
+  }, [project, save, secondaryFile, secondarySavedSource, secondarySource]);
 
-  const buildWhenLeavingEditor = useCallback(() => {
-    if (activePaper) {
-      if (activePaperDirty || source !== savedSource) void save();
-      return;
-    }
+  const saveWhenLeavingEditor = useCallback(() => {
+    if (editorCompletionActiveRef.current) return;
+    // A visual edit may still be debounced, and its publication updates refs
+    // before React commits. Flush first and never inspect render-time source.
+    if (visualMarkdownFlushRef.current?.() === false) return;
     if (
-      buildPreferences.autoBuildMode !== "automatic"
-      || editorCompletionActiveRef.current
-      || source === savedSource
-    ) return;
-    void saveAndCompileAutomatically();
+      !activePaper
+      && buildPreferences.autoBuildMode === "automatic"
+      && sourceRef.current !== savedSourceRef.current
+    ) {
+      void saveAndCompileAutomatically();
+    } else {
+      // Saving on attention changes is independent of automatic compilation
+      // and includes dirty secondary and paper buffers.
+      void save();
+    }
   }, [
     activePaper,
-    activePaperDirty,
     buildPreferences.autoBuildMode,
     save,
     saveAndCompileAutomatically,
-    savedSource,
-    source,
   ]);
 
   useEffect(() => {
@@ -9920,7 +9989,7 @@ function App() {
             unusedCitations={texlabActive ? [] : unusedSymbols.citations}
             onLoadReferenceImage={loadReferenceImage}
             referenceImageGeneration={referencePreviewGeneration}
-            onEditorLeave={buildWhenLeavingEditor}
+            onEditorLeave={saveWhenLeavingEditor}
             onPrepareFigure={prepareLatexFigure}
             onPasteImageFile={handlePasteImageFile}
             nativeFigureDropActive={nativeEditorDropActive}

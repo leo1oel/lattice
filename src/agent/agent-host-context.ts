@@ -1,4 +1,5 @@
 import type { CanvasMode, EditorPosition, PaperSummary } from "../app-types";
+import type { AgentCommentsCollection } from "./agent-editor-comments";
 import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
@@ -73,6 +74,8 @@ export interface AgentHostContextSnapshot {
   version: 1;
   capturedAt: string;
   workspaceRoot: string;
+  requestId?: string;
+  editorComments?: AgentCommentsCollection;
   presentationAuthoring: {
     nativeEntryPattern: "slides/<deck-id>/index.tsx";
     nativeFormat: "open_slide_tsx";

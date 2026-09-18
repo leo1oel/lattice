@@ -66,6 +66,12 @@ Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
 plus an omission count when an explicit selection is truncated to the
 `MAX_SELECTION_LENGTH` = 12,000-character model limit (`src/agent/agent-host-context.ts`).
 
+Writing comments are included in the optional `editorComments` field: up to ten unresolved comments for the current document, with quoted source, authors, replies, anchor validity, and explicit omission counts.
+Before dispatching an embedded message, Synara requests a correlated host-context refresh; Lattice refreshes both Overleaf threads and project-wide anchors and reports unavailable/cached data honestly on failure.
+The read-only `read_editor_comments` tool uses the authenticated host relay to query the active project's local and Overleaf comments, with optional file filtering, resolved comments, and pagination.
+Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
+Neither the context nor the tool mutates comments.
+
 The fork as a whole is **not** small. Measured on 2026-08-18 against `upstream/main` at
 [`18ff9985`](https://github.com/Emanuele-web04/synara/commit/18ff99857d5b84adab2019c2839fa4f6df761b7c)
 (2026-08-15), which is also the current merge-base, `git diff upstream/main...HEAD` on the pinned

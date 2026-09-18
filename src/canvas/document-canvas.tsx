@@ -3668,6 +3668,10 @@ export function DocumentCanvas(props: {
       viewportRef={attachMarkdownPreviewViewport}
       onPointerDownCapture={() => props.onContextSurfaceActivate(primarySurface)}
       onFocusCapture={() => props.onContextSurfaceActivate(primarySurface)}
+      onPointerLeave={props.onEditorLeave}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+      }}
       onMouseUp={props.activePaper ? (event) => {
         const liveSelection = window.getSelection();
         const anchor = liveSelection?.anchorNode;
@@ -4356,6 +4360,10 @@ export function DocumentCanvas(props: {
         <div
           className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
           data-editor-pane="secondary"
+          onPointerLeave={props.onEditorLeave}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+          }}
         >
           <CodeMirror
             className="code-editor-root"
@@ -4431,6 +4439,10 @@ export function DocumentCanvas(props: {
         tabIndex={0}
         onPointerDownCapture={focusSecondaryPane}
         onFocusCapture={focusSecondaryPane}
+        onPointerLeave={props.onEditorLeave}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+        }}
       >
         {secondaryPreviewContent}
       </div>

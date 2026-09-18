@@ -4201,6 +4201,121 @@ describe("project workspace", () => {
     }
   });
 
+  it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["notes.md"], activeFile: "notes.md", activeTab: "notes.md",
+      secondaryFile: "", focusedPane: "primary", canvasMode: "split",
+      documentMode: "split", paperView: "blog", tabRecency: ["notes.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "Original paragraph.\n";
+      if (command === "write_project_file") return undefined;
+      if (command === "harper_lint") return [];
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    await loadVisualMarkdownEditorModule();
+    renderApp();
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
+    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const outsideInput = document.createElement("input");
+    document.body.append(outsideInput);
+    try {
+      act(() => { surface.focus(); });
+      vi.mocked(invoke).mockClear();
+      act(() => {
+        editor.commands.insertContentAt(1, "Latest edit. ");
+        const target = destination === "source pane"
+          ? document.querySelector<HTMLElement>(".cm-content")!
+          : outsideInput;
+        target.focus();
+      });
+      // Focus loss must persist the latest transaction, without waiting for
+      // either the visual publisher's debounce or the app's idle autosave.
+      expect(invoke).toHaveBeenCalledWith("write_project_file", {
+        path: "notes.md", content: "Latest edit. Original paragraph.\n",
+        baseContent: "Original paragraph.\n", projectRoot: snapshot.root,
+      });
+      expect(invoke).not.toHaveBeenCalledWith("build_project", expect.anything());
+    } finally {
+      outsideInput.remove();
+    }
+  });
+
+  it.each(["source blur", "preview blur", "idle"])("saves non-collaborative secondary Markdown on %s", async (trigger) => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [
+        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
+        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
+      ],
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md"], activeFile: "left.md", activeTab: "left.md",
+      secondaryFile: "right.md", focusedPane: "secondary", canvasMode: "dual",
+      documentMode: "dual", paperView: "blog", tabRecency: ["left.md", "right.md"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return (args as { path: string }).path === "left.md"
+        ? "Left unchanged.\n" : "Right original.\n";
+      if (command === "write_project_file") return undefined;
+      if (command === "harper_lint") return [];
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    await loadVisualMarkdownEditorModule();
+    renderApp();
+    const source = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".source-editor[data-editor-pane='secondary'] .cm-content");
+      expect(element).toHaveTextContent("Right original.");
+      return element!;
+    });
+    act(() => { source.focus(); });
+    let surface = source;
+    if (trigger === "preview blur") {
+      fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" })).getByRole("tab", { name: "Preview" }));
+      surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
+      act(() => { surface.focus(); });
+    }
+    vi.mocked(invoke).mockClear();
+    act(() => {
+      if (trigger === "preview blur") {
+        (surface as HTMLElement & { editor: TiptapEditor }).editor.commands.insertContentAt(1, "New right. ");
+      } else {
+        EditorView.findFromDOM(source)!.dispatch({ changes: { from: 0, insert: "New right. " } });
+      }
+      if (trigger !== "idle") document.querySelector<HTMLElement>(".source-editor[data-editor-pane='primary'] .cm-content")!.focus();
+    });
+    const expectSaved = () => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "right.md", content: "New right. Right original.\n",
+      baseContent: "Right original.\n", projectRoot: snapshot.root,
+    });
+    if (trigger === "idle") await waitFor(expectSaved);
+    else expectSaved();
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path: "left.md" }));
+  });
+
   it("saves and builds changed source when the pointer leaves the editor", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
@@ -5996,10 +6111,16 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "## Selected context\n\nUnselected paragraph";
+      if (command === "list_editor_comments") return ["notes.md", "other.tex"].map((path) => ({
+        id: path, path, from: 3, to: 19, quote: "Selected context", prefix: "## ", suffix: "",
+        body: "Explain the evidence", authorId: "reviewer", authorName: "Reviewer",
+        resolved: false, replies: [], createdAt: "2026-09-18T00:00:00Z", updatedAt: "2026-09-18T00:00:00Z",
+      }));
       if (command === "list_papers" || command === "list_history") return [];
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
+    await loadVisualMarkdownEditorModule();
     renderApp();
     await switchSidebarMode("Agent");
     const frame = await waitFor(() => {
@@ -6015,7 +6136,7 @@ describe("project workspace", () => {
         data: { type: "synara:embed-ready" },
       }));
     });
-    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
+    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
     const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
     act(() => {
       editor.view.focus();
@@ -6059,6 +6180,31 @@ describe("project workspace", () => {
       .filter((message) => message.type === "lattice:host-context")
       .at(-1);
     expect(latestContext?.editor?.selection).toBe("## Selected context");
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
+        data: { type: "lattice:request-host-context", requestId: "fresh-comments", workspaceRoot: snapshot.root, refreshComments: true },
+      }));
+    });
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "fresh-comments",
+      editorComments: expect.objectContaining({
+        comments: [expect.objectContaining({ path: "notes.md", body: "Explain the evidence", anchorStatus: "exact" })],
+        overleaf: { status: "not-linked" },
+      }),
+    }), synaraHook.runtime.origin));
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
+        data: { type: "synara:editor-comments-tool-request", version: 1, id: "all-comments", workspaceRoot: snapshot.root, args: {}, expiresAt: Date.now() + 10_000 },
+      }));
+    });
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: "lattice:editor-comments-tool-result", id: "all-comments", ok: true,
+      result: expect.objectContaining({ totalCount: 2, comments: expect.arrayContaining([
+        expect.objectContaining({ path: "notes.md" }), expect.objectContaining({ path: "other.tex" }),
+      ]) }),
+    }), synaraHook.runtime.origin));
   });
 
   it("gives the Agent a PNG path for a selected WebP Markdown image", async () => {

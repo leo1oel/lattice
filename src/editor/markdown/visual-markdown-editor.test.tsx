@@ -2209,7 +2209,7 @@ describe("VisualMarkdownEditor", () => {
     );
   });
 
-  it("creates a Markdown comment from the visual selection", async () => {
+  it.each([false, true])("creates a Markdown comment with pending edit %s", async (pendingEdit) => {
     const onCreateComment = vi.fn();
     render(
       <VisualMarkdownEditor
@@ -2226,14 +2226,22 @@ describe("VisualMarkdownEditor", () => {
     editor.view.focus();
     editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 6)));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const commentButton = await screen.findByRole("button", { name: "Comment" });
+    if (pendingEdit) {
+      act(() => {
+        const transaction = editor.state.tr.insertText("New ", 1);
+        transaction.setSelection(TextSelection.create(transaction.doc, 5, 10));
+        editor.view.dispatch(transaction);
+      });
+    }
+    fireEvent.click(commentButton);
     const composer = await screen.findByRole("dialog", { name: "Add comment" });
     fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), {
       target: { value: "Please clarify this." },
     });
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
 
-    expect(onCreateComment).toHaveBeenCalledWith(0, 5, "Please clarify this.");
+    expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.");
   });
 
   it("keeps comments available while the visual document is read-only", async () => {

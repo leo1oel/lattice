@@ -3759,6 +3759,9 @@ function CompleteVisualMarkdownEditor({
 
   const openVisualCommentComposer = useCallback(() => {
     if (!editor || !onCreateComment) return;
+    // The bubble button preserves editor focus, so blur has not published a
+    // pending edit. Anchor against the current document, not its stale source.
+    if (!flushPendingLocalUpdate()) return;
     const { from, to, empty } = editor.state.selection;
     if (empty) return;
     const mappedFrom = sourceOffsetForProseMirrorPosition(editor, from, acceptedMarkdown.current);
@@ -3785,7 +3788,7 @@ function CompleteVisualMarkdownEditor({
       left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 328)),
       top: Math.min(window.innerHeight - 220, rect.bottom + 8),
     });
-  }, [activePath, editor, onCreateComment]);
+  }, [activePath, editor, flushPendingLocalUpdate, onCreateComment]);
 
   if (!editor) return <div aria-label="Loading Markdown editor" />;
 
