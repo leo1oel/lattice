@@ -211,7 +211,7 @@ it("opens publisher notices through the native URL opener", async () => {
   expect(openUrl).toHaveBeenCalledWith(health.link);
 });
 
-it("keeps technical details and full BibTeX collapsed independently from the field diff", async () => {
+it("keeps current and proposed BibTeX collapsed independently from the field diff", async () => {
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
   render(<BibliographyAudit {...props()} />);
   await checkAll();
@@ -219,9 +219,24 @@ it("keeps technical details and full BibTeX collapsed independently from the fie
   expect(screen.getByText("Details").closest("details")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByText("Review proposed changes"));
   expect(screen.getByText("Title")).toBeVisible();
-  expect(screen.getByText("BibTeX").closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(screen.getByText("BibTeX"));
+  expect(screen.getByText("Proposed BibTeX").closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByText("Proposed BibTeX"));
   expect(screen.getByText(updated.after!)).toBeVisible();
+});
+
+it("shows the scanned BibTeX for not-checked and no-update entries", async () => {
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
+    ? { entries: entries.slice(0, 2), issues: [] }
+    : { status: "checked", message: "No update found.", before: entries[0].bibtex, changes: [] });
+  render(<BibliographyAudit {...props()} />);
+  const viewers = await screen.findAllByText("Current BibTeX");
+  expect(viewers).toHaveLength(2);
+  fireEvent.click(viewers[1]);
+  expect(screen.getByText(entries[1].bibtex)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Check key0" }));
+  await screen.findAllByText("No update found");
+  fireEvent.click(viewers[0]);
+  expect(screen.getByText(entries[0].bibtex)).toBeVisible();
 });
 
 it("shows an explicit empty state without claiming references were verified", async () => {
@@ -414,8 +429,23 @@ it("explains a candidate with localized identity fields and no apply action", as
   expect(screen.getByText("Publisher")).toBeVisible();
   expect(screen.getByText(/Title, Authors, Year, Venue, arXiv identifier, Insufficient identifying metadata/)).toBeVisible();
   expect(screen.getByText("Candidate Press")).toBeVisible();
+  expect(screen.getByText("Unverified candidate BibTeX")).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Current BibTeX"));
+  expect(screen.getByText(entries[0].bibtex)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
   expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
+});
+
+it("shows the applied BibTeX as current after an individual update", async () => {
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
+  render(<BibliographyAudit {...props()} />);
+  await checkAll();
+  fireEvent.click(await screen.findByText("Review proposed changes"));
+  fireEvent.click(screen.getByRole("button", { name: "Apply this update" }));
+  await screen.findByText("Update applied");
+  fireEvent.click(screen.getByText("Current BibTeX"));
+  expect(screen.getAllByText(updated.after!)).toHaveLength(2);
+  expect(screen.queryByText(entries[0].bibtex)).not.toBeInTheDocument();
 });
 
 it("never offers individual or bulk apply when a restored payload contains a malformed candidate", async () => {

@@ -47,6 +47,7 @@
 .bibliography-audit-diff del,
 .bibliography-audit-diff ins { text-decoration: none; color: var(--text-primary); white-space: pre-wrap; }
 .bibliography-audit-source { color: var(--text-secondary); }
+.bibliography-audit-current-source { margin-top: var(--space-4); }
 .bibliography-audit-source pre { max-height: 240px; overflow: auto; margin: var(--space-4) 0 0; padding: var(--space-5); border-radius: var(--radius-icon); background: var(--surface-input); color: var(--text-secondary); white-space: pre-wrap; font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); }
 .bibliography-audit-apply { display: flex; justify-content: flex-end; margin-top: var(--space-6); }
 .bibliography-audit-notice { padding: var(--space-5); border-radius: var(--radius-icon); background: var(--tone-surface); color: var(--status-warning); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }

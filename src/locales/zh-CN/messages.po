@@ -1513,6 +1513,10 @@ msgstr "Crossref 类型"
 msgid "Curly matrix"
 msgstr "花括号矩阵"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Current BibTeX"
+msgstr "当前 BibTeX"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "带实时预览窗格的自定义 HTML（在沙盒 iframe 中运行）。"
@@ -4321,6 +4325,10 @@ msgstr "证明环境（需要 amsthm）"
 msgid "Proportional to"
 msgstr "正比于"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Proposed BibTeX"
+msgstr "建议的 BibTeX"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Proves / turnstile"
 msgstr "推出 / 断言符"
@@ -6040,6 +6048,10 @@ msgstr "Unpaywall"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "未解决"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Unverified candidate BibTeX"
+msgstr "未经验证的候选 BibTeX"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Up arrow"

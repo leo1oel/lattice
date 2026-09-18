@@ -382,6 +382,9 @@ export function BibliographyAudit(props: {
       const candidate = candidatePresent && result?.candidate && typeof result.candidate === "object"
         && Array.isArray(result.candidate.changes) && Array.isArray(result.candidate.reasons)
         ? result.candidate : undefined;
+      // The scan is the source of truth until an accepted proposal is written.
+      // Candidate records are comparison-only and must never displace it.
+      const currentBibtex = isApplied && result?.after && !candidatePresent ? result.after : entry.bibtex;
       return <article className="bibliography-audit-entry" key={`${entry.path}:${entry.key}:${index}`}>
         <div className="bibliography-audit-entry-heading">
           <Checkbox aria-label={t`Select ${entry.key}`} checked={selected.has(index)} disabled={busy || applying !== null} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />
@@ -394,6 +397,10 @@ export function BibliographyAudit(props: {
           </Badge>
           {result?.checkedAt && <span className="bibliography-audit-meta">{t`Last checked`}: <time dateTime={result.checkedAt}>{new Date(result.checkedAt).toLocaleString(i18n.locale)}</time></span>}
         </div>
+        <details className="bibliography-audit-source bibliography-audit-current-source">
+          <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Current BibTeX`}</summary>
+          <pre>{currentBibtex}</pre>
+        </details>
         {health && (notice || (health.link && /^https?:\/\//i.test(health.link))) && <div className="bibliography-audit-notice" data-tone={!notice ? "neutral" : health.kind === "retracted" ? "danger" : "warning"}>
           {notice && <p><AlertTriangle size={13} aria-hidden="true" />{t`Publisher notice`}: {health.updateType || health.kind}</p>}
           {health.link && /^https?:\/\//i.test(health.link) && <a href={health.link} onClick={(event) => {
@@ -420,7 +427,7 @@ export function BibliographyAudit(props: {
             <dt>{fieldLabels[change.field] ?? change.field}</dt>
             <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
           </div>)}</dl>
-          {candidate.bibtex && <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />BibTeX</summary><pre>{candidate.bibtex}</pre></details>}
+          {candidate.bibtex && <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Unverified candidate BibTeX`}</summary><pre>{candidate.bibtex}</pre></details>}
         </details>}
         {result?.after && !candidatePresent && <details className="bibliography-audit-changes">
           <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><span>{t`Review proposed changes`}</span><Badge size="compact">{result.changes.length}</Badge></summary>
@@ -428,7 +435,7 @@ export function BibliographyAudit(props: {
             <dt>{fieldLabels[change.field] ?? change.field}</dt>
             <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
           </div>)}</dl>
-          <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />BibTeX</summary><pre>{result.after}</pre></details>
+          <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Proposed BibTeX`}</summary><pre>{result.after}</pre></details>
           <div className="bibliography-audit-apply"><Button size="compact" variant="primary" disabled={busy || !props.canApply || applying !== null || isApplied} onClick={() => void apply(index)}>
             {applying === index ? <InfinityLoader size={13} /> : <Check size={13} aria-hidden="true" />}{t`Apply this update`}
           </Button></div>

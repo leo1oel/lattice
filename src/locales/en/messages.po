@@ -1513,6 +1513,10 @@ msgstr "Crossref type"
 msgid "Curly matrix"
 msgstr "Curly matrix"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Current BibTeX"
+msgstr "Current BibTeX"
+
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "Custom HTML with a live preview pane (sandboxed iframe)."
@@ -4321,6 +4325,10 @@ msgstr "Proof environment (requires amsthm)"
 msgid "Proportional to"
 msgstr "Proportional to"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Proposed BibTeX"
+msgstr "Proposed BibTeX"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
@@ -6044,6 +6052,10 @@ msgstr "Unpaywall"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Unverified candidate BibTeX"
+msgstr "Unverified candidate BibTeX"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Up arrow"

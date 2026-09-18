@@ -8,6 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
+use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 const REPORT_DIRECTORY: &str = "bibliography-audits";
 
@@ -1149,9 +1150,12 @@ fn is_clean_lookup_miss(output: &Output) -> bool {
 }
 
 fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
-    let a = fields(before);
-    let b = fields(remote);
+    let mut a = fields(before);
+    let mut b = fields(remote);
+    a.insert("ENTRYTYPE".into(), entry_type(before.trim()));
+    b.insert("ENTRYTYPE".into(), entry_type(remote.trim()));
     [
+        "ENTRYTYPE",
         "title",
         "author",
         "year",
@@ -1164,7 +1168,12 @@ fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
     .filter_map(|field| {
         let before = a.get(field).map(|v| clean(v)).unwrap_or_default();
         let after = b.get(field).map(|v| clean(v)).unwrap_or_default();
-        (normalize_text(&before) != normalize_text(&after)).then(|| FieldChange {
+        let equivalent = if field == "author" {
+            author_names(&before) == author_names(&after)
+        } else {
+            normalize_text(&before) == normalize_text(&after)
+        };
+        (!equivalent).then(|| FieldChange {
             field: field.into(),
             before,
             after,
@@ -1174,11 +1183,52 @@ fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
 }
 
 fn author_names(authors: &str) -> Vec<Vec<String>> {
-    normalize_text(authors)
+    // Decode conventional TeX accents only for comparison. Keep the original
+    // field when equivalent, and never discard accents or unknown commands.
+    static ACCENT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r#"\\([`'"^~=.uvHckrbd])(?:\s*\{\s*([A-Za-z])\s*\}|\s+([A-Za-z])|([A-Za-z]))"#,
+        )
+        .unwrap()
+    });
+    let decoded = ACCENT.replace_all(authors, |captures: &regex::Captures<'_>| {
+        // A letter command requires a delimiter: \unknown is not \u nknown.
+        if captures.get(4).is_some() && captures[1].chars().all(|c| c.is_ascii_alphabetic()) {
+            return captures[0].to_string();
+        }
+        let mark = match &captures[1] {
+            "`" => '\u{0300}',
+            "'" => '\u{0301}',
+            "^" => '\u{0302}',
+            "~" => '\u{0303}',
+            "=" => '\u{0304}',
+            "u" => '\u{0306}',
+            "." => '\u{0307}',
+            "\"" => '\u{0308}',
+            "r" => '\u{030a}',
+            "H" => '\u{030b}',
+            "v" => '\u{030c}',
+            "d" => '\u{0323}',
+            "c" => '\u{0327}',
+            "k" => '\u{0328}',
+            "b" => '\u{0331}',
+            _ => unreachable!("accent regex restricts the command"),
+        };
+        let base = captures
+            .get(2)
+            .or_else(|| captures.get(3))
+            .or_else(|| captures.get(4))
+            .unwrap()
+            .as_str();
+        format!("{base}{mark}")
+    });
+    normalize_text(&decoded.replace(['{', '}'], ""))
+        .nfc()
+        .collect::<String>()
         .split(" and ")
         .map(|name| {
             let mut words = name
-                .split(|c: char| !c.is_alphanumeric())
+                .split(|c: char| !c.is_alphanumeric() && !is_combining_mark(c) && c != '\\')
                 .filter(|word| !word.is_empty())
                 .map(str::to_string)
                 .collect::<Vec<_>>();
@@ -1204,6 +1254,17 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
         return vec!["record".into()];
     }
     let mut reasons = Vec::new();
+    // A same-title paper is not a published version of an explicit book or
+    // chapter. Keep this separate from legitimate preprint/type corrections.
+    if matches!(
+        entry_type(before.trim()).as_str(),
+        "book" | "booklet" | "collection" | "inbook" | "incollection"
+    ) && matches!(
+        entry_type(remote).as_str(),
+        "article" | "inproceedings" | "conference" | "proceedings"
+    ) {
+        reasons.push("ENTRYTYPE".into());
+    }
     let local = fields(before);
     let other = fields(remote);
     let value = |fields: &BTreeMap<String, String>, name: &str| {
@@ -2255,6 +2316,83 @@ mod tests {
                 .reasons
                 .iter()
                 .any(|r| r == reason));
+        }
+    }
+
+    #[test]
+    fn equivalent_kernelbench_authors_preserve_local_bibtex() {
+        let authors = r"Ouyang, Anne and Guo, Simon and Arora, Simran and Zhang, Alex L and Hu, William and R{\'e}, Christopher and Mirhoseini, Azalia";
+        let remote_authors = "Anne Ouyang and Simon Guo and Simran Arora and Alex L. Zhang and William Hu and Christopher Ré and Azalia Mirhoseini";
+        let before = format!(
+            "@misc{{kernelbench, title={{KernelBench}}, author={{{authors}}}, year={{2025}}}}"
+        );
+        let remote = format!("@misc{{remote, title={{KernelBench}}, author={{{remote_authors}}}, year={{2025}}, doi={{10.1234/kernelbench}}}}");
+        let accepted = compare_title_entry(&before, &remote);
+        assert_eq!(accepted.status, "update");
+        assert_eq!(fields(&accepted.after.unwrap())["author"], authors);
+        assert!(!accepted
+            .changes
+            .iter()
+            .any(|change| change.field == "author"));
+        assert!(!differing_fields(&before, &remote)
+            .iter()
+            .any(|change| change.field == "author"));
+        let rejected = compare_title_entry(&before, &remote.replace("Simon Guo", "Sam Guo"));
+        assert!(rejected.after.is_none());
+        assert!(rejected
+            .candidate
+            .unwrap()
+            .reasons
+            .contains(&"author".into()));
+    }
+
+    #[test]
+    fn author_accents_are_equivalent_without_erasing_identity() {
+        for tex in [
+            r"R{\'e}, Christopher",
+            r"R\'{e}, Christopher",
+            r"R\'e, Christopher",
+            "Christopher Re\u{301}",
+        ] {
+            assert_eq!(author_names(tex), author_names("Christopher Ré"), "{tex}");
+        }
+        assert_eq!(
+            author_names(r#"M{\"u}ller, Alice"#),
+            author_names("Alice Müller")
+        );
+        assert_eq!(author_names(r"\v{S}imek, Bob"), author_names("Bob Šimek"));
+        assert_ne!(
+            author_names("Christopher Ré"),
+            author_names("Christopher Re")
+        );
+        assert_ne!(author_names(r"\bad{e}, Alice"), author_names("Alice Bade"));
+        assert_ne!(
+            author_names(r"\unknown, Alice"),
+            author_names("Alice ŭnknown")
+        );
+    }
+
+    #[test]
+    fn books_cannot_be_replaced_by_same_title_articles() {
+        let before = "@book{goodfellow2016deep, title={Deep learning}, author={Goodfellow, Ian and Bengio, Yoshua and Courville, Aaron and Bengio, Yoshua}, volume={1}, year={2016}, publisher={MIT Press}}";
+        let wrong = "@article{lecun2015deep, title={Deep learning}, author={Yann LeCun and Yoshua Bengio and Geoffrey E. Hinton}, year={2015}, journal={Nature}, doi={10.1038/nature14539}, eprint={1807.07987}, archiveprefix={arXiv}}";
+        // Even matching authors and a nearby year must not turn an explicit book
+        // into a paper: bibliographic identity includes this type boundary.
+        let same_authors = wrong.replace(
+            "Yann LeCun and Yoshua Bengio and Geoffrey E. Hinton",
+            "Ian Goodfellow and Yoshua Bengio and Aaron Courville and Yoshua Bengio",
+        );
+        for remote in [wrong, same_authors.as_str()] {
+            let rejected = compare_title_entry(before, remote);
+            assert!(rejected.after.is_none());
+            let candidate = rejected.candidate.unwrap();
+            assert!(candidate.reasons.contains(&"ENTRYTYPE".into()));
+            assert!(candidate
+                .changes
+                .iter()
+                .any(|change| change.field == "ENTRYTYPE"
+                    && change.before == "book"
+                    && change.after == "article"));
         }
     }
 
