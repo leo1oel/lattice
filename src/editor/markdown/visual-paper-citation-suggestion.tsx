@@ -15,8 +15,9 @@ import { useEffect, useRef } from "react";
 import type { PaperSummary } from "../../app-types";
 import { paperLinkHref } from "../../papers/paper-link";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
+import { floatingSurfaceClassName, menuViewportClassName } from "../../components/ui/menu-surface";
+import { popupMotionClassName } from "../../components/ui/popup-motion";
 
-const MAX_ITEMS = 8;
 const suggestionKey = new PluginKey("visualPaperCitationSuggestion");
 
 /** Every whitespace-separated token must match title, citation key, or id. */
@@ -27,8 +28,7 @@ export function matchPapers(papers: readonly PaperSummary[], query: string): Pap
     .filter((paper) => {
       const haystack = `${paper.title} ${paper.citationKey ?? ""} ${paper.arxivId}`.toLocaleLowerCase();
       return tokens.every((token) => haystack.includes(token));
-    })
-    .slice(0, MAX_ITEMS);
+    });
 }
 
 function paperSubtitle(paper: PaperSummary): string {
@@ -54,29 +54,28 @@ function VisualPaperCitationMenu({ items, selectedIndex, idBase, onSelect, onHov
 
   if (!items.length) {
     return (
-      <div className="w-80 max-w-[min(28rem,90vw)] rounded-lg border bg-popover p-2 text-sm text-muted-foreground shadow-md" role="status" aria-live="polite" onMouseDown={(event) => event.preventDefault()}>
+      <div className={`visual-paper-citation-menu visual-paper-citation-empty ${floatingSurfaceClassName} ${popupMotionClassName}`} role="status" aria-live="polite" onMouseDown={(event) => event.preventDefault()}>
         No matching papers — import them in the Papers panel first
       </div>
     );
   }
   return (
-    <div ref={containerRef} id={idBase} role="listbox" aria-label="Paper citation suggestions" aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+    <div ref={containerRef} id={idBase} role="listbox" aria-label="Paper citation suggestions" aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className={`visual-paper-citation-menu fluid-hover-surface ${floatingSurfaceClassName} ${menuViewportClassName} ${popupMotionClassName}`} style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
       <FluidHoverSurface />
       <span className="sr-only" aria-live="polite" aria-atomic="true">{items[selectedIndex]?.title}</span>
       {items.map((item, index) => {
         const active = index === selectedIndex;
         const subtitle = paperSubtitle(item);
         return (
-          <button key={item.arxivId} id={`${idBase}-option-${index}`} data-index={index} type="button" role="option" aria-selected={active} onMouseEnter={() => onHoverIndex(index)} onMouseDown={(event) => { event.preventDefault(); onSelect(item); }} className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm ${active ? "bg-accent text-accent-foreground" : ""}`}>
-            <BookOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate font-medium">{item.title}</span>
-              {subtitle && <span className="truncate text-xs text-muted-foreground">{subtitle}</span>}
+          <button key={item.arxivId} id={`${idBase}-option-${index}`} data-index={index} type="button" role="option" aria-selected={active} title={item.title} onMouseEnter={() => onHoverIndex(index)} onMouseDown={(event) => { event.preventDefault(); onSelect(item); }} className="visual-paper-citation-option">
+            <BookOpen aria-hidden />
+            <span className="visual-paper-citation-label">
+              <span className="visual-paper-citation-title">{item.title}</span>
+              {subtitle && <span className="visual-paper-citation-detail">{subtitle}</span>}
             </span>
           </button>
         );
       })}
-      {items.length >= MAX_ITEMS && <div className="mt-1 border-t border-border px-2 py-1.5 text-xs text-muted-foreground">Showing top {items.length} — keep typing to narrow</div>}
     </div>
   );
 }

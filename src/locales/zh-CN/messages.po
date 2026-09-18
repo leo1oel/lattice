@@ -5215,6 +5215,10 @@ msgid "Show document outline"
 msgstr "显示文档大纲"
 
 #: src/project/navigator.tsx
+msgid "Show hidden files"
+msgstr "显示隐藏文件"
+
+#: src/project/navigator.tsx
 msgid "Show in Finder"
 msgstr "在访达中显示"
 

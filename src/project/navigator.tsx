@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { useLingui } from "@lingui/react/macro";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
@@ -643,9 +644,55 @@ function finishPointerDragPreview(session: PointerTreeDragSession) {
   window.setTimeout(() => preview.remove(), 70);
 }
 
+function hideTemplateFiles(files: FileNode[]): FileNode[] {
+  return files.filter((file) => isDirectoryNode(file) || !/\.(sty|bst)$/i.test(file.name))
+    .map((file) => isDirectoryNode(file) ? { ...file, children: hideTemplateFiles(file.children) } : file);
+}
+
+const SHOW_HIDDEN_FILES_KEY = "lattice:show-hidden-files";
+
 function ProjectFileTree(props: ProjectFileTreeProps) {
   const { t } = useLingui();
-  const tree = useMemo(() => projectTreeEntries(props.files), [props.files]);
+  const [showHiddenFiles, setShowHiddenFiles] = useState(() => {
+    try { return localStorage.getItem(SHOW_HIDDEN_FILES_KEY) === "true"; }
+    catch { return false; }
+  });
+  const [expandedTree, setExpandedTree] = useState<{ root: string; files: FileNode[] } | null>(null);
+  const toggleHiddenFiles = () => {
+    const next = !showHiddenFiles;
+    setShowHiddenFiles(next);
+    try { localStorage.setItem(SHOW_HIDDEN_FILES_KEY, String(next)); }
+    catch { /* The toggle still works when storage is unavailable. */ }
+  };
+  const onTreeErrorRef = useRef(props.onError);
+  useEffect(() => { onTreeErrorRef.current = props.onError; }, [props.onError]);
+  useEffect(() => {
+    if (!showHiddenFiles) return;
+    let disposed = false;
+    let generation = 0;
+    const refresh = async () => {
+      const request = ++generation;
+      try {
+        const files = await invoke<FileNode[]>("list_project_tree_with_hidden", { projectRoot: props.projectKey });
+        if (!disposed && request === generation) setExpandedTree({ root: props.projectKey, files });
+      } catch (error) {
+        if (!disposed && request === generation) onTreeErrorRef.current(String(error));
+      }
+    };
+    void refresh();
+    let unlisten: (() => void) | undefined;
+    void listen<{ root: string }>("project-fs-changed", ({ payload }) => {
+      if (payload.root === props.projectKey) void refresh();
+    }).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    }).catch(() => { /* The fallback poll also supports watcher-less hosts. */ });
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => { disposed = true; unlisten?.(); window.clearInterval(timer); };
+  }, [showHiddenFiles, props.projectKey, props.files]);
+  const tree = useMemo(() => projectTreeEntries(showHiddenFiles
+    ? (expandedTree?.root === props.projectKey ? expandedTree.files : props.files)
+    : hideTemplateFiles(props.files)), [showHiddenFiles, expandedTree, props.projectKey, props.files]);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
   const propsRef = useRef(props);
@@ -1302,6 +1349,9 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
         <button role="menuitem" onClick={() => closeThen(context, () => props.onReveal(path))}>
           <FolderOpen size={14} />{t`Show in Finder`}
         </button>
+        <button role="menuitemcheckbox" aria-checked={showHiddenFiles} onClick={() => closeThen(context, toggleHiddenFiles)}>
+          <Check size={14} style={{ visibility: showHiddenFiles ? "visible" : "hidden" }} />{t`Show hidden files`}
+        </button>
         {item.kind === "directory" && (
           <Fragment>
             <button
@@ -1413,6 +1463,9 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => afterMenuClose(() => beginInlineCreate("", "folder"))}>
           <FolderPlus size={14} />{t`New folder`}
+        </ContextMenuItem>
+        <ContextMenuItem role="menuitemcheckbox" aria-checked={showHiddenFiles} onSelect={toggleHiddenFiles}>
+          <Check size={14} style={{ visibility: showHiddenFiles ? "visible" : "hidden" }} />{t`Show hidden files`}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -1647,7 +1700,7 @@ export function Navigator(props: {
           contentClassName="paper-list-content fluid-hover-surface"
           viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
-          <FluidHoverSurface selector=".paper-row" preserveSelection transition={spring.moderate} />
+          <FluidHoverSurface selector=".paper-row" preserveSelection transition={spring.fast} />
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;

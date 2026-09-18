@@ -5937,11 +5937,13 @@ pub(crate) fn project_tree_path_visible(root: &Path, relative: &Path) -> bool {
 fn scan_files_with_visibility(
     root: &Path,
     hide_project_config: bool,
+    show_hidden: bool,
 ) -> Result<Vec<FileNode>, String> {
     fn visit(
         root: &Path,
         directory: &Path,
         hide_project_config: bool,
+        show_hidden: bool,
     ) -> Result<Vec<FileNode>, String> {
         let mut nodes = Vec::new();
         for entry in fs::read_dir(directory).map_err(err)? {
@@ -5958,7 +5960,10 @@ fn scan_files_with_visibility(
             } else {
                 exclusion_reason(Path::new(&relative), &name, &path)
             };
-            if excluded.is_some() {
+            if excluded.is_some_and(|reason| {
+                !show_hidden || !matches!(reason, "transient-artifact" | "hidden-project-config")
+            }) || (show_hidden && matches!(name.as_str(), ".git" | ".research"))
+            {
                 continue;
             }
             let metadata = fs::symlink_metadata(&path).map_err(err)?;
@@ -5973,7 +5978,7 @@ fn scan_files_with_visibility(
                     children: Vec::new(),
                 });
             } else if file_type.is_dir() {
-                let children = visit(root, &path, hide_project_config)?;
+                let children = visit(root, &path, hide_project_config, show_hidden)?;
                 nodes.push(FileNode {
                     name,
                     path: relative,
@@ -6018,15 +6023,20 @@ fn scan_files_with_visibility(
         });
         Ok(nodes)
     }
-    visit(root, root, hide_project_config)
+    visit(root, root, hide_project_config, show_hidden)
 }
 
 fn scan_files(root: &Path) -> Result<Vec<FileNode>, String> {
-    scan_files_with_visibility(root, false)
+    scan_files_with_visibility(root, false, false)
 }
 
 fn scan_project_tree(root: &Path) -> Result<Vec<FileNode>, String> {
-    scan_files_with_visibility(root, true)
+    scan_files_with_visibility(root, true, false)
+}
+
+/// Expanded navigator view only; never used by sync or search inventory.
+pub fn list_project_tree_with_hidden(root: &Path) -> Result<Vec<FileNode>, String> {
+    scan_files_with_visibility(root, true, true)
 }
 
 pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventoryV2, String> {
@@ -6610,6 +6620,62 @@ mod tests {
             b"\xef\xbb\xbfhello\r\n"
         );
         assert!(read_file(&root, "nul.txt").is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn expanded_tree_shows_hidden_files_without_changing_inventory() {
+        let root = temp_root("expanded-tree");
+        for name in [
+            "main.tex",
+            "main.fls",
+            "main.pdf",
+            "journal.sty",
+            "refs.bst",
+            ".env.example",
+        ] {
+            fs::write(root.join(name), b"content").unwrap();
+        }
+        for directory in [
+            ".config",
+            ".git",
+            ".research",
+            "node_modules",
+            ".config/.git",
+            ".config/node_modules",
+        ] {
+            fs::create_dir_all(root.join(directory)).unwrap();
+            fs::write(root.join(directory).join("settings.txt"), b"content").unwrap();
+        }
+        let expanded = list_project_tree_with_hidden(&root).unwrap();
+        for name in [
+            "main.tex",
+            "main.fls",
+            "main.pdf",
+            "journal.sty",
+            "refs.bst",
+            ".env.example",
+            ".config",
+        ] {
+            assert!(expanded.iter().any(|node| node.path == name), "{name}");
+        }
+        for name in [".git", ".research", "node_modules"] {
+            assert!(!expanded.iter().any(|node| node.path == name), "{name}");
+        }
+        let config = expanded.iter().find(|node| node.path == ".config").unwrap();
+        assert_eq!(config.children.len(), 1);
+        assert_eq!(config.children[0].name, "settings.txt");
+        let normal = scan_project_tree(&root).unwrap();
+        for name in ["main.fls", "main.pdf", ".env.example", ".config"] {
+            assert!(!normal.iter().any(|node| node.path == name), "{name}");
+        }
+        let inventory = collab_project_inventory_v2(&root).unwrap();
+        assert!(!inventory.files.iter().any(|file| file.path == "main.fls"));
+        assert!(inventory
+            .files
+            .iter()
+            .any(|file| file.path == "journal.sty"));
+        assert!(inventory.files.iter().any(|file| file.path == "refs.bst"));
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -1352,6 +1352,16 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 :root[data-theme="dark"] .visual-add-block-button, :root[data-theme="dark"] .visual-drag-grip { color: oklch(.5 0 0); }
 .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
 .visual-slash-menu-popup, .visual-wiki-link-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
+/* These portaled buttons sit outside the editor. Explicit UI typography and
+   transparent idle fills keep global button defaults out of the completion list. */
+.visual-paper-citation-menu { width: min(420px, calc(100vw - 16px)); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
+.visual-paper-citation-option { display: flex; align-items: flex-start; gap: var(--space-4); width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--nested-radius); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: default; }
+.visual-paper-citation-option[aria-selected="true"] { background: var(--control-active-soft); color: var(--text-primary); }
+.visual-paper-citation-option > svg { flex: none; width: 14px; height: 14px; margin-top: 3px; color: var(--text-tertiary); stroke-width: 1.5; }
+.visual-paper-citation-label { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.visual-paper-citation-title, .visual-paper-citation-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visual-paper-citation-detail { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.visual-paper-citation-empty { padding: var(--space-6); color: var(--text-tertiary); }
 [data-wiki-link] { color: var(--control-active); cursor: pointer; }
 [data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
 .visual-link-preview-popup { position: fixed; top: 0; left: 0; z-index: var(--z-radix-popper); width: max-content; max-width: min(26rem, calc(100vw - 16px)); pointer-events: auto; }

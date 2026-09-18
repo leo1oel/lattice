@@ -1106,6 +1106,22 @@ async fn refresh_project(
 }
 
 #[tauri::command]
+async fn list_project_tree_with_hidden(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+) -> Result<Vec<models::FileNode>, String> {
+    let root = current_root(&state, &window)?;
+    if root != std::path::Path::new(&project_root) {
+        return Err("Project changed while loading hidden files".to_string());
+    }
+    run_blocking("Project tree", move || {
+        project::list_project_tree_with_hidden(&root)
+    })
+    .await
+}
+
+#[tauri::command]
 async fn collab_project_inventory_v2(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
@@ -4643,6 +4659,7 @@ pub fn run() {
             import_project_zip,
             export_project_zip,
             refresh_project,
+            list_project_tree_with_hidden,
             collab_project_inventory_v2,
             read_project_file,
             stat_project_file,

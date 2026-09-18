@@ -529,6 +529,27 @@ export const VisualBlockControls = Extension.create({
 
     return [
       new Plugin({
+        props: {
+          handleDOMEvents: {
+            mousemove: (view, event) => {
+              if (currentNode?.type.name !== "listItem" || container.style.visibility === "hidden") return false;
+              const item = view.nodeDOM(currentNodePosition);
+              if (!(item instanceof HTMLElement)) return false;
+              const itemRect = item.getBoundingClientRect();
+              const handleRect = container.getBoundingClientRect();
+              const rtl = getComputedStyle(view.dom).direction === "rtl";
+              // Keep the hovered item while crossing its marker/gutter to the
+              // grip. Hit-testing that gap resolves to the list itself, which
+              // otherwise moves the handle away before it can be clicked.
+              // Restrict this bridge to the handle's row so other items and
+              // nested lists remain independently targetable.
+              return event.clientY >= Math.min(itemRect.top, handleRect.top)
+                && event.clientY <= handleRect.bottom
+                && event.clientX >= (rtl ? itemRect.right : handleRect.left)
+                && event.clientX <= (rtl ? handleRect.right : itemRect.left);
+            },
+          },
+        },
         view: () => ({
           update: (_view, previousState) => {
             // External edits can invalidate pointer-held positions. Cancel
@@ -561,6 +582,23 @@ export const VisualBlockControls = Extension.create({
           grip.setAttribute("aria-label", blockLabel(node));
           // A paragraph cannot be inserted as a sibling of a list item.
           addButton.style.display = node?.type.name === "listItem" ? "none" : "";
+        },
+        getReferencedVirtualElement: () => {
+          if (currentNode?.type.name !== "listItem") return null;
+          const item = editor.view.nodeDOM(currentNodePosition);
+          if (!(item instanceof HTMLElement) || !item.parentElement) return null;
+          const list = item.parentElement;
+          // Markers sit outside the li's box. Anchor horizontally to its own
+          // list's outer edge, but vertically to the item being moved. This
+          // reserves the list's full marker gutter, including wide ordinals.
+          return {
+            contextElement: item,
+            getBoundingClientRect: () => {
+              const itemRect = item.getBoundingClientRect();
+              const listRect = list.getBoundingClientRect();
+              return new DOMRect(listRect.left, itemRect.top, listRect.width, itemRect.height);
+            },
+          };
         },
         computePositionConfig: {
           placement: getComputedStyle(editor.view.dom).direction === "rtl" ? "right-start" : "left-start",

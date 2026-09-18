@@ -5217,6 +5217,10 @@ msgid "Show document outline"
 msgstr "Show document outline"
 
 #: src/project/navigator.tsx
+msgid "Show hidden files"
+msgstr "Show hidden files"
+
+#: src/project/navigator.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
 

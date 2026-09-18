@@ -400,6 +400,57 @@ describe("Navigator / project tree", () => {
     await waitFor(() => expect(treeItem("sections/intro.tex")).not.toBeNull());
   });
 
+  it("hides template files by default without hiding similarly named sources", async () => {
+    renderNavigator({ mode: "project", files: [
+      ...files,
+      ...["journal.sty", "refs.BST", "journal.sty.tex"].map((name) => ({
+        name, path: name, kind: "text", children: [],
+      })),
+    ] });
+    await waitFor(() => expect(treeItem("journal.sty.tex")).not.toBeNull());
+    expect(treeItem("journal.sty")).toBeNull();
+    expect(treeItem("refs.BST")).toBeNull();
+  });
+
+  it("toggles hidden files from both menus and remembers the choice", async () => {
+    const hidden = ["journal.sty", "refs.bst", "main.fls", ".env.example"].map((name) => ({
+      name, path: name, kind: "text", children: [],
+    }));
+    vi.mocked(invoke).mockResolvedValue([...files, ...hidden]);
+    const view = renderNavigator({ mode: "project" });
+    fireEvent.contextMenu(screen.getByLabelText("Project files"));
+    const toggle = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
+    expect(invoke).toHaveBeenCalledWith("list_project_tree_with_hidden", { projectRoot: "/tmp/paper" });
+    for (const file of hidden) expect(treeItem(file.path)).not.toBeNull();
+    expect(localStorage.getItem("lattice:show-hidden-files")).toBe("true");
+    view.unmount();
+    renderNavigator({ mode: "project" });
+    await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
+    fireEvent.contextMenu(treeItem("sections/")!);
+    const checked = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
+    expect(checked).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(checked);
+    await waitFor(() => expect(treeItem("main.fls")).toBeNull());
+    expect(localStorage.getItem("lattice:show-hidden-files")).toBe("false");
+  });
+
+  it("ignores a hidden tree response from the previous project", async () => {
+    localStorage.setItem("lattice:show-hidden-files", "true");
+    let resolveOld!: (files: FileNode[]) => void;
+    vi.mocked(invoke).mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
+    const { rerenderWith } = renderNavigator({ mode: "project" });
+    const otherFiles = [{ name: "other.tex", path: "other.tex", kind: "tex", children: [] }];
+    vi.mocked(invoke).mockResolvedValue(otherFiles);
+    rerenderWith({ projectKey: "/tmp/other", files: otherFiles });
+    await waitFor(() => expect(treeItem("other.tex")).not.toBeNull());
+    await act(async () => resolveOld(files));
+    expect(treeItem("main.tex")).toBeNull();
+    expect(treeItem("other.tex")).not.toBeNull();
+  });
+
   it("keeps each project's folders to itself", async () => {
     localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
     const { rerenderWith } = renderNavigator({ mode: "project" });

@@ -27,8 +27,8 @@ const PAPERS: PaperSummary[] = [
 
 afterEach(cleanup);
 
-function renderEditor(activePath = "notes.md") {
-  const result = render(<VisualMarkdownEditor text="" activePath={activePath} papers={PAPERS} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
+function renderEditor(activePath = "notes.md", papers = PAPERS) {
+  const result = render(<VisualMarkdownEditor text="" activePath={activePath} papers={papers} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
   const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
   return { ...result, editor: (surface as HTMLElement & { editor: Editor }).editor };
 }
@@ -50,6 +50,52 @@ describe("matchPapers", () => {
 });
 
 describe("visual paper citation suggestion", () => {
+  it("lists all matches and lets keyboard navigation select beyond the eighth paper", async () => {
+    const papers = Array.from({ length: 12 }, (_, index) => ({
+      title: `Research paper ${index + 1}`,
+      arxivId: `2401.${String(index + 1).padStart(5, "0")}`,
+      hasFullText: true,
+      hasBlog: false,
+    }));
+    const { editor } = renderEditor("notes.md", papers);
+    editor.chain().focus().insertContent("@").run();
+    const menu = await screen.findByRole("listbox", { name: "Paper citation suggestions" });
+    expect(within(menu).getAllByRole("option")).toHaveLength(12);
+    expect(menu).not.toHaveTextContent("Showing top");
+    for (let index = 0; index < 9; index += 1) {
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    }
+    await waitFor(() => expect(within(menu).getByRole("option", { selected: true }))
+      .toHaveTextContent("Research paper 10"));
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    await waitFor(() => expect(markdown(editor))
+      .toContain("[Research paper 10](.research/papers/2401.00010/paper.md)"));
+  });
+
+  it("keeps a single keyboard selection and accepts the second paper with Tab", async () => {
+    const { editor } = renderEditor();
+    editor.chain().focus().insertContent("@").run();
+    const menu = await screen.findByRole("listbox", { name: "Paper citation suggestions" });
+    const options = within(menu).getAllByRole("option");
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[1]).toHaveAttribute("aria-selected", "false");
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    await waitFor(() => expect(options[1]).toHaveAttribute("aria-selected", "true"));
+    expect(options[0]).toHaveAttribute("aria-selected", "false");
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Tab" });
+    await waitFor(() => expect(markdown(editor))
+      .toContain("[An Image is Worth 16x16 Words](.research/papers/2010.11929/blog.md)"));
+  });
+
+  it("shows an empty state instead of stale options when nothing matches", async () => {
+    const { editor } = renderEditor();
+    editor.chain().focus().insertContent("@").run();
+    await screen.findByRole("listbox", { name: "Paper citation suggestions" });
+    editor.commands.insertContent("nonexistent-paper");
+    expect(await screen.findByRole("status")).toHaveTextContent("No matching papers");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+  });
+
   it("opens on @, filters papers, and inserts a link to the full text", async () => {
     const { editor } = renderEditor();
     editor.chain().focus().insertContent("@").run();

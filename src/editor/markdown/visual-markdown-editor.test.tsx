@@ -2416,6 +2416,46 @@ describe("VisualMarkdownEditor", () => {
     ));
   });
 
+  it.each(["ltr", "rtl"])("keeps the list-item grip reachable across its marker gutter (%s)", async (direction) => {
+    renderEditor("Before\n\n98. Alpha\n99. Bravo\n100. Charlie\n\nAfter");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    surface.style.direction = direction;
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    await waitFor(() => expect(editor.isEditable).toBe(true));
+    const list = surface.querySelector("ol")!;
+    const item = list.children[1];
+    const paragraph = item.querySelector("p")!;
+    vi.spyOn(surface.firstElementChild!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 80, 400, 28));
+    vi.spyOn(surface.lastElementChild!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 260, 400, 28));
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 120, 400, 120));
+    vi.spyOn(item, "getBoundingClientRect").mockReturnValue(new DOMRect(140, 156, 320, 28));
+    vi.spyOn(paragraph, "getBoundingClientRect").mockReturnValue(new DOMRect(140, 156, 320, 28));
+    const hitTest = stubElementsFromPoint([paragraph, item, surface]);
+    fireEvent.mouseMove(paragraph, { clientX: 250, clientY: 170 });
+    const grip = await screen.findByRole("button", { name: "Select list item" });
+    const controls = document.querySelector<HTMLElement>(".ok-block-controls")!;
+    vi.spyOn(controls, "getBoundingClientRect").mockReturnValue(new DOMRect(direction === "rtl" ? 510 : 70, 160, 20, 20));
+
+    // The gap resolves to the list, not the item. The earlier plugin must
+    // consume this move before DragHandlePlugin can schedule a retarget.
+    hitTest.mockReturnValue([list, surface]);
+    const handled = editor.view.someProp("handleDOMEvents", (handlers) =>
+      handlers.mousemove?.(editor.view, new MouseEvent("mousemove", {
+        clientX: direction === "rtl" ? 480 : 120, clientY: 170,
+      })),
+    );
+    expect(handled).toBe(true);
+    fireEvent.click(grip);
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect((editor.state.selection as NodeSelection).node.textContent).toBe("Bravo");
+
+    // Leaving the item's row must release the bridge, so whole-list controls
+    // are still available from the gutter rather than being permanently locked.
+    fireEvent.mouseMove(list, { clientX: direction === "rtl" ? 480 : 120, clientY: 130 });
+    await screen.findByRole("button", { name: "Select numbered list" });
+    expect(screen.getByRole("button", { name: "Add block below" })).toBeVisible();
+  });
+
   it("deletes a selected block as one unit", async () => {
     const { onChange } = renderEditor("First\n\nSecond");
     const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
