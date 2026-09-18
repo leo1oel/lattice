@@ -127,13 +127,7 @@ import {
   parseAgentProjectDocumentToolRequest,
   type AgentProjectDocumentToolRequest,
 } from "./agent/agent-project-document-tools";
-import {
-  buildAgentCommentsSnapshot,
-  readAgentCommentsSnapshot,
-  executeAgentEditorCommentsToolRequest,
-  parseAgentEditorCommentsToolRequest,
-  type BuildAgentCommentsOptions,
-} from "./agent/agent-editor-comments";
+import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
 import {
   executeAgentSpreadsheetToolRequest,
   parseAgentSpreadsheetToolRequest,
@@ -1830,12 +1824,14 @@ function App() {
   useLayoutEffect(() => {
     latestAgentPaperLibraryRef.current = agentPaperLibrary;
   }, [agentPaperLibrary]);
-  const postSynaraMessage = useCallback((message: object) => {
+  const postSynaraMessage = useCallback(async (message: object) => {
     if (!synaraOrigin) return;
     if ("type" in message && message.type === LATTICE_HOST_CONTEXT && !("editorComments" in message)) {
       const context = message as AgentHostContextSnapshot;
       const options = agentCommentsOptionsRef.current?.();
       if (options?.workspaceRoot === context.workspaceRoot) {
+        const { buildAgentCommentsSnapshot } = await import("./agent/agent-editor-comments");
+        if (projectRootRef.current !== context.workspaceRoot) return;
         message = {
           ...context,
           editorComments: buildAgentCommentsSnapshot({
@@ -2023,9 +2019,9 @@ function App() {
           visualMarkdownFlushRef.current?.();
           const options = agentCommentsOptionsRef.current?.();
           if (!options || options.workspaceRoot !== workspaceRoot) return;
-          void readAgentCommentsSnapshot({
+          void import("./agent/agent-editor-comments").then(({ readAgentCommentsSnapshot }) => readAgentCommentsSnapshot({
             ...options, path: hostContext.paper?.path ?? hostContext.editor?.path, limit: 10,
-          }).then((editorComments) => {
+          })).then((editorComments) => {
             // Never publish a previous project's comments after navigation.
             const latest = latestAgentHostContextRef.current;
             if (projectRootRef.current !== workspaceRoot || latest?.workspaceRoot !== workspaceRoot) return;
@@ -2064,18 +2060,22 @@ function App() {
         ).then(postSynaraMessage);
         return;
       }
-      const commentsRequest = parseAgentEditorCommentsToolRequest(event.data);
-      if (commentsRequest) {
-        void executeAgentEditorCommentsToolRequest(
-          commentsRequest,
-          () => projectRootRef.current,
-          async (request) => {
-            visualMarkdownFlushRef.current?.();
-            const options = agentCommentsOptionsRef.current?.();
-            if (!options) throw new Error("editor_comments_host_unavailable");
-            return readAgentCommentsSnapshot({ ...options, ...request.args });
-          },
-        ).then(postSynaraMessage);
+      if (event.data?.type === "synara:editor-comments-tool-request") {
+        void import("./agent/agent-editor-comments").then(async (tools) => {
+          const request = tools.parseAgentEditorCommentsToolRequest(event.data);
+          if (!request) return;
+          const result = await tools.executeAgentEditorCommentsToolRequest(
+            request,
+            () => projectRootRef.current,
+            async (request) => {
+              visualMarkdownFlushRef.current?.();
+              const options = agentCommentsOptionsRef.current?.();
+              if (!options) throw new Error("editor_comments_host_unavailable");
+              return tools.readAgentCommentsSnapshot({ ...options, ...request.args });
+            },
+          );
+          await postSynaraMessage(result);
+        });
         return;
       }
       const canvasRequest = parseAgentCanvasToolRequest(event.data);
