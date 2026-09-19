@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppToastStack } from "../telemetry/app-log";
 import { clearAppLogs } from "../telemetry/app-log-store";
@@ -14,6 +14,7 @@ describe("Synara notification messages", () => {
   });
 
   afterEach(() => {
+    cleanup();
     document.body.replaceChildren();
   });
 
@@ -71,7 +72,7 @@ describe("Synara notification messages", () => {
     });
   });
 
-  it("shows trusted iframe messages in the app toast stack and returns dismissals", () => {
+  it("shows trusted iframe messages in the app toast stack and returns dismissals", async () => {
     const iframe = document.createElement("iframe");
     document.body.append(iframe);
     const frameWindow = iframe.contentWindow;
@@ -128,6 +129,7 @@ describe("Synara notification messages", () => {
     });
     expect(screen.getByText("Could not update Pi")).toBeInTheDocument();
 
+    const toast = screen.getByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
     expect(postMessage).toHaveBeenCalledWith(
       {
@@ -137,7 +139,9 @@ describe("Synara notification messages", () => {
       },
       "http://127.0.0.1:4317",
     );
-    expect(screen.queryByText("Could not update Pi")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(toast).toHaveAttribute("inert");
+    await waitFor(() => expect(screen.queryByText("Could not update Pi")).toBeNull());
     unmount();
   });
 
