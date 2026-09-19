@@ -1,10 +1,23 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { SlidingTabs } from "./motion";
+import { SlidingTabs, StateSwap } from "./motion";
 import { Switch } from "./switch";
 
 afterEach(cleanup);
+
+describe("StateSwap", () => {
+  it("shows the initial state without an entrance and replaces stale labels immediately", () => {
+    const { container, rerender } = render(<StateSwap swapKey="idle">Build</StateSwap>);
+    expect(screen.getByText("Build")).toHaveStyle({ opacity: "1" });
+    rerender(<StateSwap swapKey="building">Stop</StateSwap>);
+    expect(screen.queryByText("Build")).toBeNull();
+    expect(screen.getByText("Stop")).toBeInTheDocument();
+    rerender(<StateSwap swapKey="success">1.7s</StateSwap>);
+    expect(screen.queryByText("Stop")).toBeNull();
+    expect(container.querySelectorAll(".state-swap")).toHaveLength(1);
+  });
+});
 
 describe("Switch", () => {
   it("reports the new state and stays a real switch for assistive tech", () => {

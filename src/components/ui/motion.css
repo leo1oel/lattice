@@ -1,5 +1,12 @@
 /* Shared state movement. Feature styles may size a strip, but the tab
    relationship and moving indicator stay owned by this primitive. */
+.state-swap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+}
+
 .sliding-tabs {
   display: flex;
   align-items: center;

@@ -140,7 +140,7 @@ describe("AppToastStack", () => {
     expect(result.current).toBe(first);
   });
 
-  it("refuses focus so dismissing one does not move the caret out of the editor", () => {
+  it("refuses focus and makes a dismissed toast inert before its exit finishes", async () => {
     render(<AppToastStack />);
     act(() => {
       addAppLog({ level: "warning", source: "PDF", title: "No matching position in the PDF." });
@@ -152,6 +152,9 @@ describe("AppToastStack", () => {
     expect(fireEvent.mouseDown(toast)).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
     expect(screen.queryByRole("status")).toBeNull();
+    expect(toast).toHaveAttribute("inert");
+    expect(toast).toHaveAttribute("aria-hidden", "true");
+    await waitFor(() => expect(toast).not.toBeInTheDocument());
   });
 
   it("collapses a repeat into the toast already showing it", () => {

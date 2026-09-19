@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
+import { spring, springExit } from "../components/ui/motion-values";
 import { invoke } from "@tauri-apps/api/core";
 import { CheckCircle2, ChevronRight, CircleAlert, Download, FolderOpen, Info } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -190,6 +192,8 @@ function visibleToastDetail(detail: string): string {
 // alone never invalidates. See `AppToastView` in app-log-store.ts.
 function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOptions }) {
   const { t } = useLingui();
+  const reduceMotion = useReducedMotion();
+  const present = useIsPresent();
   const Icon = LOG_ICON[entry.level];
   const detail = visibleToastDetail(entry.detail);
   const timeoutMs =
@@ -215,9 +219,15 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
     options?.secondaryAction,
   );
   return (
-    <div
+    <motion.div
       className={`app-toast ${entry.level}${expanded ? " expanded" : ""}`}
       role={entry.level === "error" ? "alert" : "status"}
+      aria-hidden={!present || undefined}
+      inert={!present || undefined}
+      initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: reduceMotion ? 0 : -4, transition: springExit.moderate }}
+      transition={spring.moderate}
       data-app-toast=""
       // Notifications arrive while someone is writing. Taking the caret out of
       // the editor to dismiss one — and losing the selection with it — is worse
@@ -268,7 +278,7 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
         size="compact"
         onClick={() => dismissAppToast(entry.id)}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -276,9 +286,11 @@ export function AppToastStack() {
   const toasts = useAppToastsSnapshot();
   return (
     <div className="app-toast-stack">
-      {toasts.map(({ entry, options }) => (
-        <AppToast key={entry.id} entry={entry} options={options} />
-      ))}
+      <AnimatePresence>
+        {toasts.map(({ entry, options }) => (
+          <AppToast key={entry.id} entry={entry} options={options} />
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

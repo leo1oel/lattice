@@ -24,6 +24,7 @@ import {
   Square,
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
+import { StateSwap } from "../components/ui/motion";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -174,38 +175,28 @@ export function AppTitlebar(props: AppTitlebarProps) {
         />
         {canvasToolbar}
         <div className="title-actions">
-          {building ? (
-            <Tip label={t`Stop the current LaTeX build`}>
-              <button
-                className="build-button stop"
-                onClick={() => void abortBuild()}
-                aria-live="polite"
-              >
-                <Square size={13} fill="currentColor" />
-                {t`Stop`}
-              </button>
-            </Tip>
-          ) : (
-            <Tip label={buildPreferences.autoBuildMode === "automatic"
-              ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild`
-              : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild`}
+          <Tip label={building ? t`Stop the current LaTeX build` : buildPreferences.autoBuildMode === "automatic"
+            ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild`
+            : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild`}
+          >
+            <button
+              aria-label={building ? t`Stop` : t`Build`}
+              data-tour="build"
+              className={`build-button ${building ? "stop" : build?.success ? "success" : ""}`}
+              onClick={(event) => {
+                if (building) void abortBuild();
+                else if (event.shiftKey) void cleanAndRebuild();
+                else void compile(false, true);
+              }}
+              disabled={!building && cleaning}
+              aria-live="polite"
             >
-              <button
-                aria-label={t`Build`}
-                data-tour="build"
-                className={`build-button ${build?.success ? "success" : ""}`}
-                onClick={(event) => {
-                  if (event.shiftKey) void cleanAndRebuild();
-                  else void compile(false, true);
-                }}
-                disabled={cleaning}
-                aria-live="polite"
-              >
-                {build?.success ? <Check size={15} /> : <Play size={15} />}
-                {build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
-              </button>
-            </Tip>
-          )}
+              <StateSwap swapKey={building ? "building" : build?.success ? "success" : "idle"}>
+                {building ? <Square size={13} fill="currentColor" /> : build?.success ? <Check size={15} /> : <Play size={15} />}
+                {building ? t`Stop` : build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
+              </StateSwap>
+            </button>
+          </Tip>
         </div>
       </div>
     </header>

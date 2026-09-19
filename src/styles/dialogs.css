@@ -375,6 +375,17 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .eyebrow { margin: 17px 0 var(--space-4); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; letter-spacing: .22em; }
 .welcome-content h1 { margin: 0; font-family: "Instrument Serif", Georgia, serif; font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
 .welcome-copy { max-width: 470px; margin: 19px 0 26px; color: var(--text-secondary); font-size: var(--type-reading-size); line-height: 1.65; text-wrap: pretty; }
+
+/* Only the welcome composition enters; busy updates and project contents do not. */
+.welcome-content > :not(.busy-label) { animation: welcome-rise var(--duration-reveal) var(--ease-out) both; }
+.welcome-content > .welcome-copy { animation-delay: 30ms; }
+.welcome-content > .welcome-actions,
+.welcome-content > .welcome-more,
+.welcome-content > .welcome-tex-setup { animation-delay: 60ms; }
+@keyframes welcome-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .dual-canvas .dual-primary { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .dual-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
 .dual-pane .source-editor { flex: 1; min-height: 0; }

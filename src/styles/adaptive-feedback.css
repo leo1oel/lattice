@@ -34,6 +34,7 @@
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   .paper-import-track > span::after { animation: none; }
   .paper-import-track > span { transition: none; }
+  .welcome-content > :not(.busy-label) { animation: none; }
 }
 
 .app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }
@@ -41,7 +42,7 @@
 /* One line, one axis: icon, message and dismiss share a centre. `start` used to
    align all three to the top of a 24px row, which left a 16px line of text
    sitting visibly above the dismiss button beside it. */
-.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: 11px; animation: app-update-in var(--duration-base) var(--ease-out); }
+.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: 11px; }
 .app-toast.info { --smooth-ring-color: color-mix(in srgb, var(--status-info) 35%, var(--border-subtle)); }
 .app-toast.success { --smooth-ring-color: color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)); }
 .app-toast.warning { --smooth-ring-color: color-mix(in srgb, var(--status-warning) 35%, var(--border-subtle)); }

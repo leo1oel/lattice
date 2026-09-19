@@ -19,8 +19,8 @@ input[type="search"]:focus-visible {
 .copy-button-icon { position: relative; width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; }
 .copy-button-icon > svg { position: absolute; transition: opacity var(--duration-base) var(--ease-default), transform var(--duration-base) var(--ease-emphasized); }
 .copy-icon-idle { opacity: 1; transform: scale(1) rotate(0); }
-.copy-icon-success { opacity: 0; transform: scale(.55) rotate(-24deg); color: var(--status-success); }
-.copy-button.copied .copy-icon-idle { opacity: 0; transform: scale(.55) rotate(24deg); }
+.copy-icon-success { opacity: 0; transform: scale(.85); color: var(--status-success); }
+.copy-button.copied .copy-icon-idle { opacity: 0; transform: scale(.85); }
 .copy-button.copied .copy-icon-success { opacity: 1; transform: scale(1) rotate(0); }
 
 .root-error-page { min-height: 100vh; padding: var(--space-16); display: grid; place-items: center; background: var(--surface-app); color: var(--text-primary); }
@@ -117,7 +117,7 @@ input[type="search"]:focus-visible {
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
 .titlebar-main > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .titlebar-main > .canvas-toolbar .canvas-actions { min-width: max-content; width: max-content; flex: none; overflow: visible; }
-.build-button { height: var(--control-height-compact); flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-5); display: flex; align-items: center; gap: var(--space-3); background: var(--text-primary); color: var(--surface-app); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
+.build-button { height: var(--control-height-compact); min-width: 13ch; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-5); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: var(--text-primary); color: var(--surface-app); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
 .build-button:active:not(:disabled) { scale: 0.96; }
 .build-button.success { background: var(--control-active-soft); color: var(--status-success); }
 .build-button.stop { background: color-mix(in srgb, var(--status-danger) 18%, var(--surface-panel-raised)); color: var(--status-danger); }
@@ -471,7 +471,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-size: var(--type-label-size);
   font-weight: 600;
 }
-.synara-loading-copy span {
+.synara-loading-copy > span {
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--type-micro-size);

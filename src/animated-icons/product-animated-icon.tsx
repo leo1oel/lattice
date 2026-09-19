@@ -26,7 +26,8 @@ export function AnimatedProductIcon({
   const reducedMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
-    const control = hostRef.current?.parentElement;
+    const control = hostRef.current?.closest("button, a, [role='button'], [role='menuitem']")
+      ?? hostRef.current?.parentElement;
     if (!control) return;
     const replay = () => setPlayId((current) => current + 1);
     control.addEventListener("pointerenter", replay);

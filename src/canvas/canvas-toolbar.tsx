@@ -19,6 +19,7 @@ import { type CanvasMode, type DocumentViewMode } from "../app-types";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { StateSwap } from "../components/ui/motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -281,11 +282,13 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 disabled={props.overleafSyncing}
                 onClick={props.overleafLinked ? props.onOverleafSync : props.onOverleafOpen}
               >
-                {props.overleafSyncing
-                  ? <InfinityLoader size={14} />
-                  : props.overleafLinked
-                    ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
-                    : <Cloud size={14} />}
+                <StateSwap swapKey={props.overleafSyncing ? "syncing" : props.overleafLinked ? "linked" : "unlinked"}>
+                  {props.overleafSyncing
+                    ? <InfinityLoader size={14} />
+                    : props.overleafLinked
+                      ? <AnimatedProductIcon source="provided" kind="cloud-upload-outline" size={14} />
+                      : <Cloud size={14} />}
+                </StateSwap>
                 {showOverleafOnline
                   ? <em className="overleaf-status-dot" aria-hidden="true" />
                   : props.overleafPending && !props.overleafSyncing

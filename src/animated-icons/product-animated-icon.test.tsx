@@ -37,6 +37,15 @@ describe("AnimatedProductIcon", () => {
       .toHaveStyle({ pointerEvents: "none" });
   });
 
+  it("still replays on keyboard focus through a status animation wrapper", () => {
+    const { container } = render(
+      <button type="button"><span><AnimatedProductIcon kind="faders" /></span></button>,
+    );
+    expect(container.querySelector(".bakai-icon.is-playing")).toBeNull();
+    fireEvent.focus(container.querySelector("button")!);
+    expect(container.querySelector(".bakai-icon.is-playing")).not.toBeNull();
+  });
+
   it("exposes the icon kind for product-specific optical sizing", () => {
     const { container } = render(
       <button type="button"><AnimatedProductIcon kind="clock-back" /></button>,

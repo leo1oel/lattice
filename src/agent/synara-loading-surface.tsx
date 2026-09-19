@@ -2,6 +2,7 @@ import { CircleAlert } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
+import { StateSwap } from "../components/ui/motion";
 
 export function SynaraLoadingSurface(props: {
   runtime: SynaraRuntimeInfo;
@@ -13,15 +14,19 @@ export function SynaraLoadingSurface(props: {
   return (
     <div className="synara-loading-surface" role={failed ? "alert" : "status"} aria-live="polite">
       <span className={failed ? "synara-loading-mark failed" : "synara-loading-mark"} aria-hidden="true">
-        {failed ? <CircleAlert size={17} /> : <InfinityLoader size={17} />}
+        <StateSwap swapKey={failed ? "failed" : "loading"}>
+          {failed ? <CircleAlert size={17} /> : <InfinityLoader size={17} />}
+        </StateSwap>
       </span>
       <div className="synara-loading-copy">
         <strong>
-          {failed
-            ? t`Agent unavailable`
-            : props.preparingWorkspace
-              ? t`Preparing this workspace`
-              : t`Starting Agent`}
+          <StateSwap swapKey={failed ? "failed" : props.preparingWorkspace ? "preparing" : "starting"}>
+            {failed
+              ? t`Agent unavailable`
+              : props.preparingWorkspace
+                ? t`Preparing this workspace`
+                : t`Starting Agent`}
+          </StateSwap>
         </strong>
         <span>
           {failed

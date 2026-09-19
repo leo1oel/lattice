@@ -74,7 +74,7 @@ describe("CanvasToolbar Overleaf status", () => {
 
     let button = screen.getByRole("button", { name: /Connected live/ });
     expect(button.querySelector(".overleaf-status-dot")).not.toBeNull();
-    expect(button.querySelector(".animated-product-icon--cloud-upload-outline")?.parentElement).toBe(button);
+    expect(button.querySelector(".animated-product-icon--cloud-upload-outline")?.closest("button")).toBe(button);
 
     rerender(
       <CanvasToolbar {...baseProps} overleafLinked overleafSyncing onOverleafSync={vi.fn()} />,

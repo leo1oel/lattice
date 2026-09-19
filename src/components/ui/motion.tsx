@@ -104,6 +104,26 @@ export function IconSwap({ swapKey, children }: { swapKey: string; children: Rea
   );
 }
 
+/** Replace status content immediately; never retain a stale label or action during exit. */
+export function StateSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  const [state, setState] = useState({ key: swapKey, changed: false });
+  if (state.key !== swapKey) setState({ key: swapKey, changed: true });
+  // AnimatePresence retains the old span for a frame even without an exit.
+  // Replace it directly so toolbar width and accessible text never duplicate.
+  return (
+    <motion.span
+      key={swapKey}
+      className="state-swap"
+      initial={state.changed ? { opacity: 0, y: reduceMotion ? 0 : 3 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={spring.moderate}
+    >
+      {children}
+    </motion.span>
+  );
+}
+
 /** Spring pop-in wrapper for overlays (dialogs, menus, cards). */
 export function PopIn({ children, ...rest }: HTMLMotionProps<"div">) {
   const reduceMotion = useReducedMotion();
