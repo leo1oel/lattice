@@ -87,7 +87,8 @@ function request(): AgentEditorCommentsToolRequest {
 
 describe("agent comments read protocol", () => {
   it("strictly parses paths and pagination", () => {
-    expect(parseAgentEditorCommentsToolRequest(request())).toEqual(request());
+    const input = request();
+    expect(parseAgentEditorCommentsToolRequest(input)).toEqual(input);
     expect(parseAgentEditorCommentsToolRequest({ ...request(), extra: true })).toBeNull();
     expect(parseAgentEditorCommentsToolRequest({ ...request(), args: { path: "../secret", limit: 0 } })).toBeNull();
     expect(parseAgentEditorCommentsToolRequest({ ...request(), args: { path: "a\\b", offset: -1 } })).toBeNull();
