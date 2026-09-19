@@ -3220,6 +3220,7 @@ describe("project workspace", () => {
   });
 
   it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
+    await import("./app/app-agent-panel");
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -3249,8 +3250,17 @@ describe("project workspace", () => {
     });
 
     renderApp();
+    const sidebar = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".shared-sidebar");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    // The fixed Agent surface stays hidden until its sidebar has measurable
+    // geometry. jsdom has no layout, so give this visibility test a real slot.
+    vi.spyOn(sidebar, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 40, 320, 700));
     await switchSidebarMode("Agent");
     const agentFailure = await screen.findByRole("alert");
+    expect(agentFailure).toBeVisible();
     expect(agentFailure).toHaveTextContent("Agent unavailable");
     expect(agentFailure).toHaveTextContent("Synara did not start.");
     expect(screen.queryByPlaceholderText(/ask the agent/i)).not.toBeInTheDocument();
