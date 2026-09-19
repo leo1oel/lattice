@@ -51,14 +51,15 @@ describe("deferred unknown JSX conversion", () => {
     const source = `${blocks.join("\n\n")}\n\nFollowing bytes stay here.\n`;
     const editor = mountEditor(source);
 
-    await waitFor(() => expect(frames.size).toBeGreaterThanOrEqual(3));
-    act(() => {
-      const scheduled = [...frames.values()];
-      frames.clear();
-      scheduled.forEach((callback) => callback(performance.now()));
-    });
-
     await waitFor(() => {
+      // Replacing one node can rerender a neighbour and reschedule its effect.
+      // Keep advancing frames like a browser instead of freezing after one batch;
+      // the queue also contains editor work unrelated to JSX conversion.
+      act(() => {
+        const scheduled = [...frames.values()];
+        frames.clear();
+        scheduled.forEach((callback) => callback(performance.now()));
+      });
       const fallbacks: string[] = [];
       editor.state.doc.descendants((node) => {
         if (node.type.name === "rawMdxFallback") fallbacks.push(node.textContent);
