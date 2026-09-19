@@ -193,7 +193,9 @@ export function AppTitlebar(props: AppTitlebarProps) {
             >
               <StateSwap swapKey={building ? "building" : build?.success ? "success" : "idle"}>
                 {building ? <Square size={13} fill="currentColor" /> : build?.success ? <Check size={15} /> : <Play size={15} />}
-                {building ? t`Stop` : build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
+                <span className="build-button-label">
+                  {building ? t`Stop` : build?.success ? `${(build.durationMs / 1000).toFixed(1)}s` : t`Build`}
+                </span>
               </StateSwap>
             </button>
           </Tip>

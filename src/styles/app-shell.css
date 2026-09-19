@@ -117,7 +117,10 @@ input[type="search"]:focus-visible {
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
 .titlebar-main > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .titlebar-main > .canvas-toolbar .canvas-actions { min-width: max-content; width: max-content; flex: none; overflow: visible; }
-.build-button { height: var(--control-height-compact); min-width: 13ch; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-5); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: var(--text-primary); color: var(--surface-app); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
+.build-button { width: 67px; height: var(--control-height-compact); flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: var(--text-primary); color: var(--surface-app); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
+.build-button > .state-swap { display: grid; width: 100%; grid-template-columns: 15px minmax(0, 1fr); }
+.build-button > .state-swap > svg { justify-self: center; }
+.build-button-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; line-height: 1; }
 .build-button:active:not(:disabled) { scale: 0.96; }
 .build-button.success { background: var(--control-active-soft); color: var(--status-success); }
 .build-button.stop { background: color-mix(in srgb, var(--status-danger) 18%, var(--surface-panel-raised)); color: var(--status-danger); }
