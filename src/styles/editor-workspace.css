@@ -1342,13 +1342,12 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-block-drop-line::before, .visual-block-drop-line::after { position: absolute; top: 50%; width: 5px; height: 5px; border-radius: var(--radius-pill); background: var(--control-active); content: ""; translate: 0 -50%; }
 .visual-block-drop-line::before { left: -2px; }
 .visual-block-drop-line::after { right: -2px; }
-.visual-block-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-height: 180px; overflow: hidden; padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-panel-raised) 92%, transparent); color: var(--text-primary); box-shadow: var(--shadow-soft); opacity: .72; pointer-events: none; transform: scale(.985); transform-origin: top left; }
-.visual-block-drag-ghost::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 7%, transparent); }
+.visual-block-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-height: 180px; overflow: hidden; opacity: .72; pointer-events: none; }
 /* Entry fade stays unconditional: the shared policy in adaptive-feedback.css
    clamps every transition to ~0ms when the user asks for reduced motion, so
    gating this transition locally would be dead weight (and is test-forbidden). */
-.visual-block-drag-ghost { transition: opacity var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out); }
-@starting-style { .visual-block-drag-ghost { opacity: 0; transform: scale(.97); } }
+.visual-block-drag-ghost { transition: opacity var(--duration-quick) var(--ease-out); }
+@starting-style { .visual-block-drag-ghost { opacity: 0; } }
 :root[data-theme="dark"] .visual-add-block-button, :root[data-theme="dark"] .visual-drag-grip { color: oklch(.5 0 0); }
 .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
 .visual-slash-menu-popup, .visual-wiki-link-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }

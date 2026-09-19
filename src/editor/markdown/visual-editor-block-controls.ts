@@ -156,6 +156,54 @@ function selectedListItems(state: EditorState) {
     : null;
 }
 
+function listDropTarget(editor: Editor, parent: number, x: number, y: number) {
+  const listDom = editor.view.nodeDOM(parent - 1);
+  const list = editor.state.doc.nodeAt(parent - 1);
+  if (!(listDom instanceof HTMLElement) || !list) return null;
+  const bounds = listDom.getBoundingClientRect();
+  const editorBounds = editor.view.dom.getBoundingClientRect();
+  // The grip travels through the marker gutter, and the insertion boundary
+  // after the last item lies just outside its text hitbox. Resolve sibling
+  // geometry rather than asking ProseMirror for a text caret at that point.
+  if (x < editorBounds.left - 40 || x > editorBounds.right + 40
+    || y < bounds.top - 12 || y > bounds.bottom + 12) return null;
+  let target: { from: number; rect: DOMRect } | null = null;
+  list.forEach((_item, offset) => {
+    if (target && y < target.rect.bottom) return;
+    const from = parent + offset;
+    const dom = editor.view.nodeDOM(from);
+    if (!(dom instanceof HTMLElement)) return;
+    const rect = dom.getBoundingClientRect();
+    target = { from, rect };
+  });
+  return target;
+}
+
+function createDragGhost(source: HTMLElement): HTMLElement {
+  const ghost = document.createElement("div");
+  ghost.className = "visual-block-drag-ghost";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.inert = true;
+  const clone = source.cloneNode(true) as HTMLElement;
+  const originals = [source, ...source.querySelectorAll<HTMLElement>("*")];
+  const copies = [clone, ...clone.querySelectorAll<HTMLElement>("*")];
+  // A body-level clone no longer matches the editor's scoped typography.
+  // Snapshot its resolved styles once, so headings, lists and inline marks
+  // retain the exact size and wrapping the user picked up.
+  originals.forEach((element, index) => {
+    const copy = copies[index]!;
+    const style = getComputedStyle(element);
+    for (const property of style) copy.style.setProperty(property, style.getPropertyValue(property));
+    copy.style.pointerEvents = "none";
+    copy.removeAttribute("id");
+    copy.removeAttribute("contenteditable");
+  });
+  clone.style.margin = "0";
+  ghost.style.width = `${source.getBoundingClientRect().width}px`;
+  ghost.appendChild(clone);
+  return ghost;
+}
+
 /** Reorder siblings without converting list types or changing nesting. */
 export function moveListItems(
   state: EditorState,
@@ -362,7 +410,6 @@ export const VisualBlockControls = Extension.create({
       y: number;
       sourcePosition: number;
       ghostOffsetX: number;
-      ghostOffsetY: number;
     } | null = null;
     let pointerTarget: { position: number; placeAfter: boolean } | null = null;
     let dragGhost: HTMLElement | null = null;
@@ -418,7 +465,6 @@ export const VisualBlockControls = Extension.create({
         y: event.clientY,
         sourcePosition: currentNodePosition,
         ghostOffsetX: sourceRect ? event.clientX - sourceRect.left : 0,
-        ghostOffsetY: sourceRect ? event.clientY - sourceRect.top : 0,
       };
       grip.setPointerCapture(event.pointerId);
     });
@@ -432,32 +478,21 @@ export const VisualBlockControls = Extension.create({
       if (!dragGhost) {
         const sourceDom = editor.view.nodeDOM(pointerStart.sourcePosition);
         if (sourceDom instanceof HTMLElement) {
-          const rect = sourceDom.getBoundingClientRect();
-          dragGhost = sourceDom.cloneNode(true) as HTMLElement;
-          dragGhost.className = "visual-block-drag-ghost";
-          dragGhost.setAttribute("aria-hidden", "true");
-          dragGhost.removeAttribute("contenteditable");
-          dragGhost.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
-          dragGhost.querySelectorAll("[contenteditable]").forEach((element) => element.removeAttribute("contenteditable"));
-          dragGhost.style.width = `${rect.width}px`;
+          dragGhost = createDragGhost(sourceDom);
           document.body.appendChild(dragGhost);
         }
       }
       if (dragGhost) {
         dragGhost.style.left = `${event.clientX - pointerStart.ghostOffsetX}px`;
-        dragGhost.style.top = `${event.clientY - pointerStart.ghostOffsetY}px`;
+        // Keep the dragged text clear of the insertion line under the pointer.
+        dragGhost.style.top = `${event.clientY + 12}px`;
       }
 
-      const coordinates = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
-      if (!coordinates) {
-        pointerTarget = null;
-        dropLine.hidden = true;
-        return;
-      }
       const sourceItem = listItemAt(editor.state, pointerStart.sourcePosition);
+      const coordinates = sourceItem ? null : editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
       const target = sourceItem
-        ? listItemAt(editor.state, coordinates.pos)
-        : topLevelBlockAt(editor.state, coordinates.pos);
+        ? listDropTarget(editor, sourceItem.parent, event.clientX, event.clientY)
+        : coordinates && topLevelBlockAt(editor.state, coordinates.pos);
       if (!target || target.from === pointerStart.sourcePosition) {
         pointerTarget = null;
         dropLine.hidden = true;

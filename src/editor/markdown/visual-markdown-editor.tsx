@@ -898,13 +898,10 @@ function proseMirrorPositionForSourceOffset(
 }
 
 /**
- * Large documents cannot afford the whole-document sentinel serialization
- * below on every caret move. When each rendered block maps exactly onto one
- * source range, serializing only the caret's top-level block recovers the
- * offset at a fraction of the cost. The intra-block position comes from the
- * serializer's canonical form of that one block, so inside an edited,
- * not-yet-published block it can drift by the serializer's normalization;
- * the offset is clamped into the block's source range either way.
+ * Resolve against the original block, not a reserialized whole document:
+ * unrelated tight block gaps can normalize without changing this selection.
+ * Only return an exact offset when the marked block round-trips losslessly;
+ * clamping a normalized offset could attach a comment to the wrong text.
  */
 function blockSourceOffsetForPosition(
   editor: Editor,
@@ -922,7 +919,10 @@ function blockSourceOffsetForPosition(
   // A caret between blocks, or on a non-text block (a horizontal rule, a
   // selected figure), has no character-precise source position to recover.
   if (resolved.depth === 0 || !resolved.parent.isTextblock) {
-    return { markdown: expectedMarkdown, offset: range.from };
+    return {
+      markdown: expectedMarkdown,
+      offset: at === doc.content.size ? expectedMarkdown.length : range.from,
+    };
   }
   try {
     const transaction = editor.state.tr;
@@ -938,11 +938,13 @@ function blockSourceOffsetForPosition(
       type: "doc",
       content: [marked.child(blockIndex).toJSON()],
     });
-    const index = serialized.indexOf(sentinel);
-    if (index < 0) return null;
+    const originalBlock = expectedMarkdown.slice(range.from, range.to);
+    const enveloped = preserveMarkdownEnvelope(serialized, originalBlock);
+    const index = enveloped.indexOf(sentinel);
+    if (index < 0 || enveloped.replace(sentinel, "") !== originalBlock) return null;
     return {
       markdown: expectedMarkdown,
-      offset: Math.min(range.from + index, range.to),
+      offset: range.from + index,
     };
   } catch {
     return null;
@@ -3764,15 +3766,20 @@ function CompleteVisualMarkdownEditor({
     if (!flushPendingLocalUpdate()) return;
     const { from, to, empty } = editor.state.selection;
     if (empty) return;
-    const mappedFrom = sourceOffsetForProseMirrorPosition(editor, from, acceptedMarkdown.current);
-    const mappedTo = sourceOffsetForProseMirrorPosition(editor, to, acceptedMarkdown.current);
+    const mappedFrom = blockSourceOffsetForPosition(editor, from, acceptedMarkdown.current)
+      ?? sourceOffsetForProseMirrorPosition(editor, from, acceptedMarkdown.current);
+    const mappedTo = blockSourceOffsetForPosition(editor, to, acceptedMarkdown.current)
+      ?? sourceOffsetForProseMirrorPosition(editor, to, acceptedMarkdown.current);
     if (
       !mappedFrom
       || !mappedTo
       || mappedFrom.markdown !== acceptedMarkdown.current
       || mappedTo.markdown !== acceptedMarkdown.current
       || mappedTo.offset <= mappedFrom.offset
-    ) return;
+    ) {
+      notifyError(t`Comment`, t`Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment.`);
+      return;
+    }
     const quote = acceptedMarkdown.current.slice(mappedFrom.offset, mappedTo.offset);
     if (!quote.trim()) return;
     const rect = posToDOMRect(editor.view, from, to);
@@ -3788,7 +3795,7 @@ function CompleteVisualMarkdownEditor({
       left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 328)),
       top: Math.min(window.innerHeight - 220, rect.bottom + 8),
     });
-  }, [activePath, editor, flushPendingLocalUpdate, onCreateComment]);
+  }, [activePath, editor, flushPendingLocalUpdate, onCreateComment, t]);
 
   if (!editor) return <div aria-label="Loading Markdown editor" />;
 

@@ -226,7 +226,7 @@
     },
     "extensions/list.ts": {
       "upstream": "984d84859aa24ec1b8cb61ec678155a5329591a5",
-      "vendored": "984d84859aa24ec1b8cb61ec678155a5329591a5"
+      "vendored": "4fd474e35973cc6e77899a959b9899bdfa41f3d0"
     },
     "extensions/marked-inline-leaf-schema.test.ts": {
       "upstream": "ed3b86690e1cdce93e50a225c1e4deaad8ec071f",

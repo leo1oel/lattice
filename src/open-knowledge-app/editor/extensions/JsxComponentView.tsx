@@ -604,9 +604,6 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   useEffect(() => {
     if (!needsConversion || convertedRef.current || stuck) return;
 
-    const p = typeof getPos === 'function' ? getPos() : undefined;
-    if (typeof p !== 'number') return;
-
     // A wildcard component has no editable visual body before this conversion,
     // so its parsed sourceRaw remains authoritative even if an autonomous
     // extension marked the temporary JSX node dirty while mounting it.
@@ -693,6 +690,13 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
         return;
       }
       try {
+        // Resolve the NodeView's mapped position only when the deferred action
+        // runs. An earlier fallback can be larger than its JSX node and shift
+        // adjacent NodeViews before their frame callbacks execute. Also require
+        // the node still to be value-equal: a reused NodeView may now point at
+        // edited or replacement content that this closure must not overwrite.
+        const p = typeof getPos === 'function' ? getPos() : undefined;
+        if (typeof p !== 'number' || !view.state.doc.nodeAt(p)?.eq(node)) return;
         view.dispatch(
           markAutonomousFragmentEdit(view.state.tr.replaceWith(p, p + node.nodeSize, fallbackNode)),
         );

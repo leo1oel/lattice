@@ -2244,6 +2244,49 @@ describe("VisualMarkdownEditor", () => {
     expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.");
   });
 
+  it.each([
+    { text: "## Intro\n\nA paragraph\n- one\n- two\n\nText", wholeDocument: false },
+    { text: "## Intro\r\n\r\nA paragraph\r\n- one\r\n- two\r\n\r\nText", wholeDocument: false },
+    { text: "## Intro\n\nA paragraph\n- one\n- two\n\nText", wholeDocument: true },
+  ])("anchors comments without normalizing tight Markdown blocks: %j", async ({ text, wholeDocument }) => {
+    const onCreateComment = vi.fn();
+    const onChangeMarkdown = vi.fn(() => true);
+    render(
+      <VisualMarkdownEditor
+        text={text}
+        activePath="notes.md"
+        onChangeMarkdown={onChangeMarkdown}
+        onUndo={() => false}
+        onRedo={() => false}
+        onCreateComment={onCreateComment}
+      />,
+    );
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    // The preceding heading occupies seven PM positions, independent of the
+    // source's newline convention. Source offsets must retain those bytes.
+    act(() => {
+      editor.view.focus();
+      editor.view.dispatch(editor.state.tr.setSelection(wholeDocument
+        ? new AllSelection(editor.state.doc)
+        : TextSelection.create(editor.state.doc, 8, 19)));
+    });
+    const button = await screen.findByRole("button", { name: "Comment" });
+    fireEvent.mouseDown(button);
+    fireEvent.mouseUp(button);
+    fireEvent.click(button);
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    const quote = wholeDocument ? text : "A paragraph";
+    expect(composer.querySelector(".editor-comment-quote")?.textContent).toBe(quote);
+    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), {
+      target: { value: "Clarify this paragraph." },
+    });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    const from = wholeDocument ? 0 : text.indexOf("A paragraph");
+    expect(onCreateComment).toHaveBeenCalledWith(from, from + quote.length, "Clarify this paragraph.");
+    expect(onChangeMarkdown).not.toHaveBeenCalled();
+  });
+
   it("keeps comments available while the visual document is read-only", async () => {
     render(
       <VisualMarkdownEditor
@@ -2422,6 +2465,61 @@ describe("VisualMarkdownEditor", () => {
       "Before\n\n- Bravo longer\n- Alpha\n\nAfter",
       "Before\n\n- Alpha\n- Bravo longer\n\nAfter",
     ));
+  });
+
+  it.each([false, true])("drops the first list item beyond the final text hitbox (ordered: %s)", async (ordered) => {
+    renderEditor(ordered
+      ? "Before\n\n7. Alpha\n8. Bravo longer\n9. Charlie\n\nAfter"
+      : "Before\n\n- Alpha\n- Bravo longer\n- Charlie\n\nAfter");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    await waitFor(() => expect(editor.isEditable).toBe(true));
+    const list = surface.querySelector("ol, ul")!;
+    const items = [...list.children] as HTMLElement[];
+    const paragraph = items[0].querySelector("p")!;
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 80, 400, 220));
+    vi.spyOn(surface.firstElementChild!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 80, 400, 28));
+    vi.spyOn(surface.lastElementChild!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 260, 400, 28));
+    vi.spyOn(list, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 120, 400, 84));
+    items.forEach((item, index) => {
+      vi.spyOn(item, "getBoundingClientRect").mockReturnValue(new DOMRect(140, 120 + index * 28, 360, 28));
+    });
+    vi.spyOn(paragraph, "getBoundingClientRect").mockReturnValue(new DOMRect(140, 120, 360, 28));
+    stubElementsFromPoint([paragraph, items[0], list, surface]);
+    fireEvent.mouseMove(paragraph, { clientX: 200, clientY: 130 });
+    const grip = await screen.findByRole("button", { name: "Select list item" });
+    const computedStyle = window.getComputedStyle.bind(window);
+    const styleSpy = vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = computedStyle(element);
+      if (element === paragraph) {
+        style.fontSize = "13px";
+        style.lineHeight = "21px";
+      }
+      return style;
+    });
+    // A real caret hit test returns no item at this gutter/bottom boundary.
+    vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
+    const pointer = (type: string, y: number) => fireEvent(grip, new MouseEvent(type, {
+      bubbles: true, button: 0, clientX: 80, clientY: y,
+    }));
+    pointer("pointerdown", 130);
+    pointer("pointermove", 208);
+    styleSpy.mockRestore();
+    const ghost = document.querySelector<HTMLElement>(".visual-block-drag-ghost")!;
+    expect(ghost.querySelector("p")?.style.fontSize).toBe("13px");
+    expect(ghost.querySelector("p")?.style.lineHeight).toBe("21px");
+    expect(document.querySelector<HTMLElement>(".visual-block-drop-line")?.hidden).toBe(false);
+    // The small end gap is valid; the following prose is not a list drop zone.
+    pointer("pointermove", 270);
+    expect(document.querySelector<HTMLElement>(".visual-block-drop-line")?.hidden).toBe(true);
+    pointer("pointermove", 208);
+    pointer("pointerup", 208);
+    expect([...surface.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
+      "Bravo longer", "Charlie", "Alpha",
+    ]);
+    expect(surface.firstElementChild?.textContent).toBe("Before");
+    expect(surface.lastElementChild?.textContent).toBe("After");
+    expect(document.querySelector(".visual-block-drag-ghost")).toBeNull();
   });
 
   it.each(["ltr", "rtl"])("keeps the list-item grip reachable across its marker gutter (%s)", async (direction) => {

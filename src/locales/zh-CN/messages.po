@@ -861,6 +861,10 @@ msgstr "已考虑候选记录，但未经验证"
 msgid "Candidate record considered, not verified · cached record"
 msgstr "已考虑候选记录，但未经验证 · 缓存记录"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
+msgstr "无法在 Markdown 源码中精确定位所选内容。请切换到源码视图添加批注。"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
 msgstr "大写德尔塔"

@@ -861,6 +861,10 @@ msgstr "Candidate record considered, not verified"
 msgid "Candidate record considered, not verified · cached record"
 msgstr "Candidate record considered, not verified · cached record"
 
+#: src/editor/markdown/visual-markdown-editor.tsx
+msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
+msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Capital delta"
 msgstr "Capital delta"

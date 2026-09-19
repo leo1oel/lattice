@@ -135,6 +135,67 @@ function toggleListKind(
   return result;
 }
 
+function isCheckedMarker(marker: string | undefined): boolean {
+  return marker === 'x' || marker === 'X';
+}
+
+function uppercaseMarker(marker: string | undefined): 'X' | null {
+  return marker === 'X' ? 'X' : null;
+}
+
+/**
+ * Convert a checkbox marker in either context produced by text input. A bare
+ * marker wraps a paragraph; after `- ` has already triggered the bullet rule,
+ * the marker instead updates that existing item's attrs to avoid nesting.
+ */
+function applyTaskItemRule(
+  state: EditorState,
+  range: { from: number; to: number },
+  checked: boolean,
+  checkboxChar: 'X' | null,
+): boolean {
+  const listType = state.schema.nodes.list;
+  if (!listType) return false;
+
+  const $from = state.doc.resolve(range.from);
+  const itemDepth = $from.depth - 1;
+  if (
+    itemDepth > 0 &&
+    $from.node(itemDepth).type.name === 'listItem' &&
+    $from.index(itemDepth) === 0
+  ) {
+    const item = $from.node(itemDepth);
+    state.tr.delete(range.from, range.to).setNodeMarkup($from.before(itemDepth), undefined, {
+      ...item.attrs,
+      checked,
+      sourceCheckboxChar: checkboxChar,
+    });
+    return true;
+  }
+
+  const blockRange = $from.blockRange();
+  if (!blockRange) return false;
+  const wrapping = findWrapping(blockRange, listType, { ordered: false });
+  if (!wrapping) return false;
+
+  const tr = state.tr;
+  tr.wrap(blockRange, wrapping);
+  tr.delete(tr.mapping.map(range.from), tr.mapping.map(range.to));
+  const $item = tr.doc.resolve(tr.mapping.map(range.from));
+  for (let depth = $item.depth; depth > 0; depth--) {
+    const node = $item.node(depth);
+    if (node.type.name === 'listItem') {
+      tr.setNodeMarkup($item.before(depth), undefined, {
+        ...node.attrs,
+        checked,
+        sourceCheckboxChar: checkboxChar,
+      });
+      break;
+    }
+  }
+  return true;
+}
+
 // ────────────────────────── List Node ──────────────────────────
 
 export const ListNode = Node.create({
@@ -261,38 +322,25 @@ export const ListNode = Node.create({
         }),
         joinPredicate: (_match, node) => node.attrs.ordered === true,
       }),
-      // Task list: - [ ] or - [x]
+      // Task list with its list marker still attached. This route handles a
+      // whole marker delivered in one text-input event (for example an IME).
       new InputRule({
-        find: /^\s*[-*+]\s\[([ xX])\]\s$/,
-        handler: ({ state, range, match }) => {
-          const listType = state.schema.nodes.list;
-          if (!listType) return null;
-
-          const checked = match[1] !== ' ';
-          const tr = state.tr.delete(range.from, range.to);
-
-          const $start = tr.doc.resolve(range.from);
-          const blockRange = $start.blockRange();
-          if (!blockRange) return null;
-
-          const wrapping = findWrapping(blockRange, listType, { ordered: false });
-          if (!wrapping) return null;
-
-          tr.wrap(blockRange, wrapping);
-
-          // Find the newly created listItem and set checked
-          const $newPos = tr.doc.resolve(tr.mapping.map(range.from));
-          for (let d = $newPos.depth; d > 0; d--) {
-            const parentNode = $newPos.node(d);
-            if (parentNode.type.name === 'listItem') {
-              tr.setNodeMarkup($newPos.before(d), undefined, {
-                ...parentNode.attrs,
-                checked,
-              });
-              break;
-            }
-          }
-        },
+        find: /^\s*[-*+]\s\[([ xX]?)\]\s$/,
+        handler: ({ state, range, match }) =>
+          applyTaskItemRule(state, range, isCheckedMarker(match[1]), uppercaseMarker(match[1]))
+            ? undefined
+            : null,
+      }),
+      // Adapted from TipTap's TaskItem input rule for this unified
+      // list/listItem schema. It also handles character-by-character `- [ ] `:
+      // by this point the bullet rule has consumed `- `, leaving `[ ] ` in the
+      // first paragraph of the existing item.
+      new InputRule({
+        find: /^\s*\[([ xX]?)\]\s$/,
+        handler: ({ state, range, match }) =>
+          applyTaskItemRule(state, range, isCheckedMarker(match[1]), uppercaseMarker(match[1]))
+            ? undefined
+            : null,
       }),
     ];
   },
