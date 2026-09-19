@@ -3220,7 +3220,8 @@ describe("project workspace", () => {
   });
 
   it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
-    await import("./app/app-agent-panel");
+    // Keep both lazy surfaces' cold transforms outside DOM query deadlines.
+    await Promise.all([import("./app/app-agent-panel"), import("./settings/settings-dialog")]);
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -3268,9 +3269,9 @@ describe("project workspace", () => {
 
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), { button: 0 });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Providers" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Providers" }));
     const settings = screen.getByRole("dialog", { name: "Settings" });
-    expect(within(settings).getByRole("alert")).toHaveTextContent("Agent unavailable");
+    expect(await within(settings).findByRole("alert")).toHaveTextContent("Agent unavailable");
     expect(within(settings).queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });
