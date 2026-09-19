@@ -52,6 +52,7 @@ msgid "(empty span)"
 msgstr "（空选区）"
 
 #: src/canvas/document-canvas.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "(no comment text)"
 msgstr "（无评论内容）"
 
@@ -327,6 +328,7 @@ msgstr "添加第一篇论文"
 msgid "added"
 msgstr "已添加"
 
+#: src/app/app-agent-panel.tsx
 #: src/app/app-workspace-sidebar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
@@ -1235,6 +1237,10 @@ msgstr "评论"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Comment by {author}"
 msgstr "{author} 的评论"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Comment source"
+msgstr "评论来源"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -2296,14 +2302,6 @@ msgstr "Git 状态与提交"
 msgid "Git workspace"
 msgstr "Git 工作区"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Go back (⌘[)"
-msgstr "后退 (⌘[)"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Go forward (⌘])"
-msgstr "前进 (⌘])"
-
 #: src/canvas/document-canvas.tsx
 msgid "Go to {title}"
 msgstr "前往 {title}"
@@ -2411,6 +2409,10 @@ msgstr "健康状态检查时间"
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "红桃"
+
+#: src/app/app-agent-panel.tsx
+msgid "Hide assistant"
+msgstr "收起智能助手"
 
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
@@ -3206,6 +3208,10 @@ msgstr "正在加载你的 Overleaf 项目…"
 msgid "Loading…"
 msgstr "正在加载…"
 
+#: src/overleaf/overleaf-collab.tsx
+msgid "Local comments"
+msgstr "本地评论"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
 msgstr "本地检查发现的问题"
@@ -3369,6 +3375,10 @@ msgstr "满足 / 蕴涵"
 #: src/history/versions-timeline.tsx
 msgid "modified"
 msgstr "已修改"
+
+#: src/app/app-agent-panel.tsx
+msgid "Move assistant to sidebar"
+msgstr "将智能助手移到侧栏"
 
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
@@ -4625,6 +4635,7 @@ msgstr "正在渲染首页…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "重新打开"
@@ -4643,6 +4654,7 @@ msgstr "替代版本/新版本"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
@@ -4695,6 +4707,10 @@ msgstr "调整双源文件窗格大小"
 msgid "Resize editor and asset preview"
 msgstr "调整编辑器与资源预览大小"
 
+#: src/app/app-agent-panel.tsx
+msgid "Resize editor and assistant"
+msgstr "调整编辑器与智能助手的高度"
+
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and HTML preview"
 msgstr "调整编辑器与 HTML 预览大小"
@@ -4722,6 +4738,7 @@ msgstr "解析"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Resolve comment"
 msgstr "解决评论"
 
@@ -5798,6 +5815,10 @@ msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 msgid "There exists"
 msgstr "存在"
 
+#: src/overleaf/overleaf-collab.tsx
+msgid "These comments stay in Lattice and are not sent to Overleaf."
+msgstr "这些评论保留在 Lattice 中，不会发送到 Overleaf。"
+
 #: src/settings/settings-dialog.tsx
 msgid "These preferences apply across every project on this Mac"
 msgstr "这些偏好设置会应用于这台 Mac 上的所有项目"
@@ -5944,6 +5965,10 @@ msgstr "待办"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Toggle"
 msgstr "折叠块"
+
+#: src/app/app-titlebar.tsx
+msgid "Toggle assistant"
+msgstr "展开或收起智能助手"
 
 #: src/settings/settings-dialog.tsx
 msgid "Toolchain status"

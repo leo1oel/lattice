@@ -9,8 +9,6 @@ import {
   MessagesSquare,
   Omega,
   PanelRightClose,
-  Redo2,
-  Undo2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -77,10 +75,6 @@ type CanvasToolbarProps = {
   activeKind: "document" | "paper" | "asset";
   canInsert: boolean;
   dirty: boolean;
-  canNavigateBack: boolean;
-  canNavigateForward: boolean;
-  onNavigateBack: () => void;
-  onNavigateForward: () => void;
   onInsert: () => void;
   onCollab: () => void;
   collabLive: boolean;
@@ -188,20 +182,6 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
       </div>
       <div className="canvas-actions" data-tour="workspace-actions">
-        {props.activeKind === "document" && (
-          <>
-            <Tip label={t`Go back (⌘[)`}>
-              <button type="button" disabled={!props.canNavigateBack} onClick={props.onNavigateBack}>
-                <Undo2 size={14} />
-              </button>
-            </Tip>
-            <Tip label={t`Go forward (⌘])`}>
-              <button type="button" disabled={!props.canNavigateForward} onClick={props.onNavigateForward}>
-                <Redo2 size={14} />
-              </button>
-            </Tip>
-          </>
-        )}
         {props.onSplit && (
           <Tip label={t`Split editor right`}>
             <button type="button" onClick={props.onSplit}>
@@ -223,7 +203,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 <Omega size={14} />
               </button>
             </Tip>}
-            <Tip label={t`Editor comments`}>
+            {!props.overleafLinked && <Tip label={t`Editor comments`}>
               <button
                 type="button"
                 className={props.commentCount ? "active" : ""}
@@ -232,7 +212,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </button>
-            </Tip>
+            </Tip>}
             {isCollabEnabled() && <Tip label={props.collabLive
               ? (props.collabPeers > 0
                 ? props.collabPeers === 1
@@ -385,8 +365,6 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     onSplit: () => latest.current.onSplit?.(),
     onCloseSplit: () => latest.current.onCloseSplit?.(),
     onPaperView: (view: "blog" | "fulltext") => latest.current.onPaperView?.(view),
-    onNavigateBack: () => latest.current.onNavigateBack(),
-    onNavigateForward: () => latest.current.onNavigateForward(),
     onInsert: () => latest.current.onInsert(),
     onCollab: () => latest.current.onCollab(),
     onHistory: () => latest.current.onHistory(),
@@ -404,8 +382,6 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       onSplit={props.onSplit ? stable.onSplit : undefined}
       onCloseSplit={props.onCloseSplit ? stable.onCloseSplit : undefined}
       onPaperView={props.onPaperView ? stable.onPaperView : undefined}
-      onNavigateBack={stable.onNavigateBack}
-      onNavigateForward={stable.onNavigateForward}
       onInsert={stable.onInsert}
       onCollab={stable.onCollab}
       onHistory={stable.onHistory}

@@ -1,8 +1,10 @@
 @media (max-width: 1180px) {
   /* The resizer owns this property inline, so the narrow layout has to force it. */
-  .split-canvas { grid-template-columns: 1fr !important; }
-  .split-canvas .split-resizer { display: none; }
-  .split-canvas .pdf-preview { display: none; }
+  /* A docked assistant is explicitly a two-column writing layout: preserve
+     its PDF column instead of applying the legacy single-column fallback. */
+  .split-canvas:not(:has(.agent-dock-host)) { grid-template-columns: 1fr !important; }
+  .split-canvas:not(:has(.agent-dock-host)) .split-resizer { display: none; }
+  .split-canvas:not(:has(.agent-dock-host)) .pdf-preview { display: none; }
 }
 
 @media (max-width: 680px) {

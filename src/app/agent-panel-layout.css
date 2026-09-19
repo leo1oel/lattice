@@ -1,0 +1,8 @@
+.agent-dock-host { --agent-dock-height: 0px; box-sizing: border-box; padding-bottom: var(--agent-dock-height); }
+.agent-panel-surface { position: fixed; z-index: 3; visibility: hidden; display: flex; flex-direction: column; min-height: 0; background: var(--surface-sidebar); }
+.agent-panel-surface > .synara-frame-shell { flex: 1; min-height: 0; height: 0; }
+.agent-dock-header { flex: none; display: flex; align-items: center; gap: var(--space-3); height: var(--navigation-header-height); padding: 0 var(--space-4); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--type-caption-size); }
+.agent-dock-header > span { flex: 1; }
+.agent-dock-resizer { position: absolute; top: -3px; left: 0; right: 0; height: 7px; z-index: 1; cursor: row-resize; touch-action: none; }
+.agent-dock-resizer:focus-visible, .agent-dock-resizer:hover { background: var(--control-active-soft); outline: 1px solid var(--border-strong); }
+.title-actions .icon-button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--text-primary); }

@@ -16,6 +16,7 @@ import {
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
+  Bot,
   Check,
   ChevronDown,
   PanelLeftClose,
@@ -44,6 +45,8 @@ import type {
 } from "../app-types";
 
 export type AppTitlebarProps = {
+  agentOpen?: boolean;
+  onToggleAgent?: () => void;
   abortBuild: () => Promise<void>;
   activeTabKey: string;
   build: BuildResult | null;
@@ -175,6 +178,13 @@ export function AppTitlebar(props: AppTitlebarProps) {
         />
         {canvasToolbar}
         <div className="title-actions">
+          <Tip label={t`Toggle assistant`}>
+            <button
+              className="icon-button"
+              aria-pressed={props.agentOpen ?? false}
+              onClick={props.onToggleAgent}
+            ><Bot size={16} /></button>
+          </Tip>
           <Tip label={building ? t`Stop the current LaTeX build` : buildPreferences.autoBuildMode === "automatic"
             ? t`Build automatically · Command-S builds now. Shift-click for clean rebuild`
             : t`Build only when requested · Command-S builds now. Shift-click for clean rebuild`}

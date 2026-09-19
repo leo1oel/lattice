@@ -126,6 +126,7 @@
    * The easing names hold today's values exactly, which makes them a single
    * place to upgrade a curve later instead of 60 places.
    */
+  --duration-exit: 80ms; /* Hover actions retire before the next row settles. */
   --duration-quick: 120ms; /* Color and opacity on hover or state change. */
   --duration-base: 160ms; /* Size, position, and anything that travels. */
   --duration-reveal: 200ms; /* Something entering or leaving the screen. */

@@ -1,9 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 
-function drawer(tab: OverleafCollabTab) {
+function drawer(tab: OverleafCollabTab, overrides: Partial<Parameters<typeof OverleafCollabDrawer>[0]> = {}) {
   return (
     <OverleafCollabDrawer
       tab={tab}
@@ -37,12 +37,43 @@ function drawer(tab: OverleafCollabTab) {
       changesError={null}
       onAcceptChanges={vi.fn().mockResolvedValue(undefined)}
       onRejectChanges={vi.fn().mockResolvedValue(undefined)}
+      {...overrides}
     />
   );
 }
 
 describe("Overleaf collaboration drawer localization", () => {
   afterEach(cleanup);
+
+  it("counts both sources and keeps local history accessible even without open local comments", async () => {
+    await activateAppLocale("en");
+    const props = {
+      threads: [{ id: "remote", messages: [], resolved: false, resolvedBy: null, resolvedAt: null }],
+      hasLocalComments: true,
+      localCommentCount: 2,
+      localComments: <div>Unsynced file discussion</div>,
+    };
+    const { rerender } = render(drawer("comments", props));
+    expect(screen.getByRole("tab", { name: "Comments3" })).toBeInTheDocument();
+    expect(screen.queryByText("Unsynced file discussion")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Local comments2" }));
+    expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
+    expect(screen.getByText("These comments stay in Lattice and are not sent to Overleaf.")).toBeInTheDocument();
+    rerender(drawer("comments", { ...props, localCommentCount: 0 }));
+    expect(screen.getByRole("tab", { name: "Local comments" })).toBeInTheDocument();
+    expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
+  });
+
+  it("opens local inline replies in the local view", async () => {
+    await activateAppLocale("en");
+    render(drawer("comments", {
+      hasLocalComments: true,
+      focusLocalComments: true,
+      localComments: <div>Local reply editor</div>,
+    }));
+    expect(screen.getByRole("tab", { name: "Local comments" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Local reply editor")).toBeInTheDocument();
+  });
 
   it("renders the drawer and all three surfaces in Simplified Chinese", async () => {
     await activateAppLocale("zh-CN");

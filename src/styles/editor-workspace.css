@@ -245,12 +245,12 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 .editor-comment-popover-actions button.primary:disabled { opacity: .45; }
 .editor-comments-drawer { width: min(420px, 100%); }
-.editor-comments-drawer .pdf-marks-toolbar {
+.editor-comments-content .pdf-marks-toolbar {
   gap: var(--drawer-section-gap);
   margin-top: var(--drawer-content-inset);
   margin-bottom: var(--drawer-section-gap);
 }
-.editor-comments-drawer .ui-empty-state[data-density="compact"] {
+.editor-comments-content .ui-empty-state[data-density="compact"] {
   padding-top: 0;
 }
 .pdf-mark-item.resolved { opacity: .72; }
@@ -343,6 +343,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   color: var(--text-primary);
   font-size: var(--type-label-size);
   line-height: 1.45;
+}
+.visual-editor-comment-tooltip {
+  position: fixed;
+  z-index: var(--z-editor-popover);
+  max-width: min(320px, calc(100vw - var(--space-8)));
+  max-height: calc(100vh - var(--space-8));
+  overflow: auto;
 }
 .cm-editor-comment-tooltip-item { display: flex; flex-direction: column; gap: var(--gap-tight); }
 .cm-editor-comment-tooltip-item + .cm-editor-comment-tooltip-item {
@@ -914,6 +921,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-editor-comment-active { background-color: color-mix(in srgb, var(--visual-comment-color) 28%, transparent); }
 .visual-editor-comment:focus-visible { outline: 2px solid var(--visual-comment-color); outline-offset: 2px; }
 
+.editor-comment-draft {
+  background-color: var(--control-active-soft);
+  border-bottom: 2px solid var(--control-active);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .visual-tracked-change { cursor: pointer; background: var(--visual-change-tint); }
 .visual-tracked-change-insert { border-bottom: 2px solid var(--visual-change-color); }
 .visual-tracked-change-delete { text-decoration: line-through 2px var(--visual-change-color); }
@@ -1237,6 +1252,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-link-insert-popover input:focus-visible {
   border-color: var(--control-active-border-strong);
   box-shadow: 0 0 0 2px var(--control-active-soft);
+}
+
+.visual-link-insert-popover[data-citation] {
+  flex-wrap: wrap;
+}
+
+.visual-link-insert-popover[data-citation] input:first-child {
+  flex-basis: 100%;
 }
 
 .visual-link-insert-popover button {

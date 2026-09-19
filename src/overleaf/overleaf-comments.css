@@ -153,6 +153,12 @@
   overflow: hidden;
 }
 .overleaf-collab-tabs { flex: none; margin: var(--drawer-section-gap) 0 0; }
+.overleaf-local-comments-note {
+  flex: none;
+  margin: var(--drawer-section-gap) 0;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+}
 .overleaf-collab-tabs em {
   font-style: normal;
   font-size: var(--type-nano-size);

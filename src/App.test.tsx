@@ -34,6 +34,11 @@ import "./editor/markdown/visual-markdown-editor";
 // File-tree assertions likewise need the real lazy navigator's cold transform
 // outside their interaction deadlines when these tests run in isolation.
 import "./project/navigator";
+// The comment-routing regression uses these real lazy surfaces; transform
+// them before its interaction deadline, too.
+import "./canvas/document-canvas";
+import "./overleaf/overleaf-collab";
+import "./editor/comments/editor-comments-panel";
 import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
@@ -1851,6 +1856,51 @@ describe("project workspace", () => {
     )).toHaveTextContent("# Right preview edit");
   });
 
+  it.each(["left.md", "right.md"])("restores both split files when returning through %s", { timeout: 30_000 }, async (returnPath) => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "left.md", name: "Notes", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: ["left.md", "right.md", "references.bib"].map((path) => ({
+        name: path, path, kind: path.endsWith(".md") ? "markdown" : "bib", children: [],
+      })),
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md", "references.bib"],
+      activeFile: "left.md", activeTab: "left.md", secondaryFile: "right.md",
+      focusedPane: "primary", canvasMode: "dual", documentMode: "dual",
+      paperView: "blog", tabRecency: ["left.md", "right.md", "references.bib"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
+      if (command === "write_project_file") return undefined;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), { timeout: 20_000 });
+    fireEvent.click(screen.getByRole("tab", { name: /references\.bib/ }));
+    await waitFor(() => {
+      expect(document.querySelector(".dual-canvas")).toBeNull();
+      expect(document.querySelector(".source-editor .cm-content")).toHaveTextContent("# references.bib");
+    });
+    fireEvent.click(screen.getByRole("tab", { name: new RegExp(returnPath.replace(".", "\\.")) }));
+    await waitFor(() => {
+      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+        .toHaveTextContent("# left.md");
+      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+        .toHaveTextContent("# right.md");
+    });
+    expect(screen.queryByRole("textbox", { name: "Markdown document editor" })).toBeNull();
+    expect(screen.getByRole("tab", { name: new RegExp(returnPath.replace(".", "\\.")) }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+
   it("closes a two-file split while keeping the focused file open", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -3215,6 +3265,51 @@ describe("project workspace", () => {
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });
 
+  it("opens the assistant below the editor without reopening the sidebar or replacing its frame", async () => {
+    // Keep cold module compilation outside the DOM query timeout.
+    await import("./app/app-agent-panel");
+    const snapshot = {
+      root: "/tmp/agent-dock",
+      manifest: { schemaVersion: 1, projectId: "dock", name: "Dock test", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    localStorage.setItem("lattice.sidebar-open.v1", "0");
+    renderApp();
+    const toggle = await screen.findByRole("button", { name: "Toggle assistant" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
+    fireEvent.click(toggle);
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const context = frame.contentWindow;
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector(".workspace")).toHaveClass("sidebar-hidden");
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
+    expect(document.querySelector(".agent-dock-header")).not.toBeNull();
+    fireEvent.click(toggle);
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("inert");
+    fireEvent.click(toggle);
+    // Reopening the file navigator leaves the dock where it was.
+    fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+    expect(document.querySelector(".agent-dock-header")).not.toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Agent" }));
+    expect(document.querySelector(".agent-dock-header")).toBeNull();
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
+    expect(frame.contentWindow).toBe(context);
+    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(document.querySelector(".agent-dock-header")).toBeNull();
+  });
+
   it.each([true, false])("restores the Agent selection and sidebar visibility (open: %s)", async (open) => {
     // Finish cold compilation before DOM waits and unmount/remount assertions.
     await Promise.all([import("./settings/settings-dialog"), import("./canvas/document-canvas")]);
@@ -4065,7 +4160,7 @@ describe("project workspace", () => {
     fireEvent.pointerUp(window);
     expect(screen.queryByRole("separator", { name: "Resize workspace sidebar" })).toBeNull();
     expect(document.querySelector('iframe[title="Agent"]')).toBe(agentFrame);
-    expect(agentFrame.closest(".shared-sidebar")).toHaveAttribute("inert");
+    expect(agentFrame.closest(".agent-panel-surface")).toHaveAttribute("inert");
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     expect(screen.getByRole("separator", { name: "Resize workspace sidebar" })).toBe(divider);
     expect(divider).toHaveAttribute("aria-valuenow", "240");
@@ -5399,6 +5494,73 @@ describe("project workspace", () => {
     const paperEditor = await screen.findByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(paperEditor).toHaveAttribute("contenteditable", "true"));
     expect(document.querySelector(".ok-block-controls")).not.toBeNull();
+  });
+
+  it("routes toolbar and status comments to one Overleaf drawer while preserving local history", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
+    const snapshot = {
+      root: "/tmp/unified-comments",
+      manifest: {
+        schemaVersion: 1, projectId: "unified-comments", name: "Review paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const comments = [false, true].map((resolved, index) => ({
+      id: `local-${index}`, path: index ? "unsynced.tex" : "main.tex", from: 0, to: 5,
+      quote: "alpha", prefix: "", suffix: " beta", body: index ? "Local history" : "Local review",
+      authorId: "reviewer", authorName: "Reviewer", resolved, replies: [],
+      createdAt: "2026-09-18T00:00:00Z", updatedAt: "2026-09-18T00:00:00Z",
+    }));
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "alpha beta";
+      if (command === "list_editor_comments") return comments;
+      if (command === "save_editor_comments") return undefined;
+      if (command === "overleaf_link") return {
+        projectId: "remote-project", projectName: "Review paper", host: "https://www.overleaf.com", lastSync: null, paused: false,
+      };
+      if (command === "overleaf_threads") return [{
+        id: "remote-thread", resolved: false, resolvedBy: null, resolvedAt: null,
+        messages: [{ id: "message", content: "Remote review", authorName: "Collaborator", authorEmail: "", timestamp: Date.now(), mine: false }],
+      }];
+      if (["list_papers", "list_history", "overleaf_chat_messages", "overleaf_comment_anchors", "overleaf_change_authors", "overleaf_rt_connected_users"].includes(command)) return [];
+      if (command === "overleaf_probe") return { changed: false, localChanged: false, versionKnown: true, remoteVersion: 1, lastSync: null };
+      if (command === "overleaf_status") return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat · 2 waiting" });
+    expect(document.querySelector('.canvas-toolbar button[aria-label="Editor comments"]')).toBeNull();
+    fireEvent.click(toolbar);
+    expect(await screen.findByText("Remote review")).toBeInTheDocument();
+    expect(document.querySelectorAll(".overleaf-collab-drawer")).toHaveLength(1);
+    expect(document.querySelector(".editor-comments-drawer")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: /Local comments/ }));
+    expect(await screen.findByText("Local review")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Include resolved" }));
+    expect(screen.getByText("Local history")).toBeInTheDocument();
+    expect(screen.getByText("unsynced.tex")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /main.tex alpha Local review/ }));
+    await waitFor(() => expect(document.querySelector(".overleaf-collab-drawer")).toBeNull());
+    fireEvent.click(document.querySelector<HTMLButtonElement>(".status-comments")!);
+    expect(await screen.findByText("Remote review")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
+    expect(document.querySelector(".editor-comments-drawer")).toBeNull();
+    expect(invoke).not.toHaveBeenCalledWith("save_editor_comments", expect.anything());
+    fireEvent.click(screen.getByRole("tab", { name: /Local comments/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reply" }));
+    fireEvent.change(screen.getByPlaceholderText("Reply to Reviewer"), { target: { value: "Local-only reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("save_editor_comments", {
+      comments: [
+        expect.objectContaining({ id: "local-0", replies: [expect.objectContaining({ body: "Local-only reply" })] }),
+        comments[1],
+      ],
+    }));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_reply_to_thread", expect.anything());
   });
 
   it("opens the linked project on its Overleaf host and keeps the project picker available", async () => {

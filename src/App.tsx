@@ -1273,7 +1273,8 @@ function App() {
   editorCommentsRef.current = editorComments;
   const [editorCommentsOpen, setEditorCommentsOpen] = useState(false);
   const [activeEditorCommentId, setActiveEditorCommentId] = useState<string | null>(null);
-  const [commentPanelFocusId, setCommentPanelFocusId] = useState<string | null>(null);
+  const [commentPanelFocus, setCommentPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
+  const commentPanelFocusId = commentPanelFocus && commentPanelFocus.projectRoot === project?.root ? commentPanelFocus.id : null;
   const [commentFocusRequest, setCommentFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
   const commentOpenGenerationRef = useRef(0);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
@@ -1400,6 +1401,32 @@ function App() {
     primaryPath: string;
     splitPath: string;
   } | null>(null);
+  // A standalone file (for example the bibliography) can hide a two-file
+  // layout. Remember its ownership so either member restores the same pair,
+  // rather than loading the right-hand file into both panes.
+  const textSplitRef = useRef<{
+    projectRoot: string;
+    primaryPath: string;
+    secondaryPath: string;
+    mode: "dual" | "columns";
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (
+      !secondaryFile
+      || textSplitRef.current?.projectRoot !== project?.root
+      || !openTabs.includes(textSplitRef.current?.primaryPath ?? "")
+    ) textSplitRef.current = null;
+    if (
+      project && !activePaper && !activeAsset && !secondaryAsset
+      && activeFile && secondaryFile && activeFile !== secondaryFile
+      && (canvasMode === "dual" || canvasMode === "columns")
+    ) {
+      textSplitRef.current = {
+        projectRoot: project.root, primaryPath: activeFile,
+        secondaryPath: secondaryFile, mode: canvasMode,
+      };
+    }
+  }, [activeAsset, activeFile, activePaper, canvasMode, openTabs, project, secondaryAsset, secondaryFile]);
   activeFileRef.current = activeFile;
   secondaryFileRef.current = secondaryFile;
   activeAssetRef.current = activeAsset;
@@ -1511,6 +1538,7 @@ function App() {
     nudgeSidebar,
     fitSidebarToContent,
   } = usePanelLayout(synaraMinimumSidebarWidth);
+  const [agentDocked, setAgentDocked] = useState(false);
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
@@ -1613,8 +1641,9 @@ function App() {
   });
   const [synaraFrameMounted, setSynaraFrameMounted] = useState(false);
   const [readySynaraFrameKey, setReadySynaraFrameKey] = useState<string | null>(null);
+  const agentVisible = agentDocked || (sidebarOpen && sidebarMode === "agent");
   useEffect(() => {
-    if (!project || !sidebarOpen || sidebarMode !== "agent") return;
+    if (!project || !agentVisible) return;
     // Keep the cross-origin iframe out of the initial WebKit root render,
     // without requiring a click to restore the user's last workspace.
     const frame = window.requestAnimationFrame(() => {
@@ -1622,7 +1651,7 @@ function App() {
       setSynaraFrameMounted(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [project, sidebarOpen, sidebarMode]);
+  }, [project, agentVisible]);
   const synaraFrameKey = synaraOrigin && project
     ? `${synaraOrigin}\0${project.root}`
     : null;
@@ -1707,8 +1736,7 @@ function App() {
     && project?.root
     && synaraOrigin
     && synaraFrameMounted
-    && sidebarOpen
-    && sidebarMode === "agent",
+    && agentVisible,
   );
   const directAgentSelectionImage = useMemo<(
     AgentHostSelectionImage & { source: AgentHostSurface }
@@ -1872,8 +1900,7 @@ function App() {
       !synaraOrigin ||
       !synaraFrameMounted ||
       !synaraFrameReady ||
-      !sidebarOpen ||
-      sidebarMode !== "agent"
+      !agentVisible
     ) return;
     const frame = window.requestAnimationFrame(() => {
       postSynaraMessage(agentHostContext);
@@ -1882,8 +1909,7 @@ function App() {
   }, [
     agentHostContext,
     postSynaraMessage,
-    sidebarMode,
-    sidebarOpen,
+    agentVisible,
     synaraFrameMounted,
     synaraFrameReady,
     synaraOrigin,
@@ -1894,8 +1920,7 @@ function App() {
       !synaraOrigin ||
       !synaraFrameMounted ||
       !synaraFrameReady ||
-      !sidebarOpen ||
-      sidebarMode !== "agent"
+      !agentVisible
     ) return;
     const frame = window.requestAnimationFrame(() => {
       postSynaraMessage(agentPaperLibrary);
@@ -1904,8 +1929,7 @@ function App() {
   }, [
     agentPaperLibrary,
     postSynaraMessage,
-    sidebarMode,
-    sidebarOpen,
+    agentVisible,
     synaraFrameMounted,
     synaraFrameReady,
     synaraOrigin,
@@ -1915,6 +1939,7 @@ function App() {
   }, [postSynaraMessage]);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
     if (mode === "agent") {
+      setAgentDocked(false);
       setSynaraRuntimeRequested(true);
       setSynaraFrameMounted(true);
       if (synaraFrameReady) {
@@ -1930,6 +1955,18 @@ function App() {
       setTutorialStep(TUTORIAL_STEPS.papers);
     } else if (tutorialActive && tutorialStep === TUTORIAL_STEPS.openAgent && mode === "agent") {
       setTutorialStep(TUTORIAL_STEPS.agent);
+    }
+  };
+  const toggleAgent = () => {
+    if (agentDocked) {
+      setAgentDocked(false);
+    } else if (sidebarOpen) {
+      if (sidebarMode === "agent") setSidebarMode("project");
+      else chooseSidebarMode("agent");
+    } else {
+      if (sidebarMode === "agent") setSidebarMode("project");
+      setAgentDocked(true);
+      if (synaraFrameReady) postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
     }
   };
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1957,7 +1994,7 @@ function App() {
         if (hostContext) postSynaraMessage(hostContext);
         const paperLibrary = latestAgentPaperLibraryRef.current;
         if (paperLibrary) postSynaraMessage(paperLibrary);
-        if (sidebarMode === "agent") {
+        if (agentVisible) {
           postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
         }
         return;
@@ -2168,7 +2205,7 @@ function App() {
     };
     window.addEventListener("message", receiveSynaraMessage);
     return () => window.removeEventListener("message", receiveSynaraMessage);
-  }, [postSynaraMessage, selection, sidebarMode, synaraFrameKey, synaraOrigin]);
+  }, [postSynaraMessage, selection, agentVisible, synaraFrameKey, synaraOrigin]);
   useEffect(() => {
     if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -3320,6 +3357,23 @@ function App() {
     },
   ) => {
     cancelPreviewPrewarm();
+    const rememberedSplit = textSplitRef.current;
+    const restoreSplit = targetPane === undefined
+      && canvasMode !== "dual" && canvasMode !== "columns"
+      && rememberedSplit?.projectRoot === project?.root
+      && rememberedSplit?.secondaryPath === secondaryFile
+      && (path === rememberedSplit?.primaryPath || path === rememberedSplit?.secondaryPath)
+      ? rememberedSplit
+      : null;
+    const restoreSecondary = restoreSplit?.secondaryPath === path;
+    const navigationPath = path;
+    if (restoreSplit) path = restoreSplit.primaryPath;
+    const restoreSplitLayout = () => {
+      if (!restoreSplit) return;
+      documentModeRef.current = restoreSplit.mode;
+      setCanvasMode(restoreSplit.mode);
+      setFocusedPane(restoreSecondary ? "secondary" : "primary");
+    };
     const keepDocumentMode = (mode: CanvasMode): CanvasMode => (
       mode === "pdf" || mode === "asset" ? "split" : mode
     );
@@ -3430,10 +3484,11 @@ function App() {
       // does not need its own opening UI.
       setPrimaryOpening(null);
       setFocusedPane("primary");
+      restoreSplitLayout();
       if (line) {
-        setEditorNavigation({ path, line, id: crypto.randomUUID() });
+        setEditorNavigation({ path: navigationPath, line, id: crypto.randomUUID() });
         setCanvasMode(keepDocumentMode);
-        pushNavigation(path, line);
+        pushNavigation(navigationPath, line);
       }
       try {
         if (visualMarkdownFlushRef.current?.() === false) return;
@@ -3542,7 +3597,7 @@ function App() {
       canCommit: () => !flushAndCheckPrimaryDirty(
         activePaper ? "paper" : activeAsset ? "asset" : "file",
       ),
-      navigateToLine: line,
+      navigateToLine: restoreSecondary ? undefined : line,
     });
     clearOpening();
     if (!applied) return;
@@ -3552,13 +3607,15 @@ function App() {
       saveAndReadMs: performance.now() - contentLoadStartedAt,
     });
     setFocusedPane("primary");
+    restoreSplitLayout();
     if (line) {
+      if (restoreSecondary) setEditorNavigation({ path: navigationPath, line, id: crypto.randomUUID() });
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
       setCanvasMode(keepDocumentMode);
-      pushNavigation(path, line);
+      pushNavigation(navigationPath, line);
     } else {
-      pushNavigation(path, 1);
+      pushNavigation(navigationPath, 1);
     }
   }, [
     acceptExternalText,
@@ -4986,6 +5043,7 @@ function App() {
       setEditorComments([]);
       setEditorCommentsOpen(false);
       setActiveEditorCommentId(null);
+      setCommentPanelFocus(null);
       // A pinned turn review belongs to the outgoing project's thread; keeping
       // it would bind the drawer to a foreign thread after the switch.
       setAgentTurnReview(null);
@@ -8858,10 +8916,21 @@ function App() {
     )));
   }, [collabName, editorCommentAuthorId, editorComments, overleafCommentsRef, overleafThreadOf, persistEditorComments]);
 
+  const openEditorComments = useCallback(() => {
+    setCommentPanelFocus(null);
+    if (overleafLink) {
+      setEditorCommentsOpen(false);
+      setOverleafCollabTab("comments");
+      setOverleafCollabOpen(true);
+    } else {
+      setEditorCommentsOpen(true);
+    }
+  }, [overleafLink, setOverleafCollabOpen, setOverleafCollabTab]);
+
   const openEditorCommentReply = useCallback((commentId: string) => {
-    setCommentPanelFocusId(commentId);
-    setEditorCommentsOpen(true);
-  }, []);
+    openEditorComments();
+    if (project) setCommentPanelFocus({ id: commentId, projectRoot: project.root, nonce: crypto.randomUUID() });
+  }, [openEditorComments, project]);
 
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
@@ -9657,10 +9726,6 @@ function App() {
             : focusedPane === "secondary"
               ? secondarySourceDirty
               : source !== savedSource}
-          canNavigateBack={navIndex > 0}
-          canNavigateForward={navIndex >= 0 && navIndex < navStack.length - 1}
-          onNavigateBack={() => void navigateHistory(-1)}
-          onNavigateForward={() => void navigateHistory(1)}
           onInsert={() => setInsertOpen(true)}
           onCollab={() => {
             // The tour points this row out rather than opening it, so the
@@ -9700,7 +9765,7 @@ function App() {
             setGitOpen(true);
           }}
           commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
-          onComments={() => setEditorCommentsOpen(true)}
+          onComments={openEditorComments}
           overleafLinked={overleafLink !== null}
           overleafSyncing={overleafSyncing}
           overleafPending={overleafRemoteChanges}
@@ -9731,10 +9796,11 @@ function App() {
             setOverleafPickerOpen(true);
           }}
           overleafUnreadChat={
-            overleafChat.unread + overleafComments.openCount + overleafRealtime.changes.length
+            overleafChat.unread + overleafComments.threads.filter((thread) => !thread.resolved).length + overleafRealtime.changes.length
+            + editorComments.filter((comment) => !comment.resolved).length
           }
           onOverleafChat={() => {
-            setOverleafCollabOpen(true);
+            openEditorComments();
             void overleafChat.refresh();
           }}
         />
@@ -9764,6 +9830,8 @@ function App() {
         sidebarOpen={sidebarOpen}
         sidebarResizing={sidebarResizing}
         sidebarWidth={sidebarWidth}
+        agentOpen={agentVisible}
+        onToggleAgent={toggleAgent}
       />
 
       {referenceHits && (
@@ -9794,6 +9862,8 @@ function App() {
         }}
       >
           <AppWorkspaceSidebar
+            agentDocked={agentDocked}
+            onCloseAgentDock={() => setAgentDocked(false)}
             agentPanelDropActive={agentPanelDropActive}
             appLocale={appLocale}
             beginSidebarResize={beginSidebarResize}
@@ -10097,7 +10167,7 @@ function App() {
               void persistEditorComments([...editorComments, comment]);
               setActiveEditorCommentId(comment.id);
             }}
-            onOpenEditorComments={() => setEditorCommentsOpen(true)}
+            onOpenEditorComments={openEditorComments}
             onResolveEditorComment={toggleEditorCommentResolved}
             onReplyEditorComment={openEditorCommentReply}
             commentFocusRequest={commentFocusRequest}
@@ -10240,38 +10310,52 @@ function App() {
         theme={theme}
       />
 
-      <AppOverleafCollabDrawer
-        activeFileRef={activeFileRef}
-        openProjectFile={openProjectFile}
-        overleafChat={overleafChat}
-        overleafCollabOpen={overleafCollabOpen}
-        overleafCollabTab={overleafCollabTab}
-        overleafComments={overleafComments}
-        overleafDocPaths={overleafDocPaths}
-        overleafLink={overleafLink}
-        overleafRealtime={overleafRealtime}
-        overleafTrackChanges={overleafTrackChanges}
-        setOverleafCollabOpen={setOverleafCollabOpen}
-        setOverleafCollabTab={setOverleafCollabTab}
-        setViewRestore={setViewRestore}
-        source={source}
-      />
-
       <AppEditorPanels
+        renderCommentsSurface={overleafLink ? (localComments) => (
+          <AppOverleafCollabDrawer
+            key={`${project.root}:${commentPanelFocusId ? commentPanelFocus?.nonce : "comments"}`}
+            localComments={localComments}
+            localCommentCount={editorComments.filter((comment) => !comment.resolved).length}
+            hasLocalComments={editorComments.length > 0}
+            focusLocalComments={!!commentPanelFocusId && !overleafThreadOf(commentPanelFocusId)}
+            focusThreadId={commentPanelFocusId ? overleafThreadOf(commentPanelFocusId) : null}
+            activeFileRef={activeFileRef}
+            openProjectFile={openProjectFile}
+            overleafChat={overleafChat}
+            overleafCollabOpen={overleafCollabOpen}
+            overleafCollabTab={overleafCollabTab}
+            overleafComments={overleafComments}
+            overleafDocPaths={overleafDocPaths}
+            overleafLink={overleafLink}
+            overleafRealtime={overleafRealtime}
+            overleafTrackChanges={overleafTrackChanges}
+            setOverleafCollabOpen={(open) => {
+              setOverleafCollabOpen(open);
+              setCommentPanelFocus(null);
+            }}
+            setOverleafCollabTab={setOverleafCollabTab}
+            setViewRestore={setViewRestore}
+            source={source}
+          />
+        ) : undefined}
+        key={project.root}
         activeFile={activeFile}
         activeFileRef={activeFileRef}
-        allEditorComments={allEditorComments}
         build={build}
         checklistOpen={checklistOpen}
         commentOpenGenerationRef={commentOpenGenerationRef}
         commentPanelFocusId={commentPanelFocusId}
+        commentPanelFocusNonce={commentPanelFocusId ? commentPanelFocus?.nonce : undefined}
         editorCommentAuthorId={editorCommentAuthorId}
         editorComments={editorComments}
         editorCommentsOpen={editorCommentsOpen}
         mainBodyPages={mainBodyPages}
         openProjectFile={openProjectFile}
-        overleafComments={overleafComments}
-        overleafThreadOf={overleafThreadOf}
+        onCloseComments={() => {
+          setEditorCommentsOpen(false);
+          setOverleafCollabOpen(false);
+          setCommentPanelFocus(null);
+        }}
         pdfPageCount={pdfPageCount}
         persistEditorComments={persistEditorComments}
         project={project}
@@ -10281,8 +10365,6 @@ function App() {
         setActiveEditorCommentId={setActiveEditorCommentId}
         setChecklistOpen={setChecklistOpen}
         setCommentFocusRequest={setCommentFocusRequest}
-        setCommentPanelFocusId={setCommentPanelFocusId}
-        setEditorCommentsOpen={setEditorCommentsOpen}
         setProject={setProject}
         setTodosOpen={setTodosOpen}
         todoHits={todoHits}

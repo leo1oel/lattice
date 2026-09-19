@@ -110,8 +110,8 @@ export function visualPaperCitationSuggestion(options: {
         command: ({ editor, range, props: paper }) => {
           editor.chain().focus().deleteRange(range).insertContent([
             {
-              type: "text",
-              text: paper.title,
+              type: "paperCitation",
+              attrs: { label: paper.title },
               marks: [{ type: "link", attrs: { href: paperLinkHref(options.getActivePath(), paper) } }],
             },
             { type: "text", text: " " },

@@ -15,10 +15,31 @@ import {
   resolveCommentAnchor,
   resolveCommentRange,
   serializeEditorComments,
+  setEditorCommentDraftEffect,
   tryParseEditorComments,
 } from "./editor-comments";
 
 describe("editor comments", () => {
+  it("marks a draft, reanchors it after edits, and cancels without removing an overlapping comment", () => {
+    const comment = createEditorComment({ path: "main.tex", source: "Hello bold world", from: 6, to: 10, body: "Existing", authorId: "a", authorName: "A" })!;
+    const view = new EditorView({ state: EditorState.create({
+      doc: "Hello bold world",
+      extensions: editorCommentsExtension("main.tex", { getComments: () => [comment] }),
+    }) });
+    try {
+      view.dispatch({ effects: setEditorCommentDraftEffect.of(comment) });
+      expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
+      expect(view.dom.querySelector(".editor-comment-draft")).not.toHaveAttribute("data-comment-id");
+      view.dispatch({ changes: { from: 0, insert: "New: " } });
+      expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
+      view.dispatch({ effects: setEditorCommentDraftEffect.of(null) });
+      expect(view.dom.querySelector(".editor-comment-draft")).toBeNull();
+      expect(view.dom.querySelector(".cm-editor-comment")?.textContent).toBe("bold");
+    } finally {
+      view.destroy();
+    }
+  });
+
   it("merges independently created comments and replies by stable id", () => {
     const first = createEditorComment({
       path: "main.tex", source: "first second", from: 0, to: 5,

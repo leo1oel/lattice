@@ -3,6 +3,7 @@ import { Decoration, EditorView, hoverTooltip, type DecorationSet } from "@codem
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import {
   editorCommentAuthorDisplayName,
+  resolveCommentAnchor,
   resolveCommentRange,
   type EditorComment,
 } from "./editor-comment-data";
@@ -29,6 +30,9 @@ type CommentDecorationState = {
 };
 
 export const setEditorCommentsEffect = StateEffect.define<EditorComment[]>();
+
+export type EditorCommentDraft = Pick<EditorComment, "path" | "from" | "to" | "quote" | "prefix" | "suffix">;
+export const setEditorCommentDraftEffect = StateEffect.define<EditorCommentDraft | null>();
 
 export function commentMarkStyle(comment: EditorComment): string {
   const colors = peerColorForKey(comment.authorId || comment.authorName);
@@ -259,6 +263,7 @@ export type EditorCommentsExtensionOptions = {
    * recreates StateFields with empty create() state).
    */
   getComments?: () => EditorComment[];
+  getDraft?: () => EditorCommentDraft | null;
   currentAuthorId?: string;
   onResolve?: (id: string) => void;
   onReply?: (comment: EditorComment) => void;
@@ -273,6 +278,28 @@ export function editorCommentsExtension(
   const tooltipActions: CommentTooltipActions | undefined = (options.onResolve && options.onReply)
     ? { currentAuthorId: options.currentAuthorId ?? "", onResolve: options.onResolve, onReply: options.onReply }
     : undefined;
+  // Drafts decorate the document without becoming interactive, persisted comments.
+  const draftDecorations = (source: string, draft: EditorCommentDraft | null) => {
+    const range = draft?.path === path ? resolveCommentAnchor(source, draft) : null;
+    return range ? Decoration.set([
+      Decoration.mark({ class: "editor-comment-draft" }).range(range.from, range.to),
+    ]) : Decoration.none;
+  };
+  const draftField = StateField.define<{ draft: EditorCommentDraft | null; decorations: DecorationSet }>({
+    create(state) {
+      const draft = options.getDraft?.() ?? null;
+      return { draft, decorations: draft ? draftDecorations(state.doc.toString(), draft) : Decoration.none };
+    },
+    update(value, tr) {
+      let draft = value.draft;
+      for (const effect of tr.effects) {
+        if (effect.is(setEditorCommentDraftEffect)) draft = effect.value;
+      }
+      if (draft === value.draft && !tr.docChanged) return value;
+      return { draft, decorations: draft ? draftDecorations(tr.state.doc.toString(), draft) : Decoration.none };
+    },
+    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+  });
   const field = StateField.define<CommentDecorationState>({
     create(state) {
       const comments = getComments?.() ?? [];
@@ -367,6 +394,7 @@ export function editorCommentsExtension(
 
   return [
     field,
+    draftField,
     commentHover,
     EditorView.baseTheme({
       ".cm-editor-comment": {

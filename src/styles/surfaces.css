@@ -58,7 +58,7 @@
   background: var(--surface-input);
   padding: var(--drawer-content-inset);
   overflow: auto;
-  animation: drawer-in var(--duration-reveal) var(--ease-out);
+  animation: drawer-in var(--duration-quick) var(--ease-entrance);
 }
 
 @keyframes drawer-in {

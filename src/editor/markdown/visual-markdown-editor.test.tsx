@@ -570,7 +570,7 @@ describe("VisualMarkdownEditor", () => {
     expect(onSourceCaretChange).toHaveBeenLastCalledWith(4);
   });
 
-  it("paints a comment over the prose it is anchored to, and opens it on click", async () => {
+  it.each([true, false])("previews a comment and replies on hover without opening the sidebar (editable=%s)", async (editable) => {
     const onEditorCommentClick = vi.fn();
     const source = "The quick brown fox jumps.";
     const comment = {
@@ -585,14 +585,15 @@ describe("VisualMarkdownEditor", () => {
       authorId: "ada",
       authorName: "Ada",
       resolved: false,
-      replies: [],
+      replies: [{ id: "r1", authorId: "grace", authorName: "Grace", body: "Because it is the example.", createdAt: "2026-01-02T00:00:00.000Z" }],
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
-    render(
+    const { unmount } = render(
       <VisualMarkdownEditor
         text={source}
         activePath="commented.md"
+        editable={editable}
         editorComments={[comment]}
         onEditorCommentClick={onEditorCommentClick}
         onChangeMarkdown={() => true}
@@ -608,8 +609,35 @@ describe("VisualMarkdownEditor", () => {
     });
     // The highlight covers the quoted prose, not the whole paragraph.
     expect(mark.textContent).toBe("brown fox");
+    fireEvent.mouseOver(mark);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(mark).toBeInTheDocument();
+    expect(mark).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(tooltip).toHaveTextContent("Ada");
+    expect(tooltip).toHaveTextContent("why this one?");
+    expect(tooltip).toHaveTextContent("Grace");
+    expect(tooltip).toHaveTextContent("Because it is the example.");
+    expect(onEditorCommentClick).not.toHaveBeenCalled();
+    fireEvent.mouseOut(mark, { relatedTarget: tooltip });
+    fireEvent.mouseEnter(tooltip);
+    expect(screen.getByRole("tooltip")).toBe(tooltip);
+    fireEvent.keyDown(mark, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focusIn(mark);
+    await screen.findByRole("tooltip");
     fireEvent.click(mark);
     expect(onEditorCommentClick).toHaveBeenCalledWith("c1");
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.mouseOver(mark);
+    fireEvent.mouseOut(mark, { relatedTarget: document.body });
+    fireEvent.mouseOver(mark);
+    await screen.findByRole("tooltip");
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focusIn(mark);
+    await screen.findByRole("tooltip");
+    unmount();
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
   it("leaves a resolved comment unpainted", async () => {
@@ -2209,7 +2237,9 @@ describe("VisualMarkdownEditor", () => {
     );
   });
 
-  it.each([false, true])("creates a Markdown comment with pending edit %s", async (pendingEdit) => {
+  it.each([
+    [false, "submit"], [true, "submit"], [false, "cancel"], [true, "escape"],
+  ] as const)("marks a Markdown comment draft with pending edit %s and %s", async (pendingEdit, action) => {
     const onCreateComment = vi.fn();
     render(
       <VisualMarkdownEditor
@@ -2236,12 +2266,22 @@ describe("VisualMarkdownEditor", () => {
     }
     fireEvent.click(commentButton);
     const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    expect(surface.querySelector(".editor-comment-draft")?.textContent).toBe("Hello");
+    expect(onCreateComment).not.toHaveBeenCalled();
+    if (action !== "submit") {
+      if (action === "cancel") fireEvent.click(within(composer).getByRole("button", { name: "Cancel" }));
+      else fireEvent.keyDown(within(composer).getByRole("textbox", { name: "Comment" }), { key: "Escape" });
+      expect(surface.querySelector(".editor-comment-draft")).toBeNull();
+      expect(onCreateComment).not.toHaveBeenCalled();
+      return;
+    }
     fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), {
       target: { value: "Please clarify this." },
     });
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
 
     expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.");
+    expect(surface.querySelector(".editor-comment-draft")).toBeNull();
   });
 
   it.each([

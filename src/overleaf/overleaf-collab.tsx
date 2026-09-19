@@ -6,7 +6,7 @@
  * conversation from the writer's point of view — someone leaves a comment, you
  * answer it in chat, and both come down the same realtime channel.
  */
-import { useEffect } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { MessagesSquare } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
@@ -22,6 +22,11 @@ import type { TrackedChange } from "./use-overleaf-realtime";
 export type OverleafCollabTab = "comments" | "chat" | "changes";
 
 export function OverleafCollabDrawer(props: {
+  localComments?: ReactNode;
+  localCommentCount?: number;
+  hasLocalComments?: boolean;
+  focusLocalComments?: boolean;
+  focusThreadId?: string | null;
   tab: OverleafCollabTab;
   onTab: (tab: OverleafCollabTab) => void;
   projectName: string;
@@ -62,6 +67,7 @@ export function OverleafCollabDrawer(props: {
   onRejectChanges: (changes: TrackedChange[]) => Promise<void>;
 }) {
   const { t } = useLingui();
+  const [commentSource, setCommentSource] = useState(props.focusLocalComments ? "local" : "overleaf");
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -71,10 +77,10 @@ export function OverleafCollabDrawer(props: {
     return () => window.removeEventListener("keydown", onKey);
   }, [props]);
 
-  const openThreads = props.threads.filter((thread) => !thread.resolved).length;
+  const openThreads = props.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
 
   return (
-    <ResizableDrawer className="overleaf-collab-drawer" onClose={props.onClose}>
+    <ResizableDrawer className="overleaf-collab-drawer editor-comments-content" onClose={props.onClose}>
         <PanelHeader
           className="drawer-header"
           icon={<MessagesSquare size={16} />}
@@ -117,20 +123,40 @@ export function OverleafCollabDrawer(props: {
             onReveal={props.onReveal}
           />
         ) : props.tab === "comments" ? (
-          <OverleafCommentsPanel
-            threads={props.threads}
-            anchors={props.anchors}
-            activeDocId={props.activeDocId}
-            pathForDoc={props.pathForDoc}
-            loading={props.commentsLoading}
-            error={props.commentsError}
-            onReply={props.onReply}
-            onResolve={props.onResolve}
-            onDelete={props.onDeleteThread}
-            onEditMessage={props.onEditMessage}
-            onDeleteMessage={props.onDeleteMessage}
-            onReveal={props.onRevealComment}
-          />
+          <>
+            {props.hasLocalComments && <SegmentedControl
+              value={commentSource}
+              onChange={setCommentSource}
+              ariaLabel={t`Comment source`}
+              className="overleaf-collab-tabs"
+              items={[
+                { value: "overleaf", label: "Overleaf" },
+                { value: "local", label: <>{t`Local comments`}{props.localCommentCount ? <em>{props.localCommentCount}</em> : null}</> },
+              ]}
+            />}
+            {commentSource === "local" && props.hasLocalComments ? (
+              <>
+                <p className="overleaf-local-comments-note">{t`These comments stay in Lattice and are not sent to Overleaf.`}</p>
+                {props.localComments}
+              </>
+            ) : (
+              <OverleafCommentsPanel
+                focusThreadId={props.focusThreadId}
+                threads={props.threads}
+                anchors={props.anchors}
+                activeDocId={props.activeDocId}
+                pathForDoc={props.pathForDoc}
+                loading={props.commentsLoading}
+                error={props.commentsError}
+                onReply={props.onReply}
+                onResolve={props.onResolve}
+                onDelete={props.onDeleteThread}
+                onEditMessage={props.onEditMessage}
+                onDeleteMessage={props.onDeleteMessage}
+                onReveal={props.onRevealComment}
+              />
+            )}
+          </>
         ) : (
           <OverleafChatPanel
             projectName={props.projectName}

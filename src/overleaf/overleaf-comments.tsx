@@ -15,7 +15,7 @@
  * these orphaned) has no anchor, so there is no document to act on; those
  * can still be replied to here, just not resolved or deleted.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, Pencil, RotateCcw } from "lucide-react";
 import type { OverleafComment, OverleafThread } from "../app-types";
@@ -34,6 +34,7 @@ function isComposingEnter(event: React.KeyboardEvent) {
 }
 
 export function OverleafCommentsPanel(props: {
+  focusThreadId?: string | null;
   threads: OverleafThread[];
   /** Every thread's anchor across the whole project, keyed by thread id. */
   anchors: Map<string, OverleafCommentAnchor>;
@@ -52,12 +53,17 @@ export function OverleafCommentsPanel(props: {
   onReveal: (path: string, position: number) => void;
 }) {
   const { i18n, t } = useLingui();
-  const [showResolved, setShowResolved] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [showResolved, setShowResolved] = useState(!!props.focusThreadId);
+  const [replyingTo, setReplyingTo] = useState<string | null>(props.focusThreadId ?? null);
+  const focusRef = useRef<HTMLElement | null>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ threadId: string; messageId: string } | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (props.focusThreadId) focusRef.current?.scrollIntoView({ block: "center" });
+  }, [props.focusThreadId, props.threads]);
 
   const visible = props.threads.filter((thread) => showResolved || !thread.resolved);
   const threadsById = new Map(visible.map((thread) => [thread.id, thread]));
@@ -189,6 +195,7 @@ export function OverleafCommentsPanel(props: {
       <article
         className={`overleaf-thread${thread.resolved ? " resolved" : ""}`}
         key={thread.id}
+        ref={thread.id === props.focusThreadId ? focusRef : undefined}
       >
         {anchor ? (
           <button

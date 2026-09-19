@@ -87,6 +87,12 @@ describe("Overleaf comments panel", () => {
     expect(screen.getByText("Fix this too")).toBeInTheDocument();
   });
 
+  it("reveals a resolved inline-reply target and opens its reply composer", () => {
+    render(panel({ threads: [thread({ resolved: true })], focusThreadId: "t1" }));
+    expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reply")).toHaveFocus();
+  });
+
   it("replies on Enter and resolves through the callbacks", async () => {
     const onReply = vi.fn().mockResolvedValue(undefined);
     const onResolve = vi.fn().mockResolvedValue(undefined);

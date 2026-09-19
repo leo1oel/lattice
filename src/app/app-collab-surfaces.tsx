@@ -7,7 +7,7 @@
  * wrappers over one specifier resolve to the same chunk, but they are two
  * component identities, so a dialog open across that boundary would remount.
  */
-import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { SHARE_SOURCE } from "./use-collab-v2-session";
 import { notifyWarning } from "../telemetry/app-notify";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
@@ -168,6 +168,11 @@ export function AppCollabDialog(props: AppCollabDialogProps) {
 }
 
 export type AppOverleafCollabDrawerProps = {
+  localComments: ReactNode;
+  localCommentCount: number;
+  hasLocalComments: boolean;
+  focusLocalComments: boolean;
+  focusThreadId: string | null;
   activeFileRef: RefObject<string>;
   openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
   overleafChat: OverleafChat;
@@ -206,6 +211,11 @@ export function AppOverleafCollabDrawer(props: AppOverleafCollabDrawerProps) {
       {overleafCollabOpen && overleafLink && (
         <Suspense fallback={null}>
           <OverleafCollabDrawer
+            localComments={props.localComments}
+            localCommentCount={props.localCommentCount}
+            hasLocalComments={props.hasLocalComments}
+            focusLocalComments={props.focusLocalComments}
+            focusThreadId={props.focusThreadId}
             tab={overleafCollabTab}
             onTab={setOverleafCollabTab}
             projectName={overleafLink.projectName}

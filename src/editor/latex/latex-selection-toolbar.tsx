@@ -107,8 +107,8 @@ export function LatexSelectionToolbar(props: {
       }}
     >
       <PopIn className="latex-selection-toolbar">
-        {visibleActions.map(({ action, label, tooltip, icon: Icon, separated }) => (
-          <span key={action} className={separated ? "latex-selection-tool separated" : "latex-selection-tool"}>
+        {visibleActions.map(({ action, label, tooltip, icon: Icon, separated }, index) => (
+          <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
             <Tip label={tooltip ?? label} side="top">
               <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
                 <Icon size={14} strokeWidth={1.8} />

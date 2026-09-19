@@ -6,7 +6,7 @@
  * sharing one with the other drawers — a `null` fallback that covered all of
  * them would unmount an open TODO panel while an unrelated chunk loads.
  */
-import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { type EditorComment } from "../editor/comments/editor-comment-data";
@@ -15,7 +15,6 @@ import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { confirmAction, toMessage } from "../app-utils";
 import { setError } from "./notify";
-import type { OverleafComments } from "../overleaf/use-overleaf-comments";
 import type {
   BuildResult,
   EditorPaneId,
@@ -32,18 +31,18 @@ const EditorCommentsPanel = lazy(() =>
 export type AppEditorPanelsProps = {
   activeFile: string;
   activeFileRef: RefObject<string>;
-  allEditorComments: EditorComment[];
+  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   build: BuildResult | null;
   checklistOpen: boolean;
   commentOpenGenerationRef: RefObject<number>;
   commentPanelFocusId: string | null;
+  commentPanelFocusNonce?: string;
   editorCommentAuthorId: string;
   editorComments: EditorComment[];
   editorCommentsOpen: boolean;
   mainBodyPages: number | null;
   openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
-  overleafComments: OverleafComments;
-  overleafThreadOf: (commentId: string) => string | null;
+  onCloseComments: () => void;
   pdfPageCount: number | null;
   persistEditorComments: (next: EditorComment[]) => Promise<void>;
   project: ProjectSnapshot;
@@ -53,8 +52,6 @@ export type AppEditorPanelsProps = {
   setActiveEditorCommentId: Dispatch<SetStateAction<string | null>>;
   setChecklistOpen: Dispatch<SetStateAction<boolean>>;
   setCommentFocusRequest: Dispatch<SetStateAction<{ id: string; nonce: string; } | null>>;
-  setCommentPanelFocusId: Dispatch<SetStateAction<string | null>>;
-  setEditorCommentsOpen: Dispatch<SetStateAction<boolean>>;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
   setTodosOpen: Dispatch<SetStateAction<boolean>>;
   todoHits: TodoHit[];
@@ -68,7 +65,7 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
   const {
     activeFile,
     activeFileRef,
-    allEditorComments,
+    renderCommentsSurface,
     build,
     checklistOpen,
     commentOpenGenerationRef,
@@ -78,8 +75,7 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
     editorCommentsOpen,
     mainBodyPages,
     openProjectFile,
-    overleafComments,
-    overleafThreadOf,
+    onCloseComments,
     pdfPageCount,
     persistEditorComments,
     project,
@@ -89,8 +85,6 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
     setActiveEditorCommentId,
     setChecklistOpen,
     setCommentFocusRequest,
-    setCommentPanelFocusId,
-    setEditorCommentsOpen,
     setProject,
     setTodosOpen,
     todoHits,
@@ -98,65 +92,56 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
     toggleEditorCommentResolved,
     unusedSymbols,
   } = props;
+  const commentsPanel = (
+    <EditorCommentsPanel
+      key={props.commentPanelFocusNonce}
+      embedded={!!renderCommentsSurface}
+      comments={editorComments}
+      activePath={activeFile}
+      currentAuthorId={editorCommentAuthorId}
+      focusCommentId={commentPanelFocusId}
+      onClose={onCloseComments}
+      onOpen={(comment) => {
+        const generation = commentOpenGenerationRef.current + 1;
+        commentOpenGenerationRef.current = generation;
+        setActiveEditorCommentId(comment.id);
+        onCloseComments();
+        void openProjectFile(comment.path).then(() => {
+          if (
+            commentOpenGenerationRef.current !== generation
+            || activeFileRef.current !== comment.path
+          ) return;
+          setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+        });
+      }}
+      onDelete={(id) => {
+        void (async () => {
+          if (!await confirmAction(
+            t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
+          )) {
+            return;
+          }
+          await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
+          setActiveEditorCommentId((current) => (current === id ? null : current));
+        })();
+      }}
+      onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
+      onUpdateBody={(comment, body) => {
+        const trimmed = body.trim();
+        if (!trimmed) return;
+        void persistEditorComments(editorComments.map((item) => (
+          item.id === comment.id
+            ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
+            : item
+        )));
+      }}
+      onReply={(comment, body) => replyToEditorComment(comment.id, body)}
+    />
+  );
   return (
     <>
       <Suspense fallback={null}>
-      {editorCommentsOpen && (
-        <EditorCommentsPanel
-          comments={allEditorComments}
-          activePath={activeFile}
-          currentAuthorId={editorCommentAuthorId}
-          focusCommentId={commentPanelFocusId}
-          onClose={() => {
-            setEditorCommentsOpen(false);
-            setCommentPanelFocusId(null);
-          }}
-          onOpen={(comment) => {
-            const generation = commentOpenGenerationRef.current + 1;
-            commentOpenGenerationRef.current = generation;
-            setActiveEditorCommentId(comment.id);
-            setEditorCommentsOpen(false);
-            setCommentPanelFocusId(null);
-            void openProjectFile(comment.path).then(() => {
-              if (
-                commentOpenGenerationRef.current !== generation
-                || activeFileRef.current !== comment.path
-              ) return;
-              setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
-            });
-          }}
-          onDelete={(id) => {
-            void (async () => {
-              if (!await confirmAction(
-                t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
-              )) {
-                return;
-              }
-              const threadId = overleafThreadOf(id);
-              if (threadId) {
-                await overleafComments.remove(threadId).catch((reason) => setError(toMessage(reason)));
-                return;
-              }
-              await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
-              setActiveEditorCommentId((current) => (current === id ? null : current));
-            })();
-          }}
-          onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
-          onUpdateBody={(comment, body) => {
-            const trimmed = body.trim();
-            if (!trimmed) return;
-            // Overleaf's threads are edited where they live; changing the text
-            // of someone else's first message is not ours to do from here.
-            if (overleafThreadOf(comment.id)) return;
-            void persistEditorComments(editorComments.map((item) => (
-              item.id === comment.id
-                ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
-                : item
-            )));
-          }}
-          onReply={(comment, body) => replyToEditorComment(comment.id, body)}
-        />
-      )}
+        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : editorCommentsOpen && commentsPanel}
       </Suspense>
       {todosOpen && (
         <TodoScavengerPanel

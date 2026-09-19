@@ -14,6 +14,7 @@ import {
 import { ResizableDrawer } from "../../components/ui/resizable-drawer";
 
 export function EditorCommentsPanel(props: {
+  embedded?: boolean;
   comments: EditorComment[];
   activePath: string | null;
   currentAuthorId: string;
@@ -26,10 +27,10 @@ export function EditorCommentsPanel(props: {
   onReply: (comment: EditorComment, body: string) => void;
 }) {
   const [filter, setFilter] = useState("");
-  const [showResolved, setShowResolved] = useState(false);
+  const [showResolved, setShowResolved] = useState(!!props.focusCommentId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyingId, setReplyingId] = useState<string | null>(props.focusCommentId ?? null);
   const [replyDraft, setReplyDraft] = useState("");
   const focusRef = useRef<HTMLElement | null>(null);
   const { i18n, t } = useLingui();
@@ -67,14 +68,14 @@ export function EditorCommentsPanel(props: {
       });
   }, [anonymousAuthor, filter, props.activePath, props.comments, showResolved]);
 
-  return (
-    <ResizableDrawer className="editor-comments-drawer" onClose={props.onClose}>
-        <PanelHeader
+  const content = (
+    <>
+        {!props.embedded && <PanelHeader
           className="drawer-header"
           icon={<MessageSquareText size={16} />}
           title={t`Editor comments`}
           onClose={props.onClose}
-        />
+        />}
         <div className="pdf-marks-toolbar">
           <SearchField
             aria-label={t`Filter editor comments`}
@@ -256,6 +257,11 @@ export function EditorCommentsPanel(props: {
             );
           })}
         </div>
+    </>
+  );
+  return props.embedded ? content : (
+    <ResizableDrawer className="editor-comments-drawer editor-comments-content" onClose={props.onClose}>
+      {content}
     </ResizableDrawer>
   );
 }

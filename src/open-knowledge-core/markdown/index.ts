@@ -55,6 +55,7 @@ import {
   type StructuralFreshnessChecker,
 } from '../bridge/structural-freshness.ts';
 import type { LinkStyle } from '../extensions/link-fidelity.ts';
+import { isPaperCitationHref } from '../extensions/paper-citation.ts';
 import { isValidSourceLiteralRaw } from '../extensions/source-literal-mark.ts';
 import {
   normalizeTableSpanLayout,
@@ -712,6 +713,11 @@ function buildMdastToPmHandlers(
         sourceUrlForm: node.data?.sourceUrlForm ?? null,
         sourceTitleMarker: node.data?.sourceTitleMarker ?? null,
       });
+      if (n.paperCitation && isPaperCitationHref(node.url) && node.children.every((child) => child.type === 'text')) {
+        return n.paperCitation.create({
+          label: node.children.map((child) => (child as Text).value).join(''),
+        }, null, [mark]);
+      }
       return children.map((child) => child.mark(mark.addToSet(child.marks)));
     };
 
@@ -1526,6 +1532,16 @@ function buildPmToMdastHandlers(
             } }
           : {}),
       } as unknown as MdastNodes;
+    };
+  }
+
+  if (n.paperCitation) {
+    nodeHandlers.paperCitation = (pmNode: PmNode) => {
+      const value = String(pmNode.attrs.label ?? '');
+      // A title is literal text. Escape both brackets: the generic text
+      // serializer may escape only ']', leaving an unmatched '[' in a label.
+      const escapedChars = [...value.matchAll(/[\[\]]/g)].map((match) => ({ offset: match.index, char: match[0] }));
+      return { type: 'text', value, data: { escapedChars } };
     };
   }
 

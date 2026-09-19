@@ -14,10 +14,6 @@ const baseProps = {
   activeKind: "document" as const,
   canInsert: true,
   dirty: false,
-  canNavigateBack: false,
-  canNavigateForward: false,
-  onNavigateBack: vi.fn(),
-  onNavigateForward: vi.fn(),
   onInsert: vi.fn(),
   onCollab: vi.fn(),
   collabLive: false,
@@ -29,6 +25,19 @@ const baseProps = {
 };
 
 describe("CanvasToolbar Overleaf status", () => {
+  it("offers one comment entry for linked projects and keeps local projects' entry", () => {
+    const onOverleafChat = vi.fn();
+    const { rerender } = render(
+      <CanvasToolbar {...baseProps} overleafLinked onOverleafChat={onOverleafChat} overleafUnreadChat={3} />,
+    );
+    expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Overleaf comments and chat · 3 waiting" }));
+    expect(onOverleafChat).toHaveBeenCalledOnce();
+    rerender(<CanvasToolbar {...baseProps} commentCount={2} />);
+    expect(screen.getByRole("button", { name: "Editor comments" })).toHaveTextContent("2");
+    expect(screen.queryByRole("button", { name: /Overleaf comments and chat/ })).not.toBeInTheDocument();
+  });
+
   it("keeps sync primary while exposing the current and other Overleaf projects", async () => {
     const onSync = vi.fn();
     const onOpenCurrent = vi.fn();
@@ -106,6 +115,13 @@ describe("CanvasToolbar insert action", () => {
 });
 
 describe("CanvasToolbar document views", () => {
+  it("omits file navigation buttons from the editing toolbar", () => {
+    render(<CanvasToolbar {...baseProps} />);
+    expect(screen.queryByRole("button", { name: "Go back (⌘[)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go forward (⌘])" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).toBeInTheDocument();
+  });
+
   it("presents two editable panes as Edit rather than source-and-preview Split", () => {
     render(<CanvasToolbar {...baseProps} mode="dual" />);
     expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
@@ -128,7 +144,7 @@ describe("CanvasToolbar document views", () => {
     );
     expect(screen.queryByRole("tablist", { name: "Document view" })).not.toBeInTheDocument();
     const split = screen.getByRole("button", { name: "Split editor right" });
-    expect(split).toBe(screen.getByRole("button", { name: "Go forward (⌘])" }).nextElementSibling);
+    expect(split).toBe(split.closest(".canvas-actions")?.firstElementChild);
     expect(split.textContent).toBe("");
     expect(split.querySelector(".lucide-columns-2")).not.toBeNull();
     fireEvent.click(split);

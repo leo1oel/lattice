@@ -22,6 +22,7 @@ describe("LaTeX selection toolbar", () => {
 
     expect(onAction).toHaveBeenNthCalledWith(1, "bold");
     expect(onAction).toHaveBeenNthCalledWith(2, "comment");
+    expect(screen.getByRole("button", { name: "Comment" }).closest(".latex-selection-tool")).toHaveClass("separated");
     expect(screen.getByRole("button", { name: "Heading level" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Highlight color" })).toBeInTheDocument();
   });
@@ -97,6 +98,7 @@ describe("LaTeX selection toolbar", () => {
 
     expect(screen.getByRole("toolbar", { name: "Comment on selected Markdown" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Comment" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Comment" }).closest(".latex-selection-tool")).not.toHaveClass("separated");
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 

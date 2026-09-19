@@ -84,6 +84,7 @@ import {
   resolveCommentAnchor,
   resolveCommentRange,
   setEditorCommentsEffect,
+  setEditorCommentDraftEffect,
   type EditorComment,
   type EditorCommentLocalization,
 } from "../editor/comments/editor-comments";
@@ -985,6 +986,10 @@ function SecondaryMarkdownPreview(props: {
   editable: boolean;
   onCaretChange: (row: number, column: number) => void;
   onSelectionMarkdown: (value: string) => void;
+  editorComments: EditorComment[];
+  activeEditorCommentId: string | null;
+  onEditorCommentClick: (id: string) => void;
+  onCreateComment: (from: number, to: number, body: string) => void;
 }) {
   const sourceRef = useRef(props.source);
   const onChangeRef = useRef(props.onChange);
@@ -1074,6 +1079,14 @@ function SecondaryMarkdownPreview(props: {
           editable={props.editable}
           onCaretChange={(row, column) => props.onCaretChange(row + lineOffset, column)}
           onSelectionMarkdown={props.onSelectionMarkdown}
+          editorComments={props.editorComments.flatMap((comment) => (
+            comment.from < previewStart || comment.to > props.source.length
+              ? []
+              : [{ ...comment, from: comment.from - previewStart, to: comment.to - previewStart }]
+          ))}
+          activeEditorCommentId={props.activeEditorCommentId}
+          onEditorCommentClick={props.onEditorCommentClick}
+          onCreateComment={(from, to, body) => props.onCreateComment(previewStart + from, previewStart + to, body)}
         />
       </Suspense>
     </ScrollArea>
@@ -1760,6 +1773,10 @@ export function DocumentCanvas(props: {
     error: string | null;
   } | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
+  const commentComposerRef = useRef(commentComposer);
+  useLayoutEffect(() => {
+    commentComposerRef.current = commentComposer;
+  }, [commentComposer]);
   // Identity of the preview column. It renders the project's compiled PDF, not
   // a preview of whatever the editor holds, so a file with no preview of its
   // own — a .bib reached by double-clicking a citation, a .sty reached from a
@@ -1932,6 +1949,14 @@ export function DocumentCanvas(props: {
   );
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
+  const commentsForSecondaryFile = useMemo(
+    () => editorComments.filter((comment) => comment.path === secondaryFile),
+    [secondaryFile, editorComments],
+  );
+  const commentsForSecondaryFileRef = useRef(commentsForSecondaryFile);
+  useLayoutEffect(() => {
+    commentsForSecondaryFileRef.current = commentsForSecondaryFile;
+  }, [commentsForSecondaryFile]);
 
   /**
    * Comments rebased into the preview's own coordinates. The preview may render
@@ -2323,6 +2348,16 @@ export function DocumentCanvas(props: {
     view.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
   }, [commentsForActiveFile, collabEditorKey]);
 
+  useLayoutEffect(() => {
+    primaryViewRef.current?.dispatch({
+      effects: setEditorCommentDraftEffect.of(commentComposer?.path === activeFile ? commentComposer : null),
+    });
+  }, [activeFile, commentComposer, collabEditorKey]);
+
+  useEffect(() => {
+    secondaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFile) });
+  }, [commentsForSecondaryFile, collabEditorKey]);
+
   // Someone else's caret has to repaint when they move it, not when we
   // happen to type next.
   useEffect(() => {
@@ -2334,8 +2369,10 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     if (!commentFocusRequest) return;
     const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
-    if (!comment || comment.path !== activeFile) return;
-    const view = primaryViewRef.current;
+    if (!comment) return;
+    const view = comment.path === activeFile
+      ? primaryViewRef.current
+      : comment.path === secondaryFile ? secondaryViewRef.current : null;
     if (!view) return;
     const range = resolveCommentRange(view.state.doc.toString(), comment);
     if (!range) {
@@ -2348,7 +2385,7 @@ export function DocumentCanvas(props: {
     });
     view.focus();
     onCommentFocusHandled(commentFocusRequest.nonce);
-  }, [activeFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
+  }, [activeFile, secondaryFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
 
   const openCommentComposer = useCallback((targetView?: EditorView) => {
     const view = targetView ?? editorViewRef.current;
@@ -2551,6 +2588,7 @@ export function DocumentCanvas(props: {
       }),
       editorCommentsExtension(activeFile, {
         getComments: () => commentsForActiveFileRef.current,
+        getDraft: () => commentComposerRef.current,
         getLocalization: () => editorCommentLocalizationRef.current,
         currentAuthorId: commentAuthorId,
         onResolve: (id) => resolveEditorCommentRef.current(id),
@@ -2608,6 +2646,15 @@ export function DocumentCanvas(props: {
           ),
         ]),
         ...secondaryCollabExtensions,
+        // These getters run in CodeMirror transactions/tooltips, not React render.
+        // eslint-disable-next-line react-hooks/refs
+        editorCommentsExtension(secondaryFile, {
+          getComments: () => commentsForSecondaryFileRef.current,
+          getLocalization: () => editorCommentLocalizationRef.current,
+          currentAuthorId: commentAuthorId,
+          onResolve: (id) => resolveEditorCommentRef.current(id),
+          onReply: (comment) => replyEditorCommentRef.current(comment.id),
+        }),
         linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, secondaryFile, view.state.doc), {
           delay: 150,
         }),
@@ -4373,6 +4420,7 @@ export function DocumentCanvas(props: {
             onCreateEditor={(view) => {
               secondaryViewRef.current = view;
               setSecondaryScrollbarView(view);
+              view.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFileRef.current) });
               if (focusedPane === "secondary") editorViewRef.current = view;
             }}
             onChange={onSecondaryChange}
@@ -4411,6 +4459,21 @@ export function DocumentCanvas(props: {
         assetRevision={props.referenceImageGeneration ?? 0}
         editable={props.secondaryEditorEditable}
         onSelectionMarkdown={(value) => setSelectionRef.current(value)}
+        editorComments={commentsForSecondaryFile}
+        activeEditorCommentId={props.activeEditorCommentId}
+        onEditorCommentClick={props.onReplyEditorComment}
+        onCreateComment={(from, to, body) => {
+          const comment = createEditorComment({
+            path: secondaryFile,
+            source: secondarySource,
+            from,
+            to,
+            body,
+            authorId: commentAuthorId,
+            authorName: commentAuthorName,
+          });
+          if (comment) onCreateEditorComment(comment);
+        }}
         onCaretChange={(row, column) => {
           const line = row + 1;
           setStatusPosition({ line, column });

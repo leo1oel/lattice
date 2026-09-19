@@ -8,7 +8,7 @@
  * else in the sidebar touches, and it is behind `lazy()`, so the element has to
  * be created where the loader lives.
  */
-import { lazy, Suspense, useMemo, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   BookMarked,
@@ -32,8 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { SlidingTabs } from "../components/ui/motion";
-import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
-import { synaraEmbedUrl, type SynaraPermissionMode } from "./app-synara-embed";
+import { type SynaraPermissionMode } from "./app-synara-embed";
 import { type SidebarModeTier } from "./sidebar-mode-layout";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
 import type { ProjectFindHit } from "../project/project-find-dialog";
@@ -42,8 +41,11 @@ import type { ProjectSnapshot } from "../app-types";
 
 // The installed RadioGroup's Base UI dependency stays outside startup chunks.
 const SynaraPermissionPicker = lazy(() => import("../agent/synara-permission-picker"));
+const AppAgentPanel = lazy(() => import("./app-agent-panel"));
 
 export type AppWorkspaceSidebarProps = {
+  agentDocked?: boolean;
+  onCloseAgentDock?: () => void;
   agentPanelDropActive: boolean;
   appLocale: AppLocale;
   beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -84,8 +86,6 @@ export type AppWorkspaceSidebarProps = {
 export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
   const { t } = useLingui();
   const {
-    agentPanelDropActive,
-    appLocale,
     beginSidebarResize,
     changeSynaraPermissionMode,
     chooseSidebarMode,
@@ -93,8 +93,6 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     nudgeSidebar,
     openBibEntryDialog,
     onCheckReferences,
-    project,
-    retrySynaraRuntime,
     setBoardCreateRequest,
     setLiteratureOpen,
     setProjectFindError,
@@ -110,19 +108,11 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
     sidebarWidth,
     synaraAutoModeAvailable,
     synaraFrameMounted,
-    synaraFrameReady,
-    synaraIframeRef,
     synaraOrigin,
     synaraPermissionMode,
-    synaraRuntime,
-    theme,
   } = props;
-  // Read the saved route only when creating a frame URL. Recording navigation
-  // in that frame must not change its src and reload an in-progress turn.
-  const agentFrameUrl = useMemo(() => synaraOrigin
-    ? synaraEmbedUrl(synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale)
-    : undefined,
-  [synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale]);
+  const docked = props.agentDocked ?? false;
+  const slotRef = useRef<HTMLDivElement>(null);
   return (
     <>
       <section className="shared-sidebar" data-tour="sidebar" inert={!props.sidebarOpen} aria-hidden={!props.sidebarOpen}>
@@ -214,36 +204,15 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
           {navigator}
         </div>
         <div
-          className={`sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" ? "active" : ""}`}
+          ref={slotRef}
+          className={`sidebar-pane synara-sidebar-pane ${sidebarMode === "agent" && !docked ? "active" : ""}`}
           aria-hidden={sidebarMode !== "agent"}
-        >
-          <div
-            className={`synara-frame-shell ${agentPanelDropActive ? "agent-drop-active" : ""}`}
-            data-tour="agent-panel"
-            data-ready={synaraFrameReady || undefined}
-          >
-            {synaraFrameMounted && synaraOrigin && (
-              <iframe
-                key={project.root}
-                ref={synaraIframeRef}
-                className="synara-poc-frame"
-                src={agentFrameUrl}
-                title={t`Agent`}
-                allow="clipboard-read; clipboard-write; microphone"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-              />
-            )}
-            {!synaraFrameReady && (
-              <SynaraLoadingSurface
-                runtime={synaraRuntime}
-                preparingWorkspace={Boolean(synaraOrigin)}
-                onRetry={retrySynaraRuntime}
-              />
-            )}
-          </div>
-        </div>
+        />
         </div>
       </section>
+      {(synaraFrameMounted || docked || (props.sidebarOpen && sidebarMode === "agent")) && <Suspense fallback={null}>
+        <AppAgentPanel {...props} slotRef={slotRef} />
+      </Suspense>}
       <PanelResizer
         label={t`Resize workspace sidebar`}
         value={sidebarWidth}

@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, 
 import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import {
   EditorContent,
   NodeViewWrapper,
@@ -18,6 +19,8 @@ import { getMarkdownManager, parseVisualMarkdown, visualEditorExtensions } from 
 import { SourceDirtyObserver } from "./visual-source-dirty-observer";
 import { visualWikiLinkSuggestion } from "./visual-wiki-link-suggestion";
 import { visualPaperCitationSuggestion } from "./visual-paper-citation-suggestion";
+import { isPaperCitationHref } from "../../open-knowledge-core/extensions/paper-citation";
+import { isAllowedLinkUri } from "../../open-knowledge-core/extensions/link-fidelity";
 import type { PaperSummary } from "../../app-types";
 import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-track-changes";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
@@ -88,6 +91,7 @@ import {
   resolveCommentAnchor,
   type EditorComment,
 } from "../comments/editor-comment-data";
+import { buildCommentTooltipDom } from "../comments/editor-comments";
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import { notifyError, notifyInfo } from "../../telemetry/app-notify";
 import { addAppLog, dismissAppToastByDedupeKey } from "../../telemetry/app-log-store";
@@ -1140,7 +1144,9 @@ type VisualCommentsMeta = {
   text: string;
   sourcePath: string;
   comments: EditorComment[];
+  draft: Pick<EditorComment, "path" | "from" | "to" | "quote" | "prefix" | "suffix"> | null;
   activeId: string | null;
+  tooltipId: string;
   labelForAuthor: (authorName: string) => string;
 };
 const visualCommentsKey = new PluginKey<VisualCommentsMeta & { decorations: DecorationSet }>(
@@ -1164,6 +1170,7 @@ function visualCommentDecorations(
   sourcePath: string,
   comments: EditorComment[],
   activeId: string | null,
+  tooltipId: string,
   labelForAuthor: (authorName: string) => string,
 ): DecorationSet {
   return DecorationSet.create(doc, comments.flatMap((comment) => {
@@ -1182,6 +1189,7 @@ function visualCommentDecorations(
       "data-visual-comment-id": comment.id,
       role: "button",
       tabindex: "0",
+      "aria-describedby": tooltipId,
       "aria-label": labelForAuthor(comment.authorName),
       style: `--visual-comment-tint: ${colors.colorLight}; --visual-comment-color: ${colors.color}`,
     })];
@@ -1198,7 +1206,9 @@ const VisualEditorComments = Extension.create({
           text: "",
           sourcePath: "",
           comments: [],
+          draft: null,
           activeId: null,
+          tooltipId: "",
           labelForAuthor: () => "",
           decorations: DecorationSet.empty,
         }),
@@ -1213,8 +1223,17 @@ const VisualEditorComments = Extension.create({
                   meta.sourcePath,
                   meta.comments,
                   meta.activeId,
+                  meta.tooltipId,
                   meta.labelForAuthor,
-                ),
+                ).add(newState.doc, (() => {
+                  const anchor = meta.draft?.path === meta.sourcePath
+                    ? resolveCommentAnchor(meta.text, meta.draft) : null;
+                  if (!anchor) return [];
+                  const from = proseMirrorPositionForSourceOffset(newState.doc, meta.text, anchor.from, meta.sourcePath);
+                  const to = proseMirrorPositionForSourceOffset(newState.doc, meta.text, anchor.to, meta.sourcePath);
+                  return from !== null && to !== null && to > from
+                    ? [Decoration.inline(from, to, { class: "editor-comment-draft" })] : [];
+                })()),
               }
             : {
                 ...current,
@@ -2175,6 +2194,7 @@ function VisualLinkInsertPopover({
 }) {
   const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
   const [url, setUrl] = useState("");
+  const [citationTitle, setCitationTitle] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -2184,6 +2204,7 @@ function VisualLinkInsertPopover({
       const coordinates = editor.view.coordsAtPos(editor.state.selection.from);
       const currentUrl = String(editor.getAttributes("link").href ?? "");
       setUrl(currentUrl);
+      setCitationTitle(editor.isActive("paperCitation") ? String(editor.getAttributes("paperCitation").label) : null);
       setAnchor({
         left: Math.max(16, Math.min(coordinates.left, window.innerWidth - 376)),
         bottom: coordinates.bottom,
@@ -2238,16 +2259,29 @@ function VisualLinkInsertPopover({
     onOpenChange(false);
   }, [onOpenChange]);
   const apply = useCallback((restoreEditorFocus = true) => {
+    if (url.trim() && !isAllowedLinkUri(url.trim())) return;
     const chain = editor.chain();
     if (restoreEditorFocus) chain.focus();
-    if (url.trim()) chain.setLink({ href: url.trim() }).run();
+    if (citationTitle !== null) {
+      const label = citationTitle || String(editor.getAttributes("paperCitation").label);
+      const node = editor.state.doc.nodeAt(editor.state.selection.from)!;
+      const marks = node.marks.filter((mark) => mark.type.name !== "link").map((mark) => mark.toJSON());
+      if (url.trim()) marks.push({ type: "link", attrs: { ...editor.getAttributes("link"), href: url.trim() } });
+      // setLink only rewrites text marks. Replace the selected leaf explicitly
+      // so its title and URL change together in one undoable transaction.
+      chain.insertContent(isPaperCitationHref(url.trim())
+        ? { type: "paperCitation", attrs: { label }, marks }
+        : { type: "text", text: label, marks }).run();
+    } else if (url.trim()) chain.setLink({ href: url.trim() }).run();
     else chain.unsetLink().run();
     close();
-  }, [close, editor, url]);
+  }, [close, editor, url, citationTitle]);
   const remove = useCallback(() => {
-    editor.chain().focus().unsetLink().run();
+    const chain = editor.chain().focus();
+    if (citationTitle !== null) chain.insertContent({ type: "text", text: citationTitle || editor.getAttributes("paperCitation").label, marks: [] });
+    chain.unsetLink().run();
     close();
-  }, [close, editor]);
+  }, [close, editor, citationTitle]);
 
   useEffect(() => {
     if (!anchor) return;
@@ -2265,25 +2299,34 @@ function VisualLinkInsertPopover({
     <form
       ref={formRef}
       className="visual-link-insert-popover"
+      data-citation={citationTitle !== null ? "" : undefined}
       style={{ left: anchor.left, top: anchor.bottom + 6 }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+          editor.commands.focus();
+        }
+      }}
       onSubmit={(event) => {
       event.preventDefault();
       apply();
       }}
     >
+      {citationTitle !== null && (
+        <input
+          aria-label="Citation title"
+          placeholder="Citation title"
+          value={citationTitle}
+          onChange={(event) => setCitationTitle(event.target.value)}
+        />
+      )}
       <input
         autoFocus
         aria-label="Link URL"
         placeholder="Link URL"
         value={url}
         onChange={(event) => setUrl(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-            editor.commands.focus();
-          }
-        }}
       />
       {editor.isActive("link") ? (
         <button className="secondary" type="button" onClick={remove}>Remove</button>
@@ -3084,7 +3127,7 @@ function CompleteVisualMarkdownEditor({
           && (event.isComposing || event.keyCode === 229 || composing.current);
       },
       handleClickOn: (view, _pos, node, nodePos, event) => {
-        if (node.type.name !== "text") return false;
+        if (node.type.name !== "text" && node.type.name !== "paperCitation") return false;
         const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
         if (!anchor) return false;
         const href = anchor.getAttribute("href");
@@ -3621,24 +3664,26 @@ function CompleteVisualMarkdownEditor({
     } satisfies VisualTrackChangesMeta));
   }, [activePath, editor, editorViewMounted, overleafChanges, text]);
 
-  useEffect(() => {
+  const commentTooltipId = useId();
+  useLayoutEffect(() => {
     if (!editor || !editorViewMounted || editor.isDestroyed) return;
-    // Anchors are resolved against the source this document was parsed from;
-    // repainting while they disagree would place highlights by stale offsets.
-    if (text !== acceptedMarkdown.current) return;
-    if (!editorComments.length && !commentsWereActive.current) return;
-    commentsWereActive.current = editorComments.length > 0;
+    // Use the accepted source, including edits flushed when the composer opens.
+    // The parent prop can lag behind; cancellation must still clear the draft.
+    if (!editorComments.length && !commentComposer && !commentsWereActive.current) return;
+    commentsWereActive.current = editorComments.length > 0 || Boolean(commentComposer);
     editor.view.dispatch(editor.state.tr.setMeta(visualCommentsKey, {
-      text,
+      text: acceptedMarkdown.current,
       sourcePath: activePath,
       comments: editorComments,
+      draft: commentComposer,
       activeId: activeEditorCommentId,
+      tooltipId: commentTooltipId,
       labelForAuthor: (authorName) => {
         const author = editorCommentAuthorDisplayName(authorName, anonymousAuthor);
         return t({ message: `Comment by ${author}` });
       },
     } satisfies VisualCommentsMeta));
-  }, [activeEditorCommentId, activePath, anonymousAuthor, editor, editorComments, editorViewMounted, i18n.locale, t, text]);
+  }, [activeEditorCommentId, activePath, anonymousAuthor, commentComposer, commentTooltipId, editor, editorComments, editorViewMounted, i18n.locale, t, text]);
 
   useEffect(() => {
     if (!editor || !editorViewMounted || !synchronizeSourceScroll) return;
@@ -3796,6 +3841,96 @@ function CompleteVisualMarkdownEditor({
       top: Math.min(window.innerHeight - 220, rect.bottom + 8),
     });
   }, [activePath, editor, flushPendingLocalUpdate, onCreateComment, t]);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!editor || !section) return;
+    let anchor: HTMLElement | null = null;
+    let popup: HTMLElement | null = null;
+    let dwellTimer: ReturnType<typeof setTimeout> | undefined;
+    let leaveTimer: ReturnType<typeof setTimeout> | undefined;
+    const close = () => {
+      clearTimeout(dwellTimer);
+      clearTimeout(leaveTimer);
+      popup?.remove();
+      anchor = popup = null;
+    };
+    const open = (mark: HTMLElement) => {
+      if (anchor !== mark || !mark.isConnected) return;
+      const comments = editorComments.filter((comment) => (
+        comment.id === mark.dataset.visualCommentId && comment.path === activePath && !comment.resolved
+      ));
+      if (!comments.length) return;
+      const tooltip = buildCommentTooltipDom(comments, undefined, Date.now(), {
+        locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
+        reopen: t`Reopen`, resolve: t`Resolve comment`, reply: t`Reply`,
+      });
+      popup = tooltip;
+      tooltip.classList.add("visual-editor-comment-tooltip");
+      tooltip.id = commentTooltipId;
+      tooltip.setAttribute("role", "tooltip");
+      tooltip.style.visibility = "hidden";
+      tooltip.addEventListener("mouseenter", () => clearTimeout(leaveTimer));
+      tooltip.addEventListener("mouseleave", leave);
+      document.body.appendChild(tooltip);
+      // Mark attributes belong to decorations. Mutating them here makes
+      // ProseMirror replace the anchor while Floating UI is measuring it.
+      void computePosition(mark, tooltip, {
+        strategy: "fixed", placement: "top-start", middleware: [offset(6), flip(), shift({ padding: 8 })],
+      }).then(({ x, y }) => {
+        if (popup !== tooltip) return;
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+        tooltip.style.visibility = "visible";
+      });
+    };
+    const enter = (event: Event) => {
+      const mark = event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-visual-comment-id]") : null;
+      if (!mark || !section.contains(mark)) return;
+      clearTimeout(leaveTimer);
+      if (anchor === mark) return;
+      close();
+      anchor = mark;
+      if (event.type === "focusin") open(mark);
+      else dwellTimer = setTimeout(() => open(mark), 300);
+    };
+    function leave(event: MouseEvent | FocusEvent) {
+      const next = event.relatedTarget;
+      if (next instanceof Node && (anchor?.contains(next) || popup?.contains(next))) return;
+      if (!popup) {
+        close();
+        return;
+      }
+      clearTimeout(dwellTimer);
+      clearTimeout(leaveTimer);
+      leaveTimer = setTimeout(close, 150);
+    }
+    const scroll = (event: Event) => {
+      if (!(event.target instanceof Node) || !popup?.contains(event.target)) close();
+    };
+    // Delegate to the mounted section, including read-only previews. Close on
+    // navigation/typing so a floating card never outlives its document anchor.
+    section.addEventListener("mouseover", enter);
+    section.addEventListener("mouseout", leave);
+    section.addEventListener("focusin", enter);
+    section.addEventListener("focusout", leave);
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", close);
+    document.addEventListener("scroll", scroll, true);
+    window.addEventListener("resize", close);
+    return () => {
+      close();
+      section.removeEventListener("mouseover", enter);
+      section.removeEventListener("mouseout", leave);
+      section.removeEventListener("focusin", enter);
+      section.removeEventListener("focusout", leave);
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("scroll", scroll, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [activePath, commentTooltipId, editor, editorComments, i18n.locale, t]);
 
   if (!editor) return <div aria-label="Loading Markdown editor" />;
 

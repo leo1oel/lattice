@@ -85,7 +85,7 @@ describe("shared surface contracts", () => {
       /\.insert-palette-scroll-content \{[^}]*padding-top:\s*var\(--drawer-content-inset\)/,
     )
     expect(appCss).toMatch(
-      /\.editor-comments-drawer \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
+      /\.editor-comments-content \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
     )
     expect(appCss).toMatch(
       /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,

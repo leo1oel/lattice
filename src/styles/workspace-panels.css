@@ -626,7 +626,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   padding: 0;
 }
 /* Editor comments panel: labeled actions stay on one line. */
-.editor-comments-drawer .pdf-mark-actions button.danger {
+.editor-comments-content .pdf-mark-actions button.danger {
   width: auto;
   min-width: 0;
   padding: 0 var(--space-4);

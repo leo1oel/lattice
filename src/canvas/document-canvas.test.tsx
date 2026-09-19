@@ -1,8 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
 import { DocumentCanvas, OpenSlideTabPool } from "./document-canvas";
+import { createEditorComment } from "../editor/comments/editor-comments";
+import { EditorView } from "@codemirror/view";
 
 /**
  * The canvas decides *what* to mount; the editors themselves are covered by
@@ -39,13 +41,23 @@ vi.mock("./canvas-lazy-modules", () => {
     source?: string;
     onEligibilityChange?: (reason: string | null) => void;
     initialViewState?: { camera?: { x: number; y: number; z: number } };
+    editorComments?: Array<{ id: string; from: number; to: number }>;
+    activeEditorCommentId?: string | null;
+    onEditorCommentClick?: (id: string) => void;
+    onCreateComment?: (from: number, to: number, body: string) => void;
   }) => (
     <div
       data-testid={testId}
       data-path={props.path ?? ""}
       data-source={props.source ?? ""}
       data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
+      data-comments={JSON.stringify(props.editorComments ?? [])}
+      data-active-comment={props.activeEditorCommentId ?? ""}
     >
+      {props.editorComments?.map((comment) => (
+        <button key={comment.id} data-testid={`thread-${comment.id}`} onClick={() => props.onEditorCommentClick?.(comment.id)} />
+      ))}
+      {props.onCreateComment && <button data-testid="preview-create-comment" onClick={() => props.onCreateComment?.(2, 7, "Preview comment")} />}
       {props.onEligibilityChange && (
         <button
           type="button"
@@ -277,6 +289,69 @@ beforeEach(() => {
 });
 
 describe("DocumentCanvas / mode", () => {
+  it("highlights the source selection while composing and removes only the draft on cancel", async () => {
+    const source = "Hello bold world";
+    const existing = createEditorComment({ path: "main.tex", source, from: 6, to: 10, body: "Existing", authorId: "ada", authorName: "Ada" })!;
+    const { container, props } = renderCanvas({ source, editorComments: [existing] });
+    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
+    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+    // jsdom has no text layout; the floating toolbar needs real selection coordinates.
+    vi.spyOn(view, "coordsAtPos").mockReturnValue({ left: 100, right: 150, top: 100, bottom: 120 });
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: 6, head: 10 } });
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
+    expect(props.onCreateEditorComment).not.toHaveBeenCalled();
+    fireEvent.click(within(composer).getByRole("button", { name: "Cancel" }));
+    expect(view.dom.querySelector(".editor-comment-draft")).toBeNull();
+    expect(view.dom.querySelector(".cm-editor-comment")?.textContent).toBe("bold");
+  });
+
+  it("maps secondary Markdown comments around frontmatter and wires live threads and creation", async () => {
+    const prefix = "---\ntitle: Notes\n---\n";
+    const source = `${prefix}A local and remote passage.`;
+    const local = createEditorComment({ path: "notes.md", source, from: prefix.length + 2, to: prefix.length + 7, body: "Local", authorId: "ada", authorName: "Ada" })!;
+    const remote = { ...local, id: "overleaf:thread-2", from: prefix.length + 12, to: prefix.length + 18, quote: "remote" };
+    const hidden = { ...local, id: "frontmatter", from: 4, to: prefix.length + 3 };
+    const other = { ...local, id: "other", path: "main.tex" };
+    const { props, rerenderWith } = renderCanvas({ mode: "dual", secondaryFile: "notes.md", secondarySource: source, dualPreviewPanes: { primary: false, secondary: true }, editorComments: [local, remote, hidden, other], activeEditorCommentId: remote.id });
+    const preview = await screen.findByTestId("visual-markdown-editor");
+    const comments = () => JSON.parse(preview.getAttribute("data-comments")!);
+    expect(comments()).toEqual([{ ...local, from: 2, to: 7 }, { ...remote, from: 12, to: 18 }]);
+    expect(preview).toHaveAttribute("data-active-comment", remote.id);
+    fireEvent.click(screen.getByTestId(`thread-${remote.id}`));
+    expect(props.onReplyEditorComment).toHaveBeenCalledWith(remote.id);
+    fireEvent.click(screen.getByTestId("preview-create-comment"));
+    expect(props.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ path: "notes.md", from: prefix.length + 2, to: prefix.length + 7, quote: "local", body: "Preview comment" }));
+    rerenderWith({ editorComments: [{ ...remote, body: "Updated reply", resolved: true }] });
+    expect(comments()).toEqual([{ ...remote, from: 12, to: 18, body: "Updated reply", resolved: true }]);
+  });
+
+  it("keeps local and Overleaf comments on their file when it moves to the secondary source pane, and refreshes them", async () => {
+    const source = "Local passage. Remote passage.";
+    const local = createEditorComment({ path: "main.tex", source, from: 0, to: 5, body: "Local", authorId: "ada", authorName: "Ada" })!;
+    const remote = { ...createEditorComment({ path: "main.tex", source, from: 15, to: 21, body: "Remote", authorId: "overleaf-user", authorName: "Grace" })!, id: "overleaf:thread-1" };
+    const unrelated = { ...local, id: "other-file", path: "other.tex" };
+    const { container, props, rerenderWith } = renderCanvas({ source, editorComments: [local, remote, unrelated] });
+    await waitFor(() => expect(sourceEditor(container)?.querySelectorAll(".cm-editor-comment")).toHaveLength(2));
+    const moved = { mode: "dual" as const, activeFile: "other.tex", source, secondaryFile: "main.tex", secondarySource: source };
+    rerenderWith(moved);
+    const secondaryMarks = () => [...container.querySelectorAll("[data-editor-pane='secondary'] .cm-editor-comment")].map((mark) => mark.getAttribute("data-comment-id"));
+    await waitFor(() => expect(secondaryMarks()).toEqual([local.id, remote.id]));
+    expect(sourceEditor(container)?.querySelector(".cm-editor-comment")).toHaveAttribute("data-comment-id", unrelated.id);
+    rerenderWith({ ...moved, commentFocusRequest: { id: remote.id, nonce: "focus-right" } });
+    const secondaryEditor = container.querySelector<HTMLElement>("[data-editor-pane='secondary'] .cm-editor")!;
+    expect(EditorView.findFromDOM(secondaryEditor)?.state.selection.main).toMatchObject({ from: 15, to: 21 });
+    expect(props.onCommentFocusHandled).toHaveBeenCalledWith("focus-right");
+    rerenderWith({ ...moved, editorComments: [{ ...local, resolved: true }, remote, unrelated] });
+    await waitFor(() => expect(secondaryMarks()).toEqual([remote.id]));
+    rerenderWith({ ...moved, editorComments: [] });
+    await waitFor(() => expect(secondaryMarks()).toEqual([]));
+  });
+
   it("gives the whole canvas to the editor in source mode", async () => {
     const { container } = renderCanvas({ mode: "source" });
 

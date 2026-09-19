@@ -52,6 +52,7 @@ msgid "(empty span)"
 msgstr "(empty span)"
 
 #: src/canvas/document-canvas.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "(no comment text)"
 msgstr "(no comment text)"
 
@@ -327,6 +328,7 @@ msgstr "Add your first paper"
 msgid "added"
 msgstr "added"
 
+#: src/app/app-agent-panel.tsx
 #: src/app/app-workspace-sidebar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
@@ -1235,6 +1237,10 @@ msgstr "Comment"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Comment by {author}"
 msgstr "Comment by {author}"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Comment source"
+msgstr "Comment source"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -2296,14 +2302,6 @@ msgstr "Git status and commit"
 msgid "Git workspace"
 msgstr "Git workspace"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Go back (⌘[)"
-msgstr "Go back (⌘[)"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Go forward (⌘])"
-msgstr "Go forward (⌘])"
-
 #: src/canvas/document-canvas.tsx
 msgid "Go to {title}"
 msgstr "Go to {title}"
@@ -2411,6 +2409,10 @@ msgstr "Health checked at"
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "Heart suit"
+
+#: src/app/app-agent-panel.tsx
+msgid "Hide assistant"
+msgstr "Hide assistant"
 
 #: src/app/app-titlebar.tsx
 msgid "Hide sidebar"
@@ -3206,6 +3208,10 @@ msgstr "Loading your Overleaf projects…"
 msgid "Loading…"
 msgstr "Loading…"
 
+#: src/overleaf/overleaf-collab.tsx
+msgid "Local comments"
+msgstr "Local comments"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
 msgstr "Local issues"
@@ -3369,6 +3375,10 @@ msgstr "Models / entails"
 #: src/history/versions-timeline.tsx
 msgid "modified"
 msgstr "modified"
+
+#: src/app/app-agent-panel.tsx
+msgid "Move assistant to sidebar"
+msgstr "Move assistant to sidebar"
 
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
@@ -4627,6 +4637,7 @@ msgstr "Rendering first page…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "Reopen"
@@ -4645,6 +4656,7 @@ msgstr "Replacement/new version"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
@@ -4697,6 +4709,10 @@ msgstr "Resize dual source panes"
 msgid "Resize editor and asset preview"
 msgstr "Resize editor and asset preview"
 
+#: src/app/app-agent-panel.tsx
+msgid "Resize editor and assistant"
+msgstr "Resize editor and assistant"
+
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and HTML preview"
 msgstr "Resize editor and HTML preview"
@@ -4724,6 +4740,7 @@ msgstr "Resolve"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
 
@@ -5802,6 +5819,10 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgid "There exists"
 msgstr "There exists"
 
+#: src/overleaf/overleaf-collab.tsx
+msgid "These comments stay in Lattice and are not sent to Overleaf."
+msgstr "These comments stay in Lattice and are not sent to Overleaf."
+
 #: src/settings/settings-dialog.tsx
 msgid "These preferences apply across every project on this Mac"
 msgstr "These preferences apply across every project on this Mac"
@@ -5948,6 +5969,10 @@ msgstr "TODOs"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Toggle"
 msgstr "Toggle"
+
+#: src/app/app-titlebar.tsx
+msgid "Toggle assistant"
+msgstr "Toggle assistant"
 
 #: src/settings/settings-dialog.tsx
 msgid "Toolchain status"

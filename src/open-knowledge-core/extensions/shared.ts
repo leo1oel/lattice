@@ -28,6 +28,7 @@ import { List, ListItem } from './list.ts';
 import { ListBoundaryMerge } from './list-boundary-merge.ts';
 import { MathInline } from './math-inline.ts';
 import { PlainTextClipboard } from './plain-text-clipboard.ts';
+import { PaperCitation } from './paper-citation.ts';
 import { RawMdxFallback } from './raw-mdx-fallback.ts';
 import { SourceLiteralMark } from './source-literal-mark.ts';
 import { StrikeFidelity } from './strike-fidelity.ts';
@@ -49,6 +50,7 @@ export const sharedExtensions = [
   MathInline,
   // WikiLink also needs to register before StarterKit.
   WikiLink,
+  PaperCitation,
   // WikiLinkEmbed sits next to WikiLink — same priority ordering concern.
   WikiLinkEmbed,
   // Unified list extension — single list+listItem NodeSpec (replaces the

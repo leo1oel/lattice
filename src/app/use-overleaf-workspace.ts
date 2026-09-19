@@ -55,6 +55,54 @@ import type {
  */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
 
+export function projectOverleafEditorComments(
+  threads: OverleafComments["threads"],
+  anchors: OverleafComments["anchors"],
+  docPaths: Map<string, string>,
+  liveDocId: string | null,
+  liveAnchors: Map<string, { threadId: string; position: number; quote: string }>,
+): EditorComment[] {
+  // REST supplies ownership for every file; the joined document's live ranges
+  // are authoritative, including anchors removed since the REST snapshot.
+  const mergedAnchors = new Map(anchors);
+  if (liveDocId) {
+    for (const [id, anchor] of mergedAnchors) {
+      if (anchor.docId === liveDocId) mergedAnchors.delete(id);
+    }
+    for (const [id, anchor] of liveAnchors) {
+      mergedAnchors.set(id, { ...anchor, docId: liveDocId });
+    }
+  }
+  return threads.flatMap((thread) => {
+    const anchor = mergedAnchors.get(thread.id);
+    const path = anchor && docPaths.get(anchor.docId);
+    if (!anchor || !path) return [];
+    const [first, ...rest] = thread.messages;
+    return [{
+      id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`,
+      path,
+      from: anchor.position,
+      to: anchor.position + anchor.quote.length,
+      quote: anchor.quote,
+      prefix: "",
+      suffix: "",
+      body: first?.content ?? "",
+      authorId: first?.authorEmail ?? "overleaf",
+      authorName: first ? `${first.authorName} · Overleaf` : "Overleaf",
+      resolved: thread.resolved,
+      replies: rest.map((message) => ({
+        id: message.id,
+        authorId: message.authorEmail ?? "overleaf",
+        authorName: message.authorName,
+        body: message.content,
+        createdAt: new Date(message.timestamp).toISOString(),
+      })),
+      createdAt: new Date(first?.timestamp ?? 0).toISOString(),
+      updatedAt: new Date(thread.messages[thread.messages.length - 1]?.timestamp ?? 0).toISOString(),
+    }];
+  });
+}
+
 type OverleafSyncOptions = {
   auto?: boolean;
   observedRemoteVersion?: number | null;
@@ -1134,37 +1182,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // text and answer in place like any other. Their ids are prefixed, which is
   // how every handler below knows to send the reply to Overleaf rather than
   // writing it into this project's own comments file.
-  const overleafEditorComments = useMemo<EditorComment[]>(() => {
-    const path = activeFile;
-    if (!path || !overleafAnchors.size) return [];
-    return overleafComments.threads.flatMap((thread) => {
-      const anchor = overleafAnchors.get(thread.id);
-      if (!anchor) return [];
-      const [first, ...rest] = thread.messages;
-      return [{
-        id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`,
-        path,
-        from: anchor.position,
-        to: anchor.position + anchor.quote.length,
-        quote: anchor.quote,
-        prefix: "",
-        suffix: "",
-        body: first?.content ?? "",
-        authorId: first?.authorEmail ?? "overleaf",
-        authorName: first ? `${first.authorName} · Overleaf` : "Overleaf",
-        resolved: thread.resolved,
-        replies: rest.map((message) => ({
-          id: message.id,
-          authorId: message.authorEmail ?? "overleaf",
-          authorName: message.authorName,
-          body: message.content,
-          createdAt: new Date(message.timestamp).toISOString(),
-        })),
-        createdAt: new Date(first?.timestamp ?? 0).toISOString(),
-        updatedAt: new Date(thread.messages[thread.messages.length - 1]?.timestamp ?? 0).toISOString(),
-      }];
-    });
-  }, [activeFile, overleafAnchors, overleafComments.threads]);
+  const overleafEditorComments = useMemo(() => projectOverleafEditorComments(
+    overleafComments.threads,
+    overleafComments.anchors,
+    overleafDocPaths,
+    overleafRealtime.docId,
+    overleafAnchors,
+  ), [overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors]);
 
   // Suggestions: reading them is the realtime hook's job, acting on them is
   // this one's — accepting goes through an endpoint and reports no operation,

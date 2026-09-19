@@ -656,10 +656,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
    without colliding with neighbouring rows (40px would overlap). */
 .paper-row-actions { align-self: stretch; flex: none; padding-inline-end: var(--space-2); display: flex; align-items: center; }
 .row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
-.row-delete, .row-edit-bib { opacity: 0; }
+.row-delete, .row-edit-bib { opacity: 0; transition: opacity var(--duration-exit) var(--ease-out); }
 .row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: -5px; }
 .row-delete svg, .row-edit-bib svg, .row-citation-health svg { stroke-width: 1.5; }
-.paper-row:hover .row-delete, .paper-row:hover .row-edit-bib, .paper-row.active .row-delete, .paper-row.active .row-edit-bib { opacity: 1; }
+.paper-row:is(:hover, :focus-within, .active) :is(.row-delete, .row-edit-bib) { opacity: 1; transition-duration: var(--duration-quick); }
 .row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
 .row-citation-health { position: relative; width: 22px; height: 22px; flex: none; padding: 0; border-radius: var(--radius-compact); background: transparent; color: var(--status-warning); display: grid; place-items: center; }

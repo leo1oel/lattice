@@ -9,7 +9,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import { Pencil } from "lucide-react";
 import { ExternalLinkPreviewCard, useExternalLinkPreview } from "./visual-link-preview-card.tsx";
@@ -93,7 +93,10 @@ export const VisualLinkHover = Extension.create({
             const from = view.posAtDOM(target, 0);
             const to = view.posAtDOM(target, target.childNodes.length);
             if (to <= from) return;
-            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+            const selection = view.state.doc.nodeAt(from)?.type.name === "paperCitation"
+              ? NodeSelection.create(view.state.doc, from)
+              : TextSelection.create(view.state.doc, from, to);
+            view.dispatch(view.state.tr.setSelection(selection));
             window.dispatchEvent(new CustomEvent(VISUAL_LINK_INSERT_EVENT, { detail: { editor } }));
           };
           renderer = new ReactRenderer(LinkPreviewPanel, { editor, props: { url, onEdit: edit } });

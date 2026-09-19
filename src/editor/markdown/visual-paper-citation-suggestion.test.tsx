@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
+import { history, undo } from "@tiptap/pm/history";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PaperSummary } from "../../app-types";
 import { matchPapers } from "./visual-paper-citation-suggestion";
@@ -27,8 +28,8 @@ const PAPERS: PaperSummary[] = [
 
 afterEach(cleanup);
 
-function renderEditor(activePath = "notes.md", papers = PAPERS) {
-  const result = render(<VisualMarkdownEditor text="" activePath={activePath} papers={papers} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
+function renderEditor(activePath = "notes.md", papers = PAPERS, text = "") {
+  const result = render(<VisualMarkdownEditor text={text} activePath={activePath} papers={papers} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
   const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
   return { ...result, editor: (surface as HTMLElement & { editor: Editor }).editor };
 }
@@ -50,6 +51,93 @@ describe("matchPapers", () => {
 });
 
 describe("visual paper citation suggestion", () => {
+  it.each(["Backspace", "Delete"])("deletes an inserted citation as a whole with %s", async (key) => {
+    const { editor } = renderEditor();
+    editor.chain().focus().insertContent("Before @attention").run();
+    await screen.findByRole("listbox", { name: "Paper citation suggestions" });
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    editor.commands.insertContent("after");
+    const link = await screen.findByRole("link", { name: PAPERS[0].title });
+    expect(link.querySelector("[data-paper-citation]")).toHaveAttribute("contenteditable", "false");
+    const from = editor.view.posAtDOM(link, 0);
+    const to = editor.view.posAtDOM(link, link.childNodes.length);
+    expect(to - from).toBe(1);
+    editor.commands.setTextSelection(key === "Backspace" ? to : from);
+    editor.registerPlugin(history());
+    fireEvent.keyDown(editor.view.dom, { key });
+    expect(markdown(editor).trimEnd()).toBe("Before  after");
+    expect(editor.view.dom).not.toHaveTextContent(PAPERS[0].title);
+    expect(undo(editor.state, editor.view.dispatch)).toBe(true);
+    expect(markdown(editor).trimEnd()).toBe("Before [Attention Is All You Need](.research/papers/1706.03762/paper.md) after");
+  });
+
+  it("restores atomic citations from Markdown without converting ordinary links", async () => {
+    const source = "Before [Attention](../.research/papers/1706.03762/paper.md) and [Docs](https://example.com).";
+    const { editor } = renderEditor("notes/reading.md", PAPERS, source);
+    const citation = await screen.findByRole("link", { name: "Attention" });
+    expect(citation.querySelector("[data-paper-citation]")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Docs" }).querySelector("[data-paper-citation]")).toBeNull();
+    expect(markdown(editor).trimEnd()).toBe(source);
+    expect(editor.state.doc.textContent).toBe("Before Attention and Docs.");
+    editor.commands.setTextSelection(editor.view.posAtDOM(citation, 0));
+    fireEvent.keyDown(editor.view.dom, { key: "Delete" });
+    expect(markdown(editor).trimEnd()).toBe("Before  and [Docs](https://example.com).");
+  });
+
+  it("edits the title and URL through the hover pencil, then removes the link as plain text", async () => {
+    const { editor } = renderEditor("notes.md", PAPERS, "Before [Attention](.research/papers/1706.03762/paper.md) after");
+    fireEvent.mouseOver(await screen.findByRole("link", { name: "Attention" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit link" }));
+    const title = await screen.findByRole("textbox", { name: "Citation title" });
+    expect(title).toHaveValue("Attention");
+    fireEvent.change(title, { target: { value: "My reading notes" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Link URL" }), { target: { value: ".research/papers/1706.03762/blog.md" } });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(markdown(editor).trimEnd()).toBe("Before [My reading notes](.research/papers/1706.03762/blog.md) after");
+    fireEvent.mouseOver(await screen.findByRole("link", { name: "My reading notes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit link" }));
+    await screen.findByRole("textbox", { name: "Citation title" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(markdown(editor).trimEnd()).toBe("Before My reading notes after");
+    expect(editor.view.dom.querySelector("[data-paper-citation]")).toBeNull();
+  });
+
+  it("round-trips punctuation in paper titles and keeps the citation after HTML copy/paste", async () => {
+    const papers = [{ ...PAPERS[0], title: "A [B] & C: *results*" }];
+    const { editor } = renderEditor("notes.md", papers);
+    editor.chain().focus().insertContent("@results").run();
+    await screen.findByRole("listbox", { name: "Paper citation suggestions" });
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    const saved = markdown(editor);
+    const parsed = getMarkdownManager().parse(saved);
+    expect(parsed.content?.[0]?.content?.[0]).toMatchObject({ type: "paperCitation", attrs: { label: papers[0].title } });
+    const html = editor.getHTML();
+    editor.commands.setContent(html);
+    expect(markdown(editor)).toBe(saved);
+    expect(editor.view.dom.querySelector("[data-paper-citation]")).toHaveTextContent(papers[0].title);
+  });
+
+  it("cancels title edits and only converts to an ordinary link for a safe external URL", async () => {
+    const source = "[Attention](.research/papers/1706.03762/paper.md)";
+    const { editor } = renderEditor("notes.md", PAPERS, source);
+    fireEvent.mouseOver(await screen.findByRole("link", { name: "Attention" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit link" }));
+    const title = await screen.findByRole("textbox", { name: "Citation title" });
+    fireEvent.change(title, { target: { value: "Cancelled" } });
+    fireEvent.keyDown(title, { key: "Escape" });
+    expect(markdown(editor).trimEnd()).toBe(source);
+    fireEvent.mouseOver(screen.getByRole("link", { name: "Attention" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit link" }));
+    const url = await screen.findByRole("textbox", { name: "Link URL" });
+    fireEvent.change(url, { target: { value: "javascript:alert(1)" } });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(markdown(editor).trimEnd()).toBe(source);
+    fireEvent.change(url, { target: { value: "https://example.com/paper" } });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(markdown(editor).trimEnd()).toBe("[Attention](https://example.com/paper)");
+    expect(editor.view.dom.querySelector("[data-paper-citation]")).toBeNull();
+  });
+
   it("lists all matches and lets keyboard navigation select beyond the eighth paper", async () => {
     const papers = Array.from({ length: 12 }, (_, index) => ({
       title: `Research paper ${index + 1}`,
