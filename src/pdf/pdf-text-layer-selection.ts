@@ -395,12 +395,18 @@ function enableGlobalSelectionListener() {
     const selection = document.getSelection();
     updateHasSelection(selection);
     const live = pdfSelectedPlainText(selection);
-    if (live) lastPdfCopyText = live;
+    // A click on a glyph can collapse the old range without creating a new
+    // one. Clear its copy cache and notify the viewer, just like a blank click.
+    if (!live) {
+      clearPdfTextSelection();
+      return;
+    }
+    lastPdfCopyText = live;
     paintSelectionOverlays(selection);
     for (const [textLayer, endOfContent] of textLayers) {
       resetLayer(textLayer, endOfContent);
     }
-    if (live) armPdfCopyField(live);
+    armPdfCopyField(live);
   };
   document.addEventListener("pointerup", endDrag, { signal });
   window.addEventListener("blur", () => {

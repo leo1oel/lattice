@@ -317,6 +317,34 @@ describe("LaTeX citation editing", () => {
     }
   });
 
+  it.each(["A Study of Collaborative Writing", ""])("renders citation metadata with title %j but inserts only its key", async (title) => {
+    const doc = "\\cite{existing,work}";
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc,
+        selection: { anchor: doc.length - 1 },
+        extensions: latexEditorExtensions([], [
+          { key: "work2026", title, authors: "Alice Lee", year: "2026", venue: "CHI" },
+        ]),
+      }),
+    });
+    try {
+      startCompletion(view);
+      await vi.waitFor(() => {
+        const option = view.dom.querySelector(".cm-citation-option");
+        expect(option?.querySelector(".cm-completionLabel")?.textContent).toBe(title || "work2026");
+        expect(option?.querySelector(".cm-completionDetail")?.textContent).toBe(
+          title ? "work2026 · Alice Lee · 2026 · CHI" : "Alice Lee · 2026 · CHI",
+        );
+      });
+      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+      expect(view.state.doc.toString()).toBe("\\cite{existing,work2026}");
+    } finally {
+      view.destroy();
+    }
+  });
+
   it("lets an immediately pressed arrow and Enter choose a citation", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     const view = new EditorView({

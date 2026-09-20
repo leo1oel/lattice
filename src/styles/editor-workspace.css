@@ -685,6 +685,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   font-style: normal;
   font-size: 0.92em;
 }
+/* Citation choices use the same title/subtitle hierarchy as Markdown's paper picker. */
+.source-editor .cm-tooltip-autocomplete > ul:has(.cm-citation-option) { width: min(420px, 70vw); max-height: 40vh; }
+.source-editor .cm-tooltip-autocomplete > ul > li.cm-citation-option { flex-direction: column; align-items: stretch; gap: 0; padding: var(--space-3) var(--space-4); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
+.source-editor .cm-citation-option .cm-completionLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.source-editor .cm-citation-option .cm-completionDetail { margin-left: 0; max-width: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* Readable by default. This host used to be transparent on the grounds that
    every card inside it brings its own background — which is true right up
    until one does not, and then its text sits directly on the document with

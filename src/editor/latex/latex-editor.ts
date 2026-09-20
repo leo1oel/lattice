@@ -584,11 +584,11 @@ function citationCompletions(citations: CitationInfo[]) {
         .sort((a, b) => a.key.localeCompare(b.key))
         .map((citation) => ({
           label: citation.key,
-          type: "reference",
-          // Keep the title inline so a side info panel cannot cover the key list.
-          detail: citation.title
-            || [citation.authors, citation.year].filter(Boolean).join(" · ")
-            || undefined,
+          // Display the paper title, but keep the actual completion text a key.
+          displayLabel: citation.title || citation.key,
+          type: "citation",
+          detail: [citation.title ? citation.key : "", citation.authors, citation.year, citation.venue]
+            .filter(Boolean).join(" · ") || undefined,
         })),
     };
   };
@@ -1506,6 +1506,7 @@ export function latexEditorExtensions(
       // 75 ms guard just makes a quick Arrow/Enter fall through to the editor.
       interactionDelay: 0,
       icons: false,
+      optionClass: (completion) => completion.type === "citation" ? "cm-citation-option" : "",
     }),
     EditorView.domEventHandlers({
       click(event, view) {

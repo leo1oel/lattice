@@ -3376,6 +3376,10 @@ msgstr "Models / entails"
 msgid "modified"
 msgstr "modified"
 
+#: src/app/app-workspace-sidebar.tsx
+msgid "Move assistant below editor"
+msgstr "Move assistant below editor"
+
 #: src/app/app-agent-panel.tsx
 msgid "Move assistant to sidebar"
 msgstr "Move assistant to sidebar"
@@ -5969,10 +5973,6 @@ msgstr "TODOs"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Toggle"
 msgstr "Toggle"
-
-#: src/app/app-titlebar.tsx
-msgid "Toggle assistant"
-msgstr "Toggle assistant"
 
 #: src/settings/settings-dialog.tsx
 msgid "Toolchain status"

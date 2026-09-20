@@ -398,7 +398,7 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => expect(view.queryByRole("status")).toBeNull());
   });
 
-  it("uses PDFSlick navigation, native search highlights, selection, and secure links", async () => {
+  it.each(["blank page", "text glyph"])("uses PDFSlick navigation, search, links, and clears selection on a %s click", async (clearTarget) => {
     const onTextSelect = vi.fn();
     const view = render(
       <PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} onTextSelect={onTextSelect} />,
@@ -506,14 +506,16 @@ describe("PDFSlick viewer integration", () => {
     await act(() => new Promise((resolve) => window.requestAnimationFrame(resolve)));
     expect(onTextSelect).toHaveBeenLastCalledWith("Attention is all you need");
     const pageCanvas = view.container.querySelector<HTMLElement>(".page canvas")!;
-    pageCanvas.dispatchEvent(new PointerEvent("pointerdown", {
+    const target = clearTarget === "text glyph" ? glyph : pageCanvas;
+    target.dispatchEvent(new PointerEvent("pointerdown", {
       bubbles: true,
       button: 0,
       clientX: 10,
       clientY: 10,
     }));
+    target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
     expect(onTextSelect).toHaveBeenLastCalledWith("");
-    fireEvent.mouseUp(pageCanvas);
+    fireEvent.mouseUp(target);
     await waitFor(() => {
       expect(onTextSelect).toHaveBeenLastCalledWith("");
     });

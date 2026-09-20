@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   FolderTree,
   Library,
+  PanelBottom,
   Plus,
   Presentation,
   Search,
@@ -45,6 +46,7 @@ const AppAgentPanel = lazy(() => import("./app-agent-panel"));
 
 export type AppWorkspaceSidebarProps = {
   agentDocked?: boolean;
+  onDockAgent: () => void;
   onCloseAgentDock?: () => void;
   agentPanelDropActive: boolean;
   appLocale: AppLocale;
@@ -189,14 +191,19 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                 </Tip>
               </>
             )}
-            {sidebarMode === "agent" && synaraOrigin && (
-              <Suspense fallback={null}>
-                <SynaraPermissionPicker
-                  value={synaraPermissionMode}
-                  autoModeAvailable={synaraAutoModeAvailable}
-                  onChange={changeSynaraPermissionMode}
-                />
-              </Suspense>
+            {sidebarMode === "agent" && (
+              <>
+                {synaraOrigin && <Suspense fallback={null}>
+                  <SynaraPermissionPicker
+                    value={synaraPermissionMode}
+                    autoModeAvailable={synaraAutoModeAvailable}
+                    onChange={changeSynaraPermissionMode}
+                  />
+                </Suspense>}
+                <Tip label={t`Move assistant below editor`}>
+                  <button type="button" onClick={props.onDockAgent}><PanelBottom size={15} /></button>
+                </Tip>
+              </>
             )}
           </div>
         </div>

@@ -3276,7 +3276,7 @@ describe("project workspace", () => {
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });
 
-  it("opens the assistant below the editor without reopening the sidebar or replacing its frame", async () => {
+  it("moves the sidebar assistant below the editor and back without replacing its frame", async () => {
     // Keep cold module compilation outside the DOM query timeout.
     await import("./app/app-agent-panel");
     const snapshot = {
@@ -3290,25 +3290,21 @@ describe("project workspace", () => {
       if (command === "list_papers" || command === "list_history") return [];
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
-    localStorage.setItem("lattice.sidebar-open.v1", "0");
+    localStorage.setItem("lattice.sidebar-open.v1", "1");
+    localStorage.setItem("lattice.sidebar-mode.v1", "agent");
     renderApp();
-    const toggle = await screen.findByRole("button", { name: "Toggle assistant" });
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(document.querySelector('iframe[title="Agent"]')).toBeNull();
-    fireEvent.click(toggle);
+    await screen.findByRole("button", { name: "Move assistant below editor" });
+    expect(screen.queryByRole("button", { name: "Toggle assistant" })).toBeNull();
     const frame = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
       expect(element).not.toBeNull();
       return element!;
     });
     const context = frame.contentWindow;
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Move assistant below editor" }));
     expect(document.querySelector(".workspace")).toHaveClass("sidebar-hidden");
     expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
     expect(document.querySelector(".agent-dock-header")).not.toBeNull();
-    fireEvent.click(toggle);
-    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("inert");
-    fireEvent.click(toggle);
     // Reopening the file navigator leaves the dock where it was.
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     expect(document.querySelector(".agent-dock-header")).not.toBeNull();
@@ -3316,9 +3312,12 @@ describe("project workspace", () => {
     expect(document.querySelector(".agent-dock-header")).toBeNull();
     expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
     expect(frame.contentWindow).toBe(context);
-    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Move assistant below editor" }));
+    // jsdom has no panel geometry; browser tests cover the visible close control.
+    fireEvent.click(document.querySelector('.agent-dock-header button[aria-label="Hide assistant"]')!);
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("inert");
     expect(document.querySelector(".agent-dock-header")).toBeNull();
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
   });
 
   it.each([true, false])("restores the Agent selection and sidebar visibility (open: %s)", async (open) => {

@@ -7,6 +7,7 @@ import {
   installPdfTextLayerSelection,
   isEditableSelectAllTarget,
   isVisualPdfGlyphEvent,
+  PDF_TEXT_SELECTION_CLEARED_EVENT,
   pdfSelectedOrCachedPlainText,
   pdfSelectionOverlayRect,
   placeEndOfContentForRange,
@@ -443,6 +444,41 @@ describe("PDF empty-page clicks", () => {
   afterEach(() => {
     document.body.replaceChildren();
     document.getSelection()?.removeAllRanges();
+  });
+
+  it("clears cached context when a click on another glyph collapses the selection", () => {
+    const { layer, spans } = glyphLayer("First phrase", "Another phrase");
+    for (const span of spans) {
+      mockGlyphBox(span, { left: 10, top: 10, right: 100, bottom: 22 });
+    }
+    const uninstall = installPdfTextLayerSelection(layer);
+    const cleared = vi.fn();
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    const down = (span: HTMLElement) => span.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true, button: 0, clientX: 20, clientY: 16,
+    }));
+    const up = () => document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+    try {
+      down(spans[0]!);
+      const range = document.createRange();
+      range.selectNodeContents(spans[0]!);
+      document.getSelection()?.removeAllRanges();
+      document.getSelection()?.addRange(range);
+      up();
+      expect(pdfSelectedOrCachedPlainText()).toBe("First phrase");
+      expect(cleared).not.toHaveBeenCalled();
+
+      down(spans[1]!);
+      document.getSelection()?.collapse(spans[1]!.firstChild!, 3);
+      document.dispatchEvent(new Event("selectionchange"));
+      up();
+      expect(pdfSelectedOrCachedPlainText()).toBe("");
+      expect(cleared).toHaveBeenCalledOnce();
+      expect(layer.classList.contains("has-selection")).toBe(false);
+    } finally {
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+      uninstall();
+    }
   });
 
   it("treats a pointer outside a glyph's visible box as empty page, even if the span is the target", () => {

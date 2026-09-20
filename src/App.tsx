@@ -1957,18 +1957,6 @@ function App() {
       setTutorialStep(TUTORIAL_STEPS.agent);
     }
   };
-  const toggleAgent = () => {
-    if (agentDocked) {
-      setAgentDocked(false);
-    } else if (sidebarOpen) {
-      if (sidebarMode === "agent") setSidebarMode("project");
-      else chooseSidebarMode("agent");
-    } else {
-      if (sidebarMode === "agent") setSidebarMode("project");
-      setAgentDocked(true);
-      if (synaraFrameReady) postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
-    }
-  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   useEffect(() => {
@@ -9830,8 +9818,6 @@ function App() {
         sidebarOpen={sidebarOpen}
         sidebarResizing={sidebarResizing}
         sidebarWidth={sidebarWidth}
-        agentOpen={agentVisible}
-        onToggleAgent={toggleAgent}
       />
 
       {referenceHits && (
@@ -9863,6 +9849,11 @@ function App() {
       >
           <AppWorkspaceSidebar
             agentDocked={agentDocked}
+            onDockAgent={() => {
+              setAgentDocked(true);
+              setSidebarMode("project");
+              setSidebarOpen(false);
+            }}
             onCloseAgentDock={() => setAgentDocked(false)}
             agentPanelDropActive={agentPanelDropActive}
             appLocale={appLocale}

@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
+import { ScrollArea } from "../components/ui/scroll-area";
 import {
   DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
   localSemanticStatusLabel,
@@ -228,64 +229,68 @@ export function ProjectFindDialog(props: {
             />
           )}
           {showResults && fileHits.length > 0 && (
-            <ul className="project-replace-hits">
-              {fileHits.map((hit, index) => (
-                <li key={`${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
-                  <button
-                    type="button"
-                    className={`project-replace-hit ${index === activeIndex ? "active" : ""}`}
-                    onClick={() => {
-                      setActiveIndex(index);
-                      props.onOpenHit(hit.path, hit.line ?? undefined);
-                    }}
-                  >
-                    <span className="project-find-hit-heading">
-                      <span className="project-find-result-type">
-                        {hit.semantic
-                          ? "Semantic match"
-                          : hit.fileKind
-                            ? `${hit.fileKind.toLocaleUpperCase()} file`
-                            : "File"}
+            <ScrollArea className="project-find-results">
+              <ul className="project-replace-hits">
+                {fileHits.map((hit, index) => (
+                  <li key={`${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
+                    <button
+                      type="button"
+                      className={`project-replace-hit ${index === activeIndex ? "active" : ""}`}
+                      onClick={() => {
+                        setActiveIndex(index);
+                        props.onOpenHit(hit.path, hit.line ?? undefined);
+                      }}
+                    >
+                      <span className="project-find-hit-heading">
+                        <span className="project-find-result-type">
+                          {hit.semantic
+                            ? "Semantic match"
+                            : hit.fileKind
+                              ? `${hit.fileKind.toLocaleUpperCase()} file`
+                              : "File"}
+                        </span>
+                        <span className="project-replace-hit-path">
+                          {hit.path}{hit.line ? `:${hit.line}` : ""}
+                        </span>
                       </span>
-                      <span className="project-replace-hit-path">
-                        {hit.path}{hit.line ? `:${hit.line}` : ""}
-                      </span>
-                    </span>
-                    <span className="project-replace-hit-preview">{hit.snippet || hit.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      <span className="project-replace-hit-preview">{hit.snippet || hit.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
           )}
           {showResults && paperHits.length > 0 && (
             <div className="project-find-papers">
               <div className="project-replace-preview-summary">Papers</div>
-              <ul className="project-replace-hits">
-                {paperHits.map((hit, index) => {
-                  const selectableIndex = fileHits.length + index;
-                  return (
-                    <li key={`paper:${hit.path}:${hit.title}`}>
-                      <button
-                        type="button"
-                        className={`project-replace-hit ${selectableIndex === activeIndex ? "active" : ""}`}
-                        aria-label={`Open paper result: ${hit.title}`}
-                        onClick={() => {
-                          setActiveIndex(selectableIndex);
-                          props.onOpenHit(hit.path, hit.line ?? undefined);
-                        }}
-                      >
-                        <span className="project-find-hit-heading">
-                          <span className="project-find-result-type">
-                            {hit.semantic ? "Paper · semantic" : "Paper"}
+              <ScrollArea className="project-find-results">
+                <ul className="project-replace-hits">
+                  {paperHits.map((hit, index) => {
+                    const selectableIndex = fileHits.length + index;
+                    return (
+                      <li key={`paper:${hit.path}:${hit.title}`}>
+                        <button
+                          type="button"
+                          className={`project-replace-hit ${selectableIndex === activeIndex ? "active" : ""}`}
+                          aria-label={`Open paper result: ${hit.title}`}
+                          onClick={() => {
+                            setActiveIndex(selectableIndex);
+                            props.onOpenHit(hit.path, hit.line ?? undefined);
+                          }}
+                        >
+                          <span className="project-find-hit-heading">
+                            <span className="project-find-result-type">
+                              {hit.semantic ? "Paper · semantic" : "Paper"}
+                            </span>
+                            <span className="project-replace-hit-path">{hit.title}</span>
                           </span>
-                          <span className="project-replace-hit-path">{hit.title}</span>
-                        </span>
-                        <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                          <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </ScrollArea>
             </div>
           )}
         </div>
