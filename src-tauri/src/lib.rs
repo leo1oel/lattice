@@ -1995,14 +1995,28 @@ async fn texlab_diagnostics(
     window: tauri::Window,
     path: String,
     text: String,
-) -> Result<Vec<models::Diagnostic>, String> {
+    project_root: String,
+    request_id: String,
+) -> Result<(), String> {
+    use tauri::Emitter;
     let root = current_root(&state, &window)?;
+    if root != Path::new(&project_root) {
+        return Err("The TexLab project changed before synchronization.".to_string());
+    }
     let pool = Arc::clone(&state.project(&root).texlab);
     tauri::async_runtime::spawn_blocking(move || {
         let mut pool = pool
             .lock()
             .map_err(|_| "TexLab state is unavailable.".to_string())?;
-        pool.diagnostics(&root, &path, &text)
+        pool.diagnostics(&root, &path, &text, move |diagnostics| {
+            let _ = window.emit(
+                "texlab-diagnostics",
+                serde_json::json!({
+                    "requestId": request_id,
+                    "diagnostics": diagnostics,
+                }),
+            );
+        })
     })
     .await
     .map_err(|error| format!("The TexLab task stopped unexpectedly: {error}"))?

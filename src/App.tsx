@@ -182,6 +182,7 @@ import {
   resolveDiagnosticPath,
   type CompileDiagnostic,
 } from "./build/compile-diagnostics";
+import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { Welcome } from "./project/project-dialogs";
 import { TUTORIAL_STEPS } from "./onboarding/onboarding-steps";
 import {
@@ -836,7 +837,6 @@ function App() {
   // chip. An empty report from one pane must not wipe a live selection the other
   // pane owns, or the chip flickers as they fight. This tracks the current owner.
   const selectionSourceRef = useRef<AgentHostSurface | null>(null);
-  const [texlabDiagnostics, setTexlabDiagnostics] = useState<CompileDiagnostic[]>([]);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [dualPanePreview, setDualPanePreview] = useState<{
     projectRoot: string;
@@ -5028,7 +5028,6 @@ function App() {
       setSelectionSource(null);
       selectionSourceRef.current = null;
       dismissedSelectionRef.current = null;
-      setTexlabDiagnostics([]);
       setEditorComments([]);
       setEditorCommentsOpen(false);
       setActiveEditorCommentId(null);
@@ -8100,9 +8099,8 @@ function App() {
     setOutlineSources((current) => Object.fromEntries(
       Object.entries(current).map(([path, content]) => [remapPath(path), content]),
     ));
-    setTexlabDiagnostics((diagnostics) => diagnostics.map((diagnostic) => diagnostic.file
-      ? { ...diagnostic, file: remapPath(diagnostic.file) }
-      : diagnostic));
+    // TexLab resynchronizes the renamed active file rather than retaining
+    // diagnostics for its old URI. Build diagnostics still need remapping.
     setBuild((current) => current ? {
       ...current,
       diagnostics: current.diagnostics.map((diagnostic) => diagnostic.file
@@ -9443,34 +9441,7 @@ function App() {
     };
   }, [appendixMarkerLine, appendixMarkerPath, build?.success, pdfUrl]);
 
-  useEffect(() => {
-    if (!project || !activeFile.endsWith(".tex")) {
-      setTexlabDiagnostics(EMPTY_DIAGNOSTICS);
-      return;
-    }
-    // This effect re-runs on every keystroke. A fresh `[]` is never equal to
-    // the previous one, so clearing with a literal committed a second render
-    // of the whole app for each character typed; the shared empty list lets
-    // React bail out when there was nothing to clear.
-    setTexlabDiagnostics(EMPTY_DIAGNOSTICS);
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void invoke<CompileDiagnostic[]>("texlab_diagnostics", {
-        path: activeFile,
-        text: source,
-      })
-        .then((diagnostics) => {
-          if (!cancelled) setTexlabDiagnostics(diagnostics);
-        })
-        .catch(() => {
-          if (!cancelled) setTexlabDiagnostics(EMPTY_DIAGNOSTICS);
-        });
-    }, 700);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [activeFile, project, source]);
+  const texlabDiagnostics = useTexlabDiagnostics(project?.root, activeFile, source, build);
 
   // texlab, when installed, reports unused labels/citations itself, so the local
   // check would duplicate its warnings. Suppress the local one when texlab is

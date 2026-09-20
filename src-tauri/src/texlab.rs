@@ -2,14 +2,19 @@ use crate::commands;
 use crate::models::{Diagnostic, TexlabCompletionItem, TexlabHover, TexlabLocation};
 use crate::project;
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Stdio};
+use std::process::{Child, ChildStdin, Stdio};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
-const DIAGNOSTIC_TIMEOUT: Duration = Duration::from_millis(2500);
-const CHANGE_DIAGNOSTIC_TIMEOUT: Duration = Duration::from_millis(1800);
 const FEATURE_TIMEOUT: Duration = Duration::from_millis(1200);
+
+struct DiagnosticSubscription {
+    uri: String,
+    relative: String,
+    publish: Box<dyn Fn(Vec<Diagnostic>) + Send>,
+}
 
 #[derive(Default)]
 pub struct TexlabPool {
@@ -36,13 +41,16 @@ impl TexlabPool {
         root: &Path,
         relative_path: &str,
         text: &str,
-    ) -> Result<Vec<Diagnostic>, String> {
+        publish: impl Fn(Vec<Diagnostic>) + Send + 'static,
+    ) -> Result<(), String> {
         if !commands::available("texlab") {
-            return Ok(Vec::new());
+            publish(Vec::new());
+            return Ok(());
         }
         let relative = relative_path.trim().replace('\\', "/");
         if relative.is_empty() || !relative.ends_with(".tex") {
-            return Ok(Vec::new());
+            publish(Vec::new());
+            return Ok(());
         }
         let absolute = project::safe_path(root, &relative)?;
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
@@ -68,15 +76,44 @@ impl TexlabPool {
             .live
             .as_mut()
             .ok_or_else(|| "TexLab session missing.".to_string())?;
-        match live.publish_for(&absolute, &relative, text) {
-            Ok(items) => Ok(items),
-            Err(error) => {
-                // Recover from a dead process by cold-starting once.
+        *live
+            .session
+            .subscription
+            .lock()
+            .map_err(|_| "TexLab subscription unavailable.")? = Some(DiagnosticSubscription {
+            uri: path_to_uri(&absolute),
+            relative: relative.clone(),
+            publish: Box::new(publish),
+        });
+        match live.sync_document(&absolute, &relative, text) {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                // Recover from a dead process once, retaining the subscription
+                // so subsequent background diagnostics still reach the editor.
+                let subscription = live
+                    .session
+                    .subscription
+                    .lock()
+                    .map_err(|_| "TexLab subscription unavailable.")?
+                    .take();
+                let root_canon = live.root.clone();
                 self.reset();
                 let mut session = TexlabSession::spawn(root)?;
-                let result = session.collect_diagnostics(root, &absolute, &relative, text);
-                session.shutdown();
-                result.map_err(|_| error)
+                session.initialize(root)?;
+                *session
+                    .subscription
+                    .lock()
+                    .map_err(|_| "TexLab subscription unavailable.")? = subscription;
+                let mut live = LiveTexlab {
+                    root: root_canon,
+                    session,
+                    open_relative: String::new(),
+                    open_uri: String::new(),
+                    version: 0,
+                };
+                live.sync_document(&absolute, &relative, text)?;
+                self.live = Some(live);
+                Ok(())
             }
         }
     }
@@ -197,21 +234,11 @@ impl TexlabPool {
     }
 }
 
-/// One-shot diagnostics used by tests when a pooled session is unnecessary.
-#[cfg(test)]
-pub fn diagnostics(
-    root: &Path,
-    relative_path: &str,
-    text: &str,
-) -> Result<Vec<Diagnostic>, String> {
-    let mut pool = TexlabPool::default();
-    pool.diagnostics(root, relative_path, text)
-}
-
 struct TexlabSession {
     child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
+    stdin: Arc<Mutex<ChildStdin>>,
+    messages: mpsc::Receiver<Result<Value, String>>,
+    subscription: Arc<Mutex<Option<DiagnosticSubscription>>>,
     next_id: u64,
 }
 
@@ -239,10 +266,18 @@ impl TexlabSession {
             .stdout
             .take()
             .ok_or_else(|| "Could not open TexLab stdout.".to_string())?;
+        let stdin = Arc::new(Mutex::new(stdin));
+        let subscription = Arc::new(Mutex::new(None));
+        let messages = read_messages(
+            BufReader::new(stdout),
+            Arc::clone(&stdin),
+            Arc::clone(&subscription),
+        );
         Ok(Self {
             child,
             stdin,
-            stdout: BufReader::new(stdout),
+            messages,
+            subscription,
             next_id: 1,
         })
     }
@@ -274,57 +309,6 @@ impl TexlabSession {
         self.notify("initialized", json!({}))
     }
 
-    fn collect_diagnostics(
-        &mut self,
-        root: &Path,
-        absolute: &Path,
-        relative: &str,
-        text: &str,
-    ) -> Result<Vec<Diagnostic>, String> {
-        self.initialize(root)?;
-        let file_uri = path_to_uri(absolute);
-        self.notify(
-            "textDocument/didOpen",
-            json!({
-                "textDocument": {
-                    "uri": file_uri,
-                    "languageId": "latex",
-                    "version": 1,
-                    "text": text
-                }
-            }),
-        )?;
-        self.wait_for_diagnostics(&file_uri, relative, DIAGNOSTIC_TIMEOUT)
-    }
-
-    fn wait_for_diagnostics(
-        &mut self,
-        file_uri: &str,
-        relative: &str,
-        timeout: Duration,
-    ) -> Result<Vec<Diagnostic>, String> {
-        let deadline = Instant::now() + timeout;
-        let mut diagnostics = Vec::new();
-        while Instant::now() < deadline {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
-                break;
-            }
-            match self.read_message_deadline(remaining) {
-                Ok(message) => {
-                    if let Some(items) = publish_diagnostics_for(&message, file_uri, relative) {
-                        diagnostics = items;
-                        break;
-                    }
-                    self.answer_server_request(&message)?;
-                }
-                Err(error) if error.contains("timed out") => break,
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(diagnostics)
-    }
-
     fn request(&mut self, method: &str, params: Value) -> Result<u64, String> {
         let id = self.next_id;
         self.next_id += 1;
@@ -346,15 +330,7 @@ impl TexlabSession {
     }
 
     fn write_message(&mut self, value: &Value) -> Result<(), String> {
-        let body = serde_json::to_vec(value).map_err(|error| error.to_string())?;
-        write!(self.stdin, "Content-Length: {}\r\n\r\n", body.len())
-            .map_err(|error| format!("Could not write TexLab headers: {error}"))?;
-        self.stdin
-            .write_all(&body)
-            .map_err(|error| format!("Could not write TexLab body: {error}"))?;
-        self.stdin
-            .flush()
-            .map_err(|error| format!("Could not flush TexLab stdin: {error}"))
+        write_message(&self.stdin, value)
     }
 
     fn wait_for_response(&mut self, id: u64, timeout: Duration) -> Result<Value, String> {
@@ -368,101 +344,17 @@ impl TexlabSession {
                 }
                 return Ok(message);
             }
-            self.answer_server_request(&message)?;
         }
         Err("TexLab timed out during initialize.".to_string())
     }
 
-    fn answer_server_request(&mut self, message: &Value) -> Result<(), String> {
-        let Some(id) = message.get("id") else {
-            return Ok(());
-        };
-        if message.get("method").is_none() {
-            return Ok(());
-        }
-        self.write_message(&json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": null
-        }))
-    }
-
     fn read_message_deadline(&mut self, timeout: Duration) -> Result<Value, String> {
-        let deadline = Instant::now() + timeout;
-        if Instant::now() >= deadline {
-            return Err("TexLab read timed out.".to_string());
-        }
-        // BufReader doesn't support true timeouts; poll with short sleeps when buffer empty.
-        if self.stdout.buffer().is_empty() {
-            // Peek by attempting non-blocking isn't available on BufReader easily.
-            // Use a short sleep then try reading headers; read_line blocks.
-            // Prefer setting read timeout on the underlying file descriptor on Unix.
-            #[cfg(unix)]
-            {
-                use std::os::unix::io::AsRawFd;
-                let fd = self.stdout.get_ref().as_raw_fd();
-                let remaining = deadline.saturating_duration_since(Instant::now());
-                let mut timeval = libc::timeval {
-                    tv_sec: remaining.as_secs() as libc::time_t,
-                    tv_usec: remaining.subsec_micros() as libc::suseconds_t,
-                };
-                unsafe {
-                    let mut set: libc::fd_set = std::mem::zeroed();
-                    libc::FD_ZERO(&mut set);
-                    libc::FD_SET(fd, &mut set);
-                    let ready = libc::select(
-                        fd + 1,
-                        &mut set,
-                        std::ptr::null_mut(),
-                        std::ptr::null_mut(),
-                        &mut timeval,
-                    );
-                    if ready == 0 {
-                        return Err("TexLab read timed out.".to_string());
-                    }
-                    if ready < 0 {
-                        return Err("TexLab select failed.".to_string());
-                    }
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                std::thread::sleep(Duration::from_millis(20));
-            }
-        }
-        self.read_message()
-    }
-
-    fn read_message(&mut self) -> Result<Value, String> {
-        let mut content_length = None;
-        loop {
-            let mut line = String::new();
-            let bytes = self
-                .stdout
-                .read_line(&mut line)
-                .map_err(|error| format!("Could not read TexLab header: {error}"))?;
-            if bytes == 0 {
-                return Err("TexLab closed stdout.".to_string());
-            }
-            if line == "\r\n" || line == "\n" {
-                break;
-            }
-            let lower = line.to_ascii_lowercase();
-            if let Some(rest) = lower.strip_prefix("content-length:") {
-                content_length = Some(
-                    rest.trim()
-                        .parse::<usize>()
-                        .map_err(|_| format!("Invalid TexLab Content-Length: {}", rest.trim()))?,
-                );
-            }
-        }
-        let length =
-            content_length.ok_or_else(|| "TexLab message missing Content-Length.".to_string())?;
-        let mut body = vec![0u8; length];
-        self.stdout
-            .read_exact(&mut body)
-            .map_err(|error| format!("Could not read TexLab body: {error}"))?;
-        serde_json::from_slice(&body).map_err(|error| format!("Invalid TexLab JSON: {error}"))
+        self.messages
+            .recv_timeout(timeout)
+            .map_err(|error| match error {
+                mpsc::RecvTimeoutError::Timeout => "TexLab read timed out.".to_string(),
+                mpsc::RecvTimeoutError::Disconnected => "TexLab closed stdout.".to_string(),
+            })?
     }
 
     fn shutdown(&mut self) {
@@ -524,22 +416,102 @@ impl LiveTexlab {
         )?;
         Ok(file_uri)
     }
+}
 
-    fn publish_for(
-        &mut self,
-        absolute: &Path,
-        relative: &str,
-        text: &str,
-    ) -> Result<Vec<Diagnostic>, String> {
-        let file_uri = self.sync_document(absolute, relative, text)?;
-        let timeout = if self.version > 1 {
-            CHANGE_DIAGNOSTIC_TIMEOUT
-        } else {
-            DIAGNOSTIC_TIMEOUT
-        };
-        self.session
-            .wait_for_diagnostics(&file_uri, relative, timeout)
+// TexLab publishes unversioned diagnostics, including updates long after a
+// didChange (filesystem/build-log and ChkTeX results). Always consume them,
+// even while idle or waiting for completion/hover responses. A single reader
+// also makes request timeouts independent of partial JSON-RPC frames.
+fn read_messages(
+    mut stdout: impl BufRead + Send + 'static,
+    stdin: Arc<Mutex<impl Write + Send + 'static>>,
+    subscription: Arc<Mutex<Option<DiagnosticSubscription>>>,
+) -> mpsc::Receiver<Result<Value, String>> {
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || loop {
+        let message = read_message(&mut stdout);
+        if let Ok(value) = &message {
+            if value.get("method").and_then(Value::as_str)
+                == Some("textDocument/publishDiagnostics")
+            {
+                if let Ok(guard) = subscription.lock() {
+                    if let Some(target) = guard.as_ref() {
+                        if let Some(items) =
+                            publish_diagnostics_for(value, &target.uri, &target.relative)
+                        {
+                            (target.publish)(items);
+                        }
+                    }
+                }
+                continue;
+            }
+            // Unhandled notifications must not accumulate while the app is idle.
+            if value.get("id").is_none() {
+                continue;
+            }
+            if value.get("method").is_some() {
+                // Answer server requests even when no feature call is waiting.
+                if let Err(error) = write_message(
+                    &stdin,
+                    &json!({
+                        "jsonrpc": "2.0", "id": value["id"], "result": null
+                    }),
+                ) {
+                    let _ = sender.send(Err(error));
+                    break;
+                }
+                continue;
+            }
+        }
+        let failed = message.is_err();
+        if sender.send(message).is_err() || failed {
+            break;
+        }
+    });
+    receiver
+}
+
+fn write_message(stdin: &Mutex<impl Write>, value: &Value) -> Result<(), String> {
+    let body = serde_json::to_vec(value).map_err(|error| error.to_string())?;
+    let mut stdin = stdin.lock().map_err(|_| "TexLab stdin unavailable.")?;
+    write!(stdin, "Content-Length: {}\r\n\r\n", body.len())
+        .map_err(|error| format!("Could not write TexLab headers: {error}"))?;
+    stdin
+        .write_all(&body)
+        .map_err(|error| format!("Could not write TexLab body: {error}"))?;
+    stdin
+        .flush()
+        .map_err(|error| format!("Could not flush TexLab stdin: {error}"))
+}
+
+fn read_message(stdout: &mut impl BufRead) -> Result<Value, String> {
+    let mut content_length = None;
+    loop {
+        let mut line = String::new();
+        let bytes = stdout
+            .read_line(&mut line)
+            .map_err(|error| format!("Could not read TexLab header: {error}"))?;
+        if bytes == 0 {
+            return Err("TexLab closed stdout.".to_string());
+        }
+        if line == "\r\n" || line == "\n" {
+            break;
+        }
+        if let Some(rest) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+            content_length = Some(
+                rest.trim()
+                    .parse::<usize>()
+                    .map_err(|_| format!("Invalid TexLab Content-Length: {}", rest.trim()))?,
+            );
+        }
     }
+    let length =
+        content_length.ok_or_else(|| "TexLab message missing Content-Length.".to_string())?;
+    let mut body = vec![0u8; length];
+    stdout
+        .read_exact(&mut body)
+        .map_err(|error| format!("Could not read TexLab body: {error}"))?;
+    serde_json::from_slice(&body).map_err(|error| format!("Invalid TexLab JSON: {error}"))
 }
 
 fn path_to_uri(path: &Path) -> String {
@@ -833,6 +805,66 @@ mod tests {
     use super::*;
 
     #[test]
+    fn later_publication_clears_stale_diagnostics() {
+        let uri = "file:///tmp/paper/main.tex";
+        let messages = [
+            json!({"method": "textDocument/publishDiagnostics", "params": {
+                "uri": uri, "diagnostics": [{"message": "Undefined reference `fixed'."}]
+            }}),
+            json!({"id": 9, "result": {"contents": "hover text"}}),
+            json!({"id": "server-request", "method": "workspace/configuration", "params": {"items": []}}),
+            json!({"method": "textDocument/publishDiagnostics", "params": {
+                "uri": "file:///tmp/paper/other.tex", "diagnostics": [{"message": "Other file warning"}]
+            }}),
+            json!({"method": "textDocument/publishDiagnostics", "params": {
+                "uri": uri, "diagnostics": []
+            }}),
+        ];
+        let wire = messages
+            .iter()
+            .map(|message| {
+                let body = message.to_string();
+                format!("Content-Length: {}\r\n\r\n{}", body.len(), body)
+            })
+            .collect::<String>();
+        let (sender, updates) = mpsc::channel();
+        let subscription = Arc::new(Mutex::new(Some(DiagnosticSubscription {
+            uri: uri.to_string(),
+            relative: "main.tex".to_string(),
+            publish: Box::new(move |items| {
+                sender.send(items).unwrap();
+            }),
+        })));
+        let stdin = Arc::new(Mutex::new(Vec::new()));
+        let responses = read_messages(
+            std::io::Cursor::new(wire.into_bytes()),
+            Arc::clone(&stdin),
+            subscription,
+        );
+        let first = updates.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(first[0].message, "Undefined reference `fixed'.");
+        // No further client request is needed to receive the correction, and
+        // an interleaved hover response must not swallow either publication.
+        assert!(updates
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap()
+            .is_empty());
+        assert!(updates.try_recv().is_err());
+        let reply = read_message(&mut std::io::Cursor::new(stdin.lock().unwrap().clone())).unwrap();
+        assert_eq!(
+            reply,
+            json!({"jsonrpc": "2.0", "id": "server-request", "result": null})
+        );
+        assert_eq!(
+            responses
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .unwrap()["id"],
+            9
+        );
+    }
+
+    #[test]
     fn maps_publish_diagnostics_payload() {
         let message = json!({
             "jsonrpc": "2.0",
@@ -926,12 +958,77 @@ mod tests {
         let parent = std::env::temp_dir().join(format!("lattice-texlab-{}", uuid::Uuid::new_v4()));
         let _ = std::fs::create_dir_all(&parent);
         let root = crate::project::create(&parent, "paper").unwrap();
-        let result = diagnostics(
+        let mut pool = TexlabPool::default();
+        let result = pool.diagnostics(
             &root,
             "main.tex",
             "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n",
+            |_| {},
         );
         assert!(result.is_ok());
+        pool.reset();
         let _ = std::fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    #[ignore = "requires an installed TexLab and filesystem watcher"]
+    fn real_texlab_updates_source_and_build_log_while_idle() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-texlab-live-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let text =
+            "\\documentclass{article}\n\\begin{document}\nSee \\ref{fixed}.\n\\end{document}\n";
+        std::fs::write(root.join("main.tex"), text).unwrap();
+        std::fs::write(root.join("main.log"), "").unwrap();
+        let (sender, updates) = mpsc::channel();
+        let mut pool = TexlabPool::default();
+        let publish = sender.clone();
+        pool.diagnostics(&root, "main.tex", text, move |items| {
+            let _ = publish.send(items);
+        })
+        .unwrap();
+        let await_diagnostics = |matches: &dyn Fn(&[Diagnostic]) -> bool| {
+            let deadline = Instant::now() + Duration::from_secs(15);
+            loop {
+                let items = updates
+                    .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                    .expect("TexLab did not publish the expected update");
+                eprintln!(
+                    "TexLab: {:?}",
+                    items.iter().map(|item| &item.message).collect::<Vec<_>>()
+                );
+                if matches(&items) {
+                    break;
+                }
+            }
+        };
+        await_diagnostics(&|items| {
+            items
+                .iter()
+                .any(|item| item.message.to_lowercase().contains("undefined reference"))
+        });
+        let fixed = text.replace("See", "\\label{fixed} See");
+        std::fs::write(root.join("main.tex"), &fixed).unwrap();
+        pool.diagnostics(&root, "main.tex", &fixed, move |items| {
+            let _ = sender.send(items);
+        })
+        .unwrap();
+        await_diagnostics(&|items| items.is_empty());
+        // A build can finish long after the last edit. No IPC sync is made
+        // below: both the new log error and its removal must arrive as pushes.
+        std::fs::write(
+            root.join("main.log"),
+            "(./main.tex\n! Undefined control sequence.\nl.3 \\badcommand\n)\n",
+        )
+        .unwrap();
+        await_diagnostics(&|items| {
+            items
+                .iter()
+                .any(|item| item.message.contains("Undefined control sequence"))
+        });
+        std::fs::write(root.join("main.log"), "").unwrap();
+        await_diagnostics(&|items| items.is_empty());
+        pool.reset();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
