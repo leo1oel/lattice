@@ -5,10 +5,13 @@
  */
 import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { type BibEntryDraft } from "../papers/bib-entry";
-import { BibEntryDialog, type ResolvedCitationDraft } from "../papers/bib-entry-dialog";
+import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 
+const BibEntryDialog = lazy(() =>
+  import("../papers/bib-entry-dialog").then((module) => ({ default: module.BibEntryDialog })),
+);
 const LiteratureDiscoveryPanel = lazy(() =>
   import("../papers/literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
 );
@@ -81,21 +84,23 @@ export function AppProjectDialogs(props: AppProjectDialogsProps) {
   } = props;
   return (
     <>
-      <BibEntryDialog
-        key={bibEntryKey}
-        open={bibEntryOpen}
-        busy={bibEntryBusy}
-        resolving={bibEntryResolving}
-        error={bibEntryError}
-        mode={bibEntryMode}
-        initialResolveQuery={bibResolveSeed}
-        initialDraft={bibEntryInitial}
-        onClose={() => {
-          if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
-        }}
-        onResolve={resolveBibQuery}
-        onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
-      />
+      <Suspense fallback={null}>
+        <BibEntryDialog
+          key={bibEntryKey}
+          open={bibEntryOpen}
+          busy={bibEntryBusy}
+          resolving={bibEntryResolving}
+          error={bibEntryError}
+          mode={bibEntryMode}
+          initialResolveQuery={bibResolveSeed}
+          initialDraft={bibEntryInitial}
+          onClose={() => {
+            if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
+          }}
+          onResolve={resolveBibQuery}
+          onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
+        />
+      </Suspense>
       {literatureOpen && (
         <Suspense fallback={null}>
           <LiteratureDiscoveryPanel
