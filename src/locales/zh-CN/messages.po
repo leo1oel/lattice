@@ -317,6 +317,10 @@ msgstr "添加参考文献条目并缓存该 arXiv 论文"
 msgid "Add comment"
 msgstr "添加评论"
 
+#: src/papers/bib-entry.ts
+msgid "Add exactly one bibliography entry at a time."
+msgstr "每次只能添加一条参考文献。"
+
 #: src/papers/paper-lookup.tsx
 msgid "Add papers in the project’s Papers sidebar"
 msgstr "在项目的论文侧栏中添加论文"
@@ -451,6 +455,10 @@ msgstr "一项编辑仍在发送到 Overleaf。请稍后再试。"
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "一项编辑仍在发送到 Overleaf。请稍后再尝试拒绝。"
+
+#: src/papers/bib-format.ts
+msgid "An existing bibliography entry has an invalid citation key."
+msgstr "现有参考文献条目的引用键无效。"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
@@ -851,6 +859,10 @@ msgstr "取消检查"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "取消创建"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Cancel repair"
+msgstr "取消修正"
 
 #. placeholder {0}: result.title
 #: src/App.tsx
@@ -1281,6 +1293,10 @@ msgstr "编译 LaTeX"
 #: src/collab/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
+
+#: src/papers/bib-format.ts
+msgid "Complete the unfinished bibliography entry before adding another reference."
+msgstr "请先补全未完成的参考文献条目，再添加其他文献。"
 
 #: src/telemetry/app-log.tsx
 msgid "Completed"
@@ -2210,6 +2226,14 @@ msgstr "适合页面高度"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "适合页面宽度"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Fix"
+msgstr "修正"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Fix with the repair model, then recompile"
+msgstr "使用修正模型修复此问题，然后重新编译"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Flat"
@@ -4484,6 +4508,10 @@ msgstr "实部"
 msgid "Recent projects"
 msgstr "最近使用的项目"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Recompiling…"
+msgstr "正在重新编译…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
 msgstr "重新连接 Overleaf"
@@ -4685,6 +4713,27 @@ msgstr "重新打开"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "重新打开评论"
+
+#: src/build/use-compile-repair.ts
+msgid "Repair cancelled."
+msgstr "已取消修正。"
+
+#: src/build/compile-diagnostics-panel.tsx
+#: src/build/use-compile-repair.ts
+msgid "Repair failed."
+msgstr "修正失败。"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair finished. Check the new build results."
+msgstr "修正已完成，请检查新的编译结果。"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair needs approval. Open the repair task to continue."
+msgstr "修正需要授权，请打开修正任务继续。"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repairing…"
+msgstr "正在修正…"
 
 #: src/App.tsx
 msgid "Replace in project"
@@ -5059,6 +5108,10 @@ msgstr "请先保存当前工作区，再在浏览器中打开。"
 #: src/App.tsx
 msgid "Save the current workspace before opening it in the desktop app."
 msgstr "请先保存当前工作区，再在桌面应用中打开。"
+
+#: src/build/use-compile-repair.ts
+msgid "Save the project before repairing."
+msgstr "请先保存项目，再进行修正。"
 
 #: src/history/versions-timeline.tsx
 msgid "Save version"
@@ -5542,6 +5595,10 @@ msgstr "正在启动 Open Slide"
 msgid "Starting Open Slide…"
 msgstr "正在启动 Open Slide…"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Starting repair…"
+msgstr "正在启动修正…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
 msgstr "正在启动索引。{semanticSearchPrivacy}"
@@ -5803,6 +5860,10 @@ msgstr "项目或权限已变更，请重新检查引用。"
 #: src/papers/bibliography-audit.tsx
 msgid "The publication lookup could not be completed. Try again later."
 msgstr "发表版本查询未完成，请稍后重试。"
+
+#: src/build/use-compile-repair.ts
+msgid "The repair service did not return a task."
+msgstr "修正服务未返回任务。"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
@@ -6381,6 +6442,10 @@ msgstr "在 Markdown 源码中查看"
 #: src/canvas/document-canvas.tsx
 msgid "View original PDF"
 msgstr "查看原始 PDF"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "View repair"
+msgstr "查看修正任务"
 
 #: src/settings/settings-dialog.tsx
 msgid "Vim and Emacs keep their modal bindings inside the editor only"

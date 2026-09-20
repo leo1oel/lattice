@@ -1927,6 +1927,37 @@ async fn build_project(
 }
 
 #[tauri::command]
+async fn compile_repair(
+    state: tauri::State<'_, AppState>,
+    window: tauri::Window,
+    project_root: String,
+    action: String,
+    thread_id: Option<String>,
+    diagnostic: Option<serde_json::Value>,
+    root_document: Option<String>,
+) -> Result<serde_json::Value, String> {
+    // Status/cancel may refer to the outgoing project during a window switch.
+    if action == "start" && current_root(&state, &window)? != Path::new(&project_root) {
+        return Err("The project changed before repair could start.".into());
+    }
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        synara::compile_repair_request(
+            &app.state::<synara::SynaraRuntime>(),
+            &action,
+            thread_id.as_deref(),
+            serde_json::json!({
+                "workspaceRoot": project_root,
+                "diagnostic": diagnostic,
+                "rootDocument": root_document,
+            }),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 fn abort_build(state: tauri::State<'_, AppState>, window: tauri::Window) -> Result<bool, String> {
     // Stops this window's build. Sharing one handle meant Stop in either window
     // killed whichever latexmk had started most recently.
@@ -4878,6 +4909,7 @@ pub fn run() {
             synara::synara_runtime_status,
             synara::synara_ensure_ready,
             synara::synara_open_skills_folder,
+            compile_repair,
             presentation::presentation_ensure_ready,
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,

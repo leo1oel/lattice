@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   ChevronDown,
   ChevronUp,
@@ -19,6 +20,7 @@ import {
   type CompileDiagnostic,
 } from "./compile-diagnostics";
 import { SlidingTabs } from "../components/ui/motion";
+import type { CompileRepairState } from "./use-compile-repair";
 
 function SeverityIcon({ level }: { level: string }) {
   const severity = diagnosticSeverity(level);
@@ -35,8 +37,14 @@ export function CompileDiagnosticsPanel(props: {
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
   onInstallDependency: (missingFile: string) => void;
+  onFix?: (diagnostic: CompileDiagnostic) => void;
+  fixDisabled?: boolean;
+  repair?: CompileRepairState | null;
+  onCancelRepair?: () => void;
+  onOpenRepair?: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useLingui();
   const diagnostics = sortDiagnostics(props.diagnostics);
   const summary = summarizeDiagnostics(diagnostics);
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
@@ -47,8 +55,7 @@ export function CompileDiagnosticsPanel(props: {
   ].filter(Boolean);
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
-  if (props.success && !diagnostics.length) return null;
-  if (!diagnostics.length && !hasLog && props.success) return null;
+  if (props.success && !diagnostics.length && !props.repair) return null;
   const title = parts.join(" · ") || (props.success ? "Build notes" : "Build failed");
 
   return (
@@ -69,6 +76,24 @@ export function CompileDiagnosticsPanel(props: {
           onClick={props.onDismiss}
         />
       </div>
+      {props.repair && (
+        <div className="compile-repair-status" role="status" aria-live="polite">
+          <span>{props.repair.message ?? ({
+            starting: t`Starting repair…`,
+            running: t`Repairing…`,
+            "awaiting-approval": t`Repair needs approval. Open the repair task to continue.`,
+            compiling: t`Recompiling…`,
+            completed: t`Repair finished. Check the new build results.`,
+            failed: t`Repair failed.`,
+          })[props.repair.status]}</span>
+          {props.repair.threadId && props.onOpenRepair && (
+            <Button variant="ghost" size="compact" onClick={props.onOpenRepair}>{t`View repair`}</Button>
+          )}
+          {["starting", "running", "awaiting-approval"].includes(props.repair.status) && (
+            <Button variant="ghost" size="compact" onClick={props.onCancelRepair}>{t`Cancel repair`}</Button>
+          )}
+        </div>
+      )}
       {props.expanded && (
         <div className="compile-diagnostics-body">
           {(diagnostics.length > 0 && hasLog) && (
@@ -103,6 +128,17 @@ export function CompileDiagnosticsPanel(props: {
                       <span className="compile-diagnostic-location">{diagnosticLocationLabel(diagnostic)}</span>
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
+                    {severity !== "info" && props.onFix && (
+                      <Button
+                        variant="ghost"
+                        size="compact"
+                        disabled={props.fixDisabled}
+                        title={t`Fix with the repair model, then recompile`}
+                        onClick={() => props.onFix?.(diagnostic)}
+                      >
+                        {t`Fix`}
+                      </Button>
+                    )}
                     {missingFile && (
                       <Button
                         variant="ghost"
@@ -128,7 +164,7 @@ export function CompileDiagnosticsPanel(props: {
           {(tab === "log" || !diagnostics.length) && hasLog && (
             <pre className="compile-log" aria-label="Raw build log">{props.log}</pre>
           )}
-          {!diagnostics.length && !hasLog && (
+          {!props.success && !diagnostics.length && !hasLog && (
             <EmptyState
               align="start"
               density="compact"

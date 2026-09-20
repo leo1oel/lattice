@@ -1,3 +1,6 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
+
 const SPECIAL_ENTRY_TYPES = new Set(["string", "preamble", "comment"]);
 
 type EntryBounds = { end: number; open: "{" | "("; close: "}" | ")" };
@@ -56,11 +59,11 @@ export function bibEntryKeys(source: string): string[] {
     if (/(^|[^\\])%/.test(line)) continue;
     const openIndex = headers.lastIndex - 1;
     const bounds = findEntryEnd(source, openIndex);
-    if (!bounds) throw new Error("Complete the unfinished bibliography entry before adding another reference.");
+    if (!bounds) throw new Error(i18n._(msg`Complete the unfinished bibliography entry before adding another reference.`));
     headers.lastIndex = bounds.end + 1;
     if (SPECIAL_ENTRY_TYPES.has(match[1].toLowerCase())) continue;
     const key = /^\s*([^\s,{}()]+)\s*,/.exec(source.slice(openIndex + 1, bounds.end))?.[1];
-    if (!key) throw new Error("An existing bibliography entry has an invalid citation key.");
+    if (!key) throw new Error(i18n._(msg`An existing bibliography entry has an invalid citation key.`));
     keys.push(key);
   }
   return keys;

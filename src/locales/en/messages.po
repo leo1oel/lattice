@@ -317,6 +317,10 @@ msgstr "Add bibliography entry and cache the arXiv paper"
 msgid "Add comment"
 msgstr "Add comment"
 
+#: src/papers/bib-entry.ts
+msgid "Add exactly one bibliography entry at a time."
+msgstr "Add exactly one bibliography entry at a time."
+
 #: src/papers/paper-lookup.tsx
 msgid "Add papers in the project’s Papers sidebar"
 msgstr "Add papers in the project’s Papers sidebar"
@@ -451,6 +455,10 @@ msgstr "An edit is still on its way to Overleaf. Try again in a moment."
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment."
+
+#: src/papers/bib-format.ts
+msgid "An existing bibliography entry has an invalid citation key."
+msgstr "An existing bibliography entry has an invalid citation key."
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Analyze results in a live spreadsheet"
@@ -851,6 +859,10 @@ msgstr "Cancel check"
 #: src/project/navigator.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Cancel repair"
+msgstr "Cancel repair"
 
 #. placeholder {0}: result.title
 #: src/App.tsx
@@ -1281,6 +1293,10 @@ msgstr "Compile LaTeX"
 #: src/collab/collab-dialog.tsx
 msgid "Compile/PDF stays on each Mac. "
 msgstr "Compile/PDF stays on each Mac. "
+
+#: src/papers/bib-format.ts
+msgid "Complete the unfinished bibliography entry before adding another reference."
+msgstr "Complete the unfinished bibliography entry before adding another reference."
 
 #: src/telemetry/app-log.tsx
 msgid "Completed"
@@ -2210,6 +2226,14 @@ msgstr "Fit page to height"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "Fit page to width"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Fix"
+msgstr "Fix"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Fix with the repair model, then recompile"
+msgstr "Fix with the repair model, then recompile"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Flat"
@@ -4484,6 +4508,10 @@ msgstr "Real part"
 msgid "Recent projects"
 msgstr "Recent projects"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Recompiling…"
+msgstr "Recompiling…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
 msgstr "Reconnect to Overleaf"
@@ -4687,6 +4715,27 @@ msgstr "Reopen"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "Reopen comment"
+
+#: src/build/use-compile-repair.ts
+msgid "Repair cancelled."
+msgstr "Repair cancelled."
+
+#: src/build/compile-diagnostics-panel.tsx
+#: src/build/use-compile-repair.ts
+msgid "Repair failed."
+msgstr "Repair failed."
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair finished. Check the new build results."
+msgstr "Repair finished. Check the new build results."
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair needs approval. Open the repair task to continue."
+msgstr "Repair needs approval. Open the repair task to continue."
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repairing…"
+msgstr "Repairing…"
 
 #: src/App.tsx
 msgid "Replace in project"
@@ -5061,6 +5110,10 @@ msgstr "Save the current workspace before opening it in a browser."
 #: src/App.tsx
 msgid "Save the current workspace before opening it in the desktop app."
 msgstr "Save the current workspace before opening it in the desktop app."
+
+#: src/build/use-compile-repair.ts
+msgid "Save the project before repairing."
+msgstr "Save the project before repairing."
 
 #: src/history/versions-timeline.tsx
 msgid "Save version"
@@ -5544,6 +5597,10 @@ msgstr "Starting Open Slide"
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Starting repair…"
+msgstr "Starting repair…"
+
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
 msgstr "Starting the index. {semanticSearchPrivacy}"
@@ -5807,6 +5864,10 @@ msgstr "The project or its permissions changed. Check references again."
 #: src/papers/bibliography-audit.tsx
 msgid "The publication lookup could not be completed. Try again later."
 msgstr "The publication lookup could not be completed. Try again later."
+
+#: src/build/use-compile-repair.ts
+msgid "The repair service did not return a task."
+msgstr "The repair service did not return a task."
 
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
@@ -6385,6 +6446,10 @@ msgstr "View in source Markdown"
 #: src/canvas/document-canvas.tsx
 msgid "View original PDF"
 msgstr "View original PDF"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "View repair"
+msgstr "View repair"
 
 #: src/settings/settings-dialog.tsx
 msgid "Vim and Emacs keep their modal bindings inside the editor only"

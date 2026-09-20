@@ -183,6 +183,7 @@ import {
   type CompileDiagnostic,
 } from "./build/compile-diagnostics";
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
+import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
 import { TUTORIAL_STEPS } from "./onboarding/onboarding-steps";
 import {
@@ -1539,7 +1540,20 @@ function App() {
     nudgeSidebar,
     fitSidebarToContent,
   } = usePanelLayout(synaraMinimumSidebarWidth);
-  const [agentDocked, setAgentDocked] = useState(false);
+  const [agentDocked, setAgentDocked] = useState(() => {
+    try {
+      return localStorage.getItem("lattice.agent-docked.v1") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("lattice.agent-docked.v1", agentDocked ? "1" : "0");
+    } catch {
+      // Docking still works for the current session without storage.
+    }
+  }, [agentDocked]);
   const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
     try {
       const saved = localStorage.getItem("lattice.sidebar-mode.v1");
@@ -4978,6 +4992,41 @@ function App() {
     diagnosticCursor.current = next;
     void openCompileDiagnostic(diagnostics[next]);
   }, [build?.diagnostics, openCompileDiagnostic]);
+
+  const repairWritable = collabCanWrite && collabSession?.canWrite !== false
+    && (!overleafLink || overleafRealtime.canWrite);
+  const compileRepair = useCompileRepair({
+    projectRoot: project?.root,
+    rootDocument: build?.rootDocument,
+    enabled: repairWritable && !building,
+    save: async () => {
+      if (visualMarkdownFlushRef.current?.() === false) return false;
+      return save();
+    },
+    onComplete: async () => {
+      const root = projectRef.current?.root;
+      const generation = projectOperationGenerationRef.current;
+      if (!root) return;
+      const owns = () => projectRef.current?.root === root && projectOperationGenerationRef.current === generation;
+      await refreshProject({ expectedRoot: root, generation });
+      for (const pane of ["primary", "secondary"] as const) {
+        if (!owns()) return;
+        if (pane === "primary" ? activePaper || activeAssetRef.current : secondaryAssetRef.current) continue;
+        const path = pane === "primary" ? activeFileRef.current : secondaryFileRef.current;
+        const clean = pane === "primary"
+          ? sourceRef.current === savedSourceRef.current
+          : secondarySourceRef.current === secondarySavedRef.current;
+        if (!path || !clean) continue;
+        const content = await invoke<string>("read_project_file", { path, projectRoot: root });
+        if (!owns()) return;
+        const stillClean = pane === "primary"
+          ? activeFileRef.current === path && sourceRef.current === savedSourceRef.current
+          : secondaryFileRef.current === path && secondarySourceRef.current === secondarySavedRef.current;
+        if (stillClean) await acceptExternalText(path, content, pane);
+      }
+      if (owns()) await compileRef.current();
+    },
+  });
 
   useEffect(() => {
     diagnosticCursor.current = 0;
@@ -9629,7 +9678,7 @@ function App() {
   }
 
   const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
-    (collabSession?.canWrite !== false && collabCanWrite)
+    !compileRepair.busy && (collabSession?.canWrite !== false && collabCanWrite)
     && (
       ignoreOverleaf
       || overleafLink === null
@@ -10022,7 +10071,7 @@ function App() {
             pdfUrl={pdfUrl}
             pdfBase64={null}
             pdfBytes={displayedPdfBytesRef.current}
-            pdfTop={!diagnosticsDismissed && build && (!build.success || build.diagnostics.length > 0) ? (
+            pdfTop={(!diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
               <Suspense fallback={null}>
                 <CompileDiagnosticsPanel
                   diagnostics={build.diagnostics}
@@ -10032,6 +10081,25 @@ function App() {
                   onExpandedChange={setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
                   onInstallDependency={installTexDependency}
+                  onFix={(diagnostic) => { setSynaraRuntimeRequested(true); void compileRepair.start(diagnostic); }}
+                  fixDisabled={!repairWritable || building || compileRepair.busy}
+                  repair={compileRepair.state}
+                  onCancelRepair={() => void compileRepair.cancel()}
+                  onOpenRepair={() => {
+                    const threadId = compileRepair.state?.threadId;
+                    if (!threadId) return;
+                    persistSynaraThread(project.root, threadId);
+                    setSynaraRuntimeRequested(true);
+                    setSynaraFrameMounted(true);
+                    setSidebarMode("agent");
+                    setSidebarOpen(true);
+                    const frame = synaraIframeRef.current;
+                    if (frame && synaraOrigin) {
+                      const url = new URL(frame.src);
+                      url.pathname = `/${encodeURIComponent(threadId)}`;
+                      frame.src = url.toString();
+                    }
+                  }}
                   onDismiss={() => {
                     dismissedDiagnosticsRef.current = diagnosticsFingerprint(build.diagnostics);
                     setDiagnosticsDismissed(true);

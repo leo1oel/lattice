@@ -3326,6 +3326,43 @@ describe("project workspace", () => {
     expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
   });
 
+  it.each([true, false])("restores the bottom assistant independently of sidebar visibility (open: %s)", async (open) => {
+    await import("./app/app-agent-panel");
+    const snapshot = {
+      root: "/tmp/agent-dock",
+      manifest: { schemaVersion: 1, projectId: "dock", name: "Dock test", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    localStorage.setItem("lattice.sidebar-open.v1", "1");
+    localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+    const view = renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "Move assistant below editor" }));
+    if (open) fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+    view.unmount();
+    const restored = renderApp();
+    await waitFor(() => {
+      expect(document.querySelector(".agent-dock-header")).not.toBeNull();
+      expect(document.querySelector('iframe[title="Agent"]')).not.toBeNull();
+    });
+    expect(document.querySelector(".workspace")?.classList.contains("sidebar-hidden")).toBe(!open);
+    expect(document.querySelector(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
+    expect(synaraHook.enabledCalls).toContain(true);
+    // Neither moving back to the sidebar nor hiding the dock should restore it.
+    const action = open ? "Move assistant to sidebar" : "Hide assistant";
+    fireEvent.click(document.querySelector(`.agent-dock-header button[aria-label="${action}"]`)!);
+    restored.unmount();
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    expect(document.querySelector(".agent-dock-header")).toBeNull();
+    expect(localStorage.getItem("lattice.agent-docked.v1")).toBe("0");
+  });
+
   it.each([true, false])("restores the Agent selection and sidebar visibility (open: %s)", async (open) => {
     // Finish cold compilation before DOM waits and unmount/remount assertions.
     await Promise.all([import("./settings/settings-dialog"), import("./canvas/document-canvas")]);
@@ -8898,6 +8935,51 @@ describe("project workspace", () => {
     expect(document.querySelector(".dual-canvas")).toBeInTheDocument();
     expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
     expect(document.querySelector(".source-editor")).toBeInTheDocument();
+  });
+
+  it("repairs a selected compile warning in the background and reloads before recompiling", async () => {
+    await import("./build/compile-diagnostics-panel");
+    await import("./canvas/document-canvas");
+    const snapshot = {
+      root: "/tmp/lattice-repair",
+      manifest: {
+        schemaVersion: 1, projectId: "repair-paper", name: "Repair paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let repaired = false;
+    const warning = { file: "main.tex", line: 3, level: "warning", message: "Reference `old-label' undefined." };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "read_project_file") return `\\documentclass{article}\n\\begin{document}\n${repaired ? "Fixed reference" : "\\ref{old-label}"}\n\\end{document}`;
+      if (command === "build_project") return {
+        success: true, hasPdf: false, durationMs: 10, rootDocument: "main.tex",
+        log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning],
+      };
+      if (command === "compile_repair") {
+        if ((args as { action: string }).action === "start") return { threadId: "repair-task" };
+        repaired = true;
+        return { status: "completed" };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const toggle = await screen.findByRole("button", { name: /1 warning/i });
+    fireEvent.click(toggle);
+    const fix = await screen.findByRole("button", { name: "Fix" });
+    await waitFor(() => expect(fix).toBeEnabled());
+    const previousBuilds = vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    fireEvent.click(fix);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("compile_repair", {
+      action: "start", projectRoot: snapshot.root, rootDocument: "main.tex", diagnostic: warning,
+    }));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project")).toHaveLength(previousBuilds + 1));
+    await waitFor(() => expect(screen.getByText("Repair finished. Check the new build results.")).toBeInTheDocument());
+    await waitFor(() => expect(document.querySelector(".cm-content")).toHaveTextContent("Fixed reference"));
+    expect(screen.queryByText(warning.message)).not.toBeInTheDocument();
   });
 
   it("lists successful-build diagnostics and jumps to the reported source line", async () => {

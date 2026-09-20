@@ -539,6 +539,62 @@ pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+/// Keep the desktop token and loopback transport out of the renderer's CORS path.
+pub fn compile_repair_request(
+    runtime: &SynaraRuntime,
+    action: &str,
+    thread_id: Option<&str>,
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let info = runtime.ensure_ready()?;
+    let origin = info.origin.ok_or("The agent service is unavailable.")?;
+    let mut url = reqwest::Url::parse(&origin).map_err(|error| error.to_string())?;
+    let mut segments = url
+        .path_segments_mut()
+        .map_err(|_| "Invalid agent address.")?;
+    segments
+        .clear()
+        .extend(["api", "lattice", "compile-repair"]);
+    match action {
+        "start" => {}
+        "status" | "cancel" => {
+            let id = thread_id
+                .filter(|id| !id.is_empty())
+                .ok_or("Missing repair task.")?;
+            segments.push(id);
+            if action == "cancel" {
+                segments.push("cancel");
+            }
+        }
+        _ => return Err("Invalid repair action.".into()),
+    }
+    drop(segments);
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let mut request = if action == "status" {
+        client.get(url)
+    } else {
+        client.post(url).json(&payload)
+    };
+    if let Some(token) = info.auth_token {
+        request = request.bearer_auth(token);
+    }
+    let response = request.send().map_err(|error| error.to_string())?;
+    let status = response.status();
+    let value: serde_json::Value = response
+        .json()
+        .map_err(|_| format!("Repair service returned {status}."))?;
+    if !status.is_success() {
+        return Err(value["error"]
+            .as_str()
+            .unwrap_or("The repair request failed.")
+            .to_string());
+    }
+    Ok(value)
+}
+
 fn read_runtime_manifest(path: &Path) -> Option<BundledRuntimeManifest> {
     let raw = fs::read_to_string(path).ok()?;
     serde_json::from_str(&raw).ok()
@@ -968,6 +1024,103 @@ mod tests {
     use std::fs;
     use std::net::{Ipv4Addr, TcpListener};
     use std::process::Command;
+
+    #[test]
+    fn compile_repair_relay_preserves_payload_routes_and_server_errors() {
+        use std::io::{BufRead, BufReader, Read, Write};
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for reply in [
+                ("202 Accepted", r#"{"threadId":"repair:one"}"#),
+                ("200 OK", r#"{"status":"completed"}"#),
+                ("202 Accepted", r#"{"status":"running"}"#),
+                ("409 Conflict", r#"{"error":"Already repairing"}"#),
+            ] {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut reader = BufReader::new(&socket);
+                let mut first = String::new();
+                reader.read_line(&mut first).unwrap();
+                let mut length = 0;
+                loop {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = value.trim().parse::<usize>().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                requests.push((first, body));
+                write!(socket, "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", reply.0, reply.1.len(), reply.1).unwrap();
+            }
+            requests
+        });
+        let runtime = super::SynaraRuntime {
+            javascript_runtime_path: Default::default(),
+            electron_node: false,
+            server_entry: Default::default(),
+            bundled_skills_dir: Default::default(),
+            home_dir: Default::default(),
+            preferred_port: None,
+            external_origin: Some(origin),
+            version: None,
+            revision: None,
+            state: Default::default(),
+        };
+        let payload = serde_json::json!({"workspaceRoot":"/paper","diagnostic":{"message":"Undefined reference","line":17}});
+        assert_eq!(
+            super::compile_repair_request(&runtime, "start", None, payload.clone()).unwrap()
+                ["threadId"],
+            "repair:one"
+        );
+        assert_eq!(
+            super::compile_repair_request(
+                &runtime,
+                "status",
+                Some("repair:one"),
+                serde_json::Value::Null
+            )
+            .unwrap()["status"],
+            "completed"
+        );
+        assert_eq!(
+            super::compile_repair_request(
+                &runtime,
+                "cancel",
+                Some("repair:one"),
+                serde_json::Value::Null
+            )
+            .unwrap()["status"],
+            "running"
+        );
+        assert_eq!(
+            super::compile_repair_request(&runtime, "start", None, payload.clone()).unwrap_err(),
+            "Already repairing"
+        );
+        let requests = server.join().unwrap();
+        assert_eq!(
+            requests[0].0,
+            "POST /api/lattice/compile-repair HTTP/1.1\r\n"
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[0].1).unwrap(),
+            payload
+        );
+        assert_eq!(
+            requests[1].0,
+            "GET /api/lattice/compile-repair/repair:one HTTP/1.1\r\n"
+        );
+        assert!(requests[1].1.is_empty());
+        assert_eq!(
+            requests[2].0,
+            "POST /api/lattice/compile-repair/repair:one/cancel HTTP/1.1\r\n"
+        );
+    }
 
     #[test]
     fn research_writing_defaults_off_and_preserves_settings_choices_on_restart() {

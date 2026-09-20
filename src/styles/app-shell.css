@@ -139,6 +139,8 @@ input[type="search"]:focus-visible {
 .compile-diagnostics-toggle span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font-weight: 400; }
 .compile-diagnostics-bar > button:last-child { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; }
 .compile-diagnostics-bar > button:last-child:hover { background: var(--tone-hover-surface); }
+.compile-repair-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); }
+.compile-repair-status > span { flex: 1 1 100%; overflow-wrap: anywhere; }
 .compile-diagnostics-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }
 .compile-diagnostics-tabs { display: flex; gap: var(--space-2); }
 .compile-diagnostics-tabs button { height: var(--control-size-icon-compact); border: 1px solid var(--tone-chip-border); border-radius: var(--radius-icon); padding: 0 var(--space-4); background: transparent; color: inherit; display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }

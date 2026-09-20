@@ -1,3 +1,5 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 import { bibEntryKeys } from "./bib-format";
 
 export type BibEntryType = "article" | "inproceedings" | "book" | "misc";
@@ -77,7 +79,7 @@ export function formatBibEntry(draft: BibEntryDraft): string {
 
 export function appendBibEntry(existing: string, entry: string): string {
   const keys = bibEntryKeys(entry);
-  if (keys.length !== 1) throw new Error("Add exactly one bibliography entry at a time.");
+  if (keys.length !== 1) throw new Error(i18n._(msg`Add exactly one bibliography entry at a time.`));
   if (bibEntryKeys(existing).some((key) => key.toLowerCase() === keys[0].toLowerCase())) {
     throw new Error(`Citation key '${keys[0]}' already exists. Choose a different key or edit the existing reference.`);
   }
