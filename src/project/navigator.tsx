@@ -46,6 +46,7 @@ import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
+import { beginPaperDrag } from "../papers/paper-drag";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import {
   fromPierrePath,
@@ -1716,6 +1717,8 @@ export function Navigator(props: {
               <div
                 className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
                 data-citation-health={paper.citationHealth?.kind}
+                draggable
+                onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
               >
               <button
                 data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}

@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { history, undo } from "@tiptap/pm/history";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { beginPaperDrag, PAPER_DRAG_TYPE } from "../../papers/paper-drag";
 import type { PaperSummary } from "../../app-types";
 import { matchPapers } from "./visual-paper-citation-suggestion";
 import { VisualMarkdownEditor } from "./visual-markdown-editor";
@@ -29,7 +30,7 @@ const PAPERS: PaperSummary[] = [
 afterEach(cleanup);
 
 function renderEditor(activePath = "notes.md", papers = PAPERS, text = "") {
-  const result = render(<VisualMarkdownEditor text={text} activePath={activePath} papers={papers} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
+  const result = render(<VisualMarkdownEditor text={text} activePath={activePath} projectRoot="/project" papers={papers} onChangeMarkdown={() => true} onUndo={() => false} onRedo={() => false} />);
   const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
   return { ...result, editor: (surface as HTMLElement & { editor: Editor }).editor };
 }
@@ -51,6 +52,24 @@ describe("matchPapers", () => {
 });
 
 describe("visual paper citation suggestion", () => {
+  it("drops an @ citation atom at the pointer and preserves it in Markdown", async () => {
+    const { editor } = renderEditor("notes/reading.md", PAPERS, "Before after");
+    vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: 8, inside: 0 });
+    const values = new Map<string, string>();
+    const data = { types: [PAPER_DRAG_TYPE], setData: (type: string, value: string) => { values.set(type, value); }, getData: (type: string) => values.get(type) ?? "" } as unknown as DataTransfer;
+    beginPaperDrag(data, "/project", PAPERS[0]);
+    fireEvent.drop(editor.view.dom, { dataTransfer: data, clientX: 20, clientY: 20 });
+    expect(markdown(editor).trimEnd()).toBe("Before [@vaswani2017attention](../.research/papers/1706.03762/paper.md)after");
+    expect((await screen.findByRole("link", { name: "@vaswani2017attention" })).querySelector("[data-paper-citation]")).not.toBeNull();
+    beginPaperDrag(data, "/other-project", PAPERS[1]);
+    fireEvent.drop(editor.view.dom, { dataTransfer: data });
+    expect(markdown(editor)).not.toContain("dosovitskiy");
+    editor.setEditable(false);
+    beginPaperDrag(data, "/project", PAPERS[1]);
+    fireEvent.drop(editor.view.dom, { dataTransfer: data });
+    expect(markdown(editor)).not.toContain("dosovitskiy");
+  });
+
   it.each(["Backspace", "Delete"])("deletes an inserted citation as a whole with %s", async (key) => {
     const { editor } = renderEditor();
     editor.chain().focus().insertContent("Before @attention").run();

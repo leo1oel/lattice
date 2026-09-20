@@ -1516,6 +1516,7 @@ const VISUAL_EDITING_UNAVAILABLE_REASON =
 type VisualMarkdownEditorProps = {
   text: string;
   activePath: string;
+  projectRoot?: string;
   onChangeMarkdown: (next: string, expected: string) => boolean;
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   optimizeForReading?: boolean;
@@ -2491,6 +2492,7 @@ const VisualEditorSurface = memo(function VisualEditorSurface({
 function CompleteVisualMarkdownEditor({
   text,
   activePath,
+  projectRoot,
   onChangeMarkdown,
   onFlushPendingChange,
   optimizeForReading = false,
@@ -2565,6 +2567,8 @@ function CompleteVisualMarkdownEditor({
   const openPathRef = useRef(onOpenProjectPath);
   const indexRef = useRef(workspaceIndex);
   const papersRef = useRef(papers);
+  const projectRootRef = useRef(projectRoot);
+  useLayoutEffect(() => { projectRootRef.current = projectRoot; }, [projectRoot]);
   const indexedDocumentRef = useRef<{ index: MarkdownWorkspaceIndex; path: string } | null>(null);
   const undoRef = useRef(onUndo);
   const redoRef = useRef(onRedo);
@@ -2951,6 +2955,7 @@ function CompleteVisualMarkdownEditor({
     () => visualPaperCitationSuggestion({
       getPapers,
       getActivePath,
+      getProjectRoot: () => projectRootRef.current ?? "",
     }),
     [getActivePath, getPapers],
   );

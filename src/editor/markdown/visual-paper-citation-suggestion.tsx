@@ -7,13 +7,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
 import { Extension, type AnyExtension } from "@tiptap/core";
-import { PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
 import { BookOpen } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { PaperSummary } from "../../app-types";
 import { paperLinkHref } from "../../papers/paper-link";
+import { hasPaperDrag, paperCitationLabel, resolvePaperDrag } from "../../papers/paper-drag";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
@@ -97,11 +98,40 @@ function VisualPaperCitationMenu({ items, selectedIndex, idBase, onSelect, onHov
 export function visualPaperCitationSuggestion(options: {
   getPapers: () => readonly PaperSummary[];
   getActivePath: () => string;
+  getProjectRoot?: () => string;
 }): AnyExtension {
   return Extension.create({
     name: "visualPaperCitationSuggestion",
     addProseMirrorPlugins() {
-      return [Suggestion<PaperSummary>({
+      return [new Plugin({
+        props: {
+          handleDOMEvents: {
+            dragover: (_view, event) => {
+              if (!hasPaperDrag(event.dataTransfer)) return false;
+              event.preventDefault();
+              return true;
+            },
+          },
+          handleDrop: (view, event) => {
+            if (!hasPaperDrag(event.dataTransfer)) return false;
+            event.preventDefault();
+            // Paper reader surfaces let the canvas open the dropped paper.
+            if (!options.getProjectRoot?.()) return true;
+            event.stopPropagation();
+            const paper = resolvePaperDrag(event.dataTransfer, options.getProjectRoot?.() ?? "", options.getPapers());
+            if (!paper || !view.editable) return true;
+            const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+            if (position === undefined) return true;
+            const label = paperCitationLabel(paper);
+            const node = paper.arxivId && (paper.hasFullText || paper.hasBlog)
+              ? view.state.schema.nodes.paperCitation.create({ label }, null, [view.state.schema.marks.link.create({ href: paperLinkHref(options.getActivePath(), paper) })])
+              : view.state.schema.text(label);
+            view.dispatch(view.state.tr.insert(position, node).scrollIntoView());
+            view.focus();
+            return true;
+          },
+        },
+      }), Suggestion<PaperSummary>({
         editor: this.editor,
         pluginKey: suggestionKey,
         char: "@",

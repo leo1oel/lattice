@@ -13,6 +13,7 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { setSplitResizerResistance } from "./split-resizer";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
+import { paperDropExtension } from "../editor/paper-drop";
 import { completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
@@ -972,6 +973,7 @@ function useSettledPreviewText(
 
 function SecondaryMarkdownPreview(props: {
   path: string;
+  projectRoot: string;
   source: string;
   onChange: (next: string) => void;
   onFlushPendingChange: (flush: (() => boolean) | null) => void;
@@ -1062,6 +1064,7 @@ function SecondaryMarkdownPreview(props: {
         <DeferredVisualMarkdownEditor
           text={settledText}
           activePath={props.path}
+          projectRoot={props.projectRoot}
           synchronizeSourceScroll={false}
           onOpenProjectPath={props.onOpenProjectPath}
           workspaceIndex={props.workspaceIndex}
@@ -2540,9 +2543,14 @@ export function DocumentCanvas(props: {
   const focusedVimMode = focusedPane === "secondary" && secondaryFile
     ? vimModes.secondary
     : vimModes.primary;
+  const paperLibraryRef = useRef({ projectRoot: props.projectRoot, papers: props.papers ?? [] });
+  useLayoutEffect(() => {
+    paperLibraryRef.current = { projectRoot: props.projectRoot, papers: props.papers ?? [] };
+  }, [props.projectRoot, props.papers]);
   reportEditorPositionRef.current = reportEditorPosition;
   const editorExtensions = useMemo(
     () => [
+      paperDropExtension(activeFile, () => paperLibraryRef.current),
       ...primaryKeymapExtensions,
       ...(isLatexSourcePath(activeFile) ? [
         latex(latexLanguageOptions),
@@ -2611,6 +2619,7 @@ export function DocumentCanvas(props: {
     () => {
       if (!secondaryFile) return [];
       return [
+        paperDropExtension(secondaryFile, () => paperLibraryRef.current),
         ...secondaryKeymapExtensions,
         ...(isLatexSourcePath(secondaryFile) ? [
           latex(latexLanguageOptions),
@@ -3736,6 +3745,7 @@ export function DocumentCanvas(props: {
         <DeferredVisualMarkdownEditor
           text={settledPreviewText}
           activePath={props.activeFile}
+          projectRoot={props.activePaper ? undefined : props.projectRoot}
           optimizeForReading={Boolean(props.activePaper)}
           onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
           // Split previews keep source labels for scroll sync. Pure preview
@@ -4446,6 +4456,7 @@ export function DocumentCanvas(props: {
       <SecondaryMarkdownPreview
         key={secondaryFile}
         path={secondaryFile}
+        projectRoot={props.projectRoot}
         source={secondarySource}
         onChange={onSecondaryChange}
         onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
