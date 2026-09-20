@@ -45,6 +45,8 @@ import type {
 } from "./editor/presentation/open-slide-bridge";
 
 const windowApi = vi.hoisted(() => ({
+  label: "main",
+  setFocus: vi.fn(async () => {}),
   startDragging: vi.fn(),
   isFullscreen: vi.fn(),
   setFullscreen: vi.fn(),
@@ -116,6 +118,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
 // jsdom reports as an unhandled rejection for each runtime listener. Retaining
 // the handlers also lets filesystem tests exercise the real event path.
 vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: vi.fn(async () => {}),
   listen: vi.fn(async (
     event: string,
     handler: (event: { payload: unknown }) => void,
@@ -5110,7 +5113,7 @@ describe("project workspace", () => {
     expect(box).toHaveValue("A new paper");
   });
 
-  it("shows imported papers by title while keeping the arXiv id", async () => {
+  it.each(["click", "drop"])("shows imported papers by title while keeping the arXiv id via %s", async (interaction) => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -5145,7 +5148,19 @@ describe("project workspace", () => {
     renderApp();
     await switchSidebarMode("Papers");
     const paper = await screen.findByRole("button", { name: /Attention Is All You Need.*1706\.03762/i });
-    fireEvent.click(paper);
+    expect(screen.getByRole("button", { name: "Paper lookup" })).toBeVisible();
+    if (interaction === "click") fireEvent.click(paper);
+    else {
+      const values = new Map<string, string>();
+      const dataTransfer = {
+        get types() { return [...values.keys()]; },
+        setData: (type: string, value: string) => { values.set(type, value); },
+        getData: (type: string) => values.get(type) ?? "",
+      };
+      fireEvent.dragStart(paper.closest(".paper-row")!, { dataTransfer });
+      expect(values.has("application/x-lattice-paper")).toBe(true);
+      fireEvent.drop(document.querySelector(".titlebar-main")!, { dataTransfer });
+    }
     expect(await screen.findByText("Attention Is All You Need", { selector: ".active-document span" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
     expect(invoke).toHaveBeenCalledWith("read_paper_blog_local", { arxivId: "1706.03762" });

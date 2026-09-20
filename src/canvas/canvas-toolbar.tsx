@@ -82,6 +82,7 @@ type CanvasToolbarProps = {
   /** Collaboration presence avatars, rendered beside the live control. */
   collabPresence?: ReactNode;
   onHistory: () => void;
+  onPaperLookup?: () => void;
   onGit: () => void;
   commentCount: number;
   onComments: () => void;
@@ -332,6 +333,11 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </Tip>
         )}
         {props.overleafPresence}
+        {props.onPaperLookup && <Tip label={t`Paper lookup`}>
+          <button className="history-button" aria-label={t`Paper lookup`} onClick={props.onPaperLookup}>
+            <BookOpen size={15} />
+          </button>
+        </Tip>}
         <Tip label={t`Git status and commit`}>
           <button className="history-button" data-tour="git" onClick={props.onGit}>
             <AnimatedProductIcon kind="git-branch" size={15} />

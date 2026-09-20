@@ -437,6 +437,7 @@ const ConflictResolverDialog = lazy(() =>
 const Navigator = lazy(() =>
   import("./project/navigator").then((module) => ({ default: module.Navigator })),
 );
+const PaperLookupBridge = lazy(() => import("./papers/use-paper-lookup"));
 const BibliographyAudit = lazy(() =>
   import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
 );
@@ -6286,6 +6287,13 @@ function App() {
     }
   }, [changePaperView, openPaper, refreshProject, tutorialActive, tutorialStep]);
 
+  const readDraggedPaper = (paper: PaperSummary) => {
+    if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
+    else if (paper.arxivId || paper.url) void fetchAndOpenPaper(paper);
+    else setError(t`This paper has no local reading or downloadable source.`);
+  };
+  const [paperLookupRequest, setPaperLookupRequest] = useState(0);
+
   useEffect(() => () => {
     Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
   }, []);
@@ -9659,6 +9667,14 @@ function App() {
       className={`app-shell ${isFullscreen ? "fullscreen" : ""} ${browserHosted ? "browser-hosted" : ""}`}
       ref={shellRef}
     >
+      <Suspense fallback={null}>
+        <PaperLookupBridge
+          state={{ projectRoot: project.root, papers, theme }}
+          request={paperLookupRequest}
+          onOpen={readDraggedPaper}
+          onError={(reason) => setError(toMessage(reason))}
+        />
+      </Suspense>
       <AppTitlebar
         abortBuild={abortBuild}
         activeTabKey={activeTabKey}
@@ -9669,6 +9685,7 @@ function App() {
         canvasMode={canvasMode}
         canvasToolbar={(
         <CanvasToolbar
+          onPaperLookup={() => setPaperLookupRequest((request) => request + 1)}
           mode={canvasMode}
           selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
           setMode={openDocumentMode}

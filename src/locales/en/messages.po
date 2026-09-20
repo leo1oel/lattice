@@ -135,6 +135,7 @@ msgstr "{completed} of {progressTotal} references checked"
 msgid "{count} comments"
 msgstr "{count} comments"
 
+#: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
@@ -210,6 +211,7 @@ msgstr "1 of {total} papers"
 msgid "1 other"
 msgstr "1 other"
 
+#: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "1 paper"
 msgstr "1 paper"
@@ -314,6 +316,10 @@ msgstr "Add bibliography entry and cache the arXiv paper"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "Add comment"
+
+#: src/papers/paper-lookup.tsx
+msgid "Add papers in the project’s Papers sidebar"
+msgstr "Add papers in the project’s Papers sidebar"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -584,6 +590,10 @@ msgstr "Automatic updates"
 #: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
+
+#: src/papers/paper-lookup.tsx
+msgid "Available offline"
+msgstr "Available offline"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Back"
@@ -1120,6 +1130,10 @@ msgstr "Clear log search"
 msgid "Clear PDF search"
 msgstr "Clear PDF search"
 
+#: src/papers/paper-lookup.tsx
+msgid "Clear search"
+msgstr "Clear search"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Click “An Image is Worth 16×16 Words”"
 msgstr "Click “An Image is Worth 16×16 Words”"
@@ -1316,6 +1330,10 @@ msgstr "Connecting live editing…"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
+
+#: src/papers/paper-lookup.tsx
+msgid "Connecting to project…"
+msgstr "Connecting to project…"
 
 #: src/app/use-collab-v2-session.ts
 msgid "Connecting to the live session…"
@@ -1798,6 +1816,10 @@ msgstr "Downloading full text and figures…"
 #: src/settings/settings-dialog.tsx
 msgid "Downloading update…"
 msgstr "Downloading update…"
+
+#: src/papers/paper-lookup.tsx
+msgid "Drag to cite · Click to read"
+msgstr "Drag to cite · Click to read"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Drag to resize"
@@ -2873,6 +2895,10 @@ msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stop
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
+#: src/papers/paper-lookup.tsx
+msgid "Keep on top"
+msgstr "Keep on top"
+
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
 msgstr "Keeping the citation commands will leave them unresolved."
@@ -3520,6 +3546,10 @@ msgstr "Next search result"
 msgid "No"
 msgstr "No"
 
+#: src/papers/paper-lookup.tsx
+msgid "No bibliography key"
+msgstr "No bibliography key"
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
@@ -3576,6 +3606,7 @@ msgstr "No longer in the document"
 msgid "No matching logs"
 msgstr "No matching logs"
 
+#: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -4038,12 +4069,19 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
+#: src/canvas/canvas-toolbar.tsx
+#: src/papers/paper-lookup.tsx
+#: src/papers/use-paper-lookup.ts
+msgid "Paper lookup"
+msgstr "Paper lookup"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 
 #: src/app/app-workspace-sidebar.tsx
 #: src/canvas/document-canvas.tsx
+#: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "Papers"
 msgstr "Papers"
@@ -5101,6 +5139,14 @@ msgstr "Search or import papers"
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
 
+#: src/papers/paper-lookup.tsx
+msgid "Search papers"
+msgstr "Search papers"
+
+#: src/papers/paper-lookup.tsx
+msgid "Search papers, authors, citation keys…"
+msgstr "Search papers, authors, citation keys…"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "Search PDF"
@@ -5899,6 +5945,10 @@ msgstr "This is the longest step and can take up to 15 minutes"
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "This match information describes the retrieved record; you have edited its fields."
+
+#: src/App.tsx
+msgid "This paper has no local reading or downloadable source."
+msgstr "This paper has no local reading or downloadable source."
 
 #: src/overleaf/overleaf-chat.tsx
 msgid "this project"

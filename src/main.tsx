@@ -33,6 +33,14 @@ async function startApp() {
   }
 
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
+  const lookupOwner = new URLSearchParams(location.search).get("paper-lookup");
+  if (lookupOwner) {
+    const { default: PaperLookup } = await import("./papers/paper-lookup");
+    ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+      <I18nProvider i18n={i18n}><PaperLookup owner={lookupOwner} /></I18nProvider>,
+    );
+    return;
+  }
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <MotionConfig reducedMotion="user">
       <I18nProvider i18n={i18n}>

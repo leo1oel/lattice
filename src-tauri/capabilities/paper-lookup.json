@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "paper-lookup",
+  "description": "Paper lookup can exchange project snapshots and reading requests, move its own window, and opt into global always-on-top. It does not initialize a second project workspace.",
+  "windows": ["paper-lookup-*"],
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-always-on-top"
+  ]
+}

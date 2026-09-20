@@ -938,6 +938,35 @@ fn build_project_window(
     Ok(created)
 }
 
+#[tauri::command]
+async fn open_paper_lookup(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    title: String,
+) -> Result<(), String> {
+    let label = format!("paper-lookup-{}", window.label());
+    if let Some(existing) = app.get_webview_window(&label) {
+        existing.show().map_err(|error| error.to_string())?;
+        return existing.set_focus().map_err(|error| error.to_string());
+    }
+    // The owner is an application-generated window label, never a path or URL
+    // supplied by the renderer. Lookup windows do not bind a second project.
+    let url = format!("index.html?paper-lookup={}", window.label());
+    let builder = tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
+        .title(title)
+        .inner_size(390.0, 600.0)
+        .min_inner_size(320.0, 340.0)
+        .always_on_top(false)
+        .disable_drag_drop_handler();
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .accept_first_mouse(true);
+    builder.build().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 /// Open a project in a window of its own.
 ///
 /// A project may only be open in one window at a time. Two windows on one
@@ -4557,6 +4586,12 @@ pub fn run() {
             // its LaTeX language server and Overleaf socket outlive the window
             // and a later window reusing the label inherits a stale binding.
             if matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(lookup) = window
+                    .app_handle()
+                    .get_webview_window(&format!("paper-lookup-{}", window.label()))
+                {
+                    let _ = lookup.destroy();
+                }
                 macos_window::clear_pdf_copy_text(window.label());
                 let state = window.state::<AppState>();
                 state.release_window(window.label());
@@ -4655,6 +4690,7 @@ pub fn run() {
             initial_project,
             open_project,
             open_project_window,
+            open_paper_lookup,
             take_pending_window_action,
             import_project_zip,
             export_project_zip,
