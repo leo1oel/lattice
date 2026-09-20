@@ -291,6 +291,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
 
+      - name: Use public download URLs in the updater manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # tauri-action can emit REST asset URLs, which consume the user's
+          # anonymous API quota and return 403 when their IP is rate-limited.
+          manifest_dir="$(mktemp -d "$RUNNER_TEMP/lattice-updater.XXXXXX")"
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$manifest_dir"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > "$manifest_dir/release.json"
+          node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
+          gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
+
       - name: Publish verified release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
