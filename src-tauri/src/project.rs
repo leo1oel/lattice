@@ -3256,10 +3256,23 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     if query.is_empty() {
         return Err("Enter a DOI, arXiv id, or paper title.".to_string());
     }
+    if let Some(raw) = crate::papers::official_arxiv_citation(query)? {
+        crate::papers::validate_resolved_identity(query, &raw)?;
+        return Ok(citation_from_bibtex(&raw, ""));
+    }
     let output = run_bibcite_get(query)?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    parse_citation_resolution(&stdout, output.status.code(), &stderr)
+    let result = parse_citation_resolution(&stdout, output.status.code(), &stderr)?;
+    if result.candidates.is_empty() {
+        crate::papers::validate_resolved_identity(query, &result.bibtex)?;
+        crate::papers::verify_title_citation(query, &result.bibtex)?;
+    } else {
+        for candidate in &result.candidates {
+            crate::papers::validate_resolved_identity(query, &candidate.bibtex)?;
+        }
+    }
+    Ok(result)
 }
 
 fn parse_citation_resolution(

@@ -8,7 +8,7 @@ fn text(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn bib_text(value: &str) -> String {
+pub(crate) fn bib_text(value: &str) -> String {
     value
         .chars()
         .map(|ch| match ch {

@@ -39,6 +39,9 @@ import "./project/navigator";
 import "./canvas/document-canvas";
 import "./overleaf/overleaf-collab";
 import "./editor/comments/editor-comments-panel";
+// PDF source-navigation assertions need the real viewer, not its Suspense
+// placeholder, ready before the interaction deadline starts.
+import "./pdf/pdf-viewer";
 import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
@@ -3644,6 +3647,57 @@ describe("project workspace", () => {
     await waitFor(() =>
       expect(screen.queryByRole("tab", { name: "Agent turn" })).not.toBeInTheDocument());
     expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
+  });
+
+  it.each(["undo", "undo in manual mode", "same-count edit"])("rebuilds after an Agent %s", async (change) => {
+    if (change === "undo in manual mode") {
+      localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    }
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      if (command === "build_project") return {
+        success: true, hasPdf: false, log: "", durationMs: 5,
+        rootDocument: "main.tex", diagnostics: [],
+      };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const entry = {
+      id: "cp-undo", label: "Edited files", timestamp: "2026-08-07T10:00:00.000Z",
+      threadId: "thread-undo", threadTitle: "Agent task", turnId: "turn-undo",
+      turnCount: 1, checkpointRef: "ref-undo",
+      files: [{ path: "sections/intro.tex", kind: "modified", additions: 2, deletions: 2 }],
+    };
+    const post = (entries: unknown[]) => act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
+        data: { type: "lattice:project-history", activeThreadId: entry.threadId, entries },
+      }));
+    });
+    post([entry]);
+    const builds = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    const baseline = builds();
+    post(change.startsWith("undo") ? [] : [{ ...entry, timestamp: "2026-08-07T10:01:00.000Z" }]);
+    await waitFor(() => expect(builds()).toBe(baseline + 1), { timeout: 4_000 });
   });
 
   it("rebuilds after fresh agent checkpoints but not for replayed history", async () => {
@@ -8732,6 +8786,19 @@ describe("project workspace", () => {
     // Still the same viewer instance, at the page the jump was made from: the
     // preview column follows the project's build, not the file in the editor.
     expect(screen.getByLabelText("PDF page 1")).toBeInTheDocument();
+    expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
+
+    // An included TeX file is also part of this build, not a new PDF. The first
+    // reverse jump must move the editor without resetting the reader's place.
+    const pageBeforeJump = screen.getByLabelText("PDF page 2");
+    const viewportBeforeJump = pageBeforeJump.closest<HTMLElement>(".pdf-scroll-area-viewport")!;
+    viewportBeforeJump.scrollTop = 950;
+    reverseSyncTarget = { path: "chapters/results.tex", line: 1 };
+    fireEvent.doubleClick(pageBeforeJump, { clientX: 110, clientY: 220 });
+    await waitFor(() => expect(screen.getByRole("tab", { name: /results\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByLabelText("PDF page 2")).toBe(pageBeforeJump);
+    expect(viewportBeforeJump.scrollTop).toBe(950);
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
   });
 

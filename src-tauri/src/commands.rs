@@ -124,6 +124,9 @@ fn configure_bibcite_env(
     command.env_remove("BIBCITE_MAILTO");
     command.env_remove("BIBCITE_S2_BATCH_STATUS");
     command.env_remove("BIBCITE_CORE_SOURCES");
+    // 0.6.10 caches publication matches by title without author/ID context.
+    // Do not replay a cached candidate as independently verified metadata.
+    command.env("BIBCITE_NO_CACHE", "1");
     command.env(
         "BIBCITE_PUBLIC_SERVICE_URL",
         crate::literature_service::ENDPOINT,
@@ -700,6 +703,7 @@ mod tests {
             })
             .collect::<std::collections::BTreeMap<_, _>>();
         assert_eq!(envs["BIBCITE_S2_BATCH_STATUS"].as_deref(), Some("disabled"));
+        assert_eq!(envs["BIBCITE_NO_CACHE"].as_deref(), Some("1"));
         assert_eq!(envs["S2_API_KEY"], None);
     }
 

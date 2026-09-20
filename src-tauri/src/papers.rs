@@ -1386,22 +1386,13 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         citations.iter().filter_map(|citation| citation.doi.clone()),
     );
     for citation in citations {
-        // Prefer an explicit arXiv identity, then an arXiv bundle with the same
-        // title, and only then a captured webpage. The title bridge matters for
-        // published DBLP/OpenReview entries written without an eprint: once a
-        // later title import discovers the preprint, its full text must replace
-        // the old landing-page capture in the reader.
+        // Cache attachment requires an explicit identity. Titles alone cannot
+        // prove that the downloaded text belongs to this citation.
         let by_arxiv = imported.iter().position(|(id, _, _, _, _)| {
             citation
                 .arxiv_id
                 .as_deref()
                 .is_some_and(|cited| arxiv_base_id(cited).eq_ignore_ascii_case(arxiv_base_id(id)))
-        });
-        let by_title = imported.iter().position(|(_, metadata, _, _, _)| {
-            metadata.source != "web"
-                && metadata.source != "pdf-text-layer"
-                && !metadata.title.is_empty()
-                && paper_titles_match(&citation.title, &metadata.title)
         });
         // A webpage citation has no arXiv id; its captured bundle remembers
         // which URL it snapshotted instead.
@@ -1410,10 +1401,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
                 !metadata.source_url.is_empty() && metadata.source_url == cited.trim()
             })
         });
-        let matched = by_arxiv
-            .or(by_title)
-            .or(by_url)
-            .map(|index| imported.remove(index));
+        let matched = by_arxiv.or(by_url).map(|index| imported.remove(index));
         let title = if !citation.title.trim().is_empty() {
             citation.title.clone()
         } else {
@@ -1903,6 +1891,35 @@ pub(crate) fn upgrade_bibliography_with_history(
     if !dry_run && after != before {
         run_bibcite_tidy(&copy)?;
         after = fs::read_to_string(&copy).map_err(err)?;
+        validate_bibliography_upgrade(&before, &after)?;
+        // Upgrade preserves old author fields, so agreement with its output
+        // is not independent evidence. Check each changed record at its DOI.
+        let old = project::parse_bibliography(&before);
+        for (key, start, end) in project::bibliography_entry_spans(&after) {
+            let Some(previous) = old.iter().find(|entry| entry.key == key) else {
+                continue;
+            };
+            let raw = &after[start..end];
+            let current = project::parse_bibliography(raw).remove(0);
+            if previous.doi == current.doi
+                && previous.title == current.title
+                && previous.year == current.year
+                && previous.venue == current.venue
+                && previous.authors == current.authors
+            {
+                continue;
+            }
+            let doi = current.doi.ok_or("An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.")?;
+            let verified = project::resolve_citation_query(&doi)?;
+            if !crate::citation_audit::metadata_identity_matches(raw, verified.bibtex.trim()) {
+                return Err(format!(
+                    "Publication metadata for '{key}' could not be independently confirmed."
+                ));
+            }
+        }
+        if fs::read_to_string(&path).map_err(err)? != before {
+            return Err("The bibliography changed while upgrading. Retry the operation.".into());
+        }
         commit_bibliography(
             root,
             &manifest.primary_bibliography,
@@ -1917,6 +1934,42 @@ pub(crate) fn upgrade_bibliography_with_history(
         changed: after != before,
         report,
     })
+}
+
+fn validate_bibliography_upgrade(before: &str, after: &str) -> Result<(), String> {
+    let old = project::parse_bibliography(before);
+    let new = project::parse_bibliography(after);
+    if old.len() != new.len() {
+        return Err("An upgrade cannot add or remove citations.".into());
+    }
+    for (key, start, end) in project::bibliography_entry_spans(before) {
+        let matches: Vec<_> = project::bibliography_entry_spans(after)
+            .into_iter()
+            .filter(|(candidate, _, _)| candidate == &key)
+            .collect();
+        if matches.len() != 1 {
+            return Err(format!(
+                "An upgrade must preserve the unique citation key '{key}'."
+            ));
+        }
+        let (_, a, b) = &matches[0];
+        let previous = &before[start..end];
+        let proposed = &after[*a..*b];
+        if previous == proposed {
+            continue;
+        }
+        validate_resolved_identity("", proposed)?;
+        if !crate::citation_audit::metadata_identity_matches(previous, proposed) {
+            return Err(format!(
+                "The upgrade changes the identity of '{key}'. No changes were saved."
+            ));
+        }
+        let old_entry = project::parse_bibliography(previous).remove(0);
+        if let Some(id) = old_entry.arxiv_id {
+            validate_resolved_identity(&id, proposed)?;
+        }
+    }
+    Ok(())
 }
 
 /// A bundle key under `.research/papers`: an arXiv id, or the digest name
@@ -2052,18 +2105,7 @@ fn normalized_paper_title(value: &str) -> String {
 fn paper_titles_match(requested: &str, candidate: &str) -> bool {
     let requested = normalized_paper_title(requested);
     let candidate = normalized_paper_title(candidate);
-    if requested.is_empty() || candidate.is_empty() {
-        return false;
-    }
-    if candidate == requested {
-        return true;
-    }
-    // arXiv commonly prefixes the publication title with an acronym, as in
-    // "SOLO: A Single Transformer …". Accept that small prefix, but not a
-    // generic query that merely happens to be a suffix of another title.
-    candidate
-        .strip_suffix(&format!(" {requested}"))
-        .is_some_and(|prefix| prefix.split_whitespace().count() <= 3)
+    !requested.is_empty() && candidate == requested
 }
 
 /// An explicit arXiv import can be joined to an existing citation without
@@ -2074,13 +2116,7 @@ fn existing_explicit_arxiv_citation(
     bibliography: &str,
     query: &str,
 ) -> Option<(String, String, String)> {
-    // parse_arxiv_id also extracts ids from arbitrary text. This fast path
-    // must not mistake a title or an unrelated publisher URL for that paper.
-    let explicit = Regex::new(r"(?i)^(?:https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)(?:\.pdf)?(?:[?#].*)?$").unwrap();
-    if !explicit.is_match(query.trim()) {
-        return None;
-    }
-    let requested = parse_arxiv_id(query)?;
+    let requested = explicit_arxiv_id(query)?;
     let base = arxiv_base_id(&requested);
     project::parse_bibliography(bibliography)
         .into_iter()
@@ -2091,6 +2127,79 @@ fn existing_explicit_arxiv_citation(
                 .is_some_and(|cited| arxiv_base_id(cited).eq_ignore_ascii_case(base))
         })
         .map(|entry| (base.to_string(), entry.key, entry.title))
+}
+
+fn explicit_arxiv_id(query: &str) -> Option<String> {
+    // parse_arxiv_id also extracts ids from arbitrary text. This fast path
+    // must not mistake a title or an unrelated publisher URL for that paper.
+    let explicit = Regex::new(r"(?i)^(?:https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)(?:\.pdf)?(?:[?#].*)?$").unwrap();
+    if explicit.is_match(query.trim()) {
+        return parse_arxiv_id(query);
+    }
+    let doi = project::normalize_doi(query)?;
+    doi.strip_prefix("10.48550/arxiv.")
+        .filter(|id| validate_arxiv_id(id).is_ok())
+        .map(str::to_string)
+}
+
+/// An explicit preprint uses arXiv's own citation metadata. Publication
+/// promotion is a separate reviewed operation: a title search result must
+/// never donate its authors/DOI to an unrelated but correctly numbered paper.
+pub(crate) fn official_arxiv_citation(query: &str) -> Result<Option<String>, String> {
+    let Some(id) = explicit_arxiv_id(query) else {
+        return Ok(None);
+    };
+    let html = fetch_web_html(&format!("https://arxiv.org/abs/{id}"))?;
+    arxiv_citation_from_html(&id, &html).map(Some)
+}
+
+fn arxiv_citation_from_html(id: &str, html: &str) -> Result<String, String> {
+    let document = Html::parse_document(html);
+    let mut fields: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for element in document.select(&Selector::parse("meta[name][content]").unwrap()) {
+        let name = element.value().attr("name").unwrap().to_ascii_lowercase();
+        let content = element
+            .value()
+            .attr("content")
+            .unwrap()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !content.is_empty() {
+            fields.entry(name).or_default().push(content);
+        }
+    }
+    let one = |name: &str| -> Result<&str, String> {
+        fields
+            .get(name)
+            .filter(|values| values.len() == 1)
+            .map(|values| values[0].as_str())
+            .ok_or_else(|| {
+                format!("arXiv returned missing or ambiguous {name}; no citation was added.")
+            })
+    };
+    let returned = one("citation_arxiv_id")?;
+    if !arxiv_base_id(returned).eq_ignore_ascii_case(arxiv_base_id(id)) {
+        return Err("arXiv returned metadata for a different paper.".into());
+    }
+    let title = one("citation_title")?;
+    let date = one("citation_date")?;
+    let year = date
+        .get(..4)
+        .filter(|year| year.chars().all(|c| c.is_ascii_digit()))
+        .ok_or("arXiv returned an invalid publication date.")?;
+    let authors = fields
+        .get("citation_author")
+        .filter(|authors| !authors.is_empty())
+        .ok_or("arXiv returned no authors.")?;
+    let base = arxiv_base_id(id);
+    let raw = format!(
+        "@misc{{arxiv,\n  title = {{{}}},\n  author = {{{}}},\n  year = {{{year}}},\n  url = {{https://arxiv.org/abs/{id}}},\n  eprint = {{{base}}},\n  archiveprefix = {{arXiv}},\n  howpublished = {{arXiv preprint arXiv:{base}}}\n}}\n",
+        crate::web_metadata::bib_text(title),
+        authors.iter().map(|author| crate::web_metadata::bib_text(author)).collect::<Vec<_>>().join(" and "),
+    );
+    let key = supplied_citation_key(&raw);
+    Ok(raw.replacen("@misc{arxiv,", &format!("@misc{{{key},"), 1))
 }
 
 fn import_existing_arxiv_citation(
@@ -2663,9 +2772,12 @@ fn import_citation(
 
     progress("resolving");
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
-    let preferred_arxiv = parse_arxiv_id(&bibcite_query);
+    let preferred_arxiv = explicit_arxiv_id(&bibcite_query);
     let mut web_error = None;
-    let supplied = if is_web_url(query) && preferred_arxiv.is_none() {
+    let supplied = if is_web_url(query)
+        && preferred_arxiv.is_none()
+        && project::normalize_doi(query).is_none()
+    {
         match resolve_web_citation(query) {
             Ok(citation) => citation,
             Err(error) => {
@@ -2769,6 +2881,11 @@ fn import_citation(
     // already resolved the entry threw the user's citation away over a
     // download problem.
     if bibliography != before {
+        if fs::read_to_string(&project_bibliography).unwrap_or_default() != before {
+            return Err(
+                "The bibliography changed while resolving the citation. Retry the import.".into(),
+            );
+        }
         commit_bibliography(
             root,
             &manifest.primary_bibliography,
@@ -2863,7 +2980,202 @@ fn run_bibcite_cancellable(
     query: &str,
     cancel: &AtomicBool,
 ) -> Result<String, String> {
-    run_bibcite_input_cancellable(path, query, false, cancel)
+    let before = fs::read_to_string(path).map_err(err)?;
+    // Never give bibcite existing entries: its fuzzy upsert can overwrite a
+    // different paper while retaining the old key used in the manuscript.
+    let isolated = path.with_extension(format!("{}.bib", Uuid::new_v4()));
+    let result = (|| {
+        let output = if let Some(raw) = official_arxiv_citation(query)? {
+            let key = project::parse_bibliography(&raw)[0].key.clone();
+            fs::write(&isolated, raw).map_err(err)?;
+            serde_json::json!({"key":key,"source":"arxiv","action":"added"}).to_string()
+        } else {
+            run_bibcite_input_cancellable(&isolated, query, false, cancel)?
+        };
+        let bibliography = fs::read_to_string(&isolated).map_err(err)?;
+        let key = parse_citation_key(&output)
+            .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
+        validate_resolved_identity(query, &bibliography)?;
+        verify_title_citation(query, &bibliography)?;
+        let (merged, new_key, exists) = merge_resolved_citation(&before, &bibliography, &key)?;
+        fs::write(path, merged).map_err(err)?;
+        let mut report: Value = serde_json::from_str(&output).map_err(err)?;
+        report["key"] = Value::String(new_key);
+        report["action"] = Value::String(if exists { "exists" } else { "added" }.into());
+        report["file"] = serde_json::json!(path);
+        Ok(report.to_string())
+    })();
+    let _ = fs::remove_file(isolated);
+    result
+}
+
+/// Preserve existing entries byte-for-byte; a metadata update is a separate,
+/// reviewed operation, never a side effect of adding a reference.
+fn merge_resolved_citation(
+    before: &str,
+    raw: &str,
+    key: &str,
+) -> Result<(String, String, bool), String> {
+    let incoming = project::parse_bibliography(raw);
+    if incoming.len() != 1 || incoming[0].key != key {
+        return Err(
+            "Citation resolution must return exactly one entry with its reported key.".into(),
+        );
+    }
+    let incoming = &incoming[0];
+    let entries = project::parse_bibliography(before);
+    let spans = project::bibliography_entry_spans(before);
+    let mut keys = std::collections::HashSet::new();
+    if entries
+        .iter()
+        .any(|entry| !keys.insert(entry.key.to_ascii_lowercase()))
+    {
+        return Err("The bibliography already contains duplicate citation keys. Resolve them before importing.".into());
+    }
+    let mut matches = Vec::new();
+    for entry in &entries {
+        let existing_doi = entry
+            .doi
+            .clone()
+            .or_else(|| entry.url.as_deref().and_then(project::normalize_doi));
+        let incoming_doi = incoming
+            .doi
+            .clone()
+            .or_else(|| incoming.url.as_deref().and_then(project::normalize_doi));
+        let same_id = entry
+            .arxiv_id
+            .as_deref()
+            .zip(incoming.arxiv_id.as_deref())
+            .is_some_and(|(a, b)| arxiv_base_id(a).eq_ignore_ascii_case(arxiv_base_id(b)))
+            || existing_doi
+                .as_ref()
+                .zip(incoming_doi.as_ref())
+                .is_some_and(|(a, b)| a == b);
+        let (_, start, end) = spans
+            .iter()
+            .find(|(key, _, _)| key == &entry.key)
+            .ok_or_else(|| "Invalid existing bibliography entry.".to_string())?;
+        let same_metadata = !entry.title.trim().is_empty()
+            && validate_resolved_identity("", &before[*start..*end]).is_ok()
+            && crate::citation_audit::metadata_identity_matches(&before[*start..*end], raw.trim());
+        if same_id && !same_metadata {
+            return Err(format!("Citation '{}' has the same identifier but conflicting metadata. Review it before importing.", entry.key));
+        }
+        if same_metadata && (same_id || entry.year == incoming.year) {
+            matches.push(entry);
+        }
+    }
+    if matches.len() > 1 {
+        return Err("Multiple existing citations match this paper. Resolve the duplicates before importing.".into());
+    }
+    if let Some(existing) = matches.first() {
+        return Ok((before.to_string(), existing.key.clone(), true));
+    }
+    let mut new_key = key.to_string();
+    let mut suffix = 2;
+    while entries
+        .iter()
+        .any(|entry| entry.key.eq_ignore_ascii_case(&new_key))
+    {
+        new_key = format!("{key}-{suffix}");
+        suffix += 1;
+    }
+    let raw = raw.trim();
+    let opening = raw.find(['{', '(']).ok_or("Invalid citation entry.")?;
+    let comma = raw.find(',').ok_or("Invalid citation key.")?;
+    Ok((
+        format!(
+            "{before}\n{}{}{}\n",
+            &raw[..opening + 1],
+            new_key,
+            &raw[comma..]
+        ),
+        new_key,
+        false,
+    ))
+}
+
+pub(crate) fn validate_resolved_identity(query: &str, raw: &str) -> Result<(), String> {
+    let entries = project::parse_bibliography(raw);
+    let raw = raw.trim();
+    let spans = project::bibliography_entry_spans(raw);
+    if entries.len() != 1
+        || spans.len() != 1
+        || spans[0].1 != 0
+        || spans[0].2 != raw.len()
+        || !crate::citation_audit::complete_entry(raw)
+    {
+        return Err("Citation resolution must return exactly one complete record.".into());
+    }
+    let entry = &entries[0];
+    let fields =
+        project::parse_bibliography_fields_raw(&raw[raw.find(',').unwrap() + 1..raw.len() - 1]);
+    let ids: Vec<_> = fields
+        .iter()
+        .filter_map(|(key, value)| {
+            project::bibliography_arxiv_id(&[(key.clone(), value.clone())].into_iter().collect())
+        })
+        .collect();
+    if ids
+        .iter()
+        .any(|id| !arxiv_base_id(id).eq_ignore_ascii_case(arxiv_base_id(&ids[0])))
+    {
+        return Err("The citation contains conflicting arXiv identifiers.".into());
+    }
+    let doi_url = entry.url.as_deref().and_then(project::normalize_doi);
+    if entry
+        .doi
+        .as_ref()
+        .zip(doi_url.as_ref())
+        .is_some_and(|(a, b)| a != b)
+    {
+        return Err("The citation DOI conflicts with its DOI URL.".into());
+    }
+    if let Some(requested) = explicit_arxiv_id(query) {
+        if !entry
+            .arxiv_id
+            .as_deref()
+            .is_some_and(|id| arxiv_base_id(id).eq_ignore_ascii_case(arxiv_base_id(&requested)))
+        {
+            return Err(format!("Citation resolution returned a different paper than arXiv:{requested}. No citation was added."));
+        }
+    } else if let Some(doi) = project::normalize_doi(query) {
+        if entry.doi.as_ref().or(doi_url.as_ref()) != Some(&doi) {
+            return Err(format!(
+                "Citation resolution did not return the requested DOI {doi}."
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// A title result is only a candidate. Confirm its metadata independently by
+/// the returned identifier instead of trusting publication enrichment.
+pub(crate) fn verify_title_citation(query: &str, raw: &str) -> Result<(), String> {
+    if explicit_arxiv_id(query).is_some()
+        || project::normalize_doi(query).is_some()
+        || is_web_url(query)
+    {
+        return Ok(());
+    }
+    let entry = project::parse_bibliography(raw)
+        .into_iter()
+        .next()
+        .ok_or("No citation was returned.")?;
+    if normalized_paper_title(query) != normalized_paper_title(&entry.title) {
+        return Err("The resolved title differs from the requested title. Supply its DOI or arXiv URL instead.".into());
+    }
+    let verified = if let Some(id) = entry.arxiv_id {
+        official_arxiv_citation(&id)?.ok_or("Invalid arXiv identity.")?
+    } else if let Some(doi) = entry.doi {
+        project::resolve_citation_query(&doi)?.bibtex
+    } else {
+        return Err("This title has no independently verifiable identifier. Supply its official BibTeX or URL instead.".into());
+    };
+    if !crate::citation_audit::metadata_identity_matches(raw.trim(), verified.trim()) {
+        return Err("The candidate's title or authors conflict with its source metadata. No citation was added.".into());
+    }
+    Ok(())
 }
 
 fn run_bibcite_input(path: &PathBuf, query: &str, supplied: bool) -> Result<String, String> {
@@ -3151,6 +3463,7 @@ mod tests {
                 "@article{stub2024,\n",
                 "  title = {A Paper Without A Rendering},\n",
                 "  eprint = {2401.99999},\n",
+                "  doi = {10.1234/example},\n",
                 "}\n",
                 "BIB\n",
                 "    printf '{\"key\": \"stub2024\"}\\n'\n",
@@ -3418,6 +3731,227 @@ mod tests {
         assert_eq!(parse_arxiv_id("not a paper"), None);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn resolver_never_receives_existing_citations_or_controls_duplicate_keys() {
+        let _lock = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent = std::env::temp_dir().join(format!("lattice-cite-identity-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let path = parent.join("references.bib");
+        // Also collide with the new paper's generated key: neither old entry
+        // may be replaced, even when resolution in isolation succeeds.
+        let before = concat!(
+            "@misc{diao2026pixels, title={Native One-Vision Models}, eprint={2605.28820}}\n",
+            "@misc{diao2025pixels, title={An unrelated citation}}\n",
+        );
+        fs::write(&path, before).unwrap();
+        let tool = parent.join("bibcite");
+        write_test_tool(&tool, concat!(
+            "#!/bin/sh\nset -eu\n",
+            "if grep -q diao2026pixels \"$3\" 2>/dev/null; then\n",
+            "  echo '{\"key\":\"diao2026pixels\",\"action\":\"exists\",\"source\":\"arxiv\"}'\n",
+            "else\n",
+            "  echo '@misc{diao2025pixels, title={Native Vision-Language Primitives}, author={Haiwen Diao}, year={2025}, doi={10.1234/primitives}, eprint={2510.14979v2}}' > \"$3\"\n",
+            "  echo '{\"key\":\"diao2025pixels\",\"action\":\"added\",\"source\":\"arxiv\"}'\n",
+            "fi\n",
+        ));
+        let _tool = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
+        let output =
+            run_bibcite_cancellable(&path, "10.1234/primitives", &AtomicBool::new(false)).unwrap();
+        let bibliography = fs::read_to_string(&path).unwrap();
+        assert!(bibliography.starts_with(before));
+        assert_eq!(
+            parse_citation_key(&output).as_deref(),
+            Some("diao2025pixels-2")
+        );
+        let entries = project::parse_bibliography(&bibliography);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[2].arxiv_id.as_deref(), Some("2510.14979v2"));
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn conflicting_doi_resolution_never_commits_a_different_paper() {
+        let _lock = TOOL_OVERRIDE_LOCK.lock().unwrap();
+        let parent = std::env::temp_dir().join(format!("lattice-cite-reject-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let before =
+            "@misc{diao2026pixels, title={Native One-Vision Models}, eprint={2605.28820}}\n";
+        fs::write(root.join("references.bib"), before).unwrap();
+        let tool = parent.join("bibcite");
+        write_test_tool(
+            &tool,
+            concat!(
+                "#!/bin/sh\nset -eu\n",
+                "echo '@misc{diao2026pixels, title={Wrong paper}, eprint={2605.28820}}' > \"$3\"\n",
+                "echo '{\"key\":\"diao2026pixels\",\"source\":\"arxiv\"}'\n",
+            ),
+        );
+        let _tool = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
+        let error = import_reference_with_history(&root, "10.1234/requested", HistoryMode::Defer)
+            .unwrap_err();
+        assert!(error.contains("requested DOI 10.1234/requested"), "{error}");
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            before
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn strict_merge_requires_the_full_title_and_ordered_authors() {
+        let before =
+            "@misc{old,title={A Shared Title},author={Alice Smith and Bob Jones},year={2025}}";
+        let incoming = before.replace("{old,", "{new,");
+        let (merged, key, exists) = merge_resolved_citation(before, &incoming, "new").unwrap();
+        assert_eq!(
+            (merged.as_str(), key.as_str(), exists),
+            (before, "old", true)
+        );
+        for changed in [
+            incoming.replace("Shared", "Similar"),
+            incoming.replace("Alice", "Ann"),
+            incoming.replace("Bob Jones", "Carol Doe"),
+            incoming.replace("Alice Smith and Bob Jones", "Bob Jones and Alice Smith"),
+            incoming.replace("Alice Smith and Bob Jones", "Alice Smith and others"),
+            incoming.replace("2025", "2024"),
+        ] {
+            let (merged, key, exists) = merge_resolved_citation(before, &changed, "new").unwrap();
+            assert!(!exists, "{changed}");
+            assert_eq!(key, "new");
+            assert!(merged.starts_with(before));
+            assert_eq!(project::parse_bibliography(&merged).len(), 2);
+        }
+        let incoming = incoming
+            .replace("{new,", "{old,")
+            .replace("Shared", "Different");
+        assert_eq!(
+            merge_resolved_citation(before, &incoming, "old").unwrap().1,
+            "old-2"
+        );
+    }
+
+    #[test]
+    fn strong_identifier_conflicts_cannot_be_hidden_by_matching_titles() {
+        let a = "@misc{old,title={Shared Title},author={Alice Smith},year={2025},eprint={2510.14979},doi={10.1234/a}}";
+        let b = a
+            .replace("{old,", "{new,")
+            .replace("2510.14979", "2605.28820")
+            .replace("10.1234/a", "10.1234/b");
+        assert!(!merge_resolved_citation(a, &b, "new").unwrap().2);
+        // Same identifier but changed metadata must be reviewed, not overwritten.
+        let b = a.replace("{old,", "{new,").replace("Alice", "Bob");
+        assert!(merge_resolved_citation(a, &b, "new").is_err());
+        let broken = a.replace(
+            "eprint={2510.14979}",
+            "eprint={2510.14979},url={https://arxiv.org/abs/2605.28820}",
+        );
+        assert!(validate_resolved_identity("2510.14979", &broken).is_err());
+        assert!(validate_resolved_identity("2605.28820", a).is_err());
+        assert!(validate_resolved_identity("https://doi.org/10.1234/ab", a).is_err());
+        assert!(validate_resolved_identity("https://doi.org/10.1234/A", a).is_ok());
+        assert!(validate_resolved_identity("https://arxiv.org/pdf/2510.14979v2", a).is_ok());
+        assert!(validate_resolved_identity("2510.14979", "@misc{x,title={No identity}}").is_err());
+        assert!(validate_resolved_identity("", "@misc{x,title={Incomplete}").is_err());
+    }
+
+    #[test]
+    fn doi_urls_participate_in_identity_checks() {
+        let before = "@article{old,title={Shared Title},author={Alice Smith},year={2025},url={https://doi.org/10.1234/a}}";
+        let same =
+            "@article{new,title={Shared Title},author={Alice Smith},year={2025},doi={10.1234/a}}";
+        assert!(crate::citation_audit::metadata_identity_matches(
+            before, same
+        ));
+        assert_eq!(
+            merge_resolved_citation(before, same, "new").unwrap(),
+            (before.to_string(), "old".to_string(), true)
+        );
+        let different = same.replace("10.1234/a", "10.1234/b");
+        assert!(!crate::citation_audit::metadata_identity_matches(
+            before, &different
+        ));
+        let (merged, key, exists) = merge_resolved_citation(before, &different, "new").unwrap();
+        assert!(!exists);
+        assert_eq!(key, "new");
+        assert!(merged.starts_with(before));
+        assert_eq!(project::parse_bibliography(&merged).len(), 2);
+        assert!(merge_resolved_citation(before, &same.replace("Alice", "Bob"), "new").is_err());
+        assert!(merge_resolved_citation(&before.replace("Shared Title", ""), same, "new").is_err());
+    }
+
+    #[test]
+    fn official_arxiv_metadata_cannot_mix_papers_or_use_the_revision_year() {
+        let html = concat!(
+            "<meta name='citation_arxiv_id' content='2510.14979'>",
+            "<meta name='citation_title' content='Pixels &amp; Words'>",
+            "<meta name='citation_author' content='Diao, Haiwen'>",
+            "<meta name='citation_author' content='Li, Mingxuan'>",
+            "<meta name='citation_date' content='2025/10/16'>",
+            "<meta name='citation_online_date' content='2026/02/21'>",
+        );
+        let raw = arxiv_citation_from_html("2510.14979", html).unwrap();
+        let entry = project::parse_bibliography(&raw).remove(0);
+        assert_eq!(entry.year, "2025");
+        assert_eq!(entry.authors, "Diao, Haiwen and Li, Mingxuan");
+        assert!(raw.contains(r"Pixels \& Words"));
+        assert_eq!(entry.arxiv_id.as_deref(), Some("2510.14979"));
+        assert!(arxiv_citation_from_html("2605.28820", html).is_err());
+        assert!(arxiv_citation_from_html(
+            "2510.14979",
+            &html.replace("citation_author", "ignored")
+        )
+        .is_err());
+        assert!(arxiv_citation_from_html(
+            "2510.14979",
+            &format!("{html}<meta name='citation_arxiv_id' content='2605.28820'>")
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn bulk_upgrade_cannot_change_paper_identity_or_citation_keys() {
+        let before = "@misc{old,title={Exact Title},author={Alice Smith and Bob Jones},year={2025},eprint={2510.14979}}";
+        let after = before
+            .replace("@misc", "@article")
+            .replace("year={2025}", "year={2026},doi={10.1234/published}");
+        assert!(validate_bibliography_upgrade(before, &after).is_ok());
+        for invalid in [
+            after.replace("Alice", "Ann"),
+            after.replace("Exact Title", "Similar Title"),
+            after.replace("2510.14979", "2605.28820"),
+            after.replace("{old,", "{new,"),
+            format!("{after}\n{after}"),
+        ] {
+            assert!(
+                validate_bibliography_upgrade(before, &invalid).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "requires arxiv.org network access"]
+    fn pixels_import_live_preserves_both_distinct_papers() {
+        let before = "@misc{diao2026pixels,title={From Pixels to Words -- Towards Native One-Vision Models at Scale},author={Haiwen Diao},year={2026},eprint={2605.28820}}";
+        let raw = official_arxiv_citation("https://arxiv.org/abs/2510.14979")
+            .unwrap()
+            .unwrap();
+        let entry = project::parse_bibliography(&raw).remove(0);
+        assert_eq!(
+            entry.title,
+            "From Pixels to Words -- Towards Native Vision-Language Primitives at Scale"
+        );
+        assert_eq!(entry.authors.split(" and ").count(), 9);
+        assert_eq!(entry.year, "2025");
+        assert_eq!(entry.arxiv_id.as_deref(), Some("2510.14979"));
+        let (merged, _, exists) = merge_resolved_citation(before, &raw, &entry.key).unwrap();
+        assert!(!exists);
+        assert!(merged.starts_with(before));
+        assert_eq!(project::parse_bibliography(&merged).len(), 2);
+    }
+
     #[test]
     fn duplicate_arxiv_detection_uses_canonical_identity_only() {
         let bibliography = concat!(
@@ -3463,13 +3997,20 @@ mod tests {
         assert_eq!(
             arxiv_id_from_title_feed(
                 feed,
-                "A Single Transformer for Scalable Vision-Language Modeling"
+                "SOLO: A Single Transformer for Scalable Vision-Language Modeling"
             )
             .as_deref(),
             Some("2407.06438")
         );
         assert_eq!(
             arxiv_id_from_title_feed(feed, "A Different Transformer"),
+            None
+        );
+        assert_eq!(
+            arxiv_id_from_title_feed(
+                feed,
+                "A Single Transformer for Scalable Vision-Language Modeling"
+            ),
             None
         );
     }
@@ -3682,7 +4223,7 @@ mod tests {
     }
 
     #[test]
-    fn an_arxiv_title_match_replaces_an_openreview_capture() {
+    fn a_title_match_cannot_replace_an_identified_openreview_capture() {
         let parent =
             std::env::temp_dir().join(format!("lattice-paper-title-join-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -3707,7 +4248,7 @@ mod tests {
         fs::write(
             web.join("metadata.json"),
             serde_json::to_vec(&PaperMetadata {
-                arxiv_id: web_id,
+                arxiv_id: web_id.clone(),
                 requested_arxiv_id: String::new(),
                 title: title.to_string(),
                 schema_version: PAPER_SCHEMA_VERSION,
@@ -3734,7 +4275,7 @@ mod tests {
             serde_json::to_vec(&PaperMetadata {
                 arxiv_id: "2407.06438".to_string(),
                 requested_arxiv_id: "2407.06438v3".to_string(),
-                title: format!("SOLO: {title}"),
+                title: title.to_string(),
                 schema_version: PAPER_SCHEMA_VERSION,
                 complete: true,
                 converter: commands::ARXIV2MD.requirement.to_string(),
@@ -3749,7 +4290,7 @@ mod tests {
 
         let papers = list_papers(&root).unwrap();
         assert_eq!(papers.len(), 1);
-        assert_eq!(papers[0].arxiv_id, "2407.06438");
+        assert_eq!(papers[0].arxiv_id, web_id);
         assert!(papers[0].has_full_text);
         let _ = fs::remove_dir_all(parent);
     }

@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
+import { appendBibEntry, formatBibEntry } from "./bib-entry";
 
 afterEach(cleanup);
 
@@ -39,6 +41,26 @@ function renderDialog(onResolve: (query: string) => Promise<ResolvedCitationDraf
 }
 
 describe("BibEntryDialog citation resolution", () => {
+  it("keeps the draft visible and reports duplicate keys without writing", () => {
+    const write = vi.fn();
+    function Harness() {
+      const [error, setError] = useState<string | null>(null);
+      return <BibEntryDialog open busy={false} error={error} initialDraft={resolved()}
+        onClose={vi.fn()} onSave={(draft) => {
+          try {
+            write(appendBibEntry("@book{smith2026paper,title={A Different Work}}", formatBibEntry(draft)));
+          } catch (reason) {
+            setError((reason as Error).message);
+          }
+        }} />;
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("already exists");
+    expect(screen.getByLabelText("Title")).toHaveValue("The Paper");
+    expect(write).not.toHaveBeenCalled();
+  });
+
   it("requires an ambiguous candidate selection and saves it locally with extras", async () => {
     const candidate = resolved({
       evidence: { source: "Crossref", title_match: "exact" },

@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   FilePen,
   FilePlus2,
@@ -78,7 +79,8 @@ type Phase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
 
 export function VersionsTimeline(props: {
   /** Called after any restore or manual save so the app can reload files. */
-  onVersionsChanged?: () => void;
+  onVersionsChanged?: () => void | Promise<void>;
+  projectRoot?: string;
   /** Called when the git backend itself is unreachable (`git_status` rejects). */
   onGitUnreachable?: () => void;
 }) {
@@ -108,12 +110,15 @@ export function VersionsTimeline(props: {
     callbacksRef.current = props;
   });
   const diffSeq = useRef(0);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setRefreshing(true);
     setError("");
     try {
       const status = await invoke<GitStatus>("git_status");
+      if (seq !== loadSeq.current) return;
       if (!status.available) {
         setPhase("unavailable");
         return;
@@ -123,12 +128,16 @@ export function VersionsTimeline(props: {
         return;
       }
       try {
-        setEntries(await invoke<GitLogEntry[]>("git_log", { limit: 100 }));
+        const entries = await invoke<GitLogEntry[]>("git_log", { limit: 100 });
+        if (seq !== loadSeq.current) return;
+        setEntries(entries);
       } catch (reason) {
+        if (seq !== loadSeq.current) return;
         setError(message(reason));
       }
       setPhase("ready");
     } catch (reason) {
+      if (seq !== loadSeq.current) return;
       // The `git_*` commands themselves are missing or broken (e.g. an older
       // backend build). Show the failure here and let the drawer fall back to
       // the Changes tab so it stays useful.
@@ -136,13 +145,35 @@ export function VersionsTimeline(props: {
       setPhase("error");
       callbacksRef.current.onGitUnreachable?.();
     } finally {
-      setRefreshing(false);
+      if (seq === loadSeq.current) setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
+    const cancelLoad = () => { ++loadSeq.current; };
     void load();
-  }, [load]);
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const refresh = () => { void load(); };
+    void listen<{ root: string }>("project-fs-changed", (event) => {
+      if (disposed || (props.projectRoot && event.payload.root !== props.projectRoot)) return;
+      refresh();
+    }).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    }).catch(() => { /* Browser previews have no native event bridge. */ });
+    // Git commits can also arrive while the app is unfocused or its watcher
+    // is unavailable. Only poll while this timeline is mounted.
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      disposed = true;
+      cancelLoad();
+      unlisten?.();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [load, props.projectRoot]);
 
   const enableTracking = async () => {
     setBusy(true);
@@ -169,8 +200,8 @@ export function VersionsTimeline(props: {
       });
       setSaveOpen(false);
       setSaveLabel("");
+      if (hash) await callbacksRef.current.onVersionsChanged?.();
       trace.ok(hash ? t`Version saved.` : t`No changes since the last version.`);
-      if (hash) callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
       trace.fail(reason);
@@ -213,8 +244,8 @@ export function VersionsTimeline(props: {
     const trace = logAction(VERSIONS_SOURCE, t`Restore file`, `${path} @ ${hash}`);
     try {
       await invoke("git_restore_file", { rev: hash, path });
+      await callbacksRef.current.onVersionsChanged?.();
       trace.ok(t`Restored ${path}.`);
-      callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
       trace.fail(reason);
@@ -230,8 +261,8 @@ export function VersionsTimeline(props: {
     const trace = logAction(VERSIONS_SOURCE, t`Restore project`, hash);
     try {
       await invoke<string>("git_restore_project", { rev: hash });
+      await callbacksRef.current.onVersionsChanged?.();
       trace.ok(t`Project restored.`);
-      callbacksRef.current.onVersionsChanged?.();
       await load();
     } catch (reason) {
       trace.fail(reason);

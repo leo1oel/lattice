@@ -676,7 +676,7 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
              so it describes a different paper. Check the record before applying it."
         ));
     }
-    if !metadata_identity_matches(before, after) {
+    if !metadata_identity_matches(before, after) && !is_safe_local_cleanup(before, after) {
         return Err("The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.".into());
     }
     let (_, whole) = sources
@@ -1300,10 +1300,20 @@ fn has_repeated_authors(authors: &[Vec<String>]) -> bool {
         .any(|(index, name)| authors[..index].contains(name))
 }
 
-/// Title is the primary identity check. Authors and venue are fields to correct,
-/// not prerequisites for accepting metadata. Explicit identity conflicts still
-/// block replacement; equivalent author formatting is preserved by the merge.
-fn metadata_identity_matches(before: &str, remote: &str) -> bool {
+fn is_safe_local_cleanup(before: &str, after: &str) -> bool {
+    // Validate against the actual local cleanup, including every field. A
+    // limited display diff would miss an unrelated URL or volume replacement.
+    let expected = cleanup_result(result("checked", "", before.into()));
+    expected.after.as_deref().is_some_and(|expected| {
+        entry_type(expected) == entry_type(after)
+            && field_expressions(expected) == field_expressions(after)
+    })
+}
+
+/// Automatic replacement requires the same normalized title and full, ordered
+/// author list. Equivalent BibTeX name order and TeX accent formatting remain
+/// valid, but metadata lookup must not silently correct author identity.
+pub(crate) fn metadata_identity_matches(before: &str, remote: &str) -> bool {
     identity_conflicts(before, remote).is_empty()
 }
 
@@ -1336,9 +1346,16 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
     if remote_title.is_empty() || (!title.is_empty() && title != remote_title) {
         reasons.push("title".into());
     }
+    let local_authors = author_names(&value(&local, "author"));
     let remote_authors = author_names(&value(&other, "author"));
-    let local_doi = local.get("doi").and_then(|v| normalize_doi(v));
-    let remote_doi = other.get("doi").and_then(|v| normalize_doi(v));
+    let local_doi = local
+        .get("doi")
+        .and_then(|v| normalize_doi(v))
+        .or_else(|| local.get("url").and_then(|v| normalize_doi(v)));
+    let remote_doi = other
+        .get("doi")
+        .and_then(|v| normalize_doi(v))
+        .or_else(|| other.get("url").and_then(|v| normalize_doi(v)));
     let local_arxiv = project::bibliography_arxiv_id(&local);
     let remote_arxiv = project::bibliography_arxiv_id(&other);
     let same_identifier = local_doi
@@ -1393,7 +1410,11 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
     {
         reasons.push("venue".into());
     }
-    if remote_authors.is_empty() || has_repeated_authors(&remote_authors) {
+    if local_authors.is_empty()
+        || remote_authors.is_empty()
+        || local_authors != remote_authors
+        || has_repeated_authors(&remote_authors)
+    {
         reasons.push("author".into());
     }
     reasons
@@ -1570,9 +1591,6 @@ fn cleanup_result(checked: AuditResult) -> AuditResult {
         after.push_str(&format!("  {name} = {value},\n"));
     }
     after.push('}');
-    if !metadata_identity_matches(&checked.before, &after) {
-        return checked;
-    }
     let mut cleaned = proposal(&checked.before, after, "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used.");
     cleaned.sources = checked.sources;
     cleaned.health = checked.health;
@@ -2000,7 +2018,7 @@ fn entry_type(entry: &str) -> String {
         .to_lowercase()
 }
 
-fn complete_entry(entry: &str) -> bool {
+pub(crate) fn complete_entry(entry: &str) -> bool {
     let Some(start) = entry.find(['{', '(']) else {
         return false;
     };
@@ -2320,7 +2338,7 @@ mod tests {
             "title":"Attention is All you Need", "venue":"Neural Information Processing Systems", "year":2017,
             "citationStyles":{"bibtex":"@Article{Vaswani2017AttentionIA, author={Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and I. Polosukhin}, booktitle={Neural Information Processing Systems}, pages={5998-6008}, title={Attention is All you Need}, year={2017}}"}
         })).unwrap();
-        let before = "@article{vaswani2017, title={Attention Is All You Need}, author={Vaswani, Ashish and Shazeer, Noam}, year={2017}, eprint={1706.03762}, journal={arXiv preprint arXiv:1706.03762}}";
+        let before = "@article{vaswani2017, title={Attention Is All You Need}, author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, I.}, year={2017}, eprint={1706.03762}, journal={arXiv preprint arXiv:1706.03762}}";
         let checked = compare_batch(before, &paper).expect("valid S2 publication retained");
         assert_eq!(checked.status, "update");
         assert!(checked
@@ -2358,12 +2376,7 @@ mod tests {
         assert!(compare_batch(before, &field_switch).is_some());
 
         let metadata = paper("@inproceedings{x, title={A paper}, author={A and B}, year={2024}, booktitle={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, doi={10.1234/a}}");
-        let checked = compare_batch(before, &metadata).expect("unchanged venue stays batched");
-        assert_eq!(checked.status, "update");
-        assert!(checked
-            .changes
-            .iter()
-            .any(|change| change.field == "author"));
+        assert!(compare_batch(before, &metadata).is_none_or(|checked| checked.after.is_none()));
     }
 
     #[test]
@@ -2562,15 +2575,16 @@ mod tests {
             .iter()
             .any(|change| change.field == "author"));
         let corrected = compare_title_entry(&before, &remote.replace("Simon Guo", "Sam Guo"));
-        assert!(corrected.candidate.is_none());
+        assert!(corrected.after.is_none());
         assert_eq!(
-            fields(&corrected.after.unwrap())["author"],
-            remote_authors.replace("Simon Guo", "Sam Guo")
+            corrected.publication_reason.as_deref(),
+            Some("identity_conflict")
         );
         assert!(corrected
-            .changes
-            .iter()
-            .any(|change| change.field == "author"));
+            .candidate
+            .unwrap()
+            .reasons
+            .contains(&"author".into()));
     }
 
     #[test]
@@ -2721,7 +2735,7 @@ mod tests {
             assert_eq!(checked.status, "unavailable");
         }
         let missing_author = before.replace("author={Alice Smith and Bob Jones},", "");
-        assert!(compare_doi_entry(&missing_author, before).after.is_some());
+        assert!(compare_doi_entry(&missing_author, before).after.is_none());
         let corrosion = before.replace("Journal One", "Corrosion Science");
         assert!(compare_doi_entry(&corrosion, before).after.is_some());
         let reordered_names =
@@ -2733,7 +2747,7 @@ mod tests {
     }
 
     #[test]
-    fn batch_corrects_authors_only_for_the_confirmed_arxiv_record() {
+    fn batch_requires_matching_authors_even_for_the_confirmed_arxiv_record() {
         let before = "@article{mine,title={A paper},author={Alice Smith and Bob Jones},year={2024},eprint={2401.12345},journal={arXiv}}";
         let paper = |arxiv: &str, author: &str| {
             serde_json::from_value::<crate::citation_batch::Paper>(serde_json::json!({
@@ -2741,18 +2755,15 @@ mod tests {
             "citationStyles":{"bibtex":format!("@inproceedings{{x,title={{A paper}},author={{{author}}},year={{2024}},booktitle={{ICML}}}}")}
         })).unwrap()
         };
-        let corrected =
-            compare_batch(before, &paper("2401.12345", "Alice Smith and Carol Jones")).unwrap();
-        assert_eq!(
-            fields(&corrected.after.unwrap())["author"],
-            "Alice Smith and Carol Jones"
+        assert!(
+            compare_batch(before, &paper("2401.12345", "Alice Smith and Carol Jones")).is_none()
         );
         assert!(compare_batch(before, &paper("2401.99999", "Alice Smith and Bob Jones")).is_none());
         assert!(compare_batch(before, &paper("2401.12345", "Alice Smith and Bob Jones")).is_some());
     }
 
     #[test]
-    fn confirmed_identifiers_allow_author_corrections_and_application() {
+    fn confirmed_identifiers_do_not_override_author_identity() {
         for id in ["doi={10.1234/exact}", "eprint={2401.12345}"] {
             let before = format!("@article{{mine,title={{A specific paper}},author={{Smith, Alice and Jones, Bob}},year={{2024}},journal={{Journal One}},{id}}}");
             let remote = before.replace(
@@ -2760,26 +2771,14 @@ mod tests {
                 "Bob Jones and Alicia Smith and Carol Miller",
             );
             let checked = compare_title_entry(&before, &remote);
-            assert_eq!(checked.status, "update");
-            let after = checked.after.unwrap();
-            assert_eq!(
-                fields(&after)["author"],
-                "Bob Jones and Alicia Smith and Carol Miller"
-            );
+            assert!(checked.after.is_none());
             assert!(checked
-                .changes
-                .iter()
-                .any(|change| change.field == "author"));
-            let root = project_root();
-            fs::write(root.join("references.bib"), &before).unwrap();
-            apply(&root, "references.bib", "mine", &before, &after).unwrap();
-            assert_eq!(
-                fs::read_to_string(root.join("references.bib")).unwrap(),
-                after
-            );
-            fs::remove_dir_all(root.parent().unwrap()).unwrap();
+                .candidate
+                .unwrap()
+                .reasons
+                .contains(&"author".into()));
             let without_id = before.replace(&format!(",{id}"), "");
-            assert!(compare_title_entry(&without_id, &remote).after.is_some());
+            assert!(compare_title_entry(&without_id, &remote).after.is_none());
             let wrong_id = remote
                 .replace("10.1234/exact", "10.1234/other")
                 .replace("2401.12345", "2401.99999");
@@ -2794,7 +2793,7 @@ mod tests {
     }
 
     #[test]
-    fn title_matches_allow_correcting_truncated_and_repeated_authors() {
+    fn title_matches_reject_truncated_repeated_changed_and_reordered_authors() {
         let full = "Aman Madaan and Niket Tandon and Prakhar Gupta and Skyler Hallinan";
         let remote = format!("@inproceedings{{remote,title={{Self-Refine: Iterative Refinement with Self-Feedback}},author={{{full}}},year={{2023}},booktitle={{NeurIPS}}}}");
         for authors in [
@@ -2802,14 +2801,13 @@ mod tests {
             "Madaan, Aman and Tandon, Niket and Aman Madaan and Gupta, Prakhar and Skyler Hallinan",
         ] {
             let before = remote.replace(full, authors).replace("{remote,", "{mine,");
-            let after = compare_title_entry(&before, &remote)
-                .after
-                .expect("confirmed authors can be completed or corrected");
-            assert_eq!(fields(&after)["author"], full);
-            let root = project_root();
-            fs::write(root.join("references.bib"), &before).unwrap();
-            apply(&root, "references.bib", "mine", &before, &after).unwrap();
-            fs::remove_dir_all(root.parent().unwrap()).unwrap();
+            let checked = compare_title_entry(&before, &remote);
+            assert!(checked.after.is_none());
+            assert!(checked
+                .candidate
+                .unwrap()
+                .reasons
+                .contains(&"author".into()));
             for corrected in [
                 remote.replace("Niket Tandon", "Another Person"),
                 remote.replace(
@@ -2820,50 +2818,36 @@ mod tests {
                 remote.replace("NeurIPS", "ICML"),
             ] {
                 assert!(
-                    compare_title_entry(&before, &corrected).after.is_some(),
+                    compare_title_entry(&before, &corrected).after.is_none(),
                     "{corrected}"
                 );
             }
         }
         let only_others = remote.replace(full, "others");
-        assert!(compare_title_entry(&only_others, &remote).after.is_some());
+        assert!(compare_title_entry(&only_others, &remote).after.is_none());
     }
 
     #[test]
-    fn reflexion_title_match_allows_removing_an_author_and_applying_without_identifiers() {
+    fn reflexion_title_match_rejects_removed_or_missing_authors() {
         let before = "@inproceedings{shinn2023reflexion,title={Reflexion: Language Agents with Verbal Reinforcement Learning},author={Shinn, Noah and Cassano, Federico and Berman, Edward and Gopinath, Ashwin and Narasimhan, Karthik and Yao, Shunyu},booktitle={NeurIPS},year={2023}}";
         let authors = "Noah Shinn and Federico Cassano and Ashwin Gopinath and Karthik Narasimhan and Shunyu Yao";
         let remote = format!("@inproceedings{{source,title={{Reflexion: language agents with verbal reinforcement learning}},author={{{authors}}},booktitle={{NeurIPS}},year={{2023}}}}");
         let checked = compare_title_entry(before, &remote);
-        assert_eq!(checked.status, "update");
-        assert!(checked.candidate.is_none());
-        let after = checked.after.unwrap();
-        assert_eq!(fields(&after)["author"], authors);
-        let root = project_root();
-        fs::write(root.join("references.bib"), before).unwrap();
-        apply(
-            &root,
-            "references.bib",
-            "shinn2023reflexion",
-            before,
-            &after,
-        )
-        .unwrap();
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            after
-        );
-        fs::remove_dir_all(root.parent().unwrap()).unwrap();
+        assert!(checked.after.is_none());
+        assert!(checked
+            .candidate
+            .unwrap()
+            .reasons
+            .contains(&"author".into()));
         let missing_authors = before.replace("author={Shinn, Noah and Cassano, Federico and Berman, Edward and Gopinath, Ashwin and Narasimhan, Karthik and Yao, Shunyu},", "");
         assert!(identity_missing_fields(&missing_authors).is_empty());
-        assert_eq!(
-            fields(
-                &compare_title_entry(&missing_authors, &remote)
-                    .after
-                    .unwrap()
-            )["author"],
-            authors
-        );
+        let missing = compare_title_entry(&missing_authors, &remote);
+        assert!(missing.after.is_none());
+        assert!(missing
+            .candidate
+            .unwrap()
+            .reasons
+            .contains(&"author".into()));
         assert!(
             compare_title_entry(before, &remote.replace("Reflexion:", "Different paper:"))
                 .after
@@ -2888,6 +2872,17 @@ mod tests {
         assert!(after.starts_with("@book{deep,"));
         assert!(after.contains("month = jan"));
         assert!(after.contains("note = {Keep {NASA}}"));
+        assert!(!is_safe_local_cleanup(
+            before,
+            &after.replace("volume = {1}", "volume = {99}")
+        ));
+        assert!(!is_safe_local_cleanup(
+            before,
+            &after.replace(
+                "month = jan",
+                "url = {https://example.org/wrong}, month = jan"
+            )
+        ));
         let root = project_root();
         fs::write(root.join("references.bib"), before).unwrap();
         apply(&root, "references.bib", "deep", before, &after).unwrap();
@@ -2976,40 +2971,30 @@ mod tests {
                 .any(|issue| issue.contains("Repeated author"))
         );
         assert!(compare_doi_entry(before, &repeated).after.is_none());
-        assert!(compare_doi_entry(&repeated, before).after.is_some());
+        assert!(compare_doi_entry(&repeated, before).after.is_none());
+        assert!(cleanup_result(result("checked", "", repeated))
+            .after
+            .is_some());
     }
 
     #[test]
-    fn title_matches_allow_correcting_author_spelling_order_and_count() {
+    fn title_matches_require_equivalent_full_ordered_authors() {
         let before = "@inproceedings{yao2023react,title={{ReAct}: Synergizing Reasoning and Acting in Language Models},author={Yao, Shunyu and Zhao, Jeffrey and Yu, Dian and Du, Nan and Shafran, Izhak and Narasimhan, Karthik and Cao, Yuan},year={2023},booktitle={ICLR}}";
-        let authors = "Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik R. Narasimhan and Yuan Cao";
+        let authors = "Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik Narasimhan and Yuan Cao";
         let remote = format!("@inproceedings{{remote,title={{ReAct: Synergizing Reasoning and Acting in Language Models}},author={{{authors}}},year={{2023}},booktitle={{ICLR}}}}");
-        let after = compare_title_entry(before, &remote).after.unwrap();
-        assert_eq!(fields(&after)["author"], authors);
-        assert_eq!(fields(&after)["title"], fields(before)["title"]);
-        let root = project_root();
-        fs::write(root.join("references.bib"), before).unwrap();
-        apply(&root, "references.bib", "yao2023react", before, &after).unwrap();
-        fs::remove_dir_all(root.parent().unwrap()).unwrap();
+        assert_ne!(compare_title_entry(before, &remote).status, "unavailable");
         for corrected in [
-            remote.replace("Karthik R.", "Kumar R."),
-            remote.replace("Karthik R.", "K. R."),
+            remote.replace("Karthik Narasimhan", "Kumar Narasimhan"),
+            remote.replace("Karthik Narasimhan", "K. Narasimhan"),
             remote.replace("Jeffrey Zhao", "Jeffrey Zhang"),
             remote.replace("Shunyu Yao and Jeffrey Zhao", "Jeffrey Zhao and Shunyu Yao"),
             remote.replace(" and Yuan Cao", ""),
-            remote.replace("2023", "2024"),
-            remote.replace("ICLR", "ICML"),
         ] {
             assert!(
-                compare_title_entry(before, &corrected).after.is_some(),
+                compare_title_entry(before, &corrected).after.is_none(),
                 "{corrected}"
             );
         }
-        assert!(
-            compare_title_entry(&before.replace("Karthik and", "Karthik J. and"), &remote)
-                .after
-                .is_some()
-        );
         assert!(
             compare_title_entry(&before.replace(",booktitle={ICLR}", ""), &remote)
                 .after

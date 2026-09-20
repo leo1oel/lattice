@@ -63,4 +63,18 @@ describe("bibliography entry drafting", () => {
 }
 `);
   });
+
+  it("rejects duplicate citation keys without renaming a key used by the caller", () => {
+    const old = "@article{Smith2025,title={Chemistry}}@book{other,title={Other}}";
+    expect(() => appendBibEntry(old, "@article{smith2025,title={Geometry}}"))
+      .toThrow("already exists");
+    expect(() => appendBibEntry("@book{x,title={Unfinished}", "@book{new,title={New}}"))
+      .toThrow("unfinished");
+  });
+
+  it("does not treat commented entries or at-signs inside titles as citation keys", () => {
+    const old = "% @book{new,title={Comment}}\n@comment{ @book{new,title={Comment}} }\n@book{old,title={Example @book{new,title={Nested}}}}";
+    const entry = "@article(new,title={New})";
+    expect(appendBibEntry(old, entry)).toContain(entry);
+  });
 });

@@ -346,6 +346,33 @@ describe("LaTeX citation editing", () => {
     }
   });
 
+  it.each([0, 3, 9])("replaces the whole citation key from cursor offset %i without touching adjacent entries", async (offset) => {
+    const doc = "\\citep{left2023,  alpha2024  ,right2025}";
+    const start = doc.indexOf("alpha2024");
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc,
+        selection: { anchor: start + offset },
+        extensions: latexEditorExtensions(["alpha2024", "alpha2024extended"]),
+      }),
+    });
+    try {
+      startCompletion(view);
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+      expect(view.state.doc.toString()).toBe(doc);
+      view.dispatch({ selection: { anchor: start + offset } });
+      startCompletion(view);
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+      fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+      expect(view.state.doc.toString()).toBe("\\citep{left2023,  alpha2024extended  ,right2025}");
+    } finally {
+      view.destroy();
+    }
+  });
+
   it("lets an immediately pressed arrow and Enter choose a citation", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     const view = new EditorView({

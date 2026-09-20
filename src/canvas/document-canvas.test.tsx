@@ -832,6 +832,28 @@ describe("DocumentCanvas / per-file view state", () => {
     expect(onFileViewState).toHaveBeenCalledWith(path, { openSlide: { page: 3 } });
   });
 
+  it("keeps the compiled PDF mounted when source navigation changes TeX files", async () => {
+    const state = viewStates({
+      "main.tex": { pdf: pdfViewState(3) },
+      "chapters/results.tex": { pdf: pdfViewState(1) },
+    });
+    const { rerenderWith } = renderCanvas({ mode: "split", activeFile: "main.tex", ...state });
+    const preview = await screen.findByTestId("pdf-preview");
+    preview.scrollTop = 2450;
+
+    // SyncTeX can resolve into a different included file. The PDF is still
+    // the same build, even when that file has a different saved PDF position.
+    for (const activeFile of ["chapters/results.tex", "refs.bib", "main.tex"]) {
+      rerenderWith({ activeFile, source: "\\section{Results}\n" });
+      expect(await screen.findByTestId("pdf-preview")).toBe(preview);
+      expect(preview.scrollTop).toBe(2450);
+    }
+
+    // A different project must not inherit this viewer instance.
+    rerenderWith({ projectRoot: "/tmp/other-project" });
+    expect(await screen.findByTestId("pdf-preview")).not.toBe(preview);
+  });
+
   it("keeps the preview on the last file that owns one", async () => {
     // Opening a .bib from a citation, or a .sty from a macro, must not throw
     // away the reader's page in the compiled PDF: those files have no preview

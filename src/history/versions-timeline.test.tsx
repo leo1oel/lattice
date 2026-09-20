@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { HistoryDrawer } from "./history-drawer";
 import { VersionsTimeline } from "./versions-timeline";
@@ -9,6 +10,7 @@ import { clearAppLogs } from "../telemetry/app-log-store";
 import type { GitLogEntry } from "../app-types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => vi.fn()) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
 const repoStatus = { available: true, repository: true, branch: "main", files: [] };
@@ -54,6 +56,7 @@ afterEach(() => {
   cleanup();
   clearAppLogs();
   vi.mocked(invoke).mockReset();
+  vi.mocked(listen).mockClear();
   vi.mocked(confirm).mockReset();
   vi.restoreAllMocks();
 });
@@ -294,6 +297,47 @@ describe("VersionsTimeline", () => {
     }));
     expect(await screen.findByText("Version saved.")).toBeInTheDocument();
     expect(onVersionsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes an open timeline when project files change", async () => {
+    mockGitLog();
+    render(<VersionsTimeline projectRoot="/tmp/paper" />);
+    await screen.findByRole("button", { name: /Tighten the abstract/ });
+    const updated = { ...logEntries[0], hash: "new123", message: "Latest agent edits" };
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "git_status") return repoStatus;
+      if (command === "git_log") return [updated, ...logEntries];
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    const subscription = vi.mocked(listen).mock.calls.find(([name]) => name === "project-fs-changed");
+    expect(subscription).toBeDefined();
+    const calls = vi.mocked(invoke).mock.calls.length;
+    act(() => subscription![1]({ event: "project-fs-changed", id: 1, payload: { root: "/tmp/other" } }));
+    expect(vi.mocked(invoke).mock.calls).toHaveLength(calls);
+    act(() => subscription![1]({ event: "project-fs-changed", id: 1, payload: { root: "/tmp/paper" } }));
+    expect(await screen.findByRole("button", { name: /Latest agent edits/ })).toBeInTheDocument();
+  });
+
+  it("waits for the restore's reload and build before reporting success", async () => {
+    let finish!: () => void;
+    const onVersionsChanged = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "git_status") return repoStatus;
+      if (command === "git_log") return logEntries;
+      if (command === "git_restore_project") return "ddd444";
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    vi.mocked(confirm).mockResolvedValue(true);
+    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><AppToastStack /></>);
+    const body = await expandFirstEntry();
+    const restore = within(body).getByRole("button", { name: /Restore project to this version/ });
+    fireEvent.click(restore);
+    await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
+    expect(restore).toBeDisabled();
+    expect(screen.queryByText("Project restored.")).not.toBeInTheDocument();
+    await act(async () => finish());
+    expect(await screen.findByText("Project restored.")).toBeInTheDocument();
+    expect(restore).toBeEnabled();
   });
 
   it("restores the whole project after confirmation", async () => {

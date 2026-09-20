@@ -81,7 +81,7 @@ export function HistoryDrawer(props: {
   onRevertFile?: (id: string, path: string) => void;
   onDelete: (id: string) => void;
   onOpenFile?: (path: string, line?: number) => void;
-  onVersionsChanged?: () => void;
+  onVersionsChanged?: () => void | Promise<void>;
   /** Overleaf keeps its own history server-side; offer it only when linked. */
   overleafLinked?: boolean;
   /** Root captured with the Overleaf link, used to scope every history action. */
@@ -271,6 +271,7 @@ export function HistoryDrawer(props: {
         )}
         {tab === "versions" && (
           <VersionsTimeline
+            projectRoot={props.overleafProjectRoot}
             onVersionsChanged={props.onVersionsChanged}
             onGitUnreachable={() => {
               // The git commands are missing entirely (e.g. an older backend

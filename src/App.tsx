@@ -648,12 +648,12 @@ function App() {
   const documentViewGenerationRef = useRef(0);
   const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
   /**
-   * Per-checkpoint file fingerprints from agent history snapshots. Snapshots
+   * Previous checkpoints from agent history snapshots. Snapshots
    * re-arrive on every thread update (and stream while a turn is still
    * editing), so a rebuild must only follow entries whose files actually
    * changed — and never the first snapshot of a thread, which replays history.
    */
-  const agentCheckpointFingerprintsRef = useRef(new Map<string, string>());
+  const agentCheckpointEntriesRef = useRef(new Map<string, AgentCheckpointHistoryEntry>());
   const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
   const agentEditsBuildTimerRef = useRef<number | null>(null);
   const queuedAgentCompileBuildRef = useRef(false);
@@ -666,7 +666,7 @@ function App() {
   // cue after the queued pass; automatic builds by themselves remain silent.
   const queuedBuildSoundRef = useRef(false);
   const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
-    agentCheckpointFingerprintsRef.current.clear();
+    agentCheckpointEntriesRef.current.clear();
     agentHistoryPrimedThreadsRef.current.clear();
     queuedAgentCompileBuildRef.current = false;
     pendingAgentCompileResultsRef.current.clear();
@@ -2132,15 +2132,25 @@ function App() {
         // dirty-buffer autosave path never rebuilds the PDF for them. Detect
         // fresh checkpoint work here and rebuild once the snapshots go quiet
         // (they stream while a turn is still editing).
-        const fingerprints = agentCheckpointFingerprintsRef.current;
+        const previousEntries = agentCheckpointEntriesRef.current;
+        const incomingKeys = new Set(historySnapshot.entries.map((entry) => `${entry.threadId}\u0000${entry.id}`));
+        const removedEntries: AgentCheckpointHistoryEntry[] = [];
+        for (const [key, entry] of previousEntries) {
+          if (entry.threadId !== historySnapshot.activeThreadId || incomingKeys.has(key)) continue;
+          previousEntries.delete(key);
+          pendingAgentCompileResultsRef.current.delete(key);
+          removedEntries.push(entry);
+        }
         const changedEntries: AgentCheckpointHistoryEntry[] = [];
         for (const entry of historySnapshot.entries) {
           const entryKey = `${entry.threadId}\u0000${entry.id}`;
-          const fingerprint = entry.files
-            .map((file) => `${file.path}\u0000${file.additions}\u0000${file.deletions}`)
-            .join("\n");
-          if (fingerprints.get(entryKey) === fingerprint) continue;
-          fingerprints.set(entryKey, fingerprint);
+          const previous = previousEntries.get(entryKey);
+          previousEntries.set(entryKey, entry);
+          // Equal line counts do not imply equal content. The completion
+          // timestamp/ref also move when a checkpoint is regenerated.
+          if (previous?.timestamp === entry.timestamp
+            && previous.checkpointRef === entry.checkpointRef
+            && JSON.stringify(previous.files) === JSON.stringify(entry.files)) continue;
           changedEntries.push(entry);
         }
         const primedThreads = agentHistoryPrimedThreadsRef.current;
@@ -2148,9 +2158,13 @@ function App() {
           primedThreads.add(historySnapshot.activeThreadId);
           return;
         }
-        const buildRelevantEntries = changedEntries.filter((entry) => entry.files.some((file) =>
-          !file.path.startsWith(".research/") && !file.path.startsWith(".git/")));
-        if (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic") return;
+        const buildRelevant = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) =>
+          !file.path.startsWith(".research/") && !file.path.startsWith(".git/"));
+        const buildRelevantEntries = changedEntries.filter(buildRelevant);
+        // Undo clears a turn's diff, so Synara omits it from the next history
+        // snapshot. It is disk work too, even when no new entry arrives.
+        const restored = removedEntries.some(buildRelevant);
+        if (!restored && (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic")) return;
         for (const entry of buildRelevantEntries) {
           pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
             threadId: entry.threadId,
@@ -2164,7 +2178,7 @@ function App() {
           agentEditsBuildTimerRef.current = null;
           if (projectRef.current?.root !== scheduledProjectRoot) return;
           void compileRef.current(false, false, { consumeAgentAssociations: true });
-        }, 1_500);
+        }, restored ? 0 : 1_500);
         return;
       }
       if (

@@ -584,8 +584,13 @@ function citationCompletions(citations: CitationInfo[]) {
     const range = citationCompletionRange(before, context.pos);
     if (!range) return null;
     const query = range.query.toLocaleLowerCase();
+    // Clicking inside an existing key must replace its suffix too. Stop at
+    // the current entry's boundary and preserve surrounding whitespace.
+    const after = context.state.sliceDoc(context.pos, context.state.doc.lineAt(context.pos).to);
+    const suffix = /^[^,{}]*/.exec(after)![0].trimEnd();
     return {
       from: range.from,
+      to: context.pos + suffix.length,
       // We filter titles as well as keys. CodeMirror's default label-only
       // filter would discard title matches; recompute on each edit instead.
       filter: false,

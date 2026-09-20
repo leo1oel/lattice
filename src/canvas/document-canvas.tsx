@@ -1780,13 +1780,10 @@ export function DocumentCanvas(props: {
   useLayoutEffect(() => {
     commentComposerRef.current = commentComposer;
   }, [commentComposer]);
-  // Identity of the preview column. It renders the project's compiled PDF, not
-  // a preview of whatever the editor holds, so a file with no preview of its
-  // own — a .bib reached by double-clicking a citation, a .sty reached from a
-  // macro — must not remount the viewer under a new key and restore that file's
-  // empty page and zoom. It keeps the last file that does own a preview; a
-  // previewable file is its own identity, so this only ever lags for files that
-  // would have thrown the reader's place away.
+  // Saved-view ownership for the preview column. Files without a preview of
+  // their own (.bib, .sty) keep using the last previewable file's saved state.
+  // This is separate from the mounted viewer's identity: all TeX source files
+  // share the project's compiled PDF, including across SyncTeX jumps.
   const [previewIdentity, setPreviewIdentity] = useState(activeFile);
   useEffect(() => {
     const owner = isPreviewableSourceFilePath(activeFile)
@@ -4121,7 +4118,7 @@ export function DocumentCanvas(props: {
       {props.pdfTop}
       <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
-          key={`project-pdf:${previewPath}`}
+          key={`project-pdf:${props.projectRoot}`}
           url={props.pdfUrl}
           pdfBase64={props.pdfBase64}
           pdfBytes={props.pdfBytes}

@@ -46,6 +46,26 @@ function findEntryEnd(source: string, openIndex: number): EntryBounds | null {
   return null;
 }
 
+/** Read real entry keys, skipping directives and at-signs inside field values. */
+export function bibEntryKeys(source: string): string[] {
+  const headers = /@([A-Za-z][A-Za-z0-9_-]*)\s*([({])/g;
+  const keys: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = headers.exec(source)) !== null) {
+    const line = source.slice(source.lastIndexOf("\n", match.index) + 1, match.index);
+    if (/(^|[^\\])%/.test(line)) continue;
+    const openIndex = headers.lastIndex - 1;
+    const bounds = findEntryEnd(source, openIndex);
+    if (!bounds) throw new Error("Complete the unfinished bibliography entry before adding another reference.");
+    headers.lastIndex = bounds.end + 1;
+    if (SPECIAL_ENTRY_TYPES.has(match[1].toLowerCase())) continue;
+    const key = /^\s*([^\s,{}()]+)\s*,/.exec(source.slice(openIndex + 1, bounds.end))?.[1];
+    if (!key) throw new Error("An existing bibliography entry has an invalid citation key.");
+    keys.push(key);
+  }
+  return keys;
+}
+
 function topLevelCommas(body: string, outer: "{" | "("): number[] | null {
   const commas: number[] = [];
   let braces = 0;
