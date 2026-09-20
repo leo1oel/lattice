@@ -963,7 +963,11 @@ async fn open_paper_lookup(
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .accept_first_mouse(true);
-    builder.build().map_err(|error| error.to_string())?;
+    let created = builder.build().map_err(|error| error.to_string())?;
+    #[cfg(target_os = "macos")]
+    macos_window::install_traffic_light_alignment(&created);
+    #[cfg(not(target_os = "macos"))]
+    let _ = created;
     Ok(())
 }
 

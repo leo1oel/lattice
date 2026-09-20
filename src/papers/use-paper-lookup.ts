@@ -3,10 +3,11 @@ import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PaperSummary } from "../app-types";
 import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
-import { hasPaperDrag, resolvePaperDrag } from "./paper-drag";
+import { hasPaperDrag, PAPER_DRAG_TYPE, PAPER_NATIVE_DRAG, resolvePaperDrag, type NativePaperDrag, type PaperDrag } from "./paper-drag";
 
 export type PaperLookupState = { projectRoot: string; papers: PaperSummary[]; theme: string };
 export const PAPER_LOOKUP_STATE = "paper-lookup-state";
@@ -21,6 +22,9 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
     const owner = getCurrentWindow().label;
     const label = `paper-lookup-${owner}`;
     let disposed = false;
+    let activeDrag: NativePaperDrag | null = null;
+    let enteredPaper: PaperDrag | null = null;
+    let insidePaperDrop = false;
     const cleanups: (() => void)[] = [];
     const register = (promise: Promise<() => void>) => {
       return promise.then((cleanup) => disposed ? cleanup() : cleanups.push(cleanup));
@@ -37,7 +41,45 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
         if (isBrowserHosted()) window.focus();
         else void getCurrentWindow().setFocus().catch((error) => latest.current.onError(error));
       }
-    }, { target: { kind: "Window", label: owner } }))]);
+    }, { target: { kind: "Window", label: owner } })),
+    register(listen<NativePaperDrag>(PAPER_NATIVE_DRAG, ({ payload }) => {
+      if (payload.paper) {
+        activeDrag = payload;
+        if (insidePaperDrop) enteredPaper = payload.paper;
+      }
+      else if (activeDrag?.id === payload.id) activeDrag = null;
+    }, { target: { kind: "Window", label: owner } })),
+    register(getCurrentWebview().onDragDropEvent(({ payload }) => {
+      if (disposed) return;
+      if (payload.type === "enter") {
+        insidePaperDrop = payload.paths.length === 0;
+        enteredPaper = payload.paths.length ? null : activeDrag?.paper ?? null;
+      } else if (payload.type === "leave") {
+        insidePaperDrop = false;
+        enteredPaper = null;
+      } else if (payload.type === "drop") {
+        // Keep the identity captured at enter even if the source's dragend
+        // IPC arrives first. A later enter/leave replaces it, and each drop
+        // consumes it once. Native file paths always belong to App's importer.
+        const paper = enteredPaper;
+        insidePaperDrop = false;
+        enteredPaper = null;
+        activeDrag = null;
+        if (payload.paths.length || !paper) return;
+        const dataTransfer = new DataTransfer();
+        dataTransfer.setData(PAPER_DRAG_TYPE, JSON.stringify(paper));
+        const current = latest.current.state;
+        if (!resolvePaperDrag(dataTransfer, current.projectRoot, current.papers)) return;
+        const scale = window.devicePixelRatio || 1;
+        const clientX = payload.position.x / scale;
+        const clientY = payload.position.y / scale;
+        // Route through the same DOM drop handlers as Chromium. CodeMirror
+        // retains citation merging, selection, read-only and undo semantics.
+        document.elementFromPoint(clientX, clientY)?.dispatchEvent(new DragEvent("drop", {
+          bubbles: true, cancelable: true, dataTransfer, clientX, clientY,
+        }));
+      }
+    }))]);
     void listenersReady.current.catch((error) => latest.current.onError(error));
 
     const onDragOver = (event: DragEvent) => {

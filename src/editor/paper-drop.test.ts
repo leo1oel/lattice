@@ -44,6 +44,17 @@ describe("CodeMirror paper drop", () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
   });
+  it.each([false, true])("handles a native text-only transfer (merge=%s)", (merge) => {
+    const { drop, data } = setup();
+    const plain = data.getData("text/plain");
+    Object.defineProperty(data, "types", { value: ["text/plain"] });
+    data.getData = (type) => type === "text/plain" ? plain : "";
+    if (!merge) vi.mocked(view.posAtCoords).mockReturnValue(3);
+    drop();
+    expect(view.state.doc.toString()).toBe(merge
+      ? "See \\citep{older, attention2017, later}."
+      : "See~\\citep{attention2017} \\citep{older,later}.");
+  });
   it("does not write a read-only editor or accept another project's drag", () => {
     let result = setup("main.tex", false);
     result.drop();

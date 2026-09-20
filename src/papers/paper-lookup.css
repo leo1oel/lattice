@@ -1,17 +1,15 @@
 .paper-lookup { height: 100dvh; display: flex; flex-direction: column; background: var(--surface-panel); color: var(--text-primary); font-size: var(--type-body-size); }
-.paper-lookup-titlebar { display: flex; align-items: center; justify-content: space-between; height: 46px; flex-shrink: 0; padding: 0 var(--space-6) 0 84px; background: var(--surface-chrome); font-size: var(--type-label-size); font-weight: var(--weight-medium); }
+.paper-lookup-titlebar { display: flex; align-items: center; justify-content: space-between; height: var(--titlebar-height); flex-shrink: 0; padding: 0 var(--space-6) 0 84px; background: var(--surface-chrome); font-size: var(--type-label-size); font-weight: var(--weight-medium); }
 .paper-lookup-titlebar .icon-button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--text-primary); }
-.paper-lookup-search { padding: var(--space-6) var(--space-8) var(--space-8); display: grid; gap: var(--space-6); background: var(--surface-chrome); border-bottom: 1px solid var(--border-subtle); }
+.paper-lookup-search { padding: var(--space-2) var(--space-8) var(--space-6); display: grid; gap: var(--space-4); background: var(--surface-chrome); border-bottom: 1px solid var(--border-subtle); }
 .paper-lookup-project { display: flex; gap: var(--space-3); align-items: center; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .paper-lookup-project span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-lookup-list { flex: 1; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-4); scrollbar-gutter: stable; }
 .paper-lookup-row { position: relative; display: flex; align-items: center; border-radius: var(--radius-md); cursor: grab; }
-.paper-lookup-row:not(:last-child)::after { content: ""; position: absolute; bottom: 0; left: var(--space-8); right: var(--space-8); height: 1px; background: var(--border-subtle); pointer-events: none; }
+.paper-lookup-row:not(:last-child)::after { content: ""; position: absolute; bottom: 0; left: var(--space-4); right: var(--space-4); height: 1px; background: var(--border-subtle); pointer-events: none; }
 .paper-lookup-row:hover { background: var(--control-hover-surface); }
 .paper-lookup-row:active { cursor: grabbing; }
-.paper-lookup-grip { position: absolute; left: var(--space-1); color: var(--text-tertiary); opacity: 0; pointer-events: none; }
-.paper-lookup-row:hover .paper-lookup-grip, .paper-lookup-row:focus-within .paper-lookup-grip { opacity: 1; }
-.paper-lookup-row button { flex: 1; min-width: 0; display: grid; gap: var(--space-2); text-align: left; padding: var(--space-5) var(--space-8); border: 0; border-radius: inherit; background: transparent; color: inherit; cursor: inherit; }
+.paper-lookup-row button { flex: 1; min-width: 0; display: grid; gap: var(--space-2); text-align: left; padding: var(--space-5) var(--space-4); border: 0; border-radius: inherit; background: transparent; color: inherit; cursor: inherit; }
 .paper-lookup-row strong { font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); }
 .paper-lookup-authors { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .paper-lookup-row small { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }

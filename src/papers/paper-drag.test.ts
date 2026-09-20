@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beginPaperDrag, PAPER_DRAG_TYPE, paperMarkdownCitation, resolvePaperDrag } from "./paper-drag";
+import { beginPaperDrag, hasPaperDrag, PAPER_DRAG_TYPE, paperMarkdownCitation, resolvePaperDrag } from "./paper-drag";
 import { latexCitationDrop } from "../editor/paper-drop";
 import type { PaperSummary } from "../app-types";
 
@@ -48,10 +48,10 @@ describe("paper citation drop", () => {
 
   it("resolves native data against the current project and library", () => {
     const values = new Map<string, string>();
-    const data = { setData: (type: string, value: string) => { values.set(type, value); }, getData: (type: string) => values.get(type) ?? "" } as DataTransfer;
+    const data = { get types() { return [...values.keys()]; }, setData: (type: string, value: string) => { values.set(type, value); }, getData: (type: string) => values.get(type) ?? "" } as unknown as DataTransfer;
     beginPaperDrag(data, "/project", paper);
     expect(data.effectAllowed).toBe("copy");
-    expect(data.getData("text/plain")).toBe("@vaswani2017");
+    expect(data.getData("text/plain")).toBe(data.getData("text/uri-list"));
     expect(resolvePaperDrag(data, "/project", [paper])).toBe(paper);
     expect(resolvePaperDrag(data, "/other", [paper])).toBeUndefined();
     expect(resolvePaperDrag(data, "/project", [])).toBeUndefined();
@@ -60,6 +60,12 @@ describe("paper citation drop", () => {
     values.delete(PAPER_DRAG_TYPE);
     expect(resolvePaperDrag(data, "/project", [paper])).toBe(paper);
     expect(resolvePaperDrag(data, "/other", [paper])).toBeUndefined();
+    values.delete("text/uri-list");
+    expect(hasPaperDrag(data)).toBe(true);
+    expect(resolvePaperDrag(data, "/project", [paper])).toBe(paper);
+    expect(resolvePaperDrag(data, "/other", [paper])).toBeUndefined();
+    values.set("text/plain", "@vaswani2017");
+    expect(hasPaperDrag(data)).toBe(false);
     values.set("text/uri-list", "https://example.com/paper");
     expect(resolvePaperDrag(data, "/project", [paper])).toBeUndefined();
   });
