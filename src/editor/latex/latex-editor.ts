@@ -1,6 +1,8 @@
 import {
   autocompletion,
+  completionStatus,
   insertBracket,
+  startCompletion,
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
@@ -27,6 +29,7 @@ import {
 } from "../../build/texlab-language";
 import { compactSearchPanel } from "./search-panel";
 import { harperDiagnostics, harperDictionaryChanged } from "../harper-spellcheck";
+import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import infinityLoaderUrl from "../../../infinity-loader.svg";
 import type {
   CitationInfo,
@@ -51,6 +54,7 @@ export type {
 } from "./latex-text";
 
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
+const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
 const BRACED_COMMANDS = new RegExp(`\\\\(?:${CITATION_COMMANDS}|${REFERENCE_COMMANDS}|label|input|include)$`);
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
@@ -564,6 +568,13 @@ export function includeCompletionRange(textBeforeCursor: string, cursor: number)
   const match = OPEN_INCLUDE.exec(textBeforeCursor);
   if (!match) return null;
   return { from: cursor - match[1].length, query: match[1] };
+}
+
+function openCitationAtCursor(view: EditorView) {
+  const selection = view.state.selection.main;
+  if (!view.hasFocus || !selection.empty || completionStatus(view.state) !== null) return;
+  const before = view.state.sliceDoc(Math.max(0, selection.head - 600), selection.head);
+  if (citationCompletionRange(before, selection.head)) startCompletion(view);
 }
 
 function citationCompletions(citations: CitationInfo[]) {
@@ -1507,10 +1518,35 @@ export function latexEditorExtensions(
       interactionDelay: 0,
       icons: false,
       optionClass: (completion) => completion.type === "citation" ? "cm-citation-option" : "",
+      tooltipClass: (state) => {
+        const head = state.selection.main.head;
+        return citationCompletionRange(state.sliceDoc(Math.max(0, head - 600), head), head)
+          ? `cm-citation-menu ${floatingSurfaceClassName}` : "";
+      },
+      addToOptions: [{
+        position: 10,
+        render: (completion) => {
+          if (completion.type !== "citation") return null;
+          const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          icon.setAttribute("viewBox", "0 0 24 24");
+          icon.setAttribute("aria-hidden", "true");
+          icon.classList.add("cm-citation-icon");
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", "M12 7v14m0-14C9 4 5 4 2 5v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 2Z");
+          icon.append(path);
+          return icon;
+        },
+      }],
     }),
     EditorView.domEventHandlers({
       click(event, view) {
-        if (!(event.metaKey || event.ctrlKey)) return false;
+        if (!(event.metaKey || event.ctrlKey)) {
+          // Clicking an unchanged cursor after Escape is an explicit reopen.
+          if (event.target instanceof Node && view.contentDOM.contains(event.target)) {
+            openCitationAtCursor(view);
+          }
+          return false;
+        }
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (position == null) return false;
         const data = live();
@@ -1683,6 +1719,12 @@ export function latexEditorExtensions(
     // Lowest precedence so Vim's `$` (end of line) still wins when that keymap is active.
     Prec.lowest(keymap.of([{ key: "$", run: dollarPairCommand }])),
     EditorView.updateListener.of((update) => {
+      // Cursor/focus entry is independent of typing. Ignore document edits
+      // (autocomplete already handles them), including accepting a completion.
+      // Escape and background updates must not reopen a dismissed menu.
+      if (!update.docChanged && (update.selectionSet || update.focusChanged)) {
+        openCitationAtCursor(update.view);
+      }
       const insertedCommand = update.transactions.some((transaction) =>
         transaction.isUserEvent("input.type") || transaction.isUserEvent("input.complete"),
       );
@@ -1702,6 +1744,11 @@ export function latexEditorExtensions(
       }
       if (update.state.sliceDoc(selection.head, selection.head + 1) === "{") return;
       if (!shouldInsertCommandBraces(before)) return;
+      // `\cite` is a prefix of `\citep`, `\citet`, etc. Adding braces while
+      // typing steals the remaining command letters into the citation query.
+      // Accepted completions still insert braces; typed citations wait for `{`.
+      if (CITATION_COMMAND_END.test(before)
+        && !update.transactions.some((transaction) => transaction.isUserEvent("input.complete"))) return;
       const braceTransaction = insertBracket(update.state, "{");
       if (braceTransaction) update.view.dispatch(braceTransaction);
     }),

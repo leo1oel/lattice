@@ -212,7 +212,7 @@ describe("LaTeX citation editing", () => {
     });
   });
 
-  it("inserts braces in the editor and keeps an existing pair", () => {
+  it("waits for a typed citation's opening brace and keeps an existing pair", () => {
     const parent = document.createElement("div");
     const view = new EditorView({
       parent,
@@ -227,7 +227,7 @@ describe("LaTeX citation editing", () => {
       selection: { anchor: 5 },
       annotations: Transaction.userEvent.of("input.type"),
     });
-    expect(view.state.doc.toString()).toBe("\\cite{}");
+    expect(view.state.doc.toString()).toBe("\\cite");
     view.destroy();
 
     const existing = new EditorView({
@@ -277,6 +277,7 @@ describe("LaTeX citation editing", () => {
       selection: { anchor: 5 },
       annotations: Transaction.userEvent.of("input.type"),
     });
+    typeBracket(view, "{");
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
     expect(currentCompletions(view.state).map((completion) => completion.label)).toEqual([
       "dosovitskiy2021image",
@@ -366,6 +367,70 @@ describe("LaTeX citation editing", () => {
 
     view.destroy();
     now.mockRestore();
+  });
+
+  it.each(["citep", "citet", "citeauthor", "parencite"])("opens citations after typing \\%s{ without swallowing the command suffix", async (command) => {
+    const view = createProductionLatexView(["alpha2024", "beta2025"]);
+    try {
+      typeText(view, `\\${command}`);
+      expect(view.state.doc.toString()).toBe(`\\${command}`);
+      typeBracket(view, "{");
+      expect(view.state.doc.toString()).toBe(`\\${command}{}`);
+      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual([
+        "alpha2024", "beta2025",
+      ]));
+      fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
+      expect(view.state.doc.toString()).toBe(`\\${command}{beta2025}`);
+    } finally {
+      view.destroy();
+    }
+  });
+
+  it("reopens citation choices when the cursor returns, but respects Escape and selections", async () => {
+    const view = createProductionLatexView(["alpha2024", "beta2025"]);
+    try {
+      const doc = "Text \\citep{} and \\section{}";
+      view.dispatch({ changes: { from: 0, insert: doc } });
+      view.focus();
+      const slot = doc.indexOf("{}");
+      view.dispatch({ selection: { anchor: slot + 1 } });
+      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual([
+        "alpha2024", "beta2025",
+      ]));
+      fireEvent.keyDown(view.contentDOM, { key: "Escape", code: "Escape" });
+      expect(completionStatus(view.state)).toBeNull();
+      view.dispatch({});
+      expect(completionStatus(view.state)).toBeNull();
+      view.dispatch({ selection: { anchor: doc.length - 1 } });
+      expect(completionStatus(view.state)).toBeNull();
+      view.dispatch({ selection: { anchor: slot, head: slot + 2 } });
+      expect(completionStatus(view.state)).toBeNull();
+      view.dispatch({ selection: { anchor: slot + 1 } });
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    } finally {
+      view.destroy();
+    }
+  });
+
+  it("reopens an unchanged citation cursor after focus returns from another control", async () => {
+    const view = createProductionLatexView(["alpha2024"]);
+    const input = document.createElement("input");
+    document.body.append(input);
+    try {
+      input.focus();
+      view.dispatch({ changes: { from: 0, insert: "\\citep{}" }, selection: { anchor: 7 } });
+      expect(completionStatus(view.state)).toBeNull();
+      view.focus();
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+      input.focus();
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBeNull());
+      view.focus();
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    } finally {
+      view.destroy();
+      input.remove();
+    }
   });
 
   it("handles a literally typed citation command with the production bracket keymap", async () => {
