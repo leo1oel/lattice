@@ -19,6 +19,14 @@ export function normalizeUpdaterManifest(manifest, release) {
       throw new Error(`Missing uploaded, signed asset for ${platform}`);
     }
     const url = new URL(asset.browser_download_url);
+    // Draft assets use a temporary tag until publication, even when the real
+    // Git tag already exists. Only rewrite the temporary tag of this release.
+    if (release.draft && release.html_url) {
+      const draftTag = new URL(release.html_url).pathname.split("/").at(-1);
+      if (draftTag.startsWith("untagged-")) {
+        url.pathname = url.pathname.replace(`/releases/download/${draftTag}/`, `/releases/download/${release.tag_name}/`);
+      }
+    }
     if (url.origin !== "https://github.com" || !url.pathname.includes(`/releases/download/${release.tag_name}/`)) {
       throw new Error(`Invalid public download URL for ${platform}`);
     }

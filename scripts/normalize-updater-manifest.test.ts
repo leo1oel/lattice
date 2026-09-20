@@ -29,6 +29,24 @@ describe("public updater downloads", () => {
     expect(normalizeUpdaterManifest(result, release)).toEqual(result);
   });
 
+  it("resolves a draft's temporary download tag to the tag that will be published", () => {
+    const draft = {
+      ...release,
+      draft: true,
+      html_url: "https://github.com/owner/app/releases/tag/untagged-abc123",
+      assets: [{ ...release.assets[0], browser_download_url: downloadUrl.replace("v1.2.3", "untagged-abc123") }],
+    };
+    const result = normalizeUpdaterManifest(manifest, draft);
+    expect(result.platforms).toEqual({
+      "darwin-aarch64": { url: downloadUrl, signature: "original-signature" },
+      "darwin-aarch64-app": { url: downloadUrl, signature: "original-signature" },
+    });
+    expect(() => normalizeUpdaterManifest(manifest, { ...draft, draft: false })).toThrow("Invalid public");
+    expect(() => normalizeUpdaterManifest(manifest, {
+      ...draft, html_url: "https://github.com/owner/app/releases/tag/untagged-other",
+    })).toThrow("Invalid public");
+  });
+
   it("rejects the wrong release and missing assets instead of publishing broken URLs", () => {
     expect(() => normalizeUpdaterManifest(manifest, { ...release, tag_name: "v1.2.4" })).toThrow("release tag");
     expect(() => normalizeUpdaterManifest(manifest, { ...release, assets: [] })).toThrow("Missing uploaded");
