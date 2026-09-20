@@ -103,6 +103,7 @@ describe("Tauri security boundary", () => {
     expect(capability.windows).toEqual(["main", "project-*", "browser-*"]);
     expect(capability.permissions).toEqual([
       "core:default",
+      "core:window:allow-set-focus",
       "core:window:allow-close",
       "core:window:allow-destroy",
       "core:window:allow-start-dragging",
@@ -127,6 +128,16 @@ describe("Tauri security boundary", () => {
     expect(capability.permissions).not.toContain("opener:allow-open-path");
     expect(capability.permissions).not.toContain("dialog:default");
     expect(capability.permissions).not.toContain("updater:default");
+  });
+
+  it("limits paper lookup permissions to events and its own window controls", () => {
+    const lookup = readJson<Capability>("src-tauri/capabilities/paper-lookup.json");
+    expect(lookup.windows).toEqual(["paper-lookup-*"]);
+    expect(lookup.permissions).toEqual([
+      "core:event:default",
+      "core:window:allow-start-dragging",
+      "core:window:allow-set-always-on-top",
+    ]);
   });
 
   it("keeps browser bridge windows hidden during the handoff", () => {
