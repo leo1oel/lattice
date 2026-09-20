@@ -2550,6 +2550,8 @@ export function DocumentCanvas(props: {
   reportEditorPositionRef.current = reportEditorPosition;
   const editorExtensions = useMemo(
     () => [
+      // The extension reads the library only in its drop handler, not during render.
+      // eslint-disable-next-line react-hooks/refs
       paperDropExtension(activeFile, () => paperLibraryRef.current),
       ...primaryKeymapExtensions,
       ...(isLatexSourcePath(activeFile) ? [
@@ -2619,6 +2621,8 @@ export function DocumentCanvas(props: {
     () => {
       if (!secondaryFile) return [];
       return [
+        // The extension reads the library only in its drop handler, not during render.
+        // eslint-disable-next-line react-hooks/refs
         paperDropExtension(secondaryFile, () => paperLibraryRef.current),
         ...secondaryKeymapExtensions,
         ...(isLatexSourcePath(secondaryFile) ? [

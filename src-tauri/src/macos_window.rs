@@ -601,8 +601,8 @@ mod tests {
             include_str!("lib.rs")
                 .matches(".accept_first_mouse(true)")
                 .count(),
-            2,
-            "both the main and project WebView windows must accept the activation click"
+            3,
+            "the main, project, and paper lookup WebView windows must accept the activation click"
         );
     }
 

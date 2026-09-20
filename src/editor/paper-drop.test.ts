@@ -12,7 +12,8 @@ afterEach(() => view?.destroy());
 function setup(path = "main.tex", editable = true) {
   const parent = document.createElement("div");
   document.body.replaceChildren(parent);
-  view = new EditorView({ parent, state: EditorState.create({ doc: "See \\citep{older,later}.", extensions: [history(), EditorView.editable.of(editable), paperDropExtension(path, () => ({ projectRoot: "/project", papers: [paper] }))] }) });
+  const getLibrary = vi.fn(() => ({ projectRoot: "/project", papers: [paper] }));
+  view = new EditorView({ parent, state: EditorState.create({ doc: "See \\citep{older,later}.", extensions: [history(), EditorView.editable.of(editable), paperDropExtension(path, getLibrary)] }) });
   vi.spyOn(view, "posAtCoords").mockReturnValue(16);
   const values = new Map<string, string>();
   const data = { types: [PAPER_DRAG_TYPE], setData: (type: string, value: string) => { values.set(type, value); }, getData: (type: string) => values.get(type) ?? "" } as unknown as DataTransfer;
@@ -22,10 +23,19 @@ function setup(path = "main.tex", editable = true) {
     Object.defineProperty(event, "dataTransfer", { value: data });
     view.contentDOM.dispatchEvent(event);
   };
-  return { drop, data };
+  return { drop, data, getLibrary };
 }
 
 describe("CodeMirror paper drop", () => {
+  it("reads the current library only when a drop occurs, never during extension setup", () => {
+    const { drop, getLibrary } = setup();
+    expect(getLibrary).not.toHaveBeenCalled();
+    getLibrary.mockReturnValue({ projectRoot: "/switched-project", papers: [] });
+    drop();
+    expect(getLibrary).toHaveBeenCalledOnce();
+    expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
+  });
+
   it("merges at the pointer and undoes as one edit without deleting the selection", () => {
     const { drop } = setup();
     view.dispatch({ selection: { anchor: 0, head: 3 } });
