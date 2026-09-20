@@ -177,11 +177,19 @@ function rangeInsideGlyph(range: Range, glyph: HTMLElement): Range | null {
 }
 
 function paintSelectionOverlays(selection: Selection | null) {
-  clearSelectionOverlays();
-  if (!selection || selection.isCollapsed || selectionIsCopyField(selection)) return;
+  if (!selection || selection.isCollapsed || selectionIsCopyField(selection)) {
+    clearSelectionOverlays();
+    return;
+  }
+  // Keep every layout read ahead of connected DOM writes, including across
+  // pages. Interleaving measurements with appended marks forces one layout
+  // per glyph on each selectionchange, making paragraph drags stutter.
+  const fragments = new Map<HTMLElement, DocumentFragment>();
   for (const textLayer of textLayers.keys()) {
     if (!selectionIntersectsLayer(selection, textLayer)) continue;
     const origin = textLayer.getBoundingClientRect();
+    const fragment = document.createDocumentFragment();
+    fragments.set(textLayer, fragment);
     for (let index = 0; index < selection.rangeCount; index += 1) {
       const range = selection.getRangeAt(index);
       if (!range.intersectsNode(textLayer)) continue;
@@ -201,11 +209,13 @@ function paintSelectionOverlays(selection: Selection | null) {
           mark.style.top = `${overlay.top - origin.top}px`;
           mark.style.width = `${overlay.width}px`;
           mark.style.height = `${overlay.height}px`;
-          textLayer.append(mark);
+          fragment.append(mark);
         }
       }
     }
   }
+  clearSelectionOverlays();
+  for (const [textLayer, fragment] of fragments) textLayer.append(fragment);
 }
 
 function textFromRange(range: Range): string {

@@ -312,6 +312,7 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(1));
     const instance = pdfSlickMock.instances[0];
     await waitFor(() => expect(instance.loadDocument).toHaveBeenCalledOnce());
+    expect(instance.viewer).toHaveProperty("enableSelectionRendering", false);
     expect(instance.loadDocument.mock.calls[0]?.[0]).toBeInstanceOf(ArrayBuffer);
     expect(instance.args.options).toMatchObject({
       enableHWA: true,

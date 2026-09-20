@@ -627,6 +627,10 @@ export function PdfPreview({
         loadFailure = reason;
       },
     });
+    // We paint glyph-clipped selections ourselves. PDF.js's DrawLayer would
+    // also paint the range (including page-sized sentinel boxes). PDFSlick
+    // doesn't forward this option, so set it before loadDocument creates pages.
+    slick.viewer.enableSelectionRendering = false;
     // Preserve PDF.js's Fluent catalog and methods, translating only the stale
     // IDs used by PDFSlick's metadata parser before it loads the document.
     const getTranslation = slick.l10n.get.bind(slick.l10n);

@@ -132,9 +132,11 @@ describe("PDF text-layer selection clipping", () => {
       toJSON() { return this; },
     }) as DOMRect;
     const originalGetClientRects = Range.prototype.getClientRects;
+    const overlaysDuringMeasurement: number[] = [];
     Object.defineProperty(Range.prototype, "getClientRects", {
       configurable: true,
       value(this: Range) {
+        overlaysDuringMeasurement.push(layer.querySelectorAll(".pdf-sel-rect").length);
         const text = this.cloneContents().textContent ?? "";
         if (text === "elloworl") {
           return [{ left: 0, top: 0, width: 600, height: 800 }] as unknown as DOMRectList;
@@ -165,6 +167,9 @@ describe("PDF text-layer selection clipping", () => {
       document.dispatchEvent(new Event("selectionchange"));
 
       const overlays = Array.from(layer.querySelectorAll<HTMLElement>(".pdf-sel-rect"));
+      // Appending each mark before measuring the next glyph forces layout for
+      // every run. All reads must precede the first connected DOM write.
+      expect(overlaysDuringMeasurement).toEqual([0, 0]);
       expect(overlays).toHaveLength(2);
       expect(overlays.map((overlay) => ({
         left: overlay.style.left,
