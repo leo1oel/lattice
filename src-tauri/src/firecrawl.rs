@@ -115,7 +115,7 @@ pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
         let data = parsed
             .data
             .ok_or_else(|| "Firecrawl reported success with no content.".to_string())?;
-        return scraped_page(data);
+        return scraped_page(data).map_err(|error| format!("{error} Source: {url}"));
     }
 }
 
@@ -126,7 +126,11 @@ fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
         .and_then(|m| m.status_code)
         .filter(|s| *s >= 400)
     {
-        return Err(format!("The webpage still returned HTTP {status} after browser rendering. It may require sign-in or block access."));
+        return Err(match status {
+            404 | 410 => format!("The source link is missing or no longer available (HTTP {status}). Check the citation's DOI or replace its URL; retrying the same link may not help."),
+            401 | 403 => format!("The source denied access (HTTP {status}). It may require sign-in or block automated access."),
+            _ => format!("The source returned HTTP {status} after browser rendering. Try again later or use another source URL."),
+        });
     }
     let markdown = data.markdown.unwrap_or_default();
     // A bot wall or an empty shell page "succeeds" with next to nothing;
@@ -155,6 +159,22 @@ fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_sources_are_not_reported_as_sign_in_failures() {
+        for status in [404, 410, 403] {
+            let data =
+                serde_json::from_value(serde_json::json!({"metadata":{"statusCode":status}}))
+                    .unwrap();
+            let error = scraped_page(data).err().unwrap();
+            assert!(error.contains(&format!("HTTP {status}")));
+            assert_eq!(error.contains("sign-in"), status == 403);
+            assert_eq!(
+                error.contains("missing or no longer available"),
+                status != 403
+            );
+        }
+    }
 
     #[test]
     fn rendered_html_and_title_survive_response_parsing_but_block_pages_do_not() {
