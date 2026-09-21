@@ -4455,8 +4455,11 @@ describe("project workspace", () => {
     }
   });
 
-  it.each(["source blur", "preview blur", "idle"])("saves non-collaborative secondary Markdown on %s", async (trigger) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+  it.each([
+    ["source blur", "manual"], ["preview blur", "manual"], ["idle", "manual"],
+    ["source blur", "automatic"], ["preview blur", "automatic"], ["idle", "automatic"],
+  ])("saves non-collaborative secondary Markdown on %s in %s mode", async (trigger, autoBuildMode) => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode }));
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -4513,9 +4516,16 @@ describe("project workspace", () => {
     if (trigger === "idle") await waitFor(expectSaved);
     else expectSaved();
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path: "left.md" }));
+    if (autoBuildMode === "automatic") {
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
+        projectRoot: snapshot.root, force: false,
+      })));
+    } else {
+      expect(invoke).not.toHaveBeenCalledWith("build_project", expect.anything());
+    }
   });
 
-  it("saves and builds changed source when the pointer leaves the editor", async () => {
+  it.each(["editor leave", "PDF pointer down", "PDF focus"])("saves and builds changed source on %s", async (trigger) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -4546,16 +4556,20 @@ describe("project workspace", () => {
     });
     const view = EditorView.findFromDOM(editorElement);
     if (!view) throw new Error("CodeMirror view was not available");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.anything()));
+    vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nNew result." } });
     await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
-    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    if (trigger === "editor leave") fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    else if (trigger === "PDF pointer down") fireEvent.pointerDown(document.querySelector(".pdf-column")!);
+    else fireEvent.focus(document.querySelector(".pdf-column")!);
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "main.tex",
       content: "\\documentclass{article}\nNew result.",
       baseContent: "\\documentclass{article}",
       projectRoot: "/tmp/lattice-paper",
-    }));
+    });
     // The open file rides along so the backend can re-target the build on it
     // when it is a compilable root (Overleaf's rule).
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
@@ -4563,6 +4577,73 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
       documentPath: "main.tex",
     })));
+  });
+
+  it.each(["build", "save"])("saves and queues the latest edit while an automatic %s is in flight", async (heldOperation) => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [],
+    };
+    let releaseBuild: (() => void) | undefined;
+    let holdBuild = false;
+    let releaseSave: (() => void) | undefined;
+    let holdSave = false;
+    const builtSources: string[] = [];
+    let diskSource = "\\documentclass{article}";
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return diskSource;
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") {
+        if (holdSave) {
+          holdSave = false;
+          await new Promise<void>((resolve) => { releaseSave = resolve; });
+        }
+        diskSource = (args as { content: string }).content;
+        return undefined;
+      }
+      if (command === "build_project") {
+        builtSources.push(diskSource);
+        if (holdBuild) {
+          holdBuild = false;
+          await new Promise<void>((resolve) => { releaseBuild = resolve; });
+        }
+        return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const element = await waitFor(() => {
+      const editor = document.querySelector<HTMLElement>(".cm-editor");
+      expect(editor).not.toBeNull();
+      return editor!;
+    });
+    await waitFor(() => expect(builtSources).toHaveLength(1));
+    const view = EditorView.findFromDOM(element)!;
+    holdBuild = heldOperation === "build";
+    holdSave = heldOperation === "save";
+    act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: "\nFirst edit." } }); });
+    fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+    await waitFor(() => expect(heldOperation === "build" ? releaseBuild : releaseSave).toBeDefined());
+    try {
+      act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: "\nSecond edit." } }); });
+      fireEvent.pointerLeave(document.querySelector(".source-editor")!);
+      await act(async () => { releaseSave?.(); });
+      await waitFor(() => expect(diskSource).toBe("\\documentclass{article}\nFirst edit.\nSecond edit."));
+    } finally {
+      await act(async () => { releaseSave?.(); releaseBuild?.(); });
+    }
+    await waitFor(() => expect(builtSources).toEqual([
+      "\\documentclass{article}",
+      "\\documentclass{article}\nFirst edit.",
+      "\\documentclass{article}\nFirst edit.\nSecond edit.",
+    ]));
   });
 
   it("automatically builds after 1.2 seconds without editing", async () => {

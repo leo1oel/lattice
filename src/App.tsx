@@ -2413,6 +2413,7 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
+  const automaticBuildQueued = useRef(false);
   const buildingRef = useRef(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
@@ -5034,10 +5035,23 @@ function App() {
   }, [build]);
 
   const saveAndCompileAutomatically = useCallback(async () => {
+    automaticBuildQueued.current = true;
     if (automaticBuildPending.current) return;
     automaticBuildPending.current = true;
+    const generation = projectOperationGenerationRef.current;
     try {
-      if (await save()) await runBuild(false, { immediatePreview: false });
+      do {
+        automaticBuildQueued.current = false;
+        const saved = await save();
+        if (generation !== projectOperationGenerationRef.current) return;
+        if (!saved) return;
+        // Only serialize the writes. runBuild owns build coalescing; awaiting
+        // it here used to discard edits and attention changes during a build.
+        void runBuild(false, { immediatePreview: false });
+      } while (automaticBuildQueued.current && (
+        sourceRef.current !== savedSourceRef.current
+        || secondarySourceRef.current !== secondarySavedRef.current
+      ));
     } finally {
       automaticBuildPending.current = false;
     }
@@ -6023,11 +6037,14 @@ function App() {
   useEffect(() => {
     if (!project || !secondaryFile) return;
     if (secondarySource === secondarySavedSource) return;
+    const automatic = !activePaper && buildPreferences.autoBuildMode === "automatic";
+    if (automatic && editorCompletionActive) return;
     const timer = window.setTimeout(() => {
-      void save();
-    }, 450);
+      if (automatic) void saveAndCompileAutomaticallyRef.current();
+      else void saveRef.current();
+    }, automatic ? 1_200 : 450);
     return () => window.clearTimeout(timer);
-  }, [project, save, secondaryFile, secondarySavedSource, secondarySource]);
+  }, [activePaper, buildPreferences.autoBuildMode, editorCompletionActive, project, secondaryFile, secondarySavedSource, secondarySource]);
 
   const saveWhenLeavingEditor = useCallback(() => {
     if (editorCompletionActiveRef.current) return;
@@ -6037,7 +6054,8 @@ function App() {
     if (
       !activePaper
       && buildPreferences.autoBuildMode === "automatic"
-      && sourceRef.current !== savedSourceRef.current
+      && (sourceRef.current !== savedSourceRef.current
+        || secondarySourceRef.current !== secondarySavedRef.current)
     ) {
       void saveAndCompileAutomatically();
     } else {

@@ -4112,8 +4112,14 @@ export function DocumentCanvas(props: {
     <div
       className="pdf-column"
       data-tour="document-preview"
-      onPointerDownCapture={() => props.onContextSurfaceActivate("pdf")}
-      onFocusCapture={() => props.onContextSurfaceActivate("pdf")}
+      onPointerDownCapture={() => {
+        props.onContextSurfaceActivate("pdf");
+        props.onEditorLeave();
+      }}
+      onFocusCapture={() => {
+        props.onContextSurfaceActivate("pdf");
+        props.onEditorLeave();
+      }}
     >
       {props.pdfTop}
       <Suspense fallback={<PdfPreviewLoading />}>
