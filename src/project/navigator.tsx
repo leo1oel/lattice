@@ -18,6 +18,7 @@ import {
   ClipboardPaste,
   Copy,
   Download,
+  ExternalLink,
   FilePlus,
   FolderOpen,
   FolderPlus,
@@ -45,6 +46,7 @@ import { ProjectTreeHover } from "./project-tree-hover";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
+import { canDownloadPaper } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { beginPaperDrag } from "../papers/paper-drag";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
@@ -1705,6 +1707,7 @@ export function Navigator(props: {
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;
+            const downloadable = canDownloadPaper(paper);
             const healthLabels: CitationHealthLabels = {
               retracted: t`Retracted`, concern: t`Expression of concern`, corrected: t`Correction/update`,
               replaced: t`Replacement/new version`, retractionWatch: t`Retraction Watch`, publisher: t`Publisher`,
@@ -1724,6 +1727,8 @@ export function Navigator(props: {
                 data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
                 title={locallyReadable
                   ? paper.title
+                  : !downloadable && paper.url
+                    ? t`Open source page — no downloadable full text found`
                   : paper.arxivId
                     ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
                     : paper.url
@@ -1748,13 +1753,14 @@ export function Navigator(props: {
                       ? <Check size={14} />
                       : locallyReadable
                         ? <BookOpen size={14} />
-                        : paper.arxivId || paper.url
+                        : downloadable
                           ? <Download size={14} />
-                          : <BookMarked size={14} />}
+                          : paper.url ? <ExternalLink size={14} /> : <BookMarked size={14} />}
                 </span>
                 <span>
                   <strong>{paper.title}</strong>
                   <small>{matchingSnippet(paper) || paperSubtitle(paper)}</small>
+                  {!locallyReadable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
                   {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
                 </span>
               </button>

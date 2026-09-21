@@ -2129,7 +2129,7 @@ fn existing_explicit_arxiv_citation(
         .map(|entry| (base.to_string(), entry.key, entry.title))
 }
 
-fn explicit_arxiv_id(query: &str) -> Option<String> {
+pub(crate) fn explicit_arxiv_id(query: &str) -> Option<String> {
     // parse_arxiv_id also extracts ids from arbitrary text. This fast path
     // must not mistake a title or an unrelated publisher URL for that paper.
     let explicit = Regex::new(r"(?i)^(?:https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)(?:\.pdf)?(?:[?#].*)?$").unwrap();

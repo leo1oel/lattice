@@ -3256,6 +3256,36 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     if query.is_empty() {
         return Err("Enter a DOI, arXiv id, or paper title.".to_string());
     }
+    if !query.starts_with("http://")
+        && !query.starts_with("https://")
+        && normalize_doi(query).is_none()
+        && crate::papers::explicit_arxiv_id(query).is_none()
+    {
+        // Title ranking is not identity: Crossref can index different works
+        // under the exact same title. Keep both DOI-exact snapshots for review.
+        let client = reqwest::blocking::Client::builder()
+            .user_agent("Lattice citation title lookup")
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            .map_err(|error| error.to_string())?;
+        let report: serde_json::Value = client
+            .get("https://api.crossref.org/works")
+            .query(&[("query.title", query), ("rows", "10")])
+            .send()
+            .and_then(|response| response.error_for_status())
+            .and_then(|response| response.json())
+            .map_err(|error| {
+                format!("Could not check for same-title records: {error}. Retry or supply a DOI.")
+            })?;
+        let dois = same_title_dois(query, &report);
+        if dois.len() > 1 {
+            let mut result = citation_from_bibtex("", "");
+            for doi in dois {
+                result.candidates.push(resolve_citation_query(&doi)?);
+            }
+            return Ok(result);
+        }
+    }
     if let Some(raw) = crate::papers::official_arxiv_citation(query)? {
         crate::papers::validate_resolved_identity(query, &raw)?;
         return Ok(citation_from_bibtex(&raw, ""));
@@ -3273,6 +3303,35 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
         }
     }
     Ok(result)
+}
+
+fn same_title_dois(query: &str, report: &serde_json::Value) -> Vec<String> {
+    let normalize = |title: &str| {
+        title
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let title = normalize(query);
+    let mut dois = Vec::new();
+    for item in report["message"]["items"].as_array().into_iter().flatten() {
+        if !item["title"].as_array().is_some_and(|titles| {
+            titles.iter().any(|value| {
+                value
+                    .as_str()
+                    .is_some_and(|value| normalize(value) == title)
+            })
+        }) {
+            continue;
+        }
+        if let Some(doi) = item["DOI"].as_str().and_then(normalize_doi) {
+            if !dois.contains(&doi) {
+                dois.push(doi);
+            }
+        }
+    }
+    dois
 }
 
 fn parse_citation_resolution(
@@ -6826,6 +6885,22 @@ mod tests {
         let nested = "@article{k, title = {Deep {Nets}}, year = {2020}}\n";
         let (s, e) = bib_entry_span(nested, "k").unwrap();
         assert_eq!(&nested[s..e], nested.trim_end());
+    }
+
+    #[test]
+    fn same_title_records_keep_distinct_dois_not_search_rank() {
+        let title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
+        let report = serde_json::json!({"message":{"items":[
+            {"title":[title.to_lowercase()], "DOI":"10.1093/neucas/3.3.209-w"},
+            {"title":[title], "DOI":"10.1080/02643298708252038"},
+            {"title":[title], "DOI":"10.1080/02643298708252038"},
+            {"title":["On optic aphasia and visual agnosia"], "DOI":"10.1080/02643299108253365"}
+        ]}});
+        assert_eq!(
+            same_title_dois(title, &report),
+            vec!["10.1093/neucas/3.3.209-w", "10.1080/02643298708252038"]
+        );
+        assert!(same_title_dois("A different title", &report).is_empty());
     }
 
     #[test]

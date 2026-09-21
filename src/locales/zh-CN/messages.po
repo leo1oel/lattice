@@ -1102,6 +1102,10 @@ msgstr "候选引用记录"
 msgid "Citation key"
 msgstr "引用键"
 
+#: src/project/navigator.tsx
+msgid "Citation only — no downloadable full text found"
+msgstr "仅有引用 — 尚未找到可下载全文"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
 msgstr "引文解析查询"
@@ -3923,6 +3927,10 @@ msgstr "Open Slide 无法启动"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Open Slide editor for {deckId}"
 msgstr "{deckId} 的 Open Slide 编辑器"
+
+#: src/project/navigator.tsx
+msgid "Open source page — no downloadable full text found"
+msgstr "打开来源页面 — 尚未找到可下载全文"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"

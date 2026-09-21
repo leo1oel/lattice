@@ -87,7 +87,7 @@ export function BibEntryDialog(props: {
   const [insertCite, setInsertCite] = useState(!editing);
   const [resolveQuery, setResolveQuery] = useState(props.initialResolveQuery ?? "");
   const [venueOpen, setVenueOpen] = useState(false);
-  const [candidates, setCandidates] = useState<ResolvedCitationDraft[]>([]);
+  const [candidates, setCandidates] = useState<ResolvedCitationDraft[]>(seed?.candidates ?? []);
   const [evidence, setEvidence] = useState<ResolvedCitationDraft["evidence"]>(seed?.evidence);
   const [extraFields, setExtraFields] = useState<Record<string, string> | undefined>(seed?.extraFields);
   const [retrievedEdited, setRetrievedEdited] = useState(false);

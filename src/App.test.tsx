@@ -5168,6 +5168,46 @@ describe("project workspace", () => {
     expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
   });
 
+  it.each([false, true])("reviews title candidates without importing and opens DOI-only sources externally (cancel: %s)", async (cancelled) => {
+    const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
+    const doi = "10.1093/neucas/3.3.209-w";
+    const snapshot = {
+      root: "/tmp/lattice-title-review",
+      manifest: { schemaVersion: 1, projectId: "title-review", name: "Title review", rootDocuments: [], primaryBibliography: "references.bib", trusted: true },
+      files: [],
+    };
+    const draft = { key: "riddoch1997visual", title, author: "Riddoch, M. J.", year: "1997", journal: "Neurocase", booktitle: "", publisher: "", url: `https://doi.org/${doi}`, doi, entryType: "article" };
+    let finishResolve!: (value: unknown) => void;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "list_history") return [];
+      if (command === "list_papers") return [{ ...draft, arxivId: "", citationKey: draft.key, hasFullText: false, hasBlog: false }];
+      if (command === "resolve_citation_query") return new Promise(resolve => { finishResolve = resolve; });
+      if (command === "cancel_reference_import") return false;
+      return mockAppCommand(command, args);
+    });
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByTitle("Open source page — no downloadable full text found"));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(draft.url));
+    expect(invoke).not.toHaveBeenCalledWith("fetch_web_reference", expect.anything());
+    const box = screen.getByRole("searchbox", { name: "Search or import papers" });
+    fireEvent.change(box, { target: { value: title } });
+    // Enter opens an existing local match; + explicitly resolves a new import.
+    fireEvent.click(screen.getByTitle("Import paper"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("resolve_citation_query", { query: title }));
+    if (cancelled) fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await act(async () => { finishResolve({ ...draft, candidates: [draft, { ...draft, year: "1987", journal: "Cognitive Neuropsychology", doi: "10.1080/02643298708252038" }] }); });
+    if (cancelled) {
+      expect(screen.queryByRole("region", { name: "Citation candidates" })).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByRole("region", { name: "Citation candidates" })).toHaveTextContent("Cognitive Neuropsychology");
+      expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+    }
+    expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
+  });
+
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -5258,7 +5298,7 @@ describe("project workspace", () => {
     renderApp();
     fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文)$/ }));
     const box = await screen.findByRole("searchbox", { name: /^(Search or import papers|搜索或导入论文)$/ });
-    fireEvent.change(box, { target: { value: "A new paper" } });
+    fireEvent.change(box, { target: { value: "10.1080/02643298708252038" } });
     fireEvent.keyDown(box, { key: "Enter" });
     const cancel = await screen.findByRole("button", { name: /^(Cancel|取消)$/ });
     expect(requestId).toBeTruthy();
@@ -5282,7 +5322,7 @@ describe("project workspace", () => {
           ? /已取消论文导入，参考文献未修改；已下载的全文仍可使用。/
           : /已取消论文导入，未作任何修改。/);
     }
-    expect(box).toHaveValue("A new paper");
+    expect(box).toHaveValue("10.1080/02643298708252038");
   });
 
   it.each(["click", "drop"])("shows imported papers by title while keeping the arXiv id via %s", async (interaction) => {

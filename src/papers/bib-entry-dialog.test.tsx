@@ -41,6 +41,22 @@ function renderDialog(onResolve: (query: string) => Promise<ResolvedCitationDraf
 }
 
 describe("BibEntryDialog citation resolution", () => {
+  it("shows both same-title records supplied by Papers before allowing a save", () => {
+    const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
+    const candidates = [
+      resolved({ title, year: "1997", journal: "Neurocase", doi: "10.1093/neucas/3.3.209-w" }),
+      resolved({ title, year: "1987", journal: "Cognitive Neuropsychology", doi: "10.1080/02643298708252038" }),
+    ];
+    const onSave = vi.fn();
+    render(<BibEntryDialog open busy={false} error={null} initialDraft={resolved({ candidates })}
+      onClose={vi.fn()} onSave={onSave} />);
+    expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+    expect(screen.getByText("Neurocase")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Select this record" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ year: "1987", doi: "10.1080/02643298708252038" }), true);
+  });
+
   it("keeps the draft visible and reports duplicate keys without writing", () => {
     const write = vi.fn();
     function Harness() {

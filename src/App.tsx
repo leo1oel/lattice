@@ -26,6 +26,7 @@ import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./ed
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
 import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
 import { parsePaperLinkPath } from "./papers/paper-link";
+import { canDownloadPaper, isTitleQuery } from "./papers/paper-source";
 import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
 import {
   TexDependencyInstaller,
@@ -6098,6 +6099,19 @@ function App() {
     const importRoot = projectRootRef.current;
     setImporting(true);
     try {
+      // A title is a search, not an identity. Review the resolved snapshot
+      // before writing; saving the draft must not rerun the title search.
+      if (isTitleQuery(trimmed)) {
+        const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query: trimmed });
+        if (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId) return;
+        setBibEntryError(null);
+        setBibEntryMode("add");
+        setBibEntryInitial(resolved);
+        setBibResolveSeed(trimmed);
+        setBibEntryKey((value) => value + 1);
+        setBibEntryOpen(true);
+        return;
+      }
       const result = await invoke<{
         arxivId: string;
         title: string;
@@ -6154,6 +6168,7 @@ function App() {
             : `Imported “${result.title}”${citeHint}.`
           : `Added “${result.title}” to the bibliography${citeHint}. No full text to open.`);
     } catch (reason) {
+      if (isTitleQuery(trimmed) && (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId)) return;
       setError(toMessage(reason));
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
@@ -6172,6 +6187,7 @@ function App() {
   const cancelPaperImport = useCallback(() => {
     const requestId = paperImportRequestId.current;
     if (!requestId) return;
+    paperImportRequestId.current = null;
     void invoke("cancel_reference_import", { requestId }).catch((reason) => setError(toMessage(reason)));
   }, []);
 
@@ -6314,6 +6330,12 @@ function App() {
   ]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+    if (!canDownloadPaper(paper)) {
+      if (paper.url) {
+        try { await openUrl(paper.url); } catch (reason) { setError(toMessage(reason)); }
+      }
+      return;
+    }
     // Reserve the navigation when the user asks, not after a potentially slow
     // network fetch. Any later file/Paper/asset click invalidates this token.
     const loadGeneration = fileLoadGenerationRef.current + 1;

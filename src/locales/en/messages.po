@@ -1102,6 +1102,10 @@ msgstr "Citation candidates"
 msgid "Citation key"
 msgstr "Citation key"
 
+#: src/project/navigator.tsx
+msgid "Citation only — no downloadable full text found"
+msgstr "Citation only — no downloadable full text found"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
 msgstr "Citation resolve query"
@@ -3923,6 +3927,10 @@ msgstr "Open Slide could not start"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Open Slide editor for {deckId}"
 msgstr "Open Slide editor for {deckId}"
+
+#: src/project/navigator.tsx
+msgid "Open source page — no downloadable full text found"
+msgstr "Open source page — no downloadable full text found"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
