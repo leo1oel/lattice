@@ -1,7 +1,7 @@
 {
   "name": "research-writer",
   "private": true,
-  "version": "0.1.329",
+  "version": "0.1.330",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -20,7 +20,7 @@
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "prepare:build": "node scripts/prepare-build.mjs",
     "check": "mise run check",
-    "lint": "eslint src tools --max-warnings 112",
+    "lint": "eslint src tools --max-warnings 111",
     "knip": "knip",
     "test": "vitest run",
     "preview": "vite preview",
