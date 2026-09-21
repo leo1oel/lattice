@@ -7,7 +7,7 @@
  * rejection somewhere nobody is listening. These cover that it is kept until
  * it settles, and that coming back to it resumes rather than starts over.
  */
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -193,6 +193,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Unmount while IPC still returns promises, before the global locale reset
+  // can notify a mounted hook and re-run its translated effects.
+  cleanup();
   vi.mocked(invoke).mockReset();
   vi.mocked(listen).mockReset();
   vi.useRealTimers();
