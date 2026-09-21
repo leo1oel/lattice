@@ -240,11 +240,21 @@ vi.mock("@pdfslick/core", () => ({
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
-    linkService = { goToDestination: vi.fn(async () => undefined) };
+    linkService = { page: 1, goToDestination: vi.fn(async () => undefined) };
     l10n = { get: vi.fn(async (id: string) => id) };
     unbindEvents = vi.fn();
+    pagesReady = false;
+    readyListeners = new Set<() => void>();
+    store = {
+      getState: () => ({ pagesReady: this.pagesReady }),
+      subscribe: (listener: () => void) => {
+        this.readyListeners.add(listener);
+        return () => this.readyListeners.delete(listener);
+      },
+    };
     viewer: {
       cleanup: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
       currentScale: number;
       currentScaleValue: string;
       getPageView: (index: number) => PdfSlickMockPageView;
@@ -261,6 +271,7 @@ vi.mock("@pdfslick/core", () => ({
       let currentScaleValue = args.options?.scaleValue ?? "page-width";
       this.viewer = {
         cleanup: vi.fn(),
+        update: vi.fn(),
         get currentScale() {
           return currentScale;
         },
@@ -294,6 +305,7 @@ vi.mock("@pdfslick/core", () => ({
     }
 
     gotoPage(pageNumber: number) {
+      this.linkService.page = pageNumber;
       this.emit("pagechanging", { pageNumber });
     }
 
@@ -385,6 +397,8 @@ vi.mock("@pdfslick/core", () => ({
         });
       }
       this.emit("pagesinit", {});
+      this.pagesReady = true;
+      this.readyListeners.forEach((listener) => listener());
       this.emit("pagerendered", { pageNumber: 1 });
       for (let pageNumber = 1; pageNumber <= loaded.numPages; pageNumber += 1) {
         this.emit("textlayerrendered", { pageNumber });
@@ -4697,7 +4711,7 @@ describe("project workspace", () => {
     expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
-  it("waits for citation completion to close before automatically building", async () => {
+  it.each(["completion selection", "PDF pointer down", "PDF wheel"])("resumes autosave after citation completion on %s", async (trigger) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -4765,6 +4779,20 @@ describe("project workspace", () => {
     fireEvent.pointerLeave(document.querySelector(".source-editor")!);
     await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_400)));
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "build_project")).toBe(false);
+
+    if (trigger !== "completion selection") {
+      const pdf = document.querySelector(".pdf-column")!;
+      if (trigger === "PDF pointer down") fireEvent.pointerDown(pdf);
+      else fireEvent.wheel(pdf, { deltaY: 120 });
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+        path: "main.tex",
+        content: "\\documentclass{article}\nSee \\cite{}",
+        baseContent: "\\documentclass{article}",
+        projectRoot: snapshot.root,
+      }));
+      expect(completionStatus(view.state)).toBeNull();
+      return;
+    }
 
     expect(selectedCompletionIndex(view.state)).toBe(0);
     fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
@@ -8453,7 +8481,7 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
-  it("limits Quick Open to files and previews SVG files as images", async () => {
+  it.each([false, true])("keeps text-classified SVG tabs as images after switching files (bottom assistant: %s)", async (bottomAssistant) => {
     const snapshot = {
       root: "/tmp/lattice-paper",
       manifest: {
@@ -8493,8 +8521,17 @@ describe("project workspace", () => {
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
+    if (bottomAssistant) {
+      await import("./app/app-agent-panel");
+      localStorage.setItem("lattice.sidebar-open.v1", "1");
+      localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+    }
     renderApp();
     await screen.findByRole("tab", { name: /main\.tex/ });
+    if (bottomAssistant) {
+      fireEvent.click(await screen.findByRole("button", { name: "Move assistant below editor" }));
+      expect(document.querySelector(".agent-dock-header")).not.toBeNull();
+    }
     fireEvent.keyDown(window, { key: "p", metaKey: true });
 
     const list = await screen.findByRole("listbox");
@@ -8505,6 +8542,13 @@ describe("project workspace", () => {
     expect(await screen.findByAltText("Preview of figures/diagram.svg")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "figures/diagram.svg" });
     expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "figures/diagram.svg" }));
+
+    fireEvent.click(screen.getByRole("tab", { name: /main\.tex/ }));
+    await waitFor(() => expect(screen.queryByAltText("Preview of figures/diagram.svg")).toBeNull());
+    fireEvent.click(screen.getByRole("tab", { name: /diagram\.svg/ }));
+    expect(await screen.findByAltText("Preview of figures/diagram.svg")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "figures/diagram.svg" }));
+    if (bottomAssistant) expect(document.querySelector(".agent-dock-header")).not.toBeNull();
   });
 
   it("previews SVG and PDF figures and lets their drops replace split panes", async () => {

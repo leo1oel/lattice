@@ -14,7 +14,7 @@ import { useLingui } from "@lingui/react/macro";
 import { setSplitResizerResistance } from "./split-resizer";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
 import { paperDropExtension } from "../editor/paper-drop";
-import { completionStatus } from "@codemirror/autocomplete";
+import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
@@ -4108,18 +4108,27 @@ export function DocumentCanvas(props: {
     const previewPath = isPreviewableSourceFilePath(requestedPath)
       ? requestedPath
       : previewIdentity;
+    const leaveEditorForPdf = () => {
+      // Scrolling the PDF need not blur CodeMirror. End completion explicitly
+      // before saving, or its active-menu guard can suspend autosave indefinitely.
+      // Pointer leave alone must still preserve the menu for option selection.
+      if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
+      if (secondaryViewRef.current) closeCompletion(secondaryViewRef.current);
+      props.onEditorLeave();
+    };
     return (
     <div
       className="pdf-column"
       data-tour="document-preview"
       onPointerDownCapture={() => {
         props.onContextSurfaceActivate("pdf");
-        props.onEditorLeave();
+        leaveEditorForPdf();
       }}
       onFocusCapture={() => {
         props.onContextSurfaceActivate("pdf");
-        props.onEditorLeave();
+        leaveEditorForPdf();
       }}
+      onWheelCapture={leaveEditorForPdf}
     >
       {props.pdfTop}
       <Suspense fallback={<PdfPreviewLoading />}>

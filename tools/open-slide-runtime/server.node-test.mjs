@@ -32,6 +32,19 @@ import { transform as transformTsx } from "esbuild";
 import katex from "katex";
 import * as icons from "./lucide-open-slide.mjs";
 
+test("reports the exact pinned Open Slide version in the readiness handshake", async () => {
+  const [manifest, server, installed, supervisor] = await Promise.all([
+    readFile(new URL("./package.json", import.meta.url), "utf8"),
+    readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./node_modules/@open-slide/core/package.json", import.meta.url), "utf8"),
+    readFile(new URL("../../src-tauri/src/presentation.rs", import.meta.url), "utf8"),
+  ]);
+  const version = JSON.parse(manifest).dependencies["@open-slide/core"];
+  assert.equal(JSON.parse(installed).version, version);
+  assert.equal(server.match(/const VERSION = "([^"]+)";/)?.[1], version);
+  assert.equal(supervisor.match(/const VERSION: &str = "([^"]+)";/)?.[1], version);
+});
+
 test("provides every runtime icon imported by the pinned Open Slide editor", async () => {
   const root = new URL("./node_modules/@open-slide/core/src/app/", import.meta.url);
   for (const file of await readdir(root, { recursive: true })) {
@@ -252,6 +265,12 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /slice\(0, 12_000\)/);
   assert.doesNotMatch(transformed, /slice\(0, 120\)/);
   assert.doesNotMatch(transformed, /AgentConnectedBadge|bg-emerald-500|t\.slide\.agentConnected/);
+  // Embedded toolbar patches must preserve both beta.2 export paths and the
+  // new editable export's command-menu action, rather than its old placeholder.
+  assert.match(transformed, /onClick=\{exportPptx\}/);
+  assert.match(transformed, /onClick=\{exportImagePptx\}/);
+  assert.match(transformed, /onExportPptx: exportPptx/);
+  assert.doesNotMatch(transformed, /pptxComingSoonTooltip/);
   assert.equal(transformOpenSlideToolbar(source, "/project/slides/talk/index.tsx"), null);
   await transformTsx(transformed, { loader: "tsx" });
 });

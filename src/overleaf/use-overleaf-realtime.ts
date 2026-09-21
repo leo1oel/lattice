@@ -99,6 +99,13 @@ type RealtimeEvent =
   | { type: "disconnected"; reason: string };
 type DocUpdateEvent = Extract<RealtimeEvent, { type: "docUpdate" }>;
 
+export type OverleafRemoteTextContext = {
+  projectRoot: string;
+  path: string;
+  baseContent: string;
+  isCurrent: () => boolean;
+};
+
 type RealtimeStatus = "off" | "connecting" | "live" | "error";
 
 /** Shared empty array, so "no comments" is a stable reference across renders. */
@@ -232,8 +239,8 @@ export function useOverleafRealtime(options: {
   documents: boolean;
   projectRoot: string | null;
   activeFile: string | null;
-  /** Replace the buffer with text from a collaborator, keeping the caret. */
-  onRemoteText: (text: string, caret: number) => void;
+  /** Return false to preserve divergent local work and fall back to regular sync. */
+  onRemoteText: (text: string, caret: number, context: OverleafRemoteTextContext) => boolean | void | Promise<boolean | void>;
   /** Where the caret is right now, so it can be carried across remote edits. */
   readCaret: () => number;
   onNotice: (message: string) => void;
@@ -304,6 +311,8 @@ export function useOverleafRealtime(options: {
   );
   /** The root that owns every document currently held by this hook. */
   const connectionRoot = useRef<string | null>(null);
+  const remoteDeliveries = useRef(new WeakMap<OtDocument, { tail: Promise<void>; pending: number }>());
+  const documentEpoch = useRef(0);
 
   /** How long a document that will not settle is allowed to hold the channel. */
   const DRAIN_TIMEOUT_MS = 15_000;
@@ -397,6 +406,7 @@ export function useOverleafRealtime(options: {
    * longer listening.
    */
   const stopDocument = useCallback(() => {
+    documentEpoch.current += 1;
     if (sendTimer.current) {
       clearTimeout(sendTimer.current);
       sendTimer.current = null;
@@ -485,6 +495,56 @@ export function useOverleafRealtime(options: {
     release(id);
   }, [release]);
 
+  // OT advances synchronously, but checking/writing the disk crosses IPC. Keep
+  // deliveries ordered and never send an intermediate editor snapshot back
+  // over a newer remote operation. A disagreement hands the file back to the
+  // ordinary three-way synchronizer, retaining any unacknowledged OT lease.
+  const deliverRemoteText = useCallback((id: string, text: string, caret: number, baseContent: string) => {
+    const doc = documents.current.get(id);
+    const projectRoot = connectionRoot.current;
+    const path = pathsByDocId.current.get(id);
+    if (!doc || !projectRoot || !path) return;
+    const epoch = documentEpoch.current;
+    const isCurrent = () => connectionRoot.current === projectRoot
+      && documentEpoch.current === epoch
+      && documents.current.get(id) === doc && docId.current === id
+      && callbacks.current.projectRoot === projectRoot && callbacks.current.activeFile === path;
+    if (!isCurrent()) return;
+    if (sendTimer.current) clearTimeout(sendTimer.current);
+    sendTimer.current = null;
+    unsentText.current = null;
+    setLiveFile(false);
+    let delivery = remoteDeliveries.current.get(doc);
+    if (!delivery) {
+      delivery = { tail: Promise.resolve(), pending: 0 };
+      remoteDeliveries.current.set(doc, delivery);
+    }
+    const queue = delivery;
+    queue.pending += 1;
+    const preserveLocal = () => {
+      if (!isCurrent()) return;
+      // Do not publish the stale debounce as a new replacement operation.
+      // stopDocument drains only operations already owned by OT.
+      unsentText.current = null;
+      stopDocument();
+      const message = t`This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it.`;
+      setDetail(message);
+      callbacks.current.onNotice(message);
+    };
+    queue.tail = queue.tail.then(async () => {
+      if (!isCurrent()) return;
+      try {
+        const accepted = await callbacks.current.onRemoteText(text, caret, { projectRoot, path, baseContent, isCurrent });
+        if (accepted === false) preserveLocal();
+      } catch {
+        preserveLocal();
+      }
+    }).finally(() => {
+      queue.pending -= 1;
+      if (!queue.pending && isCurrent()) setLiveFile(true);
+    });
+  }, [stopDocument, t]);
+
   /**
    * Carry the open document's anchored spans across an operation.
    *
@@ -561,6 +621,7 @@ export function useOverleafRealtime(options: {
         (update) => Boolean(update.source) && update.source === publicId.current,
       );
       const caret = docId.current === id ? callbacks.current.readCaret() : 0;
+      const baseContent = doc.text;
       const result = doc.catchUp(caughtUp.map((update) => ({
         version: update.version,
         ops: update.ops,
@@ -578,9 +639,11 @@ export function useOverleafRealtime(options: {
             }
             : current
         ));
-        callbacks.current.onRemoteText(
+        deliverRemoteText(
+          id,
           result.text,
           OtDocument.caretAfter(caret, result.applied),
+          baseContent,
         );
       }
       if (sawOurUpdate || doc.settled) {
@@ -596,7 +659,7 @@ export function useOverleafRealtime(options: {
     } finally {
       if (connectionRoot.current === projectRoot) reconciling.current.delete(id);
     }
-  }, [publishLivePaths, release, shiftAnchors]);
+  }, [deliverRemoteText, publishLivePaths, release, shiftAnchors]);
   useEffect(() => {
     reconcileUnknownRef.current = (id) => {
       void reconcileUnknown(id);
@@ -764,13 +827,14 @@ export function useOverleafRealtime(options: {
       try {
         const onScreen = payload.docId === docId.current;
         const caret = onScreen ? callbacks.current.readCaret() : 0;
+        const baseContent = doc.text;
         const { text, applied } = doc.remote(payload.ops, payload.version);
         shiftAnchors(payload.docId, applied);
         // A document being drained still has to apply this, or its own
         // outstanding operation is transformed against the wrong history and
         // the server rejects it. Nobody is looking at it, so nothing is drawn.
         if (onScreen) {
-          callbacks.current.onRemoteText(text, OtDocument.caretAfter(caret, applied));
+          deliverRemoteText(payload.docId, text, OtDocument.caretAfter(caret, applied), baseContent);
         }
       } catch (reason) {
         // One document drifting is that document's problem; the rest of the
@@ -792,6 +856,7 @@ export function useOverleafRealtime(options: {
       unlisten?.();
     };
   }, [
+    deliverRemoteText,
     dropDocument,
     fail,
     flush,
@@ -1112,7 +1177,6 @@ export function useOverleafRealtime(options: {
         }
         publishLivePaths();
         docId.current = id;
-        setLiveFile(true);
         setOpenDoc({
           id,
           comments: joined.comments ?? [],
@@ -1121,7 +1185,10 @@ export function useOverleafRealtime(options: {
         });
         for (const applied of bufferedApplied) shiftAnchors(id, applied);
         setDetail(null);
-        callbacks.current.onRemoteText(text, caret);
+        // A full/reconnected snapshot has no trusted relationship to local
+        // disk edits. Only start OT when it agrees; otherwise regular sync
+        // owns the common ancestor and can reconcile both sides safely.
+        deliverRemoteText(id, text, caret, text);
       })
       .catch((reason) => {
         if (!cancelled) setDetail(String(reason));
@@ -1138,6 +1205,7 @@ export function useOverleafRealtime(options: {
     activeDocId,
     status,
     reloadNonce,
+    deliverRemoteText,
     stopDocument,
     flush,
     dropDocument,
@@ -1151,6 +1219,7 @@ export function useOverleafRealtime(options: {
   const pushLocal = useCallback((text: string) => {
     const id = docId.current;
     if (!id || !documents.current.has(id) || !canContribute.current) return;
+    if (remoteDeliveries.current.get(documents.current.get(id)!)?.pending) return;
     // Coalesce keystrokes briefly: one operation per short pause keeps the
     // channel quiet without anyone noticing a delay. Held where leaving the
     // document can find it, because until the timer fires this text exists
@@ -1182,6 +1251,7 @@ export function useOverleafRealtime(options: {
       || docId.current !== target.docId
       || connectionRoot.current !== target.projectRoot
       || callbacks.current.activeFile !== target.path
+      || remoteDeliveries.current.get(doc)?.pending
     ) {
       throw new Error(t`The commented file is no longer open live with Overleaf. Try again.`);
     }
@@ -1237,6 +1307,7 @@ export function useOverleafRealtime(options: {
     reserveOperation: () => {
       const id = docId.current;
       const doc = id ? documents.current.get(id) : null;
+      if (doc && remoteDeliveries.current.get(doc)?.pending) return null;
       const anchor = doc?.anchor();
       return id && anchor ? { docId: id, version: anchor.version } : null;
     },
@@ -1252,6 +1323,7 @@ export function useOverleafRealtime(options: {
       // is still local work. Treating the document as settled here would let a
       // REST mutation reload the server copy over those keystrokes.
       if (sendTimer.current || unsentText.current !== null) return null;
+      if (doc && remoteDeliveries.current.get(doc)?.pending) return null;
       return doc?.settled ? doc.version : null;
     },
     reload: () => {
@@ -1261,6 +1333,7 @@ export function useOverleafRealtime(options: {
         sendTimer.current
         || unsentText.current !== null
         || (doc && !doc.settled)
+        || (doc && remoteDeliveries.current.get(doc)?.pending)
       ) {
         setDetail(
           "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely.",

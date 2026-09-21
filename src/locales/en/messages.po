@@ -5990,6 +5990,10 @@ msgstr "This entry is cited in {count} places."
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
+msgstr "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 msgstr "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"

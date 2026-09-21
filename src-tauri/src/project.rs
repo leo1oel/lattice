@@ -4560,6 +4560,7 @@ pub fn apply_editor_transaction(
     path: String,
     content: String,
     base_content: Option<String>,
+    expected_content: Option<String>,
 ) -> Result<EditorWriteResult, String> {
     validate_transaction_path(&path)?;
     let absolute = root.join(&path);
@@ -4573,6 +4574,17 @@ pub fn apply_editor_transaction(
         None
     };
     let current_content = current.as_deref().unwrap_or_default();
+
+    // Live Overleaf deliveries know the exact disk version they may replace,
+    // not the common ancestor needed to merge an arbitrary join snapshot.
+    // Fail closed and let normal sync reconcile any external/agent edit.
+    if let Some(expected) = expected_content {
+        if current.as_deref() != Some(expected.as_str()) {
+            return Err(format!(
+                "Cannot apply the live update because {path} changed outside live editing."
+            ));
+        }
+    }
 
     let (next, external_changes_merged, had_conflicts) = match base_content {
         Some(base) if current_content != base => {
@@ -7072,6 +7084,48 @@ mod tests {
     }
 
     #[test]
+    fn live_editor_write_requires_the_expected_disk_snapshot() {
+        let root = temp_root("live-editor-agent-race");
+        fs::create_dir_all(root.join(".research/history")).unwrap();
+        let path = root.join("section.tex");
+        fs::write(&path, "agent caption").unwrap();
+        for remote in ["old caption", "remote caption"] {
+            let result = apply_editor_transaction(
+                &root,
+                "section.tex".to_string(),
+                remote.to_string(),
+                None,
+                Some("old caption".to_string()),
+            );
+            assert!(result.unwrap_err().contains("changed outside live editing"));
+            assert_eq!(fs::read_to_string(&path).unwrap(), "agent caption");
+        }
+        assert!(history(&root).unwrap().is_empty());
+        fs::remove_file(&path).unwrap();
+        assert!(apply_editor_transaction(
+            &root,
+            "section.tex".to_string(),
+            "remote caption".to_string(),
+            None,
+            Some("old caption".to_string()),
+        )
+        .is_err());
+        assert!(!path.exists());
+        fs::write(&path, "old caption").unwrap();
+        let result = apply_editor_transaction(
+            &root,
+            "section.tex".to_string(),
+            "remote caption".to_string(),
+            None,
+            Some("old caption".to_string()),
+        )
+        .unwrap();
+        assert_eq!(result.content, "remote caption");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "remote caption");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn stale_clean_editor_buffer_keeps_external_agent_edit() {
         let root = temp_root("editor-agent-replacement");
         fs::create_dir_all(root.join(".research/history")).unwrap();
@@ -7084,6 +7138,7 @@ mod tests {
             "draft.md".to_string(),
             seed.to_string(),
             Some(seed.to_string()),
+            None,
         )
         .unwrap();
 
@@ -7112,6 +7167,7 @@ mod tests {
             "draft.md".to_string(),
             local.to_string(),
             Some(base.to_string()),
+            None,
         )
         .unwrap();
 
@@ -7140,6 +7196,7 @@ mod tests {
             "draft.md".to_string(),
             local.to_string(),
             Some(base.to_string()),
+            None,
         )
         .unwrap();
 

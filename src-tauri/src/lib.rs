@@ -1191,6 +1191,7 @@ async fn read_project_file(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 async fn write_project_file(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
@@ -1198,13 +1199,14 @@ async fn write_project_file(
     content: String,
     project_root: String,
     base_content: Option<String>,
+    expected_content: Option<String>,
 ) -> Result<project::EditorWriteResult, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the file could be written.".to_string())?;
     run_blocking("Project file write", move || {
-        project::apply_editor_transaction(&root, path, content, base_content)
+        project::apply_editor_transaction(&root, path, content, base_content, expected_content)
     })
     .await
 }

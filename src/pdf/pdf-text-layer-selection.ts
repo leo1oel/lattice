@@ -364,6 +364,9 @@ function glyphScaleX(span: HTMLElement): number {
  * the visual run. Single-glyph spans keep the stretch: there is no gap to pad.
  */
 export function alignPdfTextLayerGlyphs(textLayer: HTMLElement): void {
+  const adjustments: { span: HTMLElement; spacing: number }[] = [];
+  // Read all geometry before writing any styles. Interleaving these forces a
+  // full text-layer layout for every run and stalls scrolling on dense pages.
   for (const span of textLayer.querySelectorAll<HTMLElement>("span")) {
     if (span.classList.contains("markedContent") || span.classList.contains("endOfContent")) continue;
     const glyphs = [...(span.textContent ?? "")];
@@ -374,7 +377,10 @@ export function alignPdfTextLayerGlyphs(textLayer: HTMLElement): void {
     if (!(layoutWidth > 0)) continue;
     const extra = layoutWidth * (Math.abs(scaleX) - 1);
     if (Math.abs(extra) < 0.5) continue;
-    span.style.letterSpacing = `${extra / (glyphs.length - 1)}px`;
+    adjustments.push({ span, spacing: extra / (glyphs.length - 1) });
+  }
+  for (const { span, spacing } of adjustments) {
+    span.style.letterSpacing = `${spacing}px`;
     span.style.setProperty("--scale-x", "1");
   }
 }

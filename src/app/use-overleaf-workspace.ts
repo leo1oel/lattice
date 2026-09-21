@@ -26,7 +26,7 @@ import {
   overleafLinkMatchesSession,
   toMessage,
 } from "../app-utils";
-import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
+import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments, type OverleafComments } from "../overleaf/use-overleaf-comments";
@@ -180,6 +180,45 @@ export type OverleafWorkspaceDeps = {
   resolveOverleafSyncRef: RefObject<(() => void) | null>;
 };
 
+/** Apply only against the buffer and disk versions the live channel knows. */
+export async function applyOverleafRemoteText(
+  deps: Pick<OverleafWorkspaceDeps,
+    "projectRef" | "projectOperationGenerationRef" | "activeFileRef" | "sourceRef" | "savedSourceRef"
+    | "setSource" | "setSavedSource" | "setViewRestore" | "compile">,
+  text: string,
+  caret: number,
+  context: OverleafRemoteTextContext,
+): Promise<boolean> {
+  const { path, projectRoot, baseContent } = context;
+  const generation = deps.projectOperationGenerationRef.current;
+  const isCurrent = () => context.isCurrent()
+    && deps.projectRef.current?.root === projectRoot
+    && deps.projectOperationGenerationRef.current === generation
+    && deps.activeFileRef.current === path;
+  if (!isCurrent() || deps.sourceRef.current !== baseContent) return false;
+  const saved = deps.savedSourceRef.current;
+  if (text === baseContent && saved !== baseContent) return false;
+  // This is a compare-and-swap, not an unconditional replacement or a merge
+  // against a guessed ancestor. In particular, a join snapshot must not erase
+  // agent edits that have not reached the editor yet. Divergence is reconciled
+  // by ordinary sync, which has the actual shared Overleaf baseline.
+  await invoke("write_project_file", {
+    path, projectRoot, content: text, expectedContent: saved,
+  });
+  if (!isCurrent() || deps.sourceRef.current !== baseContent || deps.savedSourceRef.current !== saved) {
+    // Typing during IPC stays dirty against its original saved base; the
+    // ordinary editor save can merge it with the remote bytes now on disk.
+    return false;
+  }
+  deps.sourceRef.current = text;
+  deps.savedSourceRef.current = text;
+  deps.setSource(text);
+  deps.setSavedSource(text);
+  deps.setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
+  if (text !== saved) void deps.compile();
+  return true;
+}
+
 /**
  * The Overleaf bridge: link discovery, syncing (manual, automatic and live),
  * the realtime channel and everything that rides it — presence, chat, comment
@@ -197,9 +236,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     source,
     sourceRef,
     savedSourceRef,
-    setSource,
-    setSavedSource,
-    setViewRestore,
     viewStateRef,
     editorPosition,
     editorPositionRef,
@@ -968,26 +1004,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // editor is active creates competing writers for the same file.
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
     readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
-    onRemoteText: (text, caret) => {
-      const path = activeFileRef.current;
-      if (!path) return;
-      setSource(text);
-      // Write it through so a rebuild and any later sync see the same bytes,
-      // and only call it saved once it is. Marking it saved first and dropping
-      // the failure meant a write that could not happen — a full disk, a
-      // read-only volume — left the editor showing their paragraph while the
-      // file still held the old one: the build compiled the old text, and the
-      // next sync read the old bytes back off disk, called them a local edit,
-      // and pushed them over the top of what they had written.
-      void invoke("write_project_file", {
-        path,
-        content: text,
-        projectRoot: project?.root ?? null,
-      })
-        .then(() => setSavedSource(text))
-        .catch((reason) => setError(toMessage(reason)));
-      setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
-    },
+    onRemoteText: (text, caret, context) => applyOverleafRemoteText(deps, text, caret, context),
     onNotice: (message) => setNotice(message),
   });
   // The poll loop and the sync both read these mid-flight, so keep them in

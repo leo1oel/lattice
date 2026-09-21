@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
 
-const VERSION = "2.0.0-beta.1";
+const VERSION = "2.0.0-beta.2";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;

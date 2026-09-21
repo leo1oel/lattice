@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { spring } from "../components/ui/motion-values";
 
 const rowsSelector = '[data-file-tree-virtualized-sticky="true"] > [data-type="item"]:not([data-item-parked="true"])';
@@ -8,6 +9,28 @@ type Row = {
   expanded: string | null;
   picture: HTMLElement;
 };
+
+/** Pierre mounts its Shadow DOM after the owning component's layout pass. */
+export function useProjectTreeMotion(getViewport: () => HTMLElement | null) {
+  useLayoutEffect(() => {
+    let frame = 0;
+    let attempts = 0;
+    let stopMotion: (() => void) | undefined;
+    const attach = () => {
+      const scroller = getViewport();
+      if (!scroller) {
+        if (++attempts < 60) frame = requestAnimationFrame(attach);
+        return;
+      }
+      stopMotion = attachProjectTreeMotion(scroller);
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(frame);
+      stopMotion?.();
+    };
+  }, [getViewport]);
+}
 
 /** Animate the mounted window, never the virtualizer's fixed-height geometry.
  * Pierre reuses DOM slots for different paths. Both FLIP and exiting pictures
@@ -46,8 +69,8 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
   };
   const onScroll = () => {
     cancel();
-    // Do not measure/clone a window on every wheel tick. A subsequent DOM
-    // update or input gesture establishes the next stationary baseline.
+    // A new input gesture establishes the next stationary baseline; recycling
+    // rows during scrolling must not measure and clone the window again.
     previous.clear();
     scrollTop = scroller.scrollTop;
     scrollLeft = scroller.scrollLeft;
@@ -65,6 +88,12 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
   };
 
   const observer = new MutationObserver(() => {
+    // A virtualizer mutation can arrive before the scroll event. Check the
+    // live offset too, before any layout reads or deep row clones.
+    if (!previous.size || scrollTop !== scroller.scrollTop || scrollLeft !== scroller.scrollLeft) {
+      onScroll();
+      return;
+    }
     const elements = [...scroller.querySelectorAll<HTMLElement>(rowsSelector)];
     const toggled = elements.some((element) => {
       const old = previous.get(element.dataset.itemPath!);

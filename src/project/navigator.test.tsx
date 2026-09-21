@@ -340,6 +340,39 @@ describe("Navigator / papers", () => {
     expect(paperTitles()).toEqual([attention.title]);
   });
 
+  it.each(["open", "fetch", "import"])("does not %s a paper when Enter confirms an IME candidate", (action) => {
+    vi.useFakeTimers();
+    try {
+      const paper = { ...attention, title: "中文论文", hasFullText: action === "open" };
+      const { props } = renderNavigator({ importInput: "中文", papers: action === "import" ? [] : [paper] });
+      const input = screen.getByRole("searchbox", { name: "Search or import papers" });
+      const expectNoAction = () => {
+        expect(props.onPaper).not.toHaveBeenCalled();
+        expect(props.onFetchFullText).not.toHaveBeenCalled();
+        expect(props.onImport).not.toHaveBeenCalled();
+      };
+
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      expectNoAction();
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+      expectNoAction();
+      fireEvent.compositionStart(input);
+      fireEvent.keyDown(input, { key: "Enter", isComposing: false });
+      expectNoAction();
+      // WebKit can finish composition before dispatching the accepting Enter.
+      fireEvent.compositionEnd(input);
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 13, isComposing: false });
+      expectNoAction();
+
+      act(() => vi.advanceTimersByTime(0));
+      fireEvent.keyDown(input, { key: "Enter" });
+      const callback = action === "open" ? props.onPaper : action === "fetch" ? props.onFetchFullText : props.onImport;
+      expect(callback).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("opens the top match on Enter, and imports when there is none", () => {
     const { props, search } = renderNavigator();
     const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });

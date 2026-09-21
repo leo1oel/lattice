@@ -16,15 +16,17 @@ type MockPdfSlick = {
     options: Record<string, unknown>;
   };
   dispatch: ReturnType<typeof vi.fn>;
-  gotoPage: ReturnType<typeof vi.fn>;
+  gotoPage: ReturnType<typeof vi.fn<(page: number) => void>>;
   linkService: {
     page: number;
     goToDestination: (destination: MockPdfDestination) => Promise<void>;
   };
   loadDocument: ReturnType<typeof vi.fn>;
   unbindEvents: ReturnType<typeof vi.fn>;
+  finishReady: () => void;
   viewer: {
     cleanup: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     currentScale: number;
     currentScaleValue: string;
     getPageView: (index: number) => {
@@ -41,6 +43,7 @@ const pdfSlickMock = vi.hoisted(() => ({
   viewportScale: 1,
   documentBytes: new Uint8Array([1, 2, 3]),
   deferLoad: false,
+  deferReady: false,
   pendingLoad: null as null | {
     onProgress?: (progress: { loaded: number; total: number; percent: number }) => void;
     resolve: () => void;
@@ -66,10 +69,25 @@ vi.mock("@pdfslick/core", () => ({
     l10n = { get: vi.fn(async (id: string) => id) };
     args: MockPdfSlick["args"];
     dispatch: ReturnType<typeof vi.fn>;
-    gotoPage: ReturnType<typeof vi.fn>;
+    gotoPage: MockPdfSlick["gotoPage"];
     linkService: MockPdfSlick["linkService"];
     loadDocument: ReturnType<typeof vi.fn>;
     unbindEvents = vi.fn();
+    readyListeners = new Set<() => void>();
+    pagesReady = false;
+    store = {
+      getState: () => ({ pagesReady: this.pagesReady }),
+      subscribe: (listener: () => void) => {
+        this.readyListeners.add(listener);
+        return () => this.readyListeners.delete(listener);
+      },
+    };
+    finishReady = () => {
+      // PDFSlick applies its initial scale after awaiting getOutline().
+      this.args.container.scrollTop = 0;
+      this.pagesReady = true;
+      this.readyListeners.forEach((listener) => listener());
+    };
     document: {
       numPages: number;
       getData: () => Promise<Uint8Array>;
@@ -91,6 +109,7 @@ vi.mock("@pdfslick/core", () => ({
       const emit = (name: string, event: object) => this.emit(name, event);
       this.viewer = {
         cleanup: vi.fn(),
+        update: vi.fn(),
         get currentScale() {
           return currentScale;
         },
@@ -124,6 +143,7 @@ vi.mock("@pdfslick/core", () => ({
       };
       this.gotoPage = vi.fn((page: number) => {
         this.linkService.page = page;
+        args.container.scrollTop = (page - 1) * 1_000;
         this.emit("pagechanging", { pageNumber: page });
       });
       this.dispatch = vi.fn((name: string, event: Record<string, unknown>) => {
@@ -213,6 +233,7 @@ vi.mock("@pdfslick/core", () => ({
           });
         }
         this.emit("pagesinit", {});
+        if (!pdfSlickMock.deferReady) this.finishReady();
         this.emit("pagerendered", { pageNumber: 1 });
         for (let pageNumber = 1; pageNumber <= pdfSlickMock.numPages; pageNumber += 1) {
           this.emit("textlayerrendered", { pageNumber });
@@ -249,6 +270,7 @@ describe("PDFSlick viewer integration", () => {
     pdfSlickMock.viewportScale = 1;
     pdfSlickMock.documentBytes = new Uint8Array([1, 2, 3]);
     pdfSlickMock.deferLoad = false;
+    pdfSlickMock.deferReady = false;
     pdfSlickMock.pendingLoad = null;
     localStorage.clear();
   });
@@ -619,6 +641,70 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => {
       expect(replacementPage.querySelector("[data-sync-target='sync-stable']")).toBeInTheDocument();
     });
+  });
+
+  it.each([
+    { pages: 3, viewportScale: 1, restoredTop: 2_817 },
+    { pages: 2, viewportScale: 1.5, restoredTop: 3_125.5 },
+  ])("keeps the old viewer until ready and restores its latest offset with $pages pages at scale $viewportScale", async ({ pages, viewportScale, restoredTop }) => {
+    const view = render(<PdfPreview url="https://example.test/old.pdf" pdfBase64={null} />);
+    await view.findByLabelText("PDF page 3");
+    const old = pdfSlickMock.instances[0];
+    act(() => old.gotoPage(3));
+    old.args.container.scrollTop = 2_430;
+    Object.defineProperty(old.viewer.getPageView(2).div, "offsetTop", { value: 2_000 });
+
+    pdfSlickMock.deferReady = true;
+    pdfSlickMock.numPages = pages;
+    pdfSlickMock.viewportScale = viewportScale;
+    view.rerender(<PdfPreview url="https://example.test/new.pdf" pdfBase64={null} />);
+    await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(2), { timeout: 2_500 });
+    const replacement = pdfSlickMock.instances[1];
+    expect(old.args.container.isConnected).toBe(true);
+    expect(replacement.args.container).toHaveClass("pdf-viewer-staging");
+    // The reader keeps scrolling while loading; page geometry also changes.
+    old.args.container.scrollTop = 2_617;
+    old.args.container.scrollLeft = 37;
+    Object.defineProperty(replacement.viewer.getPageView(pages - 1).div, "offsetTop", { value: 2_200 });
+    act(() => replacement.finishReady());
+    await waitFor(() => expect(old.args.container.isConnected).toBe(false));
+    expect(replacement.gotoPage).toHaveBeenCalledWith(pages);
+    expect(replacement.args.container.scrollTop).toBe(restoredTop);
+    expect(replacement.args.container.scrollLeft).toBe(37);
+  });
+
+  it("redraws an existing source highlight without replaying its navigation on replacement", async () => {
+    const target = { id: "old-target", page: 2, x: 20, y: 80, width: 30, height: 12 };
+    const view = render(<PdfPreview url="https://example.test/old.pdf" pdfBase64={null} syncTarget={target} />);
+    await view.findByLabelText("Source location in PDF");
+    const old = pdfSlickMock.instances[0];
+    act(() => old.gotoPage(3));
+    old.args.container.scrollTop = 2_617;
+    view.rerender(<PdfPreview url="https://example.test/new.pdf" pdfBase64={null} syncTarget={target} />);
+    await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(2), { timeout: 2_500 });
+    const replacement = pdfSlickMock.instances[1];
+    await waitFor(() => expect(replacement.args.viewer.querySelector("[data-sync-target='old-target']")).not.toBeNull());
+    expect(replacement.gotoPage).not.toHaveBeenCalledWith(2);
+    expect(replacement.args.container.scrollTop).toBe(2_617);
+
+    replacement.gotoPage.mockClear();
+    act(() => { replacement.viewer.currentScale = 1.5; });
+    await act(async () => undefined);
+    expect(replacement.gotoPage).not.toHaveBeenCalled();
+
+    view.rerender(<PdfPreview url="https://example.test/new.pdf" pdfBase64={null} syncTarget={{ ...target, id: "new-target" }} />);
+    await waitFor(() => expect(replacement.gotoPage).toHaveBeenCalledWith(2));
+  });
+
+  it("does not promote a staged viewer after unmount", async () => {
+    pdfSlickMock.deferReady = true;
+    const view = render(<PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} />);
+    await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(1));
+    const pending = pdfSlickMock.instances[0];
+    view.unmount();
+    act(() => pending.finishReady());
+    expect(pending.gotoPage).not.toHaveBeenCalled();
+    expect(pending.args.container.isConnected).toBe(false);
   });
 
   it("restores local view state and destroys PDFSlick without leaving page nodes", async () => {

@@ -5986,6 +5986,10 @@ msgstr "此条目在 {count} 处被引用。"
 msgid "This entry is cited in 1 place."
 msgstr "此条目在 1 处被引用。"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
+msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，常规 Overleaf 同步将协调这些变化。"
+
 #: src/onboarding/onboarding-tour.tsx
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 msgstr "这个文件夹包含稿件、笔记、图片、画板、电子表格和引用的论文。点击文件即可打开"

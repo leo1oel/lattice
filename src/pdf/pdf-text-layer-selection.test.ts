@@ -460,6 +460,26 @@ describe("PDF title glyph scaling", () => {
     expect(spans[0]!.style.letterSpacing).toBe("");
   });
 
+  it("measures every run before changing layout, including compressed and astral glyphs", () => {
+    const { layer, spans } = glyphLayer("Wide", "😀ab", "Unchanged");
+    const scales = [1.5, 0.8, 1.01];
+    const widths = [90, 70, 120];
+    for (const [index, span] of spans.entries()) {
+      span.style.setProperty("--scale-x", String(scales[index]));
+      Object.defineProperty(span, "offsetWidth", {
+        get: () => {
+          // A style write before a later geometry read forces another layout.
+          expect(spans.map((run) => run.style.letterSpacing)).toEqual(["", "", ""]);
+          return widths[index];
+        },
+      });
+    }
+    alignPdfTextLayerGlyphs(layer);
+    expect(Number.parseFloat(spans[0]!.style.letterSpacing)).toBeCloseTo(15);
+    expect(Number.parseFloat(spans[1]!.style.letterSpacing)).toBeCloseTo(-7);
+    expect(spans[2]!.style.letterSpacing).toBe("");
+  });
+
   it("keeps the full scaled line box so descenders remain covered", () => {
     const overlay = pdfSelectionOverlayRect({ left: 10, top: 20, width: 80, height: 20 });
     expect(overlay).toMatchObject({ left: 10, top: 20, width: 80 });

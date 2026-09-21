@@ -96,6 +96,30 @@ it("clips inert exit pictures and moves surviving rows up, then cancels them on 
   expect(effects.every(e => e.cancel.mock.calls.length === 1)).toBe(true);
 });
 
+it.each(["before", "after"])("does not snapshot recycled rows when scroll fires %s the mutation, and resumes on input", async (order) => {
+  const { folder, sibling, window, scroller } = setup();
+  const clone = vi.spyOn(Element.prototype, "cloneNode");
+  const measure = vi.mocked(HTMLElement.prototype.getBoundingClientRect);
+  measure.mockClear();
+  for (let i = 1; i <= 3; i++) {
+    scroller.scrollTop = i * 32;
+    if (order === "before") scroller.dispatchEvent(new Event("scroll"));
+    sibling.dataset.itemPath = `file-${i}.tex`;
+    await flush();
+    if (order === "after") scroller.dispatchEvent(new Event("scroll"));
+  }
+  expect(clone).not.toHaveBeenCalled();
+  expect(measure).not.toHaveBeenCalled();
+  expect(effects).toHaveLength(0);
+
+  folder.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  window.insertBefore(row("a/new.tex", 42), sibling);
+  sibling.dataset.y = "74";
+  folder.setAttribute("aria-expanded", "true");
+  await flush();
+  expect(effects.find(e => e.element === sibling)?.frames[0]).toEqual({ transform: "translateY(-32px)" });
+});
+
 it("does not animate filtering, reduced motion, or a scroll-clamped collapse", async () => {
   const { window, folder, child, sibling, scroller } = setup(true);
   sibling.remove();

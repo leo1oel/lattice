@@ -200,7 +200,7 @@ afterEach(() => {
 
 function mount(
   activeFile: string,
-  onRemoteText: (text: string, caret: number) => void = () => undefined,
+  onRemoteText: Parameters<typeof useOverleafRealtime>[0]["onRemoteText"] = () => undefined,
 ) {
   return renderHook(
     (file: string) => useOverleafRealtime({
@@ -215,6 +215,96 @@ function mount(
     { initialProps: activeFile },
   );
 }
+
+describe("guarded remote delivery", () => {
+  it("serializes disk applies and does not send intermediate snapshots back to Overleaf", async () => {
+    let finish!: () => void;
+    const seen: string[] = [];
+    const bases: string[] = [];
+    const view = mount("a.tex", async (text, _caret, context) => {
+      seen.push(text);
+      bases.push(context.baseContent);
+      if (text === "alpha one") await new Promise<void>((resolve) => { finish = resolve; });
+    });
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: [{ p: 5, i: " one" }], source: "peer" });
+    await waitFor(() => expect(seen).toEqual(["alpha", "alpha one"]));
+    emit({ type: "docUpdate", docId: DOC_A, version: 11, ops: [{ p: 9, i: " two" }], source: "peer" });
+    act(() => view.result.current.pushLocal("alpha one"));
+    expect(view.result.current.liveFile).toBe(false);
+    expect(view.result.current.reserveOperation()).toBeNull();
+    expect(view.result.current.settledVersion()).toBeNull();
+    expect(seen).toEqual(["alpha", "alpha one"]);
+    await act(async () => finish());
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(seen).toEqual(["alpha", "alpha one", "alpha one two"]);
+    expect(bases).toEqual(["alpha", "alpha", "alpha one"]);
+    expect(sends).toEqual([]);
+    expect(view.result.current.settledVersion()).toBe(12);
+    view.unmount();
+  });
+
+  it("falls back without accepting a stale snapshot on reconnect", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let buffer = "alpha";
+    const view = mount("a.tex", (text) => text === buffer);
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    emit({ type: "disconnected", reason: "network changed" });
+    buffer = "agent revision while offline";
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_100); });
+    await waitFor(() => expect(joins.length).toBeGreaterThan(1));
+    await waitFor(() => expect(view.result.current.detail).toMatch(/outside live editing/));
+    expect(view.result.current.liveFile).toBe(false);
+    expect(view.result.current.livePaths).toEqual([]);
+    expect(sends).toEqual([]);
+    expect(buffer).toBe("agent revision while offline");
+    view.unmount();
+  });
+
+  it("invalidates an in-flight apply across a file switch and reopen", async () => {
+    let finish!: () => void;
+    let oldIsCurrent = () => true;
+    const view = mount("a.tex", async (text, _caret, context) => {
+      if (text === "alpha one") {
+        oldIsCurrent = context.isCurrent;
+        await new Promise<void>((resolve) => { finish = resolve; });
+        return false;
+      }
+    });
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: [{ p: 5, i: " one" }], source: "peer" });
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    view.rerender("b.tex");
+    await waitFor(() => expect(view.result.current.docId).toBe(DOC_B));
+    view.rerender("a.tex");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(oldIsCurrent()).toBe(false);
+    await act(async () => finish());
+    expect(view.result.current.docId).toBe(DOC_A);
+    expect(view.result.current.liveFile).toBe(true);
+    view.unmount();
+  });
+
+  it("retains unacknowledged operations when a disk conflict falls back to sync", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = mount("a.tex", (text) => text === "alpha");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    await act(async () => {
+      view.result.current.pushLocal("alpha local");
+      vi.advanceTimersByTime(300);
+    });
+    expect(sends).toHaveLength(1);
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: [{ p: 0, i: "remote " }], source: "peer" });
+    await waitFor(() => expect(view.result.current.detail).toMatch(/outside live editing/));
+    expect(view.result.current.liveFile).toBe(false);
+    expect(view.result.current.livePaths).toEqual(["a.tex"]);
+    expect(leaves).not.toContain(DOC_A);
+    emit({ type: "docAck", docId: DOC_A, version: 11 });
+    await waitFor(() => expect(view.result.current.livePaths).toEqual([]));
+    expect(leaves).toContain(DOC_A);
+    view.unmount();
+  });
+});
 
 function mountProject(projectRoot: string) {
   return renderHook(
@@ -335,7 +425,7 @@ describe("switching files with work in flight", () => {
       promise: new Promise((resolve) => { resolveJoin = resolve; }),
     };
     const remoteTexts: string[] = [];
-    const { result } = mount("notes.md", (text) => remoteTexts.push(text));
+    const { result } = mount("notes.md", (text) => { remoteTexts.push(text); });
     await waitFor(() => expect(result.current.status).toBe("live"));
 
     emit({
@@ -546,7 +636,9 @@ describe("an acknowledgement whose outcome is not known", () => {
     const onRemoteText = vi.fn();
     const { result } = mount("a.tex", onRemoteText);
     await waitFor(() => expect(result.current.liveFile).toBe(true));
-    expect(onRemoteText).toHaveBeenLastCalledWith("alpha", 0);
+    expect(onRemoteText).toHaveBeenLastCalledWith("alpha", 0, expect.objectContaining({
+      projectRoot: "/tmp/project", path: "a.tex", baseContent: "alpha",
+    }));
 
     await act(async () => {
       result.current.pushLocal("alpha edited");

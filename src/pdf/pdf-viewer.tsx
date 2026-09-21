@@ -456,6 +456,7 @@ export function PdfPreview({
   const fitModeRef = useRef(fitMode);
   const locationHistoryRef = useRef<PdfLocationHistory>({ back: [], forward: [] });
   const locationNavigationTokenRef = useRef(0);
+  const navigatedSyncTargetRef = useRef<string | null>(null);
   const viewStateFrameRef = useRef<number | null>(null);
   const viewStateReadyRef = useRef(!initialViewStateSnapshot);
   const textLayerDisposersRef = useRef(new Map<HTMLElement, () => void>());
@@ -535,7 +536,7 @@ export function PdfPreview({
   const [stableLoadKey, setStableLoadKey] = useState("");
 
   // Coalesce rapid rebuild fingerprints before replacing the active document.
-  // The old instance remains visible until PDFSlick's replacement reaches pagesinit.
+  // Keep the old instance readable until the replacement finishes initial scaling.
   useEffect(() => {
     if (!loadKey) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- source removal cancels the debounced replacement immediately.
@@ -572,6 +573,7 @@ export function PdfPreview({
     let loadFailure: unknown = null;
     let dataTimer: number | null = null;
     let timeout: number | null = null;
+    let unsubscribeReady = () => {};
     const root = document.createElement("div");
     // eslint-disable-next-line lingui/no-unlocalized-strings -- PDFSlick and app CSS class names.
     root.className = "pdfSlick pdfSlickViewer pdf-scroll-area-viewport";
@@ -691,6 +693,7 @@ export function PdfPreview({
       root,
       viewer,
       disposeDom: () => {
+        unsubscribeReady();
         if (dataTimer !== null) window.clearTimeout(dataTimer);
         if (linkService.goToDestination === trackedGoToDestination) {
           linkService.goToDestination = originalGoToDestination;
@@ -716,13 +719,32 @@ export function PdfPreview({
     };
 
     const promote = () => {
-      if (cancelled || promoted || !slick.document) return;
+      if (cancelled || promoted || !slick.document || !slick.store.getState().pagesReady) return;
       promoted = true;
+      unsubscribeReady();
+      if (timeout !== null) window.clearTimeout(timeout);
       updateLoadFeedback("rendering", null);
       const previous = activeRecordRef.current;
-      const restorePage = Math.min(pageNumberRef.current, slick.document.numPages);
-      const restoreTop = previous?.root.scrollTop ?? initialViewStateSnapshot?.scrollTop ?? 0;
+      // Zoom can also change while this document is staged.
+      slick.viewer.currentScaleValue = fitModeRef.current === "width"
+        ? "page-width"
+        : fitModeRef.current === "height" ? "page-fit" : String(toViewerScale(scaleRef.current));
+      const restorePage = Math.min(previous?.slick.linkService.page ?? pageNumberRef.current, slick.document.numPages);
+      let restoreTop = previous?.root.scrollTop ?? initialViewStateSnapshot?.scrollTop ?? 0;
       const restoreLeft = previous?.root.scrollLeft ?? initialViewStateSnapshot?.scrollLeft ?? 0;
+      // Read at handoff, not load start: the old viewer remains interactive.
+      // Anchor within the page, since earlier pages and fit scale may have changed.
+      const oldPage = previous?.slick.viewer.getPageView(previous.slick.linkService.page - 1) as PdfSlickPageView | undefined;
+      const newPage = slick.viewer.getPageView(restorePage - 1) as PdfSlickPageView | undefined;
+      if (oldPage?.div && newPage?.div) {
+        const ratio = (newPage.viewport?.scale ?? 1) / (oldPage.viewport?.scale ?? 1);
+        restoreTop = newPage.div.offsetTop + (restoreTop - oldPage.div.offsetTop) * ratio;
+      }
+      slick.gotoPage(restorePage);
+      root.scrollTop = restoreTop;
+      root.scrollLeft = restoreLeft;
+      // Publish the restored location to PDF.js before any later fit/resize pass.
+      slick.viewer.update();
       root.classList.remove("pdf-viewer-staging");
       resetLocationHistory();
       activeRecordRef.current = record;
@@ -730,23 +752,19 @@ export function PdfPreview({
       setActiveViewerGeneration((generation) => generation + 1);
       setNumPages(slick.document.numPages);
       setPageNumber(restorePage);
+      setScale(toAppScale(slick.viewer.currentScale));
       setLoadedKey(stableLoadKey);
       setPdfError("");
       onNumPagesRef.current?.(slick.document.numPages);
-      window.requestAnimationFrame(() => {
-        slick.gotoPage(restorePage);
-        root.scrollTop = restoreTop;
-        root.scrollLeft = restoreLeft;
-        viewStateReadyRef.current = true;
-        scheduleViewState();
-      });
+      viewStateReadyRef.current = true;
+      scheduleViewState();
       if (previous && previous !== record) disposeRecord(previous);
     };
 
-    slick.on("pagesinit", () => {
-      decoratePages();
-      promote();
-    });
+    // pagesinit precedes PDFSlick's async getOutline + initial scale assignment;
+    // loadDocument's promise is not a readiness barrier either. pagesReady is.
+    slick.on("pagesinit", decoratePages);
+    unsubscribeReady = slick.store.subscribe(() => promote());
     slick.on("pagerendered", () => {
       if (!firstPageRendered) {
         firstPageRendered = true;
@@ -809,11 +827,13 @@ export function PdfPreview({
     });
 
     timeout = window.setTimeout(() => {
-      if (loadSettled || cancelled) return;
+      if (promoted || cancelled) return;
       cancelled = true;
+      unsubscribeReady();
       clearLoadFeedback();
       if (!activeRecordRef.current) setPdfError(effectiveTimeoutMessage);
       setLoadedKey(stableLoadKey);
+      if (loadSettled) disposeRecord(record);
     }, PDF_LOAD_TIMEOUT_MS);
 
     void slick.loadDocument(source, {
@@ -830,12 +850,12 @@ export function PdfPreview({
     })
       .then(() => {
         loadSettled = true;
-        if (timeout !== null) window.clearTimeout(timeout);
         if (cancelled) {
           disposeRecord(record);
           return;
         }
         if (!slick.document) {
+          if (timeout !== null) window.clearTimeout(timeout);
           if (!activeRecordRef.current) {
             setPdfError(message(loadFailure ?? t`Could not load PDF`));
             setNumPages(null);
@@ -851,7 +871,10 @@ export function PdfPreview({
       .catch((reason) => {
         loadSettled = true;
         if (timeout !== null) window.clearTimeout(timeout);
-        if (cancelled) return;
+        if (cancelled) {
+          disposeRecord(record);
+          return;
+        }
         clearLoadFeedback();
         if (!activeRecordRef.current) {
           setPdfError(message(reason));
@@ -866,6 +889,7 @@ export function PdfPreview({
       if (timeout !== null) window.clearTimeout(timeout);
       if (promoted && activeRecordRef.current === record) return;
       cancelled = true;
+      unsubscribeReady();
       if (loadSettled) disposeRecord(record);
     };
   }, [
@@ -1155,7 +1179,11 @@ export function PdfPreview({
     syncHighlightRef.current?.remove();
     syncHighlightRef.current = null;
     if (!syncTarget || syncTarget.page < 1 || syncTarget.page > (numPages ?? 0)) return;
-    record.slick.gotoPage(syncTarget.page);
+    // Reloads and scale changes need a new highlight, not a replay of an old jump.
+    if (navigatedSyncTargetRef.current !== syncTarget.id) {
+      navigatedSyncTargetRef.current = syncTarget.id;
+      record.slick.gotoPage(syncTarget.page);
+    }
     const frame = window.requestAnimationFrame(() => {
       const pageView = record.slick.viewer.getPageView(syncTarget.page - 1) as PdfSlickPageView | undefined;
       const pageElement = pageView?.div;

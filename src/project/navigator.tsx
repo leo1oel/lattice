@@ -40,9 +40,9 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { SearchField } from "../components/ui/search-field";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
-import { spring } from "../components/ui/motion-values";
-import fluidHoverCSS from "../components/ui/fluid-hover.css?inline";
+import { useProjectTreeMotion } from "./project-tree-motion";
 import { ProjectTreeHover } from "./project-tree-hover";
+import fluidHoverCSS from "../components/ui/fluid-hover.css?inline";
 import { absoluteProjectPath, paperKey, paperSubtitle } from "../app-utils";
 import type { FileNode, GitFileStatus, PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
@@ -183,10 +183,18 @@ function findPierreItemPath(event: { nativeEvent: Event }): string | null {
 
 const PIERRE_TREE_CSS = `
 ${fluidHoverCSS}
-/* The virtual window is already positioned; its sticky offsets must retain
-   Pierre's scroll model rather than the generic surface's relative default. */
+/* Preserve Pierre's virtual-window geometry while hosting the hover fill. */
 [data-file-tree-virtualized-sticky="true"].fluid-hover-surface {
   position: sticky;
+}
+
+/* Wheel/scroll can recycle rows beneath a stationary pointer. Keep selection
+   and context-menu feedback, but suppress both hover paint paths until idle. */
+[data-tree-scrolling] .fluid-hover-highlight {
+  display: none;
+}
+[data-tree-scrolling] button[data-type="item"]:hover:not([data-item-selected="true"]):not([data-item-context-hover="true"]) {
+  background: transparent;
 }
 
 :host {
@@ -879,6 +887,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       ?? null,
     [model],
   );
+  useProjectTreeMotion(getTreeScrollViewport);
   const pasteImageIntoSelection = () => {
     const selectedPath = model.getSelectedPaths().at(-1) ?? "";
     const normalizedPath = fromPierrePath(selectedPath);
@@ -1526,6 +1535,13 @@ export function Navigator(props: {
   const importFillRef = usePaperImportProgressFill(paperProgressActive, props.importStageId);
   const paperImportRef = useRef<HTMLInputElement | null>(null);
   const paperViewportRef = useRef<HTMLDivElement | null>(null);
+  const paperComposingRef = useRef(false);
+  const paperCompositionClearTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (paperCompositionClearTimerRef.current !== null) {
+      window.clearTimeout(paperCompositionClearTimerRef.current);
+    }
+  }, []);
   const trimmedPaperQuery = props.importInput.trim();
   useEffect(() => {
     if (props.recentImport?.query === trimmedPaperQuery && paperViewportRef.current) paperViewportRef.current.scrollTop = 0;
@@ -1666,8 +1682,27 @@ export function Navigator(props: {
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
             onClear={paperProgressActive ? undefined : () => props.setImportInput("")}
+            onCompositionStart={() => {
+              if (paperCompositionClearTimerRef.current !== null) {
+                window.clearTimeout(paperCompositionClearTimerRef.current);
+              }
+              paperCompositionClearTimerRef.current = null;
+              paperComposingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              if (paperCompositionClearTimerRef.current !== null) {
+                window.clearTimeout(paperCompositionClearTimerRef.current);
+              }
+              // WebKit can emit compositionend before the Enter that accepts
+              // the candidate. Keep the guard through that event turn.
+              paperCompositionClearTimerRef.current = window.setTimeout(() => {
+                paperComposingRef.current = false;
+                paperCompositionClearTimerRef.current = null;
+              }, 0);
+            }}
             onKeyDown={(event) => {
               if (event.key !== "Enter" || paperProgressActive) return;
+              if (event.nativeEvent.isComposing || event.keyCode === 229 || paperComposingRef.current) return;
               const localMatch = filteredPapers[0];
               if (localMatch) activatePaper(localMatch);
               else props.onImport();
@@ -1699,11 +1734,9 @@ export function Navigator(props: {
           className="paper-list"
           viewportRef={paperViewportRef}
           orientation="both"
-          // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS classes, not UI copy.
-          contentClassName="paper-list-content fluid-hover-surface"
+          contentClassName="paper-list-content"
           viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
-          <FluidHoverSurface selector=".paper-row" preserveSelection transition={spring.fast} />
           {filteredPapers.map((paper) => {
             const fetchState = props.paperFetchStates[paperKey(paper)];
             const locallyReadable = paper.hasFullText || paper.hasBlog;

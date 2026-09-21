@@ -497,7 +497,12 @@ function isSynaraSettingsTab(tab: SettingsTab): boolean {
 
 function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
   for (const node of nodes) {
-    if (node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink") paths.add(node.path);
+    // SVG is text on disk but remains an image when tabs are selected or restored.
+    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
+    if (!isDirectory && (isProjectAssetFilePath(node.path)
+      || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink")) {
+      paths.add(node.path);
+    }
     if (node.children.length) collectAssetPaths(node.children, paths);
   }
   return paths;
