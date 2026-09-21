@@ -250,7 +250,6 @@ export async function checkAppSizeBudgets(
     rolldownRuntimeBytes: runtimeBytes,
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
     claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
-    macosSynaraRuntimeBudgetBytes: synaraRuntimeBudgetBytes,
     presentationRuntimeBudgetBytes: PRESENTATION_RUNTIME_BUDGET_BYTES,
     chromiumRuntimeBudgetBytes: CHROMIUM_RUNTIME_BUDGET_BYTES,
   };
