@@ -9018,6 +9018,61 @@ describe("project workspace", () => {
     expect(document.querySelector(".source-editor")).toBeInTheDocument();
   });
 
+  it.each([
+    { docked: true, sidebarOpen: false },
+    { docked: true, sidebarOpen: true },
+    { docked: false, sidebarOpen: false },
+  ])("opens a compile repair in the existing Agent placement ($docked, sidebar $sidebarOpen)", async ({ docked, sidebarOpen }) => {
+    await Promise.all([
+      import("./build/compile-diagnostics-panel"),
+      import("./canvas/document-canvas"),
+      import("./app/app-agent-panel"),
+    ]);
+    const snapshot = {
+      root: "/tmp/repair-placement",
+      manifest: {
+        schemaVersion: 1, projectId: "repair-placement", name: "Repair placement",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    localStorage.setItem("lattice.agent-docked.v1", docked ? "1" : "0");
+    localStorage.setItem("lattice.sidebar-open.v1", sidebarOpen ? "1" : "0");
+    localStorage.setItem("lattice.sidebar-mode.v1", "project");
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      if (command === "build_project") return {
+        success: true, hasPdf: false, durationMs: 1, rootDocument: "main.tex", log: "",
+        diagnostics: [{ file: "main.tex", line: 1, level: "warning", message: "Undefined reference." }],
+      };
+      if (command === "compile_repair") {
+        return (args as { action: string }).action === "start"
+          ? { threadId: "repair-placement-task" }
+          : { status: "running" };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: /1 warning/i }));
+    const originalFrame = document.querySelector('iframe[title="Agent"]');
+    fireEvent.click(await screen.findByRole("button", { name: "Fix all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View repair" }));
+    await waitFor(() => {
+      const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(frame).not.toBeNull();
+      expect(new URL(frame!.src).pathname).toBe("/repair-placement-task");
+      expect(frame!.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
+      if (docked) expect(frame).toBe(originalFrame);
+    });
+    expect(Boolean(document.querySelector(".agent-dock-header"))).toBe(docked);
+    expect(document.querySelector(".workspace")?.classList.contains("sidebar-hidden"))
+      .toBe(docked && !sidebarOpen);
+    expect(localStorage.getItem("lattice.sidebar-mode.v1")).toBe(docked ? "project" : "agent");
+  });
+
   it("repairs all compile errors and warnings with panel permissions and reloads before recompiling", async () => {
     await import("./build/compile-diagnostics-panel");
     await import("./canvas/document-canvas");

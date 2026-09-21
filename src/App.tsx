@@ -10110,8 +10110,10 @@ function App() {
                     persistSynaraThread(project.root, threadId);
                     setSynaraRuntimeRequested(true);
                     setSynaraFrameMounted(true);
-                    setSidebarMode("agent");
-                    setSidebarOpen(true);
+                    if (!agentDocked) {
+                      setSidebarMode("agent");
+                      setSidebarOpen(true);
+                    }
                     const frame = synaraIframeRef.current;
                     if (frame && synaraOrigin) {
                       const url = new URL(frame.src);
