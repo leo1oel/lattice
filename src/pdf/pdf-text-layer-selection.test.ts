@@ -193,6 +193,28 @@ describe("PDF text-layer selection clipping", () => {
 describe("PDF text-layer selection styles", () => {
   const css = String(readFileSync("src/pdf/pdf-viewer.css", "utf8"));
 
+  it("hit-tests line gaps inside the text layer only while dragging", () => {
+    // WebKit otherwise hits the canvas when a horizontal drag strays just
+    // outside a glyph box, extending the native range back to the page start.
+    // Keeping has-selection click-through also preserves blank-click clearing.
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.append(style);
+    const { layer } = glyphLayer("Hello");
+    try {
+      expect(getComputedStyle(layer).pointerEvents).toBe("none");
+      layer.classList.add("selecting");
+      expect(getComputedStyle(layer).pointerEvents).toBe("auto");
+      expect(getComputedStyle(layer).userSelect).toBe("none");
+      layer.classList.remove("selecting");
+      layer.classList.add("has-selection");
+      expect(getComputedStyle(layer).pointerEvents).toBe("none");
+    } finally {
+      layer.remove();
+      style.remove();
+    }
+  });
+
   it("keeps the page box unselectable and scopes the highlight to glyph spans", () => {
     expect(css).toContain("pointer-events: none; user-select: none;");
     expect(css).toContain(".pdf-text-layer span::selection, .pdf-text-layer br::selection, .pdf-text-layer .endOfContent::selection");

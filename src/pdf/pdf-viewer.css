@@ -65,6 +65,10 @@
    in the webview) cannot wash the page blue. They opt into selection only
    while the user is dragging or holding a range that started in this layer. */
 .pdf-text-layer { --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); position: absolute; z-index: 1; inset: 0; overflow: clip; line-height: 1; transform-origin: 0 0; text-align: initial; text-size-adjust: none; forced-color-adjust: none; pointer-events: none; user-select: none; }
+/* Keep drag hit-testing inside the text layer, including the gaps between
+   glyphs/lines. Otherwise WebKit hits the canvas/page and jumps the range to
+   the page start. Outside a drag, blank clicks still pass through normally. */
+.pdf-text-layer.selecting { pointer-events: auto; }
 .pdf-text-layer :is(span, br) { position: absolute; color: transparent; white-space: pre; cursor: text; transform-origin: 0 0; user-select: none; pointer-events: auto; }
 .pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }
 .pdf-text-layer.selecting :is(span, br),
