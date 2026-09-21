@@ -500,6 +500,14 @@ fn is_stale_previous_invocation_log(log: &str) -> bool {
         || (lower.contains("nothing to do") && lower.contains("gave an error in previous"))
 }
 
+fn latexmk_pdf_default(engine: &str) -> &'static str {
+    match project::latexmk_engine_arg(engine) {
+        "-pdfxe" => "$pdf_mode ||= 5;",
+        "-pdflua" => "$pdf_mode ||= 4;",
+        _ => "$pdf_mode ||= 1;",
+    }
+}
+
 fn run_latexmk(
     root: &Path,
     force: bool,
@@ -522,8 +530,12 @@ fn run_latexmk(
         .arg("-halt-on-error")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // Prefer project latexmkrc when present; otherwise pass Lattice's selected engine.
-    if !project::has_latexmkrc(root) {
+    if project::has_latexmkrc(root) {
+        // An rc file may only define asset rules, leaving latexmk's default
+        // DVI target active. -e runs after rc loading: supply a PDF default
+        // without overriding an explicitly configured PDF pipeline.
+        command.arg("-e").arg(latexmk_pdf_default(&manifest.engine));
+    } else {
         command.arg(project::latexmk_engine_arg(&manifest.engine));
     }
     if force {
@@ -1168,6 +1180,73 @@ mod tests {
 
     fn temp_root() -> PathBuf {
         std::env::temp_dir().join(format!("lattice-latex-e2e-{}", Uuid::new_v4()))
+    }
+
+    #[test]
+    #[ignore = "requires latexmk and a working pdfLaTeX installation"]
+    fn asset_only_rc_builds_pdf_and_resolves_references() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        fs::write(
+            root.join(".latexmkrc"),
+            "# Asset rules, no engine selection.\n",
+        )
+        .unwrap();
+        // The repair agent forced PDF output inside a DVI-targeted build.
+        // Both citation and label resolution must converge, not just emit a PDF.
+        fs::write(
+            root.join("main.tex"),
+            concat!(
+                "\\pdfoutput=1\n\\documentclass{article}\n\\begin{document}\n",
+                "See Section~\\ref{sec:test} and \\cite{paper}.\n",
+                "\\section{Test}\\label{sec:test}\n",
+                "\\begin{thebibliography}{1}\\bibitem{paper}A reference.\\end{thebibliography}\n",
+                "\\end{document}\n",
+            ),
+        )
+        .unwrap();
+        let result = run_latexmk(&root, false, &new_active_build(), Instant::now()).unwrap();
+        assert!(result.success && result.has_pdf, "{}", result.log);
+        let log = fs::read_to_string(root.join("main.log")).unwrap();
+        assert!(!log.contains("undefined"), "{log}");
+        assert!(!log.contains("Rerun to get"), "{log}");
+        let database = fs::read_to_string(root.join("main.fdb_latexmk")).unwrap();
+        assert!(database.contains("[\"pdflatex\"]"), "{database}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires latexmk"]
+    fn rc_pdf_pipeline_takes_priority_over_selected_engine() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        for (engine, fallback) in [("pdf", 1), ("xelatex", 5), ("lualatex", 4)] {
+            for configured in [0, 1, 2, 3, 4, 5] {
+                fs::write(
+                    root.join(".latexmkrc"),
+                    format!("$pdf_mode = {configured};\n"),
+                )
+                .unwrap();
+                let output = commands::command("latexmk")
+                    .current_dir(&root)
+                    .arg("-e")
+                    .arg(latexmk_pdf_default(engine))
+                    .arg("-e")
+                    .arg("print qq(LATTICE_MODE=$pdf_mode\\n); exit 0;")
+                    .output()
+                    .unwrap();
+                let expected = if configured == 0 {
+                    fallback
+                } else {
+                    configured
+                };
+                assert!(output.status.success());
+                assert!(String::from_utf8_lossy(&output.stdout)
+                    .contains(&format!("LATTICE_MODE={expected}\n")));
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
