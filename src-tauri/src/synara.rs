@@ -1072,7 +1072,13 @@ mod tests {
             revision: None,
             state: Default::default(),
         };
-        let payload = serde_json::json!({"workspaceRoot":"/paper","diagnostic":{"message":"Undefined reference","line":17}});
+        let payload = serde_json::json!({
+            "workspaceRoot": "/paper", "runtimeMode": "full-access", "rootDocument": "main.tex",
+            "diagnostics": [
+                {"level": "warning", "message": "Undefined reference", "file": "results.tex", "line": 17},
+                {"level": "error", "message": "Undefined control sequence", "file": "main.tex", "line": 42}
+            ]
+        });
         assert_eq!(
             super::compile_repair_request(&runtime, "start", None, payload.clone()).unwrap()
                 ["threadId"],

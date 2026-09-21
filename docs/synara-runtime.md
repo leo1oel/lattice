@@ -213,10 +213,12 @@ contains only checkpoint identity, timing, success, project-relative root docume
 error/warning counts. It never includes the build log, diagnostic text, paper content, or absolute
 workspace root.
 
-The diagnostics panel's **Fix** action is a separate, user-initiated flow, not part of that telemetry relay.
-It saves open buffers, sends the selected diagnostic to an independent Synara task using **Settings → Models → Compile repair model**, and recompiles after the task completes.
-The repair model can read and edit the project through its ordinary provider tools; the supplied diagnostic is untrusted context, not instructions.
-The task retains normal approval boundaries, does not replace the active conversation, and can be opened from **View repair** when approval is needed.
+The diagnostics panel's **Fix all** action is a separate, user-initiated flow, not part of that telemetry relay.
+It saves open buffers, sends all current errors and warnings to one independent Synara task using **Settings → Models → Compile repair model**, and recompiles after the task completes.
+The task inherits the Agent panel's selected permission mode (including full access) for both creation and turn start; it never silently substitutes a different mode.
+The repair model can read and edit the project through its ordinary provider tools; the supplied diagnostics are untrusted context, not instructions.
+The task does not replace the active conversation and can be opened from **View repair** when approval is needed.
+Oversized batches are rejected explicitly rather than truncated (1000 diagnostics, 8 KiB per message, 1 MiB request body, and the provider's 120,000-character prompt limit).
 Lattice temporarily disables editor writes while the repair runs and rejects repair in read-only projects.
 Cancellation waits for a terminal provider state; switching projects cancels the outgoing repair and discards its late results.
 Each click runs one repair attempt, with no automatic build-fix loop; remaining diagnostics stay visible after recompilation.

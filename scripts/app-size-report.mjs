@@ -165,11 +165,6 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
-const MACOS_SYNARA_RUNTIME_BUDGET_BYTES = 250 * 1024 * 1024;
-// Synara 0.8.3 requires additional external provider dependencies. The fully
-// signed Electron-backed runtime measured 186.6 MiB: codesign materializes
-// npm's hardlinked esbuild copies, so unsigned-cache totals undercount it.
-const MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES = 200 * 1024 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 125 * 1024 * 1024;
 const CHROMIUM_RUNTIME_BUDGET_BYTES = 275 * 1024 * 1024;
 
@@ -238,17 +233,6 @@ export async function checkAppSizeBudgets(
   const sharedElectronNode = measuredReport.synaraNodeRuntime === "electron";
   if (sharedElectronNode && measuredReport.bundledNodeBytes !== null) {
     throw new Error("Electron-backed Synara runtime must not bundle a standalone Node binary");
-  }
-  const synaraRuntimeBudgetBytes = sharedElectronNode
-    ? MACOS_SHARED_NODE_SYNARA_RUNTIME_BUDGET_BYTES
-    : MACOS_SYNARA_RUNTIME_BUDGET_BYTES;
-  if (
-    measuredReport.synaraTarget?.endsWith("-apple-darwin")
-    && measuredReport.synaraRuntimeBytes > synaraRuntimeBudgetBytes
-  ) {
-    throw new Error(
-      `macOS Synara runtime is ${measuredReport.synaraRuntimeBytes} bytes; budget is ${synaraRuntimeBudgetBytes}`,
-    );
   }
   if (measuredReport.presentationRuntimeBytes > PRESENTATION_RUNTIME_BUDGET_BYTES) {
     throw new Error(

@@ -2228,12 +2228,12 @@ msgid "Fit page to width"
 msgstr "适合页面宽度"
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Fix"
-msgstr "修正"
+msgid "Fix all"
+msgstr "全部修正"
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Fix with the repair model, then recompile"
-msgstr "使用修正模型修复此问题，然后重新编译"
+msgid "Fix all errors and warnings, then recompile"
+msgstr "修正所有错误和警告，然后重新编译"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Flat"
@@ -3486,6 +3486,10 @@ msgstr "自然连接 / 蝶形"
 msgid "Navigate"
 msgstr "导航"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Needs approval"
+msgstr "等待授权"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Negation / not"
 msgstr "否定 / 非"
@@ -3952,6 +3956,10 @@ msgstr "打开论文概览"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the PDF in Lattice or your browser"
 msgstr "在 Lattice 或浏览器中打开 PDF"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Open the repair task to continue."
+msgstr "打开修正任务以继续。"
 
 #: src/history/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
@@ -4718,18 +4726,13 @@ msgstr "重新打开评论"
 msgid "Repair cancelled."
 msgstr "已取消修正。"
 
-#: src/build/compile-diagnostics-panel.tsx
 #: src/build/use-compile-repair.ts
 msgid "Repair failed."
 msgstr "修正失败。"
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Repair finished. Check the new build results."
-msgstr "修正已完成，请检查新的编译结果。"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Repair needs approval. Open the repair task to continue."
-msgstr "修正需要授权，请打开修正任务继续。"
+msgid "Repair finished"
+msgstr "修正完成"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repairing…"
@@ -5594,10 +5597,6 @@ msgstr "正在启动 Open Slide"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Starting Open Slide…"
 msgstr "正在启动 Open Slide…"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Starting repair…"
-msgstr "正在启动修正…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"

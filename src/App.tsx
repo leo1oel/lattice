@@ -4998,6 +4998,7 @@ function App() {
   const compileRepair = useCompileRepair({
     projectRoot: project?.root,
     rootDocument: build?.rootDocument,
+    runtimeMode: synaraPermissionMode,
     enabled: repairWritable && !building,
     save: async () => {
       if (visualMarkdownFlushRef.current?.() === false) return false;
@@ -10081,7 +10082,7 @@ function App() {
                   onExpandedChange={setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
                   onInstallDependency={installTexDependency}
-                  onFix={(diagnostic) => { setSynaraRuntimeRequested(true); void compileRepair.start(diagnostic); }}
+                  onFixAll={() => { setSynaraRuntimeRequested(true); void compileRepair.start(build.diagnostics); }}
                   fixDisabled={!repairWritable || building || compileRepair.busy}
                   repair={compileRepair.state}
                   onCancelRepair={() => void compileRepair.cancel()}

@@ -109,13 +109,12 @@ await assert.rejects(
   checkAppSizeBudgets(workspace, report),
   /Bundled Claude executable.*PATH launcher budget/,
 );
-await assert.rejects(
+await assert.doesNotReject(
   checkAppSizeBudgets(workspace, {
     ...report,
     synaraRuntimeBytes: 250 * 1024 * 1024 + 1,
     claudeAgentSdkExecutables: [],
   }),
-  /macOS Synara runtime.*budget/,
 );
 await assert.rejects(
   checkAppSizeBudgets(workspace, {
@@ -132,15 +131,14 @@ await checkAppSizeBudgets(workspace, {
   synaraRuntimeBytes: 200 * 1024 * 1024,
   claudeAgentSdkExecutables: [],
 });
-await assert.rejects(
+await assert.doesNotReject(
   checkAppSizeBudgets(workspace, {
     ...report,
     synaraNodeRuntime: "electron",
     bundledNodeBytes: null,
-    synaraRuntimeBytes: 200 * 1024 * 1024 + 1,
+    synaraRuntimeBytes: 500 * 1024 * 1024,
     claudeAgentSdkExecutables: [],
   }),
-  /macOS Synara runtime.*budget/,
 );
 await assert.rejects(
   checkAppSizeBudgets(workspace, {

@@ -5,11 +5,14 @@ import {
   ChevronUp,
   CircleAlert,
   CircleHelp,
+  LoaderCircle,
+  Square,
+  WandSparkles,
   ScrollText,
 } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
-import { CloseButton } from "../components/ui/icon-button";
+import { CloseButton, IconButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
 import {
   diagnosticLocationLabel,
@@ -37,7 +40,7 @@ export function CompileDiagnosticsPanel(props: {
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
   onInstallDependency: (missingFile: string) => void;
-  onFix?: (diagnostic: CompileDiagnostic) => void;
+  onFixAll?: () => void;
   fixDisabled?: boolean;
   repair?: CompileRepairState | null;
   onCancelRepair?: () => void;
@@ -57,6 +60,9 @@ export function CompileDiagnosticsPanel(props: {
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
   if (props.success && !diagnostics.length && !props.repair) return null;
   const title = parts.join(" · ") || (props.success ? "Build notes" : "Build failed");
+  const busy = props.repair && !["completed", "failed"].includes(props.repair.status);
+  const progress = props.repair?.status === "compiling" ? t`Recompiling…`
+    : props.repair?.status === "awaiting-approval" ? t`Needs approval` : t`Repairing…`;
 
   return (
     <section className={`compile-diagnostics ${tone}`} aria-label="Compile diagnostics">
@@ -70,29 +76,28 @@ export function CompileDiagnosticsPanel(props: {
           <span>{title}</span>
           {props.expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
+        {busy ? (
+          <div className="compile-repair-progress" role="status" aria-live="polite">
+            <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />
+            <span>{progress}</span>
+            {props.repair?.status !== "compiling" && props.onCancelRepair && (
+              <IconButton label={t`Cancel repair`} size="compact" onClick={props.onCancelRepair}><Square size={11} /></IconButton>
+            )}
+          </div>
+        ) : (summary.error + summary.warning > 0 && props.onFixAll) && (
+          <Button variant="ghost" size="compact" className="compile-repair-action" disabled={props.fixDisabled}
+            title={t`Fix all errors and warnings, then recompile`} onClick={props.onFixAll}>
+            <WandSparkles size={13} />{t`Fix all`}
+          </Button>
+        )}
         <CloseButton
           label="Dismiss diagnostics"
           size="compact"
           onClick={props.onDismiss}
         />
       </div>
-      {props.repair && (
-        <div className="compile-repair-status" role="status" aria-live="polite">
-          <span>{props.repair.message ?? ({
-            starting: t`Starting repair…`,
-            running: t`Repairing…`,
-            "awaiting-approval": t`Repair needs approval. Open the repair task to continue.`,
-            compiling: t`Recompiling…`,
-            completed: t`Repair finished. Check the new build results.`,
-            failed: t`Repair failed.`,
-          })[props.repair.status]}</span>
-          {props.repair.threadId && props.onOpenRepair && (
-            <Button variant="ghost" size="compact" onClick={props.onOpenRepair}>{t`View repair`}</Button>
-          )}
-          {["starting", "running", "awaiting-approval"].includes(props.repair.status) && (
-            <Button variant="ghost" size="compact" onClick={props.onCancelRepair}>{t`Cancel repair`}</Button>
-          )}
-        </div>
+      {(props.repair?.message || props.repair?.status === "awaiting-approval") && (
+        <p className="compile-repair-detail" role="status">{props.repair.message ?? t`Open the repair task to continue.`}</p>
       )}
       {props.expanded && (
         <div className="compile-diagnostics-body">
@@ -128,17 +133,6 @@ export function CompileDiagnosticsPanel(props: {
                       <span className="compile-diagnostic-location">{diagnosticLocationLabel(diagnostic)}</span>
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
-                    {severity !== "info" && props.onFix && (
-                      <Button
-                        variant="ghost"
-                        size="compact"
-                        disabled={props.fixDisabled}
-                        title={t`Fix with the repair model, then recompile`}
-                        onClick={() => props.onFix?.(diagnostic)}
-                      >
-                        {t`Fix`}
-                      </Button>
-                    )}
                     {missingFile && (
                       <Button
                         variant="ghost"
@@ -171,6 +165,12 @@ export function CompileDiagnosticsPanel(props: {
               description="Build failed without a captured log"
             />
           )}
+        </div>
+      )}
+      {props.repair?.threadId && props.onOpenRepair && (
+        <div className="compile-repair-footer">
+          {props.repair.status === "completed" && <span role="status">{t`Repair finished`}</span>}
+          <Button variant="ghost" size="compact" onClick={props.onOpenRepair}>{t`View repair`}</Button>
         </div>
       )}
     </section>

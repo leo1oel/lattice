@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
-import type { CompileDiagnostic } from "./compile-diagnostics";
+import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
+import type { SynaraPermissionMode } from "../app/app-synara-embed";
 
 export type CompileRepairState = {
   status: "starting" | "running" | "awaiting-approval" | "compiling" | "completed" | "failed";
@@ -13,6 +14,7 @@ export type CompileRepairState = {
 export function useCompileRepair(options: {
   projectRoot: string | undefined;
   rootDocument: string | undefined;
+  runtimeMode: SynaraPermissionMode;
   enabled: boolean;
   save: () => Promise<boolean>;
   onComplete: () => Promise<void>;
@@ -38,9 +40,10 @@ export function useCompileRepair(options: {
     };
   }, [options.projectRoot]);
 
-  const start = useCallback(async (diagnostic: CompileDiagnostic) => {
+  const start = useCallback(async (diagnostics: CompileDiagnostic[]) => {
     const current = optionsRef.current;
-    if (!current.enabled || !current.projectRoot || operationRef.current) return;
+    const repairable = diagnostics.filter((item) => diagnosticSeverity(item.level) !== "info");
+    if (!current.enabled || !current.projectRoot || operationRef.current || !repairable.length) return;
     const operation = { root: current.projectRoot, cancelled: false, cancelRequested: false, threadId: undefined as string | undefined };
     operationRef.current = operation;
     const owns = () => operationRef.current === operation
@@ -53,7 +56,10 @@ export function useCompileRepair(options: {
       const result = await invoke<{ threadId: string }>("compile_repair", {
         action: "start", projectRoot: operation.root,
         rootDocument: current.rootDocument ?? null,
-        diagnostic: { ...diagnostic, file: diagnostic.file ?? null, line: diagnostic.line ?? null },
+        runtimeMode: current.runtimeMode,
+        diagnostics: repairable.map(({ level, message, file, line }) => ({
+          level, message, file: file ?? null, line: line ?? null,
+        })),
       });
       if (!result?.threadId) throw new Error(t`The repair service did not return a task.`);
       operation.threadId = result.threadId;

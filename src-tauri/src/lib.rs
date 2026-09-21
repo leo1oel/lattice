@@ -1927,14 +1927,16 @@ async fn build_project(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 async fn compile_repair(
     state: tauri::State<'_, AppState>,
     window: tauri::Window,
     project_root: String,
     action: String,
     thread_id: Option<String>,
-    diagnostic: Option<serde_json::Value>,
+    diagnostics: Option<Vec<serde_json::Value>>,
     root_document: Option<String>,
+    runtime_mode: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Status/cancel may refer to the outgoing project during a window switch.
     if action == "start" && current_root(&state, &window)? != Path::new(&project_root) {
@@ -1948,8 +1950,9 @@ async fn compile_repair(
             thread_id.as_deref(),
             serde_json::json!({
                 "workspaceRoot": project_root,
-                "diagnostic": diagnostic,
+                "diagnostics": diagnostics,
                 "rootDocument": root_document,
+                "runtimeMode": runtime_mode,
             }),
         )
     })

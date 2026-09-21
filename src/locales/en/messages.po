@@ -2228,12 +2228,12 @@ msgid "Fit page to width"
 msgstr "Fit page to width"
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Fix"
-msgstr "Fix"
+msgid "Fix all"
+msgstr "Fix all"
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Fix with the repair model, then recompile"
-msgstr "Fix with the repair model, then recompile"
+msgid "Fix all errors and warnings, then recompile"
+msgstr "Fix all errors and warnings, then recompile"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Flat"
@@ -3486,6 +3486,10 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Needs approval"
+msgstr "Needs approval"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Negation / not"
 msgstr "Negation / not"
@@ -3952,6 +3956,10 @@ msgstr "Open the paper overview"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the PDF in Lattice or your browser"
 msgstr "Open the PDF in Lattice or your browser"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Open the repair task to continue."
+msgstr "Open the repair task to continue."
 
 #: src/history/history-drawer.tsx
 msgid "Open this Agent task before restoring its files"
@@ -4720,18 +4728,13 @@ msgstr "Reopen comment"
 msgid "Repair cancelled."
 msgstr "Repair cancelled."
 
-#: src/build/compile-diagnostics-panel.tsx
 #: src/build/use-compile-repair.ts
 msgid "Repair failed."
 msgstr "Repair failed."
 
 #: src/build/compile-diagnostics-panel.tsx
-msgid "Repair finished. Check the new build results."
-msgstr "Repair finished. Check the new build results."
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Repair needs approval. Open the repair task to continue."
-msgstr "Repair needs approval. Open the repair task to continue."
+msgid "Repair finished"
+msgstr "Repair finished"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repairing…"
@@ -5596,10 +5599,6 @@ msgstr "Starting Open Slide"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Starting repair…"
-msgstr "Starting repair…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"

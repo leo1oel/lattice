@@ -8937,7 +8937,7 @@ describe("project workspace", () => {
     expect(document.querySelector(".source-editor")).toBeInTheDocument();
   });
 
-  it("repairs a selected compile warning in the background and reloads before recompiling", async () => {
+  it("repairs all compile errors and warnings with panel permissions and reloads before recompiling", async () => {
     await import("./build/compile-diagnostics-panel");
     await import("./canvas/document-canvas");
     const snapshot = {
@@ -8951,13 +8951,14 @@ describe("project workspace", () => {
     };
     let repaired = false;
     const warning = { file: "main.tex", line: 3, level: "warning", message: "Reference `old-label' undefined." };
+    const error = { file: "main.tex", line: 9, level: "error", message: "Undefined control sequence." };
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
       if (command === "list_papers" || command === "list_history") return [];
       if (command === "read_project_file") return `\\documentclass{article}\n\\begin{document}\n${repaired ? "Fixed reference" : "\\ref{old-label}"}\n\\end{document}`;
       if (command === "build_project") return {
         success: true, hasPdf: false, durationMs: 10, rootDocument: "main.tex",
-        log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning],
+        log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning, error],
       };
       if (command === "compile_repair") {
         if ((args as { action: string }).action === "start") return { threadId: "repair-task" };
@@ -8969,15 +8970,15 @@ describe("project workspace", () => {
     renderApp();
     const toggle = await screen.findByRole("button", { name: /1 warning/i });
     fireEvent.click(toggle);
-    const fix = await screen.findByRole("button", { name: "Fix" });
+    const fix = await screen.findByRole("button", { name: "Fix all" });
     await waitFor(() => expect(fix).toBeEnabled());
     const previousBuilds = vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
     fireEvent.click(fix);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("compile_repair", {
-      action: "start", projectRoot: snapshot.root, rootDocument: "main.tex", diagnostic: warning,
+      action: "start", projectRoot: snapshot.root, rootDocument: "main.tex", diagnostics: [warning, error], runtimeMode: "full-access",
     }));
     await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project")).toHaveLength(previousBuilds + 1));
-    await waitFor(() => expect(screen.getByText("Repair finished. Check the new build results.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Repair finished")).toBeInTheDocument());
     await waitFor(() => expect(document.querySelector(".cm-content")).toHaveTextContent("Fixed reference"));
     expect(screen.queryByText(warning.message)).not.toBeInTheDocument();
   });
