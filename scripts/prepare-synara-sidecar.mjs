@@ -20,7 +20,6 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { findMachOBinaries } from "./sign-presentation-runtime.mjs";
 import { pruneEsbuildPlatforms } from "./synara-runtime-platforms.mjs";
-import { patchProcessInspectorFailures } from "./synara-process-inspector.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -341,7 +340,7 @@ exit 127
   );
   silenceExpectedSessionProbeWarnings(serverRoot);
   const bundle = join(serverRoot, "dist/index.mjs");
-  writeFileSync(bundle, patchCodexHostProcess(patchProcessInspectorFailures(readFileSync(bundle, "utf8"))));
+  writeFileSync(bundle, patchCodexHostProcess(readFileSync(bundle, "utf8")));
   mkdirSync(join(stageRoot, "licenses"), { recursive: true });
   cpSync(join(sourceRoot, "LICENSE"), join(stageRoot, "licenses/Synara-MIT.txt"));
   return serverPackage.version;
@@ -615,7 +614,6 @@ const buildKey = createHash("sha256")
   .update(fingerprint)
   .update(readFileSync(fileURLToPath(import.meta.url)))
   .update(readFileSync(join(projectRoot, "scripts/synara-runtime-platforms.mjs")))
-  .update(readFileSync(join(projectRoot, "scripts/synara-process-inspector.mjs")))
   .update(readFileSync(join(projectRoot, "scripts/synara-codex-host.mjs")))
   .digest("hex");
 const existingManifestPath = join(runtimeRoot, "manifest.json");

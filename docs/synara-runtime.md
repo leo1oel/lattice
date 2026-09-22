@@ -51,7 +51,9 @@ In particular, Lattice does not copy a provider adapter.
 On macOS, `SYNARA_PROCESS_PS_PATH` points to a shell launcher for the signed Lattice executable's `--lattice-process-snapshot` mode, which exits before Tauri starts.
 The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox; it must not copy `/bin/ps`, whose non-setuid copy can be killed on older macOS even when static signature verification passes.
 The two supported `ps`-shaped queries return PID/parent relationships and opaque birth-time identities rather than command-line arguments.
-A missing PID is a successful empty result; a failed snapshot is a nonzero exit, which `scripts/synara-process-inspector.mjs` patches the staged Synara runtime to treat as unknown rather than proof of exit.
+A missing PID is a successful empty result; the pinned fork treats every nonzero host snapshot exit as unknown rather than proof of exit.
+The fork selects the host's opaque-identity protocol when `SYNARA_PROCESS_PS_PATH` is set and retains upstream's `lstart` identity checks for ordinary `ps`.
+This behavior and its regression tests now live in Synara's `processTreeController`, rather than a compiled-bundle staging patch.
 Startup verifies the launcher inside the sandbox before admitting agent work.
 
 The macOS host sets `LATTICE_BIBLIOGRAPHY_SANDBOX=1` only when launching the service through its bibliography sandbox.
@@ -129,6 +131,18 @@ since the read-only phase-one catalog:
   `report_automation_result` call.
 - **Browser control is out.** The `browser_*` tools have no alias and are not in the allowlist, so
   the embedded-browser surface never reaches the Lattice catalog.
+
+### Synara 0.9 Computer Use boundary
+
+The upstream `/computer-use` command activates Computer for one request; ordinary turns remain off by default.
+The command is retained, but Lattice currently rejects its send preflight with an explicit unavailable message and preserves the draft.
+It does not dispatch a provider task that lacks the required Computer tools.
+The Lattice catalog continues to exclude `computer_*`, including driver-backed browser tools, while the standalone Synara profile retains upstream's catalog, approvals, and request-scoped capabilities.
+
+macOS Computer Use requires a GUI-owned Cua host, authenticated host socket, pinned native driver, permission checks, physical Escape monitoring, and reliable input cleanup.
+Upstream's Electron host implements those responsibilities; Lattice's Tauri host does not yet implement them.
+Enabling the command's native operations requires that host integration and validation against the signed Lattice application, not a broader iframe token or a standalone driver launched from the agent server.
+No Accessibility, Screen Recording, or Input Monitoring permissions are requested by this upgrade.
 
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
 renamed. They are not all Lattice code:
