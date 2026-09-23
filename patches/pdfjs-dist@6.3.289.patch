@@ -1,0 +1,14 @@
+diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
+index 29b3492cd9cb0869a906785739c34fc364ec1c17..c93a451b4b280913f14d97be692fdb630e9726ee 100644
+--- a/web/pdf_viewer.mjs
++++ b/web/pdf_viewer.mjs
+@@ -1576,7 +1576,8 @@ class PDFLinkService {
+     const ac = new AbortController();
+     this.eventBus.on("textlayerrendered", evt => {
+       if (evt.pageNumber === pageNumber) {
+-        evt.source.textLayer.div.focus();
++        // Keep keyboard focus on the destination without replacing its XYZ scroll.
++        evt.source.textLayer.div.focus({ preventScroll: true });
+         ac.abort();
+       }
+     }, {

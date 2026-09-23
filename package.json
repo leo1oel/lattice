@@ -234,7 +234,8 @@
     },
     "patchedDependencies": {
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
-      "@tiptap/react@3.23.5": "patches/@tiptap__react@3.23.5.patch"
+      "@tiptap/react@3.23.5": "patches/@tiptap__react@3.23.5.patch",
+      "pdfjs-dist@6.3.289": "patches/pdfjs-dist@6.3.289.patch"
     }
   }
 }
