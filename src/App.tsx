@@ -6353,7 +6353,7 @@ function App() {
       // Two fetchable shapes: an arXiv id (HTML or PDF route) and a cited
       // webpage (Firecrawl capture). Both return the same bundle contract, so
       // everything after this line treats them identically.
-      const result = paper.arxivId
+      const result = paper.arxivId && !paper.arxivId.startsWith("web-")
         ? await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>("fetch_paper", {
           arxivId: paper.arxivId,
         })

@@ -6,9 +6,11 @@
 // client, since these are the only two callers.
 
 use crate::openalex::urlencoding;
+use regex::Regex;
 use serde::Deserialize;
 
 const SEARCH_URL: &str = "https://api.alphaxiv.org/search/v2/paper/full-text";
+const PAPER_API: &str = "https://api.alphaxiv.org/papers/v3";
 /// alphaXiv's full-text endpoint has no pagination and caps `limit` at 50, so we
 /// pull its whole pool once and reveal it incrementally on the client.
 const SEARCH_LIMIT: usize = 50;
@@ -141,9 +143,163 @@ fn json_hex_code_unit(bytes: Option<&[u8]>) -> Option<u16> {
         .and_then(|hex| u16::from_str_radix(hex, 16).ok())
 }
 
-/// Fetch the alphaXiv overview markdown for a paper. `Ok(None)` when alphaXiv
-/// has no report for the id (404, or a too-short stub body).
+/// AlphaXiv also hosts reports without an arXiv identity. Keep those IDs out
+/// of the arXiv parser; their bundles use the existing URL-keyed cache.
+pub fn paper_id_from_url(input: &str) -> Option<String> {
+    let url = reqwest::Url::parse(input).ok()?;
+    if !matches!(url.scheme(), "http" | "https")
+        || !matches!(url.host_str(), Some("alphaxiv.org" | "www.alphaxiv.org"))
+    {
+        return None;
+    }
+    let path = url.path().trim_end_matches('/');
+    let id = ["/abs/", "/pdf/", "/overview/"]
+        .iter()
+        .find_map(|prefix| path.strip_prefix(prefix))?;
+    let id = id
+        .strip_suffix(".pdf")
+        .or_else(|| id.strip_suffix(".md"))
+        .unwrap_or(id);
+    valid_paper_id(id).then(|| id.to_string())
+}
+
+fn valid_paper_id(id: &str) -> bool {
+    Regex::new(r"^[A-Za-z0-9][A-Za-z0-9.-]*(?:/[0-9]+(?:v[0-9]+)?)?$")
+        .unwrap()
+        .is_match(id)
+        && !id.contains("..")
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Paper {
+    pub version_id: String,
+    pub universal_id: String,
+    pub title: String,
+    pub citation_bibtex: Option<String>,
+    pub publication_date: Option<i64>,
+}
+
+pub fn resolve_paper(id: &str) -> Result<Option<Paper>, String> {
+    if !valid_paper_id(id) {
+        return Err("Invalid alphaXiv paper id.".into());
+    }
+    let response = http_client()?
+        .get(format!("{PAPER_API}/{id}"))
+        .send()
+        .map_err(|e| e.to_string())?;
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    let paper: Paper = response
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .map_err(|e| e.to_string())?;
+    if !valid_paper_id(&paper.universal_id) || !valid_paper_id(&paper.version_id) {
+        return Err("Invalid alphaXiv response identity.".into());
+    }
+    Ok(Some(paper))
+}
+
+/// Exact title only: a ranked near-match must not silently become a citation.
+pub fn resolve_title(title: &str) -> Result<Option<Paper>, String> {
+    let response = http_client()?
+        .get("https://api.alphaxiv.org/search/v2/paper/fast")
+        .query(&[("q", title), ("includePrivate", "false")])
+        .send()
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| e.to_string())?;
+    let hits = parse_search_hits(&response.bytes().map_err(|e| e.to_string())?)?;
+    let normalize = |s: &str| {
+        s.chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let title = normalize(title);
+    let ids: std::collections::BTreeSet<_> = hits
+        .into_iter()
+        .filter_map(|hit| {
+            (normalize(hit.title.as_deref()?) == title)
+                .then_some(hit.paper_id?)
+                .filter(|id| valid_paper_id(id))
+        })
+        .collect();
+    if ids.len() != 1 {
+        return Ok(None);
+    }
+    let paper = resolve_paper(ids.first().unwrap())?;
+    Ok(paper.filter(|paper| normalize(&paper.title) == title))
+}
+
+pub fn fetch_paper_overview(paper: &Paper) -> Result<Option<String>, String> {
+    let response = http_client()?
+        .get(format!("{PAPER_API}/{}/overview-v2", paper.version_id))
+        .query(&[("language", "en")])
+        .send()
+        .map_err(|e| e.to_string())?;
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    let body: serde_json::Value = response
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .map_err(|e| e.to_string())?;
+    let overview = &body["overview"];
+    if overview["state"] != "done" {
+        return Ok(None);
+    }
+    overview["mdxSource"]
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .map(|source| overview_markdown(source, &paper.universal_id))
+        .transpose()
+}
+
+/// Consume the source, never the API's compiled MDX JavaScript. These are the
+/// two presentation components used by overviews; citations become portable
+/// PDF page links with their source anchors retained in the link title.
+fn overview_markdown(source: &str, id: &str) -> Result<String, String> {
+    let attributes =
+        Regex::new(r#"([A-Za-z]+)\s*=\s*(?:\{\s*(\d+)\s*\}|"([^"]*)"|'([^']*)')"#).unwrap();
+    let components = Regex::new(r#"(?s)<(PaperCite|ImageCaption)\b((?:"[^"]*"|'[^']*'|[^'">])*?)(?:/>|>(.*?)</(?:PaperCite|ImageCaption)>)"#).unwrap();
+    let markdown = components.replace_all(source, |capture: &regex::Captures<'_>| {
+        let attrs: std::collections::HashMap<_, _> = attributes.captures_iter(&capture[2]).map(|a| {
+            (a[1].to_string(), html_escape::decode_html_entities(a.get(2).or_else(|| a.get(3)).or_else(|| a.get(4)).unwrap().as_str()).into_owned())
+        }).collect();
+        let content = capture.get(3).map_or("", |c| c.as_str());
+        if &capture[1] == "PaperCite" {
+            let Some(page) = attrs.get("page").and_then(|p| p.parse::<u32>().ok()).filter(|p| *p > 0) else {
+                return content.to_string();
+            };
+            let quote = [attrs.get("first"), attrs.get("last")].into_iter().flatten().cloned().collect::<Vec<_>>().join(" … ");
+            let quote = quote.replace('\\', "\\\\").replace('"', "\\\"").replace(['\n', '\r'], " ");
+            format!("{content} [p{page}](https://www.alphaxiv.org/abs/{id}.pdf#page={page} \"{quote}\")")
+        } else {
+            let Some(src) = attrs.get("src").filter(|src| reqwest::Url::parse(src).is_ok_and(|url| url.scheme() == "https")) else {
+                return content.to_string();
+            };
+            let alt = attrs.get("alt").map(String::as_str).unwrap_or("").replace('[', "\\[").replace(']', "\\]");
+            let src = src.replace('(', "%28").replace(')', "%29").replace(' ', "%20");
+            format!("\n\n![{alt}]({src})\n\n{content}\n\n")
+        }
+    }).into_owned();
+    if markdown.contains("<PaperCite") || markdown.contains("<ImageCaption") {
+        return Err("Unsupported alphaXiv overview component syntax.".into());
+    }
+    Ok(markdown)
+}
+
+/// Prefer the website's citation-bearing overview. The old markdown endpoint
+/// is a separate report, used only when the current overview is unavailable.
 pub fn fetch_overview(arxiv_id: &str) -> Result<Option<String>, String> {
+    if let Ok(Some(paper)) = resolve_paper(arxiv_id) {
+        if let Ok(Some(overview)) = fetch_paper_overview(&paper) {
+            return Ok(Some(overview));
+        }
+    }
     let url = format!("{OVERVIEW_BASE}/{arxiv_id}.md");
     let response = http_client()?
         .get(&url)
@@ -210,6 +366,82 @@ fn truncate(value: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_alphaxiv_urls_without_accepting_other_hosts_or_paths() {
+        for path in [
+            "abs/2609.mimo-scaling-reinforcement-learning",
+            "pdf/2609.mimo-scaling-reinforcement-learning",
+            "overview/2609.mimo-scaling-reinforcement-learning.md",
+        ] {
+            assert_eq!(
+                paper_id_from_url(&format!(
+                    "https://www.alphaxiv.org/{path}?source=test#page=8"
+                ))
+                .as_deref(),
+                Some("2609.mimo-scaling-reinforcement-learning")
+            );
+        }
+        assert_eq!(
+            paper_id_from_url("https://alphaxiv.org/abs/cs/9901002").as_deref(),
+            Some("cs/9901002")
+        );
+        for url in [
+            "https://alphaxiv.org.evil.test/abs/2609.fake",
+            "https://alphaxiv.org/blog/test",
+            "https://alphaxiv.org/abs/a%2fb",
+            "https://alphaxiv.org/abs/a/extra",
+            "https://alphaxiv.org/abs/..fake",
+        ] {
+            assert_eq!(paper_id_from_url(url), None, "{url}");
+        }
+    }
+
+    #[test]
+    fn preserves_cited_prose_pages_quote_anchors_and_figure_captions() {
+        let source = r#"<PaperCite page={8} first="A &quot;quoted&quot; start" last="end &amp; more">**First claim**</PaperCite>.
+<PaperCite page={19} first='Second' last='end'/>
+<PaperCite page={34} first="Third" last="finish">Last claim</PaperCite>
+<ImageCaption src="https://paper-assets.alphaxiv.org/figure(1).jpg" alt="Plot [A]">Not a controlled baseline.</ImageCaption>"#;
+        let markdown = overview_markdown(source, "2609.report").unwrap();
+        assert!(markdown.contains(r#"**First claim** [p8](https://www.alphaxiv.org/abs/2609.report.pdf#page=8 "A \"quoted\" start … end & more")"#));
+        assert!(markdown.contains("[p19](https://www.alphaxiv.org/abs/2609.report.pdf#page=19"));
+        assert!(markdown.contains("Last claim [p34]"));
+        assert!(markdown
+            .contains(r"![Plot \[A\]](https://paper-assets.alphaxiv.org/figure%281%29.jpg)"));
+        assert!(markdown.contains("Not a controlled baseline."));
+        assert!(!markdown.contains("<PaperCite"));
+        assert!(!markdown.contains("<ImageCaption"));
+    }
+
+    #[test]
+    fn does_not_execute_mdx_expressions_or_make_invalid_page_links() {
+        let source = r#"<PaperCite page={0}>Keep this prose</PaperCite><ImageCaption src="javascript:alert(1)">Keep caption</ImageCaption>"#;
+        let markdown = overview_markdown(source, "2609.report").unwrap();
+        assert_eq!(markdown, "Keep this proseKeep caption");
+        assert!(
+            overview_markdown("<PaperCite {...execute()}>claim</PaperCite>", "2609.report")
+                .unwrap()
+                .contains("claim")
+        );
+    }
+
+    #[test]
+    #[ignore = "Live AlphaXiv API smoke test"]
+    fn live_mimo_overview_contains_page_citations() {
+        let paper = resolve_paper("2609.mimo-scaling-reinforcement-learning")
+            .unwrap()
+            .unwrap();
+        let markdown = fetch_paper_overview(&paper).unwrap().unwrap();
+        assert!(markdown.contains(
+            "[p8](https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning.pdf#page=8"
+        ));
+        assert!(markdown.contains("[p34]"));
+        assert!(!markdown.contains("<PaperCite"));
+        println!("OVERVIEW_START\n{markdown}\nOVERVIEW_END");
+        let matched = resolve_title(&paper.title).unwrap().unwrap();
+        assert_eq!(matched.universal_id, paper.universal_id);
+    }
 
     #[test]
     fn maps_a_search_hit() {

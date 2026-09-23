@@ -24,6 +24,7 @@ type MockPdfSlick = {
   loadDocument: ReturnType<typeof vi.fn>;
   unbindEvents: ReturnType<typeof vi.fn>;
   finishReady: () => void;
+  emit: (name: string, event: object) => void;
   viewer: {
     cleanup: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -623,6 +624,72 @@ describe("PDFSlick viewer integration", () => {
     }));
     fireEvent.doubleClick(page, { clientX: 110, clientY: 220 });
     expect(onSource).toHaveBeenCalledWith(2, 50, 100);
+  });
+
+  it("navigates to a quote page but conservatively skips an ambiguous highlight", async () => {
+    const view = render(
+      <PdfPreview
+        url="https://example.test/paper.pdf"
+        pdfBase64={null}
+        initialViewState={{ page: 1, scale: 1, fitMode: null, scrollTop: 450, scrollLeft: 0 }}
+        sourceQuote={{ id: "ambiguous", page: 2, first: "Attention", last: "Attention" }}
+      />,
+    );
+    await view.findByLabelText("PDF page 2");
+    const instance = pdfSlickMock.instances[0];
+    const layer = instance.viewer.getPageView(1).textLayer.div;
+    layer.append(layer.firstChild!.cloneNode(true));
+    act(() => instance.emit("textlayerrendered", { pageNumber: 2 }));
+
+    await waitFor(() => expect(instance.gotoPage).toHaveBeenCalledWith(2));
+    expect(instance.args.container.scrollTop).toBe(1_000);
+    expect(layer.querySelector(".pdf-source-quote-highlight")).toBeNull();
+  });
+
+  it("waits for delayed target-page text and highlights across quote boundaries", async () => {
+    const sourceQuote = { id: "delayed", page: 3, first: "Unique opening", last: "closing words" };
+    const view = render(
+      <PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} sourceQuote={sourceQuote} />,
+    );
+    await view.findByLabelText("PDF page 3");
+    const instance = pdfSlickMock.instances[0];
+    const layer = instance.viewer.getPageView(2).textLayer.div;
+    layer.replaceChildren();
+    act(() => instance.emit("textlayerrendered", { pageNumber: 3 }));
+    expect(layer.querySelector(".pdf-source-quote-highlight")).toBeNull();
+
+    const first = document.createElement("span");
+    first.textContent = "Unique opening and ";
+    const second = document.createElement("span");
+    second.textContent = "closing words";
+    layer.append(first, second);
+    act(() => instance.emit("textlayerrendered", { pageNumber: 3 }));
+
+    await waitFor(() => expect(layer.querySelectorAll(".pdf-source-quote-highlight")).toHaveLength(2));
+    expect(instance.gotoPage).toHaveBeenCalledTimes(2); // promotion, then the new quote target
+  });
+
+  it("cleans the old quote highlight on target change and unmount", async () => {
+    const firstTarget = { id: "first", page: 1, first: "Attention", last: "page 1" };
+    const view = render(
+      <PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} sourceQuote={firstTarget} />,
+    );
+    const firstLayer = (await view.findByLabelText("PDF page 1")).querySelector(".textLayer")!;
+    await waitFor(() => expect(firstLayer.querySelector(".pdf-source-quote-highlight")).not.toBeNull());
+
+    view.rerender(
+      <PdfPreview
+        url="https://example.test/paper.pdf"
+        pdfBase64={null}
+        sourceQuote={{ id: "second", page: 2, first: "Attention", last: "page 2" }}
+      />,
+    );
+    const secondLayer = view.getByLabelText("PDF page 2").querySelector(".textLayer")!;
+    await waitFor(() => expect(secondLayer.querySelector(".pdf-source-quote-highlight")).not.toBeNull());
+    expect(firstLayer.querySelector(".pdf-source-quote-highlight")).toBeNull();
+
+    view.unmount();
+    expect(secondLayer.querySelector(".pdf-source-quote-highlight")).toBeNull();
   });
 
   it("recreates the SyncTeX highlight when a same-size document replaces the viewer", async () => {

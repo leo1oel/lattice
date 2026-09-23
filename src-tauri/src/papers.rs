@@ -597,11 +597,21 @@ fn fetch_paper_with_progress_and_cancel(
             let base = base.clone();
             move || crate::alphaxiv::fetch_overview(&base)
         });
-        let (converted, converter) =
-            convert_paper(&requested, &base, &output_dir, &output_path, cancel)?;
+        let conversion = convert_paper(&requested, &base, &output_dir, &output_path, cancel);
+        let blog = overview.join().ok().and_then(Result::ok).flatten();
         if cancel.load(Ordering::Acquire) {
             return Err("Paper import cancelled.".to_string());
         }
+        let (converted, converter) = match conversion {
+            Ok(converted) => converted,
+            Err(error) => {
+                // A useful overview must survive failure of every full-text
+                // converter. Do not replace an existing (possibly edited)
+                // bundle, and leave it incomplete so a later fetch can retry.
+                cache_overview_without_full_text(&dir, blog.as_deref(), &error)?;
+                return Ok(());
+            }
+        };
         let markdown =
             localize_arxiv_fragment_links(&normalize_imported_markdown(&converted), &base);
         fs::write(&output_path, &markdown).map_err(err)?;
@@ -635,7 +645,7 @@ fn fetch_paper_with_progress_and_cancel(
         )
         .map_err(err)?;
         progress("overview");
-        if let Ok(Ok(Some(blog))) = overview.join() {
+        if let Some(blog) = blog {
             fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
         } else if dir.join("blog.md").is_file() {
             fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
@@ -693,13 +703,32 @@ fn fetch_paper_with_progress_and_cancel(
     built?;
     Ok(FetchResult {
         arxiv_id: base.clone(),
-        paper_path: format!(".research/papers/{base}/paper.md"),
+        paper_path: if cached_paper_has_body(&dir.join("paper.md")) {
+            format!(".research/papers/{base}/paper.md")
+        } else {
+            String::new()
+        },
         blog_path: dir
             .join("blog.md")
             .is_file()
             .then(|| format!(".research/papers/{base}/blog.md")),
         reused: false,
     })
+}
+
+fn cache_overview_without_full_text(
+    dir: &Path,
+    blog: Option<&str>,
+    error: &str,
+) -> Result<(), String> {
+    if cached_paper_has_body(&dir.join("blog.md")) {
+        return Ok(());
+    }
+    let blog = blog
+        .filter(|blog| markdown_has_body(blog))
+        .ok_or_else(|| error.to_string())?;
+    fs::create_dir_all(dir).map_err(err)?;
+    fs::write(dir.join("blog.md"), blog).map_err(err)
 }
 
 /// The bundle directory name for a captured webpage: a stable digest of the
@@ -728,9 +757,8 @@ fn is_pdf_url(url: &str) -> bool {
 
 /// Capture a webpage or direct PDF as a bundle under `.research/papers/web-…`.
 ///
-/// The same contract as an arXiv fetch — atomic swap, sha-validated bundle,
-/// honest frontmatter — with one difference: there is never a blog, so the
-/// reader shows a single content view.
+/// AlphaXiv URLs use its native overview API and optional PDF rather than a
+/// generic webpage scrape. Both resources can succeed independently.
 pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String> {
     fetch_web_reference_with_page(root, url, None)
 }
@@ -752,7 +780,9 @@ fn fetch_web_reference_with_page_and_cancel(
     if cancel.load(Ordering::Acquire) {
         return Err("Paper import cancelled.".to_string());
     }
-    let url = url.trim();
+    let canonical_url = crate::alphaxiv::paper_id_from_url(url.trim())
+        .map(|id| format!("https://www.alphaxiv.org/abs/{}", arxiv_base_id(&id)));
+    let url = canonical_url.as_deref().unwrap_or(url.trim());
     if !is_web_url(url) {
         return Err("Enter an http(s) URL.".to_string());
     }
@@ -768,14 +798,22 @@ fn fetch_web_reference_with_page_and_cancel(
         m.schema_version == PAPER_SCHEMA_VERSION
             && m.complete
             && m.source_url == url
-            && cached_paper_has_body(&dir.join("paper.md"))
+            && (cached_paper_has_body(&dir.join("paper.md"))
+                || cached_paper_has_body(&dir.join("blog.md")))
             && validate_paper_bundle(&dir, m).is_ok()
     });
     if valid {
         return Ok(FetchResult {
             arxiv_id: id.clone(),
-            paper_path: format!(".research/papers/{id}/paper.md"),
-            blog_path: None,
+            paper_path: if cached_paper_has_body(&dir.join("paper.md")) {
+                format!(".research/papers/{id}/paper.md")
+            } else {
+                String::new()
+            },
+            blog_path: dir
+                .join("blog.md")
+                .is_file()
+                .then(|| format!(".research/papers/{id}/blog.md")),
             reused: true,
         });
     }
@@ -784,40 +822,68 @@ fn fetch_web_reference_with_page_and_cancel(
     let output_dir = temp_root.join("output");
     fs::create_dir_all(&output_dir).map_err(err)?;
     let build = || -> Result<(), String> {
+        let mut blog = None;
         // Direct PDFs have no HTML title and must not go through the webpage
         // scraper. Reuse its URL-keyed bundle so readers and bibliography joins
         // keep the same contract, without pretending the PDF is an arXiv work.
-        let (title, body, source, converter) = if is_pdf_url(url) {
-            let body = download_pdf_text(url)?;
-            let title = body
-                .lines()
-                .find_map(|line| {
-                    line.strip_prefix("# ")
-                        .map(str::trim)
-                        .filter(|title| !title.is_empty())
-                        .map(str::to_string)
-                })
-                .unwrap_or_else(|| {
-                    url.split(['?', '#'])
-                        .next()
-                        .unwrap_or(url)
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(url)
-                        .to_string()
-                });
-            (title, body, "pdf-text-layer", ANYDOC_CONVERTER)
-        } else {
-            let page = match page {
-                Some(page) => page,
-                None => crate::firecrawl::scrape(url)?,
+        let (title, body, source, converter) =
+            if let Some(paper_id) = crate::alphaxiv::paper_id_from_url(url) {
+                let paper = crate::alphaxiv::resolve_paper(&paper_id)?
+                    .ok_or_else(|| "The alphaXiv paper was not found.".to_string())?;
+                blog = fs::read_to_string(dir.join("blog.md"))
+                    .ok()
+                    .filter(|blog| markdown_has_body(blog));
+                if blog.is_none() {
+                    blog = crate::alphaxiv::fetch_paper_overview(&paper).unwrap_or_else(|error| {
+                        log::debug!("alphaXiv overview unavailable: {error}");
+                        None
+                    });
+                }
+                if cancel.load(Ordering::Acquire) {
+                    return Err("Paper import cancelled.".to_string());
+                }
+                let pdf_url = format!("https://www.alphaxiv.org/abs/{}.pdf", paper.universal_id);
+                let body = match download_pdf_text(&pdf_url) {
+                    Ok(body) if markdown_has_body(&body) => body,
+                    result if blog.is_some() => {
+                        log::debug!("alphaXiv PDF unavailable; keeping overview: {result:?}");
+                        String::new()
+                    }
+                    Err(error) => return Err(error),
+                    Ok(_) => return Err("The alphaXiv PDF has no readable text.".into()),
+                };
+                (paper.title, body, "pdf-text-layer", ANYDOC_CONVERTER)
+            } else if is_pdf_url(url) {
+                let body = download_pdf_text(url)?;
+                let title = body
+                    .lines()
+                    .find_map(|line| {
+                        line.strip_prefix("# ")
+                            .map(str::trim)
+                            .filter(|title| !title.is_empty())
+                            .map(str::to_string)
+                    })
+                    .unwrap_or_else(|| {
+                        url.split(['?', '#'])
+                            .next()
+                            .unwrap_or(url)
+                            .rsplit('/')
+                            .next()
+                            .unwrap_or(url)
+                            .to_string()
+                    });
+                (title, body, "pdf-text-layer", ANYDOC_CONVERTER)
+            } else {
+                let page = match page {
+                    Some(page) => page,
+                    None => crate::firecrawl::scrape(url)?,
+                };
+                let title = page
+                    .title
+                    .filter(|title| !title.trim().is_empty())
+                    .unwrap_or_else(|| url.to_string());
+                (title, page.markdown, "web", FIRECRAWL_CONVERTER)
             };
-            let title = page
-                .title
-                .filter(|title| !title.trim().is_empty())
-                .unwrap_or_else(|| url.to_string());
-            (title, page.markdown, "web", FIRECRAWL_CONVERTER)
-        };
         if cancel.load(Ordering::Acquire) {
             return Err("Paper import cancelled.".to_string());
         }
@@ -833,6 +899,9 @@ fn fetch_web_reference_with_page_and_cancel(
             body,
         ));
         fs::write(output_dir.join("paper.md"), &markdown).map_err(err)?;
+        if let Some(blog) = blog {
+            fs::write(output_dir.join("blog.md"), blog).map_err(err)?;
+        }
         fs::create_dir_all(output_dir.join("paper_assets")).map_err(err)?;
         fs::write(
             output_dir.join("paper_assets/manifest.json"),
@@ -844,7 +913,7 @@ fn fetch_web_reference_with_page_and_cancel(
             requested_arxiv_id: id.clone(),
             title: title.to_string(),
             schema_version: PAPER_SCHEMA_VERSION,
-            complete: true,
+            complete: markdown_has_body(&body),
             converter: converter.to_string(),
             source: source.to_string(),
             source_url: url.to_string(),
@@ -878,8 +947,15 @@ fn fetch_web_reference_with_page_and_cancel(
     built?;
     Ok(FetchResult {
         arxiv_id: id.clone(),
-        paper_path: format!(".research/papers/{id}/paper.md"),
-        blog_path: None,
+        paper_path: if cached_paper_has_body(&dir.join("paper.md")) {
+            format!(".research/papers/{id}/paper.md")
+        } else {
+            String::new()
+        },
+        blog_path: dir
+            .join("blog.md")
+            .is_file()
+            .then(|| format!(".research/papers/{id}/blog.md")),
         reused: false,
     })
 }
@@ -1398,7 +1474,17 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
         // which URL it snapshotted instead.
         let by_url = imported.iter().position(|(_, metadata, _, _, _)| {
             citation.url.as_deref().is_some_and(|cited| {
-                !metadata.source_url.is_empty() && metadata.source_url == cited.trim()
+                !metadata.source_url.is_empty()
+                    && (metadata.source_url == cited.trim()
+                        || match (
+                            crate::alphaxiv::paper_id_from_url(&metadata.source_url),
+                            crate::alphaxiv::paper_id_from_url(cited),
+                        ) {
+                            (Some(cached), Some(cited)) => {
+                                arxiv_base_id(&cached) == arxiv_base_id(&cited)
+                            }
+                            _ => false,
+                        })
             })
         });
         let matched = by_arxiv.or(by_url).map(|index| imported.remove(index));
@@ -2346,7 +2432,53 @@ fn webpage_bibtex(html: &str, url: &str) -> Option<String> {
         .or_else(|| crate::web_metadata::citation(html, url))
 }
 
+pub(crate) fn alphaxiv_bibtex(paper: &crate::alphaxiv::Paper) -> Result<String, String> {
+    let raw = paper.citation_bibtex.as_deref().unwrap_or("").trim();
+    let entries = project::parse_bibliography(raw);
+    let entry = entries
+        .first()
+        .filter(|entry| entries.len() == 1 && paper_titles_match(&entry.title, &paper.title))
+        .ok_or_else(|| "alphaXiv did not supply a matching citation.".to_string())?;
+    let (head, body) = raw
+        .split_once(',')
+        .ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
+    let body = body
+        .strip_suffix('}')
+        .ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
+    let mut fields = project::parse_bibliography_fields_syntax(body);
+    // Always attach the bundle to this AlphaXiv work, even when its suggested
+    // citation points to an external announcement. Preserve the other fields.
+    fields.insert(
+        "url".into(),
+        format!("{{https://www.alphaxiv.org/abs/{}}}", paper.universal_id),
+    );
+    if entry.year.is_empty() {
+        if let Some(date) = paper
+            .publication_date
+            .and_then(chrono::DateTime::from_timestamp_millis)
+        {
+            fields.insert("year".into(), format!("{{{}}}", date.format("%Y")));
+        }
+    }
+    Ok(format!(
+        "{head},\n{}\n}}\n",
+        fields
+            .into_iter()
+            .map(|(key, value)| format!("  {key} = {value},"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    ))
+}
+
 fn resolve_web_citation(url: &str) -> Result<Option<WebCitation>, String> {
+    if let Some(id) = crate::alphaxiv::paper_id_from_url(url) {
+        let paper = crate::alphaxiv::resolve_paper(&id)?
+            .ok_or_else(|| "The alphaXiv paper was not found.".to_string())?;
+        return Ok(Some(WebCitation {
+            bibtex: alphaxiv_bibtex(&paper)?,
+            page: None,
+        }));
+    }
     resolve_web_citation_with(url, fetch_web_html(url), crate::firecrawl::scrape)
 }
 
@@ -2736,7 +2868,12 @@ fn import_citation(
     progress: &dyn Fn(&str),
     cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
-    let query = query.trim();
+    // A numeric AlphaXiv URL is still an arXiv work and should retain the
+    // semantic HTML/source conversion and existing arXiv cache identity.
+    let arxiv_url = crate::alphaxiv::paper_id_from_url(query.trim())
+        .filter(|id| validate_arxiv_id(id).is_ok())
+        .map(|id| format!("https://arxiv.org/abs/{id}"));
+    let query = arxiv_url.as_deref().unwrap_or(query.trim());
     if query.is_empty() {
         return Err("Enter an arXiv id, a DOI, a URL, or a paper title.".to_string());
     }
@@ -2761,7 +2898,7 @@ fn import_citation(
     if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress, cancel) {
         return result;
     }
-    if is_pdf_url(query) {
+    if is_pdf_url(query) && crate::alphaxiv::paper_id_from_url(query).is_none() {
         return import_pdf_citation(root, manifest, query, &before, history, progress, cancel);
     }
 
@@ -2773,8 +2910,22 @@ fn import_citation(
     progress("resolving");
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
     let preferred_arxiv = explicit_arxiv_id(&bibcite_query);
+    let title_citation = if preferred_arxiv.is_none()
+        && !is_web_url(query)
+        && project::normalize_doi(query).is_none()
+        && query.split_whitespace().count() >= 3
+    {
+        crate::alphaxiv::resolve_title(query)
+            .ok()
+            .flatten()
+            .and_then(|paper| alphaxiv_bibtex(&paper).ok())
+    } else {
+        None
+    };
     let mut web_error = None;
-    let supplied = if is_web_url(query)
+    let supplied = if let Some(bibtex) = title_citation {
+        Some(WebCitation { bibtex, page: None })
+    } else if is_web_url(query)
         && preferred_arxiv.is_none()
         && project::normalize_doi(query).is_none()
     {
@@ -4170,6 +4321,96 @@ mod tests {
         fs::write(root.join("references.bib"), "").unwrap();
         assert!(list_papers(&root).unwrap().is_empty());
         let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn failed_full_text_keeps_overview_without_inventing_a_paper_or_overwriting_edits() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-overview-fallback-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        fs::write(
+            root.join("references.bib"),
+            "@misc{report, title={Report}, eprint={2609.12345}}",
+        )
+        .unwrap();
+        let dir = root.join(".research/papers/2609.12345");
+        assert_eq!(
+            cache_overview_without_full_text(&dir, None, "PDF failed"),
+            Err("PDF failed".into())
+        );
+        assert!(!dir.exists());
+        cache_overview_without_full_text(
+            &dir,
+            Some("# Overview\n\nCited claim [p8](https://example.org/report.pdf#page=8)."),
+            "PDF failed",
+        )
+        .unwrap();
+        let papers = list_papers(&root).unwrap();
+        assert!(papers[0].has_blog);
+        assert!(!papers[0].has_full_text);
+        assert!(!dir.join("paper.md").exists());
+        fs::write(dir.join("blog.md"), "My edited overview").unwrap();
+        cache_overview_without_full_text(&dir, Some("Replacement"), "PDF failed").unwrap();
+        assert_eq!(
+            read_paper_blog_local(&root, "2609.12345")
+                .unwrap()
+                .as_deref(),
+            Some("My edited overview")
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn alphaxiv_citation_keeps_fields_and_supplies_a_stable_identity_and_missing_year() {
+        let mut paper = crate::alphaxiv::Paper {
+            version_id: "version-id".into(),
+            universal_id: "2609.report".into(),
+            title: "A Report".into(),
+            citation_bibtex: Some("@misc{report, title={A Report}, author={{Research Team}}, url={https://example.org/announcement}, note={Keep {nested} braces}}".into()),
+            publication_date: Some(1789948800000),
+        };
+        let raw = alphaxiv_bibtex(&paper).unwrap();
+        let entry = project::parse_bibliography(&raw).remove(0);
+        assert_eq!(
+            entry.url.as_deref(),
+            Some("https://www.alphaxiv.org/abs/2609.report")
+        );
+        assert_eq!(entry.year, "2026");
+        assert!(raw.contains("note = {Keep {nested} braces}"));
+        paper.title = "A different report".into();
+        assert!(alphaxiv_bibtex(&paper).is_err());
+    }
+
+    #[test]
+    #[ignore = "Live AlphaXiv import and PDF conversion smoke test"]
+    fn live_mimo_import_downloads_blog_and_pdf_without_arxiv() {
+        let parent = std::env::temp_dir().join(format!("lattice-mimo-live-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let imported = import_reference_with_progress(
+            &root,
+            "https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning",
+            &|stage| println!("{stage}"),
+        );
+        let checked = imported.and_then(|result| {
+            assert!(result.fetch_error.is_none(), "{:?}", result.fetch_error);
+            let papers = list_papers(&root)?;
+            assert_eq!(papers.len(), 1);
+            assert!(papers[0].has_blog);
+            assert!(papers[0].has_full_text);
+            assert!(read_paper_blog_local(&root, &papers[0].arxiv_id)?
+                .unwrap()
+                .contains("[p8]"));
+            assert!(read_paper(&root, &papers[0].arxiv_id)?.contains("reinforcement"));
+            let resolved = project::resolve_citation_query(&papers[0].title)?;
+            assert_eq!(resolved.url, papers[0].url.as_deref().unwrap());
+            assert_eq!(resolved.year, "2026");
+            let from_title = import_reference_with_progress(&root, &papers[0].title, &|_| {})?;
+            assert!(from_title.already_imported);
+            assert_eq!(from_title.arxiv_id, papers[0].arxiv_id);
+            Ok(())
+        });
+        fs::remove_dir_all(parent).unwrap();
+        checked.unwrap();
     }
 
     #[test]

@@ -84,6 +84,7 @@
 .pdf-text-layer.selecting .endOfContent { top: 0; }
 .pdf-text-layer .highlight { background: var(--highlight-match-surface); color: transparent; }
 .pdf-text-layer .highlight.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
+.pdf-text-layer .pdf-source-quote-highlight { background: var(--highlight-match-current-surface); color: transparent; outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; }
 .pdf-annotation-layer { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
 .pdf-link-annotation { position: absolute; pointer-events: auto; border: 0; padding: 0; background: transparent; cursor: pointer; outline: 1px solid transparent; }
 .pdf-link-annotation:hover, .pdf-link-annotation:focus-visible { outline-color: color-mix(in srgb, var(--control-active) 65%, transparent); background: color-mix(in srgb, var(--control-active) 12%, transparent); }

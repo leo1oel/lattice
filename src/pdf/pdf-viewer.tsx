@@ -43,6 +43,7 @@ import type { PdfFileViewState } from "../app-types";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { logAction } from "../telemetry/app-notify";
+import { sourceQuoteDomRange } from "../papers/source-quote";
 import {
   pdfBase64Fingerprint,
   pdfBase64ToBytes,
@@ -191,6 +192,55 @@ export type PdfSyncTarget = {
   width: number;
   height: number;
 };
+
+export type PdfSourceQuote = {
+  id: string;
+  page: number;
+  first: string;
+  last: string;
+};
+
+function highlightTextRange(root: HTMLElement, range: Range): () => void {
+  const prefix = document.createRange();
+  prefix.selectNodeContents(root);
+  prefix.setEnd(range.startContainer, range.startOffset);
+  const from = prefix.toString().length;
+  const to = from + range.toString().length;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const segments: Array<{ node: Text; from: number; to: number }> = [];
+  let offset = 0;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const textNode = node as Text;
+    const end = offset + textNode.data.length;
+    if (end > from && offset < to) {
+      segments.push({
+        node: textNode,
+        from: Math.max(0, from - offset),
+        to: Math.min(textNode.data.length, to - offset),
+      });
+    }
+    offset = end;
+  }
+
+  const highlights: HTMLElement[] = [];
+  for (const segment of segments.reverse()) {
+    const after = segment.node.splitText(segment.to);
+    const selected = segment.node.splitText(segment.from);
+    const highlight = document.createElement("mark");
+    highlight.className = "pdf-source-quote-highlight";
+    selected.replaceWith(highlight);
+    highlight.append(selected);
+    highlights.push(highlight);
+    void after;
+  }
+  return () => {
+    for (const highlight of highlights) {
+      const parent = highlight.parentNode;
+      highlight.replaceWith(...highlight.childNodes);
+      parent?.normalize();
+    }
+  };
+}
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
@@ -341,6 +391,7 @@ export function PdfPreview({
   pdfBytes = null,
   fileName = "paper.pdf",
   syncTarget = null,
+  sourceQuote = null,
   onSource,
   canForwardSync = false,
   locatingPdf = false,
@@ -349,6 +400,7 @@ export function PdfPreview({
   onNumPages,
   onPageChange,
   onDocumentData,
+  onLoadError,
   initialPage = 1,
   initialViewState,
   onViewState,
@@ -364,6 +416,7 @@ export function PdfPreview({
   pdfBytes?: ArrayBuffer | null;
   fileName?: string;
   syncTarget?: PdfSyncTarget | null;
+  sourceQuote?: PdfSourceQuote | null;
   onSource?: (page: number, x: number, y: number) => void;
   canForwardSync?: boolean;
   locatingPdf?: boolean;
@@ -373,6 +426,7 @@ export function PdfPreview({
   onPageChange?: (page: number) => void;
   /** Complete bytes assembled by PDF.js after a URL load, for host actions such as download. */
   onDocumentData?: (bytes: ArrayBuffer) => void;
+  onLoadError?: () => void;
   initialPage?: number;
   initialViewState?: PdfFileViewState;
   onViewState?: (state: PdfFileViewState) => void;
@@ -395,6 +449,8 @@ export function PdfPreview({
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const activeRecordRef = useRef<ViewerRecord | null>(null);
   const syncHighlightRef = useRef<HTMLDivElement | null>(null);
+  const sourceQuoteCleanupRef = useRef<(() => void) | null>(null);
+  const scrolledSourceQuoteRef = useRef<string | null>(null);
   const onTextSelectRef = useRef(onTextSelect);
   const onNumPagesRef = useRef(onNumPages);
   const onPageChangeRef = useRef(onPageChange);
@@ -437,6 +493,9 @@ export function PdfPreview({
   const [fitMode, setFitMode] = useState<"width" | "height" | null>(initialViewPreference.fitMode);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
+  useEffect(() => {
+    if (pdfError) onLoadError?.();
+  }, [pdfError, onLoadError]);
   const [loadFeedback, setLoadFeedback] = useState<PdfLoadFeedback | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -448,6 +507,7 @@ export function PdfPreview({
   const [zoomEditing, setZoomEditing] = useState(false);
   const [zoomDraft, setZoomDraft] = useState("");
   const [historyAvailability, setHistoryAvailability] = useState({ back: false, forward: false });
+  const [textLayerGeneration, setTextLayerGeneration] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pdfSurfaceActiveRef = useRef(false);
   const cancelPageEditRef = useRef(false);
@@ -457,6 +517,7 @@ export function PdfPreview({
   const locationHistoryRef = useRef<PdfLocationHistory>({ back: [], forward: [] });
   const locationNavigationTokenRef = useRef(0);
   const navigatedSyncTargetRef = useRef<string | null>(null);
+  const navigatedSourceQuoteRef = useRef<string | null>(null);
   const viewStateFrameRef = useRef<number | null>(null);
   const viewStateReadyRef = useRef(!initialViewStateSnapshot);
   const textLayerDisposersRef = useRef(new Map<HTMLElement, () => void>());
@@ -801,6 +862,9 @@ export function PdfPreview({
       textLayer.classList.add("pdf-text-layer");
       textLayerDisposersRef.current.get(textLayer)?.();
       textLayerDisposersRef.current.set(textLayer, installPdfTextLayerSelection(textLayer));
+      if (activeRecordRef.current === record) {
+        setTextLayerGeneration((generation) => generation + 1);
+      }
     });
     slick.on("pagechanging", (source) => {
       const event = source as PageEvent;
@@ -1208,6 +1272,41 @@ export function PdfPreview({
       }
     };
   }, [activeViewerGeneration, numPages, scale, syncTarget, t]);
+
+  useEffect(() => {
+    const record = activeRecordRef.current;
+    sourceQuoteCleanupRef.current?.();
+    sourceQuoteCleanupRef.current = null;
+    if (!record || !sourceQuote || sourceQuote.page < 1 || sourceQuote.page > (numPages ?? 0)) return;
+
+    // A quote target is an explicit navigation request. It runs after viewer
+    // promotion so it overrides restoration of the saved scroll position.
+    if (navigatedSourceQuoteRef.current !== sourceQuote.id) {
+      navigatedSourceQuoteRef.current = sourceQuote.id;
+      record.slick.gotoPage(sourceQuote.page);
+    }
+
+    const pageView = record.slick.viewer.getPageView(sourceQuote.page - 1) as PdfSlickPageView | undefined;
+    const textLayer = pageView?.textLayer?.div;
+    if (!textLayer?.isConnected) return;
+    const match = sourceQuoteDomRange(textLayer, sourceQuote.first, sourceQuote.last);
+    if (!match) return;
+    const cleanup = highlightTextRange(textLayer, match);
+    sourceQuoteCleanupRef.current = cleanup;
+    if (scrolledSourceQuoteRef.current !== sourceQuote.id) {
+      scrolledSourceQuoteRef.current = sourceQuote.id;
+      textLayer.querySelector(".pdf-source-quote-highlight")?.scrollIntoView({ block: "center" });
+    }
+    return () => {
+      if (sourceQuoteCleanupRef.current === cleanup) sourceQuoteCleanupRef.current = null;
+      cleanup();
+    };
+  }, [activeViewerGeneration, numPages, scale, sourceQuote, textLayerGeneration]);
+
+  useEffect(() => () => {
+    sourceQuoteCleanupRef.current?.();
+    sourceQuoteCleanupRef.current = null;
+  }, []);
 
   const dispatchFind = useCallback((query: string, findPrevious = false, again = false) => {
     const slick = activeRecordRef.current?.slick;

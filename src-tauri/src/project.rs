@@ -3285,6 +3285,22 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
             }
             return Ok(result);
         }
+        if dois.is_empty() {
+            // AlphaXiv indexes technical reports that have neither DOI nor
+            // arXiv record. Keep the exact resolved snapshot in the existing
+            // review dialog; saving it must not perform a second title search.
+            if let Ok(Some(paper)) = crate::alphaxiv::resolve_title(query) {
+                if let Ok(raw) = crate::papers::alphaxiv_bibtex(&paper) {
+                    return Ok(citation_from_bibtex(&raw, ""));
+                }
+            }
+        }
+    }
+    if let Some(id) = crate::alphaxiv::paper_id_from_url(query) {
+        if let Some(paper) = crate::alphaxiv::resolve_paper(&id)? {
+            let raw = crate::papers::alphaxiv_bibtex(&paper)?;
+            return Ok(citation_from_bibtex(&raw, ""));
+        }
     }
     if let Some(raw) = crate::papers::official_arxiv_citation(query)? {
         crate::papers::validate_resolved_identity(query, &raw)?;

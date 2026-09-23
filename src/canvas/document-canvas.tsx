@@ -21,6 +21,9 @@ import type { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { paperPdfUrl, paperSourceCitation } from "../papers/paper-source";
+import { sourceQuoteDomRange } from "../papers/source-quote";
+import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { latex } from "codemirror-lang-latex";
 import {
   hueFromColorHex,
@@ -830,6 +833,7 @@ type PaperPdfView = {
   previewUrl: string | null;
   error: boolean;
   initialPage: number;
+  quote: PdfSourceQuote | null;
 };
 
 function normalizedArxivId(value: string): string {
@@ -860,9 +864,10 @@ function paperPdfSource(paper: Pick<PaperSummary, "arxivId" | "url">): PaperPdfS
     const url = arxivPdfUrl(arxivId);
     return { key: url, url, fileName: `${arxivId.replace("/", "-")}.pdf`, generic: false };
   }
-  if (!paper.url) return null;
+  const sourceUrl = paperPdfUrl(paper);
+  if (!sourceUrl) return null;
   try {
-    const parsed = new URL(paper.url);
+    const parsed = new URL(sourceUrl);
     if ((parsed.protocol !== "https:" && parsed.protocol !== "http:")
       || !parsed.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
     const pathName = parsed.pathname.split("/").at(-1) || "paper.pdf";
@@ -879,8 +884,8 @@ function paperPdfSource(paper: Pick<PaperSummary, "arxivId" | "url">): PaperPdfS
 }
 
 function paperBrowserUrl(paper: Pick<PaperSummary, "arxivId" | "url">): string | null {
-  const arxivId = normalizedArxivId(paper.arxivId);
-  if (arxivId) return arxivPdfUrl(arxivId);
+  const pdfUrl = paperPdfUrl(paper);
+  if (pdfUrl) return pdfUrl;
   if (paper.url) {
     try {
       const parsed = new URL(paper.url);
@@ -1581,15 +1586,24 @@ export function DocumentCanvas(props: {
     [activePaperId, activePaperUrl],
   );
   const [paperPdfView, setPaperPdfView] = useState<PaperPdfView | null>(null);
+  const [paperQuoteFallback, setPaperQuoteFallback] = useState<{
+    paperId: string; path: string; returnPath: string; quote: PdfSourceQuote;
+  } | null>(null);
+  const paperReturnViewportRef = useRef<{ path: string; scrollTop: number; scrollRange: number } | null>(null);
+  const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
   const paperPdfPagesRef = useRef(new Map<string, number>());
   // Retain only the last complete PDF, not an unbounded library of buffers.
   // PdfPreview copies bytes before transferring them to its worker.
   const paperPdfBytesRef = useRef<{ key: string; bytes: ArrayBuffer } | null>(null);
   const paperPdfRequestRef = useRef(0);
   useEffect(() => {
+    paperReturnViewportRef.current = null;
+  }, [activePaperId]);
+  useEffect(() => {
     paperPdfRequestRef.current += 1;
+    setPaperQuoteFallback((current) => current?.paperId === activePaperId ? current : null);
     setPaperPdfView((current) => current?.key === activePaperPdfSource?.key ? current : null);
-  }, [activePaperPdfSource]);
+  }, [activePaperId, activePaperPdfSource]);
   useEffect(() => {
     // The paper article is already useful while this local chunk initializes.
     // Start it here so a later PDF click waits only for the remote source and PDF.js.
@@ -1598,10 +1612,25 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
     // Choosing one while the PDF is open exits the alternate PDF surface.
+    paperPdfRequestRef.current += 1;
     setPaperPdfView(null);
   }, [activeFile, props.mode]);
-  const openPaperPdf = useCallback(() => {
+  const { activePaper, onOpenMarkdownPath } = props;
+  const fallbackToPaperQuote = useCallback((quote: PdfSourceQuote | null | undefined) => {
+    if (!quote || !activePaper?.hasFullText) return;
+    const path = `.research/papers/${activePaper.arxivId}/paper.md`;
+    setPaperQuoteFallback({ paperId: activePaper.arxivId, path, returnPath: activeFile, quote });
+    setPaperPdfView(null);
+    onOpenMarkdownPath(path);
+  }, [activeFile, activePaper, onOpenMarkdownPath]);
+  const openPaperPdf = useCallback((quote: PdfSourceQuote | null = null) => {
     if (!activePaperPdfSource) return;
+    if (primaryVisualMarkdownFlushRef.current?.() === false) return;
+    const viewport = markdownPreviewViewportRef.current;
+    if (viewport) paperReturnViewportRef.current = {
+      path: activeFile, scrollTop: viewport.scrollTop,
+      scrollRange: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+    };
     const request = ++paperPdfRequestRef.current;
     const cached = paperPdfBytesRef.current;
     const bytes = cached?.key === activePaperPdfSource.key ? cached.bytes : null;
@@ -1610,7 +1639,8 @@ export function DocumentCanvas(props: {
       bytes,
       previewUrl: activePaperPdfSource.generic || bytes ? null : activePaperPdfSource.url,
       error: false,
-      initialPage: paperPdfPagesRef.current.get(activePaperPdfSource.key) ?? 1,
+      initialPage: quote?.page ?? paperPdfPagesRef.current.get(activePaperPdfSource.key) ?? 1,
+      quote,
     });
     if (!activePaperPdfSource.generic || bytes) return;
     void invoke<string>("paper_pdf_preview_url", { url: activePaperPdfSource.url }).then((previewUrl) => {
@@ -1623,8 +1653,9 @@ export function DocumentCanvas(props: {
       setPaperPdfView((current) => current?.key === activePaperPdfSource.key
         ? { ...current, error: true }
         : current);
+      fallbackToPaperQuote(quote);
     });
-  }, [activePaperPdfSource]);
+  }, [activeFile, activePaperPdfSource, fallbackToPaperQuote]);
   const closePaperPdf = useCallback(() => {
     paperPdfRequestRef.current += 1;
     setPaperPdfView(null);
@@ -1729,7 +1760,31 @@ export function DocumentCanvas(props: {
   const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
   const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
   const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
-  const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const viewport = markdownPreviewViewportRef.current;
+    if (!paperQuoteFallback || paperQuoteFallback.paperId !== activePaperId
+      || paperQuoteFallback.path !== activeFile || !viewport) return;
+    let frame = 0;
+    let matched = false;
+    const locate = () => {
+      if (matched) return;
+      const root = viewport.querySelector<HTMLElement>(".ProseMirror") ?? viewport;
+      const range = sourceQuoteDomRange(root, paperQuoteFallback.quote.first, paperQuoteFallback.quote.last);
+      if (!range) return;
+      matched = true;
+      observer.disconnect();
+      frame = requestAnimationFrame(() => {
+        range.startContainer.parentElement?.scrollIntoView({ block: "center" });
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      });
+    };
+    const observer = new MutationObserver(locate);
+    observer.observe(viewport, { subtree: true, childList: true, characterData: true });
+    locate();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [activeFile, activePaperId, paperQuoteFallback, settledPreviewText]);
   const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownModeViewportHandoffRef = useRef<MarkdownModeViewportHandoff | null>(null);
@@ -3123,7 +3178,12 @@ export function DocumentCanvas(props: {
     setMarkdownPreviewViewport(viewport);
     if (!viewport) return;
     const path = activeFile;
-    const saved = getFileViewState?.(path)?.visualMarkdown;
+    const returnViewport = paperReturnViewportRef.current;
+    // A pending source reveal owns the full-text viewport. Keep the blog
+    // position until its explicit return, even if it briefly remounts first.
+    const saved = paperQuoteFallback?.path === path ? undefined
+      : returnViewport?.path === path ? returnViewport : getFileViewState?.(path)?.visualMarkdown;
+    if (!paperQuoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
     let restoring = Boolean(saved);
     let restoreFrame: number | null = null;
     const report = () => {
@@ -3159,7 +3219,7 @@ export function DocumentCanvas(props: {
       report();
       viewport.removeEventListener("scroll", report);
     };
-  }, [activeFile, getFileViewState, onFileViewState]);
+  }, [activeFile, getFileViewState, onFileViewState, paperQuoteFallback]);
 
   const undoVisualMarkdown = useCallback(() => {
     const storedView = primaryViewRef.current;
@@ -3717,6 +3777,16 @@ export function DocumentCanvas(props: {
       // (frozen-table-headers.ts resolves it via closest()).
       viewportProps={{
         "data-testid": "editor-scroll-container",
+        onClickCapture: (event) => {
+          if (!props.activePaper || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+          const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+          if (!link) return;
+          const citation = paperSourceCitation(props.activePaper, link.href, link.title);
+          if (!citation || !activePaperPdfSource) return;
+          event.preventDefault();
+          event.stopPropagation();
+          openPaperPdf({ ...citation, id: crypto.randomUUID() });
+        },
         // Split mode has an explicit source/preview scroll coordinator and
         // insertion viewport lock. Native anchoring is a competing scroll
         // writer when media above the viewport resolves or remounts.
@@ -3808,17 +3878,27 @@ export function DocumentCanvas(props: {
     && paperPdfView.key === activePaperPdfSource?.key,
   );
   const paperReturnLabel = activeFile.toLocaleLowerCase().endsWith("/blog.md") ? t`Blog` : t`Paper`;
+  const fallbackReturnView = paperQuoteFallback?.returnPath.toLocaleLowerCase().endsWith("/blog.md") ? t`Blog` : t`Paper`;
+  const fallbackReturnLabel = t({ message: `Back to ${{ view: fallbackReturnView }}` });
   const paperBrowserActionLabel = activePaperPdfSource
     ? t`Open PDF in browser`
     : t`Open article in browser`;
   const paperActions = props.activePaper && !paperPdfActive ? (
     <div className="paper-local-actions" aria-label={t`Paper actions`} data-tour="paper-actions">
+      {paperQuoteFallback && paperQuoteFallback.paperId === activePaperId && paperQuoteFallback.path === activeFile && (
+        <Tip label={fallbackReturnLabel}>
+          <button type="button" className="paper-local-action" aria-label={fallbackReturnLabel} onClick={() => {
+            props.onOpenMarkdownPath(paperQuoteFallback.returnPath);
+            setPaperQuoteFallback(null);
+          }}><ArrowLeft size={14} aria-hidden="true" /></button>
+        </Tip>
+      )}
       {activePaperPdfSource ? (
         <button
           type="button"
           className="paper-local-action"
           aria-label={t`View original PDF`}
-          onClick={openPaperPdf}
+          onClick={() => openPaperPdf()}
         >
           <FileText size={14} aria-hidden="true" />
           <span>{t`PDF`}</span>
@@ -3879,6 +3959,8 @@ export function DocumentCanvas(props: {
           pdfBytes={paperPdfView.bytes}
           fileName={paperPdfView.fileName}
           initialPage={paperPdfView.initialPage}
+          sourceQuote={paperPdfView.quote}
+          onLoadError={() => fallbackToPaperQuote(paperPdfView.quote)}
           saveLabel={t`Download PDF`}
           timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
           onTextSelect={props.onPaperTextSelect}

@@ -6273,6 +6273,81 @@ describe("project workspace", () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { cached: false, fallback: false },
+    { cached: true, fallback: false },
+    { cached: true, fallback: true },
+  ])("opens an AlphaXiv overview and routes source links (%j)", async ({ cached, fallback }) => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const url = "https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning";
+    const citationUrl = `${url}.pdf#page=8`;
+    const paper = { arxivId: "web-0123456789abcdef", url, title: "MiMo-V2.6", hasFullText: fallback, hasBlog: cached };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "list_papers") return [{ ...paper }];
+      if (command === "list_history" || command === "harper_lint") return [];
+      if (command === "fetch_web_reference") {
+        paper.hasBlog = true;
+        return { arxivId: paper.arxivId, paperPath: "", blogPath: `.research/papers/${paper.arxivId}/blog.md` };
+      }
+      if (command === "read_paper") {
+        if (fallback) return "# Original full text\n\nWe use a large training dataset with many tokens per sequence";
+        throw new Error("Full text unavailable");
+      }
+      if (command === "paper_pdf_preview_url") {
+        if (fallback) throw new Error("PDF unavailable");
+        return "http://127.0.0.1:3456/paper.pdf?token=test";
+      }
+      if (command === "read_paper_blog_local") return `# MiMo overview\n\nTraining uses 1,568 prompts. [p8](${citationUrl} "We use a large training … tokens per sequence")`;
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByRole("button", { name: /^MiMo-V2\.6/ }));
+    expect(await screen.findByRole("heading", { name: "MiMo overview" })).toBeVisible();
+    const citation = await screen.findByRole("link", { name: "p8" });
+    expect(citation).toHaveAttribute("href", citationUrl);
+    expect(citation).toHaveAttribute("title", "We use a large training … tokens per sequence");
+    expect(screen.getByRole("button", { name: "View original PDF" })).toBeVisible();
+    const blogViewport = citation.closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    Object.defineProperties(blogViewport, {
+      scrollHeight: { configurable: true, value: 2400 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    blogViewport.scrollTop = 735;
+    fireEvent.scroll(blogViewport);
+    fireEvent.click(citation);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("paper_pdf_preview_url", { url: `${url}.pdf` }));
+    if (fallback) {
+      expect(await screen.findByRole("heading", { name: "Original full text" })).toBeVisible();
+      await waitFor(() => expect(window.getSelection()?.toString()).toBe("We use a large training dataset with many tokens per sequence"));
+    }
+    expect(await screen.findByRole("button", { name: "Back to Blog" })).toBeVisible();
+    expect(openUrl).not.toHaveBeenCalledWith(citationUrl);
+    fireEvent.click(screen.getByRole("button", { name: "Back to Blog" }));
+    expect(await screen.findByRole("heading", { name: "MiMo overview" })).toBeVisible();
+    const returnedViewport = screen.getByRole("link", { name: "p8" }).closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    Object.defineProperties(returnedViewport, {
+      scrollHeight: { configurable: true, value: 2400 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    await waitFor(() => expect(returnedViewport.scrollTop).toBe(735));
+    expect(invoke).not.toHaveBeenCalledWith("fetch_paper", expect.anything());
+    if (!cached) expect(invoke).toHaveBeenCalledWith("fetch_web_reference", { url });
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
