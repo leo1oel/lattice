@@ -626,6 +626,35 @@ describe("PDFSlick viewer integration", () => {
     expect(onSource).toHaveBeenCalledWith(2, 50, 100);
   });
 
+  it("restores a SyncTeX highlight cleared by first page rendering without replaying navigation", async () => {
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      const view = render(
+        <PdfPreview
+          url="https://example.test/paper.pdf"
+          pdfBase64={null}
+          syncTarget={{ id: "cold-sync", page: 3, x: 83, y: 238, width: 421, height: 13 }}
+        />,
+      );
+      const highlight = await view.findByLabelText("Source location in PDF");
+      expect(scroll).toHaveBeenCalledWith({ block: "center", inline: "nearest" });
+      const instance = pdfSlickMock.instances[0];
+      const jumps = instance.gotoPage.mock.calls.length;
+      const scrolls = scroll.mock.calls.length;
+
+      // PDF.js clears page children on the first render of an unvisited page.
+      highlight.remove();
+      instance.args.container.scrollTop = 2_350;
+      act(() => instance.emit("pagerendered", { pageNumber: 3 }));
+      expect(await view.findByLabelText("Source location in PDF")).toBeInTheDocument();
+      expect(instance.gotoPage).toHaveBeenCalledTimes(jumps);
+      expect(scroll).toHaveBeenCalledTimes(scrolls);
+      expect(instance.args.container.scrollTop).toBe(2_350);
+    } finally {
+      scroll.mockRestore();
+    }
+  });
+
   it("navigates to a quote page but conservatively skips an ambiguous highlight", async () => {
     const view = render(
       <PdfPreview

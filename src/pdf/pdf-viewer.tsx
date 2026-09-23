@@ -517,6 +517,8 @@ export function PdfPreview({
   const locationHistoryRef = useRef<PdfLocationHistory>({ back: [], forward: [] });
   const locationNavigationTokenRef = useRef(0);
   const navigatedSyncTargetRef = useRef<string | null>(null);
+  const scrolledSyncTargetRef = useRef<string | null>(null);
+  const [pageRenderGeneration, setPageRenderGeneration] = useState(0);
   const navigatedSourceQuoteRef = useRef<string | null>(null);
   const viewStateFrameRef = useRef<number | null>(null);
   const viewStateReadyRef = useRef(!initialViewStateSnapshot);
@@ -827,6 +829,11 @@ export function PdfPreview({
     slick.on("pagesinit", decoratePages);
     unsubscribeReady = slick.store.subscribe(() => promote());
     slick.on("pagerendered", () => {
+      // The first draw of a previously unvisited page can clear an overlay
+      // attached before PDF.js has initialized that page's canvas.
+      if (activeRecordRef.current === record) {
+        setPageRenderGeneration((generation) => generation + 1);
+      }
       if (!firstPageRendered) {
         firstPageRendered = true;
         clearLoadFeedback();
@@ -1263,6 +1270,13 @@ export function PdfPreview({
       highlight.style.height = `${Math.max(12, syncTarget.height * viewportScale)}px`;
       pageElement.append(highlight);
       syncHighlightRef.current = highlight;
+      if (scrolledSyncTargetRef.current !== syncTarget.id) {
+        scrolledSyncTargetRef.current = syncTarget.id;
+        highlight.scrollIntoView({ block: "center", inline: "nearest" });
+        // Keep PDF.js's cached location in step with this DOM scroll so a
+        // pending fit-to-width update cannot restore the old page-top offset.
+        record.slick.viewer.update();
+      }
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -1271,7 +1285,7 @@ export function PdfPreview({
         syncHighlightRef.current = null;
       }
     };
-  }, [activeViewerGeneration, numPages, scale, syncTarget, t]);
+  }, [activeViewerGeneration, numPages, pageRenderGeneration, scale, syncTarget, t]);
 
   useEffect(() => {
     const record = activeRecordRef.current;
