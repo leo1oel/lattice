@@ -20,7 +20,6 @@ export function paperPdfUrl(paper: PaperIdentity): string | null {
     const id = alphaxivId(url);
     if (id) return `https://www.alphaxiv.org/abs/${id}.pdf`;
     if (!/\.pdf$/i.test(url.pathname)) return null;
-    url.hash = "";
     return url.href;
   } catch {
     return null;
@@ -40,7 +39,7 @@ export function paperSourceCitation(paper: PaperIdentity, href: string, title: s
     const currentAlpha = paper.url ? alphaxivId(new URL(paper.url))?.replace(/v\d+$/, "") : null;
     const sameAlpha = linkedAlpha && (linkedAlpha === currentAlpha || linkedAlpha === explicitArxivId(paper.arxivId));
     url.hash = "";
-    if (!sameAlpha && (!source || url.href !== source)) return null;
+    if (!sameAlpha && (!source || url.href !== source.split("#")[0])) return null;
     // Existing cached overviews store the two quote anchors in a portable
     // Markdown link title. Ambiguous titles still navigate to the page.
     const anchors = title.split(" … ");

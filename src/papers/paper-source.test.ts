@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { canDownloadPaper, isTitleQuery, paperPdfUrl, paperSourceCitation } from "./paper-source";
 
 describe("paper source routing", () => {
+  it("preserves direct PDF URL fragments but ignores them for source identity", () => {
+    const paper = { arxivId: "web-abc", url: "https://example.test/report.PDF?download=1#page=2" };
+    expect(paperPdfUrl(paper)).toBe(paper.url);
+    expect(paperSourceCitation(paper, "https://example.test/report.PDF?download=1#page=8", "First … Last"))
+      .toEqual({ page: 8, first: "First", last: "Last" });
+    expect(paperSourceCitation(paper, "https://example.test/report.PDF?download=2#page=8", "First … Last")).toBeNull();
+  });
+
   it("resolves AlphaXiv PDFs without treating unrelated webpages as papers", () => {
     expect(paperPdfUrl({ arxivId: "web-abc", url: "https://www.alphaxiv.org/abs/2609.report" })).toBe("https://www.alphaxiv.org/abs/2609.report.pdf");
     expect(paperPdfUrl({ arxivId: "web-abc", url: "https://alphaxiv.org/pdf/2609.reportv2" })).toBe("https://www.alphaxiv.org/abs/2609.reportv2.pdf");
