@@ -144,6 +144,15 @@ Upstream's Electron host implements those responsibilities; Lattice's Tauri host
 Enabling the command's native operations requires that host integration and validation against the signed Lattice application, not a broader iframe token or a standalone driver launched from the agent server.
 No Accessibility, Screen Recording, or Input Monitoring permissions are requested by this upgrade.
 
+### Synara 0.9.1 compatibility
+
+The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
+Model availability still depends on the installed provider runtime and account access.
+Lattice already wrote server-settings migration version 3 before this upgrade, so existing version-3 Git-writing selections remain unchanged; new settings use upstream's GPT-6 Luna default.
+The compile-repair model remains a separate setting, and the Computer Use boundary above is unchanged.
+The new batched thread-shell query preserves Lattice's `pendingMessageId`, with a regression covering latest-turn ties, duplicate and missing thread IDs, and null versus populated message identities.
+The project-import announcement never opens automatically in Lattice embeds, even when a loopback-port change makes its dismissal storage unavailable; manual import remains available.
+
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
