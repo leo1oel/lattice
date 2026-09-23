@@ -36,6 +36,7 @@ export type ResolvedCitationDraft = {
   url: string;
   doi: string;
   entryType: string;
+  bibtex?: string;
   candidates?: ResolvedCitationDraft[];
   evidence?: {
     source?: string;

@@ -5196,6 +5196,49 @@ describe("project workspace", () => {
     expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
   });
 
+  it.each([false, true])("downloads the resolved title snapshot without a second search (ambiguous: %s)", async (ambiguous) => {
+    const title = "An Unambiguous Research Report";
+    const bibtex = "@misc{report2026, title={An Unambiguous Research Report}, author={Ada Smith}, year={2026}, eprint={2601.01234}, archivePrefix={arXiv}}";
+    const draft = { key: "report2026", title, author: "Ada Smith", year: "2026", journal: "", booktitle: "", publisher: "", url: "https://arxiv.org/abs/2601.01234", doi: "", entryType: "misc", bibtex, extraFields: { eprint: "2601.01234", archivePrefix: "arXiv" } };
+    const snapshot = {
+      root: "/tmp/lattice-title-import",
+      manifest: { schemaVersion: 1, projectId: "title-import", name: "Title import", rootDocuments: [], primaryBibliography: "references.bib", trusted: true },
+      files: [],
+    };
+    let imported = false;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "list_history") return [];
+      if (command === "read_project_file") return "";
+      if (command === "list_papers") return imported ? [{ arxivId: "2601.01234", title, hasFullText: true, hasBlog: true, citationKey: draft.key }] : [];
+      if (command === "resolve_citation_query") return ambiguous
+        ? { candidates: [{ ...draft, key: "other", year: "2025", extraFields: { eprint: "2501.05678" } }, draft] }
+        : draft;
+      if (command === "import_reference") {
+        imported = true;
+        return { arxivId: "2601.01234", title, citationKey: draft.key, alreadyImported: false, paperPath: ".research/papers/2601.01234/paper.md" };
+      }
+      return mockAppCommand(command, args);
+    });
+    renderApp();
+    await switchSidebarMode("Papers");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search or import papers" }), { target: { value: title } });
+    fireEvent.click(screen.getByTitle("Import paper"));
+    if (ambiguous) {
+      await screen.findByRole("region", { name: "Citation candidates" });
+      expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
+      fireEvent.click(screen.getAllByRole("button", { name: "Select this record" })[1]);
+      fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    }
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_reference", {
+      input: ambiguous ? expect.stringContaining("eprint = {2601.01234}") : bibtex,
+      requestId: expect.any(String),
+    }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument());
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "resolve_citation_query")).toHaveLength(1);
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
+  });
+
   it.each([false, true])("reviews title candidates without importing and opens DOI-only sources externally (cancel: %s)", async (cancelled) => {
     const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
     const doi = "10.1093/neucas/3.3.209-w";

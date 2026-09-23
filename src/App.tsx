@@ -1290,6 +1290,7 @@ function App() {
   const [bibResolveSeed, setBibResolveSeed] = useState("");
   const [bibEntryMode, setBibEntryMode] = useState<"add" | "edit">("add");
   const [bibEntryInitial, setBibEntryInitial] = useState<ResolvedCitationDraft | undefined>(undefined);
+  const [bibEntryImportRoot, setBibEntryImportRoot] = useState<string | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
   const dualPreviewPanes = {
@@ -6104,18 +6105,23 @@ function App() {
     const importRoot = projectRootRef.current;
     setImporting(true);
     try {
-      // A title is a search, not an identity. Review the resolved snapshot
-      // before writing; saving the draft must not rerun the title search.
+      let importInput = trimmed;
+      // Only ambiguous/incomplete results need review. Import the resolved
+      // snapshot, never a second title search that could choose another work.
       if (isTitleQuery(trimmed)) {
         const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query: trimmed });
         if (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId) return;
-        setBibEntryError(null);
-        setBibEntryMode("add");
-        setBibEntryInitial(resolved);
-        setBibResolveSeed(trimmed);
-        setBibEntryKey((value) => value + 1);
-        setBibEntryOpen(true);
-        return;
+        if (resolved.candidates?.length || !resolved.bibtex?.trim()) {
+          setBibEntryError(null);
+          setBibEntryMode("add");
+          setBibEntryImportRoot(importRoot);
+          setBibEntryInitial(resolved);
+          setBibResolveSeed(trimmed);
+          setBibEntryKey((value) => value + 1);
+          setBibEntryOpen(true);
+          return;
+        }
+        importInput = resolved.bibtex;
       }
       const result = await invoke<{
         arxivId: string;
@@ -6126,7 +6132,7 @@ function App() {
         cancelled?: boolean;
         paperPath?: string;
       }>("import_reference", {
-        input: trimmed,
+        input: importInput,
         requestId,
       });
       if (projectRootRef.current !== importRoot) return;
@@ -6172,6 +6178,7 @@ function App() {
             ? `Added “${result.title}” to the bibliography${citeHint}. The full text could not be downloaded: ${fetchNote}`
             : `Imported “${result.title}”${citeHint}.`
           : `Added “${result.title}” to the bibliography${citeHint}. No full text to open.`);
+      return result;
     } catch (reason) {
       if (isTitleQuery(trimmed) && (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId)) return;
       setError(toMessage(reason));
@@ -8480,6 +8487,7 @@ function App() {
   const openBibEntryDialog = useCallback((resolveSeed = "") => {
     setBibEntryError(null);
     setBibEntryMode("add");
+    setBibEntryImportRoot(null);
     setBibEntryInitial(undefined);
     setBibResolveSeed(resolveSeed);
     setBibEntryKey((value) => value + 1);
@@ -8496,6 +8504,7 @@ function App() {
       }
       setBibEntryError(null);
       setBibEntryMode("edit");
+      setBibEntryImportRoot(null);
       setBibEntryInitial(entry);
       setBibResolveSeed("");
       setBibEntryKey((value) => value + 1);
@@ -8597,6 +8606,7 @@ function App() {
 
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     if (!project) return;
+    if (bibEntryImportRoot !== null && bibEntryImportRoot !== project.root) return;
     const bibliography = project.manifest.primaryBibliography;
     if (!bibliography) {
       setBibEntryError("This project has no primary bibliography.");
@@ -8612,6 +8622,18 @@ function App() {
       if (source !== savedSource) {
         const saved = await save();
         if (!saved) return;
+      }
+      if (bibEntryImportRoot !== null && bibEntryMode === "add") {
+        const result = await importReferenceInput(formatBibEntry(draft));
+        if (!result || projectRootRef.current !== bibEntryImportRoot) return;
+        setBibEntryOpen(false);
+        setBibEntryImportRoot(null);
+        if (insertCite && result.citationKey) {
+          setCiteInsertRequest({ key: result.citationKey, command: "cite", id: crypto.randomUUID() });
+          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+        }
+        setError(null);
+        return;
       }
       if (bibEntryMode === "edit") {
         // The key is read-only when editing, so this replaces the entry in place.
@@ -8645,7 +8667,7 @@ function App() {
     } finally {
       setBibEntryBusy(false);
     }
-  }, [activeFile, bibEntryMode, collabSession, project, publishTextToCollabV2, refreshProject, save, savedSource, source]);
+  }, [activeFile, bibEntryImportRoot, bibEntryMode, collabSession, importReferenceInput, project, publishTextToCollabV2, refreshProject, save, savedSource, source]);
 
   const runDoctor = useCallback(async (options?: {
     openWizardIfMissing?: boolean;
@@ -10588,7 +10610,7 @@ function App() {
         createOpen={createOpen}
         createProject={createProject}
         importedArxivIds={importedArxivIds}
-        importReferenceInput={importReferenceInput}
+        importReferenceInput={async (input) => { await importReferenceInput(input); }}
         literatureOpen={literatureOpen}
         openBibEntryDialog={openBibEntryDialog}
         projectName={projectName}

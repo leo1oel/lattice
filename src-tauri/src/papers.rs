@@ -2105,7 +2105,7 @@ fn bibcite_query_for_input(
     query: &str,
     resolver: &dyn Fn(&str) -> Result<Option<String>, String>,
 ) -> String {
-    if is_web_url(query) {
+    if is_web_url(query) || query.trim_start().starts_with('@') {
         return query.to_string();
     }
     // bibcite's URL resolver recognizes arXiv reliably, while its free-text
@@ -2911,6 +2911,7 @@ fn import_citation(
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
     let preferred_arxiv = explicit_arxiv_id(&bibcite_query);
     let title_citation = if preferred_arxiv.is_none()
+        && !query.starts_with('@')
         && !is_web_url(query)
         && project::normalize_doi(query).is_none()
         && query.split_whitespace().count() >= 3
@@ -3132,6 +3133,26 @@ fn run_bibcite_cancellable(
     cancel: &AtomicBool,
 ) -> Result<String, String> {
     let before = fs::read_to_string(path).map_err(err)?;
+    if query.trim_start().starts_with('@') {
+        // The title resolver (or the user's review) already chose this exact
+        // record. Keep its fields and identity; no second network resolution.
+        validate_resolved_identity("", query)?;
+        let entry = project::parse_bibliography(query).remove(0);
+        let source = if entry.url.as_deref().is_some_and(|url| {
+            is_web_url(url)
+                && project::normalize_doi(url).is_none()
+                && (entry.doi.is_none()
+                    || is_pdf_url(url)
+                    || crate::alphaxiv::paper_id_from_url(url).is_some())
+        }) {
+            "webpage"
+        } else {
+            "bibtex"
+        };
+        let (merged, key, exists) = merge_resolved_citation(&before, query, &entry.key)?;
+        fs::write(path, merged).map_err(err)?;
+        return Ok(serde_json::json!({"key": key, "source": source, "action": if exists {"exists"} else {"added"}}).to_string());
+    }
     // Never give bibcite existing entries: its fuzzy upsert can overwrite a
     // different paper while retaining the old key used in the manuscript.
     let isolated = path.with_extension(format!("{}.bib", Uuid::new_v4()));
@@ -4186,6 +4207,58 @@ mod tests {
             }),
             "https://openreview.net/forum?id=nuzFG0Rbhy"
         );
+    }
+
+    #[test]
+    fn resolved_snapshot_skips_search_and_preserves_metadata() {
+        let raw = "@article{chosen, title={A Verified Study}, author={Smith, Ada}, year={2026}, doi={10.1234/chosen}, url={https://doi.org/10.1234/chosen}, month={September}, note={Preserve {nested} details}}";
+        assert_eq!(
+            bibcite_query_for_input(raw, &|_| panic!(
+                "a resolved snapshot must not search again"
+            )),
+            raw
+        );
+        let parent = std::env::temp_dir().join(format!("lattice-resolved-{}", Uuid::new_v4()));
+        let root = project::create(&parent, "paper").unwrap();
+        let before =
+            "@misc{chosen, title={An unrelated work}, author={Other, Author}, year={2020}}\n";
+        fs::write(root.join("references.bib"), before).unwrap();
+        let imported = import_reference_with_progress(&root, raw, &|_| {}).unwrap();
+        assert_eq!(imported.citation_key.as_deref(), Some("chosen-2"));
+        assert!(imported.fetch_error.is_none());
+        assert!(imported.paper_path.is_empty());
+        let bibliography = fs::read_to_string(root.join("references.bib")).unwrap();
+        assert!(bibliography.starts_with(before));
+        assert!(bibliography.contains("month={September}"));
+        assert!(bibliography.contains("note={Preserve {nested} details}"));
+        let repeated = import_reference_with_progress(&root, raw, &|_| {}).unwrap();
+        assert!(repeated.already_imported);
+        assert_eq!(repeated.citation_key, imported.citation_key);
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            bibliography
+        );
+        assert!(run_bibcite_cancellable(
+            &root.join("references.bib"),
+            &format!("{raw}\n{raw}"),
+            &AtomicBool::new(false)
+        )
+        .is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn resolved_snapshot_keeps_alphaxiv_download_routing() {
+        let parent =
+            std::env::temp_dir().join(format!("lattice-resolved-alpha-{}", Uuid::new_v4()));
+        fs::create_dir_all(&parent).unwrap();
+        let path = parent.join("references.bib");
+        fs::write(&path, "").unwrap();
+        let raw = "@misc{mimo, title={MiMo report}, author={MiMo Team}, year={2026}, url={https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning}}";
+        let report = run_bibcite_cancellable(&path, raw, &AtomicBool::new(false)).unwrap();
+        assert_eq!(bibcite_report_source(&report).as_deref(), Some("webpage"));
+        assert_eq!(parse_citation_key(&report).as_deref(), Some("mimo"));
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
