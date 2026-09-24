@@ -18489,10 +18489,10 @@ The SPDX identifier is known, but the package contains no `LICENSE`,
 to reproduce is not available from the artifact we distribute.
 
 - `@aws-sdk/credential-provider-http@3.972.39` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/credential-provider-http@3.972.73` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/credential-provider-http@3.972.74` (sidecar) — declared `Apache-2.0`
 - `@aws-sdk/credential-provider-login@3.972.41` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/credential-provider-login@3.972.78` (sidecar) — declared `Apache-2.0`
-- `@aws-sdk/nested-clients@3.997.45` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/credential-provider-login@3.972.79` (sidecar) — declared `Apache-2.0`
+- `@aws-sdk/nested-clients@3.997.46` (sidecar) — declared `Apache-2.0`
 - `@aws-sdk/nested-clients@3.997.9` (sidecar) — declared `Apache-2.0`
 - `@earendil-works/chord@0.85.1` (sidecar) — declared `MIT`
 - `@earendil-works/pi-agent-core@0.85.1` (sidecar) — declared `MIT`
@@ -18686,7 +18686,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@aws-crypto/crc32@5.2.0`, `@aws-crypto/sha256-js@5.2.0`, `@aws-crypto/util@5.2.0`, `@aws-sdk/client-bedrock-runtime@3.1048.0`, `@aws-sdk/credential-provider-env@3.972.37`, `@aws-sdk/credential-provider-env@3.972.71`, `@aws-sdk/credential-provider-ini@3.972.41`, `@aws-sdk/credential-provider-ini@3.973.16`, `@aws-sdk/credential-provider-node@3.972.42`, `@aws-sdk/credential-provider-node@3.972.83`, `@aws-sdk/credential-provider-process@3.972.37`, `@aws-sdk/credential-provider-process@3.972.71`, `@aws-sdk/credential-provider-sso@3.972.41`, `@aws-sdk/credential-provider-sso@3.973.15`, `@aws-sdk/credential-provider-web-identity@3.972.41`, `@aws-sdk/credential-provider-web-identity@3.972.77`, `@aws-sdk/eventstream-handler-node@3.972.16`, `@aws-sdk/eventstream-handler-node@3.972.34`, `@aws-sdk/middleware-eventstream@3.972.12`, `@aws-sdk/middleware-eventstream@3.972.29`, `@aws-sdk/middleware-websocket@3.972.19`, `@aws-sdk/middleware-websocket@3.972.53`, `@aws-sdk/signature-v4-multi-region@3.996.27`, `@aws-sdk/signature-v4-multi-region@3.996.46`, `@aws-sdk/token-providers@3.1048.0`, `@aws-sdk/token-providers@3.1129.0`, `@aws-sdk/types@3.973.8`, `@aws-sdk/types@3.974.5`, `@aws-sdk/util-locate-window@3.965.10`, `@aws-sdk/util-locate-window@3.965.5`, `@aws-sdk/xml-builder@3.972.24`, `@aws-sdk/xml-builder@3.972.40`, `@smithy/core@3.24.3`, `@smithy/core@3.34.1`, `@smithy/credential-provider-imds@4.3.3`, `@smithy/credential-provider-imds@4.5.2`, `@smithy/fetch-http-handler@5.4.3`, `@smithy/fetch-http-handler@5.8.0`, `@smithy/is-array-buffer@2.2.0`, `@smithy/node-http-handler@4.12.1`, `@smithy/node-http-handler@4.7.3`, `@smithy/signature-v4@5.4.3`, `@smithy/signature-v4@5.7.3`, `@smithy/types@4.14.2`, `@smithy/types@4.18.0`, `@smithy/util-buffer-from@2.2.0`, `@smithy/util-utf8@2.3.0`, `detect-libc@2.1.2`, `ecdsa-sig-formatter@1.0.11`
+`@aws-crypto/crc32@5.2.0`, `@aws-crypto/sha256-js@5.2.0`, `@aws-crypto/util@5.2.0`, `@aws-sdk/client-bedrock-runtime@3.1048.0`, `@aws-sdk/credential-provider-env@3.972.37`, `@aws-sdk/credential-provider-env@3.972.72`, `@aws-sdk/credential-provider-ini@3.972.41`, `@aws-sdk/credential-provider-ini@3.973.17`, `@aws-sdk/credential-provider-node@3.972.42`, `@aws-sdk/credential-provider-node@3.972.84`, `@aws-sdk/credential-provider-process@3.972.37`, `@aws-sdk/credential-provider-process@3.972.72`, `@aws-sdk/credential-provider-sso@3.972.41`, `@aws-sdk/credential-provider-sso@3.973.16`, `@aws-sdk/credential-provider-web-identity@3.972.41`, `@aws-sdk/credential-provider-web-identity@3.972.78`, `@aws-sdk/eventstream-handler-node@3.972.16`, `@aws-sdk/eventstream-handler-node@3.972.35`, `@aws-sdk/middleware-eventstream@3.972.12`, `@aws-sdk/middleware-eventstream@3.972.30`, `@aws-sdk/middleware-websocket@3.972.19`, `@aws-sdk/middleware-websocket@3.972.54`, `@aws-sdk/signature-v4-multi-region@3.996.27`, `@aws-sdk/signature-v4-multi-region@3.996.47`, `@aws-sdk/token-providers@3.1048.0`, `@aws-sdk/token-providers@3.1138.0`, `@aws-sdk/types@3.973.8`, `@aws-sdk/types@3.974.6`, `@aws-sdk/util-locate-window@3.965.10`, `@aws-sdk/util-locate-window@3.965.5`, `@aws-sdk/xml-builder@3.972.24`, `@aws-sdk/xml-builder@3.972.41`, `@smithy/core@3.24.3`, `@smithy/core@3.35.0`, `@smithy/credential-provider-imds@4.3.3`, `@smithy/credential-provider-imds@4.5.2`, `@smithy/fetch-http-handler@5.4.3`, `@smithy/fetch-http-handler@5.8.0`, `@smithy/is-array-buffer@2.2.0`, `@smithy/node-http-handler@4.12.1`, `@smithy/node-http-handler@4.7.3`, `@smithy/signature-v4@5.4.3`, `@smithy/signature-v4@5.7.3`, `@smithy/types@4.14.2`, `@smithy/types@4.19.0`, `@smithy/util-buffer-from@2.2.0`, `@smithy/util-utf8@2.3.0`, `detect-libc@2.1.2`, `ecdsa-sig-formatter@1.0.11`
 
 </details>
 
@@ -18977,7 +18977,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@aws-crypto/sha256-browser@5.2.0`, `@aws-crypto/supports-web-crypto@5.2.0`, `@aws-sdk/core@3.974.11`, `@aws-sdk/core@3.978.0`, `@google/genai@1.52.0`, `@silvia-odwyer/photon-node@0.3.4`, `denque@2.1.0`, `gaxios@7.1.4`, `gaxios@7.3.1`, `gcp-metadata@8.1.2`, `google-auth-library@10.6.2`, `google-auth-library@10.9.1`, `google-logging-utils@1.1.3`, `grok-mermaid@0.2.2`, `long@5.3.2`, `openai@6.40.0`
+`@aws-crypto/sha256-browser@5.2.0`, `@aws-crypto/supports-web-crypto@5.2.0`, `@aws-sdk/core@3.974.11`, `@aws-sdk/core@3.978.1`, `@google/genai@1.52.0`, `@silvia-odwyer/photon-node@0.3.4`, `denque@2.1.0`, `gaxios@7.1.4`, `gaxios@7.3.1`, `gcp-metadata@8.1.2`, `google-auth-library@10.6.2`, `google-auth-library@10.9.1`, `google-logging-utils@1.1.3`, `grok-mermaid@0.2.2`, `long@5.3.2`, `openai@6.40.0`
 
 </details>
 
