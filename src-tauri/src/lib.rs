@@ -80,6 +80,7 @@ struct OverleafRealtimeState {
     /// Documents currently joined on the socket. Sync snapshots this under
     /// the same lease that prevents a new join until the sync finishes.
     joined_paths: std::collections::BTreeMap<String, String>,
+    join_receipts: std::collections::BTreeMap<String, String>,
 }
 
 impl OverleafRealtimeState {
@@ -87,6 +88,7 @@ impl OverleafRealtimeState {
         self.generation = self.generation.wrapping_add(1);
         self.root = Some(root);
         self.joined_paths.clear();
+        self.join_receipts.clear();
         (self.generation, self.client.take())
     }
 
@@ -100,6 +102,35 @@ impl OverleafRealtimeState {
         }
     }
 
+    /// Caller holds the exclusive sync lease and this state's mutex through
+    /// persistence. Neither a queued stale leave nor reconnect can move a base.
+    fn checkpoint_before_leave(
+        &self,
+        root: &Path,
+        doc_id: &str,
+        receipt: &str,
+        checkpoint: Option<&overleaf::RealtimeCheckpoint>,
+    ) -> Result<(), String> {
+        if self.root.as_deref() != Some(root)
+            || self.join_receipts.get(doc_id).map(String::as_str) != Some(receipt)
+        {
+            return Err(
+                "The Overleaf document ownership changed before it could be released.".to_string(),
+            );
+        }
+        let path = self
+            .joined_paths
+            .get(doc_id)
+            .ok_or_else(|| "The Overleaf document is no longer joined.".to_string())?;
+        if let Some(checkpoint) = checkpoint {
+            if checkpoint.version < 0 {
+                return Err("Invalid Overleaf checkpoint version.".to_string());
+            }
+            overleaf::checkpoint_realtime_text(root, path, &checkpoint.text)?;
+        }
+        Ok(())
+    }
+
     /// Cancel everything when `root` is `None`, or only the matching project's
     /// request when a stale React cleanup names its former root.
     fn cancel(&mut self, root: Option<&Path>) -> Option<Arc<overleaf_rt::RealtimeClient>> {
@@ -109,6 +140,7 @@ impl OverleafRealtimeState {
         self.generation = self.generation.wrapping_add(1);
         self.root = None;
         self.joined_paths.clear();
+        self.join_receipts.clear();
         self.client.take()
     }
 }
@@ -122,6 +154,51 @@ mod realtime_generation_tests {
     use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
+
+    #[test]
+    fn realtime_checkpoint_rejects_stale_receipts_and_keeps_ownership_on_failure() {
+        let mut state = OverleafRealtimeState::default();
+        let root =
+            std::env::temp_dir().join(format!("missing-checkpoint-{}", uuid::Uuid::new_v4()));
+        state.begin(root.clone());
+        state.joined_paths.insert("doc".into(), "main.tex".into());
+        state
+            .join_receipts
+            .insert("doc".into(), "replacement".into());
+        let checkpoint = super::overleaf::RealtimeCheckpoint {
+            text: "human text".into(),
+            version: 11,
+        };
+        assert!(state
+            .checkpoint_before_leave(&root, "doc", "stale", Some(&checkpoint))
+            .unwrap_err()
+            .contains("ownership changed"));
+        assert!(state
+            .checkpoint_before_leave(Path::new("/wrong/root"), "doc", "replacement", None)
+            .is_err());
+        assert!(state
+            .checkpoint_before_leave(&root, "doc", "replacement", Some(&checkpoint))
+            .is_err());
+        assert!(!root.exists());
+        let mut paths = BTreeSet::new();
+        state.extend_joined_paths(&root, &mut paths);
+        assert_eq!(paths, BTreeSet::from(["main.tex".into()]));
+        assert!(state
+            .checkpoint_before_leave(&root, "doc", "replacement", None)
+            .is_ok());
+        state.begin(root.clone());
+        assert!(state
+            .checkpoint_before_leave(&root, "doc", "replacement", Some(&checkpoint))
+            .is_err());
+        state.joined_paths.insert("doc".into(), "main.tex".into());
+        state
+            .join_receipts
+            .insert("doc".into(), "new-connection".into());
+        state.cancel(Some(&root));
+        assert!(state
+            .checkpoint_before_leave(&root, "doc", "new-connection", Some(&checkpoint))
+            .is_err());
+    }
 
     #[test]
     fn full_overleaf_syncs_cannot_exhaust_the_download_allowance() {
@@ -2949,6 +3026,7 @@ async fn overleaf_rt_join_doc(
     project_root: String,
     doc_id: String,
     from_version: Option<i64>,
+    receipt: String,
 ) -> Result<overleaf_rt::JoinedDoc, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -2977,7 +3055,21 @@ async fn overleaf_rt_join_doc(
         realtime.joined_paths.insert(doc_id.clone(), path)
     };
     match client.join_doc(&doc_id, from_version).await {
-        Ok(joined) => Ok(joined),
+        Ok(joined) => {
+            let mut realtime = project
+                .realtime
+                .lock()
+                .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+            if !realtime
+                .client
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &client))
+            {
+                return Err("The Overleaf connection changed during the document join.".to_string());
+            }
+            realtime.join_receipts.insert(doc_id, receipt);
+            Ok(joined)
+        }
         Err(error) => {
             if let Ok(mut realtime) = project.realtime.lock() {
                 if realtime
@@ -3034,11 +3126,31 @@ async fn overleaf_rt_leave_doc(
     window: tauri::Window,
     project_root: String,
     doc_id: String,
+    receipt: String,
+    checkpoint: Option<overleaf::RealtimeCheckpoint>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
-    scoped_root(&state, &window, &project_root)?;
+    let root = scoped_root(&state, &window, &project_root)?;
     let client = realtime_client(&state, &window)?;
+    {
+        // Connection begin/cancel also takes this mutex, even outside the sync
+        // lease. Keep receipt validation and persistence indivisible with them.
+        let realtime = project
+            .realtime
+            .lock()
+            .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
+        if !realtime
+            .client
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, &client))
+        {
+            return Err(
+                "The Overleaf document ownership changed before it could be released.".to_string(),
+            );
+        }
+        realtime.checkpoint_before_leave(&root, &doc_id, &receipt, checkpoint.as_ref())?;
+    }
     client.leave_doc(&doc_id).await?;
     if let Ok(mut realtime) = project.realtime.lock() {
         if realtime
@@ -3047,6 +3159,7 @@ async fn overleaf_rt_leave_doc(
             .is_some_and(|current| Arc::ptr_eq(current, &client))
         {
             realtime.joined_paths.remove(&doc_id);
+            realtime.join_receipts.remove(&doc_id);
         }
     }
     Ok(())

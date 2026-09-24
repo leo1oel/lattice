@@ -60,14 +60,16 @@ function PierreConflictSurface(props: {
         contentRef.current = file.contents;
         onResolveRef.current(file.contents);
       },
-      overflow: "scroll",
+      overflow: "wrap",
       theme: props.themeName,
       themeType: props.theme,
       unsafeCSS: PIERRE_UNSAFE_CSS,
     });
     surface.render({
       file: { name: props.path, contents: contentRef.current, lang: props.language },
-      fileContainer: container,
+      // Let Pierre create its styled custom element; a div passed as
+      // fileContainer gets a shadow root without the library's stylesheet.
+      containerWrapper: container,
     });
     return () => surface.cleanUp();
   }, [props.language, props.path, props.session, props.theme, props.themeName]);
@@ -88,12 +90,15 @@ export function ConflictResolverDialog(props: {
   const [draftContent, setDraftContent] = useState("");
   const [stage, setStage] = useState<"resolve" | "edit">("resolve");
   const [loadVersion, setLoadVersion] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const draftRef = useRef("");
   const loadGenerationRef = useRef(0);
+  const onCloseRef = useRef(props.onClose);
   const resources = usePierreResources(props.path ?? "conflict.txt");
+
+  useLayoutEffect(() => { onCloseRef.current = props.onClose; }, [props.onClose]);
 
   const load = useCallback(async (path: string) => {
     // Live sync can retarget the dialog to a different conflict while a slow
@@ -104,22 +109,26 @@ export function ConflictResolverDialog(props: {
     setError(null);
     setStage("resolve");
     try {
-      const nextContent = await invoke<string>("read_project_file", { path });
+      const nextContent = await invoke<string>("read_project_file", { path, projectRoot: props.projectRoot });
       if (generation !== loadGenerationRef.current) return;
       setContent(nextContent);
       setResolvedContent(nextContent);
       setDraftContent(nextContent);
       draftRef.current = nextContent;
       setLoadVersion((current) => current + 1);
+      // A sync result describes an earlier snapshot. Editing or a later sync
+      // may already have removed its markers; there is then nothing to save.
+      if (conflictHunks(nextContent).length === 0) onCloseRef.current();
     } catch (reason) {
       if (generation !== loadGenerationRef.current) return;
       setError(toMessage(reason));
     }
     if (generation === loadGenerationRef.current) setLoading(false);
-  }, []);
+  }, [props.projectRoot]);
 
   useEffect(() => {
     if (props.open && props.path) void load(props.path);
+    return () => { loadGenerationRef.current += 1; };
   }, [load, props.open, props.path]);
 
   const total = useMemo(() => conflictHunks(content).length, [content]);
@@ -132,7 +141,7 @@ export function ConflictResolverDialog(props: {
     },
   }), []);
 
-  if (!props.open || !props.path) return null;
+  if (!props.open || !props.path || (!loading && !error && total === 0)) return null;
 
   const save = async () => {
     if (!props.path) return;
@@ -195,7 +204,7 @@ export function ConflictResolverDialog(props: {
                 editorOptions={editorOptions}
                 options={{
                   disableFileHeader: true,
-                  overflow: "scroll",
+                  overflow: "wrap",
                   theme: resources.themeName,
                   themeType: resources.theme,
                   unsafeCSS: PIERRE_UNSAFE_CSS,

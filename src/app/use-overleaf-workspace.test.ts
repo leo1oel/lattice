@@ -49,7 +49,9 @@ describe("safe Overleaf remote text delivery", () => {
     await waitFor(() => expect(notice).toHaveBeenCalled());
     expect(view.result.current.liveFile).toBe(false);
     expect(view.result.current.livePaths).toEqual([]);
-    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", { projectRoot: "/project", docId: "section" });
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", {
+      projectRoot: "/project", docId: "section", receipt: expect.any(String), checkpoint: null,
+    });
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "write_project_file")).toBe(false);
     expect(deps.sourceRef.current).toBe("agent caption and new section");
     view.unmount();
@@ -132,6 +134,7 @@ function syncFixture() {
     };
     if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
     if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
+    if (command === "read_project_file") return disk;
     if (command === "overleaf_rt_connect") return {
       publicId: "me", docs: [{ id: "section", path: "section.tex" }], entities: [],
       permission: "readAndWrite", trackChanges: false, userId: "me",
@@ -157,7 +160,11 @@ function syncFixture() {
   });
   return {
     deps, edit: (text: string) => { disk = text; },
-    hold: () => { holdSync = true; }, conflict: () => { conflict = true; },
+    hold: () => { holdSync = true; },
+    conflict: (alreadyResolved = false) => {
+      conflict = true;
+      if (!alreadyResolved) disk = "<<<<<<< ours\nlocal\n=======\nremote\n>>>>>>> theirs\n";
+    },
     failOnce: () => { failSync = true; },
     deleteFile: () => { deleted = true; },
     finish: () => { holdSync = false; finishSync?.(); },
@@ -166,6 +173,18 @@ function syncFixture() {
 }
 
 describe("external edit Overleaf handoff", () => {
+  it.each([true, false])("checks current file markers before opening a conflict (already resolved: %s)", async (resolved) => {
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
+    const fixture = syncFixture();
+    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
+    await waitFor(() => expect(view.result.current.overleafRealtime.status).toBe("live"));
+    fixture.conflict(resolved);
+    await act(async () => { await view.result.current.runOverleafSync(); });
+    expect(view.result.current.conflictPath).toBe(resolved ? null : "section.tex");
+    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "section.tex", projectRoot: "/project" });
+    view.unmount();
+  });
+
   it("does not reload or rejoin a file deleted by the agent", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
@@ -174,6 +193,7 @@ describe("external edit Overleaf handoff", () => {
     await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
     fixture.deleteFile();
     act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
+    await waitFor(() => expect(view.result.current.overleafRealtime.livePaths).toEqual([]));
     await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
     expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({ live: [] }));
     expect(fixture.deps.loadFile).not.toHaveBeenCalled();
@@ -234,6 +254,7 @@ describe("external edit Overleaf handoff", () => {
     fixture.edit("first agent edit");
     fixture.hold();
     act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
+    await waitFor(() => expect(view.result.current.overleafRealtime.livePaths).toEqual([]));
     await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
     expect(fixture.deps.overleafSyncingRef.current).toBe(true);
     if (change === "new disk edit") {

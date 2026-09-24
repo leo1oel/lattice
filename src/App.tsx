@@ -1370,6 +1370,7 @@ function App() {
   const [collabReady, setCollabReady] = useState(false);
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
+  const saveActivityRef = useRef({ pending: 0, generation: 0 });
   const savedPathsRef = useRef(new Set<string>());
   const recordSavedPaths = useCallback((paths: readonly string[]) => {
     if (!paths.length) return;
@@ -3036,6 +3037,8 @@ function App() {
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!project) return true;
+    saveActivityRef.current.pending += 1;
+    saveActivityRef.current.generation += 1;
     try {
       const workspaceLease = collabSession ? collabWorkspaceLeaseRef.current : null;
       const primaryPath = activeFileRef.current;
@@ -3223,6 +3226,8 @@ function App() {
         detail: toMessage(reason),
       });
       return false;
+    } finally {
+      saveActivityRef.current.pending -= 1;
     }
   }, [
     activeFile,
@@ -3309,17 +3314,27 @@ function App() {
     let cancelled = false;
     const timer = window.setInterval(() => {
       void (async () => {
+        if (saveActivityRef.current.pending) return;
+        const saveGenerationAtStart = saveActivityRef.current.generation;
+        // Disk reads may finish after our own autosave or a live delivery.
+        // Such a snapshot is not a new external edit and must not rewind the
+        // buffer or suspend Overleaf OT. Leave mtime unconsumed so we retry.
+        const readIsCurrent = () => !cancelled
+          && !saveActivityRef.current.pending
+          && saveActivityRef.current.generation === saveGenerationAtStart;
         try {
+          const primarySaved = savedSourceRef.current;
           const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
             path: activeFile,
           });
-          if (cancelled || !stat.exists) return;
+          if (!readIsCurrent() || !stat.exists || savedSourceRef.current !== primarySaved) return;
           if (diskMtimeRef.current == null) {
             diskMtimeRef.current = stat.mtimeMs;
           } else if (stat.mtimeMs > diskMtimeRef.current) {
-            diskMtimeRef.current = stat.mtimeMs;
             const content = await invoke<string>("read_project_file", { path: activeFile });
-            if (!cancelled && content !== savedSourceRef.current) {
+            if (!readIsCurrent() || savedSourceRef.current !== primarySaved) return;
+            diskMtimeRef.current = stat.mtimeMs;
+            if (content !== primarySaved) {
               externalOverleafEditsRef.current([activeFile]);
               if (sourceRef.current === savedSourceRef.current) {
                 await acceptExternalText(activeFile, content, "primary");
@@ -3330,18 +3345,20 @@ function App() {
             }
           }
           if (secondaryFile) {
+            const secondarySaved = secondarySavedRef.current;
             const secondaryStat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
               path: secondaryFile,
             });
-            if (!secondaryStat.exists) return;
+            if (!readIsCurrent() || !secondaryStat.exists || secondarySavedRef.current !== secondarySaved) return;
             if (secondaryMtimeRef.current == null) {
               secondaryMtimeRef.current = secondaryStat.mtimeMs;
               return;
             }
             if (secondaryStat.mtimeMs <= secondaryMtimeRef.current) return;
-            secondaryMtimeRef.current = secondaryStat.mtimeMs;
             const content = await invoke<string>("read_project_file", { path: secondaryFile });
-            if (cancelled || content === secondarySavedRef.current) return;
+            if (!readIsCurrent() || secondarySavedRef.current !== secondarySaved) return;
+            secondaryMtimeRef.current = secondaryStat.mtimeMs;
+            if (content === secondarySaved) return;
             externalOverleafEditsRef.current([secondaryFile]);
             if (secondarySourceRef.current !== secondarySavedRef.current) return;
             await acceptExternalText(secondaryFile, content, "secondary");
@@ -3910,6 +3927,9 @@ function App() {
       && previewGenerationRef.current === buildScope.previewGeneration
       && projectRef.current?.root === buildScope.projectRoot);
     let shouldPlayCompletionSound = options?.sound === true;
+    // Only explicit UI builds opt into sound (even when audio is muted).
+    // Background failures must not steal the caret while an edit is unfinished.
+    let shouldNavigateToError = options?.sound === true;
     let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
     let completionSound: "build-succeeded" | "build-failed" | null = null;
     queuedBuildSoundRef.current = false;
@@ -3923,6 +3943,7 @@ function App() {
         trace = logAction("Build", "Build", queuedForce ? "clean rebuild" : "queued");
         currentForce = queuedForce;
         shouldPlayCompletionSound = shouldPlayCompletionSound || queuedBuildSoundRef.current;
+        shouldNavigateToError = queuedBuildSoundRef.current;
         shouldConsumeAgentAssociations = queuedAgentCompileBuildRef.current;
         queuedBuildSoundRef.current = false;
         queuedAgentCompileBuildRef.current = false;
@@ -4058,7 +4079,7 @@ function App() {
           const navigationError = result.diagnostics.find((item) => (
             item.level === "error" && Boolean(item.file || item.line)
           )) ?? firstError;
-          if (navigationError) void openCompileDiagnosticRef.current(navigationError);
+          if (shouldNavigateToError && navigationError) void openCompileDiagnosticRef.current(navigationError);
           const failureText = [
             result.log,
             ...result.diagnostics.map((item) => item.message),

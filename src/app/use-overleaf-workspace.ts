@@ -35,6 +35,7 @@ import { type PresenceCursor } from "../overleaf/overleaf-cursors";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorCollabSession } from "../collab/collab-session";
+import { hasConflictMarkers } from "../history/conflict-markers";
 import type {
   AssetPreview,
   BuildResult,
@@ -671,7 +672,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         // PDF does not, and saying "resolve each spot" about one — then
         // opening a marker resolver that finds nothing — is worse than saying
         // plainly that both versions are sitting on disk.
-        const marked = result.conflicts.filter((item) => item.markers !== false);
+        const marked: OverleafSyncResult["conflicts"] = [];
+        for (const item of result.conflicts.filter((conflict) => conflict.markers !== false)) {
+          // Autosave or a later disk write can supersede the sync snapshot
+          // before this response arrives. Never demand choices for a clean file.
+          try {
+            const content = await invoke<string>("read_project_file", { path: item.path, projectRoot: syncRoot });
+            if (hasConflictMarkers(content)) marked.push(item);
+          } catch {
+            // Let the resolver report the read failure rather than pretending
+            // a file we could not inspect is already resolved.
+            marked.push(item);
+          }
+          if (!stillCurrent()) return;
+        }
         const whole = result.conflicts.filter((item) => item.markers === false);
         const parts: string[] = [];
         if (marked.length) {
@@ -689,7 +703,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
             + "in the “(local conflict …)” files — keep whichever you want and delete the other.",
           );
         }
-        setError(parts.join(" "));
+        if (parts.length) setError(parts.join(" "));
         // Only worth opening for a file that actually has markers in it.
         const first = marked[0]?.path ?? null;
         if (first) setConflictPath(first);

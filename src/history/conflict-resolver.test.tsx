@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,8 +24,9 @@ vi.mock("@pierre/diffs", () => ({
       this.options = options;
     }
 
-    render({ fileContainer }: { fileContainer: HTMLElement }) {
-      this.container = fileContainer;
+    render({ containerWrapper }: { containerWrapper: HTMLElement }) {
+      this.container = document.createElement("diffs-container");
+      containerWrapper.append(this.container);
       const resolveAll = document.createElement("button");
       resolveAll.textContent = "Use Overleaf";
       resolveAll.addEventListener("click", () => {
@@ -45,7 +46,7 @@ vi.mock("@pierre/diffs", () => ({
           "after",
         ].join("\n") });
       });
-      fileContainer.append(resolveAll, resolveFirst);
+      this.container.append(resolveAll, resolveFirst);
     }
 
     cleanUp() {
@@ -85,6 +86,34 @@ afterEach(() => {
 });
 
 describe("ConflictResolverDialog", () => {
+  it("closes a stale conflict request without offering to save a marker-free file", async () => {
+    vi.mocked(invoke).mockResolvedValue("The writer has already continued editing.\n");
+    const onClose = vi.fn();
+    const onResolved = vi.fn();
+    render(<ConflictResolverDialog open path="section.tex" projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "section.tex", projectRoot: "/tmp/paper" });
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "write_project_file")).toBe(false);
+  });
+
+  it("does not dismiss a newer conflict when an older marker-free read finishes late", async () => {
+    let finishOldRead!: (text: string) => void;
+    vi.mocked(invoke).mockImplementation(async (_command, args) => {
+      if ((args as { path: string }).path === "old.tex") return new Promise<string>((resolve) => { finishOldRead = resolve; });
+      return conflict;
+    });
+    const onClose = vi.fn();
+    const props = { open: true, projectRoot: "/tmp/paper", onClose, onResolved: vi.fn() };
+    const view = render(<ConflictResolverDialog {...props} path="old.tex" />);
+    view.rerender(<ConflictResolverDialog {...props} path="new.tex" />);
+    await screen.findByRole("button", { name: "Use Overleaf" });
+    await act(async () => { finishOldRead("Already resolved"); });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Resolve conflicts in new.tex" })).toBeInTheDocument();
+  });
+
   it("resolves through Pierre, lets the user edit the result, and saves that draft", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "read_project_file") return conflict;

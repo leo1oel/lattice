@@ -4913,6 +4913,65 @@ describe("project workspace", () => {
     expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
+  it("does not mistake a disk read started before autosave for a new external edit", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [],
+    };
+    const original = "\\documentclass{article}";
+    let disk = original;
+    let mtimeMs = 1;
+    let holdRead = false;
+    let finishRead: (() => void) | undefined;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") {
+        if (holdRead) {
+          holdRead = false;
+          const captured = disk;
+          return new Promise<string>((resolve) => { finishRead = () => resolve(captured); });
+        }
+        return disk;
+      }
+      if (command === "stat_project_file") return { exists: true, mtimeMs };
+      if (command === "write_project_file") {
+        disk = (args as { content: string }).content;
+        mtimeMs += 1;
+        return { content: disk, hadConflicts: false };
+      }
+      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
+      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.anything()));
+    const view = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".cm-editor");
+      const editor = element ? EditorView.findFromDOM(element) : null;
+      expect(editor?.state.doc.toString()).toBe(original);
+      return editor!;
+    });
+    holdRead = true;
+    mtimeMs += 1;
+    await waitFor(() => expect(finishRead).toBeTypeOf("function"), { timeout: 3_500 });
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n我的新修改" } }));
+    const expected = `${original}\n我的新修改`;
+    await waitFor(() => expect(disk).toBe(expected), { timeout: 2_500 });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
+    await act(async () => {
+      finishRead!();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(disk).toBe(expected);
+  });
+
   it("accepts an agent edit in an open Markdown preview and still switches files", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",
@@ -9470,6 +9529,75 @@ describe("project workspace", () => {
       expect(view?.state.doc.toString()).toContain("\\section{Intro}");
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
     });
+  });
+
+  it("keeps the caret during repeated failed autosave builds but still navigates on manual Build", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    let diskSource = "\\documentclass{article}\n\\begin{document}\n\\label{intro\nNext line\n\\end{document}\n";
+    let buildCount = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return diskSource;
+      if (command === "harper_lint") return [];
+      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "write_project_file") {
+        diskSource = (args as { content: string }).content;
+        return { content: diskSource, hadConflicts: false };
+      }
+      if (command === "build_project") {
+        buildCount += 1;
+        return {
+          success: false,
+          hasPdf: false,
+          log: "Runaway argument!",
+          durationMs: 80,
+          diagnostics: [{ file: "main.tex", line: 4, level: "error", message: "Runaway argument!" }],
+        };
+      }
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    await screen.findByLabelText("Compile diagnostics");
+    const editorElement = document.querySelector<HTMLElement>(".cm-editor");
+    const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
+    if (!view) throw new Error("CodeMirror view was not available");
+
+    for (const insert of ["中文", "修改"]) {
+      const previousBuilds = buildCount;
+      const from = view.state.doc.line(3).to;
+      act(() => {
+        view.focus();
+        view.dispatch({
+          changes: { from, insert },
+          selection: { anchor: from + insert.length },
+          annotations: Transaction.userEvent.of("input.type"),
+        });
+      });
+      const expectedText = view.state.doc.toString();
+      await waitFor(() => expect(buildCount).toBe(previousBuilds + 1), { timeout: 3_000 });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
+      // Navigation runs on an animation frame after the build result renders.
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+      expect(view.state.doc.toString()).toBe(expectedText);
+      expect(view.state.selection.main.head).toBe(from + insert.length);
+      expect(view.hasFocus).toBe(true);
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Build" }));
+    await waitFor(() => expect(view.state.selection.main.head).toBe(view.state.doc.line(4).from));
   });
 
   it("shows failed build guidance once and acknowledges a manual retry", async () => {

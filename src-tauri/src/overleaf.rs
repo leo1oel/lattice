@@ -846,6 +846,31 @@ fn remove_base_copy(root: &Path, rel: &str) {
     let _ = fs::remove_file(base_copy_path(root, rel));
 }
 
+#[derive(serde::Deserialize)]
+pub struct RealtimeCheckpoint {
+    pub text: String,
+    pub version: i64,
+}
+
+/// Called only while the realtime owner holds the exclusive sync lease.
+/// This is an OT-proven ancestor, not a save of the (possibly AI-edited) file.
+pub fn checkpoint_realtime_text(root: &Path, rel: &str, text: &str) -> Result<(), String> {
+    validate_inventory_path(rel)?;
+    let mut state = load_state(root)?;
+    if !is_mergeable_text(rel, text.as_bytes()) {
+        return Ok(());
+    }
+    // Write the copy first. A failure between these atomic writes leaves an
+    // older hash and a genuine shared ancestor, never a new hash with old text.
+    write_local_file(root, &format!("{BASE_DIR}/{rel}"), text.as_bytes())?;
+    write_local_file(root, &format!("{BASE_DIR}/.gitignore"), b"*\n")?;
+    state
+        .files
+        .insert(rel.to_string(), sha256_hex(text.as_bytes()));
+    let body = serde_json::to_string_pretty(&state).map_err(err)? + "\n";
+    write_local_file(root, &format!("{STATE_DIR}/{STATE_FILE}"), body.as_bytes())
+}
+
 /// Outcome of reconciling a file both sides changed.
 enum MergeOutcome {
     /// Combined cleanly; the bytes belong on disk *and* on Overleaf.
@@ -4424,6 +4449,54 @@ mod tests {
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn realtime_checkpoint_keeps_agent_disk_edits_and_preserves_real_conflicts() {
+        let root = temp_dir("realtime-checkpoint");
+        let base = b"Old ending.\n";
+        let human = b"We hope people understand.\n";
+        let agent = b"We hope our work helps people understand.\n";
+        seed_linked_project(
+            &root,
+            "https://www.overleaf.com",
+            &[("main.tex", agent)],
+            &[("main.tex", base)],
+        );
+        let local = BTreeMap::from([("main.tex".to_string(), agent.to_vec())]);
+        let remote = BTreeMap::from([("main.tex".to_string(), human.to_vec())]);
+        let mut before = load_state(&root).unwrap();
+        before.remote_version = Some(91);
+        save_state(&root, &before).unwrap();
+        assert_eq!(
+            plan_sync(&root, &before, &remote, &local, &BTreeSet::new(), "test")
+                .unwrap()
+                .conflict
+                .len(),
+            1
+        );
+        checkpoint_realtime_text(&root, "main.tex", std::str::from_utf8(human).unwrap()).unwrap();
+        let after = load_state(&root).unwrap();
+        assert_eq!(after.last_sync, before.last_sync);
+        assert_eq!(after.remote_version, before.remote_version);
+        assert_eq!(fs::read(root.join("main.tex")).unwrap(), agent);
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap().as_bytes(), human);
+        assert_eq!(after.files["main.tex"], sha256_hex(human));
+        let plan = plan_sync(&root, &after, &remote, &local, &BTreeSet::new(), "test").unwrap();
+        assert!(plan.conflict.is_empty());
+        assert_eq!(plan.push, vec!["main.tex"]);
+        let peer = BTreeMap::from([(
+            "main.tex".to_string(),
+            b"A peer replaced the ending.\n".to_vec(),
+        )]);
+        assert_eq!(
+            plan_sync(&root, &after, &peer, &local, &BTreeSet::new(), "test")
+                .unwrap()
+                .conflict
+                .len(),
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

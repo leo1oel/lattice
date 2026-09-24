@@ -220,6 +220,145 @@ function mount(
 }
 
 describe("guarded remote delivery", () => {
+  it("never checkpoints a rejected fresh snapshot, including after a duplicate ack", async () => {
+    const view = mount("a.tex", () => false);
+    await waitFor(() => expect(leaves).toContain(DOC_A));
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({ checkpoint: null }));
+    expect(view.result.current.liveFile).toBe(false);
+  });
+
+  it.each([false, true])("serializes reopening and retains ownership on failed leave (%s)", async (failed) => {
+    const view = mount("a.tex");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    const original = vi.mocked(invoke).getMockImplementation()!;
+    let finishLeave!: () => void;
+    vi.mocked(invoke).mockImplementation((command, args) => command === "overleaf_rt_leave_doc"
+      && (args as { docId: string }).docId === DOC_A
+      ? new Promise((resolve, reject) => {
+        finishLeave = () => failed ? reject(new Error("disk write failed")) : resolve(undefined);
+      })
+      : original(command, args));
+    view.rerender("b.tex");
+    await waitFor(() => expect(view.result.current.docId).toBe(DOC_B));
+    expect(view.result.current.livePaths).toContain("a.tex");
+    view.rerender("a.tex");
+    await act(async () => {});
+    expect(joins.filter((join) => join.docId === DOC_A)).toHaveLength(1);
+    await act(async () => finishLeave());
+    expect(view.result.current.livePaths).toContain("a.tex");
+    await waitFor(() => expect(joins.filter((join) => join.docId === DOC_A)).toHaveLength(failed ? 1 : 2));
+    const receipts = vi.mocked(invoke).mock.calls
+      .filter(([command, args]) => command === "overleaf_rt_join_doc" && (args as { docId: string }).docId === DOC_A)
+      .map(([, args]) => (args as { receipt: string }).receipt);
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      docId: DOC_A, receipt: receipts[0],
+    }));
+    if (!failed) expect(receipts[1]).not.toBe(receipts[0]);
+    vi.mocked(invoke).mockImplementation(original);
+  });
+
+  it("does not promote text after an out-of-band reservation until a full reset", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = mount("a.tex");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    act(() => { expect(view.result.current.reserveOperation()).not.toBeNull(); });
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await act(async () => {
+      view.result.current.pushLocal("alpha later");
+      vi.advanceTimersByTime(300);
+    });
+    emit({ type: "docAck", docId: DOC_A, version: 11 });
+    act(() => view.result.current.suspendPaths(["a.tex"]));
+    await waitFor(() => expect(leaves).toContain(DOC_A));
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      checkpoint: { text: "alpha", version: 10 },
+    }));
+    await waitFor(() => expect(view.result.current.livePaths).toEqual([]));
+    act(() => view.result.current.resumePaths(["a.tex"]));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    await act(async () => {
+      view.result.current.pushLocal("alpha after reset");
+      vi.advanceTimersByTime(300);
+    });
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    act(() => view.result.current.suspendPaths(["a.tex"]));
+    await waitFor(() => expect(leaves).toHaveLength(2));
+    expect(invoke).toHaveBeenLastCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      checkpoint: { text: "alpha after reset", version: 11 },
+    }));
+  });
+
+  it.each([
+    { mixed: false, reopen: false }, { mixed: true, reopen: false },
+    { mixed: false, reopen: true }, { mixed: true, reopen: true },
+  ])("only checkpoints applied catch-up (mixed: $mixed, reopen: $reopen)", async ({ mixed, reopen }) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = mount("a.tex", (text) => !text.startsWith("peer "));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    const original = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "overleaf_rt_join_doc" && (args as { docId: string }).docId === DOC_A) {
+        return {
+          ...joinAnswer(DOC_A), resumed: true, version: mixed ? 12 : 11,
+          caughtUp: [
+            { version: 10, ops: [{ p: 5, i: " human" }], source: "me" },
+            ...(mixed ? [{ version: 11, ops: [{ p: 0, i: "peer " }], source: "peer" }] : []),
+          ],
+        };
+      }
+      return original(command, args);
+    });
+    loseSendAck = !reopen;
+    await act(async () => {
+      view.result.current.pushLocal("alpha human");
+      vi.advanceTimersByTime(300);
+    });
+    if (reopen) {
+      view.rerender("b.tex");
+      await waitFor(() => expect(view.result.current.docId).toBe(DOC_B));
+      view.rerender("a.tex");
+      await waitFor(() => expect(joins.filter((join) => join.docId === DOC_B)).toHaveLength(1));
+      await act(async () => {});
+    }
+    if (!mixed) act(() => view.result.current.suspendPaths(["a.tex"]));
+    await waitFor(() => expect(leaves).toContain(DOC_A));
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      checkpoint: mixed ? { text: "alpha", version: 10 } : { text: "alpha human", version: 11 },
+    }));
+  });
+
+  it("checkpoints a final debounced edit only after its draining acknowledgement", async () => {
+    const view = mount("a.tex");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    act(() => view.result.current.pushLocal("alpha final"));
+    view.rerender("b.tex");
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(leaves).not.toContain(DOC_A);
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(leaves).toContain(DOC_A));
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      docId: DOC_A, checkpoint: { text: "alpha final", version: 11 },
+    }));
+  });
+
+  it.each([false, true])("checkpoints acknowledged human text before handoff (track changes: %s)", async (trackChanges) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    account.trackChanges = trackChanges;
+    const view = mount("a.tex");
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    await act(async () => {
+      view.result.current.pushLocal("alpha human");
+      vi.advanceTimersByTime(300);
+    });
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    act(() => view.result.current.suspendPaths(["a.tex"]));
+    await waitFor(() => expect(leaves).toContain(DOC_A));
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      docId: DOC_A, checkpoint: { text: "alpha human", version: 11 },
+    }));
+  });
+
   it("hands external writes to sync, drains owned operations, and rejoins only after reconciliation", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const onNeedsSync = vi.fn();
@@ -333,6 +472,9 @@ describe("guarded remote delivery", () => {
     emit({ type: "docAck", docId: DOC_A, version: 11 });
     await waitFor(() => expect(view.result.current.livePaths).toEqual([]));
     expect(leaves).toContain(DOC_A);
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_leave_doc", expect.objectContaining({
+      docId: DOC_A, checkpoint: { text: "alpha", version: 10 },
+    }));
     view.unmount();
   });
 });
