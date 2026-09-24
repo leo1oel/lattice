@@ -41,17 +41,26 @@ export type LocalMacro = {
 export function parseLocalLabels(path: string, source: string): ReferenceInfo[] {
   const labels: ReferenceInfo[] = [];
   const seen = new Set<string>();
+  let line = 1;
+  let lineStart = 0;
+  let lineEnd = source.indexOf("\n");
   COMPLETE_LABEL.lastIndex = 0;
   for (let match = COMPLETE_LABEL.exec(source); match; match = COMPLETE_LABEL.exec(source)) {
     const label = match[1].trim();
     if (!label || seen.has(label)) continue;
     seen.add(label);
-    const line = source.slice(0, match.index).split("\n").length;
+    // Matches arrive in source order. Advance once through the buffer instead
+    // of splitting it twice per label on every editor keystroke.
+    while (lineEnd !== -1 && lineEnd < match.index) {
+      line += 1;
+      lineStart = lineEnd + 1;
+      lineEnd = source.indexOf("\n", lineStart);
+    }
     labels.push({
       label,
       kind: "reference",
       title: label,
-      snippet: source.split("\n")[line - 1]?.trim() ?? "",
+      snippet: source.slice(lineStart, lineEnd === -1 ? source.length : lineEnd).trim(),
       path,
       line,
     });

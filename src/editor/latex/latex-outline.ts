@@ -20,8 +20,18 @@ const LEVELS: Record<string, OutlineLevel> = {
   subsubsection: 5,
 };
 
-function lineAt(source: string, offset: number): number {
-  return source.slice(0, offset).split("\n").length;
+// Section/event offsets are visited in ascending order. Keep a separate
+// scanner per source so nested includes cannot disturb the parent's position.
+function lineCounter(source: string): (offset: number) => number {
+  let line = 1;
+  let newline = source.indexOf("\n");
+  return (offset) => {
+    while (newline !== -1 && newline < offset) {
+      line += 1;
+      newline = source.indexOf("\n", newline + 1);
+    }
+    return line;
+  };
 }
 
 export function resolveIncludePath(raw: string, projectPaths: string[]): string | null {
@@ -95,6 +105,7 @@ export function activeOutlineNode(
 export function parseLatexOutline(source: string, path = ""): OutlineNode[] {
   const roots: OutlineNode[] = [];
   const stack: OutlineNode[] = [];
+  const lineAt = lineCounter(source);
   SECTION_COMMAND.lastIndex = 0;
   for (let match = SECTION_COMMAND.exec(source); match; match = SECTION_COMMAND.exec(source)) {
     const command = match[1];
@@ -105,7 +116,7 @@ export function parseLatexOutline(source: string, path = ""): OutlineNode[] {
       id: `${path}:${level}:${match.index}:${title}`,
       level,
       title,
-      line: lineAt(source, match.index),
+      line: lineAt(match.index),
       path,
       kind: "section",
       children: [],
@@ -159,13 +170,14 @@ export function parseProjectOutline(
     const source = sources[path];
     if (source == null) return;
     visiting.add(path);
+    const lineAt = lineCounter(source);
     for (const event of outlineEvents(source)) {
       if (event.kind === "section") {
         const node: OutlineNode = {
           id: `${path}:${event.level}:${event.offset}:${event.title}`,
           level: event.level,
           title: event.title,
-          line: lineAt(source, event.offset),
+          line: lineAt(event.offset),
           path,
           kind: "section",
           children: [],
