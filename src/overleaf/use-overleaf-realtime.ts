@@ -412,13 +412,14 @@ export function useOverleafRealtime(options: {
       }
       return true;
     }).catch((reason) => {
-      callbacks.current.onNotice(`Could not hand this file back to Overleaf sync (${String(reason)}). Syncing remains paused for this file.`);
+      const detail = String(reason);
+      callbacks.current.onNotice(t`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`);
       return false;
     }).finally(() => {
       if (leaving.current.get(id) === pending) leaving.current.delete(id);
     });
     leaving.current.set(id, pending);
-  }, [publishLivePaths]);
+  }, [publishLivePaths, t]);
 
   /**
    * Keep an ambiguous send away from ordinary syncing and ask Overleaf to
@@ -1164,7 +1165,7 @@ export function useOverleafRealtime(options: {
     void (async () => {
       const pendingLeave = leaving.current.get(id);
       if (pendingLeave) {
-        if (!await pendingLeave) throw new Error("The previous Overleaf document could not be released. Syncing remains paused.");
+        if (!await pendingLeave) throw new Error(t`The previous Overleaf document could not be released. Syncing remains paused.`);
         held = undefined;
       }
       if (cancelled) return null;
@@ -1321,6 +1322,7 @@ export function useOverleafRealtime(options: {
     markOutcomeUnknown,
     publishLivePaths,
     shiftAnchors,
+    t,
   ]);
 
   // ---- local edits --------------------------------------------------------

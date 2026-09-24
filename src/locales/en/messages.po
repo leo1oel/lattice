@@ -1467,6 +1467,10 @@ msgstr "Could not complete this action. Check your input and system keychain acc
 msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
+msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
+
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
@@ -5863,6 +5867,10 @@ msgstr "The PDF took too long to load. Try again, or open the article in your br
 #: src/onboarding/onboarding-tour.tsx
 msgid "The preview is editable too"
 msgstr "The preview is editable too"
+
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "The previous Overleaf document could not be released. Syncing remains paused."
+msgstr "The previous Overleaf document could not be released. Syncing remains paused."
 
 #: src/App.tsx
 msgid "The project or its permissions changed. Check references again."

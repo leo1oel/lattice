@@ -3035,10 +3035,8 @@ function App() {
     [t],
   );
 
-  const save = useCallback(async (): Promise<boolean> => {
+  const saveContents = useCallback(async (): Promise<boolean> => {
     if (!project) return true;
-    saveActivityRef.current.pending += 1;
-    saveActivityRef.current.generation += 1;
     try {
       const workspaceLease = collabSession ? collabWorkspaceLeaseRef.current : null;
       const primaryPath = activeFileRef.current;
@@ -3226,8 +3224,6 @@ function App() {
         detail: toMessage(reason),
       });
       return false;
-    } finally {
-      saveActivityRef.current.pending -= 1;
     }
   }, [
     activeFile,
@@ -3243,6 +3239,13 @@ function App() {
     refreshAfterSave,
     requestSemanticReindex,
   ]);
+  // Keep activity tracking outside the save body: React Compiler cannot lower
+  // try/finally, while Promise.finally still covers every early return/error.
+  const save = useCallback((): Promise<boolean> => {
+    saveActivityRef.current.pending += 1;
+    saveActivityRef.current.generation += 1;
+    return saveContents().finally(() => { saveActivityRef.current.pending -= 1; });
+  }, [saveContents]);
   useLayoutEffect(() => {
     saveBeforeProjectTransitionRef.current = save;
   }, [save]);

@@ -1467,6 +1467,10 @@ msgstr "操作未完成，请检查输入内容及系统钥匙串访问权限。
 msgid "Could not disconnect from Overleaf"
 msgstr "无法断开与 Overleaf 的连接"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
+msgstr "无法将此文件交回常规 Overleaf 同步（{detail}）。此文件的同步仍处于暂停状态。"
+
 #: src/canvas/document-canvas.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
@@ -5859,6 +5863,10 @@ msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
 #: src/onboarding/onboarding-tour.tsx
 msgid "The preview is editable too"
 msgstr "预览也可以编辑"
+
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "The previous Overleaf document could not be released. Syncing remains paused."
+msgstr "无法释放此前的 Overleaf 文档，同步仍处于暂停状态。"
 
 #: src/App.tsx
 msgid "The project or its permissions changed. Check references again."
