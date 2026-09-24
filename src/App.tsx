@@ -1396,6 +1396,7 @@ function App() {
     sound?: boolean,
     options?: { consumeAgentAssociations?: boolean },
   ) => Promise<void>>(async () => undefined);
+  const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const activeFileRef = useRef(activeFile);
   const secondaryFileRef = useRef(secondaryFile);
   const activeAssetRef = useRef(activeAsset);
@@ -2185,6 +2186,11 @@ function App() {
         // Undo clears a turn's diff, so Synara omits it from the next history
         // snapshot. It is disk work too, even when no new entry arrives.
         const restored = removedEntries.some(buildRelevant);
+        externalOverleafEditsRef.current([...new Set(
+          [...buildRelevantEntries, ...removedEntries.filter(buildRelevant)]
+            .flatMap((entry) => entry.files.map((file) => file.path))
+            .filter((path) => !path.startsWith(".research/") && !path.startsWith(".git/")),
+        )]);
         if (!restored && (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic")) return;
         for (const entry of buildRelevantEntries) {
           pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
@@ -3312,9 +3318,10 @@ function App() {
             diskMtimeRef.current = stat.mtimeMs;
           } else if (stat.mtimeMs > diskMtimeRef.current) {
             diskMtimeRef.current = stat.mtimeMs;
-            if (sourceRef.current === savedSourceRef.current) {
-              const content = await invoke<string>("read_project_file", { path: activeFile });
-              if (!cancelled && content !== sourceRef.current) {
+            const content = await invoke<string>("read_project_file", { path: activeFile });
+            if (!cancelled && content !== savedSourceRef.current) {
+              externalOverleafEditsRef.current([activeFile]);
+              if (sourceRef.current === savedSourceRef.current) {
                 await acceptExternalText(activeFile, content, "primary");
                 if (buildPreferences.autoBuildMode === "automatic") {
                   void compileRef.current();
@@ -3333,9 +3340,10 @@ function App() {
             }
             if (secondaryStat.mtimeMs <= secondaryMtimeRef.current) return;
             secondaryMtimeRef.current = secondaryStat.mtimeMs;
-            if (secondarySourceRef.current !== secondarySavedRef.current) return;
             const content = await invoke<string>("read_project_file", { path: secondaryFile });
-            if (cancelled || content === secondarySourceRef.current) return;
+            if (cancelled || content === secondarySavedRef.current) return;
+            externalOverleafEditsRef.current([secondaryFile]);
+            if (secondarySourceRef.current !== secondarySavedRef.current) return;
             await acceptExternalText(secondaryFile, content, "secondary");
             if (buildPreferences.autoBuildMode === "automatic") {
               void compileRef.current();
@@ -4566,6 +4574,9 @@ function App() {
   useLayoutEffect(() => {
     flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
   }, [flushDeferredWholeFileSync]);
+  useLayoutEffect(() => {
+    externalOverleafEditsRef.current = overleafRealtime.suspendPaths;
+  }, [overleafRealtime.suspendPaths]);
 
   const applyOpenSlideMutation = useCallback(async (
     mutation: OpenSlideMutation,

@@ -48,6 +48,10 @@ Ownership stays split at that boundary. Synara owns provider adapters, turns, ch
 provider-facing trace producer. Lattice owns live editor host context, the literature, canvas,
 spreadsheet, and project-document brokers, and the host-side compile bridge.
 In particular, Lattice does not copy a provider adapter.
+The Lattice host policy reserves the manuscript's live build outputs for the host preview queue.
+Agents that need mid-turn compilation must isolate all generated outputs rather than run a second compiler against the preview's `.aux`, PDF, or SyncTeX files; this is model guidance, not a filesystem sandbox guarantee.
+Fresh agent checkpoints, including undo, enter the ordinary Overleaf sync queue independently of automatic-build mode.
+In live sync mode, affected text files leave realtime editing, retain any unacknowledged OT operations until settled, and rejoin after reconciliation; manual sync mode does not upload automatically.
 On macOS, `SYNARA_PROCESS_PS_PATH` points to a shell launcher for the signed Lattice executable's `--lattice-process-snapshot` mode, which exits before Tauri starts.
 The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox; it must not copy `/bin/ps`, whose non-setuid copy can be killed on older macOS even when static signature verification passes.
 The two supported `ps`-shaped queries return PID/parent relationships and opaque birth-time identities rather than command-line arguments.

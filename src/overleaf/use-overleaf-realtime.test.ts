@@ -220,6 +220,34 @@ function mount(
 }
 
 describe("guarded remote delivery", () => {
+  it("hands external writes to sync, drains owned operations, and rejoins only after reconciliation", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onNeedsSync = vi.fn();
+    const view = renderHook(() => useOverleafRealtime({
+      enabled: true, documents: true, projectRoot: "/tmp/project", activeFile: "a.tex",
+      readCaret: () => 0, onRemoteText: () => true, onNotice: vi.fn(), onNeedsSync,
+    }));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    await act(async () => {
+      view.result.current.pushLocal("alpha local");
+      vi.advanceTimersByTime(300);
+    });
+    act(() => view.result.current.suspendPaths(["a.tex"]));
+    expect(view.result.current.liveFile).toBe(false);
+    expect(view.result.current.livePaths).toEqual(["a.tex"]);
+    expect(onNeedsSync).toHaveBeenCalledWith(["a.tex"]);
+    const joined = joins.length;
+    act(() => view.result.current.resumePaths(["a.tex"]));
+    expect(joins).toHaveLength(joined);
+    emit({ type: "docAck", docId: DOC_A, version: 11 });
+    await waitFor(() => expect(view.result.current.livePaths).toEqual([]));
+    expect(joins).toHaveLength(joined);
+    act(() => view.result.current.resumePaths(["a.tex"]));
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(joins).toHaveLength(joined + 1);
+    view.unmount();
+  });
+
   it("serializes disk applies and does not send intermediate snapshots back to Overleaf", async () => {
     let finish!: () => void;
     const seen: string[] = [];

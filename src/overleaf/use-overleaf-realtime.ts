@@ -212,6 +212,10 @@ export type OverleafRealtime = {
   noteTrackChanges: (on: boolean) => void;
   /** Re-read the open document, after accepting or rejecting a suggestion. */
   reload: () => void;
+  /** Hand disk edits to ordinary sync without discarding unacknowledged OT. */
+  suspendPaths: (paths: readonly string[]) => void;
+  /** Rejoin only files whose ordinary sync completed and whose OT has drained. */
+  resumePaths: (paths: readonly string[]) => void;
   /** Feed the editor's current text in; ops go out when it differs. */
   pushLocal: (text: string) => void;
   /**
@@ -244,6 +248,7 @@ export function useOverleafRealtime(options: {
   /** Where the caret is right now, so it can be carried across remote edits. */
   readCaret: () => number;
   onNotice: (message: string) => void;
+  onNeedsSync?: (paths: readonly string[]) => void;
 }): OverleafRealtime {
   const { t } = useLingui();
   const [status, setStatus] = useState<RealtimeStatus>("off");
@@ -273,6 +278,8 @@ export function useOverleafRealtime(options: {
   const [livePaths, setLivePaths] = useState<string[]>([]);
 
   const publicId = useRef<string | null>(null);
+  const suspendedPaths = useRef(new Set<string>());
+  useEffect(() => () => suspendedPaths.current.clear(), [options.projectRoot]);
   /**
    * Every document this connection is holding, which is not the same as the
    * one on screen. A document that still owes the server an operation stays
@@ -454,6 +461,30 @@ export function useOverleafRealtime(options: {
     for (const id of [...documents.current.keys()]) release(id);
   }, [release, stopDocument]);
 
+  const suspendPaths = useCallback((paths: readonly string[]) => {
+    const { projectRoot, activeFile } = callbacks.current;
+    if (!projectRoot || !paths.length) return;
+    for (const path of paths) suspendedPaths.current.add(path);
+    if (activeFile && suspendedPaths.current.has(activeFile)) {
+      // The buffer and disk no longer share OT's base. Preserve the buffer for
+      // save's three-way merge; only already-owned operations may still drain.
+      unsentText.current = null;
+      stopDocument();
+      setReloadNonce((nonce) => nonce + 1);
+    }
+    callbacks.current.onNeedsSync?.(paths);
+  }, [stopDocument]);
+
+  const resumePaths = useCallback((paths: readonly string[]) => {
+    const { projectRoot, activeFile } = callbacks.current;
+    if (!projectRoot) return;
+    for (const path of paths) {
+      const owned = [...documents.current.keys()].some((id) => pathsByDocId.current.get(id) === path);
+      if (owned || !suspendedPaths.current.delete(path)) continue;
+      if (path === activeFile) setReloadNonce((nonce) => nonce + 1);
+    }
+  }, []);
+
   /**
    * A broken connection is different from an intentional shutdown: settled
    * documents can go, but any unacknowledged one has an unknown remote outcome
@@ -525,11 +556,10 @@ export function useOverleafRealtime(options: {
       if (!isCurrent()) return;
       // Do not publish the stale debounce as a new replacement operation.
       // stopDocument drains only operations already owned by OT.
-      unsentText.current = null;
-      stopDocument();
+      suspendPaths([path]);
       const message = t`This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it.`;
       setDetail(message);
-      callbacks.current.onNotice(message);
+      if (!callbacks.current.onNeedsSync) callbacks.current.onNotice(message);
     };
     queue.tail = queue.tail.then(async () => {
       if (!isCurrent()) return;
@@ -543,7 +573,7 @@ export function useOverleafRealtime(options: {
       queue.pending -= 1;
       if (!queue.pending && isCurrent()) setLiveFile(true);
     });
-  }, [stopDocument, t]);
+  }, [suspendPaths, t]);
 
   /**
    * Carry the open document's anchored spans across an operation.
@@ -1040,6 +1070,7 @@ export function useOverleafRealtime(options: {
   useEffect(() => {
     stopDocument();
     if (!options.documents || status !== "live" || !options.activeFile) return;
+    if (suspendedPaths.current.has(options.activeFile)) return;
     const id = activeDocId;
     // Only text documents Overleaf tracks can be edited live; anything else
     // (figures, files added since we joined) keeps going through syncing.
@@ -1202,6 +1233,7 @@ export function useOverleafRealtime(options: {
   }, [
     options.activeFile,
     options.documents,
+    options.projectRoot,
     activeDocId,
     status,
     reloadNonce,
@@ -1350,6 +1382,8 @@ export function useOverleafRealtime(options: {
       setReloadNonce((nonce) => nonce + 1);
     },
     pushLocal,
+    suspendPaths,
+    resumePaths,
     anchorComment,
   };
 }

@@ -4805,6 +4805,71 @@ describe("project workspace", () => {
     })), { timeout: 2_500 });
   }, 90_000);
 
+  it("syncs an agent's unopened chapter without requiring an automatic build or remote change", async () => {
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
+    const snapshot = {
+      root: "/tmp/lattice-agent-sync",
+      manifest: {
+        schemaVersion: 1, projectId: "agent-sync", name: "Agent sync",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    const source = "\\documentclass{article}";
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return source;
+      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
+      if (command === "overleaf_link") return {
+        projectId: "ol-agent-sync", projectName: "Agent sync", host: "https://www.overleaf.com", paused: false,
+      };
+      if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
+      if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
+      if (command === "overleaf_rt_connect") return {
+        publicId: "me", docs: [{ id: "main", path: "main.tex" }], entities: [],
+        permission: "readAndWrite", trackChanges: false, userId: "me",
+      };
+      if (command === "overleaf_rt_join_doc") return {
+        text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
+      };
+      if (command === "overleaf_sync") return {
+        pushed: ["sections/results.tex"], pulled: [], merged: [], conflicts: [],
+        deletedLocal: [], skippedRemoteDeletes: [], readOnly: false,
+      };
+      if (["list_papers", "list_history", "overleaf_chat_messages", "overleaf_threads",
+        "overleaf_comment_anchors", "overleaf_change_authors", "overleaf_rt_connected_users"].includes(command)) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Agent");
+    const frame = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    const postSnapshot = (entries: unknown[]) => act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
+        data: { type: "lattice:project-history", activeThreadId: "agent-sync", entries },
+      }));
+    });
+    postSnapshot([]);
+    const syncCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync");
+    expect(syncCalls()).toHaveLength(0);
+    postSnapshot([{
+      id: "cp-sync", label: "Edited chapter", timestamp: "2026-09-24T01:00:00.000Z",
+      threadId: "agent-sync", threadTitle: "Edit", turnId: "turn-sync", turnCount: 1,
+      checkpointRef: "refs/lattice/checkpoints/test",
+      files: [{ path: "sections/results.tex", kind: "modified", additions: 3, deletions: 1 }],
+    }]);
+    await waitFor(() => expect(syncCalls()).toHaveLength(1), { timeout: 6_000 });
+    expect(syncCalls()[0][1]).toMatchObject({ projectRoot: snapshot.root });
+    expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("sections/results.tex");
+  });
+
   it("automatically rebuilds after the active source changes on disk", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
     const snapshot = {

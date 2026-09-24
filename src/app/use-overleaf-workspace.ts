@@ -166,7 +166,7 @@ export type OverleafWorkspaceDeps = {
   compile: () => Promise<void>;
   loadFile: (
     path: string,
-    options?: { expectedProjectRoot?: string; projectGeneration?: number },
+    options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean },
   ) => Promise<boolean>;
   refreshProject: (scope?: {
     expectedRoot: string;
@@ -291,6 +291,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
+  // Tokens distinguish edits arriving during a network-bound sync from the
+  // batch it owns. A completed older pass must not retire the newer work.
+  const externalChangesRef = useRef(new Map<string, symbol>());
+  const [externalChangeGeneration, setExternalChangeGeneration] = useState(0);
+  const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
@@ -365,6 +370,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   useEffect(() => {
     overleafTransportRetryRef.current = false;
+    externalChangesRef.current.clear();
   }, [project?.root]);
 
   // ---- Overleaf bridge -----------------------------------------------------
@@ -587,6 +593,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           ? options.includeWholeFilePaths
           : wholeFileEditingPathsRef.current,
       );
+      const externalBatch = new Map(externalChangesRef.current);
       const sharedSync = collabSession !== null;
       const result = sharedSync
         ? await runSharedOverleafSync(options?.observedRemoteVersion, livePaths, trace.id)
@@ -654,6 +661,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...result.pulled,
         ...result.merged,
         ...result.conflicts.map((item) => item.path),
+        // A disk-only edit can be pushed without a pull. The editor still
+        // needs those bytes before it can safely rejoin the realtime room.
+        ...[...externalBatch.keys()].filter((path) => !livePaths.includes(path)
+          && !result.deletedLocal.includes(path) && !result.skippedRemoteDeletes.includes(path)),
       ]);
       if (result.conflicts.length) {
         // A file with markers in it has spots to work through; a figure or a
@@ -683,6 +694,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         const first = marked[0]?.path ?? null;
         if (first) setConflictPath(first);
       }
+      let reloadBlockedPath: string | null = null;
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
         if (!stillCurrent()) return;
@@ -692,16 +704,25 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         // stale bytes.
         const currentActiveFile = activeFileRef.current;
         if (currentActiveFile && changedOnDisk.has(currentActiveFile)) {
-          await loadFile(currentActiveFile, {
+          const buffer = sourceRef.current;
+          const reloaded = await loadFile(currentActiveFile, {
             expectedProjectRoot: syncRoot,
             projectGeneration: syncGeneration,
+            canCommit: () => activeFileRef.current === currentActiveFile
+              && sourceRef.current === buffer && sourceRef.current === savedSourceRef.current,
           });
+          if (!reloaded) reloadBlockedPath = currentActiveFile;
           if (!stillCurrent()) return;
         }
         if (!stillCurrent()) return;
-        await compile();
-        if (!stillCurrent()) return;
-        compiled = true;
+        // Pushing an agent checkpoint only refreshes our editor here. Its
+        // automatic-build path already owns compilation; do not build twice
+        // or turn manual build mode into an automatic build after upload.
+        if (result.pulled.length || result.merged.length || result.conflicts.length || result.deletedLocal.length) {
+          await compile();
+          if (!stillCurrent()) return;
+          compiled = true;
+        }
       }
       // Nothing arrived, but we flushed the user's own unsaved edits — the
       // autosave compile they were waiting on is gone, so run it here.
@@ -711,6 +732,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         if (!stillCurrent()) return;
         compiled = true;
       }
+      const reconciled = new Set([...result.pushed, ...result.pulled, ...result.merged]);
+      for (const [path, token] of externalBatch) {
+        if (path === reloadBlockedPath || livePaths.includes(path) || externalChangesRef.current.get(path) !== token) {
+          reconciled.delete(path);
+          continue;
+        }
+        externalChangesRef.current.delete(path);
+        reconciled.add(path);
+      }
+      for (const path of externalChangesRef.current.keys()) reconciled.delete(path);
+      if (reloadBlockedPath) reconciled.delete(reloadBlockedPath);
+      for (const conflict of result.conflicts) reconciled.delete(conflict.path);
+      for (const path of [...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? [])]) reconciled.delete(path);
+      if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {
         const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
         if (result.merged.length) parts.push(`merged ${result.merged.length}`);
@@ -938,7 +973,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
             : OVERLEAF_MIN_SYNC_GAP_MS;
           if (
             !stopped
-            && overleafTransportRetryRef.current
+            && (overleafTransportRetryRef.current || externalChangesRef.current.size > 0)
             && Date.now() - lastAutoSyncRef.current >= minimumSyncGap
           ) {
             lastAutoSyncRef.current = Date.now();
@@ -1006,7 +1041,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
     onRemoteText: (text, caret, context) => applyOverleafRemoteText(deps, text, caret, context),
     onNotice: (message) => setNotice(message),
+    onNeedsSync: (paths) => {
+      for (const path of paths) externalChangesRef.current.set(path, Symbol());
+      setExternalChangeGeneration((generation) => generation + 1);
+    },
   });
+  useLayoutEffect(() => {
+    resumeRealtimePathsRef.current = overleafRealtime.resumePaths;
+  }, [overleafRealtime.resumePaths]);
   // The poll loop and the sync both read these mid-flight, so keep them in
   // refs rather than restarting either one every time the channel changes.
   // "Carrying documents", not merely "connected": the channel also stays up in
@@ -1018,6 +1060,32 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     && overleafSyncMode === "live"
     && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.livePaths;
+
+  // Disk writes do not increment saveGeneration. Give them the same quiet
+  // period/rate limit as editor saves, retaining the request while another
+  // sync or an unacknowledged OT operation still owns the file.
+  useEffect(() => {
+    if (!overleafLink || overleafSyncMode !== "live" || !externalChangesRef.current.size) return;
+    let timer: number;
+    const attempt = () => {
+      if (!externalChangesRef.current.size) return;
+      if (overleafSyncingRef.current
+        || [...externalChangesRef.current.keys()].some((path) => overleafLivePathsRef.current.includes(path))) {
+        timer = window.setTimeout(attempt, 1_000);
+        return;
+      }
+      const gap = overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_SYNC_GAP_MS : OVERLEAF_MIN_SYNC_GAP_MS;
+      const wait = gap - (Date.now() - lastAutoSyncRef.current);
+      if (wait > 0) {
+        timer = window.setTimeout(attempt, wait);
+        return;
+      }
+      lastAutoSyncRef.current = Date.now();
+      void overleafSyncRef.current({ auto: true });
+    };
+    timer = window.setTimeout(attempt, OVERLEAF_PUSH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [externalChangeGeneration, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
 
   // On first open, check the cheap remote version and the local sync baseline
   // before downloading the whole project. Wait for joinProject first: it
