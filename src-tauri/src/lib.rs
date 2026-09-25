@@ -1690,7 +1690,7 @@ async fn rename_project_entry(
     project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
-    let _lease = project.overleaf_sync_lease.read().await;
+    let _lease = project.overleaf_sync_lease.write().await;
     let _mutation = project.structural_mutation.lock().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the file could be renamed.".to_string())?;
@@ -1708,7 +1708,7 @@ async fn move_project_entry(
     project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
-    let _lease = project.overleaf_sync_lease.read().await;
+    let _lease = project.overleaf_sync_lease.write().await;
     let _mutation = project.structural_mutation.lock().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the file could be moved.".to_string())?;
@@ -3833,7 +3833,11 @@ async fn overleaf_sync(
         if let Ok(realtime) = project.realtime.lock() {
             realtime.extend_joined_paths(&root, &mut live);
         }
+        let entities = realtime_client(&state, &window)
+            .ok()
+            .and_then(|client| client.current_entities());
         tauri::async_runtime::spawn_blocking(move || {
+            overleaf::sync_relocations(&config, &root, entities)?;
             overleaf::sync(&config, &root, &live, observed_remote_version)
         })
         .await
@@ -3844,9 +3848,10 @@ async fn overleaf_sync(
     result
 }
 
-/// Prepare a full sync from the Share catalog's authoritative snapshot.
-/// Nothing mutates until the frontend has applied the returned actions to Yjs
-/// and calls `overleaf_commit_prepared_sync` with the exact accepted bytes.
+/// Replay local moves already committed to the Share catalog, then prepare
+/// content sync from its authoritative snapshot. Content does not mutate
+/// until the frontend applies the returned actions to Yjs and calls
+/// `overleaf_commit_prepared_sync` with the exact accepted bytes.
 // Keep the existing IPC fields separate from the optional diagnostic context.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
@@ -3883,7 +3888,11 @@ async fn overleaf_prepare_sync(
             return Err("The project changed before Overleaf sync could start.".to_string());
         }
         let live = live_paths(live);
+        let entities = realtime_client(&state, &window)
+            .ok()
+            .and_then(|client| client.current_entities());
         tauri::async_runtime::spawn_blocking(move || {
+            overleaf::sync_relocations(&config, &root, entities)?;
             overleaf::prepare_sync(
                 &config,
                 &root,

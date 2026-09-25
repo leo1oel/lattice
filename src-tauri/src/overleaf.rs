@@ -325,6 +325,19 @@ struct SyncState {
     /// away, and reconnecting afterwards could only offer conflict copies.
     #[serde(default)]
     paused: bool,
+    /// Explicit local moves, replayed by entity id before content sync. Keep
+    /// these across offline edits and restarts rather than inferring identity
+    /// from identical bytes (two different files may have the same content).
+    #[serde(default)]
+    pending_relocations: Vec<PendingRelocation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PendingRelocation {
+    from: String,
+    to: String,
+    #[serde(default)]
+    entity_id: Option<String>,
 }
 
 const PAUSED: &str = "Syncing is paused for this project. Resume it in Settings → Overleaf.";
@@ -411,7 +424,35 @@ fn load_state(root: &Path) -> Result<SyncState, String> {
 fn save_state(root: &Path, state: &SyncState) -> Result<(), String> {
     fs::create_dir_all(root.join(STATE_DIR)).map_err(err)?;
     let body = serde_json::to_string_pretty(state).map_err(err)?;
-    fs::write(state_path(root), body + "\n").map_err(err)
+    ProjectDir::open(root)?.atomic_write(
+        &format!("{STATE_DIR}/{STATE_FILE}"),
+        (body + "\n").as_bytes(),
+    )
+}
+
+/// Called while the structural mutation/sync lease is held. Failure must
+/// roll back the local move, otherwise the next sync sees a deletion.
+pub fn record_relocation(root: &Path, from: &str, to: &str) -> Result<(), String> {
+    if from == to || !state_path(root).exists() {
+        return Ok(());
+    }
+    let mut state = load_state(root)?;
+    state.pending_relocations.push(PendingRelocation {
+        from: from.to_string(),
+        to: to.to_string(),
+        entity_id: None,
+    });
+    save_state(root, &state)
+}
+
+fn relocated_path(path: &str, from: &str, to: &str) -> Option<String> {
+    if path == from {
+        Some(to.to_string())
+    } else {
+        path.strip_prefix(from)
+            .filter(|suffix| suffix.starts_with('/'))
+            .map(|suffix| format!("{to}{suffix}"))
+    }
 }
 
 /// RFC 6265 domain matching: a cookie scoped to `overleaf.com` belongs on
@@ -1086,6 +1127,7 @@ pub fn adopt_project(
         permission: access_level.map(str::to_string),
         files: BTreeMap::new(),
         paused: false,
+        pending_relocations: Vec::new(),
     };
     save_state(root, &state)?;
     Ok(root.to_path_buf())
@@ -1422,6 +1464,7 @@ pub fn publish_project(
         permission: Some("owner".to_string()),
         files: state_files,
         paused: false,
+        pending_relocations: Vec::new(),
     };
     let finish_link = (|| {
         for (path, bytes) in &files {
@@ -1509,6 +1552,7 @@ pub fn clone_project(
         permission: access_level.map(str::to_string),
         files,
         paused: false,
+        pending_relocations: Vec::new(),
     };
     save_state(&root, &state)?;
     Ok(root)
@@ -2467,6 +2511,188 @@ pub fn delete_entity(
     Ok(())
 }
 
+/// Replay explicit local relocations before taking the remote content
+/// snapshot. Requests address existing ids, preserving comments, history and
+/// rootDoc_id. A failed/ambiguous request leaves the intent in state and stops
+/// content sync; it must never fall back to upload-and-delete.
+pub fn sync_relocations(
+    config_dir: &Path,
+    root: &Path,
+    entities: Option<Vec<crate::overleaf_rt::EntityEntry>>,
+) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    if state.pending_relocations.is_empty() {
+        return Ok(());
+    }
+    if state.paused {
+        return Err(PAUSED.to_string());
+    }
+    if !permits_writing(state.permission.as_deref()) {
+        return Err(
+            "Overleaf write access is required to sync moved files. Local moves have been kept."
+                .to_string(),
+        );
+    }
+    let mut entities = entities.ok_or_else(|| {
+        "Waiting for Overleaf's live file tree before syncing moved files.".to_string()
+    })?;
+    let session = load_session(config_dir)?;
+    let host = sync_host(&state, &session)?;
+    let client = http_client(20)?;
+    let page = fetch_projects_page(&client, &host, &session.cookie)?;
+    let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
+    let project_id = state.project_id.clone();
+    let post =
+        |route: &str, body: serde_json::Value| -> Result<reqwest::blocking::Response, String> {
+            let response = client
+                .post(format!("{host}/project/{project_id}/{route}"))
+                .header(reqwest::header::COOKIE, &session.cookie)
+                .header("X-Csrf-Token", &csrf)
+                .json(&body)
+                .send()
+                .map_err(err)?;
+            check_authenticated(&response)?;
+            if !response.status().is_success() {
+                return Err(format!(
+                    "Overleaf returned {} while syncing a file move. The move will be retried.",
+                    response.status()
+                ));
+            }
+            Ok(response)
+        };
+    while let Some(change) = state.pending_relocations.first().cloned() {
+        let entity = entities
+            .iter()
+            .find(|entry| match &change.entity_id {
+                Some(id) => &entry.id == id,
+                None => entry.path == change.from,
+            })
+            .cloned();
+        let Some(entity) = entity else {
+            // A never-uploaded local file has no remote identity to preserve.
+            // A previously synced file missing remotely is a conflict, not
+            // permission to invent a replacement id.
+            if change.entity_id.is_some()
+                || state
+                    .files
+                    .keys()
+                    .any(|path| relocated_path(path, &change.from, &change.to).is_some())
+            {
+                return Err(format!(
+                    "Could not locate {} on Overleaf to sync its move. No files were deleted.",
+                    change.from
+                ));
+            }
+            state.pending_relocations.remove(0);
+            save_state(root, &state)?;
+            continue;
+        };
+        if entity.path != change.from && entity.path != change.to {
+            return Err(format!(
+                "{} was also moved on Overleaf. Resolve the conflicting locations before syncing.",
+                change.from
+            ));
+        }
+        if entities
+            .iter()
+            .any(|other| other.path == change.to && other.id != entity.id)
+        {
+            return Err(format!(
+                "{} already exists on Overleaf. No files were overwritten.",
+                change.to
+            ));
+        }
+        // Persist identity BEFORE the network call. If its response is lost,
+        // the next live tree can prove the same entity is already at `to`.
+        state.pending_relocations[0].entity_id = Some(entity.id.clone());
+        save_state(root, &state)?;
+        if entity.path != change.to {
+            let (from_parent, from_name) =
+                change.from.rsplit_once('/').unwrap_or(("", &change.from));
+            let (to_parent, to_name) = change.to.rsplit_once('/').unwrap_or(("", &change.to));
+            if from_parent == to_parent {
+                post(
+                    &format!("{}/{}/rename", entity.kind, entity.id),
+                    serde_json::json!({"name": to_name}),
+                )?;
+            } else {
+                // Each local operation is either a rename or a move, never
+                // both. Preserve operation order for chained offline edits.
+                if from_name != to_name {
+                    return Err("A pending Overleaf move also changes its name.".to_string());
+                }
+                let mut folder_id = state.root_folder_id.clone().ok_or_else(|| {
+                    "Overleaf has not supplied the root folder id yet.".to_string()
+                })?;
+                let mut folder_path = String::new();
+                for name in to_parent.split('/').filter(|part| !part.is_empty()) {
+                    if !folder_path.is_empty() {
+                        folder_path.push('/');
+                    }
+                    folder_path.push_str(name);
+                    if let Some(folder) = entities.iter().find(|entry| entry.path == folder_path) {
+                        if folder.kind != "folder" {
+                            return Err(format!("{folder_path} is not a folder on Overleaf."));
+                        }
+                        folder_id = folder.id.clone();
+                    } else {
+                        let body: serde_json::Value = post(
+                            "folder",
+                            serde_json::json!({
+                                "name": name, "parent_folder_id": folder_id,
+                            }),
+                        )?
+                        .json()
+                        .map_err(err)?;
+                        folder_id = json_str(&body, &["_id"])
+                            .ok_or_else(|| "Overleaf created no folder.".to_string())?;
+                        entities.push(crate::overleaf_rt::EntityEntry {
+                            id: folder_id.clone(),
+                            path: folder_path.clone(),
+                            kind: "folder".to_string(),
+                        });
+                    }
+                }
+                post(
+                    &format!("{}/{}/move", entity.kind, entity.id),
+                    serde_json::json!({"folder_id": folder_id}),
+                )?;
+            }
+        }
+        // Keep the original common ancestor, not the edited local bytes, so
+        // concurrent remote edits still merge after a move (including folders).
+        let remapped: Vec<_> = state
+            .files
+            .iter()
+            .filter_map(|(path, hash)| {
+                relocated_path(path, &change.from, &change.to)
+                    .map(|next| (path.clone(), next, hash.clone()))
+            })
+            .collect();
+        for (old, new, hash) in &remapped {
+            if let Some(base) = read_base_copy(root, old) {
+                write_base_copy(root, new, base.as_bytes())?;
+            }
+            state.files.remove(old);
+            state.files.insert(new.clone(), hash.clone());
+        }
+        state.pending_relocations.remove(0);
+        state.remote_version = None;
+        save_state(root, &state)?;
+        for (old, _, _) in remapped {
+            remove_base_copy(root, &old);
+        }
+        if entity.path != change.to {
+            for entry in &mut entities {
+                if let Some(path) = relocated_path(&entry.path, &change.from, &change.to) {
+                    entry.path = path;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// What the realtime channel needs to open a connection for this project:
 /// (host, cookie, project id).
 pub fn realtime_config(
@@ -2522,10 +2748,11 @@ pub fn probe(
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session)?;
-    let local_changed = local_live_paths
-        .map(|live| local_files_changed(root, &state, live))
-        .transpose()?
-        .unwrap_or(false);
+    let local_changed = !state.pending_relocations.is_empty()
+        || local_live_paths
+            .map(|live| local_files_changed(root, &state, live))
+            .transpose()?
+            .unwrap_or(false);
     let client = http_client(15)?;
     let response = client
         .get(format!(
@@ -2808,6 +3035,11 @@ fn plan_sync(
     live: &BTreeSet<String>,
     stamp: &str,
 ) -> Result<SyncPlan, String> {
+    if !state.pending_relocations.is_empty() {
+        return Err(
+            "Sync pending file moves with Overleaf before comparing file contents.".to_string(),
+        );
+    }
     let mut all_paths: BTreeSet<String> = BTreeSet::new();
     all_paths.extend(remote.keys().cloned());
     all_paths.extend(local.keys().cloned());
@@ -4067,6 +4299,16 @@ mod tests {
         versions: Vec<i64>,
         fail_upload_at: Option<usize>,
     ) -> MockServer {
+        start_server_with_failures(html, zip_bytes, versions, fail_upload_at, false)
+    }
+
+    fn start_server_with_failures(
+        html: String,
+        zip_bytes: Vec<u8>,
+        versions: Vec<i64>,
+        fail_upload_at: Option<usize>,
+        fail_relocation: bool,
+    ) -> MockServer {
         let server = tiny_http::Server::http("127.0.0.1:0").expect("bind mock server");
         let port = match server.server_addr() {
             tiny_http::ListenAddr::IP(addr) => addr.port(),
@@ -4146,6 +4388,13 @@ mod tests {
                         )
                         .with_header(json_header),
                     )
+                } else if method == "POST" && (path.ends_with("/move") || path.ends_with("/rename"))
+                {
+                    request.respond(tiny_http::Response::empty(if fail_relocation {
+                        500
+                    } else {
+                        204
+                    }))
                 } else if method == "DELETE" {
                     request.respond(tiny_http::Response::empty(204))
                 } else {
@@ -4273,6 +4522,7 @@ mod tests {
             permission: Some("readAndWrite".to_string()),
             files: BTreeMap::from([("main.tex".to_string(), "abc123".to_string())]),
             paused: false,
+            pending_relocations: Vec::new(),
         };
         save_state(&root, &state).unwrap();
         write_base_copy(&root, "main.tex", b"the copy from the last sync\n").unwrap();
@@ -4446,6 +4696,7 @@ mod tests {
                 permission: Some("readAndWrite".to_string()),
                 files,
                 paused: false,
+                pending_relocations: Vec::new(),
             },
         )
         .unwrap();
@@ -4572,6 +4823,7 @@ mod tests {
             permission: None,
             files: BTreeMap::new(),
             paused: false,
+            pending_relocations: Vec::new(),
         };
 
         assert_eq!(
@@ -5738,6 +5990,299 @@ mod tests {
             .body_text()
             .contains("edited after remote delete"));
         assert!(state_files(&root).contains_key("old.tex"));
+    }
+
+    #[test]
+    fn moving_a_linked_file_is_not_a_remote_deletion() {
+        let parent = temp_dir("move-linked");
+        let root = crate::project::create_blank(&parent, "paper").unwrap();
+        fs::remove_file(root.join("references.bib")).unwrap();
+        // The download reflects the remote tree after the move endpoint.
+        let server = start_server(
+            projects_page_html(),
+            build_zip(&[("chapters/main.tex", b"body")]),
+        );
+        let config = temp_dir("move-config");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("main.tex", b"body")],
+            &[("main.tex", b"body")],
+        );
+        fs::create_dir_all(root.join("chapters")).unwrap();
+        crate::project::move_entry(&root, "main.tex", "chapters").unwrap();
+        sync_relocations(
+            &config,
+            &root,
+            Some(vec![entity("main-id", "main.tex", "doc")]),
+        )
+        .unwrap();
+        let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
+        assert!(
+            result.skipped_remote_deletes.is_empty(),
+            "a move must not prompt to delete main.tex"
+        );
+        assert!(!root.join("main.tex").exists());
+        assert_eq!(
+            read_local(&root, "chapters/main.tex").as_deref(),
+            Some(b"body".as_slice())
+        );
+        let mutations: Vec<_> = server
+            .recorded()
+            .into_iter()
+            .filter(|r| r.method == "POST")
+            .collect();
+        assert_eq!(mutations.len(), 2);
+        assert_eq!(mutations[0].url, "/project/proj-1/folder");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&mutations[0].body).unwrap(),
+            serde_json::json!({"name": "chapters", "parent_folder_id": "root-folder-1"})
+        );
+        assert_eq!(mutations[1].url, "/project/proj-1/doc/main-id/move");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&mutations[1].body).unwrap(),
+            serde_json::json!({"folder_id": "anchor-folder-1"})
+        );
+        assert!(server.uploads().is_empty());
+        assert!(!server.recorded().iter().any(|r| r.method == "DELETE"));
+        assert!(load_state(&root).unwrap().pending_relocations.is_empty());
+    }
+
+    fn entity(id: &str, path: &str, kind: &str) -> crate::overleaf_rt::EntityEntry {
+        crate::overleaf_rt::EntityEntry {
+            id: id.into(),
+            path: path.into(),
+            kind: kind.into(),
+        }
+    }
+
+    #[test]
+    fn relocation_keeps_folder_descendants_and_their_merge_ancestors() {
+        let parent = temp_dir("move-folder");
+        let root = crate::project::create_blank(&parent, "paper").unwrap();
+        let base = b"original heading\n\noriginal ending\n".as_slice();
+        let local = b"local heading\n\noriginal ending\n".as_slice();
+        let remote = b"original heading\n\nremote ending\n".as_slice();
+        let server = start_server(projects_page_html(), build_zip(&[]));
+        let config = temp_dir("move-folder-config");
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[
+                ("chapter/main.tex", local),
+                ("chapter/plot.png", b"\0binary"),
+                ("chapter-extra.tex", b"unrelated"),
+            ],
+            &[
+                ("chapter/main.tex", base),
+                ("chapter/plot.png", b"\0binary"),
+                ("chapter-extra.tex", b"unrelated"),
+            ],
+        );
+        crate::project::rename_entry(&root, "chapter", "renamed").unwrap();
+        fs::create_dir_all(root.join("archive")).unwrap();
+        crate::project::move_entry(&root, "renamed", "archive").unwrap();
+        sync_relocations(
+            &config,
+            &root,
+            Some(vec![
+                entity("folder-id", "chapter", "folder"),
+                entity("main-id", "chapter/main.tex", "doc"),
+                entity("plot-id", "chapter/plot.png", "file"),
+                entity("archive-id", "archive", "folder"),
+            ]),
+        )
+        .unwrap();
+        let state = load_state(&root).unwrap();
+        assert_eq!(state.files["archive/renamed/main.tex"], sha256_hex(base));
+        assert_eq!(
+            state.files["archive/renamed/plot.png"],
+            sha256_hex(b"\0binary")
+        );
+        assert!(state.files.contains_key("chapter-extra.tex"));
+        assert!(!state.files.contains_key("chapter/main.tex"));
+        assert_eq!(
+            read_base_copy(&root, "archive/renamed/main.tex")
+                .unwrap()
+                .as_bytes(),
+            base
+        );
+        let plan = plan_sync(
+            &root,
+            &state,
+            &BTreeMap::from([("archive/renamed/main.tex".into(), remote.to_vec())]),
+            &BTreeMap::from([("archive/renamed/main.tex".into(), local.to_vec())]),
+            &BTreeSet::new(),
+            "stamp",
+        )
+        .unwrap();
+        assert_eq!(
+            plan.merge,
+            vec![(
+                "archive/renamed/main.tex".into(),
+                b"local heading\n\nremote ending\n".to_vec()
+            )]
+        );
+        assert!(plan.conflict.is_empty());
+        let posts: Vec<_> = server
+            .recorded()
+            .into_iter()
+            .filter(|r| r.method == "POST")
+            .collect();
+        assert_eq!(posts.len(), 2);
+        assert_eq!(posts[0].url, "/project/proj-1/folder/folder-id/rename");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&posts[0].body).unwrap(),
+            serde_json::json!({"name": "renamed"})
+        );
+        assert_eq!(posts[1].url, "/project/proj-1/folder/folder-id/move");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&posts[1].body).unwrap(),
+            serde_json::json!({"folder_id": "archive-id"})
+        );
+    }
+
+    #[test]
+    fn relocation_failure_blocks_content_sync_and_retry_recognizes_the_same_id() {
+        let root = temp_dir("move-retry");
+        let config = temp_dir("move-retry-config");
+        let server =
+            start_server_with_failures(projects_page_html(), build_zip(&[]), vec![], None, true);
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("renamed.tex", b"edited")],
+            &[("main.tex", b"base")],
+        );
+        record_relocation(&root, "main.tex", "renamed.tex").unwrap();
+        assert!(sync_relocations(&config, &root, None).is_err());
+        assert!(sync_relocations(
+            &config,
+            &root,
+            Some(vec![entity("main-id", "main.tex", "doc")])
+        )
+        .is_err());
+        let state = load_state(&root).unwrap();
+        assert_eq!(
+            state.pending_relocations[0].entity_id.as_deref(),
+            Some("main-id")
+        );
+        assert!(plan_sync(
+            &root,
+            &state,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeSet::new(),
+            "stamp"
+        )
+        .is_err());
+        // The server applied the rename but its response was lost. A fresh
+        // tree proves completion by id, even if someone recreated the old path.
+        sync_relocations(
+            &config,
+            &root,
+            Some(vec![
+                entity("main-id", "renamed.tex", "doc"),
+                entity("different-id", "main.tex", "doc"),
+            ]),
+        )
+        .unwrap();
+        assert!(load_state(&root).unwrap().pending_relocations.is_empty());
+        assert_eq!(state_files(&root)["renamed.tex"], sha256_hex(b"base"));
+        assert_eq!(
+            server
+                .recorded()
+                .iter()
+                .filter(|r| r.method == "POST")
+                .count(),
+            1
+        );
+        assert!(server.uploads().is_empty());
+    }
+
+    #[test]
+    fn relocation_never_overwrites_a_destination_or_writes_without_permission() {
+        let root = temp_dir("move-conflict");
+        let config = temp_dir("move-conflict-config");
+        let server = start_server(projects_page_html(), build_zip(&[]));
+        write_session_file(&config, &server.base);
+        seed_linked_project(&root, &server.base, &[], &[("main.tex", b"base")]);
+        record_relocation(&root, "main.tex", "renamed.tex").unwrap();
+        assert!(sync_relocations(
+            &config,
+            &root,
+            Some(vec![
+                entity("main-id", "main.tex", "doc"),
+                entity("other-id", "renamed.tex", "doc")
+            ])
+        )
+        .is_err());
+        let mut state = load_state(&root).unwrap();
+        state.permission = Some("readOnly".into());
+        save_state(&root, &state).unwrap();
+        assert!(sync_relocations(
+            &config,
+            &root,
+            Some(vec![entity("main-id", "main.tex", "doc")])
+        )
+        .is_err());
+        assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
+        assert!(server.recorded().iter().all(|r| r.method == "GET"));
+    }
+
+    #[test]
+    fn relocation_moves_binary_files_to_root_and_leaves_new_files_for_upload() {
+        let root = temp_dir("move-binary");
+        let config = temp_dir("move-binary-config");
+        let server = start_server(projects_page_html(), build_zip(&[]));
+        write_session_file(&config, &server.base);
+        seed_linked_project(
+            &root,
+            &server.base,
+            &[("plot.png", b"\0binary"), ("new.tex", b"new")],
+            &[("figures/plot.png", b"\0binary")],
+        );
+        record_relocation(&root, "figures/plot.png", "plot.png").unwrap();
+        record_relocation(&root, "draft.tex", "new.tex").unwrap();
+        sync_relocations(
+            &config,
+            &root,
+            Some(vec![entity("plot-id", "figures/plot.png", "file")]),
+        )
+        .unwrap();
+        assert_eq!(state_files(&root)["plot.png"], sha256_hex(b"\0binary"));
+        assert!(!state_files(&root).contains_key("new.tex"));
+        assert!(load_state(&root).unwrap().pending_relocations.is_empty());
+        let posts: Vec<_> = server
+            .recorded()
+            .into_iter()
+            .filter(|r| r.method == "POST")
+            .collect();
+        assert_eq!(posts.len(), 1);
+        assert_eq!(posts[0].url, "/project/proj-1/file/plot-id/move");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&posts[0].body).unwrap(),
+            serde_json::json!({"folder_id": "root-folder-1"})
+        );
+    }
+
+    #[test]
+    fn relocation_record_failure_rolls_back_the_local_move_and_manifest() {
+        let parent = temp_dir("move-record-failure");
+        let root = crate::project::create_blank(&parent, "paper").unwrap();
+        let manifest = fs::read(root.join(".research/project.json")).unwrap();
+        fs::write(state_path(&root), "invalid sync state").unwrap();
+        fs::create_dir_all(root.join("chapters")).unwrap();
+        assert!(crate::project::move_entry(&root, "main.tex", "chapters").is_err());
+        assert!(root.join("main.tex").exists());
+        assert!(!root.join("chapters/main.tex").exists());
+        assert_eq!(
+            fs::read(root.join(".research/project.json")).unwrap(),
+            manifest
+        );
     }
 
     #[test]

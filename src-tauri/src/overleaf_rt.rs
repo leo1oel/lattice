@@ -2257,6 +2257,15 @@ impl RealtimeClient {
         &self.project
     }
 
+    /// Unlike `project()`, this includes subsequent move/rename events and
+    /// cannot be used after disconnection to resolve pending local moves.
+    pub fn current_entities(&self) -> Option<Vec<EntityEntry>> {
+        if self.shared.finished.load(Ordering::SeqCst) {
+            return None;
+        }
+        Some(lock(&self.shared.tree).entities())
+    }
+
     pub fn shutdown(&self) {
         let _ = self.shared.out_tx.try_send(Outgoing::Close);
     }

@@ -3128,6 +3128,11 @@ fn relocate_entry(
         let _ = write_manifest(root, &original_manifest);
         return Err(error);
     }
+    if let Err(error) = crate::overleaf::record_relocation(root, relative, destination_relative) {
+        ProjectDir::open(root)?.rename(destination_relative, relative)?;
+        write_manifest(root, &original_manifest)?;
+        return Err(error);
+    }
     if moved_tex_file {
         // A compiled PDF stops looking like a build artifact as soon as its
         // neighboring .tex file moves away, which previously exposed stale
