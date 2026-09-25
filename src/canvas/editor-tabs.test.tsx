@@ -144,6 +144,25 @@ describe("EditorTabs", () => {
     expect(document.body).not.toHaveClass("reordering-tabs");
   });
 
+  it("localizes tab actions and the close tooltip in Chinese", async () => {
+    await activateAppLocale("zh-CN");
+    render(
+      <EditorTabs
+        tabs={[{ path: "sections/intro.tex" }]}
+        activePath="sections/intro.tex"
+        canCloseLast
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "intro.tex" }).closest(".editor-tab")!);
+    expect(await screen.findByRole("menuitem", { name: "打开" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "关闭" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "固定标签页" })).toBeInTheDocument();
+    expect(screen.getByTitle("关闭 intro.tex")).toHaveAttribute("aria-label", "关闭 intro.tex");
+  });
+
   it("closes from the context menu", async () => {
     const onClose = vi.fn();
     render(

@@ -1178,6 +1178,15 @@ msgstr "Click to collapse"
 msgid "click to sync"
 msgstr "click to sync"
 
+#: src/canvas/editor-tabs.tsx
+msgid "Close"
+msgstr "Close"
+
+#. placeholder {0}: tabLabel(tab)
+#: src/canvas/editor-tabs.tsx
+msgid "Close {0}"
+msgstr "Close {0}"
+
 #: src/collab/collab-dialog.tsx
 msgid "Close for everyone"
 msgstr "Close for everyone"
@@ -3823,6 +3832,7 @@ msgstr "Offline"
 msgid "Omega"
 msgstr "Omega"
 
+#: src/canvas/editor-tabs.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "Open"

@@ -452,8 +452,8 @@ export const EditorTabs = memo(function EditorTabs(props: {
                       type="button"
                       className="editor-tab-close"
                       data-hit-area
-                      aria-label={`Close ${tabLabel(tab)}`}
-                      title={`Close ${tabLabel(tab)}`}
+                      aria-label={t`Close ${tabLabel(tab)}`}
+                      title={t`Close ${tabLabel(tab)}`}
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -466,11 +466,11 @@ export const EditorTabs = memo(function EditorTabs(props: {
                 </motion.div>
               </ContextMenuTrigger>
               <ContextMenuContent>
-                <ContextMenuItem onSelect={() => props.onSelect(tab.path)}>Open</ContextMenuItem>
+                <ContextMenuItem onSelect={() => props.onSelect(tab.path)}>{t`Open`}</ContextMenuItem>
                 <ContextMenuItem onSelect={() => props.onSetPinned?.(tab.path, !tab.pinned)}>
                   {tab.pinned ? t`Unpin tab` : t`Pin tab`}
                 </ContextMenuItem>
-                <ContextMenuItem disabled={!canClose} variant="destructive" onSelect={() => props.onClose(tab.path)}>Close</ContextMenuItem>
+                <ContextMenuItem disabled={!canClose} variant="destructive" onSelect={() => props.onClose(tab.path)}>{t`Close`}</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
           );
