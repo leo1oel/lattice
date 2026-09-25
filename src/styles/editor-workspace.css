@@ -714,9 +714,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   background: transparent;
   box-shadow: none;
 }
-/* A comment card sizes itself to its text — clipping it here is what turned a
-   long comment into a scroll box. */
+/* Keep the hover arrow outside the host, but scroll the card within the
+   available height CodeMirror measures above or below the anchor. */
 .source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }
+.source-editor .cm-tooltip-hover .cm-editor-comment-tooltip {
+  max-height: 100%;
+  overflow-y: auto;
+}
 /* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that also carries
    .cm-tooltip-lint. The shared .cm-tooltip-hover above is transparent because
    the comment/texlab cards bring their own background — but a lint diagnostic

@@ -385,9 +385,9 @@ export function editorCommentsExtension(
           Date.now(),
           options.getLocalization?.() ?? DEFAULT_COMMENT_LOCALIZATION,
         ),
-        // Let a long comment grow; otherwise CodeMirror clamps the height to
-        // the space above the line and the body becomes a scroll box.
-        resize: false,
+        // Constrain long threads to the available space on the chosen side
+        // of the line; the card scrolls without hiding its actions off-screen.
+        resize: true,
       }),
     };
   });

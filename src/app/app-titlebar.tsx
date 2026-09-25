@@ -67,6 +67,7 @@ export type AppTitlebarProps = {
   projectMenuOpen: boolean;
   recentProjects: RecentProject[];
   requestCloseEditorTab: (path: string) => void;
+  setEditorTabPinned: (path: string, pinned: boolean) => void;
   selectEditorTab: (path: string) => void;
   setCreateError: Dispatch<SetStateAction<string | null>>;
   setCreateOpen: Dispatch<SetStateAction<boolean>>;
@@ -105,6 +106,7 @@ export function AppTitlebar(props: AppTitlebarProps) {
     projectMenuOpen,
     recentProjects,
     requestCloseEditorTab,
+    setEditorTabPinned,
     selectEditorTab,
     setCreateError,
     setCreateOpen,
@@ -171,6 +173,7 @@ export function AppTitlebar(props: AppTitlebarProps) {
           onDropTab={dropProjectPath}
           onSelect={selectEditorTab}
           onClose={requestCloseEditorTab}
+          onSetPinned={setEditorTabPinned}
           onReorder={setOpenTabs}
         />
         {canvasToolbar}

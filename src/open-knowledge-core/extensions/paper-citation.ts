@@ -29,7 +29,8 @@ export const PaperCitation = Node.create({
   },
   renderText: renderInlineObjectText,
   extendNodeSchema(extension) {
-    return extension.name === this.name
+    // TipTap binds `this.name` to the node being extended, not this extension.
+    return extension.name === 'paperCitation'
       ? { leafText: (node: PmNode) => String(node.attrs.label) }
       : {};
   },

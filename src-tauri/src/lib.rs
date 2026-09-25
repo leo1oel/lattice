@@ -1754,13 +1754,19 @@ async fn import_project_files(
     paths: Vec<String>,
     target_directory: String,
     project_root: String,
+    copy_existing: Option<bool>,
 ) -> Result<Vec<project::ImportedProjectFile>, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
+    let _mutation = project.structural_mutation.lock().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the files could be imported.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        project::import_files(&root, &paths, &target_directory)
+        if copy_existing.unwrap_or(false) {
+            project::import_files_with_copy(&root, &paths, &target_directory, true)
+        } else {
+            project::import_files(&root, &paths, &target_directory)
+        }
     })
     .await
     .map_err(|error| format!("File import stopped unexpectedly: {error}"))?

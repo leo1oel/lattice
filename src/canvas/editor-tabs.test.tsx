@@ -19,6 +19,25 @@ function mockTabLayout(lefts: Record<string, number>) {
 }
 
 describe("EditorTabs", () => {
+  it("exposes distinct paths for same-name tabs on focus", async () => {
+    render(
+      <EditorTabs
+        tabs={[{ path: "chapters/intro.tex" }, { path: "appendices/intro.tex", label: "intro.tex" }]}
+        activePath="chapters/intro.tex"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    const tabs = screen.getAllByRole("tab", { name: "intro.tex" });
+    fireEvent.focus(tabs[0]);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("chapters/intro.tex");
+    fireEvent.blur(tabs[0]);
+    fireEvent.focus(tabs[1]);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("appendices/intro.tex");
+    expect(tabs[1]).not.toHaveAttribute("title");
+  });
+
   it("renders the active filename when only one tab is open", () => {
     render(
       <EditorTabs
@@ -145,6 +164,43 @@ describe("EditorTabs", () => {
     expect(onClose).toHaveBeenCalledWith("sections/intro.tex");
   });
 
+  it("pins and unpins from the context menu and protects pinned tabs from closing", async () => {
+    const onClose = vi.fn();
+    const onSetPinned = vi.fn();
+    const { rerender } = render(
+      <EditorTabs
+        tabs={[{ path: "main.tex", pinned: true }, { path: "notes.tex" }]}
+        activePath="main.tex"
+        onSelect={vi.fn()}
+        onClose={onClose}
+        onSetPinned={onSetPinned}
+        onReorder={vi.fn()}
+      />,
+    );
+    const mainTab = screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab")!;
+    expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close main.tex" })).toBeNull();
+    fireEvent(mainTab, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.contextMenu(mainTab);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Unpin tab" }));
+    expect(onSetPinned).toHaveBeenCalledWith("main.tex", false);
+
+    rerender(
+      <EditorTabs
+        tabs={[{ path: "main.tex" }, { path: "notes.tex" }]}
+        activePath="main.tex"
+        onSelect={vi.fn()}
+        onClose={onClose}
+        onSetPinned={onSetPinned}
+        onReorder={vi.fn()}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab")!);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Pin tab" }));
+    expect(onSetPinned).toHaveBeenLastCalledWith("main.tex", true);
+  });
+
   it("drags a back tab to the front", () => {
     const onReorder = vi.fn();
     mockTabLayout({ "a.tex": 0, "b.tex": 100, "c.tex": 200 });
@@ -162,6 +218,25 @@ describe("EditorTabs", () => {
     fireEvent.pointerMove(window, { clientX: 10 });
     fireEvent.pointerUp(window, { clientX: 10 });
     expect(onReorder).toHaveBeenLastCalledWith(["c.tex", "a.tex", "b.tex"]);
+  });
+
+  it("keeps pinned and ordinary tabs in separate drag partitions", () => {
+    const onReorder = vi.fn();
+    mockTabLayout({ "pinned.tex": 0, "a.tex": 100, "b.tex": 200 });
+    render(
+      <EditorTabs
+        tabs={[{ path: "pinned.tex", pinned: true }, { path: "a.tex" }, { path: "b.tex" }]}
+        activePath="a.tex"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onReorder={onReorder}
+      />,
+    );
+    const ordinary = screen.getByRole("tab", { name: /b\.tex/i }).closest(".editor-tab")!;
+    fireEvent.pointerDown(ordinary, { button: 0, clientX: 250 });
+    fireEvent.pointerMove(window, { clientX: 0 });
+    fireEvent.pointerUp(window, { clientX: 0 });
+    expect(onReorder).toHaveBeenLastCalledWith(["pinned.tex", "b.tex", "a.tex"]);
   });
 
   it("reports the selected left, center, or right drop zone", () => {

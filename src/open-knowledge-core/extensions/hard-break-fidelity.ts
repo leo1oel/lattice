@@ -14,6 +14,11 @@ export const HardBreakFidelity = HardBreak.extend({
   marks: '_', // legal mark carrier; see wiki-link.ts
   priority: 60,
 
+  extendNodeSchema(extension) {
+    // PlainTextClipboard uses ProseMirror's leafText, not TipTap's renderText.
+    return extension.name === 'hardBreak' ? { leafText: () => '\n' } : {};
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { completionStatus, insertBracket, selectedCompletionIndex } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect, Transaction } from "@codemirror/state";
@@ -16,7 +16,7 @@ import App from "./App";
 import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
-import { persistWorkspaceLayout } from "./settings/app-settings";
+import { APPEARANCE_KEY, loadWorkspaceLayout, persistWorkspaceLayout } from "./settings/app-settings";
 import { mapCollabProjectStatusV2 } from "./collab/collab-status";
 import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
 import { loadTextLanguageExtensions } from "./editor/editor-languages";
@@ -140,7 +140,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   revealItemInDir: vi.fn(),
   openUrl: vi.fn(),
 }));
-vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(), readText: vi.fn() }));
 // The board creation flow opens the .tldr in the canvas; mounting the real
 // Tldraw editor needs browser canvas APIs jsdom doesn't have.
 vi.mock("./editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
@@ -489,6 +489,7 @@ beforeEach(() => {
   vi.mocked(openUrl).mockResolvedValue(undefined);
   vi.mocked(revealItemInDir).mockResolvedValue(undefined);
   vi.mocked(writeText).mockResolvedValue(undefined);
+  vi.mocked(readText).mockResolvedValue("");
   windowApi.isFullscreen.mockResolvedValue(false);
   windowApi.setFullscreen.mockResolvedValue(undefined);
   windowApi.setMinSize.mockResolvedValue(undefined);
@@ -1399,6 +1400,49 @@ describe("project workspace", () => {
     fireEvent.click(await findProjectTreeItem("main.tex"));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
+  });
+
+  it("restores pinned tabs, protects them from eviction and close, and persists unpinning", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-pinned",
+      manifest: {
+        schemaVersion: 1, projectId: "pinned-id", name: "Pinned tabs",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: ["main.tex", "pinned.tex", "old.tex"].map((path) => ({
+        name: path, path, kind: "tex", children: [],
+      })),
+    };
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ maxOpenTabs: 2 }));
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["old.tex", "main.tex", "pinned.tex", "missing.tex"],
+      pinnedTabs: ["pinned.tex", "missing.tex"],
+      activeFile: "main.tex", activeTab: "main.tex", secondaryFile: null,
+      focusedPane: "primary", canvasMode: "source", documentMode: "source",
+      paperView: "blog", tabRecency: ["main.tex", "old.tex", "pinned.tex"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const tabs = await screen.findByRole("tablist", { name: "Open files" });
+    await waitFor(() => expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent))
+      .toEqual(["pinned.tex", "main.tex"]));
+    fireEvent.click(within(tabs).getByRole("tab", { name: /pinned\.tex/ }));
+    await waitFor(() => expect(within(tabs).getByRole("tab", { name: /pinned\.tex/ }))
+      .toHaveAttribute("aria-selected", "true"));
+    fireEvent(within(tabs).getByRole("tab", { name: /pinned\.tex/ }), new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+    expect(within(tabs).getByRole("tab", { name: /pinned\.tex/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close pinned.tex" })).toBeNull();
+    fireEvent.contextMenu(within(tabs).getByRole("tab", { name: /pinned\.tex/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Unpin tab" }));
+    await waitFor(() => expect(loadWorkspaceLayout(snapshot.root)?.pinnedTabs).toEqual([]));
+    fireEvent.click(screen.getByRole("button", { name: "Close pinned.tex" }));
+    await waitFor(() => expect(within(tabs).queryByRole("tab", { name: /pinned\.tex/ })).toBeNull());
   });
 
   it("opens the most recently used other file before a stale secondary or a TeX fallback", async () => {
@@ -8578,6 +8622,45 @@ describe("project workspace", () => {
     expect(invoke).not.toHaveBeenCalledWith("import_project_assets", expect.anything());
     expect(invoke).not.toHaveBeenCalledWith("import_project_sources", expect.anything());
     Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("duplicates a project file with Command-C/V and shows the new tree entry", async () => {
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
+    };
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return structuredClone(snapshot);
+      if (command === "read_project_file") return "\\documentclass{article}";
+      if (command === "import_project_files") {
+        snapshot.files.push({ name: "main-2.tex", path: "main-2.tex", kind: "tex", children: [] });
+        return [{ path: "main-2.tex", kind: "text" }];
+      }
+      if (command === "list_papers" || command === "list_history") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    vi.mocked(readText).mockResolvedValue("/tmp/lattice-paper/main.tex");
+    renderApp();
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    fireEvent.keyDown(await findProjectTreeItem("main.tex"), { key: "c", metaKey: true });
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
+    fireEvent.keyDown(await findProjectTreeItem("main.tex"), { key: "v", metaKey: true });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
+      paths: ["/tmp/lattice-paper/main.tex"],
+      targetDirectory: "",
+      projectRoot: "/tmp/lattice-paper",
+      copyExisting: true,
+    }));
+    expect(await findProjectTreeItem("main-2.tex")).toBeInTheDocument();
+    expect(queryProjectTreeItem("main.tex")).not.toBeNull();
   });
 
   it("imports a Finder image into the folder of the file it is dropped on", async () => {

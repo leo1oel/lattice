@@ -247,6 +247,7 @@ import type {
   OverleafSyncResult,
 } from "./app-types";
 import {
+  absoluteProjectPath,
   applyProjectPathChanges,
   arxivIdFromTabKey,
   chooseAction,
@@ -883,6 +884,9 @@ function App() {
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const openTabsRef = useRef<string[]>([]);
   useLayoutEffect(() => { openTabsRef.current = openTabs; }, [openTabs]);
+  const [pinnedTabs, setPinnedTabs] = useState<string[]>([]);
+  const pinnedTabsRef = useRef<string[]>([]);
+  useLayoutEffect(() => { pinnedTabsRef.current = pinnedTabs; }, [pinnedTabs]);
   const [workspacePersistenceReadyRoot, setWorkspacePersistenceReadyRoot] = useState<string | null>(null);
   const pendingWorkspaceSurfaceRef = useRef<{
     root: string;
@@ -2859,6 +2863,7 @@ function App() {
 
     invalidateFileViewStateCallbacks();
     setOpenTabs(initialPlan.openTabs);
+    setPinnedTabs((tabs) => tabs.filter((tab) => tab !== path));
     tabRecency.current = initialPlan.tabRecency;
     viewStateRef.current.delete(path);
     scheduleFileViewStatePersistence();
@@ -5174,6 +5179,7 @@ function App() {
       setSecondarySavedSource("");
       setFocusedPane("primary");
       setOpenTabs([]);
+      setPinnedTabs([]);
       setCanvasMode("split");
       htmlViewModesRef.current.clear();
       documentModeRef.current = "split";
@@ -5341,6 +5347,10 @@ function App() {
         : primaryFile
           ? [primaryFile]
           : [];
+      if (restored) {
+        const restoredPins = new Set((restored.pinnedTabs ?? []).filter(validTab));
+        restoredTabs.sort((left, right) => Number(restoredPins.has(right)) - Number(restoredPins.has(left)));
+      }
       const activeTab = restored?.activeTab && validTab(restored.activeTab)
         ? restored.activeTab
         : primaryFile ?? restoredTabs[0] ?? "";
@@ -5365,6 +5375,7 @@ function App() {
             : restored?.canvasMode ?? "split";
       if (isHtmlFilePath(activeTab)) htmlViewModesRef.current.set(activeTab, restoredMode as DocumentViewMode);
       setOpenTabs(restoredTabs);
+      setPinnedTabs(restored?.pinnedTabs?.filter(validTab) ?? []);
       tabRecency.current = restored?.tabRecency.filter((path) => restoredTabs.includes(path)) ?? [];
       for (const path of restoredTabs) {
         if (!tabRecency.current.includes(path)) tabRecency.current.push(path);
@@ -6965,6 +6976,7 @@ function App() {
   ]);
 
   const closeEditorTab = useCallback(async (path: string) => {
+    if (pinnedTabsRef.current.includes(path)) return;
     const remaining = openTabsRef.current.filter((tab) => tab !== path);
     // Source-backed modes must always retain a document. PDF is the one mode
     // where an empty tab strip is meaningful because the compiled preview can
@@ -7826,13 +7838,14 @@ function App() {
   const importProjectFiles = useCallback(async (
     paths: string[],
     targetDirectory = "",
+    copyExisting = false,
   ): Promise<string[]> => {
     if (!paths.length || assetImporting) return [];
     setAssetImporting(true);
     try {
       const imported = await invoke<{ path: string; kind: "text" | "board" | "spreadsheet" | "binary" }[]>(
         "import_project_files",
-        { paths, targetDirectory, projectRoot: project?.root },
+        { paths, targetDirectory, projectRoot: project?.root, ...(copyExisting ? { copyExisting: true } : {}) },
       );
       for (const file of imported) {
         removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
@@ -8117,6 +8130,7 @@ function App() {
       const remainingTabs = openTabsRef.current.filter((tab) => !wasDeleted(tab));
       openTabsRef.current = remainingTabs;
       setOpenTabs(remainingTabs);
+      setPinnedTabs((tabs) => tabs.filter((tab) => !wasDeleted(tab)));
       tabRecency.current = tabRecency.current.filter((tab) => !wasDeleted(tab));
       closedTabsRef.current = closedTabsRef.current.filter((tab) => !wasDeleted(tab));
       setNavStack((entries) => entries.filter((entry) => !wasDeleted(entry.path)));
@@ -8247,6 +8261,7 @@ function App() {
       files: current.files.map((file) => ({ ...file, path: remapPath(file.path) })),
     }));
     setOpenTabs((tabs) => tabs.map(remapPath));
+    setPinnedTabs((tabs) => [...new Set(tabs.map(remapPath))]);
     setSecondaryFile((path) => path ? remapPath(path) : path);
     setActiveFile((path) => remapPath(path));
     setActiveAsset((asset) => asset ? { ...asset, path: remapPath(asset.path) } : asset);
@@ -9427,12 +9442,24 @@ function App() {
   const requestCloseEditorTab = useCallback((path: string) => {
     void closeEditorTab(path);
   }, [closeEditorTab]);
+  const setEditorTabPinned = useCallback((path: string, pinned: boolean) => {
+    setPinnedTabs((tabs) => pinned
+      ? tabs.includes(path) ? tabs : [...tabs, path]
+      : tabs.filter((tab) => tab !== path));
+    setOpenTabs((tabs) => {
+      const without = tabs.filter((tab) => tab !== path);
+      const pinnedCount = without.filter((tab) => pinnedTabsRef.current.includes(tab)).length;
+      without.splice(pinnedCount, 0, path);
+      return without;
+    });
+  }, []);
   const editorTabItems = useMemo(
     () => openTabs.map((path) => {
       if (isPaperTabKey(path)) {
         const id = arxivIdFromTabKey(path);
         return {
           path,
+          pinned: pinnedTabs.includes(path),
           kind: "paper" as const,
           label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper",
           dirty: activePaper?.arxivId === id && activePaperDirty,
@@ -9443,6 +9470,7 @@ function App() {
       if (projectAssetPaths.has(path)) {
         return {
           path,
+          pinned: pinnedTabs.includes(path),
           kind: "asset" as const,
           beside: path === secondaryAsset?.path
             && (canvasMode === "dual" || canvasMode === "columns"),
@@ -9450,6 +9478,7 @@ function App() {
       }
       return {
         path,
+        pinned: pinnedTabs.includes(path),
         kind: "file" as const,
         dirty: (path === activeFile && primarySourceDirty)
           || (path === secondaryFile && secondarySourceDirty),
@@ -9464,6 +9493,7 @@ function App() {
       canvasMode,
       openTabs,
       papers,
+      pinnedTabs,
       primarySourceDirty,
       projectAssetPaths,
       secondaryFile,
@@ -9512,7 +9542,7 @@ function App() {
       activeAsset?.path,
       secondaryAsset?.path,
     ].filter(Boolean) as string[]);
-    const candidates = openTabs.filter((key) => !keep.has(key));
+    const candidates = openTabs.filter((key) => !keep.has(key) && !pinnedTabs.includes(key));
     if (!candidates.length) return;
     const staleness = (key: string) => {
       const index = tabRecency.current.indexOf(key);
@@ -9523,6 +9553,7 @@ function App() {
     tabRecency.current = tabRecency.current.filter((key) => key !== victim);
   }, [
     openTabs,
+    pinnedTabs,
     appearance.maxOpenTabs,
     activeTabKey,
     activeFile,
@@ -9535,6 +9566,7 @@ function App() {
     if (!project?.root || workspacePersistenceReadyRoot !== project.root) return;
     persistWorkspaceLayout(project.root, {
       openTabs,
+      pinnedTabs,
       activeFile,
       activeTab: activeTabKey,
       secondaryFile,
@@ -9550,6 +9582,7 @@ function App() {
     canvasMode,
     focusedPane,
     openTabs,
+    pinnedTabs,
     paperView,
     project?.root,
     secondaryFile,
@@ -9967,6 +10000,7 @@ function App() {
         projectMenuOpen={projectMenuOpen}
         recentProjects={recentProjects}
         requestCloseEditorTab={requestCloseEditorTab}
+        setEditorTabPinned={setEditorTabPinned}
         selectEditorTab={selectEditorTab}
         setCreateError={setCreateError}
         setCreateOpen={setCreateOpen}
@@ -10050,6 +10084,11 @@ function App() {
               onDeleteEntries={deleteProjectEntries}
               onRenameEntry={renameProjectEntry}
               onMoveEntries={moveProjectEntries}
+              onCopyEntries={(paths, targetDirectory) => importProjectFiles(
+                paths.map((path) => absoluteProjectPath(project.root, path)),
+                targetDirectory,
+                true,
+              )}
               onError={setError}
               onReveal={revealProjectItem}
               onImportAssets={chooseProjectAssets}

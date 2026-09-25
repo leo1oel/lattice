@@ -1832,9 +1832,61 @@ export function DocumentCanvas(props: {
   } | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
   const commentComposerRef = useRef(commentComposer);
+  const commentComposerElementRef = useRef<HTMLDivElement | null>(null);
+  const commentComposerOpen = commentComposer !== null;
   useLayoutEffect(() => {
     commentComposerRef.current = commentComposer;
   }, [commentComposer]);
+  useLayoutEffect(() => {
+    const view = commentComposerViewRef.current;
+    const popup = commentComposerElementRef.current;
+    const host = view?.dom.closest(".source-editor");
+    if (!commentComposerOpen || !view || !popup || !host) return;
+    let frame: number | null = null;
+    let above: boolean | undefined;
+    const reposition = () => {
+      const draft = commentComposerRef.current;
+      const range = draft && resolveCommentAnchor(view.state.doc.toString(), draft);
+      const anchor = range && view.coordsAtPos(range.from);
+      const bounds = host.getBoundingClientRect();
+      const viewport = view.scrollDOM.getBoundingClientRect();
+      const top = Math.max(bounds.top, viewport.top);
+      const bottom = Math.min(bounds.bottom, viewport.bottom);
+      if (!anchor || anchor.bottom <= top || anchor.top >= bottom) {
+        // Keep the mounted textarea and draft, but never pin it to a viewport edge.
+        popup.style.visibility = "hidden";
+        return;
+      }
+      popup.style.visibility = "visible";
+      const width = Math.min(320, Math.max(0, bounds.width - 16));
+      popup.style.width = `${width}px`;
+      // Choose a side once so scrolling cannot make the draft jump across its text.
+      above ??= bottom - anchor.bottom - 8 < popup.offsetHeight && anchor.top - top > bottom - anchor.bottom;
+      popup.style.left = `${clamp(anchor.left - bounds.left, 8, Math.max(8, bounds.width - width - 8))}px`;
+      popup.style.top = `${(above ? anchor.top - 8 : anchor.bottom + 8) - bounds.top}px`;
+      popup.style.translate = above ? "0 -100%" : "none";
+      popup.style.maxHeight = `${Math.max(0, Math.min(280, above ? anchor.top - top - 8 : bottom - anchor.bottom - 8))}px`;
+    };
+    const scheduleReposition = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        reposition();
+      });
+    };
+    reposition();
+    const observer = new ResizeObserver(scheduleReposition);
+    observer.observe(host);
+    observer.observe(view.contentDOM);
+    window.addEventListener("scroll", scheduleReposition, true);
+    window.addEventListener("resize", scheduleReposition);
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("scroll", scheduleReposition, true);
+      window.removeEventListener("resize", scheduleReposition);
+    };
+  }, [activeFile, collabEditorKey, commentComposerOpen]);
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
@@ -4052,7 +4104,9 @@ export function DocumentCanvas(props: {
           )}
           {commentComposer && (
             <div
+              ref={commentComposerElementRef}
               className="editor-comment-popover"
+              style={{ bottom: "auto", right: "auto" }}
               role="dialog"
               aria-label={t`Add comment`}
               onMouseDown={(event) => event.stopPropagation()}

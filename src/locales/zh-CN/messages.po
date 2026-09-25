@@ -199,6 +199,10 @@ msgstr "⌘⇧F · 源文件和论文"
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · 所有 .tex 文件"
 
+#: src/canvas/editor-tabs.tsx
+msgid "⌘⇧T to reopen"
+msgstr "⌘⇧T 重新打开"
+
 #: src/collab/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 个文件"
@@ -3389,6 +3393,10 @@ msgstr "采用此来源的元数据"
 msgid "Metadata source · cached"
 msgstr "采用此来源的元数据 · 来自缓存"
 
+#: src/canvas/editor-tabs.tsx
+msgid "Middle-click to close · ⌘⇧T to reopen"
+msgstr "中键关闭 · ⌘⇧T 重新打开"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "最小值"
@@ -4254,6 +4262,14 @@ msgstr "分段定义"
 #: src/editor/insert/insert-snippets.ts
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Pin tab"
+msgstr "固定标签页"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Pinned"
+msgstr "已固定"
 
 #: src/settings/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes"
@@ -6215,6 +6231,10 @@ msgstr "无序项目列表。"
 #: src/papers/bibliography-audit.tsx
 msgid "Unpaywall"
 msgstr "Unpaywall"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Unpin tab"
+msgstr "取消固定标签页"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"

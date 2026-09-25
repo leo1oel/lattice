@@ -45,6 +45,7 @@ interface BrowserInternals {
 }
 
 interface RuntimeWindow {
+  latticeDesktop?: { getPathForFile: (file: File) => string };
   __TAURI_INTERNALS__?: BrowserInternals;
   __TAURI_EVENT_PLUGIN_INTERNALS__?: {
     unregisterListener: (event: string, eventId: number) => void;
@@ -368,7 +369,7 @@ function showRuntimeFailure(reason: Error): void {
   document.body.append(overlay);
 }
 
-class BrowserEventRegistry {
+export class BrowserEventRegistry {
   private nextLocalId = LOCAL_EVENT_START;
   private readonly entries = new Map<string, {
     callbackId: number;
@@ -378,6 +379,43 @@ class BrowserEventRegistry {
   constructor(private readonly runCallback: (id: number, payload: unknown) => void) {}
 
   listen(event: string, callbackId: number): number | null {
+    const desktop = (window as unknown as RuntimeWindow).latticeDesktop;
+    const dragEvent = ({
+      "tauri://drag-enter": "dragenter",
+      "tauri://drag-over": "dragover",
+      "tauri://drag-drop": "drop",
+      "tauri://drag-leave": "dragleave",
+    } as Record<string, string>)[event];
+    if (desktop && dragEvent) {
+      const eventId = this.nextLocalId--;
+      const notify = (raw: Event) => {
+        const drag = raw as DragEvent;
+        if (!drag.dataTransfer?.types.includes("Files")) return;
+        // Internal tree drags use text data. Only consume OS file drops, and
+        // prevent Chromium from navigating to the dropped file. Capture runs
+        // before editor/tree handlers that would otherwise import it twice.
+        drag.preventDefault();
+        drag.stopImmediatePropagation();
+        if (dragEvent === "dragleave" && drag.relatedTarget) return;
+        const scale = window.devicePixelRatio || 1;
+        this.runCallback(callbackId, {
+          event,
+          id: eventId,
+          payload: {
+            // Chromium protects the file list until drop. Tree hover still
+            // works by position; classification becomes available on drop.
+            paths: Array.from(drag.dataTransfer.files, (file) => desktop.getPathForFile(file)).filter(Boolean),
+            position: { x: drag.clientX * scale, y: drag.clientY * scale },
+          },
+        });
+      };
+      window.addEventListener(dragEvent, notify, true);
+      this.entries.set(this.key(event, eventId), {
+        callbackId,
+        cleanup: () => window.removeEventListener(dragEvent, notify, true),
+      });
+      return eventId;
+    }
     const domEvent = event === "tauri://resize"
       ? "resize"
       : event === "tauri://focus"

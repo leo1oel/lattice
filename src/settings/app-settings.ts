@@ -61,6 +61,7 @@ type WorkspaceCanvasMode =
 
 export type WorkspaceLayout = {
   openTabs: string[];
+  pinnedTabs?: string[];
   activeFile: string;
   activeTab: string;
   secondaryFile: string | null;
@@ -119,6 +120,7 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
       : canvasMode;
   return {
     openTabs,
+    pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
     activeFile,
     activeTab,
     secondaryFile,

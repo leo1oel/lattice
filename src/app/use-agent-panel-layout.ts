@@ -31,12 +31,14 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
       host?.style.removeProperty("--agent-dock-height");
     };
     const findHost = () => docked && visible
-      ? workspace.querySelector<HTMLElement>(".canvas-body .source-workspace")
+      ? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary .source-workspace")
+        ?? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary")
+        ?? workspace.querySelector<HTMLElement>(".canvas-body .source-workspace")
         ?? workspace.querySelector<HTMLElement>(".canvas-body")
       : null;
     const update = () => {
-      // The primary source workspace owns the left column, including in dual
-      // editor mode. Preview-only documents fall back to the canvas itself.
+      // In dual mode the primary column owns the dock whether it contains an
+      // editor or a preview. Only single-pane previews fall back to the canvas.
       const next = findHost();
       if (next !== host) {
         if (host) observer.unobserve(host);

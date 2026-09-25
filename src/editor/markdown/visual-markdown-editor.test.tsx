@@ -4659,6 +4659,26 @@ describe("VisualMarkdownEditor", () => {
     expect(editor.querySelector(".math-placeholder")).toBeNull();
   });
 
+  it("copies line breaks as newlines without applying citation labels to other nodes", async () => {
+    renderEditor("Native models.\\\nVisual features.<br>Language connection.\n\nSee [Study](.research/papers/study/paper.md).\n\n---\n\nConclusion.");
+    const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
+    const editor = (surface as HTMLElement & { editor: Editor }).editor;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(new AllSelection(editor.state.doc)),
+    );
+    const copied = new Map<string, string>();
+    fireEvent.copy(surface, {
+      clipboardData: {
+        clearData: () => copied.clear(),
+        setData: (type: string, value: string) => copied.set(type, value),
+      },
+    });
+    expect(copied.get("text/plain")).toBe(
+      "Native models.\nVisual features.\nLanguage connection.\n\nSee Study.\n\nConclusion.",
+    );
+  });
+
   it("preserves block-math formulas when copied between visual editors", async () => {
     render(
       <>

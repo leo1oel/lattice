@@ -289,6 +289,45 @@ beforeEach(() => {
 });
 
 describe("DocumentCanvas / mode", () => {
+  it.each([
+    { initialTextTop: 240, expectedTop: 218, expectedTranslate: "none" },
+    { initialTextTop: 490, expectedTop: 432, expectedTranslate: "0 -100%" },
+  ])("keeps the comment draft anchored at $initialTextTop while scrolling, preserving it offscreen", async ({ initialTextTop, expectedTop, expectedTranslate }) => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("editor-comment-popover") ? 180 : 0;
+    });
+    const { container, props } = renderCanvas({ source: "Hello bold world" });
+    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
+    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+    const bounds = new DOMRect(20, 50, 600, 500);
+    vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
+    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
+    let textTop = initialTextTop;
+    vi.spyOn(view, "coordsAtPos").mockImplementation(() => ({ left: 100, right: 150, top: textTop, bottom: textTop + 20 }));
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: 6, head: 10 } });
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    fireEvent.change(within(composer).getByRole("textbox"), { target: { value: "Keep this draft" } });
+    const initialTop = Number.parseFloat(composer.style.top);
+    expect(initialTop).toBe(expectedTop);
+    expect(composer.style.translate).toBe(expectedTranslate);
+    textTop -= 90;
+    fireEvent.scroll(view.scrollDOM);
+    await waitFor(() => expect(Number.parseFloat(composer.style.top)).toBe(initialTop - 90));
+    textTop = 10;
+    fireEvent.scroll(view.scrollDOM);
+    await waitFor(() => expect(composer).not.toBeVisible());
+    textTop = initialTextTop;
+    fireEvent.scroll(view.scrollDOM);
+    await waitFor(() => expect(composer).toBeVisible());
+    expect(within(composer).getByRole("textbox")).toHaveValue("Keep this draft");
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    expect(props.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ quote: "bold", body: "Keep this draft", from: 6, to: 10 }));
+  });
+
   it("highlights the source selection while composing and removes only the draft on cancel", async () => {
     const source = "Hello bold world";
     const existing = createEditorComment({ path: "main.tex", source, from: 6, to: 10, body: "Existing", authorId: "ada", authorName: "Ada" })!;
@@ -296,6 +335,9 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
     const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
     // jsdom has no text layout; the floating toolbar needs real selection coordinates.
+    const bounds = new DOMRect(0, 0, 600, 500);
+    vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
+    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
     vi.spyOn(view, "coordsAtPos").mockReturnValue({ left: 100, right: 150, top: 100, bottom: 120 });
     act(() => {
       view.focus();

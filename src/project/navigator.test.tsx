@@ -2,11 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { FileNode, PaperSummary } from "../app-types";
 import { Navigator } from "./navigator";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
-vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(), readText: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 type NavigatorProps = ComponentProps<typeof Navigator>;
@@ -62,6 +63,7 @@ function baseProps(): NavigatorProps {
     onDeleteEntries: vi.fn(),
     onRenameEntry: vi.fn(async (path: string) => path),
     onMoveEntries: vi.fn(async (paths: string[]) => paths),
+    onCopyEntries: vi.fn(async (paths: string[]) => paths),
     onError: vi.fn(),
     onReveal: vi.fn(),
     onImportAssets: vi.fn(),
@@ -115,6 +117,8 @@ afterEach(cleanup);
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(invoke).mockReset().mockResolvedValue([]);
+  vi.mocked(writeText).mockReset().mockResolvedValue();
+  vi.mocked(readText).mockReset().mockResolvedValue("");
 });
 
 describe("Navigator / papers", () => {
@@ -599,6 +603,69 @@ describe("Navigator / project tree", () => {
     ]));
   });
 
+  it("copies a project file with Command-C/V instead of reading an image", async () => {
+    const { props } = renderNavigator({ mode: "project" });
+    const main = await waitFor(() => {
+      expect(treeItem("main.tex")).not.toBeNull();
+      return treeItem("main.tex")!;
+    });
+    fireEvent.click(main);
+    fireEvent.keyDown(main, { key: "c", metaKey: true });
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/paper/main.tex"));
+    vi.mocked(readText).mockResolvedValue("/tmp/paper/main.tex");
+    const folder = treeItem("sections/")!;
+    fireEvent.click(folder);
+    fireEvent.keyDown(folder, { key: "v", metaKey: true });
+    await waitFor(() => expect(props.onCopyEntries).toHaveBeenCalledWith(["main.tex"], "sections"));
+    expect(props.onPasteImage).not.toHaveBeenCalled();
+
+    vi.mocked(readText).mockRejectedValue(new Error("Clipboard has no text"));
+    fireEvent.keyDown(folder, { key: "v", metaKey: true });
+    await waitFor(() => expect(props.onPasteImage).toHaveBeenCalledWith("sections"));
+    expect(props.onCopyEntries).toHaveBeenCalledTimes(1);
+  });
+
+  it("copies a folder only once when its child is also selected", async () => {
+    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    const { props } = renderNavigator({ mode: "project" });
+    const intro = await waitFor(() => {
+      expect(treeItem("sections/intro.tex")).not.toBeNull();
+      return treeItem("sections/intro.tex")!;
+    });
+    fireEvent.click(intro);
+    fireEvent.click(treeItem("sections/")!, { metaKey: true });
+    fireEvent.keyDown(treeItem("sections/")!, { key: "c", metaKey: true });
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/paper/sections"));
+    vi.mocked(readText).mockResolvedValue("/tmp/paper/sections");
+    const main = treeItem("main.tex")!;
+    fireEvent.click(main);
+    fireEvent.keyDown(main, { key: "v", metaKey: true });
+    await waitFor(() => expect(props.onCopyEntries).toHaveBeenCalledWith(["sections"], ""));
+  });
+
+  it("renames the selected file with Enter and confirms from the rename input", async () => {
+    const { props } = renderNavigator({ mode: "project" });
+    const main = await waitFor(() => {
+      expect(treeItem("main.tex")).not.toBeNull();
+      return treeItem("main.tex")!;
+    });
+    fireEvent.click(main);
+    fireEvent.keyDown(main, { key: "Enter" });
+    const input = await waitFor(() => {
+      const field = treeRoot()?.querySelector("[data-item-rename-input]");
+      expect(field).not.toBeNull();
+      return field!;
+    });
+    expect(input).toHaveValue("main.tex");
+    fireEvent.keyDown(input, { key: "c", metaKey: true });
+    fireEvent.keyDown(input, { key: "v", metaKey: true });
+    expect(writeText).not.toHaveBeenCalled();
+    expect(props.onPasteImage).not.toHaveBeenCalled();
+    fireEvent.input(input, { target: { value: "renamed.tex" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(props.onRenameEntry).toHaveBeenCalledWith("main.tex", "renamed.tex"));
+  });
+
   it("pastes a clipboard image into the directory chosen in the context menu", async () => {
     const onPasteImage = vi.fn();
     renderNavigator({ mode: "project", onPasteImage });
@@ -628,6 +695,6 @@ describe("Navigator / project tree", () => {
     fireEvent.click(folder);
     fireEvent.keyDown(folder, { key: "v", metaKey: true });
 
-    expect(onPasteImage).toHaveBeenCalledWith("sections");
+    await waitFor(() => expect(onPasteImage).toHaveBeenCalledWith("sections"));
   });
 });

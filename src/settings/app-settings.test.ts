@@ -25,6 +25,7 @@ import {
 
 const layout: WorkspaceLayout = {
   openTabs: ["main.tex", "sections/method.tex", "figures/model.png"],
+  pinnedTabs: ["main.tex"],
   activeFile: "main.tex",
   activeTab: "sections/method.tex",
   secondaryFile: "sections/method.tex",
@@ -113,6 +114,13 @@ describe("workspace layout persistence", () => {
     expect(loadWorkspaceLayout("/papers/beta")).toBeNull();
   });
 
+  it("keeps only unique open pinned paths from malformed saved data", () => {
+    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
+      "/papers/alpha": { ...layout, pinnedTabs: ["main.tex", "main.tex", "gone.tex", 42, null, ""] },
+    }));
+    expect(loadWorkspaceLayout("/papers/alpha")?.pinnedTabs).toEqual(["main.tex"]);
+  });
+
   it("deduplicates tabs and safely normalizes malformed fields", () => {
     localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
       "/papers/alpha": {
@@ -129,6 +137,7 @@ describe("workspace layout persistence", () => {
 
     expect(loadWorkspaceLayout("/papers/alpha")).toEqual({
       openTabs: ["main.tex"],
+      pinnedTabs: [],
       activeFile: "main.tex",
       activeTab: "main.tex",
       secondaryFile: null,

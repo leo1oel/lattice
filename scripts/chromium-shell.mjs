@@ -175,6 +175,7 @@ async function createWindow(rawUrl) {
     // in one gesture, as native toolbar buttons do.
     acceptFirstMouse: true,
     webPreferences: {
+      preload: fileURLToPath(new URL("./chromium-preload.cjs", import.meta.url)),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,

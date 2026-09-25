@@ -3863,6 +3863,16 @@ pub fn import_files(
     sources: &[String],
     target_directory: &str,
 ) -> Result<Vec<ImportedProjectFile>, String> {
+    import_files_with_copy(root, sources, target_directory, false)
+}
+
+/// Explicit tree copies duplicate in-project sources; ordinary drops only register them.
+pub fn import_files_with_copy(
+    root: &Path,
+    sources: &[String],
+    target_directory: &str,
+    copy_existing: bool,
+) -> Result<Vec<ImportedProjectFile>, String> {
     if sources.is_empty() {
         return Err("Drop one or more files or folders first.".to_string());
     }
@@ -4018,7 +4028,10 @@ pub fn import_files(
         }
         let canonical_source = requested.canonicalize().map_err(err)?;
         let inside_project = canonical_source.starts_with(&canonical_root);
-        if inside_project {
+        if copy_existing && metadata.is_dir() && target.starts_with(&canonical_source) {
+            return Err("A folder cannot be copied inside itself.".to_string());
+        }
+        if inside_project && !copy_existing {
             if metadata.file_type().is_dir() {
                 let relative = canonical_source
                     .strip_prefix(&canonical_root)
@@ -8138,6 +8151,58 @@ mod tests {
         );
         assert!(import_assets(&root, &paths, "main.tex").is_err());
         assert!(import_assets(&root, &paths, ".research").is_err());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn copied_project_entries_duplicate_contents_without_overwriting_sources() {
+        let parent = temp_root("copy-project-entries");
+        let root = create(&parent, "paper").unwrap();
+        fs::create_dir_all(root.join("notes/empty")).unwrap();
+        fs::write(root.join("notes/draft.tex"), "Original draft").unwrap();
+        fs::write(root.join("notes/image.png"), [0, 255, 42]).unwrap();
+        let source = root.join("notes").to_string_lossy().to_string();
+        let copied =
+            import_files_with_copy(&root, std::slice::from_ref(&source), "", true).unwrap();
+        assert_eq!(
+            copied
+                .iter()
+                .map(|file| (file.path.as_str(), file.kind.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("notes-2/draft.tex", "text"),
+                ("notes-2/image.png", "binary")
+            ]
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("notes-2/draft.tex")).unwrap(),
+            "Original draft"
+        );
+        assert_eq!(
+            fs::read(root.join("notes-2/image.png")).unwrap(),
+            [0, 255, 42]
+        );
+        assert!(root.join("notes-2/empty").is_dir());
+        assert_eq!(
+            fs::read_to_string(root.join("notes/draft.tex")).unwrap(),
+            "Original draft"
+        );
+        let file = root.join("notes/draft.tex").to_string_lossy().to_string();
+        assert_eq!(
+            import_files_with_copy(&root, std::slice::from_ref(&file), "notes", true).unwrap()[0]
+                .path,
+            "notes/draft-2.tex"
+        );
+        assert_eq!(
+            import_files_with_copy(&root, &[file], "notes-2", true).unwrap()[0].path,
+            "notes-2/draft-2.tex"
+        );
+        assert!(
+            import_files_with_copy(&root, &[source], "notes/empty", true)
+                .unwrap_err()
+                .contains("inside itself")
+        );
+        assert!(!root.join("notes/empty/notes").exists());
         fs::remove_dir_all(parent).unwrap();
     }
 

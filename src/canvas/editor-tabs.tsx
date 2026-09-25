@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
-import { PanelLeft, PanelRight, Square, X } from "lucide-react";
+import { PanelLeft, PanelRight, Pin, Square, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -10,6 +10,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tip } from "@/components/icon-tip";
 
 export type EditorTab = {
   path: string;
@@ -17,6 +18,7 @@ export type EditorTab = {
   beside?: boolean;
   kind?: "file" | "paper" | "asset";
   label?: string;
+  pinned?: boolean;
 };
 
 function tabLabel(tab: EditorTab): string {
@@ -203,9 +205,11 @@ export const EditorTabs = memo(function EditorTabs(props: {
   canCloseLast?: boolean;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onSetPinned?: (path: string, pinned: boolean) => void;
   onReorder: (nextPaths: string[]) => void;
   onDropTab?: (path: string, zone: EditorDropZone) => void;
 }) {
+  const { t } = useLingui();
   const [dragPath, setDragPath] = useState<string | null>(null);
   const [splitDropPreview, setSplitDropPreview] = useState<EditorDropPreview | null>(null);
   const activeTabRef = useRef<HTMLDivElement | null>(null);
@@ -299,7 +303,12 @@ export const EditorTabs = memo(function EditorTabs(props: {
     if (from < 0) return;
     const gap = gapIndexForX(event.clientX);
     const without = paths.filter((path) => path !== state.path);
-    const insertAt = Math.max(0, Math.min(without.length, gap > from ? gap - 1 : gap));
+    const requestedIndex = Math.max(0, Math.min(without.length, gap > from ? gap - 1 : gap));
+    const draggedPinned = tabsRef.current[from]?.pinned === true;
+    const pinnedCount = tabsRef.current.filter((tab) => tab.pinned && tab.path !== state.path).length;
+    const insertAt = draggedPinned
+      ? Math.min(requestedIndex, pinnedCount)
+      : Math.max(requestedIndex, pinnedCount);
     without.splice(insertAt, 0, state.path);
     if (!sameOrder(without, paths)) onReorderRef.current(without);
   }, [gapIndexForX, splitTargetAt, updateSplitDropPreview]);
@@ -390,7 +399,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
       >
         {props.tabs.map((tab) => {
           const active = tab.path === props.activePath;
-          const canClose = props.tabs.length > 1 || props.canCloseLast;
+          const canClose = !tab.pinned && (props.tabs.length > 1 || props.canCloseLast);
           return (
             <ContextMenu key={tab.path}>
               <ContextMenuTrigger asChild>
@@ -414,23 +423,30 @@ export const EditorTabs = memo(function EditorTabs(props: {
                     props.onClose(tab.path);
                   }}
                 >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    title={`${tab.label ?? tab.path}${canClose ? " · middle-click close" : ""} · ⌘⇧T reopen`}
-                    onClick={() => {
-                      // Swallow the click that ends a drag so it doesn't re-select.
-                      if (suppressClick.current) {
-                        suppressClick.current = false;
-                        return;
-                      }
-                      props.onSelect(tab.path);
-                    }}
-                  >
-                    <span>{tabLabel(tab)}</span>
-                    {tab.dirty && <i aria-label="Unsaved changes" />}
-                  </button>
+                  <Tip label={
+                    <div className="max-w-[min(32rem,calc(100vw-2rem))] break-all">
+                      {tab.kind === "paper" ? tab.label ?? tab.path : tab.path}
+                      <div className="mt-1 opacity-70">{canClose ? t`Middle-click to close · ⌘⇧T to reopen` : t`⌘⇧T to reopen`}</div>
+                    </div>
+                  }>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => {
+                        // Swallow the click that ends a drag so it doesn't re-select.
+                        if (suppressClick.current) {
+                          suppressClick.current = false;
+                          return;
+                        }
+                        props.onSelect(tab.path);
+                      }}
+                    >
+                      {tab.pinned && <Pin className="editor-tab-pin" size={11} aria-label={t`Pinned`} />}
+                      <span>{tabLabel(tab)}</span>
+                      {tab.dirty && <i aria-label="Unsaved changes" />}
+                    </button>
+                  </Tip>
                   {canClose && (
                     <button
                       type="button"
@@ -451,6 +467,9 @@ export const EditorTabs = memo(function EditorTabs(props: {
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem onSelect={() => props.onSelect(tab.path)}>Open</ContextMenuItem>
+                <ContextMenuItem onSelect={() => props.onSetPinned?.(tab.path, !tab.pinned)}>
+                  {tab.pinned ? t`Unpin tab` : t`Pin tab`}
+                </ContextMenuItem>
                 <ContextMenuItem disabled={!canClose} variant="destructive" onSelect={() => props.onClose(tab.path)}>Close</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>

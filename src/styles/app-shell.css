@@ -234,6 +234,7 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 .editor-tab-split-drop-label-content { padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); box-shadow: 0 1px 8px oklch(0 0 0 / 16%); }
 .editor-tab-split-drop-label-content svg { color: var(--control-active); opacity: .9; }
 .editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 7px 0 9px; border: 0; background: transparent; color: var(--text-secondary); display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: flex-start; gap: var(--space-3); font-size: var(--type-caption-size); text-align: left; overflow: hidden; }
+.editor-tab-pin { flex: none; color: var(--text-tertiary); transform: rotate(-35deg); }
 .editor-tab > button[role="tab"] span { min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); }
 .editor-tab.active > button[role="tab"] { color: var(--text-primary); font-weight: var(--weight-semibold); }
 .editor-tab > button[role="tab"] i { width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); flex: none; border-radius: 50%; background: var(--control-active); }

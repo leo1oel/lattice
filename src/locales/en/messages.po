@@ -199,6 +199,10 @@ msgstr "⌘⇧F · source files and papers"
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · all .tex files"
 
+#: src/canvas/editor-tabs.tsx
+msgid "⌘⇧T to reopen"
+msgstr "⌘⇧T to reopen"
+
 #: src/collab/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 file"
@@ -3389,6 +3393,10 @@ msgstr "Metadata source"
 msgid "Metadata source · cached"
 msgstr "Metadata source · cached"
 
+#: src/canvas/editor-tabs.tsx
+msgid "Middle-click to close · ⌘⇧T to reopen"
+msgstr "Middle-click to close · ⌘⇧T to reopen"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Min"
 msgstr "Min"
@@ -4254,6 +4262,14 @@ msgstr "Piecewise definition"
 #: src/editor/insert/insert-snippets.ts
 msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Pin tab"
+msgstr "Pin tab"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Pinned"
+msgstr "Pinned"
 
 #: src/settings/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes"
@@ -6219,6 +6235,10 @@ msgstr "Unordered list of items."
 #: src/papers/bibliography-audit.tsx
 msgid "Unpaywall"
 msgstr "Unpaywall"
+
+#: src/canvas/editor-tabs.tsx
+msgid "Unpin tab"
+msgstr "Unpin tab"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"

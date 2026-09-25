@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BrowserRelay,
+  BrowserEventRegistry,
   decodeBridgeValue,
   encodeBridgeValue,
   type BrowserRuntimeConfig,
@@ -34,6 +35,62 @@ class FakeWebSocket extends EventTarget {
 const sockets: FakeWebSocket[] = [];
 const NativeWebSocket = globalThis.WebSocket;
 
+describe("Chromium file drops", () => {
+  it("routes a dropped SVG locally with physical coordinates and cleans up", () => {
+    const callback = vi.fn();
+    const registry = new BrowserEventRegistry(callback);
+    const file = new File(["<svg/>"], "plot.svg", { type: "image/svg+xml" });
+    Object.assign(window, { latticeDesktop: { getPathForFile: () => "/tmp/plot.svg" } });
+    vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
+    const id = registry.listen("tauri://drag-drop", 73);
+    expect(id).not.toBeNull();
+    const drop = new MouseEvent("drop", { clientX: 135, clientY: 247, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { types: ["Files"], files: [file] },
+    });
+    window.dispatchEvent(drop);
+    expect(drop.defaultPrevented).toBe(true);
+    expect(callback).toHaveBeenCalledWith(73, {
+      event: "tauri://drag-drop", id,
+      payload: { paths: ["/tmp/plot.svg"], position: { x: 270, y: 494 } },
+    });
+    registry.unregister("tauri://drag-drop", id!, vi.fn());
+    callback.mockClear();
+    window.dispatchEvent(drop);
+    expect(callback).not.toHaveBeenCalled();
+    Reflect.deleteProperty(window, "latticeDesktop");
+  });
+
+  it("tracks protected file drags without consuming internal tree moves", () => {
+    const callback = vi.fn();
+    const registry = new BrowserEventRegistry(callback);
+    Object.assign(window, { latticeDesktop: { getPathForFile: vi.fn() } });
+    for (const [name, domName] of [["enter", "dragenter"], ["over", "dragover"], ["leave", "dragleave"]]) {
+      const event = `tauri://drag-${name}`;
+      const id = registry.listen(event, 19)!;
+      const drag = new MouseEvent(domName, { clientX: 40, clientY: 90, cancelable: true });
+      Object.defineProperty(drag, "dataTransfer", { value: { types: ["Files"], files: [] } });
+      window.dispatchEvent(drag);
+      expect(drag.defaultPrevented).toBe(true);
+      expect(callback).toHaveBeenLastCalledWith(19, {
+        event, id, payload: { paths: [], position: { x: 40, y: 90 } },
+      });
+      callback.mockClear();
+      const internal = new MouseEvent(domName, { cancelable: true });
+      Object.defineProperty(internal, "dataTransfer", { value: { types: ["text/plain"], files: [] } });
+      window.dispatchEvent(internal);
+      expect(internal.defaultPrevented).toBe(false);
+      expect(callback).not.toHaveBeenCalled();
+      registry.unregister(event, id, vi.fn());
+    }
+  });
+
+  it("leaves ordinary browser subscriptions on the existing relay", () => {
+    const registry = new BrowserEventRegistry(vi.fn());
+    expect(registry.listen("tauri://drag-drop", 1)).toBeNull();
+  });
+});
+
 function connectedRelay(
   reload = vi.fn(),
   role: "browser" | "desktop" = "browser",
@@ -54,6 +111,7 @@ function connectedRelay(
 
 afterEach(() => {
   sockets.length = 0;
+  Reflect.deleteProperty(window, "latticeDesktop");
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.stubGlobal("WebSocket", NativeWebSocket);

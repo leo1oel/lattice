@@ -3,7 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
   ContextMenuItem as PierreContextMenuItem,
@@ -497,6 +497,7 @@ type ProjectFileTreeProps = {
   onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
+  onCopyEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
   onPasteImage: (targetDirectory: string) => void;
@@ -597,6 +598,11 @@ function createPointerDragPreview(
   }
   preview.dataset.latticePointerDragPreview = "true";
   preview.setAttribute("aria-hidden", "true");
+  // Keep the clone in Pierre's shadow root so it retains the row styles, but
+  // promote it out of the sidebar's stacking context while crossing editors.
+  // The bundled Chromium supports manual popovers; the guard keeps jsdom and
+  // older webviews on the previous (stacking-context-bound) fallback.
+  preview.setAttribute("popover", "manual");
   preview.tabIndex = -1;
   preview.style.width = `${rect.width}px`;
   preview.style.height = `${rect.height}px`;
@@ -611,6 +617,11 @@ function createPointerDragPreview(
     y: Math.max(0, Math.min(rect.height, startY - rect.top)),
   };
   root.append(preview);
+  try {
+    preview.showPopover?.();
+  } catch {
+    // A disconnected or unsupported popover can still serve as a local ghost.
+  }
   return { element: preview, offset };
 }
 
@@ -888,7 +899,20 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
     [model],
   );
   useProjectTreeMotion(getTreeScrollViewport);
-  const pasteImageIntoSelection = () => {
+  const copiedEntriesRef = useRef<Promise<{ projectKey: string; paths: string[]; text: string }> | null>(null);
+  const copySelection = () => {
+    const paths = normalizePointerDraggedPaths(model.getSelectedPaths()).map(fromPierrePath);
+    if (!paths.length) return;
+    const projectKey = propsRef.current.projectKey;
+    const text = paths.map((path) => absoluteProjectPath(projectKey, path)).join("\n");
+    const copied = writeText(text).then(() => ({ projectKey, paths, text }));
+    copiedEntriesRef.current = copied;
+    void copied.catch((reason) => {
+      if (copiedEntriesRef.current === copied) copiedEntriesRef.current = null;
+      propsRef.current.onError(String(reason));
+    });
+  };
+  const pasteIntoSelection = async () => {
     const selectedPath = model.getSelectedPaths().at(-1) ?? "";
     const normalizedPath = fromPierrePath(selectedPath);
     const selectedNode = treeRef.current.nodes.get(selectedPath);
@@ -897,7 +921,18 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
       : normalizedPath.includes("/")
         ? normalizedPath.slice(0, normalizedPath.lastIndexOf("/"))
         : "";
-    propsRef.current.onPasteImage(targetDirectory);
+    const projectKey = propsRef.current.projectKey;
+    const copied = await copiedEntriesRef.current?.catch(() => null);
+    if (copied?.projectKey === projectKey) {
+      // A later copy in an editor or another app must supersede our file selection.
+      const text = await readText().catch(() => null);
+      if (propsRef.current.projectKey !== projectKey) return;
+      if (text === copied.text) {
+        await propsRef.current.onCopyEntries(copied.paths, targetDirectory);
+        return;
+      }
+    }
+    if (propsRef.current.projectKey === projectKey) propsRef.current.onPasteImage(targetDirectory);
   };
   useLayoutEffect(() => {
     propsRef.current = props;
@@ -1409,17 +1444,26 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           aria-label={t`Project files`}
           onKeyDownCapture={(event) => {
             if (
-              event.key.toLocaleLowerCase() !== "v"
-              || !(event.metaKey || event.ctrlKey)
-              || event.altKey
-              || event.nativeEvent.composedPath().some((target) => (
+              event.nativeEvent.composedPath().some((target) => (
                 target instanceof HTMLInputElement
                 || target instanceof HTMLTextAreaElement
                 || (target instanceof HTMLElement && target.isContentEditable)
               ))
             ) return;
-            event.preventDefault();
-            pasteImageIntoSelection();
+            if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+              const selected = model.getSelectedPaths();
+              if (selected.length !== 1) return;
+              event.preventDefault();
+              event.stopPropagation();
+              model.startRenaming(selected[0]);
+            } else if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+              const key = event.key.toLocaleLowerCase();
+              if (key !== "c" && key !== "v") return;
+              event.preventDefault();
+              event.stopPropagation();
+              if (key === "c") copySelection();
+              else void pasteIntoSelection().catch((reason) => propsRef.current.onError(String(reason)));
+            }
           }}
         >
           <FileTree
@@ -1508,6 +1552,7 @@ export function Navigator(props: {
   onDeleteEntries: (paths: string[]) => void;
   onRenameEntry: (path: string, name: string) => Promise<string>;
   onMoveEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
+  onCopyEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
   onError: (message: string) => void;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
@@ -1659,6 +1704,7 @@ export function Navigator(props: {
           onDeleteEntries={props.onDeleteEntries}
           onRenameEntry={props.onRenameEntry}
           onMoveEntries={props.onMoveEntries}
+          onCopyEntries={props.onCopyEntries}
           onReveal={props.onReveal}
           onImportAssets={props.onImportAssets}
           onPasteImage={props.onPasteImage}
