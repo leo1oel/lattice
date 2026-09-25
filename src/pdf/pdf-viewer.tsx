@@ -36,6 +36,7 @@ import {
 import { Tip } from "../components/icon-tip";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
+import { PdfCitationHover, type PdfCitationProps } from "./pdf-citation-hover";
 import { SearchField } from "../components/ui/search-field";
 import { MotionButton } from "../components/ui/motion";
 import { OverlayScrollbars } from "../components/ui/overlay-scrollbar";
@@ -410,7 +411,10 @@ export function PdfPreview({
   outline,
   toolbarStart,
   toolbarEnd,
-}: {
+  citations,
+  canOpenCitation,
+  onOpenCitation,
+}: PdfCitationProps & {
   url: string | null;
   pdfBase64: string | null;
   pdfBytes?: ArrayBuffer | null;
@@ -1484,6 +1488,8 @@ export function PdfPreview({
       tabIndex={-1}
       onPointerDownCapture={focusPdfSurface}
     >
+      <PdfCitationHover key={stableLoadKey} hostRef={hostRef} citations={citations}
+        canOpenCitation={canOpenCitation} onOpenCitation={onOpenCitation} />
       <div className="pdf-toolbar">
         <div className="pdf-navigation-controls">
           {toolbarStart}

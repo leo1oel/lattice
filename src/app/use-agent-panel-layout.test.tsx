@@ -36,6 +36,10 @@ it("reserves only the editor's bottom area and restores it when hidden or moved"
   expect(panel.style.visibility).toBe("hidden");
   expect(editor).not.toHaveClass("agent-dock-host");
   expect(editor.style.getPropertyValue("--agent-dock-height")).toBe("");
+  view.rerender(<Workspace />);
+  expect(panel.style.visibility).toBe("visible");
+  expect(panel.style.top).toBe("330px");
+  expect(editor).toHaveClass("agent-dock-host");
   view.rerender(<Workspace docked={false} />);
   expect(panel.style.left).toBe("0px");
   expect(panel.style.width).toBe("320px");

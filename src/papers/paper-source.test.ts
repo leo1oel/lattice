@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { canDownloadPaper, isTitleQuery, paperPdfUrl, paperSourceCitation } from "./paper-source";
+import { canDownloadPaper, citationSourceUrl, isTitleQuery, paperPdfUrl, paperSourceCitation } from "./paper-source";
 
 describe("paper source routing", () => {
+  it("opens bibliography web identities but rejects unsafe and credential-bearing URLs", () => {
+    expect(citationSourceUrl({ url: "https://publisher.test/paper", doi: "10.1234/fallback" })).toBe("https://publisher.test/paper");
+    expect(citationSourceUrl({ doi: "10.1234/a#b?c" })).toBe("https://doi.org/10.1234/a%23b%3Fc");
+    expect(citationSourceUrl({ url: "broken", arxivId: "1706.03762" })).toBe("https://arxiv.org/pdf/1706.03762");
+    for (const url of ["javascript:alert(1)", "file:///private/paper.pdf", "https://user:secret@example.test/paper", "data:text/html,paper"]) {
+      expect(citationSourceUrl({ url })).toBeNull();
+    }
+    expect(citationSourceUrl({ doi: "not a DOI" })).toBeNull();
+    expect(citationSourceUrl()).toBeNull();
+  });
+
   it("preserves direct PDF URL fragments but ignores them for source identity", () => {
     const paper = { arxivId: "web-abc", url: "https://example.test/report.PDF?download=1#page=2" };
     expect(paperPdfUrl(paper)).toBe(paper.url);

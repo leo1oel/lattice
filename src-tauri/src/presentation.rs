@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 
-const VERSION: &str = "2.0.0-beta.2";
+const VERSION: &str = "2.0.0-beta.5";
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 

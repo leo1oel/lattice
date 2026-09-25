@@ -1,5 +1,29 @@
 // Open Slide imports Lucide's barrel, which exposes thousands of icons. Keep
 // its complete runtime icon surface while giving Vite a tree-sized entry.
+export { default as ALargeSmall } from "lucide-react/dist/esm/icons/a-large-small.mjs";
+export { default as AlignHorizontalDistributeCenter } from "lucide-react/dist/esm/icons/align-horizontal-distribute-center.mjs";
+export { default as AlignHorizontalJustifyCenter } from "lucide-react/dist/esm/icons/align-horizontal-justify-center.mjs";
+export { default as AlignHorizontalJustifyEnd } from "lucide-react/dist/esm/icons/align-horizontal-justify-end.mjs";
+export { default as AlignHorizontalJustifyStart } from "lucide-react/dist/esm/icons/align-horizontal-justify-start.mjs";
+export { default as AlignVerticalDistributeCenter } from "lucide-react/dist/esm/icons/align-vertical-distribute-center.mjs";
+export { default as AlignVerticalJustifyCenter } from "lucide-react/dist/esm/icons/align-vertical-justify-center.mjs";
+export { default as AlignVerticalJustifyEnd } from "lucide-react/dist/esm/icons/align-vertical-justify-end.mjs";
+export { default as AlignVerticalJustifyStart } from "lucide-react/dist/esm/icons/align-vertical-justify-start.mjs";
+export { default as BringToFront } from "lucide-react/dist/esm/icons/bring-to-front.mjs";
+export { default as CircleHelp } from "lucide-react/dist/esm/icons/circle-help.mjs";
+export { default as CornerLeftUp } from "lucide-react/dist/esm/icons/corner-left-up.mjs";
+export { default as Eye } from "lucide-react/dist/esm/icons/eye.mjs";
+export { default as Magnet } from "lucide-react/dist/esm/icons/magnet.mjs";
+export { default as MousePointer2 } from "lucide-react/dist/esm/icons/mouse-pointer-2.mjs";
+export { default as Move } from "lucide-react/dist/esm/icons/move.mjs";
+export { default as MoveHorizontal } from "lucide-react/dist/esm/icons/move-horizontal.mjs";
+export { default as Paintbrush } from "lucide-react/dist/esm/icons/paintbrush.mjs";
+export { default as PanelRight } from "lucide-react/dist/esm/icons/panel-right.mjs";
+export { default as PencilLine } from "lucide-react/dist/esm/icons/pencil-line.mjs";
+export { default as SendToBack } from "lucide-react/dist/esm/icons/send-to-back.mjs";
+export { default as Shapes } from "lucide-react/dist/esm/icons/shapes.mjs";
+export { default as Type } from "lucide-react/dist/esm/icons/type.mjs";
+export { default as UnfoldVertical } from "lucide-react/dist/esm/icons/unfold-vertical.mjs";
 export { default as AArrowDown } from "lucide-react/dist/esm/icons/a-arrow-down.mjs";
 export { default as AArrowUp } from "lucide-react/dist/esm/icons/a-arrow-up.mjs";
 export { default as AlignCenter } from "lucide-react/dist/esm/icons/text-align-center.mjs";

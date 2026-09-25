@@ -226,19 +226,26 @@ test("recovers only an unambiguous inspector instance after comment HMR", async 
   const { code } = await transformTsx(`function revalidate() {${body}\n} revalidate();`, { loader: "ts" });
   const first = { tagName: "DIV", textContent: "First card" };
   const second = { tagName: "DIV", textContent: "Second card" };
+  const connected = { line: 8, column: 2, anchor: { ...first, isConnected: true } };
   for (const [candidates, expected] of [
     [[first, second], second],
     [[first], null],
+    [[{ ...second, tagName: "SPAN" }], null],
     [[second, { ...second }], null],
     [[], null],
   ]) {
     let result;
     runInNewContext(code, {
-      selected: { line: 3, column: 31, anchor: { ...second, isConnected: false } },
+      selection: [connected, { line: 3, column: 31, anchor: { ...second, isConnected: false } }],
+      slideId: "test",
       root: { querySelectorAll: () => candidates },
-      setSelected: (value) => { result = value; },
+      findSlideSource: (anchor) => anchor === connected.anchor ? connected : { line: 3, column: 31, anchor },
+      rememberTarget: (target) => target,
+      setSelection: (value) => { result = value; },
     });
-    assert.equal(result?.anchor ?? null, expected);
+    assert.equal(result[0], connected, "preserve other connected selections");
+    assert.equal(result.length, expected ? 2 : 1);
+    assert.equal(result[1]?.anchor ?? null, expected);
   }
   assert.equal(transformOpenSlideSelection(source, "/project/index.tsx"), null);
   assert.throws(() => transformOpenSlideSelection("changed", "/@open-slide/core/src/app/components/inspector/inspector-provider.tsx"));

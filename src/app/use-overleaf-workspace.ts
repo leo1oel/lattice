@@ -1161,17 +1161,19 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [overleafSelfId, setOverleafSelfId] = useState<string | null>(null);
   const [overleafDocPaths, setOverleafDocPaths] = useState<Map<string, string>>(new Map());
   useEffect(() => {
-    if (overleafLink === null) {
+    if (overleafLink === null || !project?.root) {
       setOverleafSelfId(null);
       setOverleafDocPaths(new Map());
       return;
     }
+    const projectRoot = project.root;
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void listen<{ type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
+    void listen<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
       "overleaf-realtime",
       (event) => {
         const payload = event.payload;
+        if (disposed || payload.projectRoot !== projectRoot) return;
         if (payload.type === "connected" && payload.publicId) {
           setOverleafSelfId(payload.publicId);
         } else if ((payload.type === "projectJoined" || payload.type === "treeChanged")
@@ -1193,7 +1195,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       disposed = true;
       unlisten?.();
     };
-  }, [overleafLink]);
+  }, [overleafLink, project?.root]);
 
   const overleafPresence = useOverleafPresence({
     // A local project still has a root, but it has no Overleaf presence

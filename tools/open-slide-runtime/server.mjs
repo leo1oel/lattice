@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
 
-const VERSION = "2.0.0-beta.2";
+const VERSION = "2.0.0-beta.5";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;
@@ -292,24 +292,35 @@ export function transformOpenSlideSaveFeedback(source, id) {
 export function transformOpenSlideSelection(source, id) {
   const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) return null;
-  const reattach = `      const next = root.querySelector<HTMLElement>(
-        \`[data-slide-loc="\${selected.line}:\${selected.column}"]\`,
-      );
-      if (next && next !== selected.anchor) {
-        setSelected({ ...selected, anchor: next });
-      }`;
-  if (!source.includes(reattach)) throw new Error("Open Slide's selection recovery contract changed");
+  const reattach = `        const anchor = target.anchor.isConnected
+          ? target.anchor
+          : (findRememberedTarget(root, target.canvasPath) ??
+            root.querySelector<HTMLElement>(\`[data-slide-loc="\${target.line}:\${target.column}"]\`));
+        if (!anchor) return target;`;
+  const selectionEnd = `      });
+      if (changed) setSelection(next);`;
+  if (!source.includes(reattach) || !source.includes(selectionEnd)) {
+    throw new Error("Open Slide's selection recovery contract changed");
+  }
   // A comment causes HMR to replace DOM instances. Shared components have the
-  // same source location, so taking the first match silently selects a sibling.
-  // Preserve an unchanged, uniquely identifiable instance; otherwise deselect
-  // rather than reporting another element (or a detached node) to the agent.
-  return source.replace(reattach, `      const matches = Array.from(root.querySelectorAll<HTMLElement>(
-        \`[data-slide-loc="\${selected.line}:\${selected.column}"]\`,
-      )).filter((element) =>
-        element.tagName === selected.anchor.tagName
-        && element.textContent === selected.anchor.textContent
-      );
-      setSelected(matches.length === 1 ? { ...selected, anchor: matches[0] } : null);`);
+  // same source location, and canvas paths can point at a sibling after a
+  // reorder. Recover only an unchanged, unique instance; preserve connected
+  // targets and drop ambiguous detached targets from beta.5's multi-selection.
+  return source.replace(reattach, `        let anchor: HTMLElement | null = target.anchor;
+        if (!anchor.isConnected) {
+          const matches = Array.from(root.querySelectorAll<HTMLElement>(
+            \`[data-slide-loc="\${target.line}:\${target.column}"]\`,
+          )).filter((element) =>
+            element.tagName === target.anchor.tagName
+            && element.textContent === target.anchor.textContent
+          );
+          anchor = matches.length === 1 ? matches[0] : null;
+          if (!anchor) {
+            changed = true;
+            return null;
+          }
+        }`).replace(selectionEnd, `      }).filter((target): target is SelectedTarget => target !== null);
+      if (changed) setSelection(next);`);
 }
 
 export function transformOpenSlideToolbar(source, id) {

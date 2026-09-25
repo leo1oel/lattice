@@ -46,6 +46,7 @@ const AppAgentPanel = lazy(() => import("./app-agent-panel"));
 
 export type AppWorkspaceSidebarProps = {
   agentDocked?: boolean;
+  agentVisible: boolean;
   onDockAgent: () => void;
   onCloseAgentDock?: () => void;
   agentPanelDropActive: boolean;

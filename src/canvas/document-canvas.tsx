@@ -4219,6 +4219,9 @@ export function DocumentCanvas(props: {
           url={props.pdfUrl}
           pdfBase64={props.pdfBase64}
           pdfBytes={props.pdfBytes}
+          citations={props.citations}
+          canOpenCitation={props.canOpenCitation}
+          onOpenCitation={props.onOpenCitation}
           syncTarget={props.pdfSyncTarget}
           canForwardSync={props.canForwardSync}
           locatingPdf={props.locatingPdf}

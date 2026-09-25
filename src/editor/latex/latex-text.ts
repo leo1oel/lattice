@@ -9,6 +9,9 @@ export type CitationInfo = {
   authors: string;
   year: string;
   venue: string;
+  doi?: string;
+  url?: string;
+  arxivId?: string;
 };
 
 export type ReferenceInfo = {

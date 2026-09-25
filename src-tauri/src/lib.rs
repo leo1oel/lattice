@@ -2872,7 +2872,24 @@ async fn overleaf_rt_connect(
                 .lock()
                 .is_ok_and(|realtime| realtime.owns(generation, &event_root));
             if current {
-                let _ = emitter.emit_to(emit_label.as_str(), "overleaf-realtime", event);
+                // Cancellation cannot retract events already queued for the UI.
+                // Carry the source root so consumers can reject late delivery
+                // after the window has switched projects.
+                #[derive(Clone, serde::Serialize)]
+                #[serde(rename_all = "camelCase")]
+                struct ScopedEvent<'a> {
+                    project_root: &'a Path,
+                    #[serde(flatten)]
+                    event: overleaf_rt::RealtimeEvent,
+                }
+                let _ = emitter.emit_to(
+                    emit_label.as_str(),
+                    "overleaf-realtime",
+                    ScopedEvent {
+                        project_root: &event_root,
+                        event,
+                    },
+                );
             }
         },
     )

@@ -1,8 +1,10 @@
-import { act, renderHook } from "@testing-library/react";
+import { createElement } from "react";
+import { act, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
+import { OverleafPresenceAvatars } from "./overleaf-presence";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
@@ -75,7 +77,7 @@ describe("useOverleafPresence roster", () => {
     expect(result.current.peers).toHaveLength(1);
 
     await act(async () => {
-      emit?.({ payload: { type: "presenceLeft", id: "conn-2" } });
+      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceLeft", id: "conn-2" } });
     });
     expect(result.current.peers).toHaveLength(0);
   });
@@ -92,12 +94,12 @@ describe("useOverleafPresence roster", () => {
     expect(result.current.peers).toHaveLength(0);
 
     await act(async () => {
-      emit?.({ payload: { type: "presenceUpdated", user: peer({ id: "self-1", name: "Robin" }) } });
+      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer({ id: "self-1", name: "Robin" }) } });
     });
     expect(result.current.peers.some((entry) => entry.id === "self-1")).toBe(false);
 
     await act(async () => {
-      emit?.({ payload: { type: "presenceUpdated", user: peer({ id: "conn-3", name: "Grace Hopper" }) } });
+      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer({ id: "conn-3", name: "Grace Hopper" }) } });
     });
     expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-3"]);
   });
@@ -113,9 +115,70 @@ describe("useOverleafPresence roster", () => {
     expect(result.current.peers).toHaveLength(1);
 
     await act(async () => {
-      emit?.({ payload: { type: "disconnected", reason: "network" } });
+      emit?.({ payload: { projectRoot: "/tmp/project", type: "disconnected", reason: "network" } });
     });
     expect(result.current.peers).toHaveLength(0);
+  });
+
+  it.each(["presenceUpdated", "presenceLeft", "disconnected"])(
+    "ignores a previous project's %s after switching between linked projects",
+    async (type) => {
+      const { result, rerender } = renderHook(
+        ({ projectRoot }) => useOverleafPresence({
+          projectRoot, docId: null, selfId: "self-1",
+          readCaret: () => ({ row: 0, column: 0 }),
+        }),
+        { initialProps: { projectRoot: "/project-A" } },
+      );
+      await flush();
+      const currentPeer = peer({ id: "connection-B", docId: "document-B" });
+      connectedUsers = [currentPeer];
+      rerender({ projectRoot: "/project-B" });
+      await flush();
+      expect(result.current.peers).toEqual([currentPeer]);
+
+      await act(async () => {
+        emit?.({ payload: {
+          projectRoot: "/project-A", type,
+          user: peer({ id: "connection-A", docId: "document-A" }),
+          id: currentPeer.id,
+        } });
+      });
+      expect(result.current.peers).toEqual([currentPeer]);
+
+      // A current-project event still works, including for the same account.
+      await act(async () => {
+        emit?.({ payload: { projectRoot: "/project-B", type: "presenceLeft", id: currentPeer.id } });
+      });
+      expect(result.current.peers).toEqual([]);
+    },
+  );
+
+  it("keeps the avatar toolbar scoped when the same collaborator has connections in two projects", async () => {
+    function Toolbar({ projectRoot }: { projectRoot: string }) {
+      const { peers } = useOverleafPresence({
+        projectRoot, docId: null, selfId: "self-1",
+        readCaret: () => ({ row: 0, column: 0 }),
+      });
+      return createElement(OverleafPresenceAvatars, {
+        peers, pathForDoc: (id) => id, onJump: () => {},
+      });
+    }
+    const view = render(createElement(Toolbar, { projectRoot: "/project-A" }));
+    await flush();
+    expect(view.getAllByRole("button")).toHaveLength(1);
+    connectedUsers = [peer({ id: "connection-B", docId: "document-B" })];
+    view.rerender(createElement(Toolbar, { projectRoot: "/project-B" }));
+    await flush();
+    await act(async () => {
+      emit?.({ payload: {
+        projectRoot: "/project-A", type: "presenceUpdated",
+        user: peer({ docId: "document-A" }),
+      } });
+    });
+    expect(view.getAllByRole("button")).toHaveLength(1);
+    expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · document-B — click to jump there");
+    view.unmount();
   });
 
   it("clears collaborators and ignores stale events after leaving a linked project", async () => {
@@ -135,7 +198,7 @@ describe("useOverleafPresence roster", () => {
     expect(result.current.peers).toHaveLength(0);
 
     await act(async () => {
-      emit?.({ payload: { type: "presenceUpdated", user: peer({ id: "late-peer" }) } });
+      emit?.({ payload: { projectRoot: "/tmp/overleaf-project", type: "presenceUpdated", user: peer({ id: "late-peer" }) } });
     });
     expect(result.current.peers).toHaveLength(0);
   });
@@ -218,7 +281,7 @@ describe("useOverleafPresence publish", () => {
 
     // Someone else joins: the debounce should now be the quick 500ms one.
     await act(async () => {
-      emit?.({ payload: { type: "presenceUpdated", user: peer() } });
+      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer() } });
     });
     act(() => result.current.publish(3, 4));
     await act(async () => {

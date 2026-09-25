@@ -10,7 +10,7 @@ import type { AppWorkspaceSidebarProps } from "./app-workspace-sidebar";
 import "./agent-panel-layout.css";
 
 type Props = Pick<AppWorkspaceSidebarProps,
-  | "agentDocked" | "onCloseAgentDock" | "agentPanelDropActive" | "appLocale"
+  | "agentDocked" | "agentVisible" | "onCloseAgentDock" | "agentPanelDropActive" | "appLocale"
   | "changeSynaraPermissionMode" | "chooseSidebarMode" | "project" | "retrySynaraRuntime"
   | "sidebarOpen" | "sidebarMode" | "synaraAutoModeAvailable" | "synaraFrameMounted"
   | "synaraFrameReady" | "synaraIframeRef" | "synaraOrigin" | "synaraPermissionMode"
@@ -30,7 +30,7 @@ export default function AppAgentPanel(props: Props) {
     : undefined,
   [synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale]);
   const docked = props.agentDocked ?? false;
-  const visible = docked || (props.sidebarOpen && props.sidebarMode === "agent");
+  const visible = props.agentVisible;
   const { panelRef, ratio, resize, beginResize, moveResize } = useAgentPanelLayout(docked, visible, props.slotRef);
   return <div ref={panelRef} className="agent-panel-surface" inert={!visible} aria-hidden={!visible}>
     {docked && <>

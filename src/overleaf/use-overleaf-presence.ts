@@ -29,6 +29,7 @@ export type PresenceUser = {
 };
 
 type PresenceEvent = {
+  projectRoot: string;
   type: string;
   user?: PresenceUser;
   id?: string;
@@ -89,12 +90,11 @@ export function useOverleafPresence(options: {
     let unlisten: (() => void) | null = null;
     void listen<PresenceEvent>("overleaf-realtime", (event) => {
       const payload = event.payload;
+      // Backend cancellation cannot retract an event already queued for this
+      // window. Never relabel an old project's event with the current root.
+      const projectRoot = projectRootRef.current;
+      if (disposed || !projectRoot || payload.projectRoot !== projectRoot) return;
       if (payload.type === "presenceUpdated" && payload.user) {
-        // The listener outlives individual projects. Once the current project
-        // is not linked, a queued event from the channel being torn down must
-        // not repopulate the roster we just cleared.
-        const projectRoot = projectRootRef.current;
-        if (!projectRoot) return;
         const user = payload.user;
         // Our own move is echoed back like anyone else's; showing it would
         // make the roster claim we are our own collaborator.

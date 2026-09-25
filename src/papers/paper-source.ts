@@ -3,6 +3,19 @@ import { explicitArxivId } from "./arxiv-id";
 
 type PaperIdentity = Pick<PaperSummary, "arxivId" | "url">;
 
+/** Bibliography fields are untrusted; only open web URLs, never local/OS schemes. */
+export function citationSourceUrl(citation?: { url?: string; doi?: string; arxivId?: string }): string | null {
+  if (!citation) return null;
+  try {
+    const url = new URL(citation.url ?? "");
+    if (/^https?:$/.test(url.protocol) && !url.username && !url.password) return url.href;
+  } catch { /* Try a DOI or arXiv identity when there is no usable URL. */ }
+  if (citation.doi && /^10\.\d{4,9}\/\S+$/i.test(citation.doi)) {
+    return `https://doi.org/${citation.doi.split("/").map(encodeURIComponent).join("/")}`;
+  }
+  return paperPdfUrl({ arxivId: citation.arxivId ?? "" });
+}
+
 function alphaxivId(url: URL): string | null {
   if (!/^https?:$/.test(url.protocol) || !/^(www\.)?alphaxiv\.org$/i.test(url.hostname)) return null;
   return /^\/(?:abs|pdf|overview)\/([\w.-]+(?:\/\d+(?:v\d+)?)?)(?:\/)?$/.exec(url.pathname)?.[1]

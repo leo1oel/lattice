@@ -26,7 +26,7 @@ import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./ed
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
 import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
 import { parsePaperLinkPath } from "./papers/paper-link";
-import { canDownloadPaper, isTitleQuery } from "./papers/paper-source";
+import { canDownloadPaper, citationSourceUrl, isTitleQuery } from "./papers/paper-source";
 import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
 import {
   TexDependencyInstaller,
@@ -1665,7 +1665,12 @@ function App() {
   });
   const [synaraFrameMounted, setSynaraFrameMounted] = useState(false);
   const [readySynaraFrameKey, setReadySynaraFrameKey] = useState<string | null>(null);
-  const agentVisible = agentDocked || (sidebarOpen && sidebarMode === "agent");
+  // Reading only suppresses the dock; its preference and live iframe survive.
+  // Non-previewable editors can retain the previous document's canvasMode.
+  const readingOnly = Boolean(activePaper)
+    || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile))
+    || (canvasMode === "asset" && /\.pdf$/i.test(activeAsset?.path ?? ""));
+  const agentVisible = agentDocked ? !readingOnly : sidebarOpen && sidebarMode === "agent";
   useEffect(() => {
     if (!project || !agentVisible) return;
     // Keep the cross-origin iframe out of the initial WebKit root render,
@@ -10003,6 +10008,7 @@ function App() {
       >
           <AppWorkspaceSidebar
             agentDocked={agentDocked}
+            agentVisible={agentVisible}
             onDockAgent={() => {
               setAgentDocked(true);
               setSidebarMode("project");
@@ -10217,11 +10223,16 @@ function App() {
             activeAsset={activeAsset}
             secondaryAsset={secondaryAsset}
             canOpenCitation={(key) => papers.some((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
-              && (item.hasFullText || item.hasBlog))}
+              && (item.hasFullText || item.hasBlog))
+              || Boolean(citationSourceUrl(citations.find((item) => item.key.toLocaleLowerCase() === key.toLocaleLowerCase())))}
             onOpenCitation={(key) => {
               const paper = papers.find((item) => item.citationKey?.toLocaleLowerCase() === key.toLocaleLowerCase()
                 && (item.hasFullText || item.hasBlog));
               if (paper) void openPaper(paper);
+              else {
+                const url = citationSourceUrl(citations.find((item) => item.key.toLocaleLowerCase() === key.toLocaleLowerCase()));
+                if (url) void openUrl(url).catch((reason) => setError(toMessage(reason)));
+              }
             }}
             citationKeys={citationKeys}
             citations={citations}

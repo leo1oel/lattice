@@ -17,7 +17,10 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
 
   // Keep PDF.js out of startup for the common image-preview path. The v4
   // compatibility build is loaded only for an actual PDF reference asset.
-  const { getDocument } = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
+  const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
+  // The main viewer uses a separate PDF.js version, so its worker setup does
+  // not initialize this runtime. A hover must also work before any PDF opens.
+  GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist-v4/legacy/build/pdf.worker.min.mjs?url")).default;
   const binary = atob(asset.base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const loadingTask = getDocument({

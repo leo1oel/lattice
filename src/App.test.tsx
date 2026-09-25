@@ -3307,7 +3307,13 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project") return snapshot;
       if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
+      if (command === "list_papers") return [{
+        arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Ashish Vaswani",
+        hasFullText: true, hasBlog: false,
+      }];
+      if (command === "read_paper") return "## Abstract\n\nPaper content.";
+      if (command === "read_paper_blog_local") return null;
+      if (command === "list_history") return [];
       return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
     localStorage.setItem("lattice.sidebar-open.v1", "1");
@@ -3325,6 +3331,29 @@ describe("project workspace", () => {
     expect(document.querySelector(".workspace")).toHaveClass("sidebar-hidden");
     expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
     expect(document.querySelector(".agent-dock-header")).not.toBeNull();
+    const documentView = within(screen.getByRole("tablist", { name: "Document view" }));
+    fireEvent.click(documentView.getByRole("tab", { name: "Preview" }));
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "true");
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("inert");
+    expect(localStorage.getItem("lattice.agent-docked.v1")).toBe("1");
+    fireEvent.click(documentView.getByRole("tab", { name: "Split" }));
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
+    expect(frame.contentWindow).toBe(context);
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        source: context, origin: synaraHook.runtime.origin!,
+        data: { type: "synara:open-file", filePath: "/tmp/agent-dock/.research/papers/1706.03762/paper.md" },
+      }));
+    });
+    await screen.findByRole("heading", { name: "Attention Is All You Need" });
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "true");
+    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
+    expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "true");
+    fireEvent.click(screen.getByRole("tab", { name: /main\.tex/ }));
+    await waitFor(() => expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false"));
+    expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
+    expect(frame.contentWindow).toBe(context);
     // Reopening the file navigator leaves the dock where it was.
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     expect(document.querySelector(".agent-dock-header")).not.toBeNull();

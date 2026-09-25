@@ -42,6 +42,8 @@ const eslint = new ESLint({
           "^[^\\p{L}]+$",
           "^(?:Vim|Emacs|MCP|Overleaf|BasicTeX|pdfLaTeX|XeLaTeX|LuaLaTeX)$",
           "^[a-z][a-z0-9:+./_-]*$",
+          // PDF.js annotation lookup syntax, not text displayed to readers.
+          "^\\.annotationLayer \\[data-internal-link\\] a$",
           // The loopback and Agent host bridges run before a saved locale is
           // available (or in a hidden host), so these are bootstrap diagnostics
           // and protocol constants rather than localized app UI.

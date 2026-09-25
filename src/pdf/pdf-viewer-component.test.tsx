@@ -551,6 +551,82 @@ describe("PDFSlick viewer integration", () => {
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
+  it("previews project citations without intercepting PDF navigation and keeps the card clickable", async () => {
+    const citation = { key: "smith:2024", title: "A useful paper", authors: "Smith and Chen", year: "2024", venue: "Example Journal" };
+    const onOpenCitation = vi.fn();
+    const view = render(<PdfPreview url="https://example.test/first.pdf" pdfBase64={null}
+      citations={[citation]} canOpenCitation={() => true} onOpenCitation={onOpenCitation} />);
+    const page = await view.findByLabelText("PDF page 1");
+    const layer = document.createElement("div");
+    layer.className = "annotationLayer";
+    const link = document.createElement("a");
+    const annotation = document.createElement("section");
+    annotation.setAttribute("data-internal-link", "");
+    annotation.append(link);
+    link.href = "#cite.0%40smith%3A2024";
+    const navigate = vi.fn((event: Event) => event.preventDefault());
+    link.addEventListener("click", navigate);
+    layer.append(annotation);
+    page.append(layer);
+    fireEvent.pointerOver(link);
+    const title = await view.findByRole("button", { name: citation.title });
+    expect(view.getByText("Smith · Chen")).toBeInTheDocument();
+    expect(view.getByText("Example Journal · 2024")).toBeInTheDocument();
+    fireEvent.pointerOut(link);
+    fireEvent.pointerEnter(title.closest(".citation-hover-card")!);
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    expect(title).toBeInTheDocument();
+    fireEvent.click(title);
+    expect(onOpenCitation).toHaveBeenCalledWith(citation.key);
+    expect(navigate).not.toHaveBeenCalled();
+    fireEvent.focusIn(link);
+    await view.findByRole("button", { name: citation.title });
+    fireEvent.click(link);
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(view.queryByText(citation.title)).toBeNull();
+    expect(onOpenCitation).toHaveBeenCalledOnce();
+  });
+
+  it("ignores non-citations, supports escaped keys, and dismisses on scroll and document replacement", async () => {
+    const citation = { key: "中文", title: "Metadata only", authors: "", year: "", venue: "" };
+    const props = { url: "https://example.test/first.pdf", pdfBase64: null, citations: [citation] };
+    const view = render(<PdfPreview {...props} />);
+    const page = await view.findByLabelText("PDF page 1");
+    const layer = document.createElement("div");
+    layer.className = "annotationLayer";
+    const link = document.createElement("a");
+    const annotation = document.createElement("section");
+    annotation.setAttribute("data-internal-link", "");
+    annotation.append(link);
+    layer.append(annotation);
+    page.append(layer);
+    for (const href of ["#section.1", "#cite.unknown", "#cite.%ZZ"]) {
+      link.href = href;
+      fireEvent.focusIn(link);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(view.queryByText(citation.title)).toBeNull();
+    }
+    link.href = "#cite.%u4E2D%u6587";
+    annotation.removeAttribute("data-internal-link");
+    fireEvent.focusIn(link);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(view.queryByText(citation.title)).toBeNull();
+    annotation.setAttribute("data-internal-link", "");
+    fireEvent.focusIn(link);
+    await view.findByText(citation.title);
+    expect(view.queryByRole("button", { name: citation.title })).toBeNull();
+    fireEvent.scroll(pdfSlickMock.instances[0].args.container);
+    expect(view.queryByText(citation.title)).toBeNull();
+    fireEvent.focusIn(link);
+    await view.findByText(citation.title);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(view.queryByText(citation.title)).toBeNull();
+    fireEvent.focusIn(link);
+    await view.findByText(citation.title);
+    view.rerender(<PdfPreview {...props} url="https://example.test/second.pdf" />);
+    await waitFor(() => expect(view.queryByText(citation.title)).toBeNull());
+  });
+
   it("returns to exact locations after internal PDF link jumps and clears history on replacement", async () => {
     const view = render(
       <PdfPreview url="https://example.test/first.pdf" pdfBase64={null} />,
