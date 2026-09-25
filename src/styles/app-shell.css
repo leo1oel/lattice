@@ -547,7 +547,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   outline-offset: var(--focus-ring-offset);
 }
 .navigator-section { min-height: 0; padding: var(--space-5); }
-.project-section { flex: 1; padding: 7px var(--space-5) var(--space-3); display: flex; flex-direction: column; overflow: hidden; }
+/* The tree's scrollbar track reaches the window bottom; its thumb owns the inset. */
+.project-section { flex: 1; padding: 7px var(--space-5) 0; display: flex; flex-direction: column; overflow: hidden; }
 .papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-6) 0; overflow: hidden; }
 .papers-section .paper-import-control,
 .papers-section .import-box {
@@ -649,7 +650,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-padding-inline-override: 1px;
   --trees-scrollbar-thumb-override: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
-.project-file-tree-surface { min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
+.project-file-tree-surface { position: relative; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
 .file-tree-context-menu {
   min-width: 176px;
   color: var(--text-secondary);

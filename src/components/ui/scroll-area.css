@@ -35,6 +35,7 @@
 
 .lattice-scrollbar[data-hovering],
 .lattice-scrollbar[data-scrolling],
+.external-scrollbar:hover,
 .overlay-scrollbar:hover {
   opacity: 1;
   transition-duration: var(--duration-base);

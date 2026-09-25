@@ -19,6 +19,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Eye,
   FilePlus,
   FolderOpen,
   FolderPlus,
@@ -1397,7 +1398,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           <FolderOpen size={14} />{t`Show in Finder`}
         </button>
         <button role="menuitemcheckbox" aria-checked={showHiddenFiles} onClick={() => closeThen(context, toggleHiddenFiles)}>
-          <Check size={14} style={{ visibility: showHiddenFiles ? "visible" : "hidden" }} />{t`Show hidden files`}
+          {showHiddenFiles ? <Check size={14} /> : <Eye size={14} />}{t`Show hidden files`}
         </button>
         {item.kind === "directory" && (
           <Fragment>
@@ -1521,7 +1522,7 @@ function ProjectFileTree(props: ProjectFileTreeProps) {
           <FolderPlus size={14} />{t`New folder`}
         </ContextMenuItem>
         <ContextMenuItem role="menuitemcheckbox" aria-checked={showHiddenFiles} onSelect={toggleHiddenFiles}>
-          <Check size={14} style={{ visibility: showHiddenFiles ? "visible" : "hidden" }} />{t`Show hidden files`}
+          {showHiddenFiles ? <Check size={14} /> : <Eye size={14} />}{t`Show hidden files`}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

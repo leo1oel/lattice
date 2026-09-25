@@ -8,8 +8,11 @@ import "../src/App.css";
 const noop = () => {};
 const resolved = async (paths: string[]) => paths;
 
-export async function mountNavigatorDragPreviewFixture() {
-  await activateAppLocale("en");
+export async function mountNavigatorDragPreviewFixture(
+  onMoveEntries: (paths: string[], target: string) => Promise<string[]> = resolved,
+  locale: "en" | "zh-CN" = "en",
+) {
+  await activateAppLocale(locale);
   document.body.replaceChildren();
   const shell = document.createElement("div");
   shell.innerHTML = `
@@ -21,7 +24,7 @@ export async function mountNavigatorDragPreviewFixture() {
   style.textContent = `
     body { margin: 0; background: var(--surface-canvas); }
     #navigator-drag-fixture { position: fixed; inset: 0 auto 0 0; z-index: 1; width: 260px; background: var(--surface-panel); }
-    #navigator-drag-fixture > div { height: 100%; }
+    #navigator-drag-fixture > .navigator { height: 100%; }
     [data-fixture-editor] { position: fixed; inset: 0 0 0 260px; z-index: 20; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 80px 30px; background: #d8d8da; color: #303036; font: 18px system-ui; }
     [data-fixture-editor] > div { padding: 40px; background: #fafafa; box-shadow: 0 0 0 1px #bbb; }
   `;
@@ -33,12 +36,13 @@ export async function mountNavigatorDragPreviewFixture() {
         onSearchOpenChange={noop} files={[
           { name: "chapter-one.tex", path: "chapter-one.tex", kind: "tex", children: [] },
           { name: "chapter-two.tex", path: "chapter-two.tex", kind: "tex", children: [] },
+          { name: "sections", path: "sections", kind: "directory", children: [] },
         ]}
         gitStatus={[]} activeFile="chapter-one.tex" activeAssetPath="" protectedPaths={[]}
         papers={[]} activePaper={null} onFile={noop} onAsset={noop}
         onBeginFigureDrag={noop} onBeginFileDrag={noop}
         onCreateEntry={async (path) => path} onDeleteEntries={noop}
-        onRenameEntry={async (path) => path} onMoveEntries={resolved} onCopyEntries={resolved}
+        onRenameEntry={async (path) => path} onMoveEntries={onMoveEntries} onCopyEntries={resolved}
         onError={(error) => { throw new Error(error); }} onReveal={noop}
         onImportAssets={noop} onPasteImage={noop} assetDropTarget={null} assetImporting={false}
         onPaper={noop} onFetchFullText={noop} paperFetchStates={{}} onDeletePaper={noop}
@@ -52,6 +56,7 @@ export async function mountNavigatorDragPreviewFixture() {
     const row = document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot
       ?.querySelector<HTMLElement>("[data-item-path='chapter-one.tex']");
     if (row) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       const rect = row.getBoundingClientRect();
       return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
     }

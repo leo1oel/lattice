@@ -499,6 +499,7 @@ describe("Navigator / project tree", () => {
     fireEvent.contextMenu(screen.getByLabelText("Project files"));
     const toggle = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
     expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(toggle.querySelector("svg")).toHaveClass("lucide-eye");
     fireEvent.click(toggle);
     await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
     expect(invoke).toHaveBeenCalledWith("list_project_tree_with_hidden", { projectRoot: "/tmp/paper" });
@@ -510,9 +511,14 @@ describe("Navigator / project tree", () => {
     fireEvent.contextMenu(treeItem("sections/")!);
     const checked = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
     expect(checked).toHaveAttribute("aria-checked", "true");
+    expect(checked.querySelector("svg")).toHaveClass("lucide-check");
     fireEvent.click(checked);
     await waitFor(() => expect(treeItem("main.fls")).toBeNull());
     expect(localStorage.getItem("lattice:show-hidden-files")).toBe("false");
+    fireEvent.contextMenu(treeItem("sections/")!);
+    const unchecked = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
+    expect(unchecked).toHaveAttribute("aria-checked", "false");
+    expect(unchecked.querySelector("svg")).toHaveClass("lucide-eye");
   });
 
   it("ignores a hidden tree response from the previous project", async () => {

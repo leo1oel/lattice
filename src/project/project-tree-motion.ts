@@ -114,17 +114,27 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
     const parent = next.values().next().value?.element.parentElement;
     parent?.dispatchEvent(new PointerEvent("pointerleave"));
     const opening = [...next].filter(([path, row]) => row.expanded === "true" && previous.get(path)?.expanded === "false");
+    let collapsedHeight = 0;
 
     for (const [path, row] of next) {
       const old = previous.get(path);
+      if (row.expanded === "false" && old?.expanded === "true") {
+        // A large folder can fill the entire mounted window. Its following
+        // siblings then have no old rect: move them by the same visible height
+        // that the exit picture clips, rather than exposing them underneath it.
+        const descendants = [...previous].filter(([child]) => child.startsWith(path) && child !== path);
+        if (descendants.length) {
+          collapsedHeight += descendants[descendants.length - 1][1].rect.bottom - descendants[0][1].rect.top;
+        }
+      }
       if (old?.expanded != null && old.expanded !== row.expanded) {
         const chevron = row.element.querySelector('[data-icon-name="file-tree-icon-chevron"]');
         if (chevron) animate(chevron, [{ rotate: old.expanded === "false" ? "-90deg" : "90deg" }, { rotate: "0deg" }]);
       }
       // Newly mounted overscan rows are not necessarily new descendants.
       const entering = !old && opening.find(([folder]) => path.startsWith(folder));
-      const dy = old ? old.rect.top - row.rect.top : 0;
-      if (old && Math.abs(dy) > 0.5) {
+      const dy = old ? old.rect.top - row.rect.top : entering ? 0 : collapsedHeight;
+      if (Math.abs(dy) > 0.5) {
         animate(row.element, [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }]);
       } else if (entering) {
         // The reveal boundary must follow the displaced sibling exactly.

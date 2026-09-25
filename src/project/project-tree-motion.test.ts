@@ -96,6 +96,24 @@ it("clips inert exit pictures and moves surviving rows up, then cancels them on 
   expect(effects.every(e => e.cancel.mock.calls.length === 1)).toBe(true);
 });
 
+it("moves newly mounted siblings with the exiting window when a large folder collapses", async () => {
+  const { folder, child, sibling, window } = setup(true);
+  sibling.remove();
+  const lastChild = row("a/last-visible.tex", 74);
+  window.append(lastChild);
+  await flush();
+  child.remove();
+  lastChild.remove();
+  const firstSibling = row("b.tex", 42);
+  const secondSibling = row("c.tex", 74);
+  window.append(firstSibling, secondSibling);
+  folder.setAttribute("aria-expanded", "false");
+  await flush();
+  for (const element of [firstSibling, secondSibling]) {
+    expect(effects.find(e => e.element === element)?.frames[0]).toEqual({ transform: "translateY(64px)" });
+  }
+});
+
 it.each(["before", "after"])("does not snapshot recycled rows when scroll fires %s the mutation, and resumes on input", async (order) => {
   const { folder, sibling, window, scroller } = setup();
   const clone = vi.spyOn(Element.prototype, "cloneNode");

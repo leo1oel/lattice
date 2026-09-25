@@ -394,8 +394,10 @@ export class BrowserEventRegistry {
         // Internal tree drags use text data. Only consume OS file drops, and
         // prevent Chromium from navigating to the dropped file. Capture runs
         // before editor/tree handlers that would otherwise import it twice.
+        // Preserve other window subscribers (paper lookup and App's importer
+        // both listen): stopping immediately lets the first swallow the drop.
         drag.preventDefault();
-        drag.stopImmediatePropagation();
+        drag.stopPropagation();
         if (dragEvent === "dragleave" && drag.relatedTarget) return;
         const scale = window.devicePixelRatio || 1;
         this.runCallback(callbackId, {

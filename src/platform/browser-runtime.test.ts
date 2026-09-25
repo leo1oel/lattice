@@ -36,6 +36,42 @@ const sockets: FakeWebSocket[] = [];
 const NativeWebSocket = globalThis.WebSocket;
 
 describe("Chromium file drops", () => {
+  it("delivers Finder drops to every subscriber while blocking downstream DOM importers", () => {
+    const callback = vi.fn();
+    const registry = new BrowserEventRegistry(callback);
+    Object.assign(window, { latticeDesktop: { getPathForFile: () => "/tmp/notes.md" } });
+    // Paper lookup subscribes before App's importer, and ignores file paths.
+    const paperId = registry.listen("tauri://drag-drop", 11)!;
+    const projectId = registry.listen("tauri://drag-drop", 22)!;
+    const target = document.createElement("div");
+    document.body.append(target);
+    const domImporter = vi.fn();
+    target.addEventListener("drop", domImporter);
+    const drop = new MouseEvent("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { types: ["Files"], files: [new File(["notes"], "notes.md")] },
+    });
+    try {
+      target.dispatchEvent(drop);
+      expect(callback.mock.calls.map(([id]) => id)).toEqual([11, 22]);
+      expect(callback).toHaveBeenLastCalledWith(22, {
+        event: "tauri://drag-drop", id: projectId,
+        payload: { paths: ["/tmp/notes.md"], position: { x: 0, y: 0 } },
+      });
+      expect(domImporter).not.toHaveBeenCalled();
+      expect(drop.defaultPrevented).toBe(true);
+      registry.unregister("tauri://drag-drop", paperId, vi.fn());
+      callback.mockClear();
+      target.dispatchEvent(drop);
+      expect(callback.mock.calls.map(([id]) => id)).toEqual([22]);
+    } finally {
+      registry.unregister("tauri://drag-drop", paperId, vi.fn());
+      registry.unregister("tauri://drag-drop", projectId, vi.fn());
+      target.remove();
+      Reflect.deleteProperty(window, "latticeDesktop");
+    }
+  });
+
   it("routes a dropped SVG locally with physical coordinates and cleans up", () => {
     const callback = vi.fn();
     const registry = new BrowserEventRegistry(callback);
