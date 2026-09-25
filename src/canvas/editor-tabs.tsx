@@ -452,8 +452,8 @@ export const EditorTabs = memo(function EditorTabs(props: {
                       type="button"
                       className="editor-tab-close"
                       data-hit-area
-                      aria-label={t`Close ${tabLabel(tab)}`}
-                      title={t`Close ${tabLabel(tab)}`}
+                      aria-label={t({ message: `Close ${tabLabel(tab)}` })}
+                      title={t({ message: `Close ${tabLabel(tab)}` })}
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
