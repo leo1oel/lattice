@@ -157,6 +157,16 @@ The compile-repair model remains a separate setting, and the Computer Use bounda
 The new batched thread-shell query preserves Lattice's `pendingMessageId`, with a regression covering latest-turn ties, duplicate and missing thread IDs, and null versus populated message identities.
 The project-import announcement never opens automatically in Lattice embeds, even when a loopback-port change makes its dismissal storage unavailable; manual import remains available.
 
+### Synara 0.9.2 compatibility
+
+The 0.9.2 integration retains Lattice's host contracts and incorporates persistent provider model catalogs, restart-orphaned turn recovery, scoped session approvals, credential redaction on approval cards, and hardened stdio/frame transports.
+The previous fork's sent-message anchoring and wide-chat navigation fixes remain in the upgrade history.
+
+Lattice uses the Stable feature boundary on both the server and embedded web surface.
+Upstream otherwise treats a loopback HTTP host without a Synara desktop bundle identity as a standalone host and enables Beta-only features.
+OMP remains unavailable in Lattice, and the embedded UI does not show the Beta welcome or installation surfaces.
+Standalone Synara retains its upstream flavor behavior, and the Computer Use boundary above remains unchanged.
+
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
