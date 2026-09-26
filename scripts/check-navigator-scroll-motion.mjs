@@ -4,8 +4,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { app, BrowserWindow } from "electron";
 
 app.whenReady().then(async () => {
-  const window = new BrowserWindow({ width: 700, height: 700, show: false,
-    webPreferences: { offscreen: true, backgroundThrottling: false } });
+  const window = new BrowserWindow({ width: 700, height: 700, show: true,
+    webPreferences: { backgroundThrottling: false } });
   const run = (code) => window.webContents.executeJavaScript(code);
   const pause = () => new Promise(resolve => setTimeout(resolve, 300));
   try {
@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
     })()`);
     console.log(JSON.stringify(motion, null, 2));
     await mkdir('.amp/in/artifacts', { recursive: true });
-    await pause(); // Let the offscreen compositor paint the paused frame.
+    await pause(); // Let the compositor paint the paused frame.
     await writeFile('.amp/in/artifacts/navigator-collapse.png', (await window.webContents.capturePage({ x: 0, y: 0, width: 280, height: 700 })).toPNG());
     for (const frame of motion) {
       assert.ok(Math.abs(frame.visibleBottom - frame.siblingTop) < 1, 'Exit boundary and following files must move together without overlap');
@@ -63,8 +63,18 @@ app.whenReady().then(async () => {
     await pause();
     const end = await run(`({ scrollTop: viewport.scrollTop, max: viewport.scrollHeight - viewport.clientHeight, last: tree.querySelector('[data-item-path="notes-79.tex"]')?.getBoundingClientRect().toJSON() })`);
     console.log({ track, hover, end });
-    await writeFile('.amp/in/artifacts/navigator-scroll-bottom.png', (await window.webContents.capturePage({ x: 0, y: 0, width: 280, height: 700 })).toPNG());
-    const bottom = await run(`({ window: innerHeight, track: document.querySelector('.external-scrollbar').getBoundingClientRect().bottom, thumb: document.querySelector('.external-scrollbar [data-slot="scroll-area-thumb"]').getBoundingClientRect().bottom })`);
+    const bottom = await run(`(async () => {
+      const thumb = document.querySelector('.external-scrollbar [data-slot="scroll-area-thumb"]');
+      const deadline = performance.now() + 5000;
+      while (Math.abs(thumb.getBoundingClientRect().bottom - (innerHeight - 4)) > 1 && performance.now() < deadline) {
+        await new Promise(requestAnimationFrame);
+      }
+      // Scroll geometry updates in rAF. Wait for the resulting React commit
+      // and paint before capturing, rather than photographing the old thumb.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+      return { window: innerHeight, track: document.querySelector('.external-scrollbar').getBoundingClientRect().bottom, thumb: thumb.getBoundingClientRect().bottom };
+    })()`);
     console.log({ bottom });
     assert.ok(Math.abs(bottom.track - bottom.window) <= 1, 'Track must extend to the window bottom, not just the last file');
     assert.ok(Math.abs(bottom.thumb - (bottom.window - 4)) <= 1, 'Thumb must reach the window bottom with only its standard 4px inset');
@@ -73,5 +83,6 @@ app.whenReady().then(async () => {
     assert.equal(hover, '1', 'Scrollbar must stay visible when approached from the left');
     assert.ok(Math.abs(end.scrollTop - end.max) <= 1, 'Dragging must reach the last file');
     assert.ok(end.last && end.last.bottom <= track.viewportBottom + 1, 'Last file must be fully visible');
+    await writeFile('.amp/in/artifacts/navigator-scroll-bottom.png', (await window.webContents.capturePage({ x: 0, y: 0, width: 280, height: 700 })).toPNG());
   } finally { window.destroy(); }
 }).then(() => app.exit(0)).catch(error => { console.error(error); app.exit(1); });
