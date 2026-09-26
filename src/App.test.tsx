@@ -8718,6 +8718,45 @@ describe("project workspace", () => {
     Reflect.deleteProperty(document, "elementFromPoint");
   });
 
+  it.each([false, true])("uploads external file bytes only in an ordinary browser (bundled: %s)", async (bundled) => {
+    browserRuntime.hosted = true;
+    browserRuntime.bundled = bundled;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project" || command === "refresh_project") return {
+        root: "/tmp/lattice-paper",
+        manifest: { schemaVersion: 1, projectId: "paper-id", name: "Paper", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
+        files: [
+          { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+          { name: "sections", path: "sections", kind: "directory", children: [] },
+        ],
+      };
+      if (command === "import_project_files") return [{ path: "sections/notes.md", kind: "text" }];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    const row = await findProjectTreeItem("sections/");
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => row });
+    const file = new File(["hello"], "notes.md");
+    Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode("hello").buffer });
+    const drop = new MouseEvent("drop", { bubbles: true, composed: true, cancelable: true, clientX: 90, clientY: 120 });
+    Object.defineProperty(drop, "dataTransfer", { value: { types: ["Files"], files: [file], items: [], getData: () => "" } });
+    try {
+      fireEvent(row, drop);
+      if (bundled) {
+        expect(drop.defaultPrevented).toBe(false);
+        expect(invoke).not.toHaveBeenCalledWith("import_project_files", expect.anything());
+        return;
+      }
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
+        paths: [], targetDirectory: "sections", projectRoot: "/tmp/lattice-paper",
+        uploads: [{ name: "notes.md", base64: "aGVsbG8=" }],
+      }));
+      expect(drop.defaultPrevented).toBe(true);
+    } finally {
+      Reflect.deleteProperty(document, "elementFromPoint");
+    }
+  });
+
   it("imports a mixed Finder file and folder drop where it lands without opening files", async () => {
     const snapshot = {
       root: "/tmp/lattice-paper",

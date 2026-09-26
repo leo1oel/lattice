@@ -478,6 +478,10 @@ msgstr "角"
 msgid "Anonymous"
 msgstr "匿名"
 
+#: src/build/use-compile-repair.ts
+msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
+msgstr "此项目已有编译修正任务正在启动。请等待它完成后，再点击「全部修正」。"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "此项目中的另一个文件"
@@ -4771,6 +4775,10 @@ msgstr "修正失败。"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repair finished"
 msgstr "修正完成"
+
+#: src/build/use-compile-repair.ts
+msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
+msgstr "修正尚未启动：此项目中有其他 Agent 任务正在运行或等待你的回应。请打开 Agent，完成或停止该任务后，再点击「全部修正」。"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repairing…"

@@ -23,6 +23,7 @@ import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./papers/bib
 import { formatBibDocument } from "./papers/bib-format";
 import { type ResolvedCitationDraft } from "./papers/bib-entry-dialog";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
+import { listenForBrowserProjectDrops } from "./project/browser-project-drop";
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
 import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
 import { parsePaperLinkPath } from "./papers/paper-link";
@@ -7839,13 +7840,17 @@ function App() {
     paths: string[],
     targetDirectory = "",
     copyExisting = false,
+    browserFiles: File[] = [],
   ): Promise<string[]> => {
-    if (!paths.length || assetImporting) return [];
+    if ((!paths.length && !browserFiles.length) || assetImporting) return [];
     setAssetImporting(true);
     try {
+      const uploads = browserFiles.length
+        ? await Promise.all(browserFiles.map(async (file) => ({ name: file.name, base64: await fileToBase64(file) })))
+        : undefined;
       const imported = await invoke<{ path: string; kind: "text" | "board" | "spreadsheet" | "binary" }[]>(
         "import_project_files",
-        { paths, targetDirectory, projectRoot: project?.root, ...(copyExisting ? { copyExisting: true } : {}) },
+        { paths, targetDirectory, projectRoot: project?.root, ...(copyExisting ? { copyExisting: true } : {}), ...(uploads ? { uploads } : {}) },
       );
       for (const file of imported) {
         removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
@@ -7867,6 +7872,14 @@ function App() {
       setAssetDropTarget(null);
     }
   }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+
+  useEffect(() => {
+    if (!project || !browserHosted || isBundledChromium()) return;
+    // Desktop Chromium already routes OS paths via BrowserEventRegistry.
+    return listenForBrowserProjectDrops((files, target) => {
+      void importProjectFiles([], target, false, files);
+    }, setAssetDropTarget);
+  }, [browserHosted, project, importProjectFiles]);
 
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({

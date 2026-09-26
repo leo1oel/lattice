@@ -1,6 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
+import { activateAppLocale } from "../i18n";
 import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
+import { useCompileRepair } from "./use-compile-repair";
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 const diagnostics = [
   { level: "error", message: "Undefined control sequence", file: "main.tex", line: 42 },
@@ -13,6 +18,30 @@ const props = {
 
 describe("batch repair controls", () => {
   afterEach(cleanup);
+
+  it("announces a rejected repair in Chinese and leaves retry available", async () => {
+    await activateAppLocale("zh-CN");
+    vi.mocked(invoke).mockRejectedValueOnce("The workspace already has an active writer.");
+    function RepairPanel() {
+      const repair = useCompileRepair({
+        projectRoot: "/paper", rootDocument: "main.tex", runtimeMode: "auto", enabled: true,
+        save: async () => true, onComplete: async () => {},
+      });
+      return <CompileDiagnosticsPanel {...props} repair={repair.state} fixDisabled={repair.busy}
+        onFixAll={() => void repair.start(diagnostics)} />;
+    }
+    try {
+      render(<RepairPanel />);
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "全部修正" })); });
+      expect(screen.getByRole("status")).toHaveTextContent("修正尚未启动：此项目中有其他 Agent 任务正在运行或等待你的回应。请打开 Agent，完成或停止该任务后，再点击「全部修正」。");
+      expect(screen.getByRole("button", { name: "全部修正" })).toBeEnabled();
+      expect(screen.queryByText("The workspace already has an active writer.")).not.toBeInTheDocument();
+    } finally {
+      cleanup();
+      await activateAppLocale("en");
+      vi.mocked(invoke).mockReset();
+    }
+  });
 
   it("offers one repair action even when collapsed and replaces it in-place while busy", () => {
     const onFixAll = vi.fn();

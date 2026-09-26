@@ -3855,6 +3855,49 @@ pub struct ImportedProjectFile {
     pub kind: String,
 }
 
+#[derive(Deserialize)]
+pub struct UploadedProjectFile {
+    pub name: String,
+    pub base64: String,
+}
+
+/// Browsers provide bytes, never trustworthy host filesystem paths. Stage
+/// outside the project so the existing importer retains collision handling,
+/// content classification, and text history without overwriting project files.
+pub fn import_uploaded_files(
+    root: &Path,
+    uploads: &[UploadedProjectFile],
+    target_directory: &str,
+) -> Result<Vec<ImportedProjectFile>, String> {
+    let staging = std::env::temp_dir().join(format!("lattice-upload-{}", Uuid::new_v4()));
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(&staging).map_err(err)?;
+    let result = (|| {
+        let mut sources = Vec::new();
+        for (index, upload) in uploads.iter().enumerate() {
+            let name = validate_entry_name(&upload.name)?;
+            if name.contains('\\') {
+                return Err("Choose a simple file name without folders.".to_string());
+            }
+            let bytes = STANDARD.decode(&upload.base64).map_err(err)?;
+            // Separate parents preserve duplicate basenames in a single drop.
+            let parent = staging.join(index.to_string());
+            fs::create_dir(&parent).map_err(err)?;
+            let source = parent.join(name);
+            fs::write(&source, bytes).map_err(err)?;
+            sources.push(source.to_string_lossy().to_string());
+        }
+        import_files(root, &sources, target_directory)
+    })();
+    let _ = fs::remove_dir_all(staging);
+    result
+}
+
 /// One Finder drop, any mix of files and folders. Folder imports preserve their
 /// hierarchy under one collision-free top-level name; hidden entries are
 /// omitted and symbolic links are not followed. Content — not extension —
@@ -8208,6 +8251,94 @@ mod tests {
                 .contains("inside itself")
         );
         assert!(!root.join("notes/empty/notes").exists());
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn browser_uploads_preserve_bytes_and_avoid_collisions() {
+        let parent = temp_root("browser-upload");
+        let root = create(&parent, "paper").unwrap();
+        let uploads = [
+            UploadedProjectFile {
+                name: "notes.md".into(),
+                base64: STANDARD.encode("first"),
+            },
+            UploadedProjectFile {
+                name: "notes.md".into(),
+                base64: STANDARD.encode("second"),
+            },
+            UploadedProjectFile {
+                name: "plot.png".into(),
+                base64: STANDARD.encode([0, 255, 17]),
+            },
+            UploadedProjectFile {
+                name: "empty.txt".into(),
+                base64: String::new(),
+            },
+        ];
+        let imported = import_uploaded_files(&root, &uploads, "sections").unwrap();
+        assert_eq!(
+            imported
+                .iter()
+                .map(|file| (file.path.as_str(), file.kind.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("sections/notes.md", "text"),
+                ("sections/notes-2.md", "text"),
+                ("sections/plot.png", "binary"),
+                ("sections/empty.txt", "text"),
+            ]
+        );
+        assert_eq!(fs::read(root.join("sections/notes.md")).unwrap(), b"first");
+        assert_eq!(
+            fs::read(root.join("sections/notes-2.md")).unwrap(),
+            b"second"
+        );
+        assert_eq!(
+            fs::read(root.join("sections/plot.png")).unwrap(),
+            [0, 255, 17]
+        );
+        assert_eq!(fs::read(root.join("sections/empty.txt")).unwrap(), b"");
+        import_uploaded_files(&root, &uploads[..1], "sections").unwrap();
+        assert_eq!(
+            fs::read(root.join("sections/notes-3.md")).unwrap(),
+            b"first"
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn browser_uploads_reject_unsafe_names_and_invalid_data_before_import() {
+        let parent = temp_root("browser-upload-rejected");
+        let root = create(&parent, "paper").unwrap();
+        for (name, base64) in [
+            ("../escape", "YQ=="),
+            ("/absolute", "YQ=="),
+            ("..\\escape", "YQ=="),
+            ("bad.txt", "!invalid"),
+        ] {
+            let uploads = [
+                UploadedProjectFile {
+                    name: "valid.txt".into(),
+                    base64: "YQ==".into(),
+                },
+                UploadedProjectFile {
+                    name: name.into(),
+                    base64: base64.into(),
+                },
+            ];
+            assert!(import_uploaded_files(&root, &uploads, "uploads").is_err());
+            assert!(!root.join("uploads").exists());
+        }
+        assert!(import_uploaded_files(
+            &root,
+            &[UploadedProjectFile {
+                name: "safe.txt".into(),
+                base64: "YQ==".into()
+            }],
+            "../outside"
+        )
+        .is_err());
         fs::remove_dir_all(parent).unwrap();
     }
 

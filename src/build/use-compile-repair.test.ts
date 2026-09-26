@@ -15,6 +15,60 @@ describe("user-triggered compile repair", () => {
   beforeEach(() => { vi.useFakeTimers(); vi.mocked(invoke).mockReset(); });
   afterEach(() => { vi.useRealTimers(); });
 
+  it.each([
+    "The workspace already has an active writer.",
+    new Error("The workspace already has an active writer."),
+  ])("explains writer conflicts without starting a task and permits an explicit retry: %s", async (error) => {
+    const onComplete = vi.fn(async () => {});
+    vi.mocked(invoke).mockRejectedValueOnce(error);
+    const { result } = renderHook(() => useCompileRepair({
+      projectRoot: "/paper", rootDocument: "main.tex", runtimeMode: "auto", enabled: true,
+      save: async () => true, onComplete,
+    }));
+    await act(async () => { await result.current.start([diagnostic]); });
+    expect(result.current.state).toEqual({
+      status: "failed",
+      message: "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.",
+    });
+    expect(result.current.busy).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    vi.mocked(invoke).mockImplementation(async (_command, args) => (
+      (args as { action: string }).action === "start" ? { threadId: "retry-task" } : { status: "completed" }
+    ));
+    await act(async () => { await result.current.start([diagnostic]); });
+    expect(result.current.state?.status).toBe("completed");
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["A compile repair is already running.", "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."],
+    ["Provider authentication failed", "Provider authentication failed"],
+  ])("preserves the reason for a rejected start: %s", async (error, message) => {
+    vi.mocked(invoke).mockRejectedValueOnce(error);
+    const { result } = renderHook(() => useCompileRepair({
+      projectRoot: "/paper", rootDocument: undefined, runtimeMode: "auto", enabled: true,
+      save: async () => true, onComplete: async () => {},
+    }));
+    await act(async () => { await result.current.start([diagnostic]); });
+    expect(result.current.state?.message).toBe(message);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("does not mislabel an existing repair's failure as a rejected start", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({ threadId: "repair-1" }).mockResolvedValueOnce({
+      status: "failed", message: "The workspace already has an active writer.",
+    });
+    const { result } = renderHook(() => useCompileRepair({
+      projectRoot: "/paper", rootDocument: undefined, runtimeMode: "auto", enabled: true,
+      save: async () => true, onComplete: async () => {},
+    }));
+    await act(async () => { await result.current.start([diagnostic]); });
+    expect(result.current.state).toEqual({
+      status: "failed", threadId: "repair-1", message: "Error: The workspace already has an active writer.",
+    });
+  });
+
   it("saves first, submits all errors and warnings with the selected permissions, then recompiles once", async () => {
     const saved = deferred<boolean>();
     const onComplete = vi.fn(async () => {});

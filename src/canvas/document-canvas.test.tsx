@@ -289,6 +289,50 @@ beforeEach(() => {
 });
 
 describe("DocumentCanvas / mode", () => {
+  it("discards a pending saved position when an explicit source jump arrives", async () => {
+    const { container, props, rerenderWith } = renderCanvas({
+      mode: "pdf",
+      source: "first\nsecond\ntarget\nlast\n",
+      viewRestore: { path: "main.tex", cursor: 2, scrollTop: 450, id: "saved" },
+    });
+    rerenderWith({
+      mode: "split",
+      editorNavigation: { path: "main.tex", line: 3, id: "jump" },
+    });
+    await waitFor(() => expect(props.onEditorNavigationHandled).toHaveBeenCalledWith("jump"));
+    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+    expect(view.state.selection.main.head).toBe(13);
+    // App acknowledges requests and supplies a new inline restore callback on
+    // its next render. An unconsumed restore must not move the cursor then.
+    const onViewRestoreHandled = vi.fn();
+    rerenderWith({
+      mode: "split",
+      editorNavigation: null,
+      viewRestore: vi.mocked(props.onViewRestoreHandled).mock.calls.length ? null : props.viewRestore,
+      onViewRestoreHandled,
+    });
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    expect(view.state.selection.main.head).toBe(13);
+    expect(view.scrollDOM.scrollTop).not.toBe(450);
+    expect(props.onViewRestoreHandled).toHaveBeenCalledWith("saved");
+  });
+
+  it.each([null, { path: "other.tex", line: 3, id: "other-jump" }])(
+    "still restores a saved position without a competing jump in that file (%j)",
+    async (editorNavigation) => {
+      const { container, props, rerenderWith } = renderCanvas({ source: "first\nsecond\ntarget\n" });
+      await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
+      rerenderWith({
+        editorNavigation,
+        viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" },
+      });
+      await waitFor(() => expect(props.onViewRestoreHandled).toHaveBeenCalledWith("saved"));
+      const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+      expect(view.state.selection.main.head).toBe(8);
+      expect(view.scrollDOM.scrollTop).toBe(120);
+    },
+  );
+
   it.each([
     { initialTextTop: 240, expectedTop: 218, expectedTranslate: "none" },
     { initialTextTop: 490, expectedTop: 432, expectedTranslate: "0 -100%" },

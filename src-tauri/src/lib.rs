@@ -1755,6 +1755,7 @@ async fn import_project_files(
     target_directory: String,
     project_root: String,
     copy_existing: Option<bool>,
+    uploads: Option<Vec<project::UploadedProjectFile>>,
 ) -> Result<Vec<project::ImportedProjectFile>, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1762,7 +1763,12 @@ async fn import_project_files(
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the files could be imported.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        if copy_existing.unwrap_or(false) {
+        if let Some(uploads) = uploads {
+            if !paths.is_empty() || copy_existing.unwrap_or(false) {
+                return Err("Upload files separately from local path imports.".to_string());
+            }
+            project::import_uploaded_files(&root, &uploads, &target_directory)
+        } else if copy_existing.unwrap_or(false) {
             project::import_files_with_copy(&root, &paths, &target_directory, true)
         } else {
             project::import_files(&root, &paths, &target_directory)

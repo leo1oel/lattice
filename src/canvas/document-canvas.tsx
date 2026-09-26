@@ -3042,8 +3042,16 @@ export function DocumentCanvas(props: {
   }, [citeInsertRequest, editorSource, onCiteInsertHandled]);
   useEffect(() => {
     const request = viewRestore;
+    if (!request) return;
+    // An explicit jump supersedes an older saved position, including while
+    // the editor is still mounting. Otherwise the pending restore can run on
+    // a later render and undo a successfully completed SyncTeX navigation.
+    if (editorNavigation?.path === request.path) {
+      onViewRestoreHandled(request.id);
+      return;
+    }
     const view = editorViewRef.current;
-    if (!request || !view || request.path !== activeFile) return;
+    if (!view || request.path !== activeFile) return;
     const frame = window.requestAnimationFrame(() => {
       const current = editorViewRef.current;
       if (!current) return;
@@ -3053,7 +3061,7 @@ export function DocumentCanvas(props: {
       onViewRestoreHandled(request.id);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, onViewRestoreHandled, viewRestore, editorSource]);
+  }, [activeFile, onViewRestoreHandled, viewRestore, editorSource, editorNavigation]);
   useEffect(() => {
     const request = envRenameRequest;
     const view = editorViewRef.current;

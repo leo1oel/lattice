@@ -478,6 +478,10 @@ msgstr "Angle"
 msgid "Anonymous"
 msgstr "Anonymous"
 
+#: src/build/use-compile-repair.ts
+msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
+msgstr "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
@@ -4773,6 +4777,10 @@ msgstr "Repair failed."
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repair finished"
 msgstr "Repair finished"
+
+#: src/build/use-compile-repair.ts
+msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
+msgstr "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repairing…"

@@ -96,7 +96,15 @@ export function useCompileRepair(options: {
         await new Promise((resolve) => window.setTimeout(resolve, 1000));
       }
     } catch (error) {
-      if (owns()) setState({ status: "failed", threadId: operation.threadId, message: String(error) });
+      // The relay currently returns plain strings, not structured conflict codes.
+      // Match only a rejected start: a later failure must retain its diagnostics.
+      const detail = error instanceof Error ? error.message : String(error);
+      const message = !operation.threadId && detail === "The workspace already has an active writer."
+        ? t`Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.`
+        : !operation.threadId && detail === "A compile repair is already running."
+          ? t`Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again.`
+          : String(error);
+      if (owns()) setState({ status: "failed", threadId: operation.threadId, message });
     } finally {
       if (operationRef.current === operation) operationRef.current = null;
     }
