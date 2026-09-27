@@ -97,3 +97,4 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
     sidebarModeHeaderRef, sidebarModeActionsRef, sidebarModeTier,
   };
 }
+export type WorkspaceSidebar = ReturnType<typeof useWorkspaceSidebar>;

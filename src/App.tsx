@@ -6246,13 +6246,36 @@ function App() {
         />
       </Suspense>
       <AppTitlebar
-        abortBuild={abortBuild}
-        activeTabKey={activeTabKey}
-        build={build}
-        building={building}
+        project={project}
+        sidebar={sidebar}
+        buildPipeline={buildPipeline}
         buildPreferences={buildPreferences}
-        busyLabel={busyLabel}
-        canvasMode={canvasMode}
+        compile={compile}
+        tabs={{
+          tabs: editorTabItems,
+          activePath: activeTabKey,
+          animateLayout: !sidebarResizing,
+          canCloseLast: canvasMode === "pdf",
+          onDropTab: dropProjectPath,
+          onSelect: selectEditorTab,
+          onClose: requestCloseEditorTab,
+          onSetPinned: setEditorTabPinned,
+          onReorder: setOpenTabs,
+        }}
+        projectMenu={{
+          open: projectMenuOpen,
+          setOpen: setProjectMenuOpen,
+          importing: referenceImport.importing,
+          recentProjects,
+          busyLabel,
+          onRecent: chooseRecentProject,
+          onOpen: () => void chooseExisting(),
+          onNew: () => updateCreateForm({ open: true }),
+          onOpenOverleaf: () => setOverleafPickerOpen(true),
+          onOpenTutorial: () => void openTutorialProject(),
+          onExportZip: () => void exportProjectZip(),
+          onSettings: () => openSettings("appearance"),
+        }}
         canvasToolbar={(
         <CanvasToolbar
           onPaperLookup={() => setPaperLookupRequest((request) => request + 1)}
@@ -6380,31 +6403,6 @@ function App() {
           }}
         />
         )}
-        chooseExisting={chooseExisting}
-        chooseRecentProject={chooseRecentProject}
-        cleanAndRebuild={cleanAndRebuild}
-        cleaning={cleaning}
-        compile={compile}
-        dropProjectPath={dropProjectPath}
-        editorTabItems={editorTabItems}
-        exportProjectZip={exportProjectZip}
-        importing={referenceImport.importing}
-        openSettings={openSettings}
-        openTutorialProject={openTutorialProject}
-        project={project}
-        projectMenuOpen={projectMenuOpen}
-        recentProjects={recentProjects}
-        requestCloseEditorTab={requestCloseEditorTab}
-        setEditorTabPinned={setEditorTabPinned}
-        selectEditorTab={selectEditorTab}
-        onNewProject={() => updateCreateForm({ open: true })}
-        setOpenTabs={setOpenTabs}
-        setOverleafPickerOpen={setOverleafPickerOpen}
-        setProjectMenuOpen={setProjectMenuOpen}
-        setSidebarOpen={setSidebarOpen}
-        sidebarOpen={sidebarOpen}
-        sidebarResizing={sidebarResizing}
-        sidebarWidth={sidebarWidth}
       />
 
       {referenceHits && (

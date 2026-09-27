@@ -439,3 +439,4 @@ export function useBuildPipeline({
     cleanAndRebuild,
   };
 }
+export type BuildPipeline = ReturnType<typeof useBuildPipeline>;
