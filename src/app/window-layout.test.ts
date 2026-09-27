@@ -10,31 +10,13 @@ import {
 } from "./window-layout";
 
 describe("minimumWindowWidth", () => {
-  it("keeps the application baseline when no wider layout is visible", () => {
-    expect(minimumWindowWidth({
-      interfaceScale: 1,
-      minimumSidebarWidth: 320,
-      minimumWorkspaceWidth: 0,
-      sidebarOpen: false,
-    })).toBe(APP_WINDOW_MIN_WIDTH);
-  });
-
-  it("reserves the complete sidebar, divider, and split workspace", () => {
-    expect(minimumWindowWidth({
-      interfaceScale: 1,
-      minimumSidebarWidth: 320,
-      minimumWorkspaceWidth: 901,
-      sidebarOpen: true,
-    })).toBe(1222);
-  });
-
-  it("scales the native minimum with the webview zoom", () => {
-    expect(minimumWindowWidth({
-      interfaceScale: 1.1,
-      minimumSidebarWidth: 320,
-      minimumWorkspaceWidth: 901,
-      sidebarOpen: true,
-    })).toBe(1345);
+  it.each([
+    ["keeps the application baseline when no wider layout is visible", 1, 0, false, APP_WINDOW_MIN_WIDTH],
+    ["reserves the complete sidebar, divider, and split workspace", 1, 901, true, 1222],
+    ["scales the native minimum with the webview zoom", 1.1, 901, true, 1345],
+  ])("%s", (_name, interfaceScale, minimumWorkspaceWidth, sidebarOpen, expected) => {
+    expect(minimumWindowWidth({ interfaceScale, minimumSidebarWidth: 320, minimumWorkspaceWidth, sidebarOpen }))
+      .toBe(expected);
   });
 
   it("derives the configured baseline from the split minimums", () => {

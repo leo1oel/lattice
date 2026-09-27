@@ -1,11 +1,7 @@
 /**
- * Pure, module-level utility helpers extracted from `App.tsx`.
- *
- * These are the small, stateless functions and shared constants the app leans
- * on for formatting, paper tab keys, window drag handling, and drop-target hit
- * testing. They carry no React state
- * and depend only on shared types plus the Tauri window API, so they can be
- * imported anywhere without pulling in the whole component.
+ * Small stateless helpers shared across the app: project path classification,
+ * paper tab keys, window dragging, drop-target hit testing, project tree path
+ * changes, and the confirmation prompts.
  */
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
@@ -284,6 +280,24 @@ function trimDirectoryPath(path: string): string {
   return path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
+/** Native drop positions arrive in device pixels; hit testing wants CSS pixels. */
+function toCssPoint(position: { x: number; y: number }): { x: number; y: number } {
+  const scale = window.devicePixelRatio || 1;
+  return { x: position.x / scale, y: position.y / scale };
+}
+
+/**
+ * The directory a file-tree hit means: a flattened "a/b/c" row keeps each
+ * directory segment addressable, a folder row is that folder, and a file row
+ * is the file's parent. Undefined when neither names a row.
+ */
+function treeHitDirectory(segment?: HTMLElement | null, row?: HTMLElement | null): string | undefined {
+  const segmentPath = segment?.dataset.itemFlattenedSubitem;
+  if (segmentPath?.endsWith("/")) return trimDirectoryPath(segmentPath);
+  if (!row?.dataset.itemPath) return undefined;
+  return trimDirectoryPath(row.dataset.itemType === "folder" ? row.dataset.itemPath : row.dataset.itemParentPath ?? "");
+}
+
 /**
  * Resolve a native OS drop to the project directory it lands on, mirroring the
  * tree's own row-drag semantics: a folder row is that folder, a file row is
@@ -291,22 +305,16 @@ function trimDirectoryPath(path: string): string {
  * (""). Null means the drop was not over the Project pane at all.
  */
 export function dropDirectoryAt(position: { x: number; y: number }): string | null {
-  const scale = window.devicePixelRatio || 1;
-  const point = { x: position.x / scale, y: position.y / scale };
+  const point = toCssPoint(position);
   const element = deepestElementFromPoint(point.x, point.y);
   const explicit = closestAcrossShadow(element, "[data-drop-directory]") as HTMLElement | null;
   const explicitPath = explicit?.dataset.dropDirectory;
   if (explicitPath) return trimDirectoryPath(explicitPath);
-  // Flattened "a/b/c" rows keep each segment addressable; honor the one hit.
-  const segment = closestAcrossShadow(element, "[data-item-flattened-subitem]") as HTMLElement | null;
-  const segmentPath = segment?.dataset.itemFlattenedSubitem;
-  if (segmentPath?.endsWith("/")) return trimDirectoryPath(segmentPath);
-  const row = closestAcrossShadow(element, "[data-item-path]") as HTMLElement | null;
-  if (row?.dataset.itemPath) {
-    return row.dataset.itemType === "folder"
-      ? trimDirectoryPath(row.dataset.itemPath)
-      : trimDirectoryPath(row.dataset.itemParentPath ?? "");
-  }
+  const hit = treeHitDirectory(
+    closestAcrossShadow(element, "[data-item-flattened-subitem]") as HTMLElement | null,
+    closestAcrossShadow(element, "[data-item-path]") as HTMLElement | null,
+  );
+  if (hit !== undefined) return hit;
   // During a native Finder drag, WKWebView can report the tree host or its
   // scroll background even though the pointer is visibly over a row. Recover
   // the virtualized row from its rendered bounds before treating the drop as
@@ -316,7 +324,6 @@ export function dropDirectoryAt(position: { x: number; y: number }): string | nu
     closestAcrossShadow(element, "file-tree-container.lattice-file-tree")
     ?? projectSection?.querySelector("file-tree-container.lattice-file-tree")
   ) as HTMLElement | null;
-  const treeRoot = treeHost?.shadowRoot;
   const containsPoint = (candidate: Element) => {
     const bounds = candidate.getBoundingClientRect();
     return bounds.width > 0
@@ -326,20 +333,11 @@ export function dropDirectoryAt(position: { x: number; y: number }): string | nu
       && point.y >= bounds.top
       && point.y <= bounds.bottom;
   };
-  const boundedSegment = Array.from(
-    treeRoot?.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]") ?? [],
+  const rowAtPoint = (selector: string) => Array.from(
+    treeHost?.shadowRoot?.querySelectorAll<HTMLElement>(selector) ?? [],
   ).find(containsPoint);
-  const boundedSegmentPath = boundedSegment?.dataset.itemFlattenedSubitem;
-  if (boundedSegmentPath?.endsWith("/")) return trimDirectoryPath(boundedSegmentPath);
-  const boundedRow = Array.from(
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS selector, not UI copy.
-    treeRoot?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [],
-  ).find(containsPoint);
-  if (boundedRow?.dataset.itemPath) {
-    return boundedRow.dataset.itemType === "folder"
-      ? trimDirectoryPath(boundedRow.dataset.itemPath)
-      : trimDirectoryPath(boundedRow.dataset.itemParentPath ?? "");
-  }
+  const bounded = treeHitDirectory(rowAtPoint("[data-item-flattened-subitem]"), rowAtPoint("[data-item-path]"));
+  if (bounded !== undefined) return bounded;
   // Scoped to the file-tree section: the sidebar also hosts the Papers list,
   // where a stray drop should not silently import into the project root.
   return projectSection ? "" : null;
@@ -359,8 +357,7 @@ export function editorPaneAt(
 export function dropEditorAt(
   position: { x: number; y: number },
 ): { x: number; y: number; pane: EditorPaneId } | null {
-  const scale = window.devicePixelRatio || 1;
-  const point = { x: position.x / scale, y: position.y / scale };
+  const point = toCssPoint(position);
   const pane = editorPaneAt(point);
   return pane ? { ...point, pane } : null;
 }
@@ -371,11 +368,7 @@ export function canvasContentAt(position: { x: number; y: number }): boolean {
 }
 
 export function dropCanvasAt(position: { x: number; y: number }): boolean {
-  const scale = window.devicePixelRatio || 1;
-  return canvasContentAt({
-    x: position.x / scale,
-    y: position.y / scale,
-  });
+  return canvasContentAt(toCssPoint(position));
 }
 
 /**
@@ -388,10 +381,8 @@ export function dropCanvasAt(position: { x: number; y: number }): boolean {
  */
 export function dropAgentPanelAt(position: { x: number; y: number }): boolean {
   if (typeof document.elementFromPoint !== "function") return false;
-  const scale = window.devicePixelRatio || 1;
-  const shell = document
-    .elementFromPoint(position.x / scale, position.y / scale)
-    ?.closest<HTMLElement>(".synara-frame-shell");
+  const point = toCssPoint(position);
+  const shell = document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(".synara-frame-shell");
   return shell?.dataset.ready === "true";
 }
 
@@ -551,14 +542,13 @@ export async function confirmAction(
   request: string | ConfirmActionOptions,
 ): Promise<boolean> {
   const options = typeof request === "string" ? { message: request } : request;
-  if (confirmActionHandler) {
-    const answer = await confirmActionHandler(options);
-    return answer === true || answer === "confirm";
-  }
-  return confirmDialog(options.message, {
-    title: options.title ?? "Lattice",
-    kind: "warning",
-  });
+  if (!confirmActionHandler) return nativeConfirm(options);
+  const answer = await confirmActionHandler(options);
+  return answer === true || answer === "confirm";
+}
+
+function nativeConfirm(options: ConfirmActionOptions): Promise<boolean> {
+  return confirmDialog(options.message, { title: options.title ?? "Lattice", kind: "warning" });
 }
 
 /**
@@ -571,14 +561,8 @@ export async function confirmAction(
 export async function chooseAction(
   options: ConfirmActionOptions & { alternativeLabel: string },
 ): Promise<ConfirmActionChoice> {
-  if (confirmActionHandler) {
-    const answer = await confirmActionHandler(options);
-    if (answer === true) return "confirm";
-    if (answer === false) return "cancel";
-    return answer;
-  }
-  return await confirmDialog(options.message, {
-    title: options.title ?? "Lattice",
-    kind: "warning",
-  }) ? "confirm" : "cancel";
+  const answer = confirmActionHandler ? await confirmActionHandler(options) : await nativeConfirm(options);
+  if (answer === true) return "confirm";
+  if (answer === false) return "cancel";
+  return answer;
 }
