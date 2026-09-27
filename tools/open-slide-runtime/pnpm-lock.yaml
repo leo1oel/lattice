@@ -12,8 +12,8 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@open-slide/core':
-        specifier: 2.0.0-beta.5
-        version: 2.0.0-beta.5(esbuild@0.28.0)(jiti@2.7.0)
+        specifier: 2.0.0
+        version: 2.0.0(esbuild@0.28.0)(jiti@2.7.0)
       katex:
         specifier: 0.17.0
         version: 0.17.0
@@ -21,8 +21,8 @@ importers:
         specifier: 1.37.0
         version: 1.37.0(react@19.2.8)
       vite:
-        specifier: 8.2.2
-        version: 8.2.2(esbuild@0.28.0)(jiti@2.7.0)
+        specifier: 8.3.0
+        version: 8.3.0(esbuild@0.28.0)(jiti@2.7.0)
     devDependencies:
       esbuild:
         specifier: 0.28.0
@@ -440,8 +440,8 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@open-slide/core@2.0.0-beta.5':
-    resolution: {integrity: sha512-Xlf39XDve772KXnqOzDFWMKO9J8uWGeEoU9RLfoO6UDZqfRhE/EUrY7XBL+JOKJH1ZvqCRJ7KvuR1pxk3uBkwA==}
+  '@open-slide/core@2.0.0':
+    resolution: {integrity: sha512-KhfhtblYIDbPLyiU5JDsKburyibO/ZHkVTIm0BGbL11Zr7COioKwYHTbabqxR5b/RN67J0IXAM+dPxd6e1oDOw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
@@ -1836,6 +1836,10 @@ packages:
     resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postcss@8.5.28:
+    resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
+    engines: {node: ^10 || ^12 || >=14}
+
   powershell-utils@0.1.0:
     resolution: {integrity: sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A==}
     engines: {node: '>=20'}
@@ -2207,13 +2211,13 @@ packages:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
 
-  vite@8.2.2:
-    resolution: {integrity: sha512-cFKLV/PRgAUlIRm5WjMjJ86jrftzpqcgH+Us+DS8mI3CDNiH30Whrz8uHL3+MOLPAgqbMBAqWdAHAphOAM+z/Q==}
+  vite@8.3.0:
+    resolution: {integrity: sha512-lhZBVvEHefgE+HQZC9O7EBJgCU/nVzFNl7vkS4RE0APtWLP02/8QVIkQtzBxPquh7lq5/78NHipTj7ODQ6XuyQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
-      '@vitejs/devtools': ^0.4.0 || ^0.5.0
+      '@vitejs/devtools': ^0.7.1
       esbuild: ^0.27.0 || ^0.28.0
       jiti: '>=1.21.0'
       less: ^4.0.0
@@ -2697,7 +2701,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
 
-  '@open-slide/core@2.0.0-beta.5(esbuild@0.28.0)(jiti@2.7.0)':
+  '@open-slide/core@2.0.0(esbuild@0.28.0)(jiti@2.7.0)':
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8
@@ -2706,8 +2710,8 @@ snapshots:
       '@dnd-kit/sortable': 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@dnd-kit/utilities': 3.2.2(react@19.2.8)
       '@fontsource-variable/geist': 5.3.0
-      '@tailwindcss/vite': 4.3.3(vite@8.2.2(esbuild@0.28.0)(jiti@2.7.0))
-      '@vitejs/plugin-react': 6.1.1(vite@8.2.2(esbuild@0.28.0)(jiti@2.7.0))
+      '@tailwindcss/vite': 4.3.3(vite@8.3.0(esbuild@0.28.0)(jiti@2.7.0))
+      '@vitejs/plugin-react': 6.1.1(vite@8.3.0(esbuild@0.28.0)(jiti@2.7.0))
       chalk: 6.0.0
       class-variance-authority: 0.7.1
       clsx: 2.1.1
@@ -2729,7 +2733,7 @@ snapshots:
       tailwindcss: 4.3.3
       tw-animate-css: 1.4.0
       use-sync-external-store: 1.6.0(react@19.2.8)
-      vite: 8.2.2(esbuild@0.28.0)(jiti@2.7.0)
+      vite: 8.3.0(esbuild@0.28.0)(jiti@2.7.0)
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - '@date-fns/tz'
@@ -2970,12 +2974,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.3
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.3
 
-  '@tailwindcss/vite@4.3.3(vite@8.2.2(esbuild@0.28.0)(jiti@2.7.0))':
+  '@tailwindcss/vite@4.3.3(vite@8.3.0(esbuild@0.28.0)(jiti@2.7.0))':
     dependencies:
       '@tailwindcss/node': 4.3.3
       '@tailwindcss/oxide': 4.3.3
       tailwindcss: 4.3.3
-      vite: 8.2.2(esbuild@0.28.0)(jiti@2.7.0)
+      vite: 8.3.0(esbuild@0.28.0)(jiti@2.7.0)
 
   '@ts-morph/common@0.27.0':
     dependencies:
@@ -2985,10 +2989,10 @@ snapshots:
 
   '@types/validate-npm-package-name@4.0.2': {}
 
-  '@vitejs/plugin-react@6.1.1(vite@8.2.2(esbuild@0.28.0)(jiti@2.7.0))':
+  '@vitejs/plugin-react@6.1.1(vite@8.3.0(esbuild@0.28.0)(jiti@2.7.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.2.2(esbuild@0.28.0)(jiti@2.7.0)
+      vite: 8.3.0(esbuild@0.28.0)(jiti@2.7.0)
 
   accepts@2.0.0:
     dependencies:
@@ -3876,6 +3880,12 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  postcss@8.5.28:
+    dependencies:
+      nanoid: 3.3.18
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
   powershell-utils@0.1.0: {}
 
   powershell-utils@0.2.1: {}
@@ -4255,11 +4265,11 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.2.2(esbuild@0.28.0)(jiti@2.7.0):
+  vite@8.3.0(esbuild@0.28.0)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
-      postcss: 8.5.26
+      postcss: 8.5.28
       rolldown: 1.2.7
       tinyglobby: 0.2.17
     optionalDependencies:
