@@ -1138,43 +1138,23 @@ fn rc_file_failure(log: &str) -> Option<Diagnostic> {
 fn playwright_browser_missing(log: &str) -> Option<String> {
     let missing = Regex::new(r"(?m)Executable doesn't exist at (.+?)\s*$").unwrap();
     let executable = missing.captures(log)?.get(1)?.as_str();
-    if !log.to_ascii_lowercase().contains("playwright") {
-        return None;
-    }
-    let browser_build = Regex::new(r"^([a-z_]+)-\d+$").unwrap();
-    // Match known browser names only: the browsers directory can sit under a
+    let chromium_build = Regex::new(r"^chromium[a-z_]*-\d+$").unwrap();
+    // Match the browser directory only: the browsers directory can sit under a
     // custom PLAYWRIGHT_BROWSERS_PATH whose own components look like `name-123`.
-    let browser = Path::new(executable)
+    let needs_chromium = Path::new(executable)
         .components()
         .filter_map(|component| component.as_os_str().to_str())
-        .find_map(|component| {
-            let capture = browser_build.captures(component)?;
-            match &capture[1] {
-                name if name.starts_with("chromium") => Some("chromium"),
-                "firefox" => Some("firefox"),
-                "webkit" => Some("webkit"),
-                _ => None,
-            }
-        });
-    let label = match browser {
-        Some("chromium") => "Chromium",
-        Some("firefox") => "Firefox",
-        Some("webkit") => "WebKit",
-        _ => "browser",
-    };
-    let install = browser.map_or_else(|| "install".to_string(), |name| format!("install {name}"));
+        .any(|component| chromium_build.is_match(component));
+    if !needs_chromium {
+        return None;
+    }
     let python_env =
         Regex::new(r#"File "([^"\n]+?)/lib/python[0-9.]+/site-packages/playwright/"#).unwrap();
-    let command = if let Some(capture) = python_env.captures(log) {
-        let python = format!("{}/bin/python", &capture[1]);
-        format!("{} -m playwright {install}", shell_word(&python))
-    } else if log.contains("node_modules/playwright") {
-        format!("npx playwright {install}")
-    } else {
-        format!("playwright {install}")
-    };
+    let capture = python_env.captures(log)?;
+    let python = format!("{}/bin/python3", &capture[1]);
+    let command = format!("{} -m playwright install chromium", shell_word(&python));
     Some(format!(
-        "The project's .latexmkrc runs Playwright, and the {label} this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
+        "The project's .latexmkrc runs Playwright, and the Chromium this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
     ))
 }
 
@@ -1660,7 +1640,7 @@ Latexmk: Stopping because of problem with rc file
         // The same Playwright the rc ran, so the download matches build 1243.
         assert!(
             message.contains(
-                "`/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python -m playwright install chromium`"
+                "`/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python3 -m playwright install chromium`"
             ),
             "{message}"
         );
@@ -1689,7 +1669,7 @@ Latexmk: Stopping because of problem with rc file
         let diagnostics = parse_diagnostics(&log);
         assert!(
             diagnostics[0].message.contains(
-                "`'/Users/me/My Cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python' -m playwright install chromium`"
+                "`'/Users/me/My Cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python3' -m playwright install chromium`"
             ),
             "{diagnostics:?}"
         );

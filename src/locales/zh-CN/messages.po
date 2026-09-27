@@ -1440,10 +1440,6 @@ msgstr "已复制"
 msgid "Copy"
 msgstr "复制"
 
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Copy build log"
-msgstr "复制编译日志"
-
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"

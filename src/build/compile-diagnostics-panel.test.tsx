@@ -1,14 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { activateAppLocale } from "../i18n";
 import { installPdfTextLayerSelection } from "../pdf/pdf-text-layer-selection";
 import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
 import { useCompileRepair } from "./use-compile-repair";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
 
 const diagnostics = [
   { level: "error", message: "Undefined control sequence", file: "main.tex", line: 42 },
@@ -120,18 +118,6 @@ describe("raw build log", () => {
       expect(document.getSelection()?.toString() ?? "").not.toMatch(/1 \/ 29|Under review/);
     } finally {
       uninstall();
-    }
-  });
-
-  it("copies exactly the log", async () => {
-    vi.mocked(writeText).mockResolvedValue();
-    const { uninstall } = renderAbovePdf();
-    try {
-      fireEvent.click(screen.getByRole("button", { name: "Copy build log" }));
-      await waitFor(() => expect(writeText).toHaveBeenCalledWith(log));
-    } finally {
-      uninstall();
-      vi.mocked(writeText).mockReset();
     }
   });
 });

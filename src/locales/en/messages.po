@@ -1440,10 +1440,6 @@ msgstr "Copied"
 msgid "Copy"
 msgstr "Copy"
 
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Copy build log"
-msgstr "Copy build log"
-
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
