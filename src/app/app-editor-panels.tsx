@@ -9,12 +9,12 @@
 import { lazy, Suspense, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { type EditorComment } from "../editor/comments/editor-comment-data";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { confirmAction, toMessage } from "../app-utils";
 import { setError } from "./notify";
+import type { EditorComments } from "./use-editor-comments";
 import type {
   BuildResult,
   OpenProjectFile,
@@ -28,74 +28,48 @@ const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
 
-export type AppEditorPanelsProps = {
+export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
+  comments: EditorComments;
+  /** Wraps the comment list in the Overleaf drawer when the project is linked. */
+  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
   activeFileRef: RefObject<string>;
-  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   build: BuildResult | null;
   checklistOpen: boolean;
-  commentOpenGenerationRef: RefObject<number>;
-  commentPanelFocusId: string | null;
-  commentPanelFocusNonce?: string;
   editorCommentAuthorId: string;
-  editorComments: EditorComment[];
-  editorCommentsOpen: boolean;
   mainBodyPages: number | null;
   openProjectFile: OpenProjectFile;
-  onCloseComments: () => void;
   pdfPageCount: number | null;
-  persistEditorComments: (next: EditorComment[]) => Promise<void>;
   project: ProjectSnapshot;
   projectWordCount: WordCount | null;
   refreshTodos: () => Promise<void>;
-  replyToEditorComment: (commentId: string, body: string) => void;
-  setActiveEditorCommentId: Dispatch<SetStateAction<string | null>>;
   setChecklistOpen: Dispatch<SetStateAction<boolean>>;
-  setCommentFocusRequest: Dispatch<SetStateAction<{ id: string; nonce: string; } | null>>;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
   setTodosOpen: Dispatch<SetStateAction<boolean>>;
   todoHits: TodoHit[];
   todosOpen: boolean;
-  toggleEditorCommentResolved: (id: string) => void;
   unusedSymbols: UnusedSymbols;
-};
-
-export function AppEditorPanels(props: AppEditorPanelsProps) {
+}) {
   const { t } = useLingui();
-  const {
-    commentOpenGenerationRef,
-    editorComments,
-    onCloseComments,
-    openProjectFile,
-    persistEditorComments,
-    project,
-    renderCommentsSurface,
-    setActiveEditorCommentId,
-    setChecklistOpen,
-    setTodosOpen,
-    todoHits,
-    unusedSymbols,
-  } = props;
+  const { openProjectFile, project, setChecklistOpen, setTodosOpen, todoHits, unusedSymbols } = props;
+  const { openGenerationRef, persist, setActiveId } = comments;
   const commentsPanel = (
     <EditorCommentsPanel
-      key={props.commentPanelFocusNonce}
+      key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
-      comments={editorComments}
+      comments={comments.comments}
       activePath={props.activeFile}
       currentAuthorId={props.editorCommentAuthorId}
-      focusCommentId={props.commentPanelFocusId}
-      onClose={onCloseComments}
+      focusCommentId={comments.panelFocusId}
+      onClose={comments.closePanel}
       onOpen={(comment) => {
-        const generation = commentOpenGenerationRef.current + 1;
-        commentOpenGenerationRef.current = generation;
-        setActiveEditorCommentId(comment.id);
-        onCloseComments();
+        const generation = openGenerationRef.current + 1;
+        openGenerationRef.current = generation;
+        setActiveId(comment.id);
+        comments.closePanel();
         void openProjectFile(comment.path).then(() => {
-          if (
-            commentOpenGenerationRef.current !== generation
-            || props.activeFileRef.current !== comment.path
-          ) return;
-          props.setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+          if (openGenerationRef.current !== generation || props.activeFileRef.current !== comment.path) return;
+          comments.setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
         });
       }}
       onDelete={(id) => {
@@ -105,27 +79,22 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
           )) {
             return;
           }
-          await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
-          setActiveEditorCommentId((current) => (current === id ? null : current));
+          await persist(comments.comments.filter((comment) => comment.id !== id));
+          setActiveId((current) => (current === id ? null : current));
         })();
       }}
-      onToggleResolved={(comment) => props.toggleEditorCommentResolved(comment.id)}
+      onToggleResolved={(comment) => comments.toggleResolved(comment.id)}
       onUpdateBody={(comment, body) => {
         const trimmed = body.trim();
-        if (!trimmed) return;
-        void persistEditorComments(editorComments.map((item) => (
-          item.id === comment.id
-            ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
-            : item
-        )));
+        if (trimmed) comments.update(comment.id, () => ({ body: trimmed }));
       }}
-      onReply={(comment, body) => props.replyToEditorComment(comment.id, body)}
+      onReply={(comment, body) => comments.reply(comment.id, body)}
     />
   );
   return (
     <>
       <Suspense fallback={null}>
-        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : props.editorCommentsOpen && commentsPanel}
+        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
       {props.todosOpen && (
         <TodoScavengerPanel

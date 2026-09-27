@@ -30,12 +30,7 @@ import {
   CollabDiskWriteQueue,
   type CollabWorkspaceLease,
 } from "./collab/collab-workspace-lease";
-import {
-  createEditorCommentReply,
-  EDITOR_COMMENTS_PATH,
-  loadEditorCommentAuthorId,
-  mergeEditorComments,
-} from "./editor/comments/editor-comment-data";
+import { loadEditorCommentAuthorId } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
@@ -43,6 +38,7 @@ import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
 import { useFileViewStates } from "./app/use-file-view-states";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImport } from "./app/use-reference-import";
+import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useTexSetup } from "./app/use-tex-setup";
@@ -61,10 +57,7 @@ import {
 } from "./app/use-native-window";
 import { afterNextPaintOpportunity } from "./app/effect-helpers";
 import { useCollabChat } from "./collab/use-collab-chat";
-import {
-  OVERLEAF_COMMENT_PREFIX,
-  useOverleafWorkspace,
-} from "./app/use-overleaf-workspace";
+import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import {
   bytesToBase64,
   SHARE_SOURCE,
@@ -113,9 +106,6 @@ import {
   markTutorialSeen,
   resolveAppLocale,
 } from "./settings/app-settings";
-import {
-  type EditorComment,
-} from "./editor/comments/editor-comment-data";
 import { waitForAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
@@ -145,7 +135,6 @@ import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-con
 import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
 import { CollabProjectControllerV2 } from "./collab/collab-project-v2";
 import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
-import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
   parsePreferredCollabInvitation,
   planRemoteCollabDeleteUiV2,
@@ -639,16 +628,6 @@ function App() {
    */
   const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
   const [todosOpen, setTodosOpen] = useState(false);
-  const [editorComments, setEditorComments] = useState<EditorComment[]>([]);
-  /** Read inside async publishes, where the state captured at call time is already stale. */
-  const editorCommentsRef = useRef<EditorComment[]>([]);
-  editorCommentsRef.current = editorComments;
-  const [editorCommentsOpen, setEditorCommentsOpen] = useState(false);
-  const [activeEditorCommentId, setActiveEditorCommentId] = useState<string | null>(null);
-  const [commentPanelFocus, setCommentPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
-  const commentPanelFocusId = commentPanelFocus && commentPanelFocus.projectRoot === project?.root ? commentPanelFocus.id : null;
-  const [commentFocusRequest, setCommentFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
-  const commentOpenGenerationRef = useRef(0);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
@@ -2181,11 +2160,11 @@ function App() {
     overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode, setOverleafSyncMode,
     overleafRemoteDelete, setOverleafRemoteDelete, overleafRemoteChanges, setOverleafRemoteChanges,
     overleafPickerOpen, setOverleafPickerOpen, overleafReviewOpen, setOverleafReviewOpen,
-    setOverleafCollabOpen, setOverleafCollabTab, conflictPath, setConflictPath,
+    setOverleafCollabOpen, conflictPath, setConflictPath,
     overleafSyncRef, refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync,
     settleRemoteDeletes, openCurrentOverleafProject, jumpToOverleafPeer, overleafRealtime, overleafPresence,
-    overleafChat, overleafComments, overleafCommentsRef, overleafTrackChanges, overleafDocPaths,
-    overleafEditorComments, overleafActiveCursors,
+    overleafChat, overleafComments, overleafTrackChanges, overleafDocPaths,
+    overleafActiveCursors,
   } = overleaf;
   useLayoutEffect(() => {
     flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
@@ -2253,30 +2232,18 @@ function App() {
     refreshProject, v2WorkspaceCallbacks,
   ]);
 
-  /** Both kinds of comment, as the editor and the panel want them. */
-  const allEditorComments = useMemo(
-    () => [...editorComments, ...overleafEditorComments],
-    [editorComments, overleafEditorComments],
-  );
-
-  useLayoutEffect(() => {
-    agentCommentsOptionsRef.current = () => {
-      if (!project || projectRootRef.current !== project.root) return null;
-      return {
-        workspaceRoot: project.root,
-        localComments: editorCommentsRef.current,
-        overleafThreads: overleafComments.threads,
-        overleafAnchors: [...overleafComments.anchors.values()],
-        docPaths: overleafDocPaths,
-        currentSources: new Map([
-          [activeFileRef.current, sourceRef.current],
-          ...(secondaryFileRef.current ? [[secondaryFileRef.current, secondarySourceRef.current] as const] : []),
-        ]),
-        overleaf: { status: overleafLink ? "cached" : "not-linked" },
-      };
-    };
-    return () => { agentCommentsOptionsRef.current = null; };
-  }, [project, overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafLink]);
+  const openSources = useCallback(() => new Map([
+    [activeFileRef.current, sourceRef.current],
+    ...(secondaryFileRef.current ? [[secondaryFileRef.current, secondarySourceRef.current] as const] : []),
+  ]), [activeFileRef, secondaryFileRef, secondarySourceRef, sourceRef]);
+  const editorComments = useEditorComments({
+    project, projectRootRef, overleaf,
+    shared: { controllerRef: collabV2ControllerRef, active: activeCollabVersion === 2 && Boolean(collabSession), fileCount: collabFileCount },
+    author: { id: editorCommentAuthorId, name: collabName },
+    openSources,
+    agentOptionsRef: agentCommentsOptionsRef,
+  });
+  const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
 
   const revealSourceInPdf = useCallback(async () => {
     if (!forwardSyncPosition || locatingPdf) return;
@@ -2505,10 +2472,7 @@ function App() {
       rememberProject(snapshot);
       setProjectMenuOpen(false);
       resetAgentSelection();
-      setEditorComments([]);
-      setEditorCommentsOpen(false);
-      setActiveEditorCommentId(null);
-      setCommentPanelFocus(null);
+      resetEditorComments();
       // A pinned turn review belongs to the outgoing project's thread; keeping
       // it would bind the drawer to a foreign thread after the switch.
       setAgentTurnReview(null);
@@ -2676,7 +2640,7 @@ function App() {
       setNavIndex(primaryFile ? 0 : -1);
       await refreshUnusedSymbols();
       await loadHistory();
-      setEditorComments(await invoke<EditorComment[]>("list_editor_comments").catch(() => []));
+      await loadEditorComments();
       await loadTodos();
       await loadWordCount();
       setPdfPageCount(null);
@@ -5624,128 +5588,6 @@ function App() {
     }
   }, [refreshHistory]);
 
-  const persistEditorComments = useCallback(async (next: EditorComment[]) => {
-    // What this client held before the edit is what makes a delete expressible
-    // in the shared map: only a comment we actually had may be removed there.
-    const previous = editorCommentsRef.current;
-    setEditorComments(next);
-    try {
-      await invoke("save_editor_comments", { comments: next });
-      const controller = collabV2ControllerRef.current;
-      if (activeCollabVersion !== 2 || !controller) return;
-      // The controller owns this document — it registers the file on first use
-      // and pins it, so both sides keep writing to the same one.
-      const doc = await controller.openCommentsDoc();
-      if (!doc) return;
-      seedCollabCommentsFromContent(doc);
-      writeCollabComments(doc, next, previous);
-      // The map now holds our edit merged with whatever peers wrote while we
-      // were composing it, so adopt that union rather than our own view.
-      const shared = readCollabComments(doc);
-      setEditorComments(shared);
-      await invoke("save_editor_comments", { comments: shared });
-    } catch (reason) {
-      // The comments document is opened unpinned, so the provider pool is free
-      // to evict (destroy) it between publishes. Reaching a destroyed client is
-      // a teardown, not a failed save — the comment is already on disk — and
-      // the next publish reopens it.
-      if (isClientDestroyedErrorV2(reason)) return;
-      setError(toMessage(reason));
-    }
-  }, [activeCollabVersion]);
-
-  /**
-   * Live-update the comments panel from the shared comments file. Peer
-   * publishes land in the file's Yjs doc and mirror to disk, but without this
-   * observer the panel's state only refreshed on project reload. Local-origin
-   * transactions (our own publishes) are skipped — state is already set.
-   * collabFileCount re-runs the check so a comments file created mid-share
-   * gets observed once it appears in the catalog.
-   */
-  useEffect(() => {
-    const v2 = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !collabSession || !v2?.hasTextPath(EDITOR_COMMENTS_PATH)) return;
-    let cancelled = false;
-    let detach: (() => void) | undefined;
-    void v2.openCommentsDoc().then((doc) => {
-      if (cancelled || !doc) return;
-      seedCollabCommentsFromContent(doc);
-      const map = collabCommentsMap(doc);
-      // Read what is already in the map, not just what changes next: the file
-      // only enters the catalog when the first comment is written, so a peer
-      // cannot attach until after that comment exists — and an observer never
-      // reports it. Merge rather than replace, since local comments may not
-      // have reached the map yet.
-      const apply = () => setEditorComments((current) => mergeEditorComments(readCollabComments(doc), current));
-      apply();
-      const onMap = () => apply();
-      map.observe(onMap);
-      detach = () => map.unobserve(onMap);
-    }).catch(() => undefined);
-    return () => { cancelled = true; detach?.(); };
-  }, [activeCollabVersion, collabFileCount, collabSession]);
-
-  /** An Overleaf thread's id, when this comment is one of theirs. */
-  const overleafThreadOf = useCallback((commentId: string) => (
-    commentId.startsWith(OVERLEAF_COMMENT_PREFIX)
-      ? commentId.slice(OVERLEAF_COMMENT_PREFIX.length)
-      : null
-  ), []);
-
-  const toggleEditorCommentResolved = useCallback((id: string) => {
-    const threadId = overleafThreadOf(id);
-    if (threadId) {
-      const thread = overleafCommentsRef.current.threads.find((item) => item.id === threadId);
-      void overleafCommentsRef.current
-        .setResolved(threadId, !thread?.resolved)
-        .catch((reason) => setError(toMessage(reason)));
-      return;
-    }
-    void persistEditorComments(editorComments.map((item) => (
-      item.id === id
-        ? { ...item, resolved: !item.resolved, updatedAt: new Date().toISOString() }
-        : item
-    )));
-    // `overleafCommentsRef` reaches this through the workspace hook's return
-    // value, so the lint rule cannot see it is a stable `useRef` identity.
-  }, [editorComments, overleafCommentsRef, overleafThreadOf, persistEditorComments]);
-
-  const replyToEditorComment = useCallback((commentId: string, body: string) => {
-    const threadId = overleafThreadOf(commentId);
-    if (threadId) {
-      void overleafCommentsRef.current
-        .reply(threadId, body)
-        .catch((reason) => setError(toMessage(reason)));
-      return;
-    }
-    const reply = createEditorCommentReply({
-      body,
-      authorId: editorCommentAuthorId,
-      authorName: collabName.trim() || "Anonymous",
-    });
-    if (!reply) return;
-    void persistEditorComments(editorComments.map((item) => (
-      item.id === commentId
-        ? { ...item, replies: [...item.replies, reply], updatedAt: new Date().toISOString() }
-        : item
-    )));
-  }, [collabName, editorCommentAuthorId, editorComments, overleafCommentsRef, overleafThreadOf, persistEditorComments]);
-
-  const openEditorComments = useCallback(() => {
-    setCommentPanelFocus(null);
-    if (overleafLink) {
-      setEditorCommentsOpen(false);
-      setOverleafCollabTab("comments");
-      setOverleafCollabOpen(true);
-    } else {
-      setEditorCommentsOpen(true);
-    }
-  }, [overleafLink, setOverleafCollabOpen, setOverleafCollabTab]);
-
-  const openEditorCommentReply = useCallback((commentId: string) => {
-    openEditorComments();
-    if (project) setCommentPanelFocus({ id: commentId, projectRoot: project.root, nonce: crypto.randomUUID() });
-  }, [openEditorComments, project]);
 
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
@@ -6488,8 +6330,8 @@ function App() {
             synara.requestRuntime();
             setGitOpen(true);
           }}
-          commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
-          onComments={openEditorComments}
+          commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
+          onComments={editorComments.openPanel}
           overleafLinked={overleafLink !== null}
           overleafSyncing={overleafSyncing}
           overleafPending={overleafRemoteChanges}
@@ -6521,10 +6363,10 @@ function App() {
           }}
           overleafUnreadChat={
             overleafChat.unread + overleafComments.threads.filter((thread) => !thread.resolved).length + overleafRealtime.changes.length
-            + editorComments.filter((comment) => !comment.resolved).length
+            + editorComments.comments.filter((comment) => !comment.resolved).length
           }
           onOverleafChat={() => {
-            openEditorComments();
+            editorComments.openPanel();
             void overleafChat.refresh();
           }}
         />
@@ -6884,7 +6726,7 @@ function App() {
             locatingPdf={locatingPdf}
             onForwardSync={() => void revealSourceInPdf()}
             onPdfSource={revealPdfSource}
-            editorComments={allEditorComments}
+            editorComments={editorComments.all}
             overleafPresenceCursors={overleafActiveCursors}
             overleafChanges={overleafRealtime.changes}
             overleafTrackChangeActions={{
@@ -6893,39 +6735,16 @@ function App() {
               onAccept: (change) => void overleafTrackChanges.accept([change.id]),
               onReject: (change) => void overleafTrackChanges.reject([change]),
             }}
-            activeEditorCommentId={activeEditorCommentId}
+            activeEditorCommentId={editorComments.activeId}
             commentAuthorName={collabName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}
-            onCreateEditorComment={(comment) => {
-              // A document being edited live with Overleaf gets Overleaf's
-              // comments, so the person in the browser sees what you wrote.
-              // Anything else keeps this project's own.
-              const commentDocId = Array.from(overleafDocPaths.entries())
-                .find(([, path]) => path === comment.path)?.[0] ?? null;
-              if (overleafLink && commentDocId) {
-                if (!overleafRealtime.liveFile || overleafRealtime.docId !== commentDocId) {
-                  setError("This file is not live with Overleaf right now. Reconnect before commenting.");
-                  return;
-                }
-                const target = {
-                  projectRoot: project.root,
-                  docId: commentDocId,
-                  path: comment.path,
-                };
-                void overleafComments
-                  .create(target, comment.from, comment.quote, comment.body)
-                  .catch((reason) => setError(toMessage(reason)));
-                return;
-              }
-              void persistEditorComments([...editorComments, comment]);
-              setActiveEditorCommentId(comment.id);
-            }}
-            onOpenEditorComments={openEditorComments}
-            onResolveEditorComment={toggleEditorCommentResolved}
-            onReplyEditorComment={openEditorCommentReply}
-            commentFocusRequest={commentFocusRequest}
+            onCreateEditorComment={editorComments.create}
+            onOpenEditorComments={editorComments.openPanel}
+            onResolveEditorComment={editorComments.toggleResolved}
+            onReplyEditorComment={editorComments.openReply}
+            commentFocusRequest={editorComments.focusRequest}
             onCommentFocusHandled={(nonce) => {
-              setCommentFocusRequest((current) => (current?.nonce === nonce ? null : current));
+              editorComments.setFocusRequest((current) => (current?.nonce === nonce ? null : current));
             }}
             todoCount={todoHits.length}
             onOpenTodos={() => {
@@ -7021,20 +6840,21 @@ function App() {
       />
 
       <AppEditorPanels
+        comments={editorComments}
         renderCommentsSurface={overleafLink ? (localComments) => (
           <AppOverleafCollabDrawer
-            key={`${project.root}:${commentPanelFocusId ? commentPanelFocus?.nonce : "comments"}`}
+            key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}
             localComments={localComments}
-            localCommentCount={editorComments.filter((comment) => !comment.resolved).length}
-            hasLocalComments={editorComments.length > 0}
-            focusLocalComments={!!commentPanelFocusId && !overleafThreadOf(commentPanelFocusId)}
-            focusThreadId={commentPanelFocusId ? overleafThreadOf(commentPanelFocusId) : null}
+            localCommentCount={editorComments.comments.filter((comment) => !comment.resolved).length}
+            hasLocalComments={editorComments.comments.length > 0}
+            focusLocalComments={!!editorComments.panelFocusId && !overleafThreadOf(editorComments.panelFocusId)}
+            focusThreadId={editorComments.panelFocusId ? overleafThreadOf(editorComments.panelFocusId) : null}
             activeFileRef={activeFileRef}
             openProjectFile={openProjectFile}
             overleaf={overleaf}
             onClose={() => {
               setOverleafCollabOpen(false);
-              setCommentPanelFocus(null);
+              editorComments.setPanelFocus(null);
             }}
             setViewRestore={setViewRestore}
             source={source}
@@ -7045,33 +6865,18 @@ function App() {
         activeFileRef={activeFileRef}
         build={build}
         checklistOpen={checklistOpen}
-        commentOpenGenerationRef={commentOpenGenerationRef}
-        commentPanelFocusId={commentPanelFocusId}
-        commentPanelFocusNonce={commentPanelFocusId ? commentPanelFocus?.nonce : undefined}
         editorCommentAuthorId={editorCommentAuthorId}
-        editorComments={editorComments}
-        editorCommentsOpen={editorCommentsOpen}
         mainBodyPages={mainBodyPages}
         openProjectFile={openProjectFile}
-        onCloseComments={() => {
-          setEditorCommentsOpen(false);
-          setOverleafCollabOpen(false);
-          setCommentPanelFocus(null);
-        }}
         pdfPageCount={pdfPageCount}
-        persistEditorComments={persistEditorComments}
         project={project}
         projectWordCount={projectWordCount}
         refreshTodos={refreshTodos}
-        replyToEditorComment={replyToEditorComment}
-        setActiveEditorCommentId={setActiveEditorCommentId}
         setChecklistOpen={setChecklistOpen}
-        setCommentFocusRequest={setCommentFocusRequest}
         setProject={setProject}
         setTodosOpen={setTodosOpen}
         todoHits={todoHits}
         todosOpen={todosOpen}
-        toggleEditorCommentResolved={toggleEditorCommentResolved}
         unusedSymbols={unusedSymbols}
       />
 
