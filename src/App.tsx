@@ -25,7 +25,6 @@ import { type ResolvedCitationDraft } from "./papers/bib-entry-dialog";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
 import { listenForBrowserProjectDrops } from "./project/browser-project-drop";
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
-import { MarkdownWorkspaceIndex } from "./editor/markdown/markdown-workspace-index";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl, isTitleQuery } from "./papers/paper-source";
 import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
@@ -55,6 +54,8 @@ import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { usePanelLayout } from "./app/use-panel-layout";
 import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
+import { useLocalSemanticSearch } from "./app/use-local-semantic-search";
+import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
 import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
 import { useCollabChat } from "./collab/use-collab-chat";
 import {
@@ -106,9 +107,6 @@ import {
   persistWorkspaceLayout,
   persistOverleafRemoteDelete,
   persistOverleafSyncMode,
-  LOCAL_SEMANTIC_SEARCH_KEY,
-  loadLocalSemanticSearchEnabled,
-  persistLocalSemanticSearchEnabled,
   hasSeenTutorial,
   markTutorialSeen,
   resolveAppLocale,
@@ -204,10 +202,6 @@ import {
   type EditorDropZone,
 } from "./canvas/editor-tabs";
 import { type ProjectFindHit } from "./project/project-find-dialog";
-import {
-  DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-  type LocalSemanticSearchStatus,
-} from "./project/project-semantic-search";
 import { type ReplacePreviewResult } from "./project/project-replace-dialog";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
@@ -267,7 +261,6 @@ import {
   isProjectSourceFilePath,
   isPaperTabKey,
   isWholeFileEditorPath,
-  markdownFrontmatterEnd,
   paperKey,
   paperTabKey,
   projectItemPath,
@@ -450,7 +443,6 @@ const BibliographyAudit = lazy(() =>
 const CompileDiagnosticsPanel = lazy(() =>
   import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
-const loadDocumentCanvas = () => import("./canvas/document-canvas");
 const DocumentCanvas = lazy(() =>
   loadDocumentCanvas().then((module) => ({ default: module.DocumentCanvas })),
 );
@@ -460,7 +452,6 @@ const OpenSlideTabPool = lazy(() =>
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
-const loadCanvasPrewarm = () => import("./canvas/canvas-prewarm");
 
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
@@ -597,52 +588,39 @@ function App() {
   const browserHosted = isBrowserHosted();
   const bundledChromium = isBundledChromium();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
-  const workspaceIndex = useMemo(
-    () => new MarkdownWorkspaceIndex((path) => invoke<string>("read_project_file", { path })),
-    [],
-  );
-  useEffect(() => {
-    if (!project) return;
-    let cancelled = false;
-    const paths = flattenProjectPaths(project.files);
-    const canvasModule = loadDocumentCanvas();
-
-    // Chunk downloads can overlap the normal project setup without mounting
-    // hidden previews or changing user-visible state. Idle-gated: firing the
-    // burst immediately (visual editor + pdf viewer + worker can total ~4 MB)
-    // competes with the first real editor mount for main-thread time.
-    let moduleWarmIdle: number | null = null;
-    let moduleWarmTimer: ReturnType<typeof setTimeout> | null = null;
-    const warmModules = () => {
-      // The canvas chunk is part of what this warms, so keep waiting on it even
-      // though the prewarm helpers now live in their own module.
-      void Promise.all([canvasModule, loadCanvasPrewarm()]).then(([, warm]) => {
-        if (!cancelled) warm.prewarmProjectPreviewModules(paths);
-      });
-    };
-    if ("requestIdleCallback" in window) {
-      moduleWarmIdle = window.requestIdleCallback(warmModules, { timeout: 3_000 });
-    } else {
-      moduleWarmTimer = globalThis.setTimeout(warmModules, 300);
-    }
-    // Keep the lightweight search index warm, but do not parse every Markdown
-    // file into ProseMirror in the background. A project with many papers can
-    // otherwise spend hundreds of milliseconds in each "idle" callback while
-    // the user is scrolling or trying to open a file.
-    void workspaceIndex.update(project.files);
-    return () => {
-      cancelled = true;
-      if (moduleWarmIdle != null && "cancelIdleCallback" in window) {
-        window.cancelIdleCallback(moduleWarmIdle);
-      }
-      if (moduleWarmTimer != null) globalThis.clearTimeout(moduleWarmTimer);
-    };
-  }, [workspaceIndex, project]);
+  const buffers = useDocumentBuffers();
+  const {
+    activeFile, setActiveFile, activeFileRef,
+    source, setSource, sourceRef, setPrimarySource,
+    savedSource, setSavedSource, savedSourceRef, setPrimarySaved,
+    secondaryFile, secondaryFileRef,
+    secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive,
+    secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved,
+    activeAsset, activeAssetRef, showActiveAsset,
+    secondaryAsset, secondaryAssetRef, showSecondaryAsset,
+    activePaper, setActivePaper, activePaperPath, activePaperDirty,
+    paperMarkdown, setPaperMarkdown, paperMarkdownRef, savedPaperMarkdown, savedPaperMarkdownRef,
+    paperBlog, setPaperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef, markPaperSaved,
+    paperView, setPaperView, paperSide, setPaperSide,
+    commitPrimaryText, commitSecondaryText, commitOpenText, commitCleanOpenText,
+    showPrimaryText, showSecondaryText, clearSecondaryPane,
+    setPaperBuffers, closePaper, paperBuffersDirty, remapOpenPaths,
+  } = buffers;
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const autoTutorialAttemptedRef = useRef(false);
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
   const projectRef = useRef<ProjectSnapshot | null>(project);
+  const {
+    workspaceIndex,
+    cancelPreviewPrewarm,
+    prewarmLikelyProjectFile,
+    prewarmLikelyPaper,
+  } = usePreviewPrewarm(project, projectRef, {
+    activeFile,
+    activePaperId: activePaper?.arxivId,
+    paperView,
+  });
   // Incremented before any command that can replace the backend project root.
   // Long-running work captures this value so results from A cannot update B
   // during the short gap between the backend switch and React committing B.
@@ -702,30 +680,6 @@ function App() {
     generation: number;
     label: string;
   } | null>(null);
-  const previewPrewarmRef = useRef<{
-    generation: number;
-    idle: number | null;
-    timer: ReturnType<typeof setTimeout> | null;
-    target: string | null;
-    warmed: Set<string>;
-    inFlight: Set<string>;
-  }>({
-    generation: 0,
-    idle: null,
-    timer: null,
-    target: null,
-    warmed: new Set(),
-    inFlight: new Set(),
-  });
-  const cancelPreviewPrewarm = useCallback(() => {
-    const state = previewPrewarmRef.current;
-    state.generation += 1;
-    state.target = null;
-    if (state.timer != null) globalThis.clearTimeout(state.timer);
-    state.timer = null;
-    if (state.idle != null && "cancelIdleCallback" in window) window.cancelIdleCallback(state.idle);
-    state.idle = null;
-  }, []);
   useEffect(() => {
     const enableInteractivePreviews = () => {
       setPostStartupInteraction(true);
@@ -768,78 +722,11 @@ function App() {
     projectRef.current = project;
     projectBeforeTransitionRef.current = null;
   }, [project]);
-  const schedulePreviewPrewarm = useCallback((
-    key: string,
-    task: (isCurrent: () => boolean) => Promise<boolean>,
-  ) => {
-    const state = previewPrewarmRef.current;
-    if (state.warmed.has(key) || state.inFlight.has(key) || state.target === key) return;
-    cancelPreviewPrewarm();
-    state.target = key;
-    const generation = state.generation;
-    const isCurrent = () => (
-      previewPrewarmRef.current.generation === generation
-      && previewPrewarmRef.current.target === key
-    );
-    const run = () => {
-      state.idle = null;
-      // Intent can move again while an earlier parse is still running. Keep
-      // speculative work strictly bounded instead of allowing a fast sweep
-      // over the tree to queue a project-sized burst of parses.
-      if (!isCurrent() || state.inFlight.size >= 2) return;
-      state.inFlight.add(key);
-      void task(isCurrent).then((warmed) => {
-        if (warmed && isCurrent()) {
-          state.warmed.add(key);
-          while (state.warmed.size > 4) {
-            const oldest = state.warmed.values().next().value;
-            if (oldest === undefined) break;
-            state.warmed.delete(oldest);
-          }
-        }
-      }).catch(() => undefined).finally(() => {
-        state.inFlight.delete(key);
-      });
-    };
-    state.timer = globalThis.setTimeout(() => {
-      state.timer = null;
-      if (!isCurrent()) return;
-      if ("requestIdleCallback" in window) {
-        state.idle = window.requestIdleCallback(run, { timeout: 800 });
-      } else {
-        state.timer = globalThis.setTimeout(run, 0);
-      }
-    }, 120);
-  }, [cancelPreviewPrewarm]);
-  useEffect(() => {
-    const state = previewPrewarmRef.current;
-    cancelPreviewPrewarm();
-    state.warmed.clear();
-    return cancelPreviewPrewarm;
-  }, [cancelPreviewPrewarm, project?.root]);
   const [projectGitStatus, setProjectGitStatus] = useState<{
     projectRoot: string;
     files: GitFileStatus[];
     remoteUrl: string | null;
   }>({ projectRoot: "", files: [], remoteUrl: null });
-  const buffers = useDocumentBuffers();
-  const {
-    activeFile, setActiveFile, activeFileRef,
-    source, setSource, sourceRef, setPrimarySource,
-    savedSource, setSavedSource, savedSourceRef, setPrimarySaved,
-    secondaryFile, secondaryFileRef,
-    secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive,
-    secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved,
-    activeAsset, activeAssetRef, showActiveAsset,
-    secondaryAsset, secondaryAssetRef, showSecondaryAsset,
-    activePaper, setActivePaper, activePaperPath, activePaperDirty,
-    paperMarkdown, setPaperMarkdown, paperMarkdownRef, savedPaperMarkdown, savedPaperMarkdownRef,
-    paperBlog, setPaperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef, markPaperSaved,
-    paperView, setPaperView, paperSide, setPaperSide,
-    commitPrimaryText, commitSecondaryText, commitOpenText, commitCleanOpenText,
-    showPrimaryText, showSecondaryText, clearSecondaryPane,
-    setPaperBuffers, closePaper, paperBuffersDirty, remapOpenPaths,
-  } = buffers;
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
@@ -1000,121 +887,7 @@ function App() {
   const [projectFindError, setProjectFindError] = useState<string | null>(null);
   const [projectFindHits, setProjectFindHits] = useState<ProjectFindHit[]>([]);
   const projectFindSearchGenerationRef = useRef(0);
-  const [localSemanticSearchEnabled, setLocalSemanticSearchEnabled] = useState(
-    loadLocalSemanticSearchEnabled,
-  );
-  const [localSemanticSearchStatus, setLocalSemanticSearchStatus] = useState(
-    DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-  );
-  const [semanticIndexRevision, setSemanticIndexRevision] = useState(0);
-  const semanticReindexTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    const syncPreference = (event: StorageEvent) => {
-      if (event.key !== LOCAL_SEMANTIC_SEARCH_KEY) return;
-      const enabled = event.newValue === "1";
-      setLocalSemanticSearchEnabled(enabled);
-      const projectRoot = projectRef.current?.root;
-      if (!enabled && projectRoot) {
-        void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
-      }
-    };
-    window.addEventListener("storage", syncPreference);
-    return () => window.removeEventListener("storage", syncPreference);
-  }, []);
-  const requestSemanticReindex = useCallback(() => {
-    if (!localSemanticSearchEnabled) return;
-    if (semanticReindexTimerRef.current !== null) {
-      window.clearTimeout(semanticReindexTimerRef.current);
-    }
-    // Filesystem events are already coalesced, but one save/build can still
-    // produce several bursts. A trailing request avoids repeatedly cancelling
-    // and restarting the background generation while files are settling.
-    semanticReindexTimerRef.current = window.setTimeout(() => {
-      semanticReindexTimerRef.current = null;
-      setSemanticIndexRevision((revision) => revision + 1);
-    }, 750);
-  }, [localSemanticSearchEnabled]);
-  useEffect(() => () => {
-    if (semanticReindexTimerRef.current !== null) {
-      window.clearTimeout(semanticReindexTimerRef.current);
-      semanticReindexTimerRef.current = null;
-    }
-  }, [localSemanticSearchEnabled, project?.root]);
-  useEffect(() => {
-    const projectRoot = project?.root;
-    if (!localSemanticSearchEnabled || !projectRoot) return;
-    let stopped = false;
-    let unlisten: (() => void) | null = null;
-    // Semantic freshness must not depend on whether the Project sidebar is
-    // visible. Reuse the existing root watcher, but keep this listener separate
-    // from tree refreshes so ordinary source edits only schedule background work.
-    void invoke("watch_project").catch(() => undefined);
-    void listen<{ root: string }>("project-fs-changed", (event) => {
-      if (!stopped && event.payload.root === projectRoot) requestSemanticReindex();
-    }).then((dispose) => {
-      if (stopped) dispose();
-      else unlisten = dispose;
-    });
-    return () => {
-      stopped = true;
-      unlisten?.();
-    };
-  }, [localSemanticSearchEnabled, project?.root, requestSemanticReindex]);
-  const semanticIndexEffectGenerationRef = useRef(0);
-  useEffect(() => {
-    const effectGeneration = ++semanticIndexEffectGenerationRef.current;
-    const projectRoot = project?.root;
-    let stopped = false;
-    let pollTimer: number | null = null;
-    const isCurrent = () => (
-      !stopped && effectGeneration === semanticIndexEffectGenerationRef.current
-    );
-    const acceptStatus = (status: LocalSemanticSearchStatus | null | undefined) => {
-      if (!isCurrent() || !status || typeof status.state !== "string") return;
-      setLocalSemanticSearchStatus(status);
-      if (status.state === "indexing") {
-        pollTimer = window.setTimeout(() => {
-          void invoke<LocalSemanticSearchStatus>("semantic_search_status", { projectRoot })
-            .then(acceptStatus)
-            .catch(() => {
-              if (!isCurrent()) return;
-              setLocalSemanticSearchStatus((current) => ({
-                ...current,
-                state: "error",
-                detail: "The local semantic index could not be checked",
-              }));
-            });
-        }, 500);
-      }
-    };
-
-    if (!projectRoot) {
-      setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
-    } else if (!localSemanticSearchEnabled) {
-      setLocalSemanticSearchStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
-    } else {
-      setLocalSemanticSearchStatus((current) => ({
-        ...current,
-        state: "indexing",
-        detail: "Building an on-device index in the background",
-      }));
-      void invoke<LocalSemanticSearchStatus>("semantic_search_start_index", { projectRoot })
-        .then(acceptStatus)
-        .catch((reason) => {
-          if (!isCurrent()) return;
-          setLocalSemanticSearchStatus({
-            ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-            state: "error",
-            detail: toMessage(reason),
-          });
-        });
-    }
-
-    return () => {
-      stopped = true;
-      if (pollTimer !== null) window.clearTimeout(pollTimer);
-    };
-  }, [localSemanticSearchEnabled, project?.root, semanticIndexRevision]);
+  const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [gotoLineOpen, setGotoLineOpen] = useState(false);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
@@ -1128,50 +901,6 @@ function App() {
   const activePaperPreviewSource = paperView === "blog"
     ? paperBlog ?? ""
     : stripFrontmatter(paperMarkdown);
-  const prewarmMarkdownSource = useCallback(async (
-    path: string,
-    source: string,
-    isCurrent: () => boolean,
-  ) => {
-    if (!isCurrent()) return false;
-    const startedAt = performance.now();
-    const [, warm] = await Promise.all([loadDocumentCanvas(), loadCanvasPrewarm()]);
-    if (!isCurrent()) return false;
-    await warm.prewarmMarkdownPreviewDocument(path, source);
-    const endedAt = performance.now();
-    try {
-      performance.measure("lattice:markdown-prewarm", {
-        start: startedAt,
-        end: endedAt,
-        detail: { path },
-      });
-    } catch {
-      // Older WebKit builds do not support PerformanceMeasureOptions.detail.
-    }
-    return isCurrent();
-  }, []);
-  const prewarmLikelyProjectFile = useCallback((path: string) => {
-    if (!/\.mdx?$/i.test(path) || path === activeFile) return;
-    const root = projectRef.current?.root;
-    if (!root) return;
-    schedulePreviewPrewarm(`file:${root}:${path}`, async (isCurrent) => {
-      const source = await invoke<string>("read_project_file", { path, projectRoot: root });
-      if (!isCurrent() || projectRef.current?.root !== root) return false;
-      return prewarmMarkdownSource(path, source.slice(markdownFrontmatterEnd(source)), isCurrent);
-    });
-  }, [activeFile, prewarmMarkdownSource, schedulePreviewPrewarm]);
-  const prewarmLikelyPaper = useCallback((paper: PaperSummary) => {
-    if (!paper.arxivId || activePaper?.arxivId === paper.arxivId) return;
-    const root = projectRef.current?.root;
-    if (!root) return;
-    const useBlog = Boolean(paper.hasBlog && (paperView === "blog" || !paper.hasFullText));
-    const path = `.research/papers/${paper.arxivId}/${useBlog ? "blog.md" : "paper.md"}`;
-    schedulePreviewPrewarm(`paper:${root}:${path}`, async (isCurrent) => {
-      const source = await invoke<string>("read_project_file", { path, projectRoot: root });
-      if (!source || !isCurrent() || projectRef.current?.root !== root) return false;
-      return prewarmMarkdownSource(path, useBlog ? source : stripFrontmatter(source), isCurrent);
-    });
-  }, [activePaper?.arxivId, paperView, prewarmMarkdownSource, schedulePreviewPrewarm]);
   const setActivePaperSource = useCallback((value: string) => {
     if (paperView === "blog") {
       paperBlogRef.current = value;
@@ -1208,6 +937,9 @@ function App() {
   );
   const markdownModeViewportCaptureRef = useRef<(() => void) | null>(null);
   const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
+  const requestEditorLine = useCallback((path: string, line: number) => {
+    setEditorNavigation({ path, line, id: crypto.randomUUID() });
+  }, []);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
@@ -2671,7 +2403,7 @@ function App() {
         return mode;
       });
       if (options?.navigateToLine !== undefined) {
-        setEditorNavigation({ path, line: options.navigateToLine, id: crypto.randomUUID() });
+        requestEditorLine(path, options.navigateToLine);
       }
     };
     try {
@@ -3104,7 +2836,7 @@ function App() {
         writtenPaths.some((path) => path.endsWith(".tex")),
         writtenPaths.some((path) => /\.bib$/i.test(path)),
       );
-      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) requestSemanticReindex();
+      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) semanticSearch.requestReindex();
       return true;
     } catch (reason) {
       // Autosave runs constantly, so this path gets a plain notification rather
@@ -3128,7 +2860,7 @@ function App() {
     publishTextToCollabV2,
     recordSavedPaths,
     refreshAfterSave,
-    requestSemanticReindex,
+    semanticSearch.requestReindex,
     setPrimarySaved,
     setPrimarySource,
     setSecondarySaved,
@@ -3337,45 +3069,16 @@ function App() {
         && projectOperationGenerationRef.current === projectGeneration
         && projectRef.current?.root === projectRoot
       );
-      if (activeCollabVersion === 2) {
-        try {
-          if (secondaryFile && secondarySource !== secondarySavedSource && !(await save())) return;
-          if (!isLatestSecondaryLoad()) return;
-          const controller = collabV2ControllerRef.current;
-          if (!controller?.hasTextPath(path)) throw new Error(`${path} is not a v2 text file`);
-          // sideload: the yCollab binding belongs to the primary pane. Letting
-          // this open activate would repoint activePath at the secondary file,
-          // unbind the primary editor, and silently stop syncing its keystrokes
-          // (the debounced publishTextToCollabV2 pass covers this pane instead).
-          const ytext = await controller.openPath(path, "secondary", { sideload: true });
-          if (!isLatestSecondaryLoad()) return;
-          const content = ytext.toString();
-          showSecondaryText(path, content);
-          addOpenTab(path);
-          setFocusedPane("secondary");
-          setError(null);
-          // Same commit as the content, like the plain read below: a jump asked
-          // for afterwards paints the file at its top for a frame first.
-          if (line) {
-            setEditorNavigation({ path, line, id: crypto.randomUUID() });
-            pushNavigation(path, line);
-          } else {
-            pushNavigation(path, 1);
-          }
-        } catch (reason) {
-          if (isLatestSecondaryLoad()) setError(toMessage(reason));
-        }
-        return;
-      }
-      if (path === secondaryFile) {
+      const collab = activeCollabVersion === 2;
+      if (!collab && path === secondaryFile) {
         setFocusedPane("secondary");
         if (line) {
-          setEditorNavigation({ path, line, id: crypto.randomUUID() });
+          requestEditorLine(path, line);
           pushNavigation(path, line);
         }
         return;
       }
-      if (secondaryFile && secondarySource !== secondarySavedSource) {
+      if (!collab && secondaryFile && secondarySource !== secondarySavedSource) {
         try {
           const published = await publishTextToCollabV2(secondaryFile, secondarySource);
           if (!published) {
@@ -3392,18 +3095,29 @@ function App() {
         }
       }
       try {
-        const content = await invoke<string>("read_project_file", { path, projectRoot });
+        let content: string;
+        if (collab) {
+          if (secondaryFile && secondarySource !== secondarySavedSource && !(await save())) return;
+          if (!isLatestSecondaryLoad()) return;
+          const controller = collabV2ControllerRef.current;
+          if (!controller?.hasTextPath(path)) throw new Error(`${path} is not a v2 text file`);
+          // sideload: the yCollab binding belongs to the primary pane. Letting
+          // this open activate would repoint activePath at the secondary file,
+          // unbind the primary editor, and silently stop syncing its keystrokes
+          // (the debounced publishTextToCollabV2 pass covers this pane instead).
+          content = (await controller.openPath(path, "secondary", { sideload: true })).toString();
+        } else {
+          content = await invoke<string>("read_project_file", { path, projectRoot });
+        }
         if (!isLatestSecondaryLoad()) return;
         showSecondaryText(path, content);
         addOpenTab(path);
         setFocusedPane("secondary");
         setError(null);
-        if (line) {
-          setEditorNavigation({ path, line, id: crypto.randomUUID() });
-          pushNavigation(path, line);
-        } else {
-          pushNavigation(path, 1);
-        }
+        // Same commit as the content: a jump asked for afterwards paints the
+        // file at its top for a frame first.
+        if (line) requestEditorLine(path, line);
+        pushNavigation(path, line || 1);
       } catch (reason) {
         if (isLatestSecondaryLoad()) setError(toMessage(reason));
       }
@@ -3423,7 +3137,7 @@ function App() {
       setFocusedPane("primary");
       restoreSplitLayout();
       if (line) {
-        setEditorNavigation({ path: navigationPath, line, id: crypto.randomUUID() });
+        requestEditorLine(navigationPath, line);
         setCanvasMode(keepDocumentMode);
         pushNavigation(navigationPath, line);
       }
@@ -3544,7 +3258,7 @@ function App() {
     setFocusedPane("primary");
     restoreSplitLayout();
     if (line) {
-      if (restoreSecondary) setEditorNavigation({ path: navigationPath, line, id: crypto.randomUUID() });
+      if (restoreSecondary) requestEditorLine(navigationPath, line);
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
       setCanvasMode(keepDocumentMode);
@@ -3604,7 +3318,7 @@ function App() {
     }
     try {
       if (location) {
-        setEditorNavigation({ path, line: location.line, id: crypto.randomUUID() });
+        requestEditorLine(path, location.line);
         pushNavigation(path, location.line);
         return;
       }
@@ -3615,7 +3329,7 @@ function App() {
       if (collabV2ControllerRef.current !== v2 || v2?.activePath !== path || !peer.instanceId) return;
       const openedLocation = await waitForPeerCursorLocationV2(v2, peer.instanceId);
       if (!openedLocation || collabV2ControllerRef.current !== v2) return;
-      setEditorNavigation({ path, line: openedLocation.line, id: crypto.randomUUID() });
+      requestEditorLine(path, openedLocation.line);
       pushNavigation(path, openedLocation.line);
     } catch {
       setNotice(`Could not open ${path}`);
@@ -8927,19 +8641,9 @@ function App() {
         }}
         appearance={appearance}
         setAppearance={setAppearance}
-        localSemanticSearchEnabled={localSemanticSearchEnabled}
-        localSemanticSearchStatus={localSemanticSearchStatus}
-        onLocalSemanticSearchEnabledChange={(enabled) => {
-          setLocalSemanticSearchEnabled(enabled);
-          persistLocalSemanticSearchEnabled(enabled);
-          const projectRoot = projectRef.current?.root;
-          if (!enabled && projectRoot) {
-            // The preference is app-global. Other windows mirror this choice
-            // through the storage event and clear indexes for their own open
-            // projects; this window clears the project where the choice began.
-            void invoke("semantic_search_cancel", { projectRoot }).catch(() => undefined);
-          }
-        }}
+        localSemanticSearchEnabled={semanticSearch.enabled}
+        localSemanticSearchStatus={semanticSearch.status}
+        onLocalSemanticSearchEnabledChange={semanticSearch.changeEnabled}
         theme={theme}
         themePreference={themePreference}
         setThemePreference={setThemePreference}
@@ -10385,8 +10089,8 @@ function App() {
       <AppProjectSearchDialogs
         activeFile={activeFile}
         loadFile={loadFile}
-        localSemanticSearchEnabled={localSemanticSearchEnabled}
-        localSemanticSearchStatus={localSemanticSearchStatus}
+        localSemanticSearchEnabled={semanticSearch.enabled}
+        localSemanticSearchStatus={semanticSearch.status}
         openMarkdownProjectPath={openMarkdownProjectPath}
         openProjectFile={openProjectFile}
         projectFindBusy={projectFindBusy}
@@ -10404,7 +10108,7 @@ function App() {
         refreshProject={refreshProject}
         save={save}
         savedSource={savedSource}
-        setLocalSemanticSearchStatus={setLocalSemanticSearchStatus}
+        setLocalSemanticSearchStatus={semanticSearch.setStatus}
         setProjectFindBusy={setProjectFindBusy}
         setProjectFindError={setProjectFindError}
         setProjectFindHits={setProjectFindHits}
