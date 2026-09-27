@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -28,16 +28,6 @@ import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl, isTitleQuery } from "./papers/paper-source";
 import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
 import {
-  TexDependencyInstaller,
-  type TexDependencyInstallStatus,
-} from "./build/tex-dependency-installer";
-import { TexSetupWizard } from "./build/tex-setup-wizard";
-import {
-  isMissingTexBuildError,
-  isRequiredSetupMissing,
-  type TexDependencyInstallProgress,
-} from "./build/tex-setup";
-import {
   assertCollabWorkspaceLease,
   CollabDiskWriteQueue,
   type CollabWorkspaceLease,
@@ -52,6 +42,9 @@ import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
+import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
+import { useBuildPipeline } from "./app/use-build-pipeline";
+import { useTexSetup } from "./app/use-tex-setup";
 import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
 import { useLocalSemanticSearch } from "./app/use-local-semantic-search";
 import { useSynaraHost, useSynaraSnapshots } from "./app/use-synara-host";
@@ -85,7 +78,7 @@ import { AppCollabDialog, AppOverleafCollabDrawer, CollabDialog } from "./app/ap
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppOnboardingTour } from "./app/app-onboarding-tour";
-import { AppProjectDialogs } from "./app/app-project-dialogs";
+import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { AppWorkspaceSidebar } from "./app/app-workspace-sidebar";
@@ -136,7 +129,6 @@ import {
   clearPreCollabProjectRoot,
   rememberPreCollabProjectRoot,
 } from "./collab/collab-return";
-import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf/pdf-bytes";
 import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion";
 import {
   mergeTextIntoYText,
@@ -166,10 +158,8 @@ import {
   type CollabProjectRecordV2,
 } from "./collab/collab-rooms";
 import {
-  diagnosticsFingerprint,
   EMPTY_DIAGNOSTICS,
   flattenProjectPaths,
-  missingTexDependencyFile,
   resolveDiagnosticPath,
   type CompileDiagnostic,
 } from "./build/compile-diagnostics";
@@ -183,7 +173,6 @@ import {
   includedPathsIn,
   parseProjectOutline,
 } from "./editor/latex/latex-outline";
-import { type HistoryItem } from "./history/history-drawer";
 import { katexMacrosFromSources } from "./editor/latex/katex-macros";
 import {
   editorDropPreviewAt,
@@ -212,7 +201,6 @@ import type {
   EditorNavigation,
   EditorPosition,
   PdfSyncResponse,
-  BuildResult,
   PaperSummary,
   RenameTarget,
   RenameSymbolResult,
@@ -221,7 +209,6 @@ import type {
   DocumentViewMode,
   SettingsTab,
   InsertSymbolCommand,
-  DoctorReport,
   OverleafSyncResult,
 } from "./app-types";
 import {
@@ -253,13 +240,7 @@ import {
   type ProjectPathChange,
 } from "./app-utils";
 import {
-  LATTICE_AGENT_COMPILE_RESULT,
-  parseAgentCompileResultMessage,
-  synaraProjectRelativeFilePath,
   type AgentGitWorkspaceView,
-  type AgentProjectHistorySnapshot,
-  type AgentCheckpointHistoryEntry,
-  type AgentCompileResultMessage,
 } from "./agent/synara-runtime";
 import {
   buildAgentHostContext,
@@ -274,7 +255,6 @@ import {
   type AgentComposerFilePayload,
 } from "./agent/agent-composer-files";
 import { logAction, notifyError } from "./telemetry/app-notify";
-import { diagnosticInvoke } from "./telemetry/diagnostic-request";
 // setError / setWarning / setNotice are the ~170-call-site toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
 import { setError, setNotice, setWarning } from "./app/notify";
@@ -504,38 +484,6 @@ function App() {
   const paperLoadGenerationRef = useRef<number | null>(null);
   const secondaryFileLoadGenerationRef = useRef(0);
   const documentViewGenerationRef = useRef(0);
-  /**
-   * Previous checkpoints from agent history snapshots. Snapshots
-   * re-arrive on every thread update (and stream while a turn is still
-   * editing), so a rebuild must only follow entries whose files actually
-   * changed — and never the first snapshot of a thread, which replays history.
-   */
-  const agentCheckpointEntriesRef = useRef(new Map<string, AgentCheckpointHistoryEntry>());
-  const agentHistoryPrimedThreadsRef = useRef(new Set<string>());
-  const agentEditsBuildTimerRef = useRef<number | null>(null);
-  const queuedAgentCompileBuildRef = useRef(false);
-  const pendingAgentCompileResultsRef = useRef(new Map<string, {
-    threadId: string; turnId: string; checkpointRef: string;
-  }>());
-  // null means no queued build; false/true retain the strongest pending intent.
-  const queuedBuildForceRef = useRef<boolean | null>(null);
-  // A manual request made during an automatic build still deserves one outcome
-  // cue after the queued pass; automatic builds by themselves remain silent.
-  const queuedBuildSoundRef = useRef(false);
-  const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
-    agentCheckpointEntriesRef.current.clear();
-    agentHistoryPrimedThreadsRef.current.clear();
-    queuedAgentCompileBuildRef.current = false;
-    pendingAgentCompileResultsRef.current.clear();
-    if (cancelQueuedBuild) {
-      queuedBuildForceRef.current = null;
-      queuedBuildSoundRef.current = false;
-    }
-    if (agentEditsBuildTimerRef.current !== null) {
-      window.clearTimeout(agentEditsBuildTimerRef.current);
-      agentEditsBuildTimerRef.current = null;
-    }
-  }, []);
   const overleafSyncingRef = useRef(false);
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
@@ -562,19 +510,6 @@ function App() {
       window.removeEventListener("keydown", enableInteractivePreviews, true);
     };
   }, []);
-  const beginProjectTransition = useCallback((force = false) => {
-    // Let sync finish its disk refresh before attempting a switch. Cancelling
-    // only its UI phase after a failed switch could leave newly pulled bytes
-    // hidden behind an old editor buffer that later overwrites them.
-    if (overleafSyncingRef.current && !force) return false;
-    projectState.beginTransition();
-    fileLoadGenerationRef.current += 1;
-    secondaryFileLoadGenerationRef.current += 1;
-    resetAgentCompileTracking(true);
-    cancelPreviewPrewarm();
-    setPrimaryOpening(null);
-    return true;
-  }, [cancelPreviewPrewarm, projectState, resetAgentCompileTracking]);
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
@@ -600,14 +535,6 @@ function App() {
     primaryPath: string | null;
     secondaryPath: string | null;
   } | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const pdfFingerprintRef = useRef<string | null>(null);
-  const displayedPdfBytesRef = useRef<ArrayBuffer | null>(null);
-  const pdfPreviewTimerRef = useRef<number | null>(null);
-  /** Stable preview payload — debounced so automatic rebuilds do not thrash pdf.js. */
-  const pendingPreviewPdfRef = useRef<ArrayBuffer | null>(null);
-  /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
-  const previewGenerationRef = useRef(0);
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
   // Read by the presence hook, which must not re-subscribe on every keystroke.
   const editorPositionRef = useRef<EditorPosition | null>(null);
@@ -616,15 +543,6 @@ function App() {
   const outlineSyncGenerationRef = useRef(0);
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
-  const [build, setBuild] = useState<BuildResult | null>(null);
-  const [diagnosticBuildSource, setDiagnosticBuildSource] = useState("");
-  const [diagnosticBuildSecondarySource, setDiagnosticBuildSecondarySource] = useState("");
-  const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
-  const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
-  /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
-   *  set stays dismissed through the recompiles that autosave keeps firing. */
-  const dismissedDiagnosticsRef = useRef<string | null>(null);
-  const [building, setBuilding] = useState(false);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const openTabsRef = useRef<string[]>([]);
   useLayoutEffect(() => { openTabsRef.current = openTabs; }, [openTabs]);
@@ -734,7 +652,6 @@ function App() {
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [gotoLineOpen, setGotoLineOpen] = useState(false);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
-  const [cleaning, setCleaning] = useState(false);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const referencePreviewCache = useRef(new Map<string, ReferencePreviewCacheEntry>());
   const referencePreviewPaths = useRef({ root: "", paths: new Set<string>() });
@@ -814,15 +731,6 @@ function App() {
   const paperFetchTimers = useRef<Record<string, number>>({});
   const [assetImporting, setAssetImporting] = useState(false);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
-  const [agentHistoryByThread, setAgentHistoryByThread] = useState<
-    Record<string, AgentCheckpointHistoryEntry[]>
-  >({});
-  const [activeAgentHistoryThreadId, setActiveAgentHistoryThreadId] = useState<string | null>(null);
-  useEffect(() => {
-    resetAgentCompileTracking();
-    return () => resetAgentCompileTracking();
-  }, [project?.root, resetAgentCompileTracking]);
-  useEffect(() => () => resetAgentCompileTracking(true), [resetAgentCompileTracking]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
@@ -878,29 +786,6 @@ function App() {
       : dualPreviewPanes.secondary
         ? !activeAsset
         : true;
-  const forwardSyncPosition = (() => {
-    if (!editorPosition || !pdfUrl || !editorPosition.path.toLocaleLowerCase().endsWith(".tex")) {
-      return null;
-    }
-    if (canvasMode === "dual" || canvasMode === "columns") {
-      if (
-        editorPosition.path === activeFile
-        && !activeAsset
-        && !dualPreviewPanes.primary
-      ) return editorPosition;
-      if (
-        editorPosition.path === secondaryFile
-        && !secondaryAsset
-        && !dualPreviewPanes.secondary
-      ) return editorPosition;
-      return null;
-    }
-    return (canvasMode === "split" || canvasMode === "pdf")
-      && !activeAsset
-      && editorPosition.path === activeFile
-      ? editorPosition
-      : null;
-  })();
   const focusedAsset = (canvasMode === "dual" || canvasMode === "columns")
     && focusedPane === "secondary"
     ? secondaryAsset
@@ -1067,16 +952,6 @@ function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
   const [refCitePicker, setRefCitePicker] = useState<"cite" | "ref" | null>(null);
-  const diagnosticCursor = useRef(0);
-  const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
-  const [doctorBusy, setDoctorBusy] = useState(false);
-  const [doctorNotice, setDoctorNotice] = useState("");
-  const doctorGenerationRef = useRef(0);
-  const [texSetupOpen, setTexSetupOpen] = useState(false);
-  const [texDependencyInstall, setTexDependencyInstall] =
-    useState<TexDependencyInstallStatus | null>(null);
-  const texDependencyInstallRef = useRef<TexDependencyInstallStatus | null>(null);
-  const texDependencyInstallAttemptRef = useRef(0);
   const closedTabsRef = useRef<string[]>([]);
   const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
   const [referenceHits, setReferenceHits] = useState<{
@@ -1129,14 +1004,85 @@ function App() {
       },
       agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
-      onHistorySnapshot: (snapshot) => handleAgentHistorySnapshot(snapshot),
+      onHistorySnapshot: (snapshot) => agentCheckpoints.handleSnapshot(snapshot),
       onMinimumSidebarWidth: sidebar.setMinimumSidebarWidth,
     },
   });
+  const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
+  const autoBuildModeRef = useRef(buildPreferences.autoBuildMode);
   useEffect(() => {
-    setAgentHistoryByThread({});
-    setActiveAgentHistoryThreadId(null);
-  }, [project?.root]);
+    autoBuildModeRef.current = buildPreferences.autoBuildMode;
+  }, [buildPreferences.autoBuildMode]);
+  const agentCheckpoints = useAgentCheckpoints({
+    project,
+    projectRef,
+    autoBuildModeRef,
+    compileRef,
+    onExternalEdits: externalOverleafEditsRef,
+    postMessage: synara.postMessage,
+  });
+  const texSetup = useTexSetup(() => void compileRef.current(true, true));
+  const buildPipeline = useBuildPipeline({
+    project,
+    projectRef,
+    setProject,
+    projectGenerationRef: projectOperationGenerationRef,
+    activeFileRef,
+    sourceRef,
+    savedSourceRef,
+    secondarySourceRef,
+    agent: agentCheckpoints,
+    openDiagnosticRef: openCompileDiagnosticRef,
+    onMissingTex: texSetup.openForMissingTex,
+  });
+  const { build, setBuild, building, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
+  const { reset: resetAgentCheckpoints } = agentCheckpoints;
+  const { resetQueue: resetBuildQueue } = buildPipeline;
+  const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
+    resetAgentCheckpoints();
+    resetBuildQueue(cancelQueuedBuild);
+  }, [resetAgentCheckpoints, resetBuildQueue]);
+  useEffect(() => {
+    resetAgentCompileTracking();
+    return () => resetAgentCompileTracking();
+  }, [project?.root, resetAgentCompileTracking]);
+  useEffect(() => () => resetAgentCompileTracking(true), [resetAgentCompileTracking]);
+  const beginProjectTransition = useCallback((force = false) => {
+    // Let sync finish its disk refresh before attempting a switch. Cancelling
+    // only its UI phase after a failed switch could leave newly pulled bytes
+    // hidden behind an old editor buffer that later overwrites them.
+    if (overleafSyncingRef.current && !force) return false;
+    projectState.beginTransition();
+    fileLoadGenerationRef.current += 1;
+    secondaryFileLoadGenerationRef.current += 1;
+    resetAgentCompileTracking(true);
+    cancelPreviewPrewarm();
+    setPrimaryOpening(null);
+    return true;
+  }, [cancelPreviewPrewarm, projectState, resetAgentCompileTracking]);
+  const forwardSyncPosition = (() => {
+    if (!editorPosition || !pdfUrl || !editorPosition.path.toLocaleLowerCase().endsWith(".tex")) {
+      return null;
+    }
+    if (canvasMode === "dual" || canvasMode === "columns") {
+      if (
+        editorPosition.path === activeFile
+        && !activeAsset
+        && !dualPreviewPanes.primary
+      ) return editorPosition;
+      if (
+        editorPosition.path === secondaryFile
+        && !secondaryAsset
+        && !dualPreviewPanes.secondary
+      ) return editorPosition;
+      return null;
+    }
+    return (canvasMode === "split" || canvasMode === "pdf")
+      && !activeAsset
+      && editorPosition.path === activeFile
+      ? editorPosition
+      : null;
+  })();
   useEffect(() => {
     setAgentActiveSurface((current) => {
       if (activePaper) return "paper";
@@ -1342,73 +1288,6 @@ function App() {
   };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  /**
-   * Agent edits land on disk without passing through the editor, so the
-   * dirty-buffer autosave path never rebuilds the PDF for them. Detect fresh
-   * checkpoint work in each history snapshot and rebuild once the snapshots go
-   * quiet (they stream while a turn is still editing).
-   */
-  const handleAgentHistorySnapshot = useCallback((historySnapshot: AgentProjectHistorySnapshot) => {
-    const projectRoot = projectRef.current?.root;
-    if (projectRoot) persistSynaraThread(projectRoot, historySnapshot.activeThreadId);
-    setAgentHistoryByThread((current) => ({
-      ...current,
-      [historySnapshot.activeThreadId]: historySnapshot.entries,
-    }));
-    setActiveAgentHistoryThreadId(historySnapshot.activeThreadId);
-    const previousEntries = agentCheckpointEntriesRef.current;
-    const incomingKeys = new Set(historySnapshot.entries.map((entry) => `${entry.threadId}\u0000${entry.id}`));
-    const removedEntries: AgentCheckpointHistoryEntry[] = [];
-    for (const [key, entry] of previousEntries) {
-      if (entry.threadId !== historySnapshot.activeThreadId || incomingKeys.has(key)) continue;
-      previousEntries.delete(key);
-      pendingAgentCompileResultsRef.current.delete(key);
-      removedEntries.push(entry);
-    }
-    const changedEntries: AgentCheckpointHistoryEntry[] = [];
-    for (const entry of historySnapshot.entries) {
-      const entryKey = `${entry.threadId}\u0000${entry.id}`;
-      const previous = previousEntries.get(entryKey);
-      previousEntries.set(entryKey, entry);
-      // Equal line counts do not imply equal content. The completion
-      // timestamp/ref also move when a checkpoint is regenerated.
-      if (previous?.timestamp === entry.timestamp
-        && previous.checkpointRef === entry.checkpointRef
-        && JSON.stringify(previous.files) === JSON.stringify(entry.files)) continue;
-      changedEntries.push(entry);
-    }
-    const primedThreads = agentHistoryPrimedThreadsRef.current;
-    if (!primedThreads.has(historySnapshot.activeThreadId)) {
-      primedThreads.add(historySnapshot.activeThreadId);
-      return;
-    }
-    const buildRelevant = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) =>
-      !file.path.startsWith(".research/") && !file.path.startsWith(".git/"));
-    const buildRelevantEntries = changedEntries.filter(buildRelevant);
-    // Undo clears a turn's diff, so Synara omits it from the next history
-    // snapshot. It is disk work too, even when no new entry arrives.
-    const restored = removedEntries.some(buildRelevant);
-    externalOverleafEditsRef.current([...new Set(
-      [...buildRelevantEntries, ...removedEntries.filter(buildRelevant)]
-        .flatMap((entry) => entry.files.map((file) => file.path))
-        .filter((path) => !path.startsWith(".research/") && !path.startsWith(".git/")),
-    )]);
-    if (!restored && (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic")) return;
-    for (const entry of buildRelevantEntries) {
-      pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
-        threadId: entry.threadId,
-        turnId: entry.turnId,
-        checkpointRef: entry.checkpointRef,
-      });
-    }
-    if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
-    const scheduledProjectRoot = projectRef.current?.root;
-    agentEditsBuildTimerRef.current = window.setTimeout(() => {
-      agentEditsBuildTimerRef.current = null;
-      if (projectRef.current?.root !== scheduledProjectRoot) return;
-      void compileRef.current(false, false, { consumeAgentAssociations: true });
-    }, restored ? 0 : 1_500);
-  }, [projectRef]);
   useEffect(() => {
     if (!synara.origin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -1497,17 +1376,10 @@ function App() {
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
-  /** Read inside the Synara message handler, which outlives any single render. */
-  const autoBuildModeRef = useRef(buildPreferences.autoBuildMode);
-  useEffect(() => {
-    autoBuildModeRef.current = buildPreferences.autoBuildMode;
-  }, [buildPreferences.autoBuildMode]);
   const isFullscreen = useFullscreen();
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const automaticBuildQueued = useRef(false);
-  const buildingRef = useRef(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
@@ -1517,32 +1389,9 @@ function App() {
     }));
   }, []);
 
-  const projectHistory = useMemo<HistoryItem[]>(() => {
-    const agentItems = Object.values(agentHistoryByThread).flatMap((entries) =>
-      entries.map((entry) => ({
-        id: entry.id,
-        label: entry.label,
-        timestamp: entry.timestamp,
-        files: entry.files.map((file) => file.path),
-        actor: "agent",
-        kind: "agent-checkpoint",
-        source: "agent-checkpoint",
-        threadId: entry.threadId,
-        threadTitle: entry.threadTitle,
-        checkpointRef: entry.checkpointRef,
-        turnCount: entry.turnCount,
-        fileSummaries: entry.files,
-        restoreAvailable: entry.threadId === activeAgentHistoryThreadId,
-        restoreUnavailableReason:
-          entry.threadId === activeAgentHistoryThreadId
-            ? null
-            : "Open this Agent task before restoring its files",
-      })),
-    );
-    return [...history, ...agentItems].sort((left, right) =>
-      right.timestamp.localeCompare(left.timestamp),
-    );
-  }, [activeAgentHistoryThreadId, agentHistoryByThread, history]);
+  const projectHistory = useMemo(() => [...history, ...agentCheckpoints.historyItems].sort((left, right) => (
+    right.timestamp.localeCompare(left.timestamp)
+  )), [agentCheckpoints.historyItems, history]);
 
   const diskMtimeRef = useRef<number | null>(null);
   const secondaryMtimeRef = useRef<number | null>(null);
@@ -2592,365 +2441,6 @@ function App() {
     secondaryFile,
   ]);
 
-  const installTexDependency = useCallback((missingFile: string) => {
-    if (texDependencyInstallRef.current?.installing) return;
-    const attempt = texDependencyInstallAttemptRef.current + 1;
-    texDependencyInstallAttemptRef.current = attempt;
-    const initial: TexDependencyInstallStatus = {
-      missingFile,
-      progress: { stage: "searching-packages", progress: 0 },
-      installing: true,
-      error: null,
-    };
-    texDependencyInstallRef.current = initial;
-    setTexDependencyInstall(initial);
-    const trace = logAction(t`LaTeX setup`, t`Install missing package`, missingFile);
-    const updateStatus = (
-      update: (current: TexDependencyInstallStatus) => TexDependencyInstallStatus,
-    ) => {
-      const current = texDependencyInstallRef.current;
-      if (!current || texDependencyInstallAttemptRef.current !== attempt) return;
-      const next = update(current);
-      texDependencyInstallRef.current = next;
-      setTexDependencyInstall(next);
-    };
-    const onProgress = new Channel<TexDependencyInstallProgress>();
-    onProgress.onmessage = (progress) => {
-      updateStatus((current) => ({ ...current, progress }));
-    };
-    void invoke("start_tex_dependency_install", { missingFile, onProgress })
-      .then(() => {
-        if (texDependencyInstallAttemptRef.current !== attempt) return;
-        texDependencyInstallAttemptRef.current += 1;
-        texDependencyInstallRef.current = null;
-        setTexDependencyInstall(null);
-        trace.ok(t`LaTeX package installed`, { detail: missingFile });
-        void compileRef.current(true, true);
-      })
-      .catch((reason) => {
-        updateStatus((current) => ({
-          ...current,
-          installing: false,
-          error: toMessage(reason),
-        }));
-        trace.fail(reason);
-      });
-  }, [t]);
-
-  const closeTexDependencyInstall = useCallback(() => {
-    if (texDependencyInstallRef.current?.installing) return;
-    texDependencyInstallAttemptRef.current += 1;
-    texDependencyInstallRef.current = null;
-    setTexDependencyInstall(null);
-  }, []);
-
-  const relayAgentCompileResults = useCallback((
-    associations: Array<{ threadId: string; turnId: string; checkpointRef: string }>,
-    result: BuildResult | null,
-  ) => {
-    const diagnostics = result?.diagnostics ?? [];
-    for (const association of associations) {
-      const rootDocument = result?.rootDocument
-        ? synaraProjectRelativeFilePath(result.rootDocument, projectRef.current?.root)
-        : null;
-      const message = parseAgentCompileResultMessage({
-        type: LATTICE_AGENT_COMPILE_RESULT,
-        version: 1,
-        ...association,
-        compiledAt: new Date().toISOString(),
-        success: result?.success ?? false,
-        durationMs: result?.durationMs ?? null,
-        rootDocument,
-        diagnostics: {
-          errors: diagnostics.filter((item) => item.level === "error").length,
-          warnings: diagnostics.filter((item) => item.level === "warning").length,
-        },
-      } satisfies AgentCompileResultMessage);
-      if (message) synara.postMessage(message);
-    }
-  }, [synara.postMessage]);
-
-  const runBuild = useCallback(async function runBuild(
-    force = false,
-    options?: {
-      immediatePreview?: boolean;
-      requested?: boolean;
-      sound?: boolean;
-      consumeAgentAssociations?: boolean;
-    },
-  ) {
-    // A project with no LaTeX document has nothing to compile. Autosave, a
-    // synctex jump and opening the project all reach here, and each of them
-    // turned a folder of Markdown notes into a red "Build failed" the reader
-    // never asked for. Someone pressing Build still gets told what to add.
-    // A compilable .tex open in the editor overrides the empty manifest: the
-    // backend adopts it as the root document (Overleaf's rule), so a folder
-    // of notes that just gained its first real document builds on the spot.
-    const activeLooksCompilable = activeFileRef.current.toLowerCase().endsWith(".tex")
-      && sourceRef.current.includes("\\documentclass");
-    if (!projectRef.current?.manifest.rootDocuments.length && !activeLooksCompilable) {
-      if (options?.consumeAgentAssociations) {
-        const associations = [...pendingAgentCompileResultsRef.current.values()];
-        pendingAgentCompileResultsRef.current.clear();
-        relayAgentCompileResults(associations, null);
-      }
-      if (options?.requested) {
-        setError(
-          "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
-          "Build",
-        );
-      }
-      return;
-    }
-    if (buildingRef.current) {
-      queuedBuildForceRef.current = (queuedBuildForceRef.current ?? false) || force;
-      queuedBuildSoundRef.current = queuedBuildSoundRef.current || options?.sound === true;
-      queuedAgentCompileBuildRef.current = queuedAgentCompileBuildRef.current
-        || options?.consumeAgentAssociations === true;
-      return;
-    }
-    buildingRef.current = true;
-    setBuilding(true);
-    // One action name for both variants, so a clean rebuild that succeeds still
-    // retracts the ordinary build's failure toast; "clean" lives in the detail.
-    let trace = logAction("Build", "Build", force ? "clean rebuild" : undefined);
-    let buildScope: {
-      operationGeneration: number;
-      previewGeneration: number;
-      projectRoot: string;
-    } | null = null;
-    const scopeIsCurrent = () => Boolean(buildScope
-      && projectOperationGenerationRef.current === buildScope.operationGeneration
-      && previewGenerationRef.current === buildScope.previewGeneration
-      && projectRef.current?.root === buildScope.projectRoot);
-    let shouldPlayCompletionSound = options?.sound === true;
-    // Only explicit UI builds opt into sound (even when audio is muted).
-    // Background failures must not steal the caret while an edit is unfinished.
-    let shouldNavigateToError = options?.sound === true;
-    let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
-    let completionSound: "build-succeeded" | "build-failed" | null = null;
-    queuedBuildSoundRef.current = false;
-    queuedAgentCompileBuildRef.current = false;
-    try {
-      let currentForce = force;
-      const takeQueuedBuild = () => {
-        const queuedForce = queuedBuildForceRef.current;
-        if (queuedForce === null) return false;
-        trace.finish("cancelled", t`Build superseded`);
-        trace = logAction("Build", "Build", queuedForce ? "clean rebuild" : "queued");
-        currentForce = queuedForce;
-        shouldPlayCompletionSound = shouldPlayCompletionSound || queuedBuildSoundRef.current;
-        shouldNavigateToError = queuedBuildSoundRef.current;
-        shouldConsumeAgentAssociations = queuedAgentCompileBuildRef.current;
-        queuedBuildSoundRef.current = false;
-        queuedAgentCompileBuildRef.current = false;
-        return true;
-      };
-      do {
-        queuedBuildForceRef.current = null;
-        // Associate only work present at the start of this pass. A checkpoint
-        // arriving during an in-flight build remains pending for the queued
-        // pass, rather than being credited to stale output.
-        const agentCompileAssociations = shouldConsumeAgentAssociations
-          ? [...pendingAgentCompileResultsRef.current.values()]
-          : [];
-        if (shouldConsumeAgentAssociations) pendingAgentCompileResultsRef.current.clear();
-        const immediatePreview = options?.immediatePreview ?? currentForce;
-        const previewGeneration = previewGenerationRef.current;
-        const operationGeneration = projectOperationGenerationRef.current;
-        const projectRoot = projectRef.current?.root;
-        if (!projectRoot) continue;
-        buildScope = { operationGeneration, previewGeneration, projectRoot };
-        const compiledSource = sourceRef.current;
-        const compiledSecondarySource = secondarySourceRef.current;
-        // The open file rides along so the backend can re-target the build on
-        // it when it is a compilable root — recomputed each pass because a
-        // queued rebuild may run after the editor moved to another document.
-        const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex")
-          ? activeFileRef.current
-          : null;
-        let result: BuildResult;
-        try {
-          result = await diagnosticInvoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id });
-        } catch (reason) {
-          if (!scopeIsCurrent()) continue;
-          relayAgentCompileResults(agentCompileAssociations, null);
-          throw reason;
-        }
-        if (!scopeIsCurrent()) continue;
-        relayAgentCompileResults(agentCompileAssociations, result);
-        trace.enrich({
-          force: currentForce,
-          compiler_duration_ms: result.durationMs,
-          diagnostics: result.diagnostics.length,
-          has_pdf: result.hasPdf,
-        });
-        let pdfBytes: ArrayBuffer | null = null;
-        if (result.hasPdf) {
-          try {
-            pdfBytes = await invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot });
-          } catch (reason) {
-            if (!scopeIsCurrent()) continue;
-            throw reason;
-          }
-          if (!scopeIsCurrent()) continue;
-        }
-        setBuild(result);
-        // The backend may have adopted the open file as the manifest default
-        // root (Overleaf's rule). Mirror that into local state so the outline
-        // and the next build's guard agree without re-reading the project.
-        if (result.rootDocument) {
-          setProject((current) => {
-            if (!current || current.root !== projectRoot) return current;
-            const documents = current.manifest.rootDocuments;
-            if (documents.some((document) => document.isDefault && document.path === result.rootDocument)) {
-              return current;
-            }
-            const nextDocuments = documents.map((document) => (
-              { ...document, isDefault: document.path === result.rootDocument }
-            ));
-            if (!documents.some((document) => document.path === result.rootDocument)) {
-              const stem = result.rootDocument.split("/").pop()?.replace(/\.tex$/i, "");
-              nextDocuments.push({
-                path: result.rootDocument,
-                name: stem || result.rootDocument,
-                isDefault: true,
-              });
-            }
-            return { ...current, manifest: { ...current.manifest, rootDocuments: nextDocuments } };
-          });
-        }
-        setDiagnosticBuildSource(compiledSource);
-        setDiagnosticBuildSecondarySource(compiledSecondarySource);
-        // Reopening the panel is for news. Autosave rebuilds after every pause
-        // in typing, and reopening unconditionally meant a warning the writer
-        // had chosen to live with returned seconds after they dismissed it, for
-        // as long as they kept writing.
-        const nextDiagnostics = diagnosticsFingerprint(result.diagnostics);
-        // An unchanged automatic warning stays dismissed while someone is
-        // writing. A failed build they explicitly requested is different:
-        // reopening its result is the acknowledgement that Build did run.
-        setDiagnosticsDismissed(
-          result.success || !shouldPlayCompletionSound
-            ? nextDiagnostics === dismissedDiagnosticsRef.current
-            : false,
-        );
-        setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
-        if (pdfBytes) {
-          // LaTeX rewrites PDF metadata on every compile, so bytes almost always
-          // change. Debounce preview updates for autosave compiles so pdf.js is
-          // not destroyed mid-load on every keystroke pause.
-          pendingPreviewPdfRef.current = pdfBytes;
-          if (pdfPreviewTimerRef.current) window.clearTimeout(pdfPreviewTimerRef.current);
-          const applyPreview = () => {
-            pdfPreviewTimerRef.current = null;
-            if (previewGeneration !== previewGenerationRef.current) return;
-            const bytes = pendingPreviewPdfRef.current;
-            if (!bytes) return;
-            const fingerprint = pdfBytesFingerprint(bytes);
-            pendingPreviewPdfRef.current = null;
-            if (fingerprint === pdfFingerprintRef.current) return;
-            pdfFingerprintRef.current = fingerprint;
-            const nextUrl = pdfBytesToObjectUrl(bytes);
-            displayedPdfBytesRef.current = bytes;
-            setPdfUrl((previous) => {
-              if (previous) URL.revokeObjectURL(previous);
-              return nextUrl;
-            });
-          };
-          // The wait exists so a slow pdf.js load is not torn down by the next
-          // rebuild while someone is still typing. Once they have stopped —
-          // the buffer matches what is on disk — there is nothing left to wait
-          // for, and waiting anyway is just the PDF lagging behind the editor.
-          const stillTyping = sourceRef.current !== savedSourceRef.current;
-          if (immediatePreview || !stillTyping) applyPreview();
-          else pdfPreviewTimerRef.current = window.setTimeout(applyPreview, 1_200);
-        }
-        if (!result.success) {
-          const missingDependencyDiagnostic = result.diagnostics
-            .find((item) => missingTexDependencyFile(item.message));
-          const firstError = missingDependencyDiagnostic
-            ?? result.diagnostics.find((item) => item.level === "error")
-            ?? result.diagnostics[0]
-            ?? null;
-          const navigationError = result.diagnostics.find((item) => (
-            item.level === "error" && Boolean(item.file || item.line)
-          )) ?? firstError;
-          if (shouldNavigateToError && navigationError) void openCompileDiagnosticRef.current(navigationError);
-          const failureText = [
-            result.log,
-            ...result.diagnostics.map((item) => item.message),
-          ].join("\n");
-          trace.fail("LaTeX compilation failed.", {
-            detail: firstError?.message ?? "",
-            copyText: failureText,
-            // The diagnostics panel already owns this failure on screen and
-            // includes the message, full log, navigation, copy, and package
-            // install action. Keep the action trace without showing it twice.
-            toast: false,
-          });
-          completionSound = "build-failed";
-          // A raw latexmk log contains its own name and uses "not found" for
-          // every missing project file. Only parsed tool diagnostics may open
-          // system setup; the full log is evidence for diagnostics and logs,
-          // not a machine-readable failure category.
-          if (result.diagnostics.some((item) => isMissingTexBuildError(item.message))) {
-            doctorGenerationRef.current += 1;
-            setDoctorReport(null);
-            setDoctorBusy(false);
-            setTexSetupOpen(true);
-          }
-        } else {
-          // A rebuild that succeeds retracts the previous failure instead of
-          // leaving it on screen to time out on its own.
-          trace.clear();
-          trace.finish("success", `Build succeeded in ${(result.durationMs / 1000).toFixed(1)}s`);
-          completionSound = "build-succeeded";
-        }
-      } while (takeQueuedBuild());
-    } catch (reason) {
-      if (scopeIsCurrent()) {
-        const message = toMessage(reason);
-        trace.fail(reason, {
-          timeoutMs: shouldPlayCompletionSound ? 0 : undefined,
-        });
-        completionSound = "build-failed";
-        if (isMissingTexBuildError(message)) {
-          doctorGenerationRef.current += 1;
-          setDoctorReport(null);
-          setDoctorBusy(false);
-          setTexSetupOpen(true);
-        }
-      }
-    } finally {
-      trace.finish("cancelled", t`Build superseded`);
-      const queuedForce = queuedBuildForceRef.current;
-      const queuedBuild = queuedForce === null ? null : {
-        force: queuedForce,
-        sound: queuedBuildSoundRef.current,
-        consumeAgentAssociations: queuedAgentCompileBuildRef.current,
-      };
-      queuedBuildForceRef.current = null;
-      queuedBuildSoundRef.current = false;
-      queuedAgentCompileBuildRef.current = false;
-      buildingRef.current = false;
-      setBuilding(false);
-      if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) {
-        playInterfaceSound(completionSound);
-      }
-      // A backend rejection skips the loop's takeQueuedBuild() condition. Start
-      // the captured pass only after releasing the in-flight lock, and only if
-      // its immutable project scope still owns the active root.
-      if (queuedBuild && scopeIsCurrent()) {
-        void runBuild(queuedBuild.force, {
-          immediatePreview: options?.immediatePreview ?? queuedBuild.force,
-          sound: queuedBuild.sound,
-          consumeAgentAssociations: queuedBuild.consumeAgentAssociations,
-        });
-      }
-    }
-  }, [installTexDependency, relayAgentCompileResults, t]);
-
   const compile = useCallback(async (
     force = false,
     sound = false,
@@ -3233,50 +2723,6 @@ function App() {
     return () => { agentCommentsOptionsRef.current = null; };
   }, [project, overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafLink]);
 
-  const abortBuild = useCallback(async () => {
-    if (!buildingRef.current) return;
-    try {
-      await invoke<boolean>("abort_build");
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, []);
-
-  const cleanProject = useCallback(async () => {
-    if (!project || cleaning || building) return;
-    if (!await confirmAction("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?")) return;
-    setCleaning(true);
-    try {
-      await invoke("clean_project");
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setCleaning(false);
-    }
-  }, [building, cleaning, project]);
-
-  const cleanAndRebuild = useCallback(async () => {
-    if (!project || cleaning) return;
-    // The active build owns the backend until it settles. Preserve the clean
-    // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current) {
-      await runBuild(true, { requested: true, sound: true });
-      return;
-    }
-    if (!await confirmAction("Delete auxiliary files and rebuild the PDF?")) return;
-    setCleaning(true);
-    try {
-      await invoke("clean_project");
-      setCleaning(false);
-      await runBuild(true, { requested: true, sound: true });
-    } catch (reason) {
-      setError(toMessage(reason));
-      setCleaning(false);
-    }
-  }, [cleaning, project, runBuild]);
-
   const revealSourceInPdf = useCallback(async () => {
     if (!forwardSyncPosition || locatingPdf) return;
     const position = forwardSyncPosition;
@@ -3401,7 +2847,7 @@ function App() {
     }
     try {
       await openProjectFile(path, diagnostic.line ?? undefined);
-      setDiagnosticsExpanded(true);
+      buildPipeline.setDiagnosticsExpanded(true);
       setError(null);
     } catch (reason) {
       setError(toMessage(reason));
@@ -3410,14 +2856,6 @@ function App() {
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
-
-  const cycleCompileDiagnostic = useCallback((direction: 1 | -1) => {
-    const diagnostics = build?.diagnostics ?? [];
-    if (!diagnostics.length) return;
-    const next = (diagnosticCursor.current + direction + diagnostics.length * 10) % diagnostics.length;
-    diagnosticCursor.current = next;
-    void openCompileDiagnostic(diagnostics[next]);
-  }, [build?.diagnostics, openCompileDiagnostic]);
 
   const repairWritable = collabCanWrite && collabSession?.canWrite !== false
     && (!overleafLink || overleafRealtime.canWrite);
@@ -3454,10 +2892,6 @@ function App() {
       if (owns()) await compileRef.current();
     },
   });
-
-  useEffect(() => {
-    diagnosticCursor.current = 0;
-  }, [build]);
 
   const saveAndCompileAutomatically = useCallback(async () => {
     automaticBuildQueued.current = true;
@@ -3526,7 +2960,6 @@ function App() {
       setProject(snapshot);
       rememberProject(snapshot);
       setProjectMenuOpen(false);
-      setBuild(null);
       setSelection("");
       setSelectionSource(null);
       selectionSourceRef.current = null;
@@ -3551,56 +2984,9 @@ function App() {
       setCanvasMode("split");
       htmlViewModesRef.current.clear();
       documentModeRef.current = "split";
-      // Invalidate any in-flight preview from the previous project, then clear
-      // UI state *before* starting the first build (starting first used to race
-      // applyPreview and wipe a just-loaded PDF → endless “Rendering PDF…”).
-      previewGenerationRef.current += 1;
-      pdfFingerprintRef.current = null;
-      displayedPdfBytesRef.current = null;
-      pendingPreviewPdfRef.current = null;
-      if (pdfPreviewTimerRef.current) {
-        window.clearTimeout(pdfPreviewTimerRef.current);
-        pdfPreviewTimerRef.current = null;
-      }
-      setPdfUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return null;
-      });
-      // A project usually already has a compiled PDF on disk. Show it while
-      // latexmk checks for changes instead of leaving the preview blank until
-      // the initial build finishes. Shared workspaces are empty scaffolds until
-      // synchronization, so they must wait for their post-sync build.
-      if (!options?.skipCollabLifecycle) {
-        const initialPreviewGeneration = previewGenerationRef.current;
-        void invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot: snapshot.root })
-          .then((pdfBytes) => {
-            if (
-              initialPreviewGeneration !== previewGenerationRef.current
-              || projectRef.current?.root !== snapshot.root
-              || pdfFingerprintRef.current !== null
-            ) return;
-            const fingerprint = pdfBytesFingerprint(pdfBytes);
-            const nextUrl = pdfBytesToObjectUrl(pdfBytes);
-            pdfFingerprintRef.current = fingerprint;
-            displayedPdfBytesRef.current = pdfBytes;
-            setPdfUrl((previous) => {
-              if (
-                initialPreviewGeneration !== previewGenerationRef.current
-                || projectRef.current?.root !== snapshot.root
-                || pdfFingerprintRef.current !== fingerprint
-              ) {
-                URL.revokeObjectURL(nextUrl);
-                return previous;
-              }
-              if (previous) URL.revokeObjectURL(previous);
-              return nextUrl;
-            });
-          })
-          .catch(() => {
-            // A new or cleaned project has no cached PDF; the initial build
-            // remains the source of its first preview.
-          });
-      }
+      // Shared workspaces are empty scaffolds until synchronization, so they
+      // must wait for their post-sync build instead of showing a cached PDF.
+      resetForProject(snapshot.root, !options?.skipCollabLifecycle);
       // A guest joining a share enters an empty scaffold workspace *before* the
       // shared sources have synced. Building it now compiles the placeholder and
       // pops a spurious "compilation failed". The join flow defers the build and
@@ -3775,6 +3161,7 @@ function App() {
       loadFile,
       refreshUnusedSymbols,
       rememberProject,
+      resetForProject,
       runBuild,
       settleCollabBeforeProjectSwitch,
     ],
@@ -4260,38 +3647,6 @@ function App() {
     // lint without changing the boot-once behavior.
   }, [initialProjectProbe]);
 
-  useEffect(() => {
-    let active = true;
-    // Idle-deferred: run_doctor shells out to probe the TeX toolchain, and
-    // nothing needs its report during first paint. The timeout keeps the
-    // setup wizard appearing within a few seconds on a missing toolchain.
-    const runDoctor = () => {
-      const generation = ++doctorGenerationRef.current;
-      void invoke<DoctorReport>("run_doctor")
-        .then((report) => {
-          if (!active || generation !== doctorGenerationRef.current) return;
-          setDoctorReport(report);
-          if (isRequiredSetupMissing(report)) {
-            setTexSetupOpen(true);
-          }
-        })
-        .catch(() => {
-          // Tests and incomplete environments may not expose doctor.
-        });
-    };
-    let idle: number | null = null;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    if ("requestIdleCallback" in window) {
-      idle = window.requestIdleCallback(runDoctor, { timeout: 4_000 });
-    } else {
-      timer = globalThis.setTimeout(runDoctor, 1_000);
-    }
-    return () => {
-      active = false;
-      if (idle != null && "cancelIdleCallback" in window) window.cancelIdleCallback(idle);
-      if (timer != null) globalThis.clearTimeout(timer);
-    };
-  }, []);
 
   useEffect(() => {
     try {
@@ -6875,36 +6230,6 @@ function App() {
     }
   }, [activeFile, bibEntryImportRoot, bibEntryMode, collabSession, importReferenceInput, project, publishTextToCollabV2, refreshProject, save, savedSource, source]);
 
-  const runDoctor = useCallback(async (options?: {
-    openWizardIfMissing?: boolean;
-  }) => {
-    const generation = ++doctorGenerationRef.current;
-    setDoctorBusy(true);
-    setDoctorNotice("");
-    try {
-      const report = await invoke<DoctorReport>("run_doctor");
-      if (generation !== doctorGenerationRef.current) return null;
-      setDoctorReport(report);
-      const missing = isRequiredSetupMissing(report);
-      if (options?.openWizardIfMissing && missing) setTexSetupOpen(true);
-      return report;
-    } catch (reason) {
-      if (generation !== doctorGenerationRef.current) return null;
-      const message = toMessage(reason);
-      setDoctorNotice(message);
-      return null;
-    } finally {
-      if (generation === doctorGenerationRef.current) setDoctorBusy(false);
-    }
-  }, []);
-
-  const openTexSetupWizard = useCallback(() => {
-    if (doctorReport) {
-      if (isRequiredSetupMissing(doctorReport)) setTexSetupOpen(true);
-      return;
-    }
-    void runDoctor({ openWizardIfMissing: true });
-  }, [doctorReport, runDoctor]);
 
 
   const revealProjectItem = useCallback(async (relativePath: string) => {
@@ -7276,13 +6601,13 @@ function App() {
         setTab={(tab) => {
           if (isSynaraSettingsTab(tab)) synara.requestRuntime();
           setSettingsTab(tab);
-          if (tab === "doctor") void runDoctor();
+          if (tab === "doctor") void texSetup.runDoctor();
         }}
-        doctorReport={doctorReport}
-        doctorBusy={doctorBusy}
-        doctorNotice={doctorNotice}
-        onRunDoctor={() => { void runDoctor(); }}
-        onOpenTexSetup={() => openTexSetupWizard()}
+        doctorReport={texSetup.doctorReport}
+        doctorBusy={texSetup.doctorBusy}
+        doctorNotice={texSetup.doctorNotice}
+        onRunDoctor={() => { void texSetup.runDoctor(); }}
+        onOpenTexSetup={texSetup.openWizard}
         onCleanProject={() => { void cleanProject(); }}
         cleaning={cleaning}
         building={building}
@@ -7782,13 +7107,13 @@ function App() {
   // check would duplicate its warnings. Suppress the local one when texlab is
   // available (assume it is until the doctor report loads) and fall back to it
   // otherwise. The unused-symbol counts elsewhere still use the full list.
-  const texlabActive = doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
+  const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {
         event.preventDefault();
-        cycleCompileDiagnostic(event.shiftKey ? -1 : 1);
+        buildPipeline.cycleDiagnostic(event.shiftKey ? -1 : 1);
         return;
       }
       const mod = event.metaKey || event.ctrlKey;
@@ -7855,7 +7180,7 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canInsert, cycleCompileDiagnostic, navigateHistory, reopenClosedTab, revealSourceInPdf]);
+  }, [buildPipeline.cycleDiagnostic, canInsert, navigateHistory, reopenClosedTab, revealSourceInPdf]);
 
   if (!project) {
     return (
@@ -7888,7 +7213,7 @@ function App() {
           onJoinCollab={() => openCollabDialog("join")}
           onOpenTutorial={() => void openTutorialProject()}
           onSettings={() => openSettings("appearance")}
-          onInstallTex={openTexSetupWizard}
+          onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
         {isCollabEnabled() && collabOpen && (
@@ -7926,25 +7251,14 @@ function App() {
               onLeaveShare={() => void leaveHostShareSession()}
               onCopyInvite={copyCollabInvite}
               onRemovePeer={removeCollabPeer}
-              onInstallTex={openTexSetupWizard}
+              onInstallTex={texSetup.openWizard}
             />
           </Suspense>
         )}
         {settingsDialog}
         {overleafPicker}
         {overleafReview}
-        <TexSetupWizard
-          open={texSetupOpen}
-          report={doctorReport}
-          checking={doctorBusy}
-          onClose={() => setTexSetupOpen(false)}
-          onRecheck={() => runDoctor({ openWizardIfMissing: true })}
-        />
-        <TexDependencyInstaller
-          status={texDependencyInstall}
-          onClose={closeTexDependencyInstall}
-          onRetry={installTexDependency}
-        />
+        <TexSetupDialogs setup={texSetup} />
       </>
     );
   }
@@ -8349,17 +7663,17 @@ function App() {
             onOpenSlideError={setError}
             pdfUrl={pdfUrl}
             pdfBase64={null}
-            pdfBytes={displayedPdfBytesRef.current}
-            pdfTop={(!diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
+            pdfBytes={buildPipeline.displayedPdfBytesRef.current}
+            pdfTop={(!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
               <Suspense fallback={null}>
                 <CompileDiagnosticsPanel
                   diagnostics={build.diagnostics}
                   log={build.log}
                   success={build.success}
-                  expanded={diagnosticsExpanded}
-                  onExpandedChange={setDiagnosticsExpanded}
+                  expanded={buildPipeline.diagnosticsExpanded}
+                  onExpandedChange={buildPipeline.setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-                  onInstallDependency={installTexDependency}
+                  onInstallDependency={texSetup.installDependency}
                   onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
                   fixDisabled={!repairWritable || building || compileRepair.busy}
                   repair={compileRepair.state}
@@ -8380,10 +7694,7 @@ function App() {
                       frame.src = url.toString();
                     }
                   }}
-                  onDismiss={() => {
-                    dismissedDiagnosticsRef.current = diagnosticsFingerprint(build.diagnostics);
-                    setDiagnosticsDismissed(true);
-                  }}
+                  onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
                 />
               </Suspense>
             ) : null}
@@ -8467,7 +7778,7 @@ function App() {
             projectPaths={projectPaths}
             graphicsRoots={graphicsRoots}
             buildDiagnostics={
-              source === diagnosticBuildSource && secondarySource === diagnosticBuildSecondarySource
+              source === buildPipeline.compiledSources.primary && secondarySource === buildPipeline.compiledSources.secondary
                 ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
                 : EMPTY_DIAGNOSTICS
             }
@@ -8585,7 +7896,7 @@ function App() {
         forgetRecentProjectV2={forgetRecentProjectV2}
         joinCollabShare={joinCollabShare}
         leaveHostShareSession={leaveHostShareSession}
-        openTexSetupWizard={openTexSetupWizard}
+        openTexSetupWizard={texSetup.openWizard}
         recentProjectsV2={recentProjectsV2}
         rejoinCollabProjectV2={rejoinCollabProjectV2}
         removeCollabPeer={removeCollabPeer}
@@ -8599,19 +7910,7 @@ function App() {
         startCollabShare={startCollabShare}
       />
 
-      <TexSetupWizard
-        open={texSetupOpen}
-        report={doctorReport}
-        checking={doctorBusy}
-        onClose={() => setTexSetupOpen(false)}
-        onRecheck={() => runDoctor({ openWizardIfMissing: true })}
-      />
-
-      <TexDependencyInstaller
-        status={texDependencyInstall}
-        onClose={closeTexDependencyInstall}
-        onRetry={installTexDependency}
-      />
+      <TexSetupDialogs setup={texSetup} />
 
       {figurePointerDrag && (
         <div

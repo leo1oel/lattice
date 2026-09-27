@@ -1,13 +1,17 @@
 /**
  * The modal forms that create or rename something: the new-project dialog, the
  * rename dialog (files, folders, labels, citation keys, environments), and the
- * bibliography entry editor with the literature discovery panel that feeds it.
+ * bibliography entry editor with the literature discovery panel that feeds it;
+ * plus the TeX toolchain setup and package-install dialogs.
  */
 import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { type BibEntryDraft } from "../papers/bib-entry";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
+import { TexDependencyInstaller } from "../build/tex-dependency-installer";
+import { TexSetupWizard } from "../build/tex-setup-wizard";
+import type { TexSetup } from "./use-tex-setup";
 
 const BibEntryDialog = lazy(() =>
   import("../papers/bib-entry-dialog").then((module) => ({ default: module.BibEntryDialog })),
@@ -114,6 +118,21 @@ export function AppProjectDialogs(props: AppProjectDialogsProps) {
           }}
         />
       )}
+    </>
+  );
+}
+
+export function TexSetupDialogs({ setup }: { setup: TexSetup }) {
+  return (
+    <>
+      <TexSetupWizard
+        open={setup.wizardOpen}
+        report={setup.doctorReport}
+        checking={setup.doctorBusy}
+        onClose={() => setup.setWizardOpen(false)}
+        onRecheck={() => setup.runDoctor({ openWizardIfMissing: true })}
+      />
+      <TexDependencyInstaller status={setup.install} onClose={setup.closeInstall} onRetry={setup.installDependency} />
     </>
   );
 }
