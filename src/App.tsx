@@ -383,6 +383,55 @@ function recordNavigationTiming(
   });
 }
 
+/**
+ * Follow a pointer drag of a project-tree row. Past a 5px threshold it becomes
+ * a drag: `move` gets each pointer position with the editor drop zone under it,
+ * `clear` runs when it ends, and a release over a zone drops the path there.
+ * The click that ends a drag is swallowed through `suppressClick`.
+ */
+function trackProjectItemDrag(
+  path: string,
+  event: React.PointerEvent,
+  suppressClick: { current: string | null },
+  move: (pointer: PointerEvent, preview: EditorDropPreview | null) => void,
+  clear: () => void,
+  drop: (zone: EditorDropZone) => void,
+) {
+  if (event.button !== 0) return;
+  const { clientX: startX, clientY: startY, pointerId } = event;
+  let dragging = false;
+  const onMove = (pointer: PointerEvent) => {
+    if (pointer.pointerId !== pointerId) return;
+    if (!dragging && Math.hypot(pointer.clientX - startX, pointer.clientY - startY) < 5) return;
+    if (!dragging) document.body.classList.add("dragging-project-item");
+    dragging = true;
+    move(pointer, editorDropPreviewAt(path, pointer.clientX, pointer.clientY));
+  };
+  const end = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onFinish);
+    window.removeEventListener("pointercancel", end);
+    window.removeEventListener("blur", end);
+    document.body.classList.remove("dragging-project-item");
+    clear();
+  };
+  const onFinish = (pointer: PointerEvent) => {
+    if (pointer.pointerId !== pointerId) return;
+    const preview = dragging ? editorDropPreviewAt(path, pointer.clientX, pointer.clientY) : null;
+    end();
+    if (!dragging) return;
+    suppressClick.current = path;
+    window.setTimeout(() => {
+      if (suppressClick.current === path) suppressClick.current = null;
+    }, 0);
+    if (preview) drop(preview.zone);
+  };
+  window.addEventListener("pointermove", onMove, { passive: false });
+  window.addEventListener("pointerup", onFinish);
+  window.addEventListener("pointercancel", end);
+  window.addEventListener("blur", end);
+}
+
 function normalizeProjectRelativePath(path: string): string | null {
   const parts: string[] = [];
   for (const part of path.replace(/\\/g, "/").split("/")) {
@@ -1598,50 +1647,39 @@ function App() {
         const readIsCurrent = () => !cancelled
           && !saveActivityRef.current.pending
           && saveActivityRef.current.generation === saveGenerationAtStart;
+        /**
+         * Check one pane's file for an external edit: record its mtime the
+         * first time, then reload a newer version into a clean buffer.
+         * Resolves false when the poll should stop (stale read, missing file).
+         */
+        const pollPane = async (
+          pane: EditorPaneId,
+          path: string,
+          mtimeRef: { current: number | null },
+          savedRef: { readonly current: string },
+          bufferRef: { readonly current: string },
+        ) => {
+          const saved = savedRef.current;
+          const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path });
+          if (!readIsCurrent() || !stat.exists || savedRef.current !== saved) return false;
+          if (mtimeRef.current == null) {
+            mtimeRef.current = stat.mtimeMs;
+            return true;
+          }
+          if (stat.mtimeMs <= mtimeRef.current) return true;
+          const content = await invoke<string>("read_project_file", { path });
+          if (!readIsCurrent() || savedRef.current !== saved) return false;
+          mtimeRef.current = stat.mtimeMs;
+          if (content === saved) return true;
+          externalOverleafEditsRef.current([path]);
+          if (bufferRef.current !== savedRef.current) return true;
+          await acceptExternalText(path, content, pane);
+          if (buildPreferences.autoBuildMode === "automatic") void compileRef.current();
+          return true;
+        };
         try {
-          const primarySaved = savedSourceRef.current;
-          const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
-            path: activeFile,
-          });
-          if (!readIsCurrent() || !stat.exists || savedSourceRef.current !== primarySaved) return;
-          if (diskMtimeRef.current == null) {
-            diskMtimeRef.current = stat.mtimeMs;
-          } else if (stat.mtimeMs > diskMtimeRef.current) {
-            const content = await invoke<string>("read_project_file", { path: activeFile });
-            if (!readIsCurrent() || savedSourceRef.current !== primarySaved) return;
-            diskMtimeRef.current = stat.mtimeMs;
-            if (content !== primarySaved) {
-              externalOverleafEditsRef.current([activeFile]);
-              if (sourceRef.current === savedSourceRef.current) {
-                await acceptExternalText(activeFile, content, "primary");
-                if (buildPreferences.autoBuildMode === "automatic") {
-                  void compileRef.current();
-                }
-              }
-            }
-          }
-          if (secondaryFile) {
-            const secondarySaved = secondarySavedRef.current;
-            const secondaryStat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", {
-              path: secondaryFile,
-            });
-            if (!readIsCurrent() || !secondaryStat.exists || secondarySavedRef.current !== secondarySaved) return;
-            if (secondaryMtimeRef.current == null) {
-              secondaryMtimeRef.current = secondaryStat.mtimeMs;
-              return;
-            }
-            if (secondaryStat.mtimeMs <= secondaryMtimeRef.current) return;
-            const content = await invoke<string>("read_project_file", { path: secondaryFile });
-            if (!readIsCurrent() || secondarySavedRef.current !== secondarySaved) return;
-            secondaryMtimeRef.current = secondaryStat.mtimeMs;
-            if (content === secondarySaved) return;
-            externalOverleafEditsRef.current([secondaryFile]);
-            if (secondarySourceRef.current !== secondarySavedRef.current) return;
-            await acceptExternalText(secondaryFile, content, "secondary");
-            if (buildPreferences.autoBuildMode === "automatic") {
-              void compileRef.current();
-            }
-          }
+          if (!(await pollPane("primary", activeFile, diskMtimeRef, savedSourceRef, sourceRef)) || !secondaryFile) return;
+          await pollPane("secondary", secondaryFile, secondaryMtimeRef, secondarySavedRef, secondarySourceRef);
         } catch {
           // Ignore transient filesystem races while the editor is open.
         }
@@ -4145,107 +4183,26 @@ function App() {
   }, [openMarkdownProjectPath]);
 
   const beginProjectFigureDrag = useCallback((path: string, label: string, event: React.PointerEvent) => {
-    if (event.button !== 0) return;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const pointerId = event.pointerId;
-    let dragging = false;
-    const move = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
-      if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) return;
-      if (!dragging) document.body.classList.add("dragging-project-item");
-      dragging = true;
-      pointerEvent.preventDefault();
-      const preview = editorDropPreviewAt(path, pointerEvent.clientX, pointerEvent.clientY);
+    trackProjectItemDrag(path, event, suppressedFigureClick, (pointer, preview) => {
+      pointer.preventDefault();
       setProjectFileDropPreview(preview);
       setFigurePointerDrag({
-        path,
-        label,
-        clientX: pointerEvent.clientX,
-        clientY: pointerEvent.clientY,
-        overCanvas: Boolean(preview),
-        insertAtEditor: false,
+        path, label, clientX: pointer.clientX, clientY: pointer.clientY, overCanvas: Boolean(preview), insertAtEditor: false,
       });
-    };
-    const clear = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("blur", cancel);
-      document.body.classList.remove("dragging-project-item");
+    }, () => {
       setProjectFileDropPreview(null);
       setFigurePointerDrag(null);
-    };
-    const finish = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
-      const preview = dragging
-        ? editorDropPreviewAt(path, pointerEvent.clientX, pointerEvent.clientY)
-        : null;
-      clear();
-      if (!dragging) return;
-      suppressedFigureClick.current = path;
-      window.setTimeout(() => {
-        if (suppressedFigureClick.current === path) suppressedFigureClick.current = null;
-      }, 0);
-      if (preview) void dropProjectPathRef.current(path, preview.zone);
-    };
-    const cancel = () => clear();
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("blur", cancel);
+    }, (zone) => void dropProjectPathRef.current(path, zone));
   }, []);
 
   const beginProjectFileDrag = useCallback((path: string, _label: string, event: React.PointerEvent) => {
-    if (event.button !== 0) return;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const pointerId = event.pointerId;
-    let dragging = false;
-    const move = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
-      if (!dragging && Math.hypot(pointerEvent.clientX - startX, pointerEvent.clientY - startY) < 5) {
-        return;
-      }
-      if (!dragging) document.body.classList.add("dragging-project-item");
-      dragging = true;
-      const pane = editorPaneAt({ x: pointerEvent.clientX, y: pointerEvent.clientY });
-      setFileDropTargetPane(pane);
-      setProjectFileDropPreview(editorDropPreviewAt(
-        path,
-        pointerEvent.clientX,
-        pointerEvent.clientY,
-      ));
-    };
-    const clear = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("blur", cancel);
-      document.body.classList.remove("dragging-project-item");
+    trackProjectItemDrag(path, event, suppressedProjectFileClick, (pointer, preview) => {
+      setFileDropTargetPane(editorPaneAt({ x: pointer.clientX, y: pointer.clientY }));
+      setProjectFileDropPreview(preview);
+    }, () => {
       setFileDropTargetPane(null);
       setProjectFileDropPreview(null);
-    };
-    const finish = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
-      const preview = dragging
-        ? editorDropPreviewAt(path, pointerEvent.clientX, pointerEvent.clientY)
-        : null;
-      clear();
-      if (!dragging) return;
-      suppressedProjectFileClick.current = path;
-      window.setTimeout(() => {
-        if (suppressedProjectFileClick.current === path) {
-          suppressedProjectFileClick.current = null;
-        }
-      }, 0);
-      if (preview) void dropProjectPathRef.current(path, preview.zone);
-    };
-    const cancel = () => clear();
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("blur", cancel);
+    }, (zone) => void dropProjectPathRef.current(path, zone));
   }, []);
 
   const ensureSecondaryFile = useCallback(async (preferred?: string | null) => {
@@ -6667,7 +6624,6 @@ function App() {
             onOpenSlideContext={setOpenSlideContext}
             onOpenSlideError={setError}
             pdfUrl={pdfUrl}
-            pdfBase64={null}
             pdfBytes={buildPipeline.displayedPdfBytesRef.current}
             pdfTop={(!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
               <Suspense fallback={null}>
@@ -6838,7 +6794,6 @@ function App() {
             secondaryEditorEditable={secondaryFile
               ? editorEditableForPath(secondaryFile)
               : false}
-            primaryOpenSlideExternallyRendered
             collabEditorKey={activePaper
               ? `paper:${activePaperPath}`
               : collabSession

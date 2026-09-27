@@ -119,7 +119,7 @@ function baseProps(): CanvasProps {
     onPrepareFigure: vi.fn(async () => null),
     onAddSpellingWord: vi.fn(() => true),
     canOpenCitation: () => false,
-    pdfUrl: null, pdfBase64: null, activePaper: null, paperSide: "left", activeAsset: null, secondaryAsset: null,
+    pdfUrl: null, activePaper: null, paperSide: "left", activeAsset: null, secondaryAsset: null,
     citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
     localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
     buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
@@ -427,25 +427,6 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(warning.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("hosts a native Open Slide deck as the complete presentation workspace", async () => {
-    const { container, props } = renderCanvas({
-      mode: "source",
-      activeFile: "slides/research-update/index.tsx",
-      source: "export default [];\n",
-      locale: "zh-CN",
-      theme: "dark",
-    });
-
-    const presentation = await screen.findByTestId("open-slide-workspace");
-    expect(presentation.dataset.projectRoot).toBe("/tmp/project");
-    expect(presentation.dataset.path).toBe("slides/research-update/index.tsx");
-    expect(presentation.dataset.locale).toBe("zh-CN");
-    expect(presentation.dataset.theme).toBe("dark");
-    expect(sourceEditor(container)).toBeNull();
-    fireEvent.click(screen.getByTestId("open-slide-mutation"));
-    expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path: "slides/research-update/index.tsx", kind: "write" }));
-  });
-
   it("keeps an open presentation iframe mounted while another tab is active", async () => {
     const path = "slides/research-update/index.tsx";
     const activeWorkspace = {
@@ -478,25 +459,32 @@ describe("DocumentCanvas / editor for the open document", () => {
       mode: "source",
       activeFile: "slides/research-update/index.tsx",
       source: "export default [];\n",
-      primaryOpenSlideExternallyRendered: true,
     });
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it("keeps a native Open Slide deck inside the secondary pane", async () => {
-    const { container } = renderCanvas({
+  it("keeps a native Open Slide deck inside the secondary pane as its complete workspace", async () => {
+    const { container, props } = renderCanvas({
       mode: "dual",
       activeFile: "main.tex",
       secondaryFile: "slides/research-update/index.tsx",
       secondarySource: "export default [];\n",
       focusedPane: "secondary",
       secondaryEditorEditable: false,
+      locale: "zh-CN",
+      theme: "dark",
     });
 
     const presentation = await screen.findByTestId("open-slide-workspace");
     expect(presentation.dataset.active).toBe("true");
     expect(presentation.dataset.editable).toBe("false");
+    expect(presentation.dataset.projectRoot).toBe("/tmp/project");
+    expect(presentation.dataset.path).toBe("slides/research-update/index.tsx");
+    expect(presentation.dataset.locale).toBe("zh-CN");
+    expect(presentation.dataset.theme).toBe("dark");
+    fireEvent.click(screen.getByTestId("open-slide-mutation"));
+    expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path: "slides/research-update/index.tsx", kind: "write" }));
     expect(container.querySelector("[data-editor-pane='secondary'] [data-testid='open-slide-workspace']"))
       .not.toBeNull();
   });
@@ -663,16 +651,19 @@ describe("DocumentCanvas / per-file view state", () => {
       states[statePath] = { ...states[statePath], ...update };
     });
     const getFileViewState = (statePath: string) => states[statePath];
+    // The canvas hosts decks in the secondary pane; App's tab pool hosts the primary one.
     const { rerenderWith } = renderCanvas({
-      activeFile: path,
-      source: "export default [];\n",
+      mode: "dual",
+      activeFile: "main.tex",
+      secondaryFile: path,
+      secondarySource: "export default [];\n",
       getFileViewState,
       onFileViewState,
     });
     fireEvent.click(await screen.findByTestId("open-slide-view-state"));
 
-    rerenderWith({ activeFile: "main.tex", source: "\\section{Intro}\n" });
-    rerenderWith({ activeFile: path, source: "export default [];\n" });
+    rerenderWith({ secondaryFile: "intro.tex", secondarySource: "\\section{Intro}\n" });
+    rerenderWith({ secondaryFile: path, secondarySource: "export default [];\n" });
 
     expect((await screen.findByTestId("open-slide-workspace")).dataset.restoredPage).toBe("3");
     expect(onFileViewState).toHaveBeenCalledWith(path, { openSlide: { page: 3 } });

@@ -171,7 +171,6 @@ export function DocumentCanvas(props: {
   onOpenSlideContext?: import("../editor/presentation/open-slide-workspace").OpenSlideWorkspaceProps["onContext"];
   onOpenSlideError?: (message: string) => void;
   pdfUrl: string | null;
-  pdfBase64: string | null;
   pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
   activePaper: PaperSummary | null;
@@ -271,7 +270,6 @@ export function DocumentCanvas(props: {
   collabEditorKey: string;
   editorEditable: boolean;
   secondaryEditorEditable: boolean;
-  primaryOpenSlideExternallyRendered?: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
@@ -1698,7 +1696,7 @@ export function DocumentCanvas(props: {
           <PdfPreview
             key={`project-pdf:${props.projectRoot}`}
             url={props.pdfUrl}
-            pdfBase64={props.pdfBase64}
+            pdfBase64={null}
             pdfBytes={props.pdfBytes}
             citations={props.citations}
             canOpenCitation={props.canOpenCitation}
@@ -1738,7 +1736,8 @@ export function DocumentCanvas(props: {
         : projectPdfPreview(activeFile);
   const twoPane = props.mode === "dual" || props.mode === "columns";
   if (primaryKind && !twoPane) {
-    if (primaryKind === "presentation" && props.primaryOpenSlideExternallyRendered) return null;
+    // App renders the primary deck through OpenSlideTabPool, which keeps it alive across tabs.
+    if (primaryKind === "presentation") return null;
     return structuredEditor(primaryKind, "primary");
   }
   if (paperPdf.pdfView && !twoPane) return paperPreview;
