@@ -82,7 +82,6 @@ describe("conflict markers", () => {
     ].join("\n");
     const [hunk] = conflictHunks(diff3);
     expect(hunk.oursLines).toEqual(["@misc{a,}", "", "@misc{b,}"]);
-    expect(hunk.baseLines).toEqual(["@misc{a,}"]);
     expect(hunk.theirsLines).toEqual([]);
     expect(resolveConflicts(diff3, new Map([[hunk.index, "ours"]]))).toBe("@misc{a,}\n\n@misc{b,}\n");
     // An empty side resolves to nothing, not to a stray blank line.

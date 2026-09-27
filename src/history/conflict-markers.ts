@@ -17,11 +17,8 @@ export type ConflictHunk = {
   index: number;
   ours: string;
   theirs: string;
-  /** The last synced version of this spot, when the markers carry one. */
-  base: string | null;
   oursLines: string[];
   theirsLines: string[];
-  baseLines: string[] | null;
   /** 1-based line where the conflict starts, for jumping to it. */
   line: number;
 };
@@ -127,10 +124,8 @@ export function conflictHunks(content: string): ConflictHunk[] {
         index,
         ours: block.ours.join("\n"),
         theirs: block.theirs.join("\n"),
-        base: block.base?.join("\n") ?? null,
         oursLines: block.ours,
         theirsLines: block.theirs,
-        baseLines: block.base,
         line: block.line,
       });
     }
