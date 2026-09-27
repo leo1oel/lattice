@@ -42,12 +42,14 @@ import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
+import { useFileViewStates } from "./app/use-file-view-states";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useTexSetup } from "./app/use-tex-setup";
 import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
 import { useLocalSemanticSearch } from "./app/use-local-semantic-search";
-import { useSynaraHost, useSynaraSnapshots } from "./app/use-synara-host";
+import { useSynaraHost } from "./app/use-synara-host";
+import { useAgentContext } from "./app/use-agent-context";
 import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
 import { loadBibliographyIndex, useProjectLibrary } from "./app/use-project-library";
 import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
@@ -103,8 +105,6 @@ import {
   loadBuildPreferences,
   loadLastFile,
   persistLastFile,
-  loadFileViewStates,
-  persistFileViewStates,
   loadWorkspaceLayout,
   persistWorkspaceLayout,
   persistOverleafRemoteDelete,
@@ -190,7 +190,6 @@ import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import type {
   ProjectVenue,
   ProjectManifest,
-  FileViewState,
   NavigationEntry,
   ProjectSnapshot,
   FileNode,
@@ -242,14 +241,6 @@ import {
 import {
   type AgentGitWorkspaceView,
 } from "./agent/synara-runtime";
-import {
-  buildAgentHostContext,
-  selectedMarkdownImageProjectPath,
-  type AgentHostContextSnapshot,
-  type AgentHostSelectionImage,
-  type AgentHostSurface,
-} from "./agent/agent-host-context";
-import { buildAgentPaperLibrary, type AgentPaperLibrarySnapshot } from "./agent/agent-paper-library";
 import {
   buildAgentComposerFilesMessage,
   type AgentComposerFilePayload,
@@ -406,12 +397,6 @@ function recordNavigationTiming(
   });
 }
 
-function allowRememberedFileViewPath(removedPaths: string[], path: string): string[] {
-  return removedPaths.filter((removed) => (
-    removed !== path && !path.startsWith(`${removed}/`)
-  ));
-}
-
 function normalizeProjectRelativePath(path: string): string | null {
   const parts: string[] = [];
   for (const part of path.replace(/\\/g, "/").split("/")) {
@@ -514,21 +499,6 @@ function App() {
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
   const [dualRatioResetGeneration, setDualRatioResetGeneration] = useState(0);
-  const [selection, setSelection] = useState("");
-  const [selectionSource, setSelectionSource] = useState<AgentHostSurface | null>(null);
-  const [agentActiveSurface, setAgentActiveSurface] =
-    useState<AgentHostSurface>("editor");
-  // A content surface can re-report its DOM selection after Lattice has cleared
-  // the one-shot Agent context. Scope that suppression to the original surface
-  // so the same text selected in another surface remains valid.
-  const dismissedSelectionRef = useRef<{
-    source: AgentHostSurface;
-    text: string;
-  } | null>(null);
-  // In split view the editor and PDF both live behind the one shared selection
-  // chip. An empty report from one pane must not wipe a live selection the other
-  // pane owns, or the chip flickers as they fight. This tracks the current owner.
-  const selectionSourceRef = useRef<AgentHostSurface | null>(null);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const [dualPanePreview, setDualPanePreview] = useState<{
     projectRoot: string;
@@ -591,51 +561,10 @@ function App() {
   const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
   const navLock = useRef(false);
-  const viewStateRef = useRef(new Map<string, FileViewState>());
-  const viewStatePersistTimerRef = useRef<number | null>(null);
-  const viewStateEpochRef = useRef(0);
-  const removedFileViewStatePathsRef = useRef<string[]>([]);
-  const [viewStateEpoch, setViewStateEpoch] = useState(0);
-  const invalidateFileViewStateCallbacks = useCallback(() => {
-    const next = viewStateEpochRef.current + 1;
-    viewStateEpochRef.current = next;
-    setViewStateEpoch(next);
-  }, []);
-  const flushFileViewStates = useCallback(() => {
-    if (viewStatePersistTimerRef.current !== null) {
-      window.clearTimeout(viewStatePersistTimerRef.current);
-      viewStatePersistTimerRef.current = null;
-    }
-    const root = projectRef.current?.root ?? projectBeforeTransitionRef.current?.root;
-    if (root) persistFileViewStates(root, Object.fromEntries(viewStateRef.current));
-  }, []);
-  const scheduleFileViewStatePersistence = useCallback(() => {
-    if (viewStatePersistTimerRef.current !== null) window.clearTimeout(viewStatePersistTimerRef.current);
-    viewStatePersistTimerRef.current = window.setTimeout(() => {
-      viewStatePersistTimerRef.current = null;
-      const root = projectRef.current?.root ?? projectBeforeTransitionRef.current?.root;
-      if (root) persistFileViewStates(root, Object.fromEntries(viewStateRef.current));
-    }, 250);
-  }, []);
-  const fileViewStateRoot = project?.root ?? null;
-  const rememberFileViewState = useCallback((path: string, update: Partial<FileViewState>) => {
-    // Editor cleanup runs after project and path transitions commit. Reject an
-    // old tree's final callback so deleted, renamed, or foreign paths cannot
-    // re-enter the current root's local view-state map.
-    if (!path || viewStateEpoch !== viewStateEpochRef.current
-      || removedFileViewStatePathsRef.current.some((removed) => (
-        path === removed || path.startsWith(`${removed}/`)
-      ))
-      || !fileViewStateRoot || projectRef.current?.root !== fileViewStateRoot) return;
-    const next = { ...viewStateRef.current.get(path), ...update };
-    // Map insertion order is the file-state LRU used by app-settings when it
-    // caps local history. Reinsert a touched file at the newest end.
-    viewStateRef.current.delete(path);
-    viewStateRef.current.set(path, next);
-    scheduleFileViewStatePersistence();
-  }, [fileViewStateRoot, scheduleFileViewStatePersistence, viewStateEpoch]);
-  const getFileViewState = useCallback((path: string) => viewStateRef.current.get(path), []);
-  useEffect(() => flushFileViewStates, [flushFileViewStates]);
+  const {
+    statesRef: viewStateRef, get: getFileViewState, remember: rememberFileViewState, allow: allowViewState,
+    drop: dropViewState, forget: forgetViewStates, remap: remapViewStates, loadForProject: loadViewStatesForProject,
+  } = useFileViewStates(project?.root ?? null, projectRef, projectBeforeTransitionRef);
   const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
   const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
@@ -992,13 +921,7 @@ function App() {
         else setGitWorkspaceView("changes");
         setGitOpen(true);
       },
-      clearSelection: () => {
-        const source = selectionSourceRef.current;
-        dismissedSelectionRef.current = source && selection ? { source, text: selection } : null;
-        selectionSourceRef.current = null;
-        setSelection("");
-        setSelectionSource(null);
-      },
+      clearSelection: () => agentContext.dismissSelection(),
       flushVisualMarkdown: () => {
         visualMarkdownFlushRef.current?.();
       },
@@ -1083,176 +1006,14 @@ function App() {
       ? editorPosition
       : null;
   })();
-  useEffect(() => {
-    setAgentActiveSurface((current) => {
-      if (activePaper) return "paper";
-      if (canvasMode === "pdf") return "pdf";
-      if (canvasMode === "split" || canvasMode === "columns") {
-        return current === "paper" ? "editor" : current;
-      }
-      return "editor";
-    });
-  }, [activePaper, canvasMode]);
-  const activateAgentHostSurface = useCallback((surface: AgentHostSurface) => {
-    setAgentActiveSurface(surface);
-    const previousSource = selectionSourceRef.current;
-    // Pointer and focus capture both run while a block grip focuses the
-    // visual editor. Re-activating the surface that already owns the
-    // selection must not clear the context that the grip just published.
-    if (previousSource === surface) return;
-    if (!previousSource) {
-      if (dismissedSelectionRef.current?.source === surface) {
-        dismissedSelectionRef.current = null;
-      }
-      return;
-    }
-    dismissedSelectionRef.current = selection
-      ? { source: previousSource, text: selection }
-      : null;
-    selectionSourceRef.current = null;
-    setSelection("");
-    setSelectionSource(null);
-  }, [selection]);
-  const reportAgentSelection = useCallback((
-    source: AgentHostSurface,
-    value: string,
-  ) => {
-    const dismissed = dismissedSelectionRef.current;
-    if (
-      value &&
-      dismissed?.source === source &&
-      dismissed.text === value
-    ) {
-      return;
-    }
-    if (!value) {
-      if (dismissed?.source === source) dismissedSelectionRef.current = null;
-      if (selectionSourceRef.current !== source) return;
-      selectionSourceRef.current = null;
-      setSelection("");
-      setSelectionSource(null);
-      return;
-    }
-    dismissedSelectionRef.current = null;
-    selectionSourceRef.current = source;
-    setAgentActiveSurface(source);
-    setSelection(value);
-    setSelectionSource(source);
-  }, []);
-  const selectionImageSourcePath = useMemo(() => {
-    const documentPath = selectionSource === "paper"
-      ? activePaperPath
-      : selectionSource === "editor"
-        ? editorPosition?.path || activeFile
-        : null;
-    return documentPath
-      ? selectedMarkdownImageProjectPath(selection, documentPath)
-      : null;
-  }, [activeFile, activePaperPath, editorPosition?.path, selection, selectionSource]);
-  const selectionImageEnabled = Boolean(
-    selectionImageSourcePath
-    && selectionSource
-    && project?.root
-    && synara.origin
-    && synara.frameMounted
-    && agentVisible,
-  );
-  const directAgentSelectionImage = useMemo<(
-    AgentHostSelectionImage & { source: AgentHostSurface }
-  ) | null>(() => {
-    if (!selectionImageEnabled || !selectionImageSourcePath || !selectionSource) return null;
-    const mimeType = /\.png$/i.test(selectionImageSourcePath)
-      ? "image/png"
-      : /\.jpe?g$/i.test(selectionImageSourcePath)
-        ? "image/jpeg"
-        : null;
-    return mimeType
-      ? {
-          source: selectionSource,
-          sourcePath: selectionImageSourcePath,
-          agentReadablePath: selectionImageSourcePath,
-          mimeType,
-        }
-      : null;
-  }, [selectionImageEnabled, selectionImageSourcePath, selectionSource]);
-  const [preparedAgentSelectionImage, setPreparedAgentSelectionImage] = useState<(
-    AgentHostSelectionImage & { source: AgentHostSurface; projectRoot: string }
-  ) | null>(null);
-  const matchingPreparedAgentSelectionImage = preparedAgentSelectionImage
-    && preparedAgentSelectionImage.projectRoot === project?.root
-    && preparedAgentSelectionImage.source === selectionSource
-    && preparedAgentSelectionImage.sourcePath === selectionImageSourcePath
-    ? preparedAgentSelectionImage
-    : null;
-  const agentSelectionImage = directAgentSelectionImage ?? (
-    selectionImageEnabled ? matchingPreparedAgentSelectionImage : null
-  );
-  useEffect(() => {
-    if (
-      !selectionImageEnabled
-      || !selectionImageSourcePath
-      || !selectionSource
-      || !project?.root
-      || !/\.webp$/i.test(selectionImageSourcePath)
-    ) {
-      return;
-    }
-
-    const source = selectionSource;
-    const projectRoot = project.root;
-    let disposed = false;
-    void invoke<string>("prepare_latex_figure", {
-      path: selectionImageSourcePath,
-      projectRoot,
-    }).then((agentReadablePath) => {
-      if (disposed || !agentReadablePath) return;
-      setPreparedAgentSelectionImage({
-        source,
-        projectRoot,
-        sourcePath: selectionImageSourcePath,
-        agentReadablePath,
-        mimeType: "image/png",
-      });
-    }).catch(() => undefined);
-    return () => {
-      disposed = true;
-    };
-  }, [project?.root, selectionImageEnabled, selectionImageSourcePath, selectionSource]);
-  const agentHostContext = useMemo<AgentHostContextSnapshot | null>(
-    () => project
-      ? buildAgentHostContext({
-          workspaceRoot: project.root,
-          activeFile,
-          secondaryFile,
-          editorPosition,
-          activePaper,
-          canvasMode,
-          paperView,
-          pdfPage: pdfPageNumber,
-          pdfPageCount,
-          selection,
-          selectionSource,
-          selectionImage: agentSelectionImage,
-          presentation: openSlideContext,
-          activeSurface: agentActiveSurface,
-        })
-      : null,
-    [
-      activeFile, agentActiveSurface, agentSelectionImage, activePaper, canvasMode, editorPosition,
-      openSlideContext, paperView, pdfPageCount, pdfPageNumber, project, secondaryFile, selection,
-      selectionSource,
-    ],
-  );
-  const agentPaperLibrary = useMemo<AgentPaperLibrarySnapshot | null>(
-    () => project
-      ? buildAgentPaperLibrary({
-          workspaceRoot: project.root,
-          papers,
-        })
-      : null,
-    [papers, project],
-  );
-  useSynaraSnapshots(synara, agentHostContext, agentPaperLibrary);
+  const agentContext = useAgentContext({
+    synara, project, papers, agentVisible,
+    workspace: {
+      activeFile, secondaryFile, activePaper, activePaperPath, canvasMode, paperView, editorPosition,
+      pdfPage: pdfPageNumber, pdfPageCount, presentation: openSlideContext,
+    },
+  });
+  const { resetSelection: resetAgentSelection } = agentContext;
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
     if (mode === "agent") {
       setAgentDocked(false);
@@ -1566,12 +1327,10 @@ function App() {
       liveTextPaths: controller?.catalogTextPaths() ?? [],
     });
 
-    invalidateFileViewStateCallbacks();
+    dropViewState(path);
     setOpenTabs(initialPlan.openTabs);
     setPinnedTabs((tabs) => tabs.filter((tab) => tab !== path));
     tabRecency.current = initialPlan.tabRecency;
-    viewStateRef.current.delete(path);
-    scheduleFileViewStatePersistence();
     setNavStack((entries) => entries.filter((entry) => entry.path !== path));
     setViewRestore((request) => request?.path === path ? null : request);
     setEditorNavigation((request) => request?.path === path ? null : request);
@@ -1620,8 +1379,7 @@ function App() {
       setNotice("The open file was deleted by a collaborator; this share has no other text file to open.");
     }
   }, [
-    collabPathMutationGeneration, invalidateFileViewStateCallbacks, loadFile, refreshProject,
-    scheduleFileViewStatePersistence,
+    collabPathMutationGeneration, dropViewState, loadFile, refreshProject,
   ]);
 
   /**
@@ -2781,19 +2539,13 @@ function App() {
       setActiveFile("");
       setSource("");
       setSavedSource("");
-      flushFileViewStates();
-      invalidateFileViewStateCallbacks();
-      viewStateRef.current = new Map(Object.entries(loadFileViewStates(snapshot.root)));
-      removedFileViewStatePathsRef.current = [];
+      loadViewStatesForProject(snapshot.root);
       projectRef.current = snapshot;
       projectBeforeTransitionRef.current = null;
       setProject(snapshot);
       rememberProject(snapshot);
       setProjectMenuOpen(false);
-      setSelection("");
-      setSelectionSource(null);
-      selectionSourceRef.current = null;
-      dismissedSelectionRef.current = null;
+      resetAgentSelection();
       setEditorComments([]);
       setEditorCommentsOpen(false);
       setActiveEditorCommentId(null);
@@ -2985,8 +2737,8 @@ function App() {
       if (shellRef.current) shellRef.current.style.opacity = "1";
     },
     [
-      beginProjectTransition, flushFileViewStates, invalidateFileViewStateCallbacks, loadFile,
-      refreshUnusedSymbols, rememberProject, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
+      beginProjectTransition, loadViewStatesForProject, loadFile,
+      refreshUnusedSymbols, rememberProject, resetAgentSelection, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
     ],
   );
   enterProjectRef.current = enterProject;
@@ -4941,10 +4693,7 @@ function App() {
             kind,
             projectRoot: project?.root,
           });
-      removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
-        removedFileViewStatePathsRef.current,
-        createdPath,
-      );
+      allowViewState(createdPath);
       await refreshProject();
       await refreshHistory();
       if (kind !== "folder") {
@@ -4972,7 +4721,7 @@ function App() {
       throw reason;
     }
   }, [
-    openProjectFile, overleafLink, overleafSyncMode, overleafSyncRef, project?.root, refreshHistory,
+    allowViewState, openProjectFile, overleafLink, overleafSyncMode, overleafSyncRef, project?.root, refreshHistory,
     refreshProject, shareCreatedFileWithCollabV2,
   ]);
   useLayoutEffect(() => {
@@ -5016,10 +4765,7 @@ function App() {
         projectRoot: project?.root,
       });
       for (const importedPath of imported) {
-        removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
-          removedFileViewStatePathsRef.current,
-          importedPath,
-        );
+        allowViewState(importedPath);
       }
       await refreshProject();
       trace.ok(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory || "the project root"}.`);
@@ -5033,7 +4779,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2]);
+  }, [allowViewState, assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2]);
 
   const importProjectSources = useCallback(async (
     paths: string[],
@@ -5048,10 +4794,7 @@ function App() {
         projectRoot: project?.root,
       });
       for (const importedPath of imported) {
-        removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
-          removedFileViewStatePathsRef.current,
-          importedPath,
-        );
+        allowViewState(importedPath);
       }
       await reconcileProjectTree();
       await refreshHistory();
@@ -5073,7 +4816,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+  }, [allowViewState, assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
 
   /**
    * Finder-style tree drops: any mix of files and folders, routed by the
@@ -5097,10 +4840,7 @@ function App() {
         { paths, targetDirectory, projectRoot: project?.root, ...(copyExisting ? { copyExisting: true } : {}), ...(uploads ? { uploads } : {}) },
       );
       for (const file of imported) {
-        removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
-          removedFileViewStatePathsRef.current,
-          file.path,
-        );
+        allowViewState(file.path);
       }
       await reconcileProjectTree();
       await refreshHistory();
@@ -5115,7 +4855,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+  }, [allowViewState, assetImporting, project?.root, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
 
   useEffect(() => {
     if (!project || !browserHosted || isBundledChromium()) return;
@@ -5438,12 +5178,7 @@ function App() {
           : null;
         return primaryPath || secondaryPath ? { ...preview, primaryPath, secondaryPath } : null;
       });
-      invalidateFileViewStateCallbacks();
-      removedFileViewStatePathsRef.current.push(...paths);
-      for (const storedPath of viewStateRef.current.keys()) {
-        if (wasDeleted(storedPath)) viewStateRef.current.delete(storedPath);
-      }
-      scheduleFileViewStatePersistence();
+      forgetViewStates(paths, wasDeleted);
       const snapshot = await refreshProject();
       if (deletedActiveFile && !activeAsset && !activePaper) {
         const livePaths = new Set(flattenProjectPaths(snapshot.files));
@@ -5474,22 +5209,15 @@ function App() {
     }
   }, [
     activeAsset, activeCollabVersion, activeFile, activePaper, canvasMode, dualPanePreview,
-    invalidateFileViewStateCallbacks, loadFile, overleafLink, project, refreshHistory, refreshProject,
-    scheduleFileViewStatePersistence, secondaryAsset, secondaryFile, settleRemoteDeletes, t,
+    forgetViewStates, loadFile, overleafLink, project, refreshHistory, refreshProject, secondaryAsset,
+    secondaryFile, settleRemoteDeletes, t,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
     if (changes.length === 0) return;
     const remapPath = (path: string) => remapProjectPath(path, changes);
 
-    invalidateFileViewStateCallbacks();
-    for (const change of changes) {
-      removedFileViewStatePathsRef.current.push(change.previousPath);
-      removedFileViewStatePathsRef.current = allowRememberedFileViewPath(
-        removedFileViewStatePathsRef.current,
-        change.nextPath,
-      );
-    }
+    remapViewStates(changes, remapPath);
     setProject((current) => current ? applyProjectPathChanges(current, changes) : current);
     projectGit.setGitStatus((current) => ({
       ...current,
@@ -5513,11 +5241,7 @@ function App() {
     } : current);
 
     tabRecency.current = tabRecency.current.map(remapPath);
-    viewStateRef.current = new Map(
-      [...viewStateRef.current].map(([path, state]) => [remapPath(path), state]),
-    );
-    scheduleFileViewStatePersistence();
-  }, [invalidateFileViewStateCallbacks, remapOpenPaths, scheduleFileViewStatePersistence]);
+  }, [remapOpenPaths, remapViewStates]);
 
   const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
     try {
@@ -7284,11 +7008,11 @@ function App() {
             onSave={save}
             onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
             onMarkdownModeViewportCaptureChange={registerMarkdownModeViewportCapture}
-            setSelection={(value) => reportAgentSelection(paperFocused ? "paper" : "editor", value)}
-            onPdfTextSelect={(value) => reportAgentSelection("pdf", value)}
-            onPaperTextSelect={(value) => reportAgentSelection("paper", value)}
+            setSelection={(value) => agentContext.reportSelection(paperFocused ? "paper" : "editor", value)}
+            onPdfTextSelect={(value) => agentContext.reportSelection("pdf", value)}
+            onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
             onImportAsset={importClipboardImageFile}
-            onContextSurfaceActivate={activateAgentHostSurface}
+            onContextSurfaceActivate={agentContext.activateSurface}
             onViewMarkdownSource={() => {
               markdownModeViewportCaptureRef.current?.();
               if (canvasMode === "dual" || canvasMode === "columns") {
