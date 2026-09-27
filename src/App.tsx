@@ -74,7 +74,7 @@ import {
   type EditorWriteResult,
   type SharedWorkspaceDisk,
 } from "./app/shared-document-sync";
-import { AppCollabDialog, AppOverleafCollabDrawer, CollabDialog } from "./app/app-collab-surfaces";
+import { AppCollabDialog, AppOverleafCollabDrawer } from "./app/app-collab-surfaces";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppOnboardingTour } from "./app/app-onboarding-tour";
@@ -1217,12 +1217,7 @@ function App() {
     return () => {
       disposed = true;
     };
-  }, [
-    project?.root,
-    selectionImageEnabled,
-    selectionImageSourcePath,
-    selectionSource,
-  ]);
+  }, [project?.root, selectionImageEnabled, selectionImageSourcePath, selectionSource]);
   const agentHostContext = useMemo<AgentHostContextSnapshot | null>(
     () => project
       ? buildAgentHostContext({
@@ -1243,19 +1238,8 @@ function App() {
         })
       : null,
     [
-      activeFile,
-      agentActiveSurface,
-      agentSelectionImage,
-      activePaper,
-      canvasMode,
-      editorPosition,
-      openSlideContext,
-      paperView,
-      pdfPageCount,
-      pdfPageNumber,
-      project,
-      secondaryFile,
-      selection,
+      activeFile, agentActiveSurface, agentSelectionImage, activePaper, canvasMode, editorPosition,
+      openSlideContext, paperView, pdfPageCount, pdfPageNumber, project, secondaryFile, selection,
       selectionSource,
     ],
   );
@@ -1636,10 +1620,7 @@ function App() {
       setNotice("The open file was deleted by a collaborator; this share has no other text file to open.");
     }
   }, [
-    collabPathMutationGeneration,
-    invalidateFileViewStateCallbacks,
-    loadFile,
-    refreshProject,
+    collabPathMutationGeneration, invalidateFileViewStateCallbacks, loadFile, refreshProject,
     scheduleFileViewStatePersistence,
   ]);
 
@@ -1685,79 +1666,21 @@ function App() {
   // `src/app/use-collab-v2-session.ts`. The call sits here, below `loadFile`
   // and `v2WorkspaceCallbacks`, because both of those bind the editor and its
   // buffers to shared documents and therefore have to stay in App.
-  const {
-    collabOpen,
-    setCollabOpen,
-    collabMode,
-    setCollabMode,
-    collabHost,
-    collabRoom,
-    setCollabRoom,
-    collabInvite,
-    setCollabInvite,
-    collabName,
-    setCollabName,
-    collabProjectName,
-    setCollabProjectName,
-    recentProjectsV2,
-    refreshRecentRooms,
-    collabStatus,
-    setCollabStatus,
-    collabStatusDetail,
-    collabPeerList,
-    setCollabPeerList,
-    collabPeers,
-    collabFileCount,
-    setCollabFileCount,
-    collabRole,
-    setCollabRole,
-    collabRoleRef,
-    collabWorkspaceGenerationRef,
-    preCollabProjectRootRef,
-    clearCollabLocalState,
-    leaveHostShareSession,
-    bindJoinedDocument,
-    handleV2PermanentError,
-    disconnectCollab,
-    settleCollabBeforeProjectSwitch,
-    mapV2Status,
-    handleV2Catalog,
-    publishTextToCollabV2,
-    shareCreatedFileWithCollabV2,
-    startCollabShare,
-    copyCollabInvite,
-    removeCollabPeer,
-    openCollabDialog,
-    forgetRecentProjectV2,
-    renameRecentProjectV2,
-    closeRecentProjectV2,
-  } = useCollabV2Session({
-    project,
-    projectRef,
-    projectRootRef,
-    projectOperationGenerationRef,
-    activeFile,
-    recentProjects,
-    editorCommentAuthorId,
-    activeCollabVersion,
-    setActiveCollabVersion,
-    collabSession,
-    setCollabSession,
-    collabSessionRef,
-    setCollabReady,
-    collabV2ControllerRef,
-    collabWorkspaceLeaseRef,
-    collabDiskWriteQueueRef,
-    collabPathMutationGeneration,
-    collabDetachRef,
-    enterProjectRef,
-    setBusyLabel,
-    startProjectTransition,
-    cancelProjectTransition,
-    refreshProject,
-    loadFile,
-    v2WorkspaceCallbacks,
+  const collab = useCollabV2Session({
+    project, projectRef, projectRootRef, projectOperationGenerationRef, activeFile, recentProjects,
+    editorCommentAuthorId, activeCollabVersion, setActiveCollabVersion, collabSession, setCollabSession,
+    collabSessionRef, setCollabReady, collabV2ControllerRef, collabWorkspaceLeaseRef, collabDiskWriteQueueRef,
+    collabPathMutationGeneration, collabDetachRef, enterProjectRef, setBusyLabel, startProjectTransition,
+    cancelProjectTransition, refreshProject, loadFile, v2WorkspaceCallbacks,
   });
+  const {
+    setCollabOpen, collabRoom, setCollabRoom, collabInvite, collabName, setCollabProjectName,
+    refreshRecentRooms, collabStatus, setCollabStatus, collabPeerList, setCollabPeerList, collabPeers,
+    collabFileCount, setCollabFileCount, setCollabRole, collabRoleRef, collabWorkspaceGenerationRef,
+    preCollabProjectRootRef, clearCollabLocalState, bindJoinedDocument, handleV2PermanentError,
+    settleCollabBeforeProjectSwitch, mapV2Status, handleV2Catalog, publishTextToCollabV2,
+    shareCreatedFileWithCollabV2, openCollabDialog,
+  } = collab;
 
   const externalEditConflictMessage = useCallback(
     (path: string) => t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }),
@@ -1895,22 +1818,9 @@ function App() {
       return false;
     }
   }, [
-    activeFile,
-    activeAsset,
-    activePaper,
-    activeCollabVersion,
-    collabPathMutationGeneration,
-    collabSession,
-    externalEditConflictMessage,
-    markPaperSaved,
-    project,
-    publishTextToCollabV2,
-    recordSavedPaths,
-    refreshAfterSave,
-    semanticSearch.requestReindex,
-    setPrimarySaved,
-    setPrimarySource,
-    setSecondarySaved,
+    activeFile, activeAsset, activePaper, activeCollabVersion, collabPathMutationGeneration, collabSession,
+    externalEditConflictMessage, markPaperSaved, project, publishTextToCollabV2, recordSavedPaths,
+    refreshAfterSave, semanticSearch.requestReindex, setPrimarySaved, setPrimarySource, setSecondarySaved,
     setSecondarySourceLive,
   ]);
   // Keep activity tracking outside the save body: React Compiler cannot lower
@@ -2433,13 +2343,7 @@ function App() {
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [
-    dualPreviewPanes.primary,
-    dualPreviewPanes.secondary,
-    openProjectFile,
-    secondaryAsset,
-    secondaryFile,
-  ]);
+  }, [dualPreviewPanes.primary, dualPreviewPanes.secondary, openProjectFile, secondaryAsset, secondaryFile]);
 
   const compile = useCallback(async (
     force = false,
@@ -2540,14 +2444,8 @@ function App() {
     ) paths.push(secondaryFile);
     return paths;
   }, [
-    activeAsset,
-    activeFile,
-    activePaper,
-    canvasMode,
-    dualPreviewPanes.primary,
-    dualPreviewPanes.secondary,
-    secondaryAsset,
-    secondaryFile,
+    activeAsset, activeFile, activePaper, canvasMode, dualPreviewPanes.primary, dualPreviewPanes.secondary,
+    secondaryAsset, secondaryFile,
   ]);
   const wholeFileDraftPaths = useMemo(() => (
     openSlideContext?.pendingEdits
@@ -2555,77 +2453,23 @@ function App() {
       ? [openSlideContext.pagePath]
       : []
   ), [openSlideContext, wholeFileEditingPaths]);
-  const {
-    overleafLink,
-    overleafProjectLinked,
-    overleafSyncing,
-    overleafSyncMode,
-    setOverleafSyncMode,
-    overleafRemoteDelete,
-    setOverleafRemoteDelete,
-    overleafRemoteChanges,
-    setOverleafRemoteChanges,
-    overleafPickerOpen,
-    setOverleafPickerOpen,
-    overleafReviewOpen,
-    setOverleafReviewOpen,
-    overleafCollabOpen,
-    setOverleafCollabOpen,
-    overleafCollabTab,
-    setOverleafCollabTab,
-    conflictPath,
-    setConflictPath,
-    overleafSyncRef,
-    refreshOverleafLink,
-    publishProjectToOverleaf,
-    runOverleafSync,
-    flushDeferredWholeFileSync,
-    settleRemoteDeletes,
-    openCurrentOverleafProject,
-    jumpToOverleafPeer,
-    overleafRealtime,
-    overleafPresence,
-    overleafChat,
-    overleafComments,
-    overleafCommentsRef,
-    overleafTrackChanges,
-    overleafDocPaths,
-    overleafEditorComments,
-    overleafActiveCursors,
-  } = useOverleafWorkspace({
-    project,
-    projectRef,
-    projectOperationGenerationRef,
-    activeFile,
-    activeFileRef,
-    activePaper,
-    activeAsset,
-    source,
-    sourceRef,
-    savedSourceRef,
-    setSource,
-    setSavedSource,
-    setViewRestore,
-    viewStateRef,
-    editorPosition,
-    editorPositionRef,
-    build,
-    saveGeneration,
-    savedPathsRef,
-    wholeFileEditingPaths,
-    wholeFileDraftPaths,
-    collabSession,
-    collabName,
-    runSharedOverleafSync,
-    save,
-    compile,
-    loadFile,
-    refreshProject,
-    openProjectFile,
-    overleafSyncingRef,
-    overleafSyncSettledRef,
-    resolveOverleafSyncRef,
+  const overleaf = useOverleafWorkspace({
+    project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
+    source, sourceRef, savedSourceRef, setSource, setSavedSource, setViewRestore, viewStateRef, editorPosition,
+    editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
+    collabSession, collabName, runSharedOverleafSync, save, compile, loadFile, refreshProject, openProjectFile,
+    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   });
+  const {
+    overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode, setOverleafSyncMode,
+    overleafRemoteDelete, setOverleafRemoteDelete, overleafRemoteChanges, setOverleafRemoteChanges,
+    overleafPickerOpen, setOverleafPickerOpen, overleafReviewOpen, setOverleafReviewOpen,
+    setOverleafCollabOpen, setOverleafCollabTab, conflictPath, setConflictPath,
+    overleafSyncRef, refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync,
+    settleRemoteDeletes, openCurrentOverleafProject, jumpToOverleafPeer, overleafRealtime, overleafPresence,
+    overleafChat, overleafComments, overleafCommentsRef, overleafTrackChanges, overleafDocPaths,
+    overleafEditorComments, overleafActiveCursors,
+  } = overleaf;
   useLayoutEffect(() => {
     flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
   }, [flushDeferredWholeFileSync]);
@@ -2688,14 +2532,8 @@ function App() {
           ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
         }];
   }, [
-    activeCollabVersion,
-    collabCanWrite,
-    collabDiskWriteQueueRef,
-    loadFile,
-    recordSavedPaths,
-    refreshHistory,
-    refreshProject,
-    v2WorkspaceCallbacks,
+    activeCollabVersion, collabCanWrite, collabDiskWriteQueueRef, loadFile, recordSavedPaths, refreshHistory,
+    refreshProject, v2WorkspaceCallbacks,
   ]);
 
   /** Both kinds of comment, as the editor and the panel want them. */
@@ -2787,16 +2625,8 @@ function App() {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     }
   }, [
-    forwardSyncPosition,
-    locatingPdf,
-    pdfUrl,
-    runBuild,
-    save,
-    savedSource,
-    secondaryFile,
-    secondarySavedSource,
-    secondarySource,
-    source,
+    forwardSyncPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, secondaryFile, secondarySavedSource,
+    secondarySource, source,
   ]);
 
   const navigateOutline = useCallback(async (path: string, line: number) => {
@@ -3155,15 +2985,8 @@ function App() {
       if (shellRef.current) shellRef.current.style.opacity = "1";
     },
     [
-      beginProjectTransition,
-      flushFileViewStates,
-      invalidateFileViewStateCallbacks,
-      loadFile,
-      refreshUnusedSymbols,
-      rememberProject,
-      resetForProject,
-      runBuild,
-      settleCollabBeforeProjectSwitch,
+      beginProjectTransition, flushFileViewStates, invalidateFileViewStateCallbacks, loadFile,
+      refreshUnusedSymbols, rememberProject, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
     ],
   );
   enterProjectRef.current = enterProject;
@@ -3410,14 +3233,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [
-    cancelProjectTransition,
-    enterProject,
-    openProjectWindow,
-    project?.root,
-    save,
-    startProjectTransition,
-  ]);
+  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, save, startProjectTransition]);
 
   const createProject = useCallback(async () => {
     if (!projectName.trim()) {
@@ -3448,12 +3264,7 @@ function App() {
       setBusyLabel(null);
     }
   }, [
-    cancelProjectTransition,
-    project?.root,
-    projectName,
-    projectVenue,
-    revealNewProject,
-    save,
+    cancelProjectTransition, project?.root, projectName, projectVenue, revealNewProject, save,
     startProjectTransition,
   ]);
 
@@ -3514,11 +3325,7 @@ function App() {
       }
     })();
   }, [
-    cancelProjectTransition,
-    enterProject,
-    initialProjectProbe,
-    openTutorialProject,
-    runBuild,
+    cancelProjectTransition, enterProject, initialProjectProbe, openTutorialProject, runBuild,
     startProjectTransition,
   ]);
 
@@ -3602,14 +3409,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [
-    cancelProjectTransition,
-    enterProject,
-    openProjectWindow,
-    project?.root,
-    save,
-    startProjectTransition,
-  ]);
+  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, save, startProjectTransition]);
 
   useEffect(() => {
     let active = true;
@@ -3678,18 +3478,8 @@ function App() {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
   }, [
-    activeFile,
-    activeAsset,
-    activePaper,
-    activePaperDirty,
-    buildPreferences.autoBuildMode,
-    editorCompletionActive,
-    paperBlog,
-    paperMarkdown,
-    project,
-    savedPaperBlog,
-    savedPaperMarkdown,
-    savedSource,
+    activeFile, activeAsset, activePaper, activePaperDirty, buildPreferences.autoBuildMode,
+    editorCompletionActive, paperBlog, paperMarkdown, project, savedPaperBlog, savedPaperMarkdown, savedSource,
     source,
   ]);
 
@@ -3723,12 +3513,7 @@ function App() {
       // and includes dirty secondary and paper buffers.
       void save();
     }
-  }, [
-    activePaper,
-    buildPreferences.autoBuildMode,
-    save,
-    saveAndCompileAutomatically,
-  ]);
+  }, [activePaper, buildPreferences.autoBuildMode, save, saveAndCompileAutomatically]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -3977,17 +3762,8 @@ function App() {
       }
     }
   }, [
-    activeAsset,
-    activeFile,
-    activePaper,
-    activePaperDirty,
-    cancelPreviewPrewarm,
-    flushAndCheckPrimaryDirty,
-    save,
-    secondaryFile,
-    secondarySavedSource,
-    secondarySource,
-    t,
+    activeAsset, activeFile, activePaper, activePaperDirty, cancelPreviewPrewarm, flushAndCheckPrimaryDirty,
+    save, secondaryFile, secondarySavedSource, secondarySource, t,
   ]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
@@ -4479,21 +4255,8 @@ function App() {
       if (isCurrentDrop()) setError(toMessage(reason));
     }
   }, [
-    activeCollabVersion,
-    canvasMode,
-    dualPanePreview,
-    loadFile,
-    openPaper,
-    openProjectAsset,
-    openProjectFile,
-    openTabs,
-    activePaper,
-    paperSide,
-    paperView,
-    papers,
-    projectAssetPaths,
-    save,
-    t,
+    activeCollabVersion, canvasMode, dualPanePreview, loadFile, openPaper, openProjectAsset, openProjectFile,
+    openTabs, activePaper, paperSide, paperView, papers, projectAssetPaths, save, t,
   ]);
   const closeSplitView = useCallback(() => {
     if (canvasMode !== "dual" && canvasMode !== "columns") return;
@@ -4508,15 +4271,8 @@ function App() {
       });
     }
   }, [
-    activeAsset?.path,
-    activeFile,
-    activePaper,
-    canvasMode,
-    dropProjectPath,
-    focusedPane,
-    focusedPanePreview,
-    secondaryAsset?.path,
-    secondaryFile,
+    activeAsset?.path, activeFile, activePaper, canvasMode, dropProjectPath, focusedPane, focusedPanePreview,
+    secondaryAsset?.path, secondaryFile,
   ]);
 
   const closeEditorTab = useCallback(async (path: string) => {
@@ -4633,18 +4389,8 @@ function App() {
     if (path !== activeFile) return;
     if (fileFallback) await openProjectFile(fileFallback);
   }, [
-    activeAsset,
-    activeFile,
-    activePaper,
-    canvasMode,
-    dropProjectPath,
-    dualPanePreview,
-    flushAndCheckPrimaryDirty,
-    loadFile,
-    openProjectFile,
-    projectAssetPaths,
-    save,
-    secondaryAsset,
+    activeAsset, activeFile, activePaper, canvasMode, dropProjectPath, dualPanePreview,
+    flushAndCheckPrimaryDirty, loadFile, openProjectFile, projectAssetPaths, save, secondaryAsset,
     secondaryFile,
   ]);
 
@@ -5108,17 +4854,8 @@ function App() {
       setCanvasMode(nextMode);
     })();
   }, [
-    activeAsset,
-    activeFile,
-    activePaper,
-    activePaperDirty,
-    canvasMode,
-    dropProjectPath,
-    ensureSecondaryFile,
-    focusedPane,
-    save,
-    secondaryAsset,
-    secondaryFile,
+    activeAsset, activeFile, activePaper, activePaperDirty, canvasMode, dropProjectPath, ensureSecondaryFile,
+    focusedPane, save, secondaryAsset, secondaryFile,
   ]);
 
   const splitDocumentView = useCallback(() => {
@@ -5185,12 +4922,7 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeFile,
-    flushAndCheckPrimaryDirty,
-    loadFile,
-    save,
-    secondaryFile,
-    secondarySavedSource,
+    activeFile, flushAndCheckPrimaryDirty, loadFile, save, secondaryFile, secondarySavedSource,
     secondarySource,
   ]);
 
@@ -5240,14 +4972,8 @@ function App() {
       throw reason;
     }
   }, [
-    openProjectFile,
-    overleafLink,
-    overleafSyncMode,
-    overleafSyncRef,
-    project?.root,
-    refreshHistory,
-    refreshProject,
-    shareCreatedFileWithCollabV2,
+    openProjectFile, overleafLink, overleafSyncMode, overleafSyncRef, project?.root, refreshHistory,
+    refreshProject, shareCreatedFileWithCollabV2,
   ]);
   useLayoutEffect(() => {
     const createAgentProjectDocument = async (request: AgentProjectDocumentToolRequest) => {
@@ -5747,23 +5473,9 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeAsset,
-    activeCollabVersion,
-    activeFile,
-    activePaper,
-    canvasMode,
-    dualPanePreview,
-    invalidateFileViewStateCallbacks,
-    loadFile,
-    overleafLink,
-    project,
-    refreshHistory,
-    refreshProject,
-    scheduleFileViewStatePersistence,
-    secondaryAsset,
-    secondaryFile,
-    settleRemoteDeletes,
-    t,
+    activeAsset, activeCollabVersion, activeFile, activePaper, canvasMode, dualPanePreview,
+    invalidateFileViewStateCallbacks, loadFile, overleafLink, project, refreshHistory, refreshProject,
+    scheduleFileViewStatePersistence, secondaryAsset, secondaryFile, settleRemoteDeletes, t,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
@@ -5952,17 +5664,8 @@ function App() {
       }
     });
   }, [
-    activeCollabVersion,
-    applyProjectEntryPathChanges,
-    markDiskMtime,
-    project?.root,
-    projectAssetPaths,
-    publishTextToCollabV2,
-    reconcileProjectTree,
-    save,
-    setPrimarySource,
-    setSecondarySourceLive,
-    t,
+    activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, projectAssetPaths,
+    publishTextToCollabV2, reconcileProjectTree, save, setPrimarySource, setSecondarySourceLive, t,
   ]);
 
   const submitRename = useCallback(async (name: string) => {
@@ -6407,18 +6110,8 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeFile,
-    activePaper,
-    activeCollabVersion,
-    collabSession,
-    markDiskMtime,
-    project,
-    publishTextToCollabV2,
-    refreshHistory,
-    refreshProject,
-    save,
-    secondaryFile,
-    t,
+    activeFile, activePaper, activeCollabVersion, collabSession, markDiskMtime, project, publishTextToCollabV2,
+    refreshHistory, refreshProject, save, secondaryFile, t,
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
@@ -6884,16 +6577,8 @@ function App() {
       void openProjectFile(path);
     }
   }, [
-    activePaper,
-    canvasMode,
-    closeEditorTab,
-    openPaper,
-    openProjectAsset,
-    openProjectFile,
-    papers,
-    projectAssetPaths,
-    secondaryAsset?.path,
-    secondaryFile,
+    activePaper, canvasMode, closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers,
+    projectAssetPaths, secondaryAsset?.path, secondaryFile,
   ]);
   const requestCloseEditorTab = useCallback((path: string) => {
     void closeEditorTab(path);
@@ -7008,15 +6693,8 @@ function App() {
     setOpenTabs((tabs) => tabs.filter((key) => key !== victim));
     tabRecency.current = tabRecency.current.filter((key) => key !== victim);
   }, [
-    openTabs,
-    pinnedTabs,
-    appearance.maxOpenTabs,
-    activeTabKey,
-    activeFile,
-    activePaper,
-    activeAsset?.path,
-    secondaryAsset?.path,
-    secondaryFile,
+    openTabs, pinnedTabs, appearance.maxOpenTabs, activeTabKey, activeFile, activePaper, activeAsset?.path,
+    secondaryAsset?.path, secondaryFile,
   ]);
   useEffect(() => {
     if (!project?.root || workspacePersistenceReadyRoot !== project.root) return;
@@ -7033,16 +6711,8 @@ function App() {
       tabRecency: tabRecency.current.filter((path) => openTabs.includes(path)),
     });
   }, [
-    activeFile,
-    activeTabKey,
-    canvasMode,
-    focusedPane,
-    openTabs,
-    pinnedTabs,
-    paperView,
-    project?.root,
-    secondaryFile,
-    workspacePersistenceReadyRoot,
+    activeFile, activeTabKey, canvasMode, focusedPane, openTabs, pinnedTabs, paperView, project?.root,
+    secondaryFile, workspacePersistenceReadyRoot,
   ]);
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
@@ -7216,45 +6886,14 @@ function App() {
           onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
-        {isCollabEnabled() && collabOpen && (
-          <Suspense fallback={null}>
-            <CollabDialog
-              open
-              mode="join"
-              role={collabRole}
-              joinOnly
-              host={collabHost}
-              room={collabRoom}
-              displayName={collabName}
-              projectName={collabProjectName}
-              inviteText={collabInvite}
-              status={collabStatus}
-              statusDetail={collabStatusDetail}
-              peerCount={collabPeers}
-              peers={collabPeerList}
-              fileCount={collabFileCount}
-              connectedRoom={collabSession?.room ?? null}
-              onClose={() => setCollabOpen(false)}
-              onModeChange={setCollabMode}
-              onRoomChange={setCollabRoom}
-              onDisplayNameChange={setCollabName}
-              onProjectNameChange={setCollabProjectName}
-              onInviteChange={setCollabInvite}
-              onStartShare={startCollabShare}
-              onJoinShare={joinCollabShare}
-              recentProjectsV2={recentProjectsV2}
-              onRejoinProjectV2={rejoinCollabProjectV2}
-              onForgetProjectV2={forgetRecentProjectV2}
-              onRenameProjectV2={renameRecentProjectV2}
-              onCloseProjectV2={closeRecentProjectV2}
-              onDisconnect={disconnectCollab}
-              onLeaveShare={() => void leaveHostShareSession()}
-              onCopyInvite={copyCollabInvite}
-              onRemovePeer={removeCollabPeer}
-              onInstallTex={texSetup.openWizard}
-            />
-          </Suspense>
-        )}
+        <AppCollabDialog
+          collab={collab}
+          session={collabSession}
+          onJoin={joinCollabShare}
+          onRejoin={rejoinCollabProjectV2}
+          onInstallTex={texSetup.openWizard}
+          joinOnly
+        />
         {settingsDialog}
         {overleafPicker}
         {overleafReview}
@@ -7873,41 +7512,12 @@ function App() {
       <EditorDropPreviewPortal preview={projectFileDropPreview} />
 
       <AppCollabDialog
-        closeRecentProjectV2={closeRecentProjectV2}
-        collabCanWrite={collabCanWrite}
-        collabChat={collabChat}
-        collabFileCount={collabFileCount}
-        collabHost={collabHost}
-        collabInvite={collabInvite}
-        collabMode={collabMode}
-        collabName={collabName}
-        collabOpen={collabOpen}
-        collabPeerList={collabPeerList}
-        collabPeers={collabPeers}
-        collabProjectName={collabProjectName}
-        collabRole={collabRole}
-        collabRoom={collabRoom}
-        collabSession={collabSession}
-        collabStatus={collabStatus}
-        collabStatusDetail={collabStatusDetail}
-        copyCollabInvite={copyCollabInvite}
-        disconnectCollab={disconnectCollab}
-        editorCommentAuthorId={editorCommentAuthorId}
-        forgetRecentProjectV2={forgetRecentProjectV2}
-        joinCollabShare={joinCollabShare}
-        leaveHostShareSession={leaveHostShareSession}
-        openTexSetupWizard={texSetup.openWizard}
-        recentProjectsV2={recentProjectsV2}
-        rejoinCollabProjectV2={rejoinCollabProjectV2}
-        removeCollabPeer={removeCollabPeer}
-        renameRecentProjectV2={renameRecentProjectV2}
-        setCollabInvite={setCollabInvite}
-        setCollabMode={setCollabMode}
-        setCollabName={setCollabName}
-        setCollabOpen={setCollabOpen}
-        setCollabProjectName={setCollabProjectName}
-        setCollabRoom={setCollabRoom}
-        startCollabShare={startCollabShare}
+        collab={collab}
+        session={collabSession}
+        onJoin={joinCollabShare}
+        onRejoin={rejoinCollabProjectV2}
+        onInstallTex={texSetup.openWizard}
+        chat={{ chat: collabChat, selfId: editorCommentAuthorId, canWrite: collabCanWrite }}
       />
 
       <TexSetupDialogs setup={texSetup} />
@@ -7964,19 +7574,11 @@ function App() {
             focusThreadId={commentPanelFocusId ? overleafThreadOf(commentPanelFocusId) : null}
             activeFileRef={activeFileRef}
             openProjectFile={openProjectFile}
-            overleafChat={overleafChat}
-            overleafCollabOpen={overleafCollabOpen}
-            overleafCollabTab={overleafCollabTab}
-            overleafComments={overleafComments}
-            overleafDocPaths={overleafDocPaths}
-            overleafLink={overleafLink}
-            overleafRealtime={overleafRealtime}
-            overleafTrackChanges={overleafTrackChanges}
-            setOverleafCollabOpen={(open) => {
-              setOverleafCollabOpen(open);
+            overleaf={overleaf}
+            onClose={() => {
+              setOverleafCollabOpen(false);
               setCommentPanelFocus(null);
             }}
-            setOverleafCollabTab={setOverleafCollabTab}
             setViewRestore={setViewRestore}
             source={source}
           />
