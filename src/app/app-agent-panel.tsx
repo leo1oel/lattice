@@ -6,32 +6,34 @@ import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import SynaraPermissionPicker from "../agent/synara-permission-picker";
 import { synaraEmbedUrl } from "./app-synara-embed";
 import { useAgentPanelLayout } from "./use-agent-panel-layout";
-import type { AppWorkspaceSidebarProps } from "./app-workspace-sidebar";
+import type { AppLocale, Theme } from "../settings/app-settings";
+import type { SynaraHost } from "./use-synara-host";
 import "./agent-panel-layout.css";
 
-type Props = Pick<AppWorkspaceSidebarProps,
-  | "agentDocked" | "agentVisible" | "onCloseAgentDock" | "agentPanelDropActive" | "appLocale"
-  | "changeSynaraPermissionMode" | "chooseSidebarMode" | "project" | "retrySynaraRuntime"
-  | "sidebarOpen" | "sidebarMode" | "synaraAutoModeAvailable" | "synaraFrameMounted"
-  | "synaraFrameReady" | "synaraIframeRef" | "synaraOrigin" | "synaraPermissionMode"
-  | "synaraRuntime" | "theme"
-> & { slotRef: RefObject<HTMLDivElement | null> };
-
 /** Loaded on the first assistant request, then kept mounted for its lifetime. */
-export default function AppAgentPanel(props: Props) {
+export default function AppAgentPanel({ docked, visible, dropActive, appLocale, theme, projectRoot, synara, onUndock, onClose, slotRef }: {
+  docked: boolean;
+  visible: boolean;
+  dropActive: boolean;
+  appLocale: AppLocale;
+  theme: Theme;
+  projectRoot: string;
+  synara: SynaraHost;
+  onUndock: () => void;
+  onClose: () => void;
+  slotRef: RefObject<HTMLDivElement | null>;
+}) {
   const { t } = useLingui();
   const {
-    appLocale, project, synaraOrigin, synaraRuntime, theme,
-    synaraFrameMounted, synaraFrameReady, synaraIframeRef,
-  } = props;
+    origin: synaraOrigin, runtime: synaraRuntime, frameMounted, frameReady, frameRef, retry,
+    permissionMode, autoModeAvailable, changePermissionMode,
+  } = synara;
   // Recording navigation must not change src and reload an in-progress turn.
   const agentFrameUrl = useMemo(() => synaraOrigin
-    ? synaraEmbedUrl({ origin: synaraOrigin, authToken: synaraRuntime.authToken, projectRoot: project.root, theme, locale: appLocale })
+    ? synaraEmbedUrl({ origin: synaraOrigin, authToken: synaraRuntime.authToken, projectRoot, theme, locale: appLocale })
     : undefined,
-  [synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale]);
-  const docked = props.agentDocked ?? false;
-  const visible = props.agentVisible;
-  const { panelRef, ratio, resize, beginResize, moveResize } = useAgentPanelLayout(docked, visible, props.slotRef);
+  [synaraOrigin, synaraRuntime.authToken, projectRoot, theme, appLocale]);
+  const { panelRef, ratio, resize, beginResize, moveResize } = useAgentPanelLayout(docked, visible, slotRef);
   return <div ref={panelRef} className="agent-panel-surface" inert={!visible} aria-hidden={!visible}>
     {docked && <>
       <div
@@ -55,36 +57,36 @@ export default function AppAgentPanel(props: Props) {
       <div className="agent-dock-header">
         <Bot size={14} /><span>{t`Agent`}</span>
         {synaraOrigin && <SynaraPermissionPicker
-          value={props.synaraPermissionMode}
-          autoModeAvailable={props.synaraAutoModeAvailable}
-          onChange={props.changeSynaraPermissionMode}
+          value={permissionMode}
+          autoModeAvailable={autoModeAvailable}
+          onChange={changePermissionMode}
         />}
         <Tip label={t`Move assistant to sidebar`}>
-          <button className="icon-button" aria-label={t`Move assistant to sidebar`} onClick={() => props.chooseSidebarMode("agent")}><PanelLeftOpen size={14} /></button>
+          <button className="icon-button" aria-label={t`Move assistant to sidebar`} onClick={onUndock}><PanelLeftOpen size={14} /></button>
         </Tip>
         <Tip label={t`Hide assistant`}>
-          <button className="icon-button" aria-label={t`Hide assistant`} onClick={props.onCloseAgentDock}><X size={14} /></button>
+          <button className="icon-button" aria-label={t`Hide assistant`} onClick={onClose}><X size={14} /></button>
         </Tip>
       </div>
     </>}
     <div
-      className={`synara-frame-shell ${props.agentPanelDropActive ? "agent-drop-active" : ""}`}
+      className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`}
       data-tour="agent-panel"
-      data-ready={synaraFrameReady || undefined}
+      data-ready={frameReady || undefined}
     >
-      {synaraFrameMounted && synaraOrigin && <iframe
-        key={project.root}
-        ref={synaraIframeRef}
+      {frameMounted && synaraOrigin && <iframe
+        key={projectRoot}
+        ref={frameRef}
         className="synara-poc-frame"
         src={agentFrameUrl}
         title={t`Agent`}
         allow="clipboard-read; clipboard-write; microphone"
         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
       />}
-      {!synaraFrameReady && <SynaraLoadingSurface
+      {!frameReady && <SynaraLoadingSurface
         runtime={synaraRuntime}
         preparingWorkspace={Boolean(synaraOrigin)}
-        onRetry={props.retrySynaraRuntime}
+        onRetry={retry}
       />}
     </div>
   </div>;

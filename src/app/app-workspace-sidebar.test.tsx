@@ -34,25 +34,24 @@ function renderSidebar() {
         trusted: false,
       },
     },
-    sidebarMode: "agent",
-    sidebarModeTier: "full",
-    sidebarWidth: 420,
-    sidebarOpen: true,
+    sidebar: { sidebarMode: "agent", sidebarModeTier: "full", sidebarWidth: 420, sidebarOpen: true },
     chooseSidebarMode: vi.fn(),
-    synaraOrigin: "http://localhost:9999",
-    synaraRuntime: EMPTY_SYNARA_RUNTIME,
-    synaraFrameMounted: false,
-    synaraPermissionMode: "full-access",
-    synaraAutoModeAvailable: false,
-    synaraFrameReady: true,
-    changeSynaraPermissionMode: onChange,
   } as unknown as AppWorkspaceSidebarProps;
   function Sidebar() {
     const [mode, setMode] = useState<SynaraPermissionMode>("full-access");
-    return <AppWorkspaceSidebar {...props} synaraPermissionMode={mode} changeSynaraPermissionMode={(value) => {
-      onChange(value);
-      setMode(value);
-    }} />;
+    const synara = {
+      origin: "http://localhost:9999",
+      runtime: EMPTY_SYNARA_RUNTIME,
+      frameMounted: false,
+      frameReady: true,
+      autoModeAvailable: false,
+      permissionMode: mode,
+      changePermissionMode: (value: SynaraPermissionMode) => {
+        onChange(value);
+        setMode(value);
+      },
+    } as unknown as AppWorkspaceSidebarProps["synara"];
+    return <AppWorkspaceSidebar {...props} synara={synara} />;
   }
   render(<Sidebar />);
   return onChange;

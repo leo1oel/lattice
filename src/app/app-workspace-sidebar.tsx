@@ -8,7 +8,7 @@
  * else in the sidebar touches, and it is behind `lazy()`, so the element has to
  * be created where the loader lives.
  */
-import { lazy, Suspense, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   BookMarked,
@@ -33,9 +33,8 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { SlidingTabs } from "../components/ui/motion";
-import { type SynaraPermissionMode } from "./app-synara-embed";
-import { type SidebarModeTier } from "./sidebar-mode-layout";
-import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
+import type { SynaraHost } from "./use-synara-host";
+import type { WorkspaceSidebar } from "./use-workspace-sidebar";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { ProjectSnapshot } from "../app-types";
 
@@ -43,50 +42,38 @@ import type { ProjectSnapshot } from "../app-types";
 const SynaraPermissionPicker = lazy(() => import("../agent/synara-permission-picker"));
 const AppAgentPanel = lazy(() => import("./app-agent-panel"));
 
+type SidebarMode = "project" | "papers" | "agent";
+
 export type AppWorkspaceSidebarProps = {
-  agentDocked?: boolean;
+  sidebar: Pick<WorkspaceSidebar,
+    | "sidebarOpen" | "setSidebarOpen" | "sidebarWidth" | "sidebarResizing" | "beginSidebarResize" | "nudgeSidebar"
+    | "sidebarMode" | "setSidebarMode" | "sidebarModeActionsRef" | "sidebarModeHeaderRef" | "sidebarModeTier"
+    | "agentDocked" | "setAgentDocked"
+  >;
+  synara: SynaraHost;
   agentVisible: boolean;
-  onDockAgent: () => void;
-  onCloseAgentDock?: () => void;
   agentPanelDropActive: boolean;
   appLocale: AppLocale;
-  beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  changeSynaraPermissionMode: (mode: SynaraPermissionMode) => void;
-  chooseSidebarMode: (mode: "project" | "papers" | "agent") => void;
+  theme: Theme;
+  project: ProjectSnapshot;
+  chooseSidebarMode: (mode: SidebarMode) => void;
   navigator: ReactNode;
-  nudgeSidebar: (delta: number) => void;
   openBibEntryDialog: (resolveSeed?: string) => void;
   onCheckReferences: () => void;
-  project: ProjectSnapshot;
-  retrySynaraRuntime: () => void;
-  setBoardCreateRequest: Dispatch<SetStateAction<number>>;
   setLiteratureOpen: Dispatch<SetStateAction<boolean>>;
   openProjectFind: () => void;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
+  setBoardCreateRequest: Dispatch<SetStateAction<number>>;
   setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
   setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
-  sidebarMode: "agent" | "project" | "papers";
-  sidebarModeActionsRef: RefObject<HTMLDivElement | null>;
-  sidebarModeHeaderRef: RefObject<HTMLDivElement | null>;
-  sidebarModeTier: SidebarModeTier;
-  sidebarWidth: number;
-  sidebarOpen: boolean;
-  sidebarResizing: boolean;
-  onCollapseSidebar: () => void;
-  synaraAutoModeAvailable: boolean;
-  synaraFrameMounted: boolean;
-  synaraFrameReady: boolean;
-  synaraIframeRef: RefObject<HTMLIFrameElement | null>;
-  synaraOrigin: string | null;
-  synaraPermissionMode: SynaraPermissionMode;
-  synaraRuntime: SynaraRuntimeInfo;
-  theme: Theme;
 };
 
-export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
+export function AppWorkspaceSidebar({ sidebar, synara, ...props }: AppWorkspaceSidebarProps) {
   const { t } = useLingui();
-  const { sidebarMode, sidebarModeActionsRef, sidebarModeHeaderRef, synaraOrigin } = props;
-  const docked = props.agentDocked ?? false;
+  const {
+    sidebarMode, sidebarModeActionsRef, sidebarModeHeaderRef, sidebarOpen, sidebarWidth, agentDocked: docked,
+  } = sidebar;
+  const { origin: synaraOrigin, frameMounted, permissionMode, autoModeAvailable, changePermissionMode } = synara;
   const slotRef = useRef<HTMLDivElement>(null);
   const newDocumentItems = [
     { icon: <Table2 />, label: t`New spreadsheet`, request: props.setSpreadsheetCreateRequest },
@@ -95,12 +82,12 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
   ];
   return (
     <>
-      <section className="shared-sidebar" data-tour="sidebar" inert={!props.sidebarOpen} aria-hidden={!props.sidebarOpen}>
-        <div className="workspace-sidebar-content" style={{ width: props.sidebarWidth }}>
-        <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={props.sidebarModeTier}>
+      <section className="shared-sidebar" data-tour="sidebar" inert={!sidebarOpen} aria-hidden={!sidebarOpen}>
+        <div className="workspace-sidebar-content" style={{ width: sidebarWidth }}>
+        <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={sidebar.sidebarModeTier}>
           <SlidingTabs
             value={sidebarMode}
-            onChange={(value) => props.chooseSidebarMode(value as "project" | "papers" | "agent")}
+            onChange={(value) => props.chooseSidebarMode(value as SidebarMode)}
             ariaLabel={t`Sidebar mode`}
             className="sidebar-mode-tabs"
             items={[
@@ -165,13 +152,17 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
               <>
                 {synaraOrigin && <Suspense fallback={null}>
                   <SynaraPermissionPicker
-                    value={props.synaraPermissionMode}
-                    autoModeAvailable={props.synaraAutoModeAvailable}
-                    onChange={props.changeSynaraPermissionMode}
+                    value={permissionMode}
+                    autoModeAvailable={autoModeAvailable}
+                    onChange={changePermissionMode}
                   />
                 </Suspense>}
                 <Tip label={t`Move assistant below editor`}>
-                  <button type="button" onClick={props.onDockAgent}><PanelBottom size={15} /></button>
+                  <button type="button" onClick={() => {
+                    sidebar.setAgentDocked(true);
+                    sidebar.setSidebarMode("project");
+                    sidebar.setSidebarOpen(false);
+                  }}><PanelBottom size={15} /></button>
                 </Tip>
               </>
             )}
@@ -187,17 +178,28 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
         />
         </div>
       </section>
-      {(props.synaraFrameMounted || docked || (props.sidebarOpen && sidebarMode === "agent")) && <Suspense fallback={null}>
-        <AppAgentPanel {...props} slotRef={slotRef} />
+      {(frameMounted || docked || (sidebarOpen && sidebarMode === "agent")) && <Suspense fallback={null}>
+        <AppAgentPanel
+          docked={docked}
+          visible={props.agentVisible}
+          dropActive={props.agentPanelDropActive}
+          appLocale={props.appLocale}
+          theme={props.theme}
+          projectRoot={props.project.root}
+          synara={synara}
+          onUndock={() => props.chooseSidebarMode("agent")}
+          onClose={() => sidebar.setAgentDocked(false)}
+          slotRef={slotRef}
+        />
       </Suspense>}
       <PanelResizer
         label={t`Resize workspace sidebar`}
-        value={props.sidebarWidth}
-        open={props.sidebarOpen}
-        resizing={props.sidebarResizing}
-        onCollapse={props.onCollapseSidebar}
-        onPointerDown={props.beginSidebarResize}
-        onNudge={props.nudgeSidebar}
+        value={sidebarWidth}
+        open={sidebarOpen}
+        resizing={sidebar.sidebarResizing}
+        onCollapse={() => sidebar.setSidebarOpen(false)}
+        onPointerDown={sidebar.beginSidebarResize}
+        onNudge={sidebar.nudgeSidebar}
       />
     </>
   );

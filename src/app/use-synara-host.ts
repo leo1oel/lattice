@@ -337,3 +337,4 @@ export function useSynaraSnapshots(
     return () => window.cancelAnimationFrame(frame);
   }, [deliverable, paperLibrary, postMessage]);
 }
+export type SynaraHost = ReturnType<typeof useSynaraHost>;

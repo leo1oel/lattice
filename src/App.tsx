@@ -860,7 +860,7 @@ function App() {
   const {
     sidebarOpen, setSidebarOpen, sidebarWidth, sidebarDragWidth, sidebarResizing,
     sidebarCollapsePreview, sidebarRestoring, sidebarRebounding, finishSidebarRestore,
-    beginSidebarResize, nudgeSidebar, fitSidebarToContent,
+    fitSidebarToContent,
     agentDocked, setAgentDocked, sidebarMode, setSidebarMode,
   } = sidebar;
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
@@ -6359,18 +6359,13 @@ function App() {
         }}
       >
           <AppWorkspaceSidebar
-            agentDocked={agentDocked}
+            sidebar={sidebar}
+            synara={synara}
             agentVisible={agentVisible}
-            onDockAgent={() => {
-              setAgentDocked(true);
-              setSidebarMode("project");
-              setSidebarOpen(false);
-            }}
-            onCloseAgentDock={() => setAgentDocked(false)}
             agentPanelDropActive={agentPanelDropActive}
             appLocale={appLocale}
-            beginSidebarResize={beginSidebarResize}
-            changeSynaraPermissionMode={synara.changePermissionMode}
+            theme={theme}
+            project={project}
             chooseSidebarMode={chooseSidebarMode}
             onCheckReferences={() => { setBibliographyAuditRoot(project.root); setBibliographyAuditOpen(true); }}
             navigator={(
@@ -6439,32 +6434,13 @@ function App() {
             />
             </Suspense>
             )}
-            nudgeSidebar={nudgeSidebar}
             openBibEntryDialog={referenceImport.openBibEntry}
-            project={project}
-            retrySynaraRuntime={synara.retry}
             setBoardCreateRequest={setBoardCreateRequest}
             setLiteratureOpen={referenceImport.setLiteratureOpen}
             openProjectFind={projectSearch.openFind}
             setProjectSearchOpen={setProjectSearchOpen}
             setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
-            sidebarMode={sidebarMode}
-            sidebarModeActionsRef={sidebar.sidebarModeActionsRef}
-            sidebarModeHeaderRef={sidebar.sidebarModeHeaderRef}
-            sidebarModeTier={sidebar.sidebarModeTier}
-            sidebarWidth={sidebarWidth}
-            sidebarOpen={sidebarOpen}
-            sidebarResizing={sidebarResizing}
-            onCollapseSidebar={() => setSidebarOpen(false)}
-            synaraAutoModeAvailable={synara.autoModeAvailable}
-            synaraFrameMounted={synara.frameMounted}
-            synaraFrameReady={synara.frameReady}
-            synaraIframeRef={synara.frameRef}
-            synaraOrigin={synara.origin}
-            synaraPermissionMode={synara.permissionMode}
-            synaraRuntime={synara.runtime}
-            theme={theme}
           />
 
         <section className="canvas-panel" data-tour="canvas">
