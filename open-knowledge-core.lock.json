@@ -502,7 +502,7 @@
     },
     "markdown/parser-reservations.ts": {
       "upstream": null,
-      "vendored": "e8960a126beae57ddf15128dd7c713421620cb52"
+      "vendored": "1a9f1eae05b97aa44d0b57f576b21e584b3d70a1"
     },
     "markdown/pipeline.ts": {
       "upstream": "55736041c0f0eb2f66280a26a17bca1c97abd3db",
@@ -554,7 +554,7 @@
     },
     "markdown/to-markdown-handlers.ts": {
       "upstream": "83d4af672089e45604549ef271e131cdb0bb199e",
-      "vendored": "5aaefadcefd139e535b3990faaf48cbbbeeedb3b"
+      "vendored": "67dfc0d82e8e9b8c12e9f1134c4931716ecfacc4"
     },
     "markdown/underline-promoter.ts": {
       "upstream": "6e6d734006919f5ad7cac4e5034fa89e425ab0a8",

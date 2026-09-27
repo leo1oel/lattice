@@ -904,7 +904,7 @@ function isWhitespaceNumericCharRef(body: string): boolean {
   );
 }
 
-export const TYPED_WS_REF_PUA = '';
+const TYPED_WS_REF_PUA = '';
 
 const NUMERIC_CHAR_REF_TOKEN_RE = /&#(?:x[0-9A-Fa-f]+|X[0-9A-Fa-f]+|[0-9]+);/g;
 
