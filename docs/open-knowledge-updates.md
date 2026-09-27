@@ -44,6 +44,13 @@ Ported files that do not exist at the pin (`jsx-node-target.ts`, `escape-provena
 
 Still open upstream and here: an escaped `\<https://…\>` is read as an autolink ending in a backslash, and `\<u>…\</u>` becomes underline.
 
+### Local fixes
+
+Local fix to the frozen table-header override, not taken from upstream.
+The plugin view now tracks every header cell it animates; each full pass and `destroy()` cancel the scroll-driven animations of cells ProseMirror has dropped and unhook replaced table wrappers.
+A scroll-driven animation stays in effect after its cell leaves the document because its timeline source, the scroller, is still connected, so each file switch in the visual editor kept the replaced document's DOM alive and left more stale animations for every scroll frame to sample.
+Worth offering upstream, where the same WeakMap-only bookkeeping exists.
+
 ## 2026-09-12
 
 Selectively adopted the animation-start technique from [PR #4251](https://github.com/inkeep/open-knowledge/pull/4251).

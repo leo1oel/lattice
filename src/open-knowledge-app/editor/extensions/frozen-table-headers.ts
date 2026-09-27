@@ -139,9 +139,9 @@ type AppliedFreeze =
 // a whole-pixel change is invisible in the freeze geometry.
 const FREEZE_EPSILON_PX = 2;
 
-// Last applied effect per cell. WeakMap so cells dropped by a PM re-render
-// release their entries — replacements start clean and get fresh animations
-// on the next pass.
+// Last applied effect per cell. WeakMap so a replacement cell starts clean and
+// gets fresh animations on the next pass. The WeakMap alone does not release a
+// dropped cell: see `frozenCells` in the plugin view.
 const appliedFreezes = new WeakMap<HTMLTableCellElement, AppliedFreeze>();
 
 function cancelFreeze(cell: HTMLTableCellElement): void {
@@ -358,6 +358,7 @@ function computeAndApplyFrozenHeaders(
   occludeTop: boolean,
   onTableWrapper?: (wrapper: HTMLElement) => void,
   nearOnly = false,
+  onFrozenCell?: (cell: HTMLTableCellElement) => void,
 ): void {
   const containerTop = scrollEl.getBoundingClientRect().top;
   const scrollTop = scrollEl.scrollTop;
@@ -415,6 +416,7 @@ function computeAndApplyFrozenHeaders(
       }
       for (const cell of Array.from(firstRow.cells) as HTMLTableCellElement[]) {
         applyScrollDrivenFreeze(cell, timeline, range, scrollMax, occludeTop);
+        onFrozenCell?.(cell);
       }
       continue;
     }
@@ -427,6 +429,7 @@ function computeAndApplyFrozenHeaders(
     }
     for (const cell of Array.from(firstRow.cells) as HTMLTableCellElement[]) {
       applyInstantFreeze(cell, shift, occludeTop);
+      onFrozenCell?.(cell);
     }
   }
 }
@@ -461,9 +464,40 @@ export const FrozenTableHeaders = Extension.create({
           // destroy() can detach the listeners; PM node replacement drops a
           // wrapper anyway and the replacement is re-wired on the next pass.
           const cvWired = new Set<HTMLElement>();
+          // Every header cell this view has animated. PM drops cells without
+          // telling us — setContent on a file switch, a table re-render — and
+          // a dropped cell's scroll-driven animations stay in effect: their
+          // timeline source is the still-connected scroller, so the browser
+          // keeps them running and they hold the detached cell (and, through
+          // its parent chain, the whole replaced document DOM). Every stale
+          // animation is also sampled on every scroll frame, so an editor that
+          // outlives many documents scrolls slower and slower.
+          const frozenCells = new Set<HTMLTableCellElement>();
+          const trackFrozenCell = (cell: HTMLTableCellElement): void => {
+            frozenCells.add(cell);
+          };
+
+          // Release what PM dropped since the last full pass: cancel dropped
+          // cells' animations and unhook replaced wrappers (cvWired holds them
+          // strongly too). O(tracked) containment checks, so only full passes
+          // pay it, never per-keystroke near-only ones.
+          const releaseDropped = (): void => {
+            const dom = editorView.dom as HTMLElement;
+            for (const cell of frozenCells) {
+              if (dom.contains(cell)) continue;
+              cancelFreeze(cell);
+              frozenCells.delete(cell);
+            }
+            for (const wrapper of cvWired) {
+              if (dom.contains(wrapper)) continue;
+              wrapper.removeEventListener('contentvisibilityautostatechange', onLayoutShift);
+              cvWired.delete(wrapper);
+            }
+          };
 
           const run = (nearOnly: boolean): void => {
             if (destroyed || !scrollEl) return;
+            if (!nearOnly) releaseDropped();
             computeAndApplyFrozenHeaders(
               scrollEl,
               editorView.dom as HTMLElement,
@@ -472,6 +506,7 @@ export const FrozenTableHeaders = Extension.create({
               occludeTop,
               wireChunkVisibility,
               nearOnly,
+              trackFrozenCell,
             );
           };
 
@@ -593,7 +628,10 @@ export const FrozenTableHeaders = Extension.create({
               }
               cvWired.clear();
               // Cancel lingering fill animations so a recycled DOM subtree
-              // doesn't keep stale transforms or a revealed occluder.
+              // doesn't keep stale transforms or a revealed occluder, and so
+              // cells PM already dropped do not outlive the editor.
+              for (const cell of frozenCells) cancelFreeze(cell);
+              frozenCells.clear();
               for (const row of (
                 editorView.dom as HTMLElement
               ).querySelectorAll<HTMLTableRowElement>(
