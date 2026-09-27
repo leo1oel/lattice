@@ -2702,30 +2702,104 @@ function App() {
 
   /// Show a project that was just created, imported or cloned. A window in use
   /// keeps what it has and the project gets one of its own; an empty window
-  /// takes it in place. The backend deliberately does not bind these on
-  /// creation, so this is the only thing that decides where they land.
-  const revealNewProject = useCallback(async (root: string) => {
-    if (project?.root) {
-      await openProjectWindow(root);
-      return;
-    }
-    await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
-  }, [enterProject, openProjectWindow, project?.root]);
-
-  const openClonedOverleafProject = useCallback(async (root: string) => {
-    setBusyLabel("Opening the Overleaf project…");
+  /// takes it in place, claiming the switch first. The backend deliberately
+  /// does not bind these on creation, so this is the only thing that decides
+  /// where they land. `create` resolves the new project's root.
+  const revealNewProject = useCallback(async (
+    busyLabel: string,
+    create: () => Promise<string>,
+    onError = (reason: unknown) => setError(toMessage(reason)),
+  ) => {
+    setBusyLabel(busyLabel);
     const openHere = !project?.root;
     try {
       if (openHere && !await startProjectTransition()) return;
-      await revealNewProject(root);
-      setError(null);
+      const root = await create();
+      if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
+      else await openProjectWindow(root);
+      return true;
     } catch (reason) {
       if (openHere) cancelProjectTransition();
+      onError(reason);
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
+
+  /// Replace this window's project with the one at `path`: save, claim the
+  /// switch, enter; roll the claim back on failure.
+  const switchProject = useCallback(async (busyLabel: string, path: string, onError?: () => void) => {
+    setBusyLabel(busyLabel);
+    try {
+      if (!(await save()) || !await startProjectTransition()) return;
+      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
+    } catch (reason) {
+      cancelProjectTransition();
+      onError?.();
       setError(toMessage(reason));
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, project?.root, revealNewProject, startProjectTransition]);
+  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
+
+  /**
+   * Connect the workspace this window just entered at `root` to a v2 share:
+   * start its controller, materialize the shared files onto disk and bind the
+   * editor. `track` receives the controller as soon as it exists, so a failure
+   * part-way can tear it down with discardSharedController.
+   */
+  const connectSharedWorkspace = useCallback(async (root: string, share: {
+    deployment: string;
+    projectInstanceId: string;
+    credentialRef: string;
+    store: ReturnType<typeof collabCredentialStore>;
+    permission: CollabProjectRecordV2["permission"];
+    track: (controller: CollabProjectControllerV2) => void;
+  }) => {
+    const role = share.permission === "host" ? "host" : "guest";
+    const generation = collabWorkspaceGenerationRef.current + 1;
+    collabWorkspaceGenerationRef.current = generation;
+    const lease: CollabWorkspaceLease = {
+      projectRoot: root,
+      generation,
+      isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root,
+    };
+    collabWorkspaceLeaseRef.current = lease;
+    collabRoleRef.current = role;
+    const controller = await CollabProjectControllerV2.start({
+      deployment: share.deployment, projectInstanceId: share.projectInstanceId, credentialRef: share.credentialRef,
+      credentialStore: share.store, permission: share.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog,
+      displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList,
+      onPermanentError: handleV2PermanentError,
+    });
+    share.track(controller);
+    collabV2ControllerRef.current = controller;
+    collabSessionRef.current = controller;
+    const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
+    assertCollabWorkspaceLease(lease);
+    await refreshProject();
+    collabRoleRef.current = role;
+    setCollabRole(role);
+    setActiveCollabVersion(2);
+    setCollabRoom(controller.room);
+    setCollabFileCount(controller.fileCount());
+    // loadFile awaits openPath before publishing the session/ready state.
+    // Publishing first lets DocumentCanvas render against activePath="" and
+    // used to crash the entire joining app in setActivePath().
+    await bindJoinedDocument(controller, materialized.openPath);
+    return controller;
+  }, [
+    bindJoinedDocument, collabName, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId,
+    handleV2Catalog, handleV2PermanentError, mapV2Status, refreshProject, setCollabFileCount, setCollabPeerList,
+    setCollabRole, setCollabRoom, v2WorkspaceCallbacks,
+  ]);
+  const discardSharedController = useCallback(async (controller: CollabProjectControllerV2 | null) => {
+    if (!controller) return;
+    if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
+    else controller.destroy();
+  }, [clearCollabLocalState]);
+  /** Any unsaved edit in this window, which must be saved before a share replaces it. */
+  const unsavedEdits = Boolean(project) && (source !== savedSource || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource));
 
   const joinCollabShare = useCallback(() => {
     if (!isCollabEnabled()) return;
@@ -2749,7 +2823,7 @@ function App() {
         let openedJoinWorkspace = false;
         try {
           saveCollabDisplayName(collabName.trim());
-          if (project && (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) && !(await save())) return;
+          if (unsavedEdits && !(await save())) return;
           if (!await startProjectTransition()) return;
           preCollabProjectRootRef.current = priorRoot;
           rememberPreCollabProjectRoot(priorRoot);
@@ -2768,36 +2842,17 @@ function App() {
           record = { ...record, projectRoot: snapshot.root, title: roomName, lastUsed: Date.now() };
           rememberCollabProjectV2(record);
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
-          const workspaceGeneration = collabWorkspaceGenerationRef.current + 1;
-          collabWorkspaceGenerationRef.current = workspaceGeneration;
-          const lease: CollabWorkspaceLease = { projectRoot: snapshot.root, generation: workspaceGeneration, isCurrent: () => collabWorkspaceGenerationRef.current === workspaceGeneration && projectRootRef.current === snapshot.root };
-          collabWorkspaceLeaseRef.current = lease;
           setCollabProjectName(record.title);
-          collabRoleRef.current = "guest";
-          controller = await CollabProjectControllerV2.start({ deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, credentialStore: store, permission: v2Invite.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
-          collabV2ControllerRef.current = controller;
-          collabSessionRef.current = controller;
-          const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
-          assertCollabWorkspaceLease(lease);
-          await refreshProject();
-          collabRoleRef.current = "guest";
-          setCollabRole("guest");
-          setActiveCollabVersion(2);
-          setCollabRoom(controller.room);
-          setCollabFileCount(controller.fileCount());
-          // loadFile awaits openPath before publishing the session/ready state.
-          // Publishing first lets DocumentCanvas render against activePath=""
-          // and used to crash the entire joining app in setActivePath().
-          await bindJoinedDocument(controller, materialized.openPath);
+          const joined = await connectSharedWorkspace(snapshot.root, {
+            deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, store,
+            permission: v2Invite.permission, track: (started) => { controller = started; },
+          });
           setCollabStatus("synced");
-          setNotice(`Joined v2 shared workspace · ${controller.fileCount()} files`);
+          setNotice(`Joined v2 shared workspace · ${joined.fileCount()} files`);
           playInterfaceSound("collaboration-ready");
         } catch (reason) {
           setCollabReady(false);
-          if (controller) {
-            if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
-            else controller.destroy();
-          }
+          await discardSharedController(controller);
           let restoreError: unknown;
           if (openedJoinWorkspace && priorRoot) {
             try {
@@ -2819,7 +2874,11 @@ function App() {
       return;
     }
     setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabInvite, collabName, collabRoom, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, preCollabProjectRootRef, project, refreshProject, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, setCollabFileCount, setCollabPeerList, setCollabProjectName, setCollabRole, setCollabRoom, setCollabStatus, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [
+    cancelProjectTransition, collabInvite, collabName, collabRoom, connectSharedWorkspace, discardSharedController,
+    enterProject, preCollabProjectRootRef, project, save, setCollabProjectName, setCollabStatus,
+    startProjectTransition, unsavedEdits,
+  ]);
 
   /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
   /// whose identity churns; the boot effect must run exactly once.
@@ -2833,7 +2892,7 @@ function App() {
       try {
         const store = collabCredentialStore();
         const credentialRef = await requireRememberedV2Credential(record, store);
-        if (project && (source !== savedSource || (secondaryFile && secondarySource !== secondarySavedSource)) && !(await save())) return;
+        if (unsavedEdits && !(await save())) return;
         let root = record.projectRoot;
         if (root && root !== project?.root) {
           if (!await startProjectTransition()) return;
@@ -2845,24 +2904,17 @@ function App() {
           await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
         }
         if (!root) throw new Error("The remembered collaboration has no workspace");
-        const generation = collabWorkspaceGenerationRef.current + 1; collabWorkspaceGenerationRef.current = generation;
-        const lease: CollabWorkspaceLease = { projectRoot: root, generation, isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root };
-        collabWorkspaceLeaseRef.current = lease;
-        collabRoleRef.current = record.permission === "host" ? "host" : "guest";
-        controller = await CollabProjectControllerV2.start({ deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, credentialStore: store, permission: record.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
-        collabV2ControllerRef.current = controller;
-        collabSessionRef.current = controller;
         setCollabProjectName(record.title);
-        const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
-        await refreshProject();
-        collabRoleRef.current = record.permission === "host" ? "host" : "guest"; setCollabRole(collabRoleRef.current); setActiveCollabVersion(2); setCollabRoom(controller.room); setCollabFileCount(controller.fileCount()); await bindJoinedDocument(controller, materialized.openPath);
-        rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() }); refreshRecentRooms(); setCollabStatus("synced");
+        await connectSharedWorkspace(root, {
+          deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, store,
+          permission: record.permission, track: (started) => { controller = started; },
+        });
+        rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() });
+        refreshRecentRooms();
+        setCollabStatus("synced");
         playInterfaceSound("collaboration-ready");
       } catch (reason) {
-        if (controller) {
-          if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
-          else controller.destroy();
-        }
+        await discardSharedController(controller);
         cancelProjectTransition();
         // Closing a room revokes every grant with it, so a guest's credential
         // stops authenticating the moment the host ends the share (or removes
@@ -2876,11 +2928,16 @@ function App() {
           setNotice(`“${record.title}” is no longer available — the host ended it. Removed from your list.`, SHARE_SOURCE);
           return;
         }
-        setError(toMessage(reason)); setCollabStatus("error");
+        setError(toMessage(reason));
+        setCollabStatus("error");
+      } finally {
+        setBusyLabel(null);
       }
-      finally { setBusyLabel(null); }
     })();
-  }, [handleV2PermanentError, cancelProjectTransition, clearCollabLocalState, collabName, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId, enterProject, handleV2Catalog, bindJoinedDocument, mapV2Status, project, refreshProject, refreshRecentRooms, save, savedSource, secondaryFile, secondarySavedSource, secondarySource, setCollabFileCount, setCollabPeerList, setCollabProjectName, setCollabRole, setCollabRoom, setCollabStatus, source, startProjectTransition, v2WorkspaceCallbacks]);
+  }, [
+    cancelProjectTransition, connectSharedWorkspace, discardSharedController, enterProject, project?.root,
+    refreshRecentRooms, save, setCollabProjectName, setCollabStatus, startProjectTransition, unsavedEdits,
+  ]);
 
   useEffect(() => {
     pendingJoinRef.current = rejoinCollabProjectV2;
@@ -2893,22 +2950,9 @@ function App() {
     if (!selected) return;
     // Same rule as the recent-projects list: a window in use keeps the project
     // it has, and the chosen one gets a window of its own.
-    if (project?.root) {
-      await openProjectWindow(String(selected));
-      return;
-    }
-    setBusyLabel("Opening project…");
-    try {
-      if (!(await save())) return;
-      if (!await startProjectTransition()) return;
-      await enterProject(await invoke<ProjectSnapshot>("open_project", { path: selected }));
-    } catch (reason) {
-      cancelProjectTransition();
-      setError(toMessage(reason));
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, save, startProjectTransition]);
+    if (project?.root) await openProjectWindow(String(selected));
+    else await switchProject("Opening project…", String(selected));
+  }, [openProjectWindow, project?.root, switchProject]);
 
   const createProject = useCallback(async () => {
     if (!createForm.name.trim()) {
@@ -2917,30 +2961,14 @@ function App() {
     }
     const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
     if (!parent) return;
-    setBusyLabel("Creating project…");
-    // Only an empty window is about to lose what it is showing, so only it has
-    // to save and take the switch lock first.
-    const openHere = !project?.root;
-    try {
-      if (openHere && !(await save())) return;
-      if (openHere && !await startProjectTransition()) return;
+    await revealNewProject("Creating project…", async () => {
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
-        parent,
-        name: createForm.name,
-        venue: createForm.venue,
+        parent, name: createForm.name, venue: createForm.venue,
       });
       updateCreateForm({ open: false });
-      await revealNewProject(snapshot.root);
-    } catch (reason) {
-      if (openHere) cancelProjectTransition();
-      updateCreateForm({ error: toMessage(reason) });
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [
-    cancelProjectTransition, createForm.name, createForm.venue, project?.root, revealNewProject, save,
-    startProjectTransition, updateCreateForm,
-  ]);
+      return snapshot.root;
+    }, (reason) => updateCreateForm({ error: toMessage(reason) }));
+  }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm]);
 
   const openTutorialProject = useCallback(async () => {
     autoTutorialAttemptedRef.current = true;
@@ -3016,20 +3044,10 @@ function App() {
       title: t`Choose where to extract the project`,
     });
     if (!parent) return;
-    setBusyLabel(t`Importing ZIP…`);
-    const openHere = !project?.root;
-    try {
-      if (openHere && !(await save())) return;
-      if (openHere && !await startProjectTransition()) return;
-      const snapshot = await invoke<ProjectSnapshot>("import_project_zip", { zipPath, parent });
-      await revealNewProject(snapshot.root);
-    } catch (reason) {
-      if (openHere) cancelProjectTransition();
-      setError(toMessage(reason));
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, project?.root, revealNewProject, save, startProjectTransition]);
+    await revealNewProject(t`Importing ZIP…`, async () => (
+      (await invoke<ProjectSnapshot>("import_project_zip", { zipPath, parent })).root
+    ));
+  }, [revealNewProject, t]);
 
   const exportProjectZip = useCallback(async () => {
     if (!project) return;
@@ -3071,19 +3089,8 @@ function App() {
       }
       return;
     }
-    if (!(await save())) return;
-    setBusyLabel("Switching project…");
-    try {
-      if (!await startProjectTransition()) return;
-      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
-    } catch (reason) {
-      cancelProjectTransition();
-      setRecentProjects(forgetRecentProject(path));
-      setError(toMessage(reason));
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, save, startProjectTransition]);
+    await switchProject("Switching project…", path, () => setRecentProjects(forgetRecentProject(path)));
+  }, [openProjectWindow, project?.root, switchProject]);
 
   useEffect(() => {
     let active = true;
@@ -5698,7 +5705,9 @@ function App() {
         onCloneCancelled={cancelProjectTransition}
         onCloned={(root) => {
           setOverleafPickerOpen(false);
-          void openClonedOverleafProject(root);
+          void revealNewProject("Opening the Overleaf project…", async () => root).then((opened) => {
+            if (opened) setError(null);
+          });
         }}
         currentProject={!overleafProjectLinked && project ? { name: project.manifest.name } : null}
         onPublish={publishProjectToOverleaf}
