@@ -171,15 +171,6 @@ describe("ConflictResolverDialog", () => {
     ]));
   });
 
-  it("applies one choice to every spot at once", async () => {
-    const twoConflicts = `${conflict.replace("after", "middle")}\n<<<<<<< ours\nsecond local\n=======\nsecond remote\n>>>>>>> theirs\nafter`;
-    renderDialog(twoConflicts, "main.tex");
-    const bulk = await screen.findByRole("group", { name: "Choose for every spot" });
-    fireEvent.click(within(bulk).getByRole("button", { name: "Keep this computer's version" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
-    await waitFor(() => expect(written()).toEqual(["before\nlocal\nmiddle\nsecond local\nafter"]));
-  });
-
   it("keeps the dialog open and reports a failed write", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
       if (command === "read_project_file") return conflict;

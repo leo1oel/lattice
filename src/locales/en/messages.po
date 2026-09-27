@@ -1075,10 +1075,6 @@ msgstr "Checks the tools Lattice needs to compile LaTeX"
 msgid "Chi"
 msgstr "Chi"
 
-#: src/history/conflict-resolver.tsx
-msgid "Choose for every spot"
-msgstr "Choose for every spot"
-
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
 msgstr "Choose location"
@@ -2059,10 +2055,6 @@ msgstr "Emphasized text command"
 msgid "Empty"
 msgstr "Empty"
 
-#: src/history/conflict-resolver.tsx
-msgid "Empty at the last sync."
-msgstr "Empty at the last sync."
-
 #: src/canvas/document-canvas.tsx
 msgid "Empty secondary editor"
 msgstr "Empty secondary editor"
@@ -2346,10 +2338,6 @@ msgstr "For Agent startup or connection failures. Includes recent lattice, sidec
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "For all"
-
-#: src/history/conflict-resolver.tsx
-msgid "For every spot:"
-msgstr "For every spot:"
 
 #: src/App.tsx
 msgid "Format document"
@@ -5508,10 +5496,6 @@ msgstr "Show outline"
 #: src/app/app-titlebar.tsx
 msgid "Show sidebar"
 msgstr "Show sidebar"
-
-#: src/history/conflict-resolver.tsx
-msgid "Show the last synced version"
-msgstr "Show the last synced version"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx

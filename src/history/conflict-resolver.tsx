@@ -136,14 +136,6 @@ function ConflictSpot(props: {
           emptyLabel={t`Overleaf removed this part.`}
         />
       </div>
-      {hunk.baseLines && (
-        <details className="conflict-base">
-          <summary>{t`Show the last synced version`}</summary>
-          {hunk.baseLines.length === 0
-            ? <p className="conflict-side-empty">{t`Empty at the last sync.`}</p>
-            : <pre className="conflict-side-code" tabIndex={0}>{hunk.baseLines.join("\n")}</pre>}
-        </details>
-      )}
     </article>
   );
 }
@@ -219,9 +211,6 @@ export function ConflictResolverDialog(props: {
 
   const choose = (index: number, choice: ConflictChoice) => {
     setChoices((current) => new Map(current).set(index, choice));
-  };
-  const chooseAll = (choice: ConflictChoice) => {
-    setChoices(new Map(hunks.map((hunk) => [hunk.index, choice])));
   };
 
   const save = async () => {
@@ -303,38 +292,25 @@ export function ConflictResolverDialog(props: {
             </EditProvider>
           </div>
         ) : (
-          <>
-            {total > 1 && (
-              <div className="conflict-bulk" role="group" aria-label={t`Choose for every spot`}>
-                <span>{t`For every spot:`}</span>
-                <Button size="compact" variant="ghost" disabled={saving} onClick={() => chooseAll("ours")}>
-                  {t`Keep this computer's version`}
-                </Button>
-                <Button size="compact" variant="ghost" disabled={saving} onClick={() => chooseAll("theirs")}>
-                  {t`Keep Overleaf's version`}
-                </Button>
-              </div>
-            )}
-            <ScrollArea
-              className="conflict-spots"
-              viewportClassName="conflict-spots-viewport"
-              viewportProps={{ tabIndex: 0, "aria-label": t`Conflicting spots` }}
-            >
-              <div className="conflict-spot-list" inert={saving || undefined}>
-                {hunks.map((hunk, position) => (
-                  <ConflictSpot
-                    key={`${loadVersion}:${hunk.index}`}
-                    hunk={hunk}
-                    position={position + 1}
-                    total={total}
-                    choice={choices.get(hunk.index)}
-                    disabled={saving}
-                    onChoose={(choice) => choose(hunk.index, choice)}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
-          </>
+          <ScrollArea
+            className="conflict-spots"
+            viewportClassName="conflict-spots-viewport"
+            viewportProps={{ tabIndex: 0, "aria-label": t`Conflicting spots` }}
+          >
+            <div className="conflict-spot-list" inert={saving || undefined}>
+              {hunks.map((hunk, position) => (
+                <ConflictSpot
+                  key={`${loadVersion}:${hunk.index}`}
+                  hunk={hunk}
+                  position={position + 1}
+                  total={total}
+                  choice={choices.get(hunk.index)}
+                  disabled={saving}
+                  onChoose={(choice) => choose(hunk.index, choice)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
         )}
 
         <div className="conflict-actions">

@@ -52,16 +52,6 @@
 }
 .conflict-loading svg { color: var(--control-active); }
 
-.conflict-bulk {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-}
-.conflict-bulk > span { margin-right: var(--space-2); }
-
 .conflict-spots {
   flex: 1 1 auto;
   min-height: 0;
@@ -163,17 +153,6 @@
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   font-style: italic;
-}
-
-.conflict-base summary {
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-}
-.conflict-base[open] summary { margin-bottom: var(--space-3); }
-.conflict-base .conflict-side-code {
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-control);
 }
 
 .conflict-editor {

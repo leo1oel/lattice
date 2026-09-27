@@ -1075,10 +1075,6 @@ msgstr "检查 Lattice 编译 LaTeX 所需的工具"
 msgid "Chi"
 msgstr "希"
 
-#: src/history/conflict-resolver.tsx
-msgid "Choose for every spot"
-msgstr "为所有位置选择"
-
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
 msgstr "选择位置"
@@ -2059,10 +2055,6 @@ msgstr "强调文字命令"
 msgid "Empty"
 msgstr "空"
 
-#: src/history/conflict-resolver.tsx
-msgid "Empty at the last sync."
-msgstr "上次同步时为空。"
-
 #: src/canvas/document-canvas.tsx
 msgid "Empty secondary editor"
 msgstr "空白副编辑器"
@@ -2346,10 +2338,6 @@ msgstr "用于排查 Agent 启动或连接失败。包含最近的 lattice、sid
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "任意"
-
-#: src/history/conflict-resolver.tsx
-msgid "For every spot:"
-msgstr "所有位置："
 
 #: src/App.tsx
 msgid "Format document"
@@ -5506,10 +5494,6 @@ msgstr "显示大纲"
 #: src/app/app-titlebar.tsx
 msgid "Show sidebar"
 msgstr "显示侧边栏"
-
-#: src/history/conflict-resolver.tsx
-msgid "Show the last synced version"
-msgstr "显示上次同步的版本"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx

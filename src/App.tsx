@@ -10658,8 +10658,8 @@ function App() {
             // unsynced, it meets the next unrelated sync as a local edit and
             // any Overleaf change to the bibliography in between turns into a
             // conflict.
-            externalOverleafEditsRef.current([entry.path]);
             if (projectRootRef.current !== root) return;
+            externalOverleafEditsRef.current([entry.path]);
             const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
             if (projectRootRef.current !== root) return;
             if (activeFileRef.current === entry.path && sourceRef.current === savedSourceRef.current) {
