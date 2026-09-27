@@ -75,6 +75,12 @@ import {
   SHARE_SOURCE,
   useCollabV2Session,
 } from "./app/use-collab-v2-session";
+import {
+  syncSharedProjectWithOverleaf,
+  writeOpenSlideMutation,
+  type EditorWriteResult,
+  type SharedWorkspaceDisk,
+} from "./app/shared-document-sync";
 import { AppCollabDialog, AppOverleafCollabDrawer, CollabDialog } from "./app/app-collab-surfaces";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
@@ -145,11 +151,7 @@ import { collabCredentialStore } from "./collab/collab-credentials";
 import { isCollabEnabled, loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
-import {
-  CollabProjectControllerV2,
-  type CollabMaterializeCallbacksV2,
-  type SideloadedTextBindingV2,
-} from "./collab/collab-project-v2";
+import { CollabProjectControllerV2 } from "./collab/collab-project-v2";
 import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
@@ -220,10 +222,6 @@ import type {
   SettingsTab,
   InsertSymbolCommand,
   DoctorReport,
-  OverleafAcceptedAction,
-  OverleafAuthoritativeEntry,
-  OverleafPreparedAction,
-  OverleafPreparedSync,
   OverleafSyncResult,
 } from "./app-types";
 import {
@@ -296,73 +294,6 @@ type RemoveReferenceResult = {
     after: string;
   }>;
 };
-
-type EditorWriteResult = {
-  content: string;
-  transactionId: string;
-  externalChangesMerged: boolean;
-  hadConflicts: boolean;
-};
-
-type TextMergeResult = {
-  content: string;
-  hadConflicts: boolean;
-};
-
-function base64ToBytes(value: string): Uint8Array {
-  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
-}
-
-async function collabBindingContent(
-  binding: SideloadedTextBindingV2,
-  kind: OverleafAuthoritativeEntry["kind"],
-): Promise<string> {
-  if (kind === "board") {
-    return (await import("./editor/board/board-yjs-bridge")).boardDocContent(binding.doc);
-  }
-  if (kind === "spreadsheet") {
-    return (await import("./editor/spreadsheet/spreadsheet-yjs")).spreadsheetDocContent(binding.doc);
-  }
-  return binding.ytext.toString();
-}
-
-async function applyStructuredCollabContent(
-  binding: SideloadedTextBindingV2,
-  kind: "board" | "spreadsheet",
-  content: string,
-  version: number,
-): Promise<void> {
-  if (kind === "board") {
-    const { replaceBoardDocFromSource } = await import("./editor/board/board-yjs-bridge");
-    binding.applyExternalDocument((doc) => replaceBoardDocFromSource(doc, content), version);
-  } else {
-    const { replaceSpreadsheetDocFromSource } = await import("./editor/spreadsheet/spreadsheet-yjs");
-    binding.applyExternalDocument((doc) => replaceSpreadsheetDocFromSource(doc, content), version);
-  }
-}
-
-async function withSideloadedText<T>(
-  controller: CollabProjectControllerV2,
-  path: string,
-  bindingId: string,
-  operation: (binding: SideloadedTextBindingV2) => Promise<T>,
-): Promise<T> {
-  const binding = await controller.openSideloadedText(path, bindingId);
-  try {
-    return await operation(binding);
-  } finally {
-    binding.release();
-  }
-}
-
-function projectFileMimeType(path: string): string {
-  const extension = path.split(".").at(-1)?.toLocaleLowerCase();
-  if (extension === "png") return "image/png";
-  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
-  if (extension === "webp") return "image/webp";
-  if (extension === "pdf") return "application/pdf";
-  return "application/octet-stream";
-}
 
 type ReferencePreviewCacheEntry = {
   promise: Promise<string | null>;
@@ -1868,7 +1799,7 @@ function App() {
    * reconciliation (create/rename/delete pulled from the catalog event stream).
    * Rename covers arbitrary path changes by composing move + rename.
    */
-  const v2WorkspaceCallbacks = useCallback((lease: CollabWorkspaceLease): CollabMaterializeCallbacksV2 => ({
+  const v2WorkspaceCallbacks = useCallback((lease: CollabWorkspaceLease): SharedWorkspaceDisk => ({
     writeText: (path, content, projectRoot) => {
       const generation = collabPathMutationGeneration(path);
       return collabDiskWriteQueueRef.current.run(lease, path, async () => {
@@ -3088,251 +3019,12 @@ function App() {
     if (!collabCanWrite || controller.canWrite === false) {
       throw new Error("This shared project is read-only.");
     }
-
-    await controller.settled();
-    await controller.flush();
-    await controller.refetchCatalog();
-    assertCollabWorkspaceLease(lease);
-
-    const local = v2WorkspaceCallbacks(lease);
-    const localMutations = {
-      rename: local.rename!,
-      delete: local.delete!,
-      writeBinaryConflict: (path: string, bytes: Uint8Array, root: string) => (
-        local.writeBytes(path, bytes, root)
-      ),
-    };
-    const textDecoder = new TextDecoder("utf-8", { fatal: true });
-    const textEncoder = new TextEncoder();
-    const catalogKindForNewPath = (action: OverleafPreparedAction): OverleafAuthoritativeEntry["kind"] => {
-      const lower = action.path.toLocaleLowerCase("en-US");
-      if (action.binary) return "binary";
-      if (lower.endsWith(".tldr")) return "board";
-      if (lower.endsWith(".lattice-sheet")) return "spreadsheet";
-      return "text";
-    };
-
-    const inventory: OverleafAuthoritativeEntry[] = [];
-    for (const file of controller.catalogFiles().filter((entry) => entry.state === "live")) {
-      assertCollabWorkspaceLease(lease);
-      if (file.kind === "binary") {
-        inventory.push({
-          path: file.path,
-          kind: file.kind,
-          base64: bytesToBase64(await controller.downloadBinary(file.path)),
-        });
-        continue;
-      }
-      await withSideloadedText(
-        controller,
-        file.path,
-        `overleaf-inventory:${crypto.randomUUID()}`,
-        async (binding) => {
-          inventory.push({
-            path: file.path,
-            kind: file.kind,
-            base64: bytesToBase64(textEncoder.encode(await collabBindingContent(binding, file.kind))),
-          });
-        },
-      );
-    }
-
-    const prepared = await diagnosticInvoke<OverleafPreparedSync>("overleaf_prepare_sync", {
-      projectRoot,
-      authoritativeInventory: inventory,
-      live: livePaths,
-      observedRemoteVersion: observedRemoteVersion ?? null,
-    }, { operationId: diagnosticOperationId });
-    const acceptedActions: OverleafAcceptedAction[] = [];
-    const acceptedPaths = new Set<string>();
-    const deferred = new Set<string>();
-    let concurrentTextConflicts = false;
-
-    for (const action of prepared.actions) {
-      assertCollabWorkspaceLease(lease);
-      const file = controller.catalogFiles().find((entry) => (
-        entry.path === action.path && entry.state === "live"
-      ));
-
-      // Catalog deletion and a Yjs edit cannot be one atomic operation. Keep
-      // remote deletions pending while a Share is live rather than deleting a
-      // peer's edit in the gap between an equality check and the tree update.
-      if (action.kind === "delete") {
-        deferred.add(action.path);
-        continue;
-      }
-      const conflict = prepared.result.conflicts.find((item) => item.path === action.path);
-      if (conflict && !acceptedPaths.has(conflict.localCopy)) {
-        deferred.add(action.path);
-        continue;
-      }
-
-      if (action.outgoing) {
-        if (!file) {
-          deferred.add(action.path);
-          continue;
-        }
-        if (file.kind === "binary") {
-          acceptedActions.push({
-            actionId: action.actionId,
-            base64: bytesToBase64(await controller.downloadBinary(action.path)),
-          });
-          acceptedPaths.add(action.path);
-        } else {
-          await withSideloadedText(
-            controller,
-            action.path,
-            `overleaf-outgoing:${action.actionId}`,
-            async (binding) => {
-              acceptedActions.push({
-                actionId: action.actionId,
-                base64: bytesToBase64(textEncoder.encode(await collabBindingContent(binding, file.kind))),
-              });
-              acceptedPaths.add(action.path);
-            },
-          );
-        }
-        continue;
-      }
-
-      const afterBase64 = action.afterBase64;
-      if (!afterBase64) {
-        deferred.add(action.path);
-        continue;
-      }
-
-      if (action.kind === "create") {
-        if (file) {
-          deferred.add(action.path);
-          continue;
-        }
-        const kind = catalogKindForNewPath(action);
-        if (kind === "binary") {
-          const bytes = base64ToBytes(afterBase64);
-          await controller.create(action.path, kind);
-          await controller.replaceBinary(
-            action.path,
-            bytes,
-            projectFileMimeType(action.path),
-            localMutations,
-          );
-          await local.writeBytes(action.path, bytes, projectRoot);
-        } else {
-          const content = textDecoder.decode(base64ToBytes(afterBase64));
-          await controller.create(action.path, kind, { seedText: content });
-          await local.writeText(action.path, content, projectRoot);
-          commitOpenText(action.path, content);
-        }
-        acceptedActions.push({ actionId: action.actionId, base64: afterBase64 });
-        acceptedPaths.add(action.path);
-        continue;
-      }
-
-      if (!file || (action.binary !== (file.kind === "binary"))) {
-        deferred.add(action.path);
-        continue;
-      }
-      if (file.kind === "binary") {
-        const current = await controller.downloadBinary(action.path);
-        if (bytesToBase64(current) !== action.beforeBase64) {
-          deferred.add(action.path);
-          continue;
-        }
-        const replacement = base64ToBytes(afterBase64);
-        await controller.replaceBinary(
-          action.path,
-          replacement,
-          projectFileMimeType(action.path),
-          localMutations,
-        );
-        await local.writeBytes(action.path, replacement, projectRoot);
-        acceptedActions.push({ actionId: action.actionId, base64: afterBase64 });
-        acceptedPaths.add(action.path);
-        continue;
-      }
-
-      const collabKind = file.kind;
-      await withSideloadedText(
-        controller,
-        action.path,
-        `overleaf-incoming:${action.actionId}`,
-        async (binding) => {
-          if (collabKind === "text") {
-            const base = action.beforeBase64
-              ? textDecoder.decode(base64ToBytes(action.beforeBase64))
-              : "";
-            const edited = textDecoder.decode(base64ToBytes(afterBase64));
-            let canonical = binding.ytext.toString();
-            for (let attempt = 0; attempt < 4; attempt += 1) {
-              const version = binding.version;
-              const merged = await invoke<TextMergeResult>("merge_project_text", {
-                base,
-                edited,
-                current: binding.ytext.toString(),
-              });
-              try {
-                binding.applyExternalText(merged.content, version);
-                canonical = binding.ytext.toString();
-                concurrentTextConflicts = concurrentTextConflicts || merged.hadConflicts;
-                break;
-              } catch {
-                if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${action.path}.`);
-              }
-            }
-            await local.writeText(action.path, canonical, projectRoot);
-            commitOpenText(action.path, canonical);
-            acceptedActions.push({
-              actionId: action.actionId,
-              base64: bytesToBase64(textEncoder.encode(canonical)),
-            });
-            acceptedPaths.add(action.path);
-            return;
-          }
-
-          const current = await collabBindingContent(binding, collabKind);
-          if (bytesToBase64(textEncoder.encode(current)) !== action.beforeBase64) {
-            deferred.add(action.path);
-            return;
-          }
-          const replacement = textDecoder.decode(base64ToBytes(afterBase64));
-          const version = binding.version;
-          try {
-            await applyStructuredCollabContent(binding, collabKind, replacement, version);
-          } catch {
-            deferred.add(action.path);
-            return;
-          }
-          const canonical = await collabBindingContent(binding, collabKind);
-          await local.writeText(action.path, canonical, projectRoot);
-          commitOpenText(action.path, canonical);
-          acceptedActions.push({
-            actionId: action.actionId,
-            base64: bytesToBase64(textEncoder.encode(canonical)),
-          });
-          acceptedPaths.add(action.path);
-        },
-      );
-    }
-
-    await controller.settled();
-    await controller.flush();
-    assertCollabWorkspaceLease(lease);
-    const result = await diagnosticInvoke<OverleafSyncResult>("overleaf_commit_prepared_sync", {
-      projectRoot,
-      preparedPlanId: prepared.planId,
-      acceptedActions,
-    }, { operationId: diagnosticOperationId });
-    if (concurrentTextConflicts) {
-      setWarning("Overleaf and a Lattice collaborator changed the same lines; both versions were kept with conflict markers.", "Overleaf");
-    } else if (deferred.size) {
-      setWarning(`Overleaf changes were deferred while this Share was changing: ${[...deferred].join(", ")}.`, "Overleaf");
-    }
-    return result;
-  }, [
-    activeCollabVersion,
-    collabCanWrite,
-    v2WorkspaceCallbacks,
-  ]);
+    return syncSharedProjectWithOverleaf(
+      { controller, lease, projectRoot, disk: v2WorkspaceCallbacks(lease) },
+      commitOpenText,
+      { observedRemoteVersion, livePaths, operationId: diagnosticOperationId },
+    );
+  }, [activeCollabVersion, collabCanWrite, commitOpenText, v2WorkspaceCallbacks]);
 
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
@@ -3464,161 +3156,16 @@ function App() {
     if (controller && !lease?.isCurrent()) {
       throw new Error("The shared project changed before the Open Slide edit could be saved.");
     }
-    const local = lease ? v2WorkspaceCallbacks(lease) : null;
-    const localMutations = local?.rename && local.delete
-      ? { rename: local.rename, delete: local.delete }
-      : null;
-    let canonicalText: string | undefined;
-    let canonicalBase64: string | undefined;
-    let hadConflicts = false;
-
-    if (mutation.kind === "delete") {
-      const shared = controller?.catalogFiles().find((file) => (
-        file.path === mutation.path && file.state === "live"
-      ));
-      if (controller && shared && localMutations) {
-        await controller.delete(mutation.path, localMutations);
-      } else {
-        try {
-          await invoke("delete_project_entry", { path: mutation.path, projectRoot });
-        } catch (reason) {
-          // The shadow watcher and native project watcher can report the same
-          // unlink concurrently. A missing canonical file already satisfies
-          // the requested delete, so acknowledge that echo instead of rolling
-          // it back into Open Slide and showing an error.
-          if (projectRef.current?.root !== projectRoot) throw reason;
-          const stat = await invoke<{ exists: boolean }>("stat_project_file", {
-            path: mutation.path,
-          }).catch(() => null);
-          if (stat?.exists !== false) throw reason;
-        }
-      }
-    } else if (mutation.text !== undefined) {
-      const previous = mutation.previousText ?? "";
-      if (controller?.hasTextPath(mutation.path) && lease) {
-        await withSideloadedText(
-          controller,
-          mutation.path,
-          `open-slide:${mutation.id}:${crypto.randomUUID()}`,
-          async (binding) => {
-            for (let attempt = 0; attempt < 4; attempt += 1) {
-              const version = binding.version;
-              const merged = await invoke<TextMergeResult>("merge_project_text", {
-                base: previous,
-                edited: mutation.text,
-                current: binding.ytext.toString(),
-              });
-              try {
-                binding.applyExternalText(merged.content, version);
-                canonicalText = binding.ytext.toString();
-                hadConflicts = hadConflicts || merged.hadConflicts;
-                break;
-              } catch {
-                if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${mutation.path}.`);
-              }
-            }
-            let written = await collabDiskWriteQueueRef.current.run<EditorWriteResult>(
-              lease,
-              mutation.path,
-              () => invoke<EditorWriteResult>("write_project_file", {
-                path: mutation.path,
-                content: canonicalText,
-                baseContent: mutation.previousText,
-                projectRoot,
-              }),
-            );
-            hadConflicts = hadConflicts || written.hadConflicts;
-            if (written.content !== canonicalText) {
-              for (let attempt = 0; attempt < 4; attempt += 1) {
-                const version = binding.version;
-                const merged = await invoke<TextMergeResult>("merge_project_text", {
-                  base: canonicalText,
-                  edited: written.content,
-                  current: binding.ytext.toString(),
-                });
-                try {
-                  binding.applyExternalText(merged.content, version);
-                  canonicalText = binding.ytext.toString();
-                  hadConflicts = hadConflicts || merged.hadConflicts;
-                  break;
-                } catch {
-                  if (attempt === 3) throw new Error(`Could not merge concurrent edits to ${mutation.path}.`);
-                }
-              }
-              written = await collabDiskWriteQueueRef.current.run<EditorWriteResult>(
-                lease,
-                mutation.path,
-                () => invoke<EditorWriteResult>("write_project_file", {
-                  path: mutation.path,
-                  content: canonicalText,
-                  projectRoot,
-                }),
-              );
-              canonicalText = written.content;
-            }
-          },
-        );
-      } else if (controller) {
-        await controller.create(mutation.path, "text", { seedText: mutation.text });
-        canonicalText = mutation.text;
-        await collabDiskWriteQueueRef.current.run(
-          lease!,
-          mutation.path,
-          () => invoke("write_project_file", {
-            path: mutation.path,
-            content: canonicalText,
-            projectRoot,
-          }),
-        );
-      } else {
-        const written = await invoke<EditorWriteResult>("write_project_file", {
-          path: mutation.path,
-          content: mutation.text,
-          baseContent: mutation.kind === "write" ? mutation.previousText : undefined,
-          projectRoot,
-        });
-        canonicalText = written.content;
-        hadConflicts = written.hadConflicts;
-      }
-    } else if (mutation.base64 !== undefined) {
-      const bytes = Uint8Array.from(atob(mutation.base64), (character) => character.charCodeAt(0));
-      if (controller && lease && local) {
-        const existing = controller.catalogFiles().find((file) => (
-          file.path === mutation.path && file.state === "live"
-        ));
-        if (!existing) await controller.create(mutation.path, "binary");
-        const extension = mutation.path.split(".").at(-1)?.toLocaleLowerCase();
-        const mime = extension === "png"
-          ? "image/png"
-          : extension === "jpg" || extension === "jpeg"
-            ? "image/jpeg"
-            : extension === "webp"
-              ? "image/webp"
-              : extension === "pdf"
-                ? "application/pdf"
-                : "application/octet-stream";
-        await controller.replaceBinary(mutation.path, bytes, mime, {
-          rename: localMutations!.rename,
-          delete: localMutations!.delete,
-          writeBinaryConflict: (path, conflictBytes, root) => (
-            local.writeBytes(path, conflictBytes, root)
-          ),
-        });
-        await local.writeBytes(mutation.path, bytes, projectRoot);
-      } else {
-        await invoke("write_project_bytes", {
-          path: mutation.path,
-          base64Data: mutation.base64,
-          projectRoot,
-        });
-      }
-      canonicalBase64 = mutation.base64;
-    } else {
-      throw new Error(`Open Slide sent an incomplete edit for ${mutation.path}.`);
-    }
-
-    if (canonicalText !== undefined) commitOpenText(mutation.path, canonicalText);
-    if (hadConflicts) {
+    const written = await writeOpenSlideMutation(
+      mutation,
+      projectRoot,
+      controller && lease
+        ? { controller, lease, projectRoot, disk: v2WorkspaceCallbacks(lease), queue: collabDiskWriteQueueRef.current }
+        : null,
+      () => projectRef.current?.root === projectRoot,
+    );
+    if (written.text !== undefined) commitOpenText(mutation.path, written.text);
+    if (written.hadConflicts) {
       setWarning(`Open Slide and another editor changed the same lines in ${mutation.path}; Lattice kept both with conflict markers.`);
     }
     const snapshot = await refreshProject();
@@ -3648,7 +3195,7 @@ function App() {
       : [{
           path: mutation.path,
           kind: mutation.kind,
-          ...(canonicalText !== undefined ? { text: canonicalText } : { base64: canonicalBase64 }),
+          ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
         }];
   }, [
     activeCollabVersion,
