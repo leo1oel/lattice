@@ -37,6 +37,7 @@ import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
 import { useFileViewStates } from "./app/use-file-view-states";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
+import { collectAssetPaths, planWorkspaceRestore } from "./app/workspace-restore";
 import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
@@ -172,7 +173,6 @@ import type {
   ProjectManifest,
   NavigationEntry,
   ProjectSnapshot,
-  FileNode,
   AssetPreview,
   FigureDropRequest,
   FigurePointerDrag,
@@ -306,19 +306,6 @@ const isTwoPane = (mode: CanvasMode) => mode === "dual" || mode === "columns";
 function sharedTextKind(path: string): "board" | "spreadsheet" | "text" {
   if (path.toLocaleLowerCase().endsWith(".tldr")) return "board";
   return isSpreadsheetPath(path) ? "spreadsheet" : "text";
-}
-
-function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
-  for (const node of nodes) {
-    // SVG is text on disk but remains an image when tabs are selected or restored.
-    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
-    if (!isDirectory && (isProjectAssetFilePath(node.path)
-      || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink")) {
-      paths.add(node.path);
-    }
-    if (node.children.length) collectAssetPaths(node.children, paths);
-  }
-  return paths;
 }
 
 function recordNavigationTiming(
@@ -2465,10 +2452,6 @@ function App() {
       if (!options?.deferInitialBuild) {
         void runBuild(false, { immediatePreview: true });
       }
-      const rootDocument =
-        snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
-        ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
-        ?? snapshot.manifest.rootDocuments[0];
       const isLatestBibliography = library.claimBibliographyRefresh();
       const bibliographyIndex = await loadBibliographyIndex();
       const [nextPapers, , , nextReferences] = bibliographyIndex;
@@ -2478,130 +2461,38 @@ function App() {
       // not overwrite a newer bibliography refresh triggered by a save.
       if (isLatestBibliography()) library.applyBibliographyIndex(bibliographyIndex);
       else setReferences(nextReferences ?? []);
-      const allPaths = flattenProjectPaths(snapshot.files);
-      const assetPaths = collectAssetPaths(snapshot.files);
-      const sourcePaths = new Set(allPaths.filter((path) => (
-        !isPaperTabKey(path)
-        && !assetPaths.has(path)
-        && isProjectSourceFilePath(path)
-      )));
-      // Root documents are authoritative even while a collaboration snapshot
-      // is still materializing its file tree (or a lightweight test fixture
-      // omits the duplicate tree node).
-      for (const document of snapshot.manifest.rootDocuments) {
-        if (isProjectSourceFilePath(document.path)) sourcePaths.add(document.path);
-      }
-      const paperKeys = new Set(nextPapers.map((paper) => paperTabKey(paper.arxivId)));
-      const validTab = (path: string) => sourcePaths.has(path) || assetPaths.has(path) || paperKeys.has(path);
-      const restored = loadWorkspaceLayout(snapshot.root);
-      documentModeRef.current = restored?.documentMode ?? "split";
-      // Reopen the complete per-project workspace when possible. Older releases
-      // only remembered one file, so that value remains the migration fallback.
-      const remembered = loadLastFile(snapshot.root);
-      const primaryFile = restored?.activeFile && sourcePaths.has(restored.activeFile)
-        ? restored.activeFile
-        : remembered && sourcePaths.has(remembered)
-          ? remembered
-          : rootDocument?.path && sourcePaths.has(rootDocument.path)
-            ? rootDocument.path
-            : [...sourcePaths][0];
-      if (
-        !ownsProjectRestore()
-        || fileLoadGenerationRef.current !== primaryRestoreGeneration
-        || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
-      ) return;
-      if (primaryFile) {
-        const primaryApplied = await loadFile(primaryFile, {
-          expectedProjectRoot: snapshot.root,
-          projectGeneration,
-        });
-        if (!primaryApplied || !ownsProjectRestore()) return;
-      }
-      const appliedPrimaryGeneration = fileLoadGenerationRef.current;
+      const plan = planWorkspaceRestore(snapshot, nextPapers, loadWorkspaceLayout(snapshot.root), loadLastFile(snapshot.root));
+      const { primaryFile, secondaryFile, activeTab, mode } = plan;
+      documentModeRef.current = plan.documentMode;
+      // A newer file intent from the writer (in either pane) cancels the rest of the restore.
+      let primaryGeneration = primaryRestoreGeneration;
+      const restoreIsCurrent = () => ownsProjectRestore()
+        && fileLoadGenerationRef.current === primaryGeneration
+        && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration;
+      if (!restoreIsCurrent()) return;
+      if (primaryFile && !(await loadFile(primaryFile, { expectedProjectRoot: snapshot.root, projectGeneration }))) return;
+      primaryGeneration = fileLoadGenerationRef.current;
       if (!ownsProjectRestore()) return;
-      const secondaryFile = restored?.secondaryFile
-        && restored.secondaryFile !== primaryFile
-        && sourcePaths.has(restored.secondaryFile)
-        ? restored.secondaryFile
-        : null;
       if (secondaryFile) {
         try {
-          if (
-            !ownsProjectRestore()
-            || fileLoadGenerationRef.current !== appliedPrimaryGeneration
-            || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
-          ) return;
-          const content = await invoke<string>("read_project_file", {
-            path: secondaryFile,
-            projectRoot: snapshot.root,
-          });
-          if (
-            !ownsProjectRestore()
-            || fileLoadGenerationRef.current !== appliedPrimaryGeneration
-            || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
-          ) return;
+          if (!restoreIsCurrent()) return;
+          const content = await invoke<string>("read_project_file", { path: secondaryFile, projectRoot: snapshot.root });
+          if (!restoreIsCurrent()) return;
           showSecondaryText(secondaryFile, content);
         } catch {
-          if (
-            ownsProjectRestore()
-            && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration
-          ) {
+          if (ownsProjectRestore() && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration) {
             showSecondaryText(null);
           }
         }
       }
-      if (
-        !ownsProjectRestore()
-        || fileLoadGenerationRef.current !== appliedPrimaryGeneration
-        || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
-      ) return;
-      const restoredTabs = restored
-        ? restored.openTabs.filter(validTab)
-        : primaryFile
-          ? [primaryFile]
-          : [];
-      if (restored) {
-        const restoredPins = new Set((restored.pinnedTabs ?? []).filter(validTab));
-        restoredTabs.sort((left, right) => Number(restoredPins.has(right)) - Number(restoredPins.has(left)));
-      }
-      const activeTab = restored?.activeTab && validTab(restored.activeTab)
-        ? restored.activeTab
-        : primaryFile ?? restoredTabs[0] ?? "";
-      if (activeTab && !restoredTabs.includes(activeTab)) restoredTabs.push(activeTab);
-      const restoredMode: CanvasMode = paperKeys.has(activeTab)
-        ? restored?.canvasMode === "source" || restored?.canvasMode === "split"
-          ? restored.canvasMode
-          : "pdf"
-        : assetPaths.has(activeTab)
-          ? "asset"
-          : isHtmlFilePath(activeTab)
-            ? restored?.activeTab === activeTab
-              && (restored.canvasMode === "source" || restored.canvasMode === "split" || restored.canvasMode === "pdf")
-              ? restored.canvasMode
-              : "pdf"
-          : !isPreviewableSourceFilePath(activeTab)
-            ? restored?.canvasMode === "dual" || restored?.canvasMode === "columns"
-              ? restored.canvasMode
-              : "source"
-          : (restored?.canvasMode === "dual" || restored?.canvasMode === "columns") && !secondaryFile
-            ? "split"
-            : restored?.canvasMode ?? "split";
-      if (isHtmlFilePath(activeTab)) htmlViewModesRef.current.set(activeTab, restoredMode as DocumentViewMode);
-      setOpenTabs(restoredTabs);
-      setPinnedTabs(restored?.pinnedTabs?.filter(validTab) ?? []);
-      tabRecency.current = restored?.tabRecency.filter((path) => restoredTabs.includes(path)) ?? [];
-      for (const path of restoredTabs) {
-        if (!tabRecency.current.includes(path)) tabRecency.current.push(path);
-      }
-      setFocusedPane(
-        secondaryFile
-        && (restoredMode === "dual" || restoredMode === "columns")
-        && restored?.focusedPane === "secondary"
-          ? "secondary"
-          : "primary",
-      );
-      setCanvasMode(restoredMode);
-      setPaperView(restored?.paperView ?? "blog");
+      if (!restoreIsCurrent()) return;
+      if (isHtmlFilePath(activeTab)) htmlViewModesRef.current.set(activeTab, mode as DocumentViewMode);
+      setOpenTabs(plan.tabs);
+      setPinnedTabs(plan.pinnedTabs);
+      tabRecency.current = plan.tabRecency;
+      setFocusedPane(plan.focusedPane);
+      setCanvasMode(mode);
+      setPaperView(plan.paperView);
       setNavStack(primaryFile ? [{ path: primaryFile, line: 1 }] : []);
       setNavIndex(primaryFile ? 0 : -1);
       await refreshUnusedSymbols();
@@ -2611,13 +2502,8 @@ function App() {
       await loadWordCount();
       setPdfPageCount(null);
       setChecklistOpen(false);
-      if (paperKeys.has(activeTab) || assetPaths.has(activeTab)) {
-        pendingWorkspaceSurfaceRef.current = {
-          root: snapshot.root,
-          activeTab,
-          canvasMode: restoredMode,
-          paperView: restored?.paperView ?? "blog",
-        };
+      if (plan.activeKind !== "document") {
+        pendingWorkspaceSurfaceRef.current = { root: snapshot.root, activeTab, canvasMode: mode, paperView: plan.paperView };
       } else {
         setWorkspacePersistenceReadyRoot(snapshot.root);
       }
@@ -2626,8 +2512,8 @@ function App() {
       if (shellRef.current) shellRef.current.style.opacity = "1";
     },
     [
-      beginProjectTransition, loadViewStatesForProject, loadFile,
-      refreshUnusedSymbols, rememberProject, resetAgentSelection, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
+      beginProjectTransition, loadViewStatesForProject, loadFile, refreshUnusedSymbols, rememberProject,
+      resetAgentSelection, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
     ],
   );
   enterProjectRef.current = enterProject;

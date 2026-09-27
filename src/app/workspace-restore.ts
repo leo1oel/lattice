@@ -1,0 +1,111 @@
+import type { CanvasMode, EditorPaneId, FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
+import {
+  isHtmlFilePath,
+  isPaperTabKey,
+  isPreviewableSourceFilePath,
+  isProjectAssetFilePath,
+  isProjectSourceFilePath,
+  paperTabKey,
+} from "../app-utils";
+import { flattenProjectPaths } from "../build/compile-diagnostics";
+import type { WorkspaceLayout } from "../settings/app-settings";
+
+/** Every non-directory path the project shows as an image/binary preview rather than text. */
+export function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
+  for (const node of nodes) {
+    // SVG is text on disk but remains an image when tabs are selected or restored.
+    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
+    if (!isDirectory && (isProjectAssetFilePath(node.path)
+      || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink")) {
+      paths.add(node.path);
+    }
+    if (node.children.length) collectAssetPaths(node.children, paths);
+  }
+  return paths;
+}
+
+const isTwoPaneMode = (mode: CanvasMode | undefined) => mode === "dual" || mode === "columns";
+
+/** The canvas mode a restored active tab opens in. */
+function restoredCanvasMode(
+  activeTab: string,
+  kind: "paper" | "asset" | "document",
+  layout: WorkspaceLayout | null,
+  hasSecondary: boolean,
+): CanvasMode {
+  const saved = layout?.canvasMode;
+  if (kind === "paper") return saved === "source" || saved === "split" ? saved : "pdf";
+  if (kind === "asset") return "asset";
+  if (isHtmlFilePath(activeTab)) {
+    return layout?.activeTab === activeTab && (saved === "source" || saved === "split" || saved === "pdf") ? saved : "pdf";
+  }
+  if (!isPreviewableSourceFilePath(activeTab)) return isTwoPaneMode(saved) ? saved! : "source";
+  if (isTwoPaneMode(saved) && !hasSecondary) return "split";
+  return saved ?? "split";
+}
+
+/**
+ * Where to put a project's workspace back: which files load into the panes,
+ * which tabs reopen (pinned first), the active tab and the canvas mode.
+ * `layout` is the saved per-project workspace; `lastFile` is the single file
+ * older releases remembered, kept as the migration fallback.
+ */
+export function planWorkspaceRestore(
+  snapshot: ProjectSnapshot,
+  papers: PaperSummary[],
+  layout: WorkspaceLayout | null,
+  lastFile: string | null,
+) {
+  const assetPaths = collectAssetPaths(snapshot.files);
+  const sourcePaths = new Set(flattenProjectPaths(snapshot.files).filter((path) => (
+    !isPaperTabKey(path) && !assetPaths.has(path) && isProjectSourceFilePath(path)
+  )));
+  // Root documents are authoritative even while a collaboration snapshot
+  // is still materializing its file tree (or a lightweight test fixture
+  // omits the duplicate tree node).
+  const rootDocuments = snapshot.manifest.rootDocuments;
+  for (const document of rootDocuments) {
+    if (isProjectSourceFilePath(document.path)) sourcePaths.add(document.path);
+  }
+  const paperKeys = new Set(papers.map((paper) => paperTabKey(paper.arxivId)));
+  const validTab = (path: string) => sourcePaths.has(path) || assetPaths.has(path) || paperKeys.has(path);
+  const rootDocument = rootDocuments.find((document) => document.path === "main.tex")
+    ?? rootDocuments.find((document) => document.isDefault)
+    ?? rootDocuments[0];
+  const primaryFile: string | undefined = [layout?.activeFile, lastFile, rootDocument?.path]
+    .find((path): path is string => Boolean(path) && sourcePaths.has(path!)) ?? [...sourcePaths][0];
+  const secondaryFile = layout?.secondaryFile && layout.secondaryFile !== primaryFile
+    && sourcePaths.has(layout.secondaryFile) ? layout.secondaryFile : null;
+
+  const tabs = layout ? layout.openTabs.filter(validTab) : primaryFile ? [primaryFile] : [];
+  const pinnedTabs = layout?.pinnedTabs?.filter(validTab) ?? [];
+  if (layout) {
+    const pinned = new Set(pinnedTabs);
+    tabs.sort((left, right) => Number(pinned.has(right)) - Number(pinned.has(left)));
+  }
+  const activeTab = layout?.activeTab && validTab(layout.activeTab) ? layout.activeTab : primaryFile ?? tabs[0] ?? "";
+  if (activeTab && !tabs.includes(activeTab)) tabs.push(activeTab);
+  const activeKind = paperKeys.has(activeTab) ? "paper" : assetPaths.has(activeTab) ? "asset" : "document";
+  const mode = restoredCanvasMode(activeTab, activeKind, layout, Boolean(secondaryFile));
+  const tabRecency = layout?.tabRecency.filter((path) => tabs.includes(path)) ?? [];
+  for (const path of tabs) {
+    if (!tabRecency.includes(path)) tabRecency.push(path);
+  }
+  const focusedPane: EditorPaneId = secondaryFile && isTwoPaneMode(mode) && layout?.focusedPane === "secondary"
+    ? "secondary"
+    : "primary";
+  return {
+    primaryFile,
+    secondaryFile,
+    tabs,
+    pinnedTabs,
+    tabRecency,
+    activeTab,
+    /** A Paper or asset tab must be opened through its own reader once the project is in. */
+    activeKind,
+    mode,
+    focusedPane,
+    documentMode: layout?.documentMode ?? "split",
+    paperView: layout?.paperView ?? "blog",
+  };
+}
