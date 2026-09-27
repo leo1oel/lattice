@@ -160,7 +160,12 @@ input[type="search"]:focus-visible {
 .compile-diagnostic-message { grid-column: 2; min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
 .compile-diagnostic-copy { width: 26px; height: 26px; flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
-.compile-log { margin: 0; max-height: 220px; overflow: auto; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.compile-log-frame { position: relative; min-width: 0; }
+.compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Without field-sizing a textarea is two rows tall; give it the old cap. */
+@supports not (field-sizing: content) { .compile-log { height: 220px; } }
+.compile-log-copy { position: absolute; top: var(--space-2); right: var(--space-4); width: 26px; height: 26px; border: 0; border-radius: var(--radius-icon); padding: 0; background: var(--surface-panel-raised); color: inherit; display: grid; place-items: center; opacity: .72; }
+.compile-log-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
 .editor-status-bar {
   container-type: inline-size;
   flex: none;

@@ -1043,6 +1043,9 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             },
         );
     }
+    if let Some(diagnostic) = rc_file_failure(log) {
+        push_unique_diagnostic(&mut diagnostics, diagnostic);
+    }
     if is_stale_previous_invocation_log(log) {
         push_unique_diagnostic(
             &mut diagnostics,
@@ -1090,6 +1093,100 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
             && (diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message))
     });
     diagnostics
+}
+
+/// latexmk runs a project's rc file before any engine pass, and a `die` there
+/// ends the build with only the rc's own output in the log: no LaTeX error,
+/// so the diagnostics list stayed empty and the raw dump was all anyone saw.
+fn rc_file_failure(log: &str) -> Option<Diagnostic> {
+    let rc_error = Regex::new(
+        r"(?m)^Latexmk: Initialization file '([^'\n]+)' gave an error:[ \t]*\n((?:[ \t]+\S[^\n]*\n?)*)",
+    )
+    .unwrap();
+    let capture = rc_error.captures(log)?;
+    let message = playwright_browser_missing(log).unwrap_or_else(|| {
+        let file = capture[1].trim_start_matches("./");
+        let reason = capture[2].split_whitespace().collect::<Vec<_>>().join(" ");
+        let reason = reason.trim_end_matches('.');
+        let reason = if reason.is_empty() {
+            String::new()
+        } else {
+            format!(": {reason}")
+        };
+        format!(
+            "latexmk stopped before LaTeX ran because {file} failed{reason}. The Log tab shows the output of the command it runs."
+        )
+    });
+    Some(Diagnostic {
+        file: None,
+        line: None,
+        column: None,
+        end_line: None,
+        end_column: None,
+        level: "error".to_string(),
+        message,
+    })
+}
+
+/// Projects render figures from `.latexmkrc` with Playwright. Its browsers are
+/// a separate download per Playwright release, so an unpinned `playwright`
+/// dependency that resolves a new release fails with "Executable doesn't
+/// exist" until that release's browser is installed. Lattice runs latexmk with
+/// the user's HOME, so the lookup is the same `~/Library/Caches/ms-playwright`
+/// a Terminal build uses; the fix is the install Playwright asks for, run by
+/// the same Playwright, which the traceback's site-packages path identifies.
+fn playwright_browser_missing(log: &str) -> Option<String> {
+    let missing = Regex::new(r"(?m)Executable doesn't exist at (.+?)\s*$").unwrap();
+    let executable = missing.captures(log)?.get(1)?.as_str();
+    if !log.to_ascii_lowercase().contains("playwright") {
+        return None;
+    }
+    let browser_build = Regex::new(r"^([a-z_]+)-\d+$").unwrap();
+    // Match known browser names only: the browsers directory can sit under a
+    // custom PLAYWRIGHT_BROWSERS_PATH whose own components look like `name-123`.
+    let browser = Path::new(executable)
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .find_map(|component| {
+            let capture = browser_build.captures(component)?;
+            match &capture[1] {
+                name if name.starts_with("chromium") => Some("chromium"),
+                "firefox" => Some("firefox"),
+                "webkit" => Some("webkit"),
+                _ => None,
+            }
+        });
+    let label = match browser {
+        Some("chromium") => "Chromium",
+        Some("firefox") => "Firefox",
+        Some("webkit") => "WebKit",
+        _ => "browser",
+    };
+    let install = browser.map_or_else(|| "install".to_string(), |name| format!("install {name}"));
+    let python_env =
+        Regex::new(r#"File "([^"\n]+?)/lib/python[0-9.]+/site-packages/playwright/"#).unwrap();
+    let command = if let Some(capture) = python_env.captures(log) {
+        let python = format!("{}/bin/python", &capture[1]);
+        format!("{} -m playwright {install}", shell_word(&python))
+    } else if log.contains("node_modules/playwright") {
+        format!("npx playwright {install}")
+    } else {
+        format!("playwright {install}")
+    };
+    Some(format!(
+        "The project's .latexmkrc runs Playwright, and the {label} this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
+    ))
+}
+
+fn shell_word(value: &str) -> String {
+    if value
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b"/._+-@%=:,".contains(&byte))
+    {
+        value.to_string()
+    } else {
+        format!("'{}'", value.replace('\'', "'\"'\"'"))
+    }
 }
 
 fn last_typeset_pass(log: &str) -> &str {
@@ -1531,6 +1628,109 @@ mod tests {
             }),
             "expected a dependency repair hint, got {diagnostics:?}"
         );
+    }
+
+    /// The tail of the reported log (reproduced with a `.latexmkrc` that runs
+    /// a uv script whose unpinned Playwright resolved 1.63.0, browsers absent).
+    const PLAYWRIGHT_RC_FAILURE: &str = r#"Traceback (most recent call last):
+  File "/Users/me/paper/scripts/export_probe_pdfs.py", line 20, in main
+    browser = p.chromium.launch()
+  File "/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/lib/python3.13/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.Error: BrowserType.launch: Executable doesn't exist at /Users/me/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+╚════════════════════════════════════════════════════════════╝
+Latexmk: Initialization file './.latexmkrc' gave an error:
+     Probe SVG conversion failed
+
+Latexmk: Stopping because of problem with rc file
+"#;
+
+    #[test]
+    fn tells_how_to_install_the_browser_a_latexmkrc_playwright_script_needs() {
+        let diagnostics = parse_diagnostics(PLAYWRIGHT_RC_FAILURE);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].level, "error");
+        let message = &diagnostics[0].message;
+        assert!(message.contains("Chromium"), "{message}");
+        // The same Playwright the rc ran, so the download matches build 1243.
+        assert!(
+            message.contains(
+                "`/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python -m playwright install chromium`"
+            ),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn names_a_failing_latexmkrc_instead_of_leaving_only_the_raw_log() {
+        let diagnostics = parse_diagnostics(
+            "Latexmk: Initialization file './.latexmkrc' gave an error:\n     \
+             Figure export failed\n\nLatexmk: Stopping because of problem with rc file\n",
+        );
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert!(
+            diagnostics[0]
+                .message
+                .contains(".latexmkrc failed: Figure export failed."),
+            "{diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn quotes_a_playwright_environment_path_with_spaces_and_finds_a_relocated_browser() {
+        let log = PLAYWRIGHT_RC_FAILURE
+            .replace("/Users/me/.cache/uv", "/Users/me/My Cache/uv")
+            .replace("/Users/me/Library/Caches", "/Volumes/build-2026");
+        let diagnostics = parse_diagnostics(&log);
+        assert!(
+            diagnostics[0].message.contains(
+                "`'/Users/me/My Cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/bin/python' -m playwright install chromium`"
+            ),
+            "{diagnostics:?}"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires latexmk"]
+    fn a_latexmkrc_playwright_failure_reaches_the_build_result_as_a_diagnostic() {
+        // The user path: latexmk, run the way Lattice runs it, stops in the rc
+        // file before any engine pass. A stale PDF from an earlier build is
+        // still on disk, as it was for the report.
+        let parent = temp_root();
+        fs::create_dir_all(&parent).unwrap();
+        let root = project::create(&parent, "Playwright probes").unwrap();
+        fs::write(root.join("main.pdf"), b"%PDF-1.5 stale").unwrap();
+        fs::write(
+            root.join("playwright-error.txt"),
+            PLAYWRIGHT_RC_FAILURE.split("Latexmk:").next().unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            root.join(".latexmkrc"),
+            "system('cat playwright-error.txt >&2; exit 1') == 0\n  or die \"Probe SVG conversion failed\\n\";\n",
+        )
+        .unwrap();
+        let result = build(&root, false, &new_active_build(), None).unwrap();
+        assert!(!result.success, "{}", result.log);
+        assert!(
+            result.log.contains("problem with rc file"),
+            "{}",
+            result.log
+        );
+        assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+        assert!(
+            result.diagnostics[0]
+                .message
+                .contains("-m playwright install chromium"),
+            "{:?}",
+            result.diagnostics
+        );
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
