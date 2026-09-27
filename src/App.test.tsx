@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -42,6 +42,7 @@ import "./editor/comments/editor-comments-panel";
 // PDF source-navigation assertions need the real viewer, not its Suspense
 // placeholder, ready before the interaction deadline starts.
 import "./pdf/pdf-viewer";
+import type { FileNode, ProjectManifest, ProjectSnapshot } from "./app-types";
 import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
@@ -420,6 +421,69 @@ function mockAppCommand(command: string, ..._args: unknown[]) {
   throw new Error(`Unexpected command: ${command}`);
 }
 
+const FILE_KINDS: Record<string, string> = {
+  tex: "tex", md: "markdown", bib: "bib", tldr: "board", "lattice-sheet": "spreadsheet", tsx: "tsx",
+  png: "figure", pdf: "figure", svg: "figure", eps: "figure", webp: "figure",
+};
+
+/** A project tree file; `kind` follows the extension unless a test needs another. */
+function fileNode(path: string, kind = FILE_KINDS[path.split(".").pop() ?? ""] ?? "text", extra?: Partial<FileNode>): FileNode {
+  return { name: path.split("/").pop() ?? path, path, kind, ...extra, children: [] };
+}
+
+function dirNode(path: string, children: FileNode[] = []): FileNode {
+  return { name: path.split("/").pop() ?? path, path, kind: "directory", children };
+}
+
+/** A command's canned result, or a function computing it from the call's arguments. */
+type CommandResult =
+  | ((args: InvokeArgs | undefined, command: string) => unknown)
+  | string | number | boolean | object | null | undefined;
+
+/**
+ * Answers `invoke` from a command table. Values come back as-is (the same
+ * instance on every call); functions run per call. Anything missing falls
+ * through to mockAppCommand, which rejects commands a test did not expect.
+ */
+function mockCommands(commands: Record<string, CommandResult>) {
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (!Object.hasOwn(commands, command)) return mockAppCommand(command);
+    const result = commands[command];
+    return typeof result === "function" ? result(args, command) : result;
+  });
+}
+
+/** What opening `snapshot` reads: its root document, papers, and history. */
+function projectCommands(snapshot: ProjectSnapshot | null, source = "\\documentclass{article}") {
+  return {
+    initial_project: snapshot,
+    read_project_file: source,
+    list_papers: () => [],
+    list_history: () => [],
+  } satisfies Record<string, CommandResult>;
+}
+
+/** The standard single-document project; tests override only what they exercise. */
+function projectSnapshot({
+  root = "/tmp/lattice-paper",
+  files = [fileNode("main.tex")],
+  ...manifest
+}: Partial<ProjectManifest> & { root?: string; files?: FileNode[] } = {}): ProjectSnapshot {
+  return {
+    root,
+    manifest: {
+      schemaVersion: 1,
+      projectId: "paper-id",
+      name: "Lattice paper",
+      rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
+      primaryBibliography: "references.bib",
+      trusted: false,
+      ...manifest,
+    },
+    files,
+  };
+}
+
 // The provider/model/effort pickers are Radix Selects: options are portaled
 // and only exist while the menu is open, so a native `fireEvent.change` no
 // longer works. The trigger opens on pointerdown only for a real mouse press
@@ -669,24 +733,16 @@ describe("welcome screen", () => {
 
   it("keeps an explicitly opened project instead of replacing it with the tutorial", async () => {
     localStorage.removeItem("lattice.tutorial-seen.v1");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/research/First paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "first-paper-id",
-        name: "First paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
+      projectId: "first-paper-id",
+      name: "First paper",
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      open_tutorial_project: () => {
+        throw new Error("Tutorial fixture stopped after invocation.");
       },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
@@ -700,29 +756,19 @@ describe("welcome screen", () => {
   });
 
   it("starts the first build as soon as a new project opens", async () => {
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/research/New paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "new-paper-id",
-        name: "New paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "new-paper-id",
+      name: "New paper",
+    });
     vi.mocked(open).mockResolvedValue("/tmp/research");
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return null;
-      if (command === "create_project") return snapshot;
+    mockCommands({
+      ...projectCommands(null),
+      create_project: snapshot,
       // Creation no longer binds a window; the caller places the project.
-      if (command === "open_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "harper_lint") return [];
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      open_project: snapshot,
+      harper_lint: () => [],
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
     });
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
@@ -745,33 +791,19 @@ describe("welcome screen", () => {
   }, 30_000);
 
   it("preserves a forced build queued behind an ordinary build", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const success = { success: true, hasPdf: false, log: "", durationMs: 1, diagnostics: [] };
     let resolveOrdinaryBuild!: (result: typeof success) => void;
     const ordinaryBuild = new Promise<typeof success>((resolve) => {
       resolveOrdinaryBuild = resolve;
     });
     let buildCalls = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      build_project: () => {
         buildCalls += 1;
         return buildCalls === 1 ? ordinaryBuild : success;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -794,18 +826,7 @@ describe("welcome screen", () => {
   });
 
   it("shows an existing compiled PDF without waiting for the initial build", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const build = new Promise<never>(() => undefined);
     const NativeURL = globalThis.URL;
     class TestURL extends NativeURL {
@@ -813,15 +834,10 @@ describe("welcome screen", () => {
       static revokeObjectURL = vi.fn();
     }
     vi.stubGlobal("URL", TestURL);
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return build;
-      if (command === "read_compiled_pdf") {
-        return new TextEncoder().encode("%PDF-1.4 cached").buffer;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      build_project: build,
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4 cached").buffer,
     });
 
     renderApp();
@@ -880,28 +896,11 @@ describe("welcome screen", () => {
   });
 
   it("does not load provider settings when opening a non-Agent settings page", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") {
-        return [];
-      }
-      if (command === "build_project") {
-        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      harper_lint: () => [],
+      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -1024,25 +1023,8 @@ describe("welcome screen", () => {
   });
 
   it("keeps an expanded Synara settings panel reachable from the old bottom", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "harper_lint") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot();
+    mockCommands({ ...projectCommands(snapshot), harper_lint: () => [] });
 
     renderApp();
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
@@ -1212,12 +1194,7 @@ describe("welcome screen", () => {
   });
 
   it("keeps the resident browser entry at the bottom of Appearance and controls login startup", async () => {
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return null;
-      if (command === "browser_access_enabled") return true;
-      if (command === "set_browser_access_enabled") return null;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    mockCommands({ initial_project: null, browser_access_enabled: true, set_browser_access_enabled: null });
 
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -1237,25 +1214,8 @@ describe("welcome screen", () => {
 
   it("moves a browser workspace back into the desktop app from Settings", async () => {
     browserRuntime.hosted = true;
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "return_to_desktop") return "project-1";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot), return_to_desktop: "project-1" });
 
     renderApp();
     await screen.findByRole("tab", { name: "main.tex" });
@@ -1272,10 +1232,7 @@ describe("welcome screen", () => {
   it("opens the bundled Chromium workspace in the default browser", async () => {
     browserRuntime.hosted = true;
     browserRuntime.bundled = true;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "open_in_system_browser") return null;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    mockCommands({ open_in_system_browser: null });
 
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -1338,34 +1295,18 @@ describe("project workspace", () => {
 
   it("temporarily reveals auxiliary sources without forgetting the selected document view", async () => {
     localStorage.setItem("lattice:show-hidden-files", "true");
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "introduction.tex", path: "introduction.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-        { name: "conference.sty", path: "conference.sty", kind: "text", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "list_project_tree_with_hidden") return snapshot.files;
-      if (command === "read_project_file") {
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), fileNode("introduction.tex"), fileNode("references.bib"), fileNode("conference.sty")],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      list_project_tree_with_hidden: () => snapshot.files,
+      read_project_file: (args) => {
         const path = (args as { path: string }).path;
         if (path === "references.bib") return "@article{lattice, title={Lattice}}";
         if (path === "conference.sty") return "\\ProvidesPackage{conference}";
         return "\\documentclass{article}";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -1403,17 +1344,15 @@ describe("project workspace", () => {
   });
 
   it("restores pinned tabs, protects them from eviction and close, and persists unpinning", async () => {
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-pinned",
-      manifest: {
-        schemaVersion: 1, projectId: "pinned-id", name: "Pinned tabs",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
+      projectId: "pinned-id",
+      name: "Pinned tabs",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
       files: ["main.tex", "pinned.tex", "old.tex"].map((path) => ({
         name: path, path, kind: "tex", children: [],
       })),
-    };
+    });
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ maxOpenTabs: 2 }));
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["old.tex", "main.tex", "pinned.tex", "missing.tex"],
@@ -1422,11 +1361,9 @@ describe("project workspace", () => {
       focusedPane: "primary", canvasMode: "source", documentMode: "source",
       paperView: "blog", tabRecency: ["main.tex", "old.tex", "pinned.tex"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
     });
     renderApp();
     const tabs = await screen.findByRole("tablist", { name: "Open files" });
@@ -1446,22 +1383,10 @@ describe("project workspace", () => {
   });
 
   it("opens the most recently used other file before a stale secondary or a TeX fallback", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "old.tex", name: "Old paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "old.tex", path: "old.tex", kind: "tex", children: [] },
-        { name: "recent.md", path: "recent.md", kind: "markdown", children: [] },
-        { name: "current.bib", path: "current.bib", kind: "bib", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "old.tex", name: "Old paper", isDefault: true }],
+      files: [fileNode("old.tex"), fileNode("recent.md"), fileNode("current.bib")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["old.tex", "recent.md", "current.bib"],
       activeFile: "current.bib",
@@ -1473,11 +1398,9 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["current.bib", "recent.md", "old.tex"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
     });
 
     renderApp();
@@ -1489,26 +1412,10 @@ describe("project workspace", () => {
   });
 
   it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
     });
     localStorage.setItem("lattice.split-ratio.v1", "0.7");
 
@@ -1583,31 +1490,15 @@ describe("project workspace", () => {
   });
 
   it("previews a document focused in the right pane and restores the dual layout", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => {
         const path = (args as { path: string }).path;
         return path === "main.tex"
           ? "\\documentclass{article}"
           : "@article{lattice, title={Lattice}}";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -1710,26 +1601,10 @@ describe("project workspace", () => {
   });
 
   it("splits a TeX preview without replacing it with the source editor", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("notes.md")] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
     });
 
     renderApp();
@@ -1758,26 +1633,7 @@ describe("project workspace", () => {
   });
 
   it("does not forward-sync a stale TeX cursor when the visible split peer is a spreadsheet", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "results.lattice-sheet",
-          path: "results.lattice-sheet",
-          kind: "spreadsheet",
-          children: [],
-        },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("results.lattice-sheet")] });
     const NativeURL = globalThis.URL;
     class TestURL extends NativeURL {
       static createObjectURL = vi.fn(() => "blob:lattice-pdf");
@@ -1788,31 +1644,21 @@ describe("project workspace", () => {
       promise: new Promise(() => undefined),
       destroy: vi.fn(),
     } as never);
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "main.tex"
-          ? "\\documentclass{article}"
-          : "{}";
-      }
-      if (command === "read_compiled_pdf") {
-        return new TextEncoder().encode("%PDF-1.4").buffer;
-      }
-      if (command === "build_project") {
-        return {
-          success: true,
-          hasPdf: true,
-          log: "",
-          durationMs: 1,
-          diagnostics: [],
-          rootDocument: "main.tex",
-        };
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "synctex_view") {
-        return { page: 1, x: 72, y: 96, width: 120, height: 14 };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => (args as { path: string }).path === "main.tex"
+        ? "\\documentclass{article}"
+        : "{}",
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
+      build_project: () => ({
+        success: true,
+        hasPdf: true,
+        log: "",
+        durationMs: 1,
+        diagnostics: [],
+        rootDocument: "main.tex",
+      }),
+      synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
     });
 
     renderApp();
@@ -1839,22 +1685,7 @@ describe("project workspace", () => {
   });
 
   it("previews each Markdown pane independently and allows both previews", { timeout: 60_000 }, async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
-        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("left.md"), fileNode("right.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
@@ -1866,16 +1697,12 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["left.md", "right.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "left.md"
-          ? "# Left notes"
-          : "# Right notes";
-      }
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => (args as { path: string }).path === "left.md"
+        ? "# Left notes"
+        : "# Right notes",
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -1921,29 +1748,22 @@ describe("project workspace", () => {
   });
 
   it.each(["left.md", "right.md"])("restores both split files when returning through %s", { timeout: 30_000 }, async (returnPath) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "left.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "left.md", name: "Notes", isDefault: true }],
       files: ["left.md", "right.md", "references.bib"].map((path) => ({
         name: path, path, kind: path.endsWith(".md") ? "markdown" : "bib", children: [],
       })),
-    };
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["left.md", "right.md", "references.bib"],
       activeFile: "left.md", activeTab: "left.md", secondaryFile: "right.md",
       focusedPane: "primary", canvasMode: "dual", documentMode: "dual",
       paperView: "blog", tabRecency: ["left.md", "right.md", "references.bib"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `# ${(args as { path: string }).path}`,
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -1966,21 +1786,7 @@ describe("project workspace", () => {
   });
 
   it("closes a two-file split while keeping the focused file open", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
-        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
@@ -1992,12 +1798,10 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["right.md", "left.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `# ${(args as { path: string }).path}`,
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -2015,21 +1819,10 @@ describe("project workspace", () => {
     ["left.md", "right.md"],
     ["right.md", "left.md"],
   ])("collapses a split after closing %s and promotes %s", async (closingPath, survivingPath) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "left.md", name: "Left", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
-        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "left.md", name: "Left", isDefault: true }],
+      files: [fileNode("left.md"), fileNode("right.md")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
@@ -2041,12 +1834,10 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["right.md", "left.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `# ${(args as { path: string }).path}`;
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `# ${(args as { path: string }).path}`,
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -2063,21 +1854,7 @@ describe("project workspace", () => {
   });
 
   it("renders a board canvas rather than its JSON in the secondary split pane", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("sketch.tldr"), fileNode("notes.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["sketch.tldr", "notes.md"],
       activeFile: "notes.md",
@@ -2089,15 +1866,11 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["sketch.tldr", "notes.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path.endsWith(".tldr")
-          ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
-          : "# Notes";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => (args as { path: string }).path.endsWith(".tldr")
+        ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
+        : "# Notes",
     });
 
     renderApp();
@@ -2109,21 +1882,10 @@ describe("project workspace", () => {
   });
 
   it("keeps a Markdown preview on the right when a board is dropped on the left", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md"), fileNode("sketch.tldr")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes.md"],
       activeFile: "notes.md",
@@ -2135,16 +1897,12 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["notes.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "sketch.tldr"
-          ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
-          : "# Notes";
-      }
-      if (command === "harper_lint") return [];
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => (args as { path: string }).path === "sketch.tldr"
+        ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
+        : "# Notes",
+      harper_lint: () => [],
     });
 
     renderApp();
@@ -2192,25 +1950,11 @@ describe("project workspace", () => {
   });
 
   it("keeps the current editor when an active-tab split loses a race with a late edit", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     let resolveSplitRead: ((content: string) => void) | null = null;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => {
         const path = (args as { path: string }).path;
         if (path === "intro.tex") {
           return new Promise<string>((resolve) => {
@@ -2218,10 +1962,8 @@ describe("project workspace", () => {
           });
         }
         return `content:${path}`;
-      }
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -2270,22 +2012,7 @@ describe("project workspace", () => {
   });
 
   it("restores tab order and active pane while migrating the old three-column layout", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-        { name: "method.tex", path: "method.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex"), fileNode("method.tex")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["intro.tex", "main.tex", "method.tex"],
       activeFile: "main.tex",
@@ -2297,13 +2024,9 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return `content:${(args as { path: string }).path}`;
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
     });
 
     renderApp();
@@ -2327,34 +2050,22 @@ describe("project workspace", () => {
   });
 
   it.each([false, true])("loads Papers even when a file is opened while the initial paper scan is pending (save: %s)", async (saveBeforeScan) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
     const paper = {
       arxivId: "", citationKey: "hinton06", title: "A Fast Learning Algorithm for Deep Belief Nets",
       authors: "Hinton, Geoffrey E.", hasFullText: false, hasBlog: false,
     };
     let finishScan: ((papers: unknown[]) => void) | undefined;
     let scanCalls = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "list_papers") {
+    mockCommands({
+      initial_project: snapshot,
+      list_papers: () => {
         if (++scanCalls === 1) return new Promise(resolve => { finishScan = resolve; });
         return [{ ...paper, title: "Updated title" }];
-      }
-      if (command === "write_project_file") return { content: (args as { content: string }).content, hadConflicts: false };
-      if (command === "read_project_file") return (args as { path: string }).path === "references.bib"
-        ? "@article{hinton06,title={A Fast Learning Algorithm for Deep Belief Nets}}" : "Main";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      write_project_file: (args) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+      read_project_file: (args) => (args as { path: string }).path === "references.bib"
+        ? "@article{hinton06,title={A Fast Learning Algorithm for Deep Belief Nets}}" : "Main",
     });
     renderApp();
     await waitFor(() => expect(finishScan).toBeDefined());
@@ -2378,38 +2089,35 @@ describe("project workspace", () => {
   it.each([
     ["references.bib", "primary"], ["other.bib", "primary"], ["other.bib", "secondary"],
   ] as const)("formats %s in %s on save and refreshes Papers without losing later edits", async (path, pane) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
+    const snapshot = projectSnapshot({
       files: [
         { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
         { name: path, path, kind: "bib", children: [] },
       ],
-    };
+    });
     const original = "@article{x,title={Old},author={Ada},year={2024}}";
     const edited = "@article{x,title={New},author={Ada},year={2024}}";
     const formatted = "@article{x,\n  title = {New},\n  author = {Ada},\n  year = {2024}\n}";
     let finishWrite: (() => void) | undefined;
     let saved = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return (args as { path: string }).path === path ? original : "Main";
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === path ? original : "Main",
+      list_papers: () => [{
         arxivId: "bib:x", title: saved ? "New" : "Old", authors: "Ada",
         hasFullText: false, hasBlog: false,
-      }];
+      }],
       // The bibliography refresh must not wait for unrelated project scans.
-      if (command === "list_history" && saved) return new Promise(() => {});
-      if (command === "write_project_file") {
+      list_history: () => {
+        if (saved) return new Promise(() => {});
+        return mockAppCommand("list_history");
+      },
+      write_project_file: async (args) => {
         await new Promise<void>(resolve => { finishWrite = resolve; });
         saved = true;
         return { content: (args as { content: string }).content, hadConflicts: false };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["main.tex", path], activeFile: pane === "primary" ? path : "main.tex", activeTab: path,
@@ -2444,31 +2152,15 @@ describe("project workspace", () => {
   });
 
   it("overlaps the pre-switch save with the next file's read and gates the commit on it", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     const writeResolvers: Array<() => void> = [];
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
+      write_project_file: async () => {
         await new Promise<void>((resolve) => writeResolvers.push(resolve));
         return undefined;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -2497,27 +2189,13 @@ describe("project workspace", () => {
   });
 
   it("keeps the current document when the pre-switch save fails", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
+      write_project_file: () => {
+        throw new Error("disk full");
       },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") throw new Error("disk full");
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
@@ -2537,21 +2215,7 @@ describe("project workspace", () => {
   });
 
   it("serializes the switch when the target is the dirty secondary file", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "method.tex", path: "method.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("method.tex")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["main.tex", "method.tex"],
       activeFile: "main.tex",
@@ -2564,15 +2228,13 @@ describe("project workspace", () => {
       tabRecency: ["main.tex", "method.tex"],
     });
     const writeResolvers: Array<() => void> = [];
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
+      write_project_file: async () => {
         await new Promise<void>((resolve) => writeResolvers.push(resolve));
         return undefined;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -2604,29 +2266,9 @@ describe("project workspace", () => {
   });
 
   it("opens relative project files from Markdown previews", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "notes",
-          path: "notes",
-          kind: "directory",
-          children: [
-            { name: "index.md", path: "notes/index.md", kind: "markdown", children: [] },
-            { name: "native-unified-view.md", path: "notes/native-unified-view.md", kind: "markdown", children: [] },
-          ],
-        },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), dirNode("notes", [fileNode("notes/index.md"), fileNode("notes/native-unified-view.md")])],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes/index.md"],
       activeFile: "notes/index.md",
@@ -2638,16 +2280,13 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["notes/index.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "notes/index.md"
-          ? "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview"
-          : "# Native unified view";
-      }
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "notes/index.md"
+        ? "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview"
+        : "# Native unified view",
+      write_project_file: undefined,
     });
 
     await Promise.all([
@@ -2895,48 +2534,15 @@ describe("project workspace", () => {
   }, 40_000);
 
   it("opens project-root Slides, Sheets, and boards from nested Markdown links", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
       files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "notes",
-          path: "notes",
-          kind: "directory",
-          children: [
-            { name: "index.md", path: "notes/index.md", kind: "markdown", children: [] },
-          ],
-        },
-        {
-          name: "slides",
-          path: "slides",
-          kind: "directory",
-          children: [{
-            name: "native",
-            path: "slides/native",
-            kind: "directory",
-            children: [
-              { name: "index.tsx", path: "slides/native/index.tsx", kind: "tsx", children: [] },
-            ],
-          }],
-        },
-        {
-          name: "results.lattice-sheet",
-          path: "results.lattice-sheet",
-          kind: "spreadsheet",
-          children: [],
-        },
-        { name: "sketch.tldr", path: "sketch.tldr", kind: "board", children: [] },
+        fileNode("main.tex"),
+        dirNode("notes", [fileNode("notes/index.md")]),
+        dirNode("slides", [dirNode("slides/native", [fileNode("slides/native/index.tsx")])]),
+        fileNode("results.lattice-sheet"),
+        fileNode("sketch.tldr"),
       ],
-    };
+    });
     const contentByPath: Record<string, string> = {
       "notes/index.md": [
         "[Open slides](slides/native/index.tsx)",
@@ -2958,16 +2564,16 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["notes/index.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => {
         const path = (args as { path: string }).path;
         if (path in contentByPath) return contentByPath[path];
         throw new Error(`Unexpected project path: ${path}`);
-      }
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      write_project_file: undefined,
+      harper_lint: () => [],
     });
 
     await Promise.all([
@@ -3005,38 +2611,22 @@ describe("project workspace", () => {
   }, 40_000);
 
   it("opens HTML documents in an interactive sandboxed preview with Edit and Split views", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "report.html", name: "Results", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "report.html", name: "Results", isDefault: true }],
       files: [
-        {
-          name: "report.html",
-          path: "report.html",
-          kind: "text",
-          contentKind: "text",
-          size: 8 * 1024 * 1024 + 1,
-          children: [],
-        },
-        { name: "chart.html", path: "figures/chart.html", kind: "text", contentKind: "text", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
+        fileNode("report.html", "text", { contentKind: "text", size: 8 * 1024 * 1024 + 1 }),
+        fileNode("figures/chart.html", "text", { contentKind: "text" }),
+        fileNode("notes.md"),
       ],
-    };
+    });
     let imageBase64 = "iVBORw0KGgo=";
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "report.html"
-          ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><iframe src='figures/chart.html' title='Plot'></iframe><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
-          : "# Notes";
-      }
-      if (command === "read_project_asset") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "report.html"
+        ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><iframe src='figures/chart.html' title='Plot'></iframe><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
+        : "# Notes",
+      read_project_asset: (args) => {
         if ((args as { path: string }).path === "figures/chart.html") {
           return {
             path: "figures/chart.html",
@@ -3049,10 +2639,8 @@ describe("project workspace", () => {
           mimeType: "image/png",
           base64: imageBase64,
         };
-      }
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -3239,28 +2827,13 @@ describe("project workspace", () => {
   });
 
   it("adds and removes project dictionary terms from Editor settings", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-        spellingWords: ["VLM"],
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "set_project_spelling_words") {
+    const snapshot = projectSnapshot({ spellingWords: ["VLM"] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      set_project_spelling_words: (args) => {
         snapshot.manifest.spellingWords = (args as { words: string[] }).words;
         return snapshot.manifest;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -3286,18 +2859,7 @@ describe("project workspace", () => {
   it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
     // Keep both lazy surfaces' cold transforms outside DOM query deadlines.
     await Promise.all([import("./app/app-agent-panel"), import("./settings/settings-dialog")]);
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     synaraHook.runtime = {
       state: "stopped",
       origin: null,
@@ -3307,12 +2869,7 @@ describe("project workspace", () => {
       version: null,
       revision: null,
     };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     const sidebar = await waitFor(() => {
@@ -3343,22 +2900,22 @@ describe("project workspace", () => {
   it("moves the sidebar assistant below the editor and back without replacing its frame", async () => {
     // Keep cold module compilation outside the DOM query timeout.
     await import("./app/app-agent-panel");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/agent-dock",
-      manifest: { schemaVersion: 1, projectId: "dock", name: "Dock test", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{
+      projectId: "dock",
+      name: "Dock test",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    });
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [{
         arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Ashish Vaswani",
         hasFullText: true, hasBlog: false,
-      }];
-      if (command === "read_paper") return "## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog_local") return null;
-      if (command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      read_paper: "## Abstract\n\nPaper content.",
+      read_paper_blog_local: null,
+      list_history: () => [],
     });
     localStorage.setItem("lattice.sidebar-open.v1", "1");
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
@@ -3415,17 +2972,13 @@ describe("project workspace", () => {
 
   it.each([true, false])("restores the bottom assistant independently of sidebar visibility (open: %s)", async (open) => {
     await import("./app/app-agent-panel");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/agent-dock",
-      manifest: { schemaVersion: 1, projectId: "dock", name: "Dock test", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      projectId: "dock",
+      name: "Dock test",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
     });
+    mockCommands({ ...projectCommands(snapshot) });
     localStorage.setItem("lattice.sidebar-open.v1", "1");
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
     const view = renderApp();
@@ -3453,24 +3006,8 @@ describe("project workspace", () => {
   it.each([true, false])("restores the Agent selection and sidebar visibility (open: %s)", async (open) => {
     // Finish cold compilation before DOM waits and unmount/remount assertions.
     await Promise.all([import("./settings/settings-dialog"), import("./canvas/document-canvas")]);
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot();
+    mockCommands({ ...projectCommands(snapshot) });
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
     localStorage.setItem("lattice.sidebar-open.v1", open ? "1" : "0");
     localStorage.setItem("lattice.agent-thread.v1:/tmp/lattice-paper", "saved-thread");
@@ -3559,31 +3096,17 @@ describe("project workspace", () => {
   });
 
   it("starts Synara when source control is requested", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "git_status") return {
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      git_status: () => ({
         available: true,
         repository: true,
         branch: "main",
         remote: "origin",
         remoteUrl: "git@github.com:leo1oel/lattice.git",
         files: [],
-      };
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
     });
 
     renderApp();
@@ -3599,16 +3122,7 @@ describe("project workspace", () => {
   });
 
   it("routes agent paper, file, link, and review requests to their native surfaces", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
       files: [
         { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
         {
@@ -3618,41 +3132,40 @@ describe("project workspace", () => {
           children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
         },
       ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    });
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: (args) => {
         const path = (args as { path?: string } | undefined)?.path;
         if (path?.endsWith(".png")) {
           throw new Error("This is a binary or unsupported file and cannot be opened in the source editor.");
         }
         return "\\documentclass{article}";
-      }
-      if (command === "read_project_asset") return {
+      },
+      read_project_asset: (args) => ({
         path: (args as { path: string }).path,
         mimeType: "image/png",
         base64: "iVBORw0KGgo=",
-      };
-      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
-      if (command === "list_papers") return [{
+      }),
+      stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
+      list_papers: () => [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
         authors: "Ashish Vaswani and Noam Shazeer",
         hasFullText: true,
         hasBlog: false,
-      }];
-      if (command === "read_paper") return "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog_local") return null;
-      if (command === "list_history") return [];
-      if (command === "build_project") return {
+      }],
+      read_paper: "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.",
+      read_paper_blog_local: null,
+      list_history: () => [],
+      build_project: () => ({
         success: true,
         hasPdf: false,
         log: "",
         durationMs: 5,
         rootDocument: "/private/outside/main.tex",
         diagnostics: [],
-      };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
     });
 
     renderApp();
@@ -3777,25 +3290,15 @@ describe("project workspace", () => {
     if (change === "undo in manual mode") {
       localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     }
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      if (command === "build_project") return {
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
+      harper_lint: () => [],
+      build_project: () => ({
         success: true, hasPdf: false, log: "", durationMs: 5,
         rootDocument: "main.tex", diagnostics: [],
-      };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
     });
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
@@ -3825,18 +3328,7 @@ describe("project workspace", () => {
   });
 
   it("rebuilds after fresh agent checkpoints but not for replayed history", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const tutorialSnapshot = {
       ...snapshot,
       root: "/tmp/tutorial-paper",
@@ -3859,13 +3351,11 @@ describe("project workspace", () => {
     let deferNextPdfRead = false;
     const deferredBuild: { settle: ((reason?: Error) => void) | null } = { settle: null };
     const deferredPdfRead: { settle: ((reason?: Error) => void) | null } = { settle: null };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "open_tutorial_project") return tutorialSnapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      open_tutorial_project: tutorialSnapshot,
+      stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
+      build_project: async () => {
         const result = nextBuildHasPdf ? { ...buildResult, hasPdf: true } : buildResult;
         nextBuildHasPdf = false;
         if (deferNextBuild) {
@@ -3876,16 +3366,18 @@ describe("project workspace", () => {
           deferredBuild.settle = null;
         }
         return result;
-      }
-      if (command === "read_compiled_pdf" && deferNextPdfRead) {
-        deferNextPdfRead = false;
-        await new Promise<void>((resolveRead, rejectRead) => {
-          deferredPdfRead.settle = (reason) => (reason ? rejectRead(reason) : resolveRead());
-        });
-        deferredPdfRead.settle = null;
-        return new ArrayBuffer(8);
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      read_compiled_pdf: async () => {
+        if (deferNextPdfRead) {
+          deferNextPdfRead = false;
+          await new Promise<void>((resolveRead, rejectRead) => {
+            deferredPdfRead.settle = (reason) => (reason ? rejectRead(reason) : resolveRead());
+          });
+          deferredPdfRead.settle = null;
+          return new ArrayBuffer(8);
+        }
+        return mockAppCommand("read_compiled_pdf");
+      },
     });
     const buildCalls = () =>
       vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
@@ -4052,24 +3544,8 @@ describe("project workspace", () => {
   }, 90_000);
 
   it("opens a project switcher with recent and folder actions", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot();
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
@@ -4118,24 +3594,8 @@ describe("project workspace", () => {
 
   it("moves the navigator control to the left edge in fullscreen", async () => {
     windowApi.isFullscreen.mockResolvedValue(true);
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
@@ -4144,24 +3604,8 @@ describe("project workspace", () => {
 
   it("moves the navigator control to the left edge in a browser tab", async () => {
     browserRuntime.hosted = true;
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
@@ -4170,24 +3614,8 @@ describe("project workspace", () => {
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
@@ -4196,24 +3624,8 @@ describe("project workspace", () => {
   });
 
   it("resizes panels with the accessible divider controls", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot) });
 
     renderApp();
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
@@ -4294,24 +3706,8 @@ describe("project workspace", () => {
   });
 
   it("resizes the loaded Agent below the bootstrap sidebar minimum", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({ ...projectCommands(snapshot) });
     renderApp();
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
     await switchSidebarMode("Agent");
@@ -4362,29 +3758,12 @@ describe("project workspace", () => {
   });
 
   it("automatically refreshes the project tree when files appear on disk", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const refreshed = {
       ...snapshot,
-      files: [...snapshot.files, { name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
+      files: [...snapshot.files, fileNode("notes.md")],
     };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "refresh_project") return refreshed;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    mockCommands({ ...projectCommands(snapshot), refresh_project: refreshed });
 
     renderApp();
     expect(queryProjectTreeItem("notes.md")).toBeNull();
@@ -4397,65 +3776,33 @@ describe("project workspace", () => {
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["chapters", "chapters/method"]),
     );
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "chapters/method/main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "chapters/method/main.tex", name: "Main paper", isDefault: true }],
       files: [
-        {
-          name: "chapters",
-          path: "chapters",
-          kind: "directory",
-          children: [{
-            name: "method",
-            path: "chapters/method",
-            kind: "directory",
-            children: [{
-              name: "main.tex",
-              path: "chapters/method/main.tex",
-              kind: "tex",
-              children: [],
-            }],
-          }],
-        },
-        {
-          name: "component.tsx",
-          path: "component.tsx",
-          kind: "text",
-          children: [],
-        },
-        { name: "references.bib", path: "references.bib", kind: "text", children: [] },
-        { name: "paper.pdf", path: "paper.pdf", kind: "figure", children: [] },
-        { name: "conference.sty", path: "conference.sty", kind: "text", children: [] },
-        { name: "plain.bst", path: "plain.bst", kind: "text", children: [] },
-        { name: "figure.eps", path: "figure.eps", kind: "figure", children: [] },
+        dirNode("chapters", [dirNode("chapters/method", [fileNode("chapters/method/main.tex")])]),
+        fileNode("component.tsx", "text"),
+        fileNode("references.bib", "text"),
+        fileNode("paper.pdf"),
+        fileNode("conference.sty"),
+        fileNode("plain.bst"),
+        fileNode("figure.eps"),
       ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "list_project_tree_with_hidden") return snapshot.files;
-      if (command === "git_status") {
-        return {
-          available: true,
-          repository: true,
-          branch: "main",
-          files: [{
-            path: "chapters/method/main.tex",
-            status: "modified",
-            staged: false,
-            unstaged: true,
-          }],
-        };
-      }
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      list_project_tree_with_hidden: () => snapshot.files,
+      git_status: () => ({
+        available: true,
+        repository: true,
+        branch: "main",
+        files: [{
+          path: "chapters/method/main.tex",
+          status: "modified",
+          staged: false,
+          unstaged: true,
+        }],
+      }),
     });
 
     renderApp();
@@ -4489,30 +3836,17 @@ describe("project workspace", () => {
 
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes.md"], activeFile: "notes.md", activeTab: "notes.md",
       secondaryFile: "", focusedPane: "primary", canvasMode: "split",
       documentMode: "split", paperView: "blog", tabRecency: ["notes.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "Original paragraph.\n";
-      if (command === "write_project_file") return undefined;
-      if (command === "harper_lint") return [];
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot, "Original paragraph.\n"),
+      refresh_project: snapshot,
+      write_project_file: undefined,
+      harper_lint: () => [],
     });
     await loadVisualMarkdownEditorModule();
     renderApp();
@@ -4547,31 +3881,19 @@ describe("project workspace", () => {
     ["source blur", "automatic"], ["preview blur", "automatic"], ["idle", "automatic"],
   ])("saves non-collaborative secondary Markdown on %s in %s mode", async (trigger, autoBuildMode) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [
-        { name: "left.md", path: "left.md", kind: "markdown", children: [] },
-        { name: "right.md", path: "right.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"], activeFile: "left.md", activeTab: "left.md",
       secondaryFile: "right.md", focusedPane: "secondary", canvasMode: "dual",
       documentMode: "dual", paperView: "blog", tabRecency: ["left.md", "right.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return (args as { path: string }).path === "left.md"
-        ? "Left unchanged.\n" : "Right original.\n";
-      if (command === "write_project_file") return undefined;
-      if (command === "harper_lint") return [];
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "left.md"
+        ? "Left unchanged.\n" : "Right original.\n",
+      write_project_file: undefined,
+      harper_lint: () => [],
     });
     await loadVisualMarkdownEditorModule();
     renderApp();
@@ -4614,25 +3936,11 @@ describe("project workspace", () => {
 
   it.each(["editor leave", "PDF pointer down", "PDF focus"])("saves and builds changed source on %s", async (trigger) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") return undefined;
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      write_project_file: undefined,
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -4668,42 +3976,33 @@ describe("project workspace", () => {
 
   it.each(["build", "save"])("saves and queues the latest edit while an automatic %s is in flight", async (heldOperation) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [],
-    };
+    const snapshot = projectSnapshot({ files: [] });
     let releaseBuild: (() => void) | undefined;
     let holdBuild = false;
     let releaseSave: (() => void) | undefined;
     let holdSave = false;
     const builtSources: string[] = [];
     let diskSource = "\\documentclass{article}";
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return diskSource;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: () => diskSource,
+      write_project_file: async (args) => {
         if (holdSave) {
           holdSave = false;
           await new Promise<void>((resolve) => { releaseSave = resolve; });
         }
         diskSource = (args as { content: string }).content;
         return undefined;
-      }
-      if (command === "build_project") {
+      },
+      build_project: async () => {
         builtSources.push(diskSource);
         if (holdBuild) {
           holdBuild = false;
           await new Promise<void>((resolve) => { releaseBuild = resolve; });
         }
         return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
     renderApp();
     const element = await waitFor(() => {
@@ -4735,25 +4034,11 @@ describe("project workspace", () => {
 
   it("automatically builds after 1.2 seconds without editing", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") return undefined;
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      write_project_file: undefined,
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -4786,31 +4071,13 @@ describe("project workspace", () => {
 
   it.each(["completion selection", "PDF pointer down", "PDF wheel"])("resumes autosave after citation completion on %s", async (trigger) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_citation_keys") {
-        return ["dosovitskiy2021image", "vaswani2017attention"];
-      }
-      if (command === "list_citations") return [];
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") return undefined;
-      if (command === "build_project") {
-        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      list_citation_keys: () => ["dosovitskiy2021image", "vaswani2017attention"],
+      list_citations: () => [],
+      write_project_file: undefined,
+      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -4881,15 +4148,12 @@ describe("project workspace", () => {
   it("syncs an agent's unopened chapter without requiring an automatic build or remote change", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-agent-sync",
-      manifest: {
-        schemaVersion: 1, projectId: "agent-sync", name: "Agent sync",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "agent-sync",
+      name: "Agent sync",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    });
     const source = "\\documentclass{article}";
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "initial_project" || command === "refresh_project") return snapshot;
@@ -4945,29 +4209,14 @@ describe("project workspace", () => {
 
   it("automatically rebuilds after the active source changes on disk", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
+    const snapshot = projectSnapshot({ files: [] });
     let source = "\\documentclass{article}";
     let mtimeMs = 1;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return source;
-      if (command === "stat_project_file") return { exists: true, mtimeMs };
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
-        return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: () => source,
+      stat_project_file: () => ({ exists: true, mtimeMs }),
+      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -4988,39 +4237,30 @@ describe("project workspace", () => {
 
   it("does not mistake a disk read started before autosave for a new external edit", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [],
-    };
+    const snapshot = projectSnapshot({ files: [] });
     const original = "\\documentclass{article}";
     let disk = original;
     let mtimeMs = 1;
     let holdRead = false;
     let finishRead: (() => void) | undefined;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: () => {
         if (holdRead) {
           holdRead = false;
           const captured = disk;
           return new Promise<string>((resolve) => { finishRead = () => resolve(captured); });
         }
         return disk;
-      }
-      if (command === "stat_project_file") return { exists: true, mtimeMs };
-      if (command === "write_project_file") {
+      },
+      stat_project_file: () => ({ exists: true, mtimeMs }),
+      write_project_file: (args) => {
         disk = (args as { content: string }).content;
         mtimeMs += 1;
         return { content: disk, hadConflicts: false };
-      }
-      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return { success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      harper_lint: () => [],
+      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
     });
     renderApp();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.anything()));
@@ -5046,21 +4286,10 @@ describe("project workspace", () => {
   });
 
   it("accepts an agent edit in an open Markdown preview and still switches files", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "methods.md", name: "Methods", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "methods.md", path: "methods.md", kind: "markdown", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "methods.md", name: "Methods", isDefault: true }],
+      files: [fileNode("methods.md"), fileNode("notes.md")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["methods.md", "notes.md"],
       activeFile: "methods.md",
@@ -5077,13 +4306,12 @@ describe("project workspace", () => {
       "notes.md": "# Notes",
     };
     let mtimeMs = 1;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return sources[(args as { path: string }).path] ?? "";
-      if (command === "stat_project_file") return { exists: true, mtimeMs };
-      if (command === "write_project_file") return undefined;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => sources[(args as { path: string }).path] ?? "",
+      stat_project_file: () => ({ exists: true, mtimeMs }),
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -5104,18 +4332,10 @@ describe("project workspace", () => {
   });
 
   it("preserves an external Markdown blank-line edit through the next save and poll", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes.md"],
       activeFile: "notes.md",
@@ -5129,18 +4349,17 @@ describe("project workspace", () => {
     });
     let source = "# Notes\nParagraph\n";
     let mtimeMs = 1;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return source;
-      if (command === "stat_project_file") return { exists: true, mtimeMs };
-      if (command === "harper_lint") return [];
-      if (command === "write_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: () => source,
+      stat_project_file: () => ({ exists: true, mtimeMs }),
+      harper_lint: () => [],
+      write_project_file: (args) => {
         source = (args as { content: string }).content;
         mtimeMs += 1;
         return undefined;
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     await Promise.all([
@@ -5186,37 +4405,21 @@ describe("project workspace", () => {
   it("lists a work that is only cited but does not offer to open it", async () => {
     let finishFetch!: (value: unknown) => void;
     const pendingFetch = new Promise((resolve) => { finishFetch = resolve; });
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") {
-        return [
-          { arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true },
-          // Added through bibcite: in the bibliography, never fetched.
-          { arxivId: "1412.6980", title: "Adam: A Method for Stochastic Optimization", citationKey: "kingma2015adam", hasFullText: false },
-          // A book: cited, but there is no preprint to fetch.
-          { arxivId: "", title: "The TeXbook", citationKey: "knuth1984texbook", hasFullText: false },
-        ];
-      }
-      if (command === "list_history") return [];
-      if (command === "fetch_paper") {
-        return pendingFetch;
-      }
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [
+        { arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true },
+        // Added through bibcite: in the bibliography, never fetched.
+        { arxivId: "1412.6980", title: "Adam: A Method for Stochastic Optimization", citationKey: "kingma2015adam", hasFullText: false },
+        // A book: cited, but there is no preprint to fetch.
+        { arxivId: "", title: "The TeXbook", citationKey: "knuth1984texbook", hasFullText: false },
+      ],
+      list_history: () => [],
+      fetch_paper: pendingFetch,
       // Importing refreshes the project afterwards.
-      if (command === "refresh_project") return snapshot;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      refresh_project: snapshot,
     });
 
     renderApp();
@@ -5251,22 +4454,11 @@ describe("project workspace", () => {
   }, 60_000);
 
   it("warns about DOI-exact citation updates and opens the Crossref notice", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [{
         arxivId: "",
         doi: "10.1234/example",
         title: "A historically important result",
@@ -5293,9 +4485,8 @@ describe("project workspace", () => {
           source: "crossref",
           checkedAt: "2026-08-13T12:00:00Z",
         },
-      }];
-      if (command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
     });
 
     renderApp();
@@ -5311,42 +4502,29 @@ describe("project workspace", () => {
   });
 
   it("filters the current Papers library by metadata without starting an import", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") {
-        return [
-          {
-            arxivId: "1706.03762",
-            title: "Attention Is All You Need",
-            authors: "Ashish Vaswani and Noam Shazeer",
-            citationKey: "vaswani2017attention",
-            hasFullText: true,
-            hasBlog: false,
-          },
-          {
-            arxivId: "1412.6980",
-            title: "Adam: A Method for Stochastic Optimization",
-            authors: "Diederik P. Kingma and Jimmy Ba",
-            citationKey: "kingma2015adam",
-            hasFullText: true,
-            hasBlog: false,
-          },
-        ];
-      }
-      if (command === "search_paper_library") {
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [
+        {
+          arxivId: "1706.03762",
+          title: "Attention Is All You Need",
+          authors: "Ashish Vaswani and Noam Shazeer",
+          citationKey: "vaswani2017attention",
+          hasFullText: true,
+          hasBlog: false,
+        },
+        {
+          arxivId: "1412.6980",
+          title: "Adam: A Method for Stochastic Optimization",
+          authors: "Diederik P. Kingma and Jimmy Ba",
+          citationKey: "kingma2015adam",
+          hasFullText: true,
+          hasBlog: false,
+        },
+      ],
+      search_paper_library: (args) => {
         const query = String((args as { query?: string } | undefined)?.query ?? "");
         return query === "scaled dot-product"
           ? [{
@@ -5358,9 +4536,8 @@ describe("project workspace", () => {
               arxivId: "1706.03762",
             }]
           : [];
-      }
-      if (command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      list_history: () => [],
     });
 
     renderApp();
@@ -5397,25 +4574,28 @@ describe("project workspace", () => {
     const title = "An Unambiguous Research Report";
     const bibtex = "@misc{report2026, title={An Unambiguous Research Report}, author={Ada Smith}, year={2026}, eprint={2601.01234}, archivePrefix={arXiv}}";
     const draft = { key: "report2026", title, author: "Ada Smith", year: "2026", journal: "", booktitle: "", publisher: "", url: "https://arxiv.org/abs/2601.01234", doi: "", entryType: "misc", bibtex, extraFields: { eprint: "2601.01234", archivePrefix: "arXiv" } };
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-title-import",
-      manifest: { schemaVersion: 1, projectId: "title-import", name: "Title import", rootDocuments: [], primaryBibliography: "references.bib", trusted: true },
+      projectId: "title-import",
+      name: "Title import",
+      rootDocuments: [],
+      trusted: true,
       files: [],
-    };
+    });
     let imported = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "list_history") return [];
-      if (command === "read_project_file") return "";
-      if (command === "list_papers") return imported ? [{ arxivId: "2601.01234", title, hasFullText: true, hasBlog: true, citationKey: draft.key }] : [];
-      if (command === "resolve_citation_query") return ambiguous
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      list_history: () => [],
+      read_project_file: "",
+      list_papers: () => imported ? [{ arxivId: "2601.01234", title, hasFullText: true, hasBlog: true, citationKey: draft.key }] : [],
+      resolve_citation_query: () => ambiguous
         ? { candidates: [{ ...draft, key: "other", year: "2025", extraFields: { eprint: "2501.05678" } }, draft] }
-        : draft;
-      if (command === "import_reference") {
+        : draft,
+      import_reference: () => {
         imported = true;
         return { arxivId: "2601.01234", title, citationKey: draft.key, alreadyImported: false, paperPath: ".research/papers/2601.01234/paper.md" };
-      }
-      return mockAppCommand(command, args);
+      },
     });
     renderApp();
     await switchSidebarMode("Papers");
@@ -5439,20 +4619,23 @@ describe("project workspace", () => {
   it.each([false, true])("reviews title candidates without importing and opens DOI-only sources externally (cancel: %s)", async (cancelled) => {
     const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
     const doi = "10.1093/neucas/3.3.209-w";
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-title-review",
-      manifest: { schemaVersion: 1, projectId: "title-review", name: "Title review", rootDocuments: [], primaryBibliography: "references.bib", trusted: true },
+      projectId: "title-review",
+      name: "Title review",
+      rootDocuments: [],
+      trusted: true,
       files: [],
-    };
+    });
     const draft = { key: "riddoch1997visual", title, author: "Riddoch, M. J.", year: "1997", journal: "Neurocase", booktitle: "", publisher: "", url: `https://doi.org/${doi}`, doi, entryType: "article" };
     let finishResolve!: (value: unknown) => void;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "list_history") return [];
-      if (command === "list_papers") return [{ ...draft, arxivId: "", citationKey: draft.key, hasFullText: false, hasBlog: false }];
-      if (command === "resolve_citation_query") return new Promise(resolve => { finishResolve = resolve; });
-      if (command === "cancel_reference_import") return false;
-      return mockAppCommand(command, args);
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      list_history: () => [],
+      list_papers: () => [{ ...draft, arxivId: "", citationKey: draft.key, hasFullText: false, hasBlog: false }],
+      resolve_citation_query: () => new Promise(resolve => { finishResolve = resolve; }),
+      cancel_reference_import: false,
     });
     renderApp();
     await switchSidebarMode("Papers");
@@ -5477,28 +4660,21 @@ describe("project workspace", () => {
   });
 
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: true,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "file", children: [] }],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      trusted: true,
+      files: [fileNode("main.tex", "file")],
+    });
     let imported = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return imported ? [{ arxivId: "", title: "Deep Residual Learning for Image Recognition", citationKey: "he2016deep", doi: "10.1109/CVPR.2016.90", hasFullText: false, hasBlog: false }] : [];
-      if (command === "list_history") return [];
-      if (command === "bibliography_audit_scan") return { entries: [], issues: [] };
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => imported ? [{ arxivId: "", title: "Deep Residual Learning for Image Recognition", citationKey: "he2016deep", doi: "10.1109/CVPR.2016.90", hasFullText: false, hasBlog: false }] : [],
+      list_history: () => [],
+      bibliography_audit_scan: () => ({ entries: [], issues: [] }),
       // No arXiv id anywhere in the answer: bibcite resolved a DOI and wrote
       // the entry, and there is no text on disk to point at.
-      if (command === "import_reference") {
+      import_reference: () => {
         imported = true;
         return {
           paperPath: "",
@@ -5508,9 +4684,8 @@ describe("project workspace", () => {
           citationOutput: "",
           alreadyImported: false,
         };
-      }
-      if (command === "refresh_project") return snapshot;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      refresh_project: snapshot,
     });
 
     renderApp();
@@ -5542,26 +4717,23 @@ describe("project workspace", () => {
   ] as const)("cancels the active import with its request id (bibliography: %s, full text: %s, locale: %s)", async (committed, fullText, locale) => {
     await activateAppLocale(locale);
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: locale }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1, projectId: "paper-id", name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: true,
-      },
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      trusted: true,
       files: [],
-    };
+    });
     let finishImport: (value: unknown) => void = () => {};
     let requestId: string | undefined;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "import_reference") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      list_papers: () => [],
+      list_history: () => [],
+      import_reference: (args) => {
         requestId = (args as { requestId: string }).requestId;
         return new Promise((resolve) => { finishImport = resolve; });
-      }
-      if (command === "cancel_reference_import") return true;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      cancel_reference_import: true,
     });
     renderApp();
     fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文)$/ }));
@@ -5594,35 +4766,21 @@ describe("project workspace", () => {
   });
 
   it.each(["click", "drop"])("shows imported papers by title while keeping the arXiv id via %s", async (interaction) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
         authors: "Ashish Vaswani and Noam Shazeer",
         hasFullText: true,
         hasBlog: true,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") {
-        return "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n## Abstract\n\n- [ ] Review paper";
-      }
-      if (command === "read_paper_blog_local") return "# Attention overview\n\nA concise explanation.";
-      if (command === "write_project_file") return undefined;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n## Abstract\n\n- [ ] Review paper",
+      read_paper_blog_local: "# Attention overview\n\nA concise explanation.",
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -5725,18 +4883,7 @@ describe("project workspace", () => {
   });
 
   it("splits a Paper with an editor and lets the Paper move between sides", { timeout: 60_000 }, async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const paperPath = ".research/papers/1706.03762/paper.md";
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["main.tex", paperPath],
@@ -5749,20 +4896,20 @@ describe("project workspace", () => {
       paperView: "fulltext",
       tabRecency: ["main.tex", paperPath],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
         authors: "Ashish Vaswani and Noam Shazeer",
         hasFullText: true,
         hasBlog: false,
-      }];
-      if (command === "read_paper") return "## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog_local") return null;
-      if (command === "list_history" || command === "harper_lint") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      read_paper: "## Abstract\n\nPaper content.",
+      read_paper_blog_local: null,
+      list_history: () => [],
+      harper_lint: () => [],
     });
 
     renderApp();
@@ -5831,41 +4978,32 @@ describe("project workspace", () => {
 
   it("does not start a full sync when an opened Overleaf project is unchanged", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/unchanged-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "unchanged-overleaf-paper-id",
-        name: "Unchanged Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "unchanged-overleaf-paper-id",
+      name: "Unchanged Overleaf paper",
+    });
     let syncCount = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      if (command === "overleaf_link") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      harper_lint: () => [],
+      overleaf_link: () => ({
         projectId: "ol-unchanged",
         projectName: "Unchanged Overleaf paper",
         host: "https://www.overleaf.com",
         lastSync: "2026-09-03T00:00:00Z",
         paused: false,
-      };
-      if (command === "overleaf_status") {
-        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
-      }
-      if (command === "overleaf_probe") return {
+      }),
+      overleaf_status: () => ({ connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" }),
+      overleaf_probe: () => ({
         changed: false,
         localChanged: false,
         versionKnown: true,
         remoteVersion: 42,
         lastSync: "2026-09-03T00:00:00Z",
-      };
-      if (command === "overleaf_sync") {
+      }),
+      overleaf_sync: () => {
         syncCount += 1;
         return {
           pulled: [],
@@ -5877,8 +5015,8 @@ describe("project workspace", () => {
           automaticRemoteDeletes: [],
           readOnly: false,
         };
-      }
-      if (command === "overleaf_rt_connect") return {
+      },
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [],
@@ -5886,16 +5024,13 @@ describe("project workspace", () => {
         permission: "readAndWrite",
         trackChanges: false,
         userId: null,
-      };
-      if (command === "overleaf_rt_disconnect") return undefined;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_rt_disconnect: undefined,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -5915,55 +5050,47 @@ describe("project workspace", () => {
   });
 
   it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-paper-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{
+      projectId: "overleaf-paper-id",
+      name: "Overleaf paper",
+    });
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
         hasFullText: true,
         hasBlog: false,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.";
-      if (command === "read_paper_blog") return null;
-      if (command === "overleaf_link") return {
+      }],
+      list_history: () => [],
+      read_paper: "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.",
+      read_paper_blog: null,
+      overleaf_link: () => ({
         projectId: "ol-read-only",
         projectName: "Overleaf paper",
         host: "https://www.overleaf.com",
         lastSync: null,
         paused: false,
-      };
-      if (command === "overleaf_sync") return {
+      }),
+      overleaf_sync: () => ({
         pulled: [],
         pushed: [],
         merged: [],
         conflicts: [],
         deletedLocal: [],
         skippedRemoteDeletes: [],
-      };
-      if (command === "overleaf_probe") {
-        return {
-          changed: false,
-          localChanged: false,
-          versionKnown: true,
-          remoteVersion: 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") return {
+      }),
+      overleaf_probe: () => ({
+        changed: false,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [{ id: "main-doc", path: "main.tex" }],
@@ -5971,22 +5098,15 @@ describe("project workspace", () => {
         permission: "readOnly",
         trackChanges: false,
         userId: null,
-      };
-      if (command === "overleaf_status") {
-        return { connected: true, email: "reader@example.com", name: "Reader", host: "https://www.overleaf.com" };
-      }
-      if (
-        command === "overleaf_rt_disconnect"
-        || command === "git_auto_commit"
-      ) return command === "git_auto_commit" ? null : undefined;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_status: () => ({ connected: true, email: "reader@example.com", name: "Reader", host: "https://www.overleaf.com" }),
+      overleaf_rt_disconnect: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      git_auto_commit: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -6004,15 +5124,12 @@ describe("project workspace", () => {
   it("routes toolbar and status comments to one Overleaf drawer while preserving local history", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/unified-comments",
-      manifest: {
-        schemaVersion: 1, projectId: "unified-comments", name: "Review paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "unified-comments",
+      name: "Review paper",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    });
     const comments = [false, true].map((resolved, index) => ({
       id: `local-${index}`, path: index ? "unsynced.tex" : "main.tex", from: 0, to: 5,
       quote: "alpha", prefix: "", suffix: " beta", body: index ? "Local history" : "Local review",
@@ -6071,23 +5188,15 @@ describe("project workspace", () => {
   it("opens the linked project on its Overleaf host and keeps the project picker available", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-paper-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "overleaf_link") return {
+      projectId: "overleaf-paper-id",
+      name: "Overleaf paper",
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      overleaf_link: () => ({
         projectId: "ol/project id",
         projectName: "Overleaf paper",
         // Legacy links did not persist the host, so the active account is the
@@ -6095,16 +5204,14 @@ describe("project workspace", () => {
         host: "",
         lastSync: null,
         paused: false,
-      };
-      if (command === "overleaf_status") {
-        return {
-          connected: true,
-          email: "writer@example.com",
-          name: "Writer",
-          host: "https://overleaf.example.edu/",
-        };
-      }
-      if (command === "overleaf_sync") return {
+      }),
+      overleaf_status: () => ({
+        connected: true,
+        email: "writer@example.com",
+        name: "Writer",
+        host: "https://overleaf.example.edu/",
+      }),
+      overleaf_sync: () => ({
         pulled: [],
         pushed: [],
         merged: [],
@@ -6113,17 +5220,15 @@ describe("project workspace", () => {
         skippedRemoteDeletes: [],
         automaticRemoteDeletes: [],
         readOnly: false,
-      };
-      if (command === "overleaf_probe") {
-        return {
-          changed: false,
-          localChanged: false,
-          versionKnown: true,
-          remoteVersion: 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") return {
+      }),
+      overleaf_probe: () => ({
+        changed: false,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [{ id: "main-doc", path: "main.tex" }],
@@ -6131,18 +5236,15 @@ describe("project workspace", () => {
         permission: "readAndWrite",
         trackChanges: false,
         userId: null,
-      };
-      if (command === "overleaf_list_projects") return [];
-      if (command === "overleaf_rt_disconnect") return undefined;
-      if (command === "git_auto_commit") return null;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_list_projects: () => [],
+      overleaf_rt_disconnect: undefined,
+      git_auto_commit: null,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -6164,18 +5266,11 @@ describe("project workspace", () => {
   it("silently retries a transient automatic Overleaf outage but reports it for manual sync", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-paper-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "overleaf-paper-id",
+      name: "Overleaf paper",
+    });
     const transportFailure = new Error("error decoding response body");
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(1_000_000);
@@ -6183,22 +5278,19 @@ describe("project workspace", () => {
     let syncCount = 0;
     let failSync = true;
     let probeChanged = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "harper_lint") return [];
-      if (command === "overleaf_link") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      harper_lint: () => [],
+      overleaf_link: () => ({
         projectId: "ol-project",
         projectName: "Overleaf paper",
         host: "https://www.overleaf.com",
         lastSync: null,
         paused: false,
-      };
-      if (command === "overleaf_status") {
-        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
-      }
-      if (command === "overleaf_sync") {
+      }),
+      overleaf_status: () => ({ connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" }),
+      overleaf_sync: () => {
         syncCount += 1;
         if (failSync) throw transportFailure;
         return {
@@ -6211,17 +5303,15 @@ describe("project workspace", () => {
           automaticRemoteDeletes: [],
           readOnly: false,
         };
-      }
-      if (command === "overleaf_probe") {
-        return {
-          changed: probeChanged,
-          localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
-          versionKnown: true,
-          remoteVersion: probeChanged ? 77 : 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") return {
+      },
+      overleaf_probe: (args) => ({
+        changed: probeChanged,
+        localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
+        versionKnown: true,
+        remoteVersion: probeChanged ? 77 : 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [{ id: "main-doc", path: "main.tex" }],
@@ -6229,16 +5319,13 @@ describe("project workspace", () => {
         permission: "readAndWrite",
         trackChanges: false,
         userId: null,
-      };
-      if (command === "overleaf_rt_disconnect") return undefined;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_rt_disconnect: undefined,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -6300,33 +5387,23 @@ describe("project workspace", () => {
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-paper-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "overleaf_link") return {
+      projectId: "overleaf-paper-id",
+      name: "Overleaf paper",
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      overleaf_link: () => ({
         projectId: "ol-project",
         projectName: "Overleaf paper",
         host: "https://www.overleaf.com",
         lastSync: null,
         paused: false,
-      };
-      if (command === "overleaf_status") {
-        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
-      }
-      if (command === "overleaf_sync") return {
+      }),
+      overleaf_status: () => ({ connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" }),
+      overleaf_sync: () => ({
         pulled: [],
         pushed: [],
         merged: [],
@@ -6335,17 +5412,15 @@ describe("project workspace", () => {
         skippedRemoteDeletes: ["results.lattice-sheet.bak"],
         automaticRemoteDeletes: [],
         readOnly: false,
-      };
-      if (command === "overleaf_probe") {
-        return {
-          changed: false,
-          localChanged: false,
-          versionKnown: true,
-          remoteVersion: 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") return {
+      }),
+      overleaf_probe: () => ({
+        changed: false,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [{ id: "main-doc", path: "main.tex" }],
@@ -6357,21 +5432,16 @@ describe("project workspace", () => {
         permission: "readAndWrite",
         trackChanges: false,
         userId: null,
-      };
-      if (
-        command === "overleaf_rt_disconnect"
-        || command === "overleaf_delete_entity"
-      ) return undefined;
-      if (command === "git_auto_commit") return null;
-      if (command === "harper_lint") return [];
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_rt_disconnect: undefined,
+      overleaf_delete_entity: undefined,
+      git_auto_commit: null,
+      harper_lint: () => [],
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
@@ -6404,34 +5474,24 @@ describe("project workspace", () => {
 
   it("silently removes legacy app-owned intermediates from Overleaf", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-paper-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "overleaf-paper-id",
+      name: "Overleaf paper",
+    });
     let syncCount = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "overleaf_link") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      overleaf_link: () => ({
         projectId: "ol-project",
         projectName: "Overleaf paper",
         host: "https://www.overleaf.com",
         lastSync: null,
         paused: false,
-      };
-      if (command === "overleaf_status") {
-        return { connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" };
-      }
-      if (command === "overleaf_sync") {
+      }),
+      overleaf_status: () => ({ connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com" }),
+      overleaf_sync: () => {
         syncCount += 1;
         return {
           pulled: [],
@@ -6445,17 +5505,15 @@ describe("project workspace", () => {
             : [],
           readOnly: false,
         };
-      }
-      if (command === "overleaf_probe") {
-        return {
-          changed: false,
-          localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
-          versionKnown: true,
-          remoteVersion: 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") return {
+      },
+      overleaf_probe: (args) => ({
+        changed: false,
+        localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
+        versionKnown: true,
+        remoteVersion: 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
         publicId: null,
         rootFolderId: "root",
         docs: [{ id: "main-doc", path: "main.tex" }],
@@ -6471,20 +5529,15 @@ describe("project workspace", () => {
         permission: "readAndWrite",
         trackChanges: false,
         userId: null,
-      };
-      if (
-        command === "overleaf_rt_disconnect"
-        || command === "overleaf_delete_entity"
-      ) return undefined;
-      if (command === "git_auto_commit") return null;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      overleaf_rt_disconnect: undefined,
+      overleaf_delete_entity: undefined,
+      git_auto_commit: null,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -6518,40 +5571,30 @@ describe("project workspace", () => {
     { cached: true, fallback: false },
     { cached: true, fallback: true },
   ])("opens an AlphaXiv overview and routes source links (%j)", async ({ cached, fallback }) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const url = "https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning";
     const citationUrl = `${url}.pdf#page=8`;
     const paper = { arxivId: "web-0123456789abcdef", url, title: "MiMo-V2.6", hasFullText: fallback, hasBlog: cached };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{ ...paper }];
-      if (command === "list_history" || command === "harper_lint") return [];
-      if (command === "fetch_web_reference") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [{ ...paper }],
+      list_history: () => [],
+      harper_lint: () => [],
+      fetch_web_reference: () => {
         paper.hasBlog = true;
         return { arxivId: paper.arxivId, paperPath: "", blogPath: `.research/papers/${paper.arxivId}/blog.md` };
-      }
-      if (command === "read_paper") {
+      },
+      read_paper: () => {
         if (fallback) return "# Original full text\n\nWe use a large training dataset with many tokens per sequence";
         throw new Error("Full text unavailable");
-      }
-      if (command === "paper_pdf_preview_url") {
+      },
+      paper_pdf_preview_url: () => {
         if (fallback) throw new Error("PDF unavailable");
         return "http://127.0.0.1:3456/paper.pdf?token=test";
-      }
-      if (command === "read_paper_blog_local") return `# MiMo overview\n\nTraining uses 1,568 prompts. [p8](${citationUrl} "We use a large training … tokens per sequence")`;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      read_paper_blog_local: () => `# MiMo overview\n\nTraining uses 1,568 prompts. [p8](${citationUrl} "We use a large training … tokens per sequence")`,
     });
     renderApp();
     await switchSidebarMode("Papers");
@@ -6589,32 +5632,20 @@ describe("project workspace", () => {
   });
 
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [{
         arxivId: "web-0123456789abcdef",
         url: "https://example.com/research/article",
         title: "A captured research article",
         hasFullText: true,
         hasBlog: false,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "# A captured research article\n\nArticle content.";
-      if (command === "read_paper_blog") return null;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: "# A captured research article\n\nArticle content.",
+      read_paper_blog: null,
     });
 
     renderApp();
@@ -6634,18 +5665,7 @@ describe("project workspace", () => {
   });
 
   it("streams ordinary PDFs, reuses complete bytes, and isolates failures and stale requests", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const firstUrl = "https://mirros.ai/report/s-space.PDF?download=1#page=1";
     const secondUrl = "https://example.com/papers/second.pdf";
     const secondPreviewUrl = "http://127.0.0.1:3456/paper.pdf?token=test&url=second";
@@ -6654,24 +5674,23 @@ describe("project workspace", () => {
     let resolveFirst!: (url: string) => void;
     const pendingFirst = new Promise<string>((resolve) => { resolveFirst = resolve; });
     let secondAttempts = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [
         { arxivId: "web-first", url: firstUrl, title: "First PDF", hasFullText: true, hasBlog: false },
         { arxivId: "web-second", url: secondUrl, title: "Second PDF", hasFullText: true, hasBlog: false },
-      ];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return `# ${(args as { arxivId: string }).arxivId}`;
-      if (command === "read_paper_blog") return null;
-      if (command === "paper_pdf_preview_url") {
+      ],
+      list_history: () => [],
+      read_paper: (args) => `# ${(args as { arxivId: string }).arxivId}`,
+      read_paper_blog: null,
+      paper_pdf_preview_url: (args) => {
         const url = (args as { url: string }).url;
         if (url === firstUrl) return pendingFirst;
         secondAttempts += 1;
         if (secondAttempts === 1) throw new Error("remote PDF unavailable");
         return secondPreviewUrl;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
     vi.mocked(getDocument).mockImplementation(() => {
@@ -6736,32 +5755,20 @@ describe("project workspace", () => {
   });
 
   it("streams an arXiv PDF and reopens its complete in-memory bytes", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const pdfBytes = new TextEncoder().encode("%PDF-1.7 streamed arXiv paper").buffer;
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [{
         arxivId: "1706.03762v7",
         title: "Attention Is All You Need",
         hasFullText: true,
         hasBlog: false,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog") return null;
-      return mockAppCommand(command);
+      }],
+      list_history: () => [],
+      read_paper: "## Abstract\n\nPaper content.",
+      read_paper_blog: null,
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
     const pdf = {
@@ -6827,18 +5834,10 @@ describe("project workspace", () => {
   });
 
   it("publishes a visually selected Markdown block as Agent context", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md")],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes.md"],
       activeFile: "notes.md",
@@ -6850,16 +5849,13 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["notes.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "## Selected context\n\nUnselected paragraph";
-      if (command === "list_editor_comments") return ["notes.md", "other.tex"].map((path) => ({
+    mockCommands({
+      ...projectCommands(snapshot, "## Selected context\n\nUnselected paragraph"),
+      list_editor_comments: () => ["notes.md", "other.tex"].map((path) => ({
         id: path, path, from: 3, to: 19, quote: "Selected context", prefix: "## ", suffix: "",
         body: "Explain the evidence", authorId: "reviewer", authorName: "Reviewer",
         resolved: false, replies: [], createdAt: "2026-09-18T00:00:00Z", updatedAt: "2026-09-18T00:00:00Z",
-      }));
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      })),
     });
 
     await loadVisualMarkdownEditorModule();
@@ -6950,31 +5946,10 @@ describe("project workspace", () => {
   });
 
   it("gives the Agent a PNG path for a selected WebP Markdown image", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-        {
-          name: "figures",
-          path: "figures",
-          kind: "directory",
-          children: [{
-            name: "figure.webp",
-            path: "figures/figure.webp",
-            kind: "figure",
-            children: [],
-          }],
-        },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md"), dirNode("figures", [fileNode("figures/figure.webp")])],
+    });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["notes.md"],
       activeFile: "notes.md",
@@ -6986,19 +5961,14 @@ describe("project workspace", () => {
       paperView: "blog",
       tabRecency: ["notes.md"],
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "![Figure](figures/figure.webp)";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "read_project_asset") {
-        return {
-          path: "figures/figure.webp",
-          mimeType: "image/webp",
-          base64: btoa("webp-bytes"),
-        };
-      }
-      if (command === "prepare_latex_figure") return "figures/figure-converted.png";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot, "![Figure](figures/figure.webp)"),
+      read_project_asset: () => ({
+        path: "figures/figure.webp",
+        mimeType: "image/webp",
+        base64: btoa("webp-bytes"),
+      }),
+      prepare_latex_figure: "figures/figure-converted.png",
     });
 
     renderApp();
@@ -7050,34 +6020,24 @@ describe("project workspace", () => {
   });
 
   it("publishes the current visual document before opening a Paper", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md")],
+    });
     let resolveWrite: (() => void) | null = null;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "Original notes";
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "Original notes",
+      list_papers: () => [{
         arxivId: "2407.06438",
         title: "Paper target",
         hasFullText: true,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "# Paper body";
-      if (command === "read_paper_blog") return null;
-      if (command === "write_project_file") {
-        return new Promise<void>((resolve) => { resolveWrite = resolve; });
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: "# Paper body",
+      read_paper_blog: null,
+      write_project_file: () => new Promise<void>((resolve) => { resolveWrite = resolve; }),
     });
 
     renderApp();
@@ -7113,34 +6073,24 @@ describe("project workspace", () => {
   });
 
   it("keeps the current document when it is edited during a delayed Paper read", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.md", path: "notes.md", kind: "markdown", children: [] }],
-    };
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md")],
+    });
     let resolvePaper: ((value: string) => void) | null = null;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "Original notes";
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "Original notes",
+      list_papers: () => [{
         arxivId: "2407.06438",
         title: "Delayed paper",
         hasFullText: true,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") {
-        return new Promise<string>((resolve) => { resolvePaper = resolve; });
-      }
-      if (command === "read_paper_blog") return null;
-      if (command === "write_project_file") return undefined;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: () => new Promise<string>((resolve) => { resolvePaper = resolve; }),
+      read_paper_blog: null,
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -7166,34 +6116,21 @@ describe("project workspace", () => {
   });
 
   it("keeps only the latest Paper when overlapping reads finish out of order", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const paperResolvers = new Map<string, (value: string) => void>();
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [
         { arxivId: "2407.06438", title: "First paper", hasFullText: true },
         { arxivId: "2103.00020", title: "Second paper", hasFullText: true },
-      ];
-      if (command === "list_history") return [];
-      if (command === "read_paper") {
-        return new Promise<string>((resolve) => {
-          paperResolvers.set((args as { arxivId: string }).arxivId, resolve);
-        });
-      }
-      if (command === "read_paper_blog") return null;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      ],
+      list_history: () => [],
+      read_paper: (args) => new Promise<string>((resolve) => {
+        paperResolvers.set((args as { arxivId: string }).arxivId, resolve);
+      }),
+      read_paper_blog: null,
     });
 
     renderApp();
@@ -7214,22 +6151,7 @@ describe("project workspace", () => {
   });
 
   it("cancels a pending Paper when the user opens a local file in the secondary pane", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "right.tex", path: "right.tex", kind: "tex", children: [] },
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("right.tex"), fileNode("notes.md")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["main.tex", "right.tex"],
       activeFile: "main.tex",
@@ -7242,22 +6164,17 @@ describe("project workspace", () => {
       tabRecency: ["right.tex", "main.tex"],
     });
     let resolvePaper!: (value: string) => void;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return `content:${(args as { path: string }).path}`;
-      }
-      if (command === "list_papers") return [{
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
+      list_papers: () => [{
         arxivId: "2407.06438",
         title: "Delayed paper",
         hasFullText: true,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") {
-        return new Promise<string>((resolve) => { resolvePaper = resolve; });
-      }
-      if (command === "read_paper_blog_local") return null;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: () => new Promise<string>((resolve) => { resolvePaper = resolve; }),
+      read_paper_blog_local: null,
     });
 
     renderApp();
@@ -7284,31 +6201,19 @@ describe("project workspace", () => {
   });
 
   it("remembers the selected paper content when reopening an article", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{main}";
-      if (command === "list_papers") return [{
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{main}",
+      list_papers: () => [{
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
         hasFullText: true,
         hasBlog: true,
-      }];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "## Abstract\n\nPaper content.";
-      if (command === "read_paper_blog_local") return "# Attention overview\n\nBlog content.";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }],
+      list_history: () => [],
+      read_paper: "## Abstract\n\nPaper content.",
+      read_paper_blog_local: "# Attention overview\n\nBlog content.",
     });
 
     renderApp();
@@ -7341,35 +6246,18 @@ describe("project workspace", () => {
       hasFullText: true,
       hasBlog: true,
     };
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "references.bib"
-          ? "Bibliography\n@article{chen2024single, title={A Single Transformer}}\n"
-          : "Main document\n";
-      }
-      if (command === "list_papers") return [paper];
-      if (command === "list_history") return [];
-      if (command === "read_paper") return "# Full paper\n\nTransformer details.";
-      if (command === "read_paper_blog_local") {
-        return "# Chen overview\n\nA residual stream explanation.";
-      }
-      if (command === "search_project") return [
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "references.bib"
+        ? "Bibliography\n@article{chen2024single, title={A Single Transformer}}\n"
+        : "Main document\n",
+      list_papers: () => [paper],
+      list_history: () => [],
+      read_paper: "# Full paper\n\nTransformer details.",
+      read_paper_blog_local: "# Chen overview\n\nA residual stream explanation.",
+      search_project: () => [
         {
           kind: "file",
           path: "references.bib",
@@ -7386,8 +6274,7 @@ describe("project workspace", () => {
           line: 3,
           arxivId: paper.arxivId,
         },
-      ];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      ],
     });
 
     renderApp();
@@ -7417,18 +6304,7 @@ describe("project workspace", () => {
   });
 
   it("ignores full-text search results that arrive after a newer query", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     let resolveOlder!: (hits: Array<Record<string, unknown>>) => void;
     let resolveNewer!: (hits: Array<Record<string, unknown>>) => void;
     const older = new Promise<Array<Record<string, unknown>>>((resolve) => {
@@ -7437,14 +6313,10 @@ describe("project workspace", () => {
     const newer = new Promise<Array<Record<string, unknown>>>((resolve) => {
       resolveNewer = resolve;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "search_project") {
-        return (args as { query?: string } | undefined)?.query === "older" ? older : newer;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      search_project: (args) => (args as { query?: string } | undefined)?.query === "older" ? older : newer,
     });
 
     renderApp();
@@ -7489,26 +6361,15 @@ describe("project workspace", () => {
         "main.tex": { text: { cursor: 12, scrollTop: 80 } },
       },
     }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [paper];
-      if (command === "list_history") return [];
-      if (command === "rename_project_entry") return "paper.tex";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [paper],
+      list_history: () => [],
+      rename_project_entry: "paper.tex",
     });
     renderApp();
 
@@ -7546,24 +6407,9 @@ describe("project workspace", () => {
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["sections"]),
     );
-    const beforeMove = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
-        { name: "figures", path: "figures", kind: "directory", children: [] },
-        { name: "notes", path: "notes", kind: "directory", children: [] },
-        { name: "sections", path: "sections", kind: "directory", children: [] },
-      ],
-    };
+    const beforeMove = projectSnapshot({
+      files: [fileNode("main.tex"), fileNode("draft.tex"), dirNode("figures"), dirNode("notes"), dirNode("sections")],
+    });
     const afterMove = {
       ...beforeMove,
       manifest: {
@@ -7571,15 +6417,10 @@ describe("project workspace", () => {
         rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
       },
       files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "figures", path: "figures", kind: "directory", children: [] },
-        { name: "notes", path: "notes", kind: "directory", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "directory",
-          children: [{ name: "draft.tex", path: "sections/draft.tex", kind: "tex", children: [] }],
-        },
+        fileNode("main.tex"),
+        dirNode("figures"),
+        dirNode("notes"),
+        dirNode("sections", [fileNode("sections/draft.tex")]),
       ],
     };
     let moved = false;
@@ -7587,15 +6428,10 @@ describe("project workspace", () => {
     const moveFinished = new Promise<string>((resolve) => {
       resolveMove = resolve;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return beforeMove;
-      if (command === "refresh_project") return moved ? afterMove : beforeMove;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "move_project_entry") {
-        return moveFinished;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(beforeMove),
+      refresh_project: () => moved ? afterMove : beforeMove,
+      move_project_entry: moveFinished,
     });
 
     renderApp();
@@ -7713,39 +6549,15 @@ describe("project workspace", () => {
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["figures"]),
     );
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "notes.md", path: "notes.md", kind: "markdown", children: [] },
-        {
-          name: "figures",
-          path: "figures",
-          kind: "directory",
-          children: [{
-            name: "plot.png",
-            path: "figures/plot.png",
-            kind: "figure",
-            children: [],
-          }],
-        },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return '# Notes\n\n<img src="figures/plot.png" alt="Plot" width={223} />\n';
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "move_project_entry") return "figures/notes.md";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({
+      rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
+      files: [fileNode("notes.md"), dirNode("figures", [fileNode("figures/plot.png")])],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: '# Notes\n\n<img src="figures/plot.png" alt="Plot" width={223} />\n',
+      move_project_entry: "figures/notes.md",
     });
 
     renderApp();
@@ -7785,28 +6597,8 @@ describe("project workspace", () => {
   });
 
   it("treats a same-directory drop as a no-op", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "notes", path: "notes", kind: "directory", children: [] },
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    const snapshot = projectSnapshot({ files: [dirNode("notes"), fileNode("main.tex"), fileNode("references.bib")] });
+    mockCommands({ ...projectCommands(snapshot), refresh_project: snapshot });
 
     renderApp();
     const source = await findProjectTreeItem("main.tex");
@@ -7843,33 +6635,12 @@ describe("project workspace", () => {
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["sections"]),
     );
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
-        { name: "sections", path: "sections", kind: "directory", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("draft.tex"), dirNode("sections")] });
     let rejectMove!: (reason: Error) => void;
     const moveFinished = new Promise<string>((_resolve, reject) => {
       rejectMove = reject;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "move_project_entry") return moveFinished;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
+    mockCommands({ ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: moveFinished });
 
     renderApp();
     const source = await findProjectTreeItem("draft.tex");
@@ -7910,38 +6681,10 @@ describe("project workspace", () => {
       "lattice:expanded-directories:/tmp/lattice-paper",
       JSON.stringify(["sections"]),
     );
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "directory",
-          children: [{
-            name: "draft.tex",
-            path: "sections/draft.tex",
-            kind: "tex",
-            children: [],
-          }],
-        },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "move_project_entry") return "draft.tex";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/draft.tex")])],
     });
+    mockCommands({ ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: "draft.tex" });
 
     renderApp();
     const source = await findProjectTreeItem("sections/draft.tex");
@@ -7974,38 +6717,13 @@ describe("project workspace", () => {
   });
 
   it("drops onto the exact segment of a flattened directory", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "directory",
-          children: [{
-            name: "drafts",
-            path: "sections/drafts",
-            kind: "directory",
-            children: [],
-          }],
-        },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "move_project_entry") return "sections/draft.tex";
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), fileNode("draft.tex"), dirNode("sections", [dirNode("sections/drafts")])],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      move_project_entry: "sections/draft.tex",
     });
 
     renderApp();
@@ -8045,24 +6763,12 @@ describe("project workspace", () => {
   });
 
   it("reveals project files and imported papers in Finder from the context menu", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [{ arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true }];
-      if (command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [{ arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true }],
+      list_history: () => [],
     });
 
     renderApp();
@@ -8077,25 +6783,12 @@ describe("project workspace", () => {
   });
 
   it("imports image files into the figures directory", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "figures", path: "figures", kind: "directory", children: [] }],
-    };
+    const snapshot = projectSnapshot({ files: [dirNode("figures")] });
     vi.mocked(open).mockResolvedValue(["/tmp/result.png"]);
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "import_project_assets") return ["figures/result.png"];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      import_project_assets: () => ["figures/result.png"],
     });
 
     renderApp();
@@ -8109,30 +6802,12 @@ describe("project workspace", () => {
   });
 
   it("opens a project source file when it is dropped onto the editor", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "references.bib"
-          ? "@article{lattice, title={Lattice}}"
-          : "\\documentclass{article}";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => (args as { path: string }).path === "references.bib"
+        ? "@article{lattice, title={Lattice}}"
+        : "\\documentclass{article}",
     });
 
     renderApp();
@@ -8216,32 +6891,17 @@ describe("project workspace", () => {
   });
 
   it("opens a dropped project file in the editor pane under the pointer", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "draft.tex", path: "draft.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), fileNode("draft.tex"), fileNode("references.bib")],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => {
         const path = (args as { path: string }).path;
         if (path === "draft.tex") return "\\section{Draft}";
         if (path === "references.bib") return "@article{lattice, title={Lattice}}";
         return "\\documentclass{article}";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -8390,40 +7050,25 @@ describe("project workspace", () => {
   });
 
   it("imports a Finder source file into the project before opening it", async () => {
-    const beforeImport = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const beforeImport = projectSnapshot();
     const afterImport = {
       ...beforeImport,
       files: [
         ...beforeImport.files,
-        { name: "method.tex", path: "method.tex", kind: "tex", children: [] },
+        fileNode("method.tex"),
       ],
     };
     let imported = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return beforeImport;
-      if (command === "refresh_project") return imported ? afterImport : beforeImport;
-      if (command === "import_project_sources") {
+    mockCommands({
+      ...projectCommands(beforeImport),
+      refresh_project: () => imported ? afterImport : beforeImport,
+      import_project_sources: () => {
         imported = true;
         return ["method.tex"];
-      }
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "method.tex"
-          ? "\\section{Method}"
-          : "\\documentclass{article}";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      read_project_file: (args) => (args as { path: string }).path === "method.tex"
+        ? "\\section{Method}"
+        : "\\documentclass{article}",
     });
 
     renderApp();
@@ -8458,42 +7103,22 @@ describe("project workspace", () => {
   });
 
   it("imports and opens a Finder asset dropped onto an asset preview", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{
-        name: "figures",
-        path: "figures",
-        kind: "directory",
-        children: [
-          { name: "existing.svg", path: "figures/existing.svg", kind: "figure", children: [] },
-        ],
-      }, { name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "read_project_asset") {
+    const snapshot = projectSnapshot({
+      files: [dirNode("figures", [fileNode("figures/existing.svg")]), fileNode("main.tex")],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_asset: (args) => {
         const path = (args as { path: string }).path;
         return {
           path,
           mimeType: path.endsWith(".png") ? "image/png" : "image/svg+xml",
           base64: path.endsWith(".png") ? "iVBORw0KGgo=" : "PHN2Zy8+",
         };
-      }
-      if (command === "import_project_assets") return ["figures/new.png"];
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
-        return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      import_project_assets: () => ["figures/new.png"],
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
     });
 
     renderApp();
@@ -8538,29 +7163,13 @@ describe("project workspace", () => {
   });
 
   it("relays image and PDF drops on the agent panel into the composer", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "read_agent_composer_files") {
-        return [
-          { name: "plot.png", mimeType: "image/png", bytesBase64: btoa("png-bytes") },
-          { name: "notes.md", mimeType: "text/markdown", bytesBase64: btoa("# Notes") },
-        ];
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_agent_composer_files: () => [
+        { name: "plot.png", mimeType: "image/png", bytesBase64: btoa("png-bytes") },
+        { name: "notes.md", mimeType: "text/markdown", bytesBase64: btoa("# Notes") },
+      ],
     });
 
     renderApp();
@@ -8625,27 +7234,17 @@ describe("project workspace", () => {
   });
 
   it("duplicates a project file with Command-C/V and shows the new tree entry", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return structuredClone(snapshot);
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "import_project_files") {
-        snapshot.files.push({ name: "main-2.tex", path: "main-2.tex", kind: "tex", children: [] });
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: () => structuredClone(snapshot),
+      refresh_project: () => structuredClone(snapshot),
+      read_project_file: "\\documentclass{article}",
+      import_project_files: () => {
+        snapshot.files.push(fileNode("main-2.tex"));
         return [{ path: "main-2.tex", kind: "text" }];
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      list_papers: () => [],
+      list_history: () => [],
     });
     vi.mocked(readText).mockResolvedValue("/tmp/lattice-paper/main.tex");
     renderApp();
@@ -8664,32 +7263,13 @@ describe("project workspace", () => {
   });
 
   it("imports a Finder image into the folder of the file it is dropped on", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "directory",
-          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
-        },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "import_project_files") return [{ path: "sections/plot.png", kind: "binary" }];
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      import_project_files: () => [{ path: "sections/plot.png", kind: "binary" }],
     });
 
     renderApp();
@@ -8721,17 +7301,18 @@ describe("project workspace", () => {
   it.each([false, true])("uploads external file bytes only in an ordinary browser (bundled: %s)", async (bundled) => {
     browserRuntime.hosted = true;
     browserRuntime.bundled = bundled;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return {
-        root: "/tmp/lattice-paper",
-        manifest: { schemaVersion: 1, projectId: "paper-id", name: "Paper", rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], primaryBibliography: "references.bib", trusted: false },
-        files: [
-          { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-          { name: "sections", path: "sections", kind: "directory", children: [] },
-        ],
-      };
-      if (command === "import_project_files") return [{ path: "sections/notes.md", kind: "text" }];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      initial_project: () => projectSnapshot({
+        name: "Paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        files: [fileNode("main.tex"), dirNode("sections")],
+      }),
+      refresh_project: () => projectSnapshot({
+        name: "Paper",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        files: [fileNode("main.tex"), dirNode("sections")],
+      }),
+      import_project_files: () => [{ path: "sections/notes.md", kind: "text" }],
     });
     renderApp();
     const row = await findProjectTreeItem("sections/");
@@ -8758,39 +7339,18 @@ describe("project workspace", () => {
   });
 
   it("imports a mixed Finder file and folder drop where it lands without opening files", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "directory",
-          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
-        },
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      import_project_files: () => [
+        { path: "sections/notes.md", kind: "text" },
+        { path: "sections/data.csv", kind: "text" },
+        { path: "sections/plot.png", kind: "binary" },
+        { path: "sections/tables/results.csv", kind: "text" },
       ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "import_project_files") {
-        return [
-          { path: "sections/notes.md", kind: "text" },
-          { path: "sections/data.csv", kind: "text" },
-          { path: "sections/plot.png", kind: "binary" },
-          { path: "sections/tables/results.csv", kind: "text" },
-        ];
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
     });
 
     renderApp();
@@ -8827,24 +7387,11 @@ describe("project workspace", () => {
   });
 
   it("imports a Finder image dropped on the Project pane background into the project root", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "import_project_files") return [{ path: "plot.png", kind: "binary" }];
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      import_project_files: () => [{ path: "plot.png", kind: "binary" }],
     });
 
     renderApp();
@@ -8875,16 +7422,7 @@ describe("project workspace", () => {
   });
 
   it.each([false, true])("keeps text-classified SVG tabs as images after switching files (bottom assistant: %s)", async (bottomAssistant) => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
       files: [
         { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
         {
@@ -8899,19 +7437,15 @@ describe("project workspace", () => {
         },
         { name: "empty", path: "empty", kind: "directory", contentKind: "directory", children: [] },
       ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "read_project_asset") {
-        return {
-          path: (args as { path: string }).path,
-          mimeType: "image/svg+xml",
-          base64: "PHN2Zy8+",
-        };
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_asset: (args) => ({
+        path: (args as { path: string }).path,
+        mimeType: "image/svg+xml",
+        base64: "PHN2Zy8+",
+      }),
     });
 
     if (bottomAssistant) {
@@ -8945,46 +7479,28 @@ describe("project workspace", () => {
   });
 
   it("previews SVG and PDF figures and lets their drops replace split panes", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{
-        name: "figures",
-        path: "figures",
-        kind: "directory",
-        children: [
-          { name: "native-umm.svg", path: "figures/native-umm.svg", kind: "figure", children: [] },
-          { name: "result.pdf", path: "figures/result.pdf", kind: "figure", children: [] },
-        ],
-      },
-      { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-      { name: "method.md", path: "method.md", kind: "text", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "method.md"
-          ? "# Method"
-          : "\\documentclass{article}\n\\begin{document}\n\\end{document}";
-      }
-      if (command === "read_project_asset") {
+    const snapshot = projectSnapshot({
+      files: [
+        dirNode("figures", [fileNode("figures/native-umm.svg"), fileNode("figures/result.pdf")]),
+        fileNode("main.tex"),
+        fileNode("method.md", "text"),
+      ],
+    });
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "method.md"
+        ? "# Method"
+        : "\\documentclass{article}\n\\begin{document}\n\\end{document}",
+      read_project_asset: (args) => {
         const path = (args as { path: string }).path;
         return path.endsWith(".pdf")
           ? { path, mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }
           : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
-      }
-      if (command === "prepare_latex_figure") return "figures/native-umm-converted.pdf";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") return undefined;
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      prepare_latex_figure: "figures/native-umm-converted.pdf",
+      write_project_file: undefined,
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
     });
     vi.mocked(getDocument).mockReturnValue({
       promise: Promise.resolve({
@@ -9119,18 +7635,7 @@ describe("project workspace", () => {
   });
 
   it("renders every PDF page in one continuous themed reader", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
+    const snapshot = projectSnapshot({ files: [] });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
     const renderPdfPage = vi.fn(() => renderTask);
     const getPdfPageText = vi.fn(async () => ({ items: [{ str: "Attention is all you need" }] }));
@@ -9172,23 +7677,19 @@ describe("project workspace", () => {
     let reverseSyncTarget: { path: string; line: number } = { path: "main.tex", line: 1 };
     let delayForwardSync = false;
     let resolveForwardSync!: (target: { page: number; x: number; y: number; width: number; height: number }) => void;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      build_project: () => ({
         success: true,
         hasPdf: true,
         log: "",
         durationMs: 100,
         diagnostics: [],
-      };
-      if (command === "read_compiled_pdf") {
-        return new TextEncoder().encode("%PDF-1.4").buffer;
-      }
-      if (command === "save_compiled_pdf") return "/tmp/exported-paper.pdf";
-      if (command === "synctex_edit") return reverseSyncTarget;
-      if (command === "synctex_view") {
+      }),
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
+      save_compiled_pdf: "/tmp/exported-paper.pdf",
+      synctex_edit: () => reverseSyncTarget,
+      synctex_view: (args) => {
         const syncArgs = args as Record<string, unknown> | undefined;
         if (delayForwardSync && syncArgs?.path === "main.tex") {
           delayForwardSync = false;
@@ -9204,8 +7705,7 @@ describe("project workspace", () => {
           throw new Error(forwardSyncFailure);
         }
         return { page: 1, x: 72, y: 96, width: 120, height: 14 };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -9398,21 +7898,7 @@ describe("project workspace", () => {
   });
 
   it("jumps out of a dual-pane preview into the pane that still holds an editor", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "chapter.tex", path: "chapter.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("chapter.tex")] });
     persistWorkspaceLayout(snapshot.root, {
       openTabs: ["main.tex", "chapter.tex"],
       activeFile: "main.tex",
@@ -9452,24 +7938,20 @@ describe("project workspace", () => {
       static revokeObjectURL = vi.fn();
     }
     vi.stubGlobal("URL", TestURL);
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => `content:${(args as { path: string }).path}`,
+      build_project: () => ({
         success: true,
         hasPdf: true,
         log: "",
         durationMs: 1,
         diagnostics: [],
         rootDocument: "main.tex",
-      };
-      if (command === "read_compiled_pdf") {
-        return new TextEncoder().encode("%PDF-1.4").buffer;
-      }
-      if (command === "synctex_edit") return { path: "chapter.tex", line: 2 };
-      if (command === "synctex_view") return { page: 1, x: 72, y: 96, width: 120, height: 14 };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
+      synctex_edit: () => ({ path: "chapter.tex", line: 2 }),
+      synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
     });
 
     renderApp();
@@ -9505,32 +7987,25 @@ describe("project workspace", () => {
       import("./canvas/document-canvas"),
       import("./app/app-agent-panel"),
     ]);
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/repair-placement",
-      manifest: {
-        schemaVersion: 1, projectId: "repair-placement", name: "Repair placement",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "repair-placement",
+      name: "Repair placement",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    });
     localStorage.setItem("lattice.agent-docked.v1", docked ? "1" : "0");
     localStorage.setItem("lattice.sidebar-open.v1", sidebarOpen ? "1" : "0");
     localStorage.setItem("lattice.sidebar-mode.v1", "project");
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      if (command === "build_project") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      harper_lint: () => [],
+      build_project: () => ({
         success: true, hasPdf: false, durationMs: 1, rootDocument: "main.tex", log: "",
         diagnostics: [{ file: "main.tex", line: 1, level: "warning", message: "Undefined reference." }],
-      };
-      if (command === "compile_repair") {
-        return (args as { action: string }).action === "start"
-          ? { threadId: "repair-placement-task" }
-          : { status: "running" };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
+      compile_repair: (args) => (args as { action: string }).action === "start"
+        ? { threadId: "repair-placement-task" }
+        : { status: "running" },
     });
     renderApp();
     fireEvent.click(await screen.findByRole("button", { name: /1 warning/i }));
@@ -9553,32 +8028,28 @@ describe("project workspace", () => {
   it("repairs all compile errors and warnings with panel permissions and reloads before recompiling", async () => {
     await import("./build/compile-diagnostics-panel");
     await import("./canvas/document-canvas");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-repair",
-      manifest: {
-        schemaVersion: 1, projectId: "repair-paper", name: "Repair paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "repair-paper",
+      name: "Repair paper",
+      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    });
     let repaired = false;
     const warning = { file: "main.tex", line: 3, level: "warning", message: "Reference `old-label' undefined." };
     const error = { file: "main.tex", line: 9, level: "error", message: "Undefined control sequence." };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "read_project_file") return `\\documentclass{article}\n\\begin{document}\n${repaired ? "Fixed reference" : "\\ref{old-label}"}\n\\end{document}`;
-      if (command === "build_project") return {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: () => `\\documentclass{article}\n\\begin{document}\n${repaired ? "Fixed reference" : "\\ref{old-label}"}\n\\end{document}`,
+      build_project: () => ({
         success: true, hasPdf: false, durationMs: 10, rootDocument: "main.tex",
         log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning, error],
-      };
-      if (command === "compile_repair") {
+      }),
+      compile_repair: (args) => {
         if ((args as { action: string }).action === "start") return { threadId: "repair-task" };
         repaired = true;
         return { status: "completed" };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
     renderApp();
     const toggle = await screen.findByRole("button", { name: /1 warning/i });
@@ -9597,52 +8068,31 @@ describe("project workspace", () => {
   });
 
   it("lists successful-build diagnostics and jumps to the reported source line", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "chapters",
-          path: "chapters",
-          kind: "directory",
-          children: [{ name: "intro.tex", path: "chapters/intro.tex", kind: "tex", children: [] }],
-        },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), dirNode("chapters", [fileNode("chapters/intro.tex")])],
+    });
     const files: Record<string, string> = {
       "main.tex": "\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}\n",
       "chapters/intro.tex": "\\section{Intro}\none\ntwo\nthree\nfour\n",
     };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         return files[path] ?? "";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
-        return {
-          success: true,
-          pdfBase64: null,
-          log: "chapters/intro.tex:4: Overfull hbox.\n",
-          durationMs: 80,
-          diagnostics: [{
-            file: "/tmp/lattice-paper/./chapters/intro.tex",
-            line: 4,
-            level: "warning",
-            message: "Overfull hbox.",
-          }],
-        };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      build_project: () => ({
+        success: true,
+        pdfBase64: null,
+        log: "chapters/intro.tex:4: Overfull hbox.\n",
+        durationMs: 80,
+        diagnostics: [{
+          file: "/tmp/lattice-paper/./chapters/intro.tex",
+          line: 4,
+          level: "warning",
+          message: "Overfull hbox.",
+        }],
+      }),
     });
 
     renderApp();
@@ -9684,30 +8134,18 @@ describe("project workspace", () => {
 
   it("keeps the caret during repeated failed autosave builds but still navigates on manual Build", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     let diskSource = "\\documentclass{article}\n\\begin{document}\n\\label{intro\nNext line\n\\end{document}\n";
     let buildCount = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return diskSource;
-      if (command === "harper_lint") return [];
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "write_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: () => diskSource,
+      harper_lint: () => [],
+      write_project_file: (args) => {
         diskSource = (args as { content: string }).content;
         return { content: diskSource, hadConflicts: false };
-      }
-      if (command === "build_project") {
+      },
+      build_project: () => {
         buildCount += 1;
         return {
           success: false,
@@ -9716,8 +8154,7 @@ describe("project workspace", () => {
           durationMs: 80,
           diagnostics: [{ file: "main.tex", line: 4, level: "error", message: "Runaway argument!" }],
         };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -9752,40 +8189,24 @@ describe("project workspace", () => {
   });
 
   it("shows failed build guidance once and acknowledges a manual retry", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
-        return {
-          success: false,
-          pdfBase64: null,
-          log: "LaTeX Error: File `iclr2026_conference.sty' not found.\n",
-          durationMs: 80,
-          diagnostics: [
-            {
-              level: "error",
-              message:
-                "Missing style file `iclr2026_conference.sty`. "
-                + "It is part of the ICLR template and belongs next to main.tex — TeX Live cannot install it. "
-                + "Sync or copy it back from another copy of the project.",
-            },
-          ],
-        };
-      }
-      return mockAppCommand(command);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      build_project: () => ({
+        success: false,
+        pdfBase64: null,
+        log: "LaTeX Error: File `iclr2026_conference.sty' not found.\n",
+        durationMs: 80,
+        diagnostics: [
+          {
+            level: "error",
+            message:
+              "Missing style file `iclr2026_conference.sty`. "
+              + "It is part of the ICLR template and belongs next to main.tex — TeX Live cannot install it. "
+              + "Sync or copy it back from another copy of the project.",
+          },
+        ],
+      }),
     });
 
     renderApp();
@@ -9828,40 +8249,22 @@ describe("project workspace", () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     let finishInstall!: () => void;
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "start_tex_dependency_install") {
-        return new Promise<void>((resolve) => {
-          finishInstall = resolve;
-        });
-      }
-      if (command === "build_project") {
-        return {
-          success: false,
-          pdfBase64: null,
-          log: "LaTeX Error: File `newtxmath.sty' not found.\n",
-          durationMs: 80,
-          diagnostics: [{
-            level: "error",
-            message: "Missing LaTeX dependency `newtxmath.sty`. BasicTeX does not include every package available on Overleaf.",
-          }],
-        };
-      }
-      return mockAppCommand(command);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot),
+      start_tex_dependency_install: () => new Promise<void>((resolve) => {
+        finishInstall = resolve;
+      }),
+      build_project: () => ({
+        success: false,
+        pdfBase64: null,
+        log: "LaTeX Error: File `newtxmath.sty' not found.\n",
+        durationMs: 80,
+        diagnostics: [{
+          level: "error",
+          message: "Missing LaTeX dependency `newtxmath.sty`. BasicTeX does not include every package available on Overleaf.",
+        }],
+      }),
     });
 
     renderApp();
@@ -9894,35 +8297,19 @@ describe("project workspace", () => {
   });
 
   it("does not open TeX setup when latexmk reports a missing project style", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "CVPR paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\usepackage[review]{cvpr}";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") {
-        return {
-          success: false,
-          pdfBase64: null,
-          log: "Latexmk: Missing input file 'cvpr.sty' message in .log file:\nLaTeX Error: File `cvpr.sty' not found.\n",
-          durationMs: 80,
-          diagnostics: [{
-            level: "error",
-            message: "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it.",
-          }],
-        };
-      }
-      return mockAppCommand(command);
+    const snapshot = projectSnapshot({ name: "CVPR paper" });
+    mockCommands({
+      ...projectCommands(snapshot, "\\usepackage[review]{cvpr}"),
+      build_project: () => ({
+        success: false,
+        pdfBase64: null,
+        log: "Latexmk: Missing input file 'cvpr.sty' message in .log file:\nLaTeX Error: File `cvpr.sty' not found.\n",
+        durationMs: 80,
+        diagnostics: [{
+          level: "error",
+          message: "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it.",
+        }],
+      }),
     });
 
     renderApp();
@@ -9933,39 +8320,24 @@ describe("project workspace", () => {
 
   it("saves dirty buffers before switching project files", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     const files: Record<string, string> = {
       "main.tex": "\\documentclass{article}",
       "intro.tex": "\\section{Intro}",
     };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         return files[path] ?? "";
-      }
-      if (command === "write_project_file") {
+      },
+      write_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         const content = String((args as { content?: string } | undefined)?.content ?? "");
         files[path] = content;
         return undefined;
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -9998,36 +8370,20 @@ describe("project workspace", () => {
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-        { name: "notes.tex", path: "notes.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex"), fileNode("notes.tex")] });
     let resolveIntro!: (content: string) => void;
     let resolveNotes!: (content: string) => void;
     const intro = new Promise<string>((resolve) => { resolveIntro = resolve; });
     const notes = new Promise<string>((resolve) => { resolveNotes = resolve; });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      refresh_project: snapshot,
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         if (path === "intro.tex") return intro;
         if (path === "notes.tex") return notes;
         return "main";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -10051,24 +8407,16 @@ describe("project workspace", () => {
       { name: "Notes", path: "/tmp/notes" },
       { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
     ]));
-    const notesSnapshot = {
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return notesSnapshot;
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
+    mockCommands({
+      ...projectCommands(notesSnapshot, "# Private draft"),
+      open_project_window: () => ({ label: "project-1", focusedExisting: false }),
     });
 
     renderApp();
@@ -10098,18 +8446,13 @@ describe("project workspace", () => {
   it("joins a live collaboration in the current window", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     localStorage.setItem("lattice.collab.name", "Ada");
-    const notesSnapshot = {
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
     const sharedSnapshot = {
       ...notesSnapshot,
       root: "/tmp/Lattice Shares/Shared room",
@@ -10136,14 +8479,13 @@ describe("project workspace", () => {
       authorityEpoch: 1,
       files: [],
     }), { headers: { "content-type": "application/json" } })));
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return notesSnapshot;
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "put_collab_credential") return undefined;
-      if (command === "create_collab_join_workspace") return sharedSnapshot;
-      if (command === "open_project") throw new Error("stop after binding the current window");
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(notesSnapshot, "# Private draft"),
+      put_collab_credential: undefined,
+      create_collab_join_workspace: sharedSnapshot,
+      open_project: () => {
+        throw new Error("stop after binding the current window");
+      },
     });
 
     renderApp();
@@ -10168,16 +8510,19 @@ describe("project workspace", () => {
     localStorage.setItem("lattice.collab.projects.v2", records);
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return hasProject ? {
+    mockCommands({
+      initial_project: () => hasProject ? projectSnapshot({
         root: "/tmp/notes",
-        manifest: { schemaVersion: 1, projectId: "notes-id", name: "Notes", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
-        files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-      } : null;
-      if (command === "take_pending_window_action") return JSON.stringify({ kind: "join-collab-v2", host: "https://collab.example", projectInstanceId: "project_saved_room" });
-      if (command === "read_project_file") return "# Local draft";
-      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        files: [fileNode("draft.md")],
+      }) : null,
+      take_pending_window_action: () => JSON.stringify({ kind: "join-collab-v2", host: "https://collab.example", projectInstanceId: "project_saved_room" }),
+      read_project_file: "# Local draft",
+      harper_lint: () => [],
+      list_papers: () => [],
+      list_history: () => [],
     });
     renderApp();
     if (hasProject) {
@@ -10200,29 +8545,21 @@ describe("project workspace", () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     localStorage.setItem("lattice.collab.name", "Ada");
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
     const inventoryFailure: { reject: ((reason: Error) => void) | null } = { reject: null };
     const inventory = new Promise<never>((_resolve, reject) => {
       inventoryFailure.reject = reject;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "harper_lint") return [];
-      if (command === "collab_project_inventory_v2") return inventory;
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(snapshot, "# Private draft"),
+      harper_lint: () => [],
+      collab_project_inventory_v2: inventory,
     });
 
     renderApp();
@@ -10241,15 +8578,19 @@ describe("project workspace", () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     localStorage.setItem("lattice.collab.name", "Ada");
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return {
+    mockCommands({
+      initial_project: () => projectSnapshot({
         root: "/tmp/notes",
-        manifest: { schemaVersion: 1, projectId: "notes-id", name: "Notes", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
-        files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-      };
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "harper_lint" || command === "list_papers" || command === "list_history") return [];
-      if (command === "collab_project_inventory_v2") return {
+        projectId: "notes-id",
+        name: "Notes",
+        rootDocuments: [],
+        files: [fileNode("draft.md")],
+      }),
+      read_project_file: "# Private draft",
+      harper_lint: () => [],
+      list_papers: () => [],
+      list_history: () => [],
+      collab_project_inventory_v2: () => ({
         files: [],
         excluded: [
           { pathOrPattern: ".git/**", reason: "git-internals" },
@@ -10257,8 +8598,7 @@ describe("project workspace", () => {
           { pathOrPattern: "node_modules/**", reason: "generated-directory" },
           { pathOrPattern: "linked.tex", reason: "symlink-not-followed" },
         ],
-      };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      }),
     });
     render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
     await waitFor(() => expect(document.querySelector('[data-tour="collaboration"]')).not.toBeNull());
@@ -10275,26 +8615,18 @@ describe("project workspace", () => {
 
   it("gives a newly created project its own window when one is already open", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const notesSnapshot = {
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
     const created = { ...notesSnapshot, root: "/tmp/new-paper" };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return notesSnapshot;
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "create_project") return created;
-      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      ...projectCommands(notesSnapshot, "# Private draft"),
+      create_project: created,
+      open_project_window: () => ({ label: "project-1", focusedExisting: false }),
     });
 
     renderApp();
@@ -10325,24 +8657,16 @@ describe("project workspace", () => {
 
   it("opens a folder chosen from the picker in its own window too", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const notesSnapshot = {
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return notesSnapshot;
-      if (command === "read_project_file") return "# Private draft";
-      if (command === "open_project_window") return { label: "project-1", focusedExisting: false };
-      if (command === "list_papers" || command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
+    mockCommands({
+      ...projectCommands(notesSnapshot, "# Private draft"),
+      open_project_window: () => ({ label: "project-1", focusedExisting: false }),
     });
 
     renderApp();
@@ -10371,53 +8695,38 @@ describe("project workspace", () => {
       { name: "Notes", path: "/tmp/notes" },
       { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
     ]));
-    const notesSnapshot = {
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
-    const overleafSnapshot = {
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
+    const overleafSnapshot = projectSnapshot({
       root: "/tmp/overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+      projectId: "overleaf-id",
+      name: "Overleaf paper",
+    });
     let currentRoot = notesSnapshot.root;
     let releaseIncomingPapers!: (papers: never[]) => void;
     const incomingPapers = new Promise<never[]>((resolve) => {
       releaseIncomingPapers = resolve;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return notesSnapshot;
-      if (command === "open_tutorial_project") {
+    mockCommands({
+      initial_project: notesSnapshot,
+      open_tutorial_project: () => {
         currentRoot = overleafSnapshot.root;
         return overleafSnapshot;
-      }
-      if (command === "read_project_file") {
+      },
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         if (currentRoot === notesSnapshot.root && path === "draft.md") return "# Private draft";
         if (currentRoot === overleafSnapshot.root && path === "main.tex") return "\\documentclass{article}";
         return "";
-      }
-      if (command === "list_papers") {
-        return currentRoot === overleafSnapshot.root ? incomingPapers : [];
-      }
-      if (command === "list_history") return [];
-      if (command === "write_project_file") return undefined;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      list_papers: () => currentRoot === overleafSnapshot.root ? incomingPapers : [],
+      list_history: () => [],
+      write_project_file: undefined,
     });
 
     renderApp();
@@ -10487,47 +8796,33 @@ describe("project workspace", () => {
       { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
       { name: "Notes", path: "/tmp/notes" },
     ]));
-    const overleafSnapshot = {
+    const overleafSnapshot = projectSnapshot({
       root: "/tmp/overleaf-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "overleaf-id",
-        name: "Overleaf paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    const notesSnapshot = {
+      projectId: "overleaf-id",
+      name: "Overleaf paper",
+    });
+    const notesSnapshot = projectSnapshot({
       root: "/tmp/notes",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "draft.md", path: "draft.md", kind: "markdown", children: [] }],
-    };
+      projectId: "notes-id",
+      name: "Notes",
+      rootDocuments: [],
+      files: [fileNode("draft.md")],
+    });
     let currentRoot = overleafSnapshot.root;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return overleafSnapshot;
-      if (command === "open_tutorial_project") {
+    mockCommands({
+      ...projectCommands(overleafSnapshot),
+      open_tutorial_project: () => {
         currentRoot = notesSnapshot.root;
         return notesSnapshot;
-      }
-      if (command === "refresh_project") {
-        return currentRoot === overleafSnapshot.root ? overleafSnapshot : notesSnapshot;
-      }
-      if (command === "read_project_file") {
+      },
+      refresh_project: () => currentRoot === overleafSnapshot.root ? overleafSnapshot : notesSnapshot,
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         if (path === "main.tex") return "\\documentclass{article}";
         if (path === "draft.md") return "# Local notes";
         return "";
-      }
-      if (command === "overleaf_link") {
+      },
+      overleaf_link: () => {
         // The backend reads the link off the currently open project; a local
         // project simply has no state file.
         if (currentRoot !== overleafSnapshot.root) {
@@ -10540,55 +8835,40 @@ describe("project workspace", () => {
           lastSync: null,
           paused: false,
         };
-      }
-      if (command === "overleaf_sync") {
-        return {
-          pulled: [],
-          pushed: [],
-          merged: [],
-          conflicts: [],
-          deletedLocal: [],
-          skippedRemoteDeletes: [],
-        };
-      }
-      if (command === "overleaf_probe") {
-        return {
-          changed: false,
-          localChanged: false,
-          versionKnown: true,
-          remoteVersion: 1,
-          lastSync: null,
-        };
-      }
-      if (command === "overleaf_rt_connect") {
-        return {
-          publicId: null,
-          rootFolderId: "root",
-          docs: [],
-          entities: [],
-          permission: "readAndWrite",
-          trackChanges: false,
-          userId: null,
-        };
-      }
-      if (command === "overleaf_status") {
-        return { connected: true, email: "me@example.com", name: "Me", host: "https://www.overleaf.com" };
-      }
-      if (
-        command === "overleaf_rt_disconnect"
-        || command === "write_project_file"
-        || command === "git_auto_commit"
-      ) return command === "git_auto_commit" ? null : undefined;
-      if (
-        command === "overleaf_chat_messages"
-        || command === "overleaf_threads"
-        || command === "overleaf_comment_anchors"
-        || command === "overleaf_change_authors"
-        || command === "overleaf_rt_connected_users"
-        || command === "list_papers"
-        || command === "list_history"
-      ) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      overleaf_sync: () => ({
+        pulled: [],
+        pushed: [],
+        merged: [],
+        conflicts: [],
+        deletedLocal: [],
+        skippedRemoteDeletes: [],
+      }),
+      overleaf_probe: () => ({
+        changed: false,
+        localChanged: false,
+        versionKnown: true,
+        remoteVersion: 1,
+        lastSync: null,
+      }),
+      overleaf_rt_connect: () => ({
+        publicId: null,
+        rootFolderId: "root",
+        docs: [],
+        entities: [],
+        permission: "readAndWrite",
+        trackChanges: false,
+        userId: null,
+      }),
+      overleaf_status: () => ({ connected: true, email: "me@example.com", name: "Me", host: "https://www.overleaf.com" }),
+      overleaf_rt_disconnect: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      write_project_file: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      git_auto_commit: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      overleaf_chat_messages: () => [],
+      overleaf_threads: () => [],
+      overleaf_comment_anchors: () => [],
+      overleaf_change_authors: () => [],
+      overleaf_rt_connected_users: () => [],
     });
 
     renderApp();
@@ -10628,21 +8908,7 @@ describe("project workspace", () => {
 
   it("does not make file switching wait for post-save project scans", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "intro.tex", path: "intro.tex", kind: "tex", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     const files: Record<string, string> = {
       "main.tex": "\\documentclass{article}",
       "intro.tex": "\\section{Intro}",
@@ -10652,22 +8918,22 @@ describe("project workspace", () => {
     const delayedHistory = new Promise<never[]>((resolve) => {
       resolveHistory = resolve;
     });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         return files[path] ?? "";
-      }
-      if (command === "write_project_file") {
+      },
+      write_project_file: (args) => {
         const path = String((args as { path?: string } | undefined)?.path ?? "");
         const content = String((args as { content?: string } | undefined)?.content ?? "");
         files[path] = content;
         blockHistory = true;
         return undefined;
-      }
-      if (command === "list_history") return blockHistory ? delayedHistory : [];
-      if (command === "list_papers") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      list_history: () => blockHistory ? delayedHistory : [],
+      list_papers: () => [],
     });
 
     renderApp();
@@ -10692,24 +8958,13 @@ describe("project workspace", () => {
   it("shows only edit and delete actions on a Papers row", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "See ";
-      if (command === "list_papers") return [paper];
-      if (command === "list_history") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "See ",
+      list_papers: () => [paper],
+      list_history: () => [],
     });
 
     renderApp();
@@ -10723,41 +8978,28 @@ describe("project workspace", () => {
   it("saves the visible source before checking whether a paper is still cited", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     let diskSource = "See \\cite{chen2024single}.\n";
     let sourceAtPreview = "";
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "main.tex" ? diskSource : "";
-      }
-      if (command === "write_project_file") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "main.tex" ? diskSource : "",
+      write_project_file: (args) => {
         const write = args as { path: string; content: string };
         if (write.path === "main.tex") diskSource = write.content;
         return undefined;
-      }
-      if (command === "list_papers") return [paper];
-      if (command === "list_history") return [];
-      if (command === "remove_reference") {
+      },
+      list_papers: () => [paper],
+      list_history: () => [],
+      remove_reference: (args) => {
         const citationMode = (args as { citationMode?: string }).citationMode;
         if (citationMode === "preview") {
           sourceAtPreview = diskSource;
           return { key: paper.citationKey, removed: false, blockers: [], changedFiles: [], removedCitations: 0 };
         }
         return { key: paper.citationKey, removed: true, blockers: [], changedFiles: ["references.bib"], removedCitations: 0 };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -10779,27 +9021,15 @@ describe("project workspace", () => {
   it("offers cited-paper removal with and without its citation commands", async () => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     let diskSource = "See \\cite{chen2024single}.\n";
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") {
-        return (args as { path: string }).path === "main.tex" ? diskSource : "";
-      }
-      if (command === "list_papers") return [paper];
-      if (command === "list_history") return [];
-      if (command === "remove_reference") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: (args) => (args as { path: string }).path === "main.tex" ? diskSource : "",
+      list_papers: () => [paper],
+      list_history: () => [],
+      remove_reference: (args) => {
         const citationMode = (args as { citationMode?: string }).citationMode;
         if (citationMode === "preview") {
           return {
@@ -10826,8 +9056,7 @@ describe("project workspace", () => {
               ]
             : [{ path: "references.bib", before: "@article{chen2024single}\n", after: "" }],
         };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
@@ -10849,37 +9078,23 @@ describe("project workspace", () => {
   });
 
   it("deletes a history entry without creating another one", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
+    const snapshot = projectSnapshot({ files: [] });
     let entries = [{ id: "change-1", label: "Edit main.tex", timestamp: "2026-07-16T00:00:00Z", files: ["main.tex"] }];
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [];
-      if (command === "list_history") return entries;
-      if (command === "get_history_entry") {
-        return {
-          id: "change-1",
-          label: "Edit main.tex",
-          timestamp: "2026-07-16T00:00:00Z",
-          changes: [{ path: "main.tex", before: "old line\n", after: "new line\n" }],
-        };
-      }
-      if (command === "delete_history_entry") {
+    mockCommands({
+      initial_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [],
+      list_history: () => entries,
+      get_history_entry: () => ({
+        id: "change-1",
+        label: "Edit main.tex",
+        timestamp: "2026-07-16T00:00:00Z",
+        changes: [{ path: "main.tex", before: "old line\n", after: "new line\n" }],
+      }),
+      delete_history_entry: () => {
         entries = [];
         return undefined;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
     });
 
     renderApp();
@@ -10895,38 +9110,25 @@ describe("project workspace", () => {
   });
 
   it("shows the document outline and jumps to a section", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
+    const snapshot = projectSnapshot({
       files: [{
         name: "sections",
         path: "sections",
         kind: "folder",
         children: [{ name: "introduction.tex", path: "sections/introduction.tex", kind: "tex", children: [] }],
       }],
-    };
+    });
     const syncResolvers: Array<(target: { page: number; x: number; y: number; width: number; height: number }) => void> = [];
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") {
+    mockCommands({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => {
         if ((args as { path?: string } | undefined)?.path === "sections/introduction.tex") {
           return "\\subsection{Background}\ntext\n";
         }
         return "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\n\\input{sections/introduction}\n\\section{Results}\n\\end{document}\n";
-      }
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
-      if (command === "synctex_view") {
-        return new Promise((resolve) => syncResolvers.push(resolve));
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] }),
+      synctex_view: () => new Promise((resolve) => syncResolvers.push(resolve)),
     });
 
     renderApp();
@@ -10968,24 +9170,10 @@ describe("project workspace", () => {
   });
 
   it("opens a rich insert palette with previews", { timeout: 20000 }, async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return "\\begin{document}\n\n\\end{document}\n";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "build_project") return { success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [] });
+    mockCommands({
+      ...projectCommands(snapshot, "\\begin{document}\n\n\\end{document}\n"),
+      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] }),
     });
 
     renderApp();
@@ -11025,33 +9213,10 @@ describe("project workspace", () => {
   it("localizes the project-file deletion confirmation", async () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "notes.tex",
-          path: "notes.tex",
-          kind: "text",
-          contentKind: "text",
-          children: [],
-        },
-      ],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({
+      files: [fileNode("main.tex"), fileNode("notes.tex", "text", { contentKind: "text" })],
     });
+    mockCommands({ ...projectCommands(snapshot), refresh_project: snapshot, harper_lint: () => [] });
 
     await import("./project/navigator");
     render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
@@ -11068,18 +9233,7 @@ describe("project workspace", () => {
     await activateAppLocale("zh-CN");
     localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
+    const snapshot = projectSnapshot();
     const paper = {
       arxivId: "1706.03762",
       title: "Attention Is All You Need",
@@ -11087,23 +9241,22 @@ describe("project workspace", () => {
       hasFullText: true,
     };
     let cited = false;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\documentclass{article}";
-      if (command === "list_papers") return [paper];
-      if (command === "list_history" || command === "harper_lint") return [];
-      if (command === "remove_reference") {
-        return {
-          key: paper.citationKey,
-          removed: false,
-          blockers: cited
-            ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }]
-            : [],
-          changedFiles: [],
-          removedCitations: 0,
-        };
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\documentclass{article}",
+      list_papers: () => [paper],
+      list_history: () => [],
+      harper_lint: () => [],
+      remove_reference: () => ({
+        key: paper.citationKey,
+        removed: false,
+        blockers: cited
+          ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }]
+          : [],
+        changedFiles: [],
+        removedCitations: 0,
+      }),
     });
 
     render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
@@ -11137,40 +9290,32 @@ describe("project workspace", () => {
         "notes.tex": { text: { cursor: 8, scrollTop: 40 } },
       },
     }));
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [
-          { path: "main.tex", name: "Main paper", isDefault: true },
-          // Building a standalone draft registers it here, but does not make it protected.
-          { path: "notes.tex", name: "Notes", isDefault: false },
-        ],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "notes.tex", path: "notes.tex", kind: "tex", children: [] },
+    const snapshot = projectSnapshot({
+      rootDocuments: [
+        { path: "main.tex", name: "Main paper", isDefault: true },
+        // Building a standalone draft registers it here, but does not make it protected.
+        { path: "notes.tex", name: "Notes", isDefault: false },
       ],
-    };
+      files: [fileNode("main.tex"), fileNode("notes.tex")],
+    });
     const paper = { arxivId: "1706.03762", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "\\section{Notes}";
-      if (command === "list_papers") return [paper];
-      if (command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_project_entry") {
+    mockCommands({
+      initial_project: snapshot,
+      refresh_project: snapshot,
+      read_project_file: "\\section{Notes}",
+      list_papers: () => [paper],
+      list_history: () => [],
+      list_citation_keys: () => [],
+      list_citations: () => [],
+      list_references: () => [],
+      create_project_entry: (args) => {
         const entry = args as { path: string; kind: "file" | "folder" };
         return entry.kind === "file" && !entry.path.includes(".")
           ? `${entry.path}.tex`
           : entry.path;
-      }
-      if (command === "delete_project_entry") return undefined;
-      if (command === "remove_reference") return { removed: true, blockers: [] };
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      delete_project_entry: undefined,
+      remove_reference: () => ({ removed: true, blockers: [] }),
     });
 
     await import("./project/navigator");
@@ -11250,24 +9395,14 @@ describe("project workspace", () => {
   });
 
   it("creates a board from the header button with an inline name", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_project_entry") return (args as { path: string }).path;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [fileNode("notes.tex")] });
+    mockCommands({
+      ...projectCommands(snapshot, ""),
+      refresh_project: snapshot,
+      list_citation_keys: () => [],
+      list_citations: () => [],
+      list_references: () => [],
+      create_project_entry: (args) => (args as { path: string }).path,
     });
 
     renderApp();
@@ -11292,26 +9427,14 @@ describe("project workspace", () => {
   });
 
   it("creates and opens a native Open Slide presentation", { timeout: 30000 }, async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "export default [];\n";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_open_slide_deck") {
-        return `slides/${(args as { deckId: string }).deckId}/index.tsx`;
-      }
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot, "export default [];\n"),
+      refresh_project: snapshot,
+      list_citation_keys: () => [],
+      list_citations: () => [],
+      list_references: () => [],
+      create_open_slide_deck: (args) => `slides/${(args as { deckId: string }).deckId}/index.tsx`,
     });
 
     await import("./project/navigator");
@@ -11345,21 +9468,12 @@ describe("project workspace", () => {
     const deckSource = "export default [{ id: 'title' }];\n";
     const editedDeckSource = "export default [{ id: 'title', title: 'Edited' }];\n";
     let probeChanged = true;
-    const snapshot = {
+    const snapshot = projectSnapshot({
       root: "/tmp/lattice-slide-overleaf",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "slide-overleaf-id",
-        name: "Slide Overleaf",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "index.tsx", path: "slides/native/index.tsx", kind: "tsx", children: [] },
-      ],
-    };
+      projectId: "slide-overleaf-id",
+      name: "Slide Overleaf",
+      files: [fileNode("main.tex"), fileNode("slides/native/index.tsx")],
+    });
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       const callArgs = args as Record<string, unknown> | undefined;
       if (command === "initial_project" || command === "refresh_project") return snapshot;
@@ -11478,32 +9592,17 @@ describe("project workspace", () => {
   });
 
   it("accepts an Open Slide delete when the canonical asset is already gone", { timeout: 20000 }, async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{
-        name: "index.tsx",
-        path: "slides/native/index.tsx",
-        kind: "tsx",
-        children: [],
-      }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "export default [];\n";
-      if (command === "delete_project_entry") {
+    const snapshot = projectSnapshot({ rootDocuments: [], files: [fileNode("slides/native/index.tsx")] });
+    mockCommands({
+      ...projectCommands(snapshot, "export default [];\n"),
+      refresh_project: snapshot,
+      delete_project_entry: () => {
         throw new Error("That file or folder no longer exists.");
-      }
-      if (command === "stat_project_file") return { exists: false, mtimeMs: 0 };
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+      },
+      stat_project_file: () => ({ exists: false, mtimeMs: 0 }),
+      list_citation_keys: () => [],
+      list_citations: () => [],
+      list_references: () => [],
     });
 
     renderApp();
@@ -11528,24 +9627,14 @@ describe("project workspace", () => {
   });
 
   it("creates a spreadsheet from the header button with an inline name", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "notes.tex", path: "notes.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "";
-      if (command === "list_papers" || command === "list_history" || command === "list_citation_keys" || command === "list_citations" || command === "list_references") return [];
-      if (command === "create_project_entry") return (args as { path: string }).path;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot({ files: [fileNode("notes.tex")] });
+    mockCommands({
+      ...projectCommands(snapshot, ""),
+      refresh_project: snapshot,
+      list_citation_keys: () => [],
+      list_citations: () => [],
+      list_references: () => [],
+      create_project_entry: (args) => (args as { path: string }).path,
     });
 
     renderApp();
@@ -11570,24 +9659,11 @@ describe("project workspace", () => {
   });
 
   it("lets the Agent create and open a board or spreadsheet through the host bridge", async () => {
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: [{ name: "main.tex", path: "main.tex", kind: "tex", children: [] }],
-    };
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return "";
-      if (command === "list_papers" || command === "list_history") return [];
-      if (command === "create_project_entry") return (args as { path: string }).path;
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    const snapshot = projectSnapshot();
+    mockCommands({
+      ...projectCommands(snapshot, ""),
+      refresh_project: snapshot,
+      create_project_entry: (args) => (args as { path: string }).path,
     });
 
     renderApp();
