@@ -6106,6 +6106,117 @@ function App() {
   // otherwise. The unused-symbol counts elsewhere still use the full list.
   const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
 
+  const formatFocusedDocument = () => {
+    const secondary = focusedPane === "secondary" && Boolean(secondaryFile);
+    const path = secondary ? secondaryFile! : activeFile;
+    const text = secondary ? secondarySource : source;
+    if (!path.endsWith(".tex")) {
+      setError("Open a .tex file before formatting.", "Format");
+      return;
+    }
+    const trace = logAction("Format", "Format document", path);
+    void import("./build/texlab-language")
+      .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
+      .then((formatted) => {
+        if (formatted === text) {
+          trace.ok("Document is already formatted.");
+          return;
+        }
+        if (secondary) setSecondarySource(formatted);
+        else setSource(formatted);
+        trace.ok("Formatted with latexindent.");
+      })
+      .catch((reason) => trace.fail(reason));
+  };
+  /**
+   * Every app-level action, as the command palette lists it (entries with a
+   * label) and as the global ⌘/Ctrl shortcuts reach it (entries with a key;
+   * `shift` must match). `when: false` hides an entry and disables its key.
+   */
+  const commands: Array<{
+    id: string;
+    run: () => void;
+    label?: string;
+    detail?: string;
+    group?: string;
+    key?: string;
+    shift?: boolean;
+    when?: boolean;
+  }> = [
+    { id: "build", label: t`Build project`, detail: t`Compile LaTeX`, group: t`Build`, run: () => void compile(false, true) },
+    { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
+    { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
+    { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
+    { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
+    { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setQuickOpenOpen(true) },
+    { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setGotoLineOpen(true) },
+    { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setGoToSymbolOpen(true) },
+    { id: "back", key: "[", run: () => void navigateHistory(-1) },
+    { id: "forward", key: "]", run: () => void navigateHistory(1) },
+    { id: "palette", key: "p", shift: true, run: () => setCommandPaletteOpen(true) },
+    { id: "reopen-tab", key: "t", shift: true, run: () => void reopenClosedTab() },
+    {
+      id: "view-dual", label: t`Dual source view`, detail: t`Two files side by side`, group: t`View`,
+      when: !activePaper && !activeAsset && canvasMode === "source", run: () => openDocumentMode("dual"),
+    },
+    { id: "view-split", label: t`Source + PDF`, detail: t`split`, group: t`View`, run: () => openDocumentMode("split") },
+    {
+      id: "swap-panes", label: t`Swap editor panes`, detail: `${activeFile} ↔ ${secondaryFile}`, group: t`View`,
+      when: canvasMode === "dual" && Boolean(secondaryFile), run: () => void swapEditorPanes(),
+    },
+    { id: "insert", label: t`Insert snippet`, detail: "⌘⇧I", group: t`Edit`, key: "i", shift: true, when: canInsert, run: () => setInsertOpen(true) },
+    {
+      id: "collab",
+      label: collabSession ? t`Live sharing…` : t`Start / join live sharing`,
+      detail: collabSession
+        ? t({ message: `${collabPeers} connected · ${collabSession.room}` })
+        : t`Share invite with a collaborator`,
+      group: t`Edit`,
+      when: isCollabEnabled(),
+      run: () => openCollabDialog(),
+    },
+    { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
+    { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setRefCitePicker("cite") },
+    { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setRefCitePicker("ref") },
+    { id: "bib", label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
+    { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => referenceImport.setLiteratureOpen(true) },
+    { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
+    { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all .tex files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
+    {
+      id: "todos", label: t`Manuscript TODOs`, detail: t({ message: `${todoHits.length || t`No`} markers` }), group: t`Edit`,
+      run: () => {
+        void refreshTodos();
+        setTodosOpen(true);
+      },
+    },
+    {
+      id: "checklist", label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit`,
+      run: () => {
+        void refreshTodos();
+        void refreshWordCount();
+        setChecklistOpen(true);
+      },
+    },
+    { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void pasteClipboardImage() },
+    { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit`, run: formatFocusedDocument },
+    { id: "history", label: t`Open project history`, group: t`Project`, run: () => setHistoryOpen(true) },
+    { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project`, run: () => void exportProjectZip() },
+    {
+      id: "tutorial", label: t`Open guided tutorial`, group: t`Project`, run: () => void openTutorialProject(),
+      detail: t`Learn Lattice with the Understanding Attention sample project`,
+    },
+    { id: "doctor", label: t`Run TeX doctor`, group: t`Project`, run: () => openSettings("doctor") },
+    { id: "settings", label: t`Open settings`, group: t`Project`, run: () => openSettings("appearance") },
+  ];
+  const runCommand = (id: string) => {
+    const command = commands.find((item) => item.id === id);
+    if (command && command.when !== false) command.run();
+  };
+  // Read at keypress, so a shortcut always runs the current render's closures.
+  const commandsRef = useRef<typeof commands>([]);
+  useLayoutEffect(() => {
+    commandsRef.current = commands;
+  });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {
@@ -6113,67 +6224,16 @@ function App() {
         cycleDiagnostic(event.shiftKey ? -1 : 1);
         return;
       }
-      const mod = event.metaKey || event.ctrlKey;
-      if (!mod || event.altKey) return;
-      if (event.key === "[" && !event.shiftKey) {
-        event.preventDefault();
-        void navigateHistory(-1);
-        return;
-      }
-      if (event.key === "]" && !event.shiftKey) {
-        event.preventDefault();
-        void navigateHistory(1);
-        return;
-      }
-      if (event.key.toLocaleLowerCase() === "p" && !event.shiftKey) {
-        event.preventDefault();
-        setQuickOpenOpen(true);
-      }
-      if (event.key.toLocaleLowerCase() === "p" && event.shiftKey) {
-        event.preventDefault();
-        setCommandPaletteOpen(true);
-      }
-      if (event.key.toLocaleLowerCase() === "o" && event.shiftKey) {
-        event.preventDefault();
-        setGoToSymbolOpen(true);
-      }
-      if (event.key.toLocaleLowerCase() === "g" && !event.shiftKey) {
-        event.preventDefault();
-        setGotoLineOpen(true);
-      }
-      if (event.key.toLocaleLowerCase() === "j" && event.shiftKey) {
-        event.preventDefault();
-        void revealSourceInPdf();
-      }
-      if (event.key.toLocaleLowerCase() === "t" && event.shiftKey) {
-        event.preventDefault();
-        void reopenClosedTab();
-      }
-      if (event.key.toLocaleLowerCase() === "k" && event.shiftKey) {
-        event.preventDefault();
-        setRefCitePicker("cite");
-      }
-      if (event.key.toLocaleLowerCase() === "l" && event.shiftKey) {
-        event.preventDefault();
-        setRefCitePicker("ref");
-      }
-      if (event.key.toLocaleLowerCase() === "i" && event.shiftKey) {
-        if (!canInsert) return;
-        event.preventDefault();
-        setInsertOpen(true);
-      }
-      if (event.key.toLocaleLowerCase() === "h" && event.shiftKey) {
-        event.preventDefault();
-        openProjectReplace();
-      }
-      if (event.key.toLocaleLowerCase() === "f" && event.shiftKey) {
-        event.preventDefault();
-        openProjectFind();
-      }
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      const key = event.key.toLocaleLowerCase();
+      const command = commandsRef.current.find((item) => item.key === key && Boolean(item.shift) === event.shiftKey);
+      if (!command || command.when === false) return;
+      event.preventDefault();
+      command.run();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canInsert, cycleDiagnostic, navigateHistory, openProjectFind, openProjectReplace, reopenClosedTab, revealSourceInPdf]);
+  }, [cycleDiagnostic]);
 
   if (!project) {
     return (
@@ -6971,131 +7031,17 @@ function App() {
         }}
       />
 
-      {/* The command palette stays here rather than in a component of its own.
-          It is a dispatch table over every action App owns — the same table the
-          global keydown handler above drives — so its interface is the whole
-          app: 49 of App's values, only 18 of which no other surface needs.
-          Behind a props interface that is 150 lines of plumbing for no seam. */}
       <SearchPickerDialog
         open={commandPaletteOpen}
         title={t`Command palette`}
         placeholder={t`Run a command…`}
-        items={[
-          { id: "build", label: t`Build project`, detail: t`Compile LaTeX`, group: t`Build` },
-          { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build` },
-          { id: "clean", label: t`Clean aux files`, group: t`Build` },
-          { id: "stop-build", label: t`Stop build`, group: t`Build` },
-          { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate` },
-          { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate` },
-          { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate` },
-          { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate` },
-          ...(!activePaper && !activeAsset && canvasMode === "source"
-            ? [{ id: "view-dual", label: t`Dual source view`, detail: t`Two files side by side`, group: t`View` }]
-            : []),
-          { id: "view-split", label: t`Source + PDF`, detail: t`split`, group: t`View` },
-          ...(canvasMode === "dual" && secondaryFile
-            ? [{ id: "swap-panes", label: t`Swap editor panes`, detail: `${activeFile} ↔ ${secondaryFile}`, group: t`View` }]
-            : []),
-          ...(canInsert
-            ? [{ id: "insert", label: t`Insert snippet`, detail: "⌘⇧I", group: t`Edit` }]
-            : []),
-          ...(isCollabEnabled() ? [{
-            id: "collab",
-            label: collabSession ? t`Live sharing…` : t`Start / join live sharing`,
-            detail: collabSession
-              ? t({ message: `${collabPeers} connected · ${collabSession.room}` })
-              : t`Share invite with a collaborator`,
-            group: t`Edit`,
-          }] : []),
-          { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit` },
-          { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit` },
-          { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit` },
-          { id: "bib", label: t`Add bibliography entry`, group: t`Edit` },
-          { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research` },
-          { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit` },
-          { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all .tex files`, group: t`Edit` },
-          {
-            id: "todos",
-            label: t`Manuscript TODOs`,
-            detail: t({ message: `${todoHits.length || t`No`} markers` }),
-            group: t`Edit`,
-          },
-          { id: "checklist", label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit` },
-          { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit` },
-          { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit` },
-          { id: "history", label: t`Open project history`, group: t`Project` },
-          { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project` },
-          { id: "tutorial", label: t`Open guided tutorial`, detail: t`Learn Lattice with the Understanding Attention sample project`, group: t`Project` },
-          { id: "doctor", label: t`Run TeX doctor`, group: t`Project` },
-          { id: "settings", label: t`Open settings`, group: t`Project` },
-        ]}
+        items={commands.flatMap(({ id, label, detail, group, when }) => (
+          label && when !== false ? [{ id, label, detail, group }] : []
+        ))}
         onClose={() => setCommandPaletteOpen(false)}
         onSelect={(item) => {
           setCommandPaletteOpen(false);
-          switch (item.id) {
-            case "build": void compile(false, true); break;
-            case "rebuild": void cleanAndRebuild(); break;
-            case "clean": void cleanProject(); break;
-            case "stop-build": void abortBuild(); break;
-            case "sync-pdf": void revealSourceInPdf(); break;
-            case "quick-open": setQuickOpenOpen(true); break;
-            case "goto-line": setGotoLineOpen(true); break;
-            case "goto-symbol": setGoToSymbolOpen(true); break;
-            case "view-dual":
-              if (!activePaper && !activeAsset && canvasMode === "source") openDocumentMode("dual");
-              break;
-            case "view-split": openDocumentMode("split"); break;
-            case "swap-panes":
-              if (canvasMode === "dual" && secondaryFile) void swapEditorPanes();
-              break;
-            case "insert": setInsertOpen(true); break;
-            case "collab": openCollabDialog(); break;
-            case "table": setTableGeneratorOpen(true); break;
-            case "cite": setRefCitePicker("cite"); break;
-            case "ref": setRefCitePicker("ref"); break;
-            case "bib": referenceImport.openBibEntry(); break;
-            case "discover": referenceImport.setLiteratureOpen(true); break;
-            case "find": projectSearch.openFind(); break;
-            case "replace": projectSearch.openReplace(); break;
-            case "todos":
-              void refreshTodos();
-              setTodosOpen(true);
-              break;
-            case "checklist":
-              void refreshTodos();
-              void refreshWordCount();
-              setChecklistOpen(true);
-              break;
-            case "paste-image": void pasteClipboardImage(); break;
-            case "format": {
-              const path = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
-              const text = focusedPane === "secondary" && secondaryFile ? secondarySource : source;
-              if (!path.endsWith(".tex")) {
-                setError("Open a .tex file before formatting.", "Format");
-                break;
-              }
-              const trace = logAction("Format", "Format document", path);
-              void import("./build/texlab-language")
-                .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
-                .then((formatted) => {
-                  if (formatted === text) {
-                    trace.ok("Document is already formatted.");
-                    return;
-                  }
-                  if (focusedPane === "secondary" && secondaryFile) setSecondarySource(formatted);
-                  else setSource(formatted);
-                  trace.ok("Formatted with latexindent.");
-                })
-                .catch((reason) => trace.fail(reason));
-              break;
-            }
-            case "history": setHistoryOpen(true); break;
-            case "export-zip": void exportProjectZip(); break;
-            case "tutorial": void openTutorialProject(); break;
-            case "doctor": openSettings("doctor"); break;
-            case "settings": openSettings("appearance"); break;
-            default: break;
-          }
+          runCommand(item.id);
         }}
       />
       {settingsDialog}
