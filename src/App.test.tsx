@@ -240,7 +240,7 @@ vi.mock("@pdfslick/core", () => ({
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
-    linkService = { page: 1, goToDestination: vi.fn(async () => undefined) };
+    linkService = { page: 1, goToDestination: vi.fn(async () => undefined), setDocument: vi.fn() };
     l10n = { get: vi.fn(async (id: string) => id) };
     unbindEvents = vi.fn();
     pagesReady = false;
@@ -254,6 +254,7 @@ vi.mock("@pdfslick/core", () => ({
     };
     viewer: {
       cleanup: ReturnType<typeof vi.fn>;
+      setDocument: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
       currentScale: number;
       currentScaleValue: string;
@@ -271,6 +272,7 @@ vi.mock("@pdfslick/core", () => ({
       let currentScaleValue = args.options?.scaleValue ?? "page-width";
       this.viewer = {
         cleanup: vi.fn(),
+        setDocument: vi.fn(),
         update: vi.fn(),
         get currentScale() {
           return currentScale;
