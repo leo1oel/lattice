@@ -54,6 +54,7 @@ import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { usePanelLayout } from "./app/use-panel-layout";
+import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
 import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
 import { useCollabChat } from "./collab/use-collab-chat";
 import {
@@ -821,12 +822,24 @@ function App() {
     files: GitFileStatus[];
     remoteUrl: string | null;
   }>({ projectRoot: "", files: [], remoteUrl: null });
-  const [activeFile, setActiveFile] = useState("");
-  const [source, setSource] = useState("");
-  const [savedSource, setSavedSource] = useState("");
-  const [secondaryFile, setSecondaryFile] = useState<string | null>(null);
-  const [secondarySource, setSecondarySource] = useState("");
-  const [secondarySavedSource, setSecondarySavedSource] = useState("");
+  const buffers = useDocumentBuffers();
+  const {
+    activeFile, setActiveFile, activeFileRef,
+    source, setSource, sourceRef, setPrimarySource,
+    savedSource, setSavedSource, savedSourceRef, setPrimarySaved,
+    secondaryFile, secondaryFileRef,
+    secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive,
+    secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved,
+    activeAsset, activeAssetRef, showActiveAsset,
+    secondaryAsset, secondaryAssetRef, showSecondaryAsset,
+    activePaper, setActivePaper, activePaperPath, activePaperDirty,
+    paperMarkdown, setPaperMarkdown, paperMarkdownRef, savedPaperMarkdown, savedPaperMarkdownRef,
+    paperBlog, setPaperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef, markPaperSaved,
+    paperView, setPaperView, paperSide, setPaperSide,
+    commitPrimaryText, commitSecondaryText, commitOpenText, commitCleanOpenText,
+    showPrimaryText, showSecondaryText, clearSecondaryPane,
+    setPaperBuffers, closePaper, paperBuffersDirty, remapOpenPaths,
+  } = buffers;
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
@@ -888,6 +901,9 @@ function App() {
   const [pinnedTabs, setPinnedTabs] = useState<string[]>([]);
   const pinnedTabsRef = useRef<string[]>([]);
   useLayoutEffect(() => { pinnedTabsRef.current = pinnedTabs; }, [pinnedTabs]);
+  const addOpenTab = useCallback((path: string) => {
+    setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
+  }, []);
   const [workspacePersistenceReadyRoot, setWorkspacePersistenceReadyRoot] = useState<string | null>(null);
   const pendingWorkspaceSurfaceRef = useRef<{
     root: string;
@@ -1108,37 +1124,10 @@ function App() {
   const referencePreviewPaths = useRef({ root: "", paths: new Set<string>() });
   const referencePreviewGenerationRef = useRef(0);
   const [referencePreviewGeneration, setReferencePreviewGeneration] = useState(0);
-  const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
-  const [paperMarkdown, setPaperMarkdown] = useState("");
-  const [savedPaperMarkdown, setSavedPaperMarkdown] = useState("");
-  // The alphaXiv overview ("blog") is the default reading view; null when the
-  // paper has no report. `paperView` picks which of blog/full-text is shown.
-  const [paperBlog, setPaperBlog] = useState<string | null>(null);
-  const [savedPaperBlog, setSavedPaperBlog] = useState<string | null>(null);
-  // A Paper owns the primary document buffer even when it is drawn on the
-  // right; the other visible document stays in the existing secondary buffer.
-  const [paperSide, setPaperSide] = useState<"left" | "right">("left");
-  const paperMarkdownRef = useRef(paperMarkdown);
-  const savedPaperMarkdownRef = useRef(savedPaperMarkdown);
-  const paperBlogRef = useRef(paperBlog);
-  const savedPaperBlogRef = useRef(savedPaperBlog);
-  useLayoutEffect(() => {
-    paperMarkdownRef.current = paperMarkdown;
-    savedPaperMarkdownRef.current = savedPaperMarkdown;
-    paperBlogRef.current = paperBlog;
-    savedPaperBlogRef.current = savedPaperBlog;
-  }, [paperBlog, paperMarkdown, savedPaperBlog, savedPaperMarkdown]);
-  const [paperView, setPaperView] = useState<"blog" | "fulltext">("blog");
-  const activePaperPath = activePaper
-    ? `.research/papers/${activePaper.arxivId}/${paperView === "blog" ? "blog.md" : "paper.md"}`
-    : null;
   const activePaperSource = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
   const activePaperPreviewSource = paperView === "blog"
     ? paperBlog ?? ""
     : stripFrontmatter(paperMarkdown);
-  const activePaperDirty = Boolean(activePaper) && (
-    paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog
-  );
   const prewarmMarkdownSource = useCallback(async (
     path: string,
     source: string,
@@ -1199,8 +1188,6 @@ function App() {
     if (visualMarkdownFlushRef.current?.() === false) return;
     setPaperView(view);
   }, [paperView]);
-  const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
-  const [secondaryAsset, setSecondaryAsset] = useState<AssetPreview | null>(null);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
   const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
   const [projectFileDropPreview, setProjectFileDropPreview] = useState<EditorDropPreview | null>(null);
@@ -1403,10 +1390,6 @@ function App() {
     options?: { consumeAgentAssociations?: boolean },
   ) => Promise<void>>(async () => undefined);
   const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
-  const activeFileRef = useRef(activeFile);
-  const secondaryFileRef = useRef(secondaryFile);
-  const activeAssetRef = useRef(activeAsset);
-  const secondaryAssetRef = useRef(secondaryAsset);
   const htmlViewModesRef = useRef(new Map<string, DocumentViewMode>());
   const documentModeRef = useRef<DocumentViewMode>("split");
   // Split still consumes the whole canvas. When it is requested from the
@@ -1443,10 +1426,6 @@ function App() {
       };
     }
   }, [activeAsset, activeFile, activePaper, canvasMode, openTabs, project, secondaryAsset, secondaryFile]);
-  activeFileRef.current = activeFile;
-  secondaryFileRef.current = secondaryFile;
-  activeAssetRef.current = activeAsset;
-  secondaryAssetRef.current = secondaryAsset;
   useEffect(() => {
     if (
       !activePaper
@@ -2605,22 +2584,6 @@ function App() {
 
   const diskMtimeRef = useRef<number | null>(null);
   const secondaryMtimeRef = useRef<number | null>(null);
-  const sourceRef = useRef(source);
-  const savedSourceRef = useRef(savedSource);
-  const secondarySourceRef = useRef(secondarySource);
-  const secondarySavedRef = useRef(secondarySavedSource);
-  sourceRef.current = source;
-  savedSourceRef.current = savedSource;
-  secondarySourceRef.current = secondarySource;
-  secondarySavedRef.current = secondarySavedSource;
-  const setPrimarySource = useCallback((value: string) => {
-    sourceRef.current = value;
-    setSource(value);
-  }, []);
-  const setSecondarySourceLive = useCallback((value: string) => {
-    secondarySourceRef.current = value;
-    setSecondarySource(value);
-  }, []);
   const registerVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
     visualMarkdownFlushRef.current = flush;
   }, []);
@@ -2632,8 +2595,7 @@ function App() {
     if (visualMarkdownFlushRef.current?.() === false) return true;
     if (owner === "file") return sourceRef.current !== savedSourceRef.current;
     if (owner === "paper") {
-      return paperMarkdownRef.current !== savedPaperMarkdownRef.current
-        || paperBlogRef.current !== savedPaperBlogRef.current;
+      return paperBuffersDirty();
     }
     return false;
   }, []);
@@ -2695,7 +2657,11 @@ function App() {
       && projectRef.current?.root === projectRoot
     );
     const previousPath = activeFileRef.current;
-    const showLoadedDocument = () => {
+    const showLoadedDocument = (content: string) => {
+      showPrimaryText(path, content);
+      addOpenTab(path);
+      closePaper();
+      showActiveAsset(null);
       setCanvasMode((mode) => {
         if (isHtmlFilePath(path)) return htmlViewModesRef.current.get(path) ?? "pdf";
         if (isPreviewableSourceFilePath(path)) return documentModeRef.current;
@@ -2704,10 +2670,9 @@ function App() {
         if (mode === "asset") return "split";
         return mode;
       });
-    };
-    const requestLineNavigation = () => {
-      if (options?.navigateToLine === undefined) return;
-      setEditorNavigation({ path, line: options.navigateToLine, id: crypto.randomUUID() });
+      if (options?.navigateToLine !== undefined) {
+        setEditorNavigation({ path, line: options.navigateToLine, id: crypto.randomUUID() });
+      }
     };
     try {
       const v2 = collabV2ControllerRef.current;
@@ -2726,19 +2691,9 @@ function App() {
         });
         if (!isLatestLoad() || options?.canCommit?.() === false) return false;
         const content = ytext.toString();
-        sourceRef.current = content;
-        savedSourceRef.current = content;
-        activeFileRef.current = path;
-        setActiveFile(path);
-        setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
-        setSource(content);
-        setSavedSource(content);
-        setActivePaper(null);
-        setActiveAsset(null);
+        showLoadedDocument(content);
         setCollabSession(v2);
         setCollabReady(true);
-        showLoadedDocument();
-        requestLineNavigation();
         collabDetachRef.current?.();
         const writeRemote = (remote: string) => {
           const lease = collabWorkspaceLeaseRef.current;
@@ -2773,21 +2728,7 @@ function App() {
         options?.gate ?? Promise.resolve(true),
       ]);
       if (!gateOk || !isLatestLoad() || options?.canCommit?.() === false) return false;
-      sourceRef.current = content;
-      savedSourceRef.current = content;
-      activeFileRef.current = path;
-      setActiveFile(path);
-      setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
-      setSource(content);
-      setSavedSource(content);
-      setActivePaper(null);
-      setActiveAsset(null);
-      setPaperMarkdown("");
-      setSavedPaperMarkdown("");
-      setPaperBlog(null);
-      setSavedPaperBlog(null);
-      showLoadedDocument();
-      requestLineNavigation();
+      showLoadedDocument(content);
       setError(null);
       // Where you last were in this file, unless the caller is about to send
       // you somewhere specific in it. Both land as requests the editor answers
@@ -2874,9 +2815,7 @@ function App() {
 
     if (initialPlan.deletedSecondary) {
       secondaryFileRef.current = null;
-      setSecondaryFile(null);
-      setSecondarySource("");
-      setSecondarySavedSource("");
+      showSecondaryText(null);
       setFocusedPane("primary");
     }
     if (initialPlan.deletedActive) {
@@ -3056,85 +2995,70 @@ function App() {
       const secondaryPath = secondaryFileRef.current;
       const currentSecondarySource = secondarySourceRef.current;
       const currentSecondarySavedSource = secondarySavedRef.current;
-      const currentPaperMarkdown = paperMarkdownRef.current;
-      const currentSavedPaperMarkdown = savedPaperMarkdownRef.current;
-      const currentPaperBlog = paperBlogRef.current;
-      const currentSavedPaperBlog = savedPaperBlogRef.current;
-      let wroteTex = false;
-      let wroteBib = false;
-      let wroteSemanticSource = false;
+      const paperBuffers = [
+        ["fulltext", paperMarkdownRef.current, savedPaperMarkdownRef.current],
+        ["blog", paperBlogRef.current, savedPaperBlogRef.current],
+      ] as const;
       const writtenPaths: string[] = [];
+      /** Writes an editor buffer, through the share's disk queue when one is live. */
+      const writeEditorText = (path: string, content: string, baseContent: string, mutationGeneration: number) => {
+        const write = () => invoke<EditorWriteResult>("write_project_file", {
+          path,
+          content,
+          baseContent,
+          projectRoot: workspaceLease?.projectRoot ?? project.root,
+        });
+        return workspaceLease
+          ? collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, path, () => (
+            mutationGeneration === collabPathMutationGeneration(path) ? write() : Promise.resolve(undefined)
+          ))
+          : write();
+      };
+      const formatForSave = (path: string, content: string) => (
+        /\.bib$/i.test(path) ? formatBibDocument(content) : content
+      );
+      const mergeIntoActiveYText = (path: string, content: string) => {
+        if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === path) {
+          mergeTextIntoYText(collabSessionRef.current.ytext, content);
+        }
+      };
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
         const mutationGeneration = collabPathMutationGeneration(primaryPath);
-        const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource) : primarySource;
+        const content = formatForSave(primaryPath, primarySource);
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
         // edit, not be replaced by the formatted snapshot when the write returns.
         if (content !== primarySource) {
-          if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === primaryPath) {
-            mergeTextIntoYText(collabSessionRef.current.ytext, content);
-          }
-          sourceRef.current = content;
-          setSource(content);
+          mergeIntoActiveYText(primaryPath, content);
+          setPrimarySource(content);
         }
-        let writeResult: EditorWriteResult | undefined;
-        if (workspaceLease) {
-          writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, primaryPath, () => (
-            mutationGeneration === collabPathMutationGeneration(primaryPath)
-              ? invoke<EditorWriteResult>("write_project_file", {
-                path: primaryPath,
-                content,
-                baseContent: primarySavedSource,
-                projectRoot: workspaceLease.projectRoot,
-              })
-              : Promise.resolve(undefined)
-          ));
-        } else {
-          writeResult = await invoke<EditorWriteResult>("write_project_file", {
-            path: primaryPath,
-            content,
-            baseContent: primarySavedSource,
-            projectRoot: project.root,
-          });
-        }
+        const writeResult = await writeEditorText(primaryPath, content, primarySavedSource, mutationGeneration);
         if (mutationGeneration !== collabPathMutationGeneration(primaryPath)) return true;
         const writtenSource = writeResult?.content ?? content;
         if (writtenSource !== content && activeFileRef.current === primaryPath && sourceRef.current === content) {
-          if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === primaryPath) {
-            mergeTextIntoYText(collabSessionRef.current.ytext, writtenSource);
-          }
-          sourceRef.current = writtenSource;
-          setSource(writtenSource);
+          mergeIntoActiveYText(primaryPath, writtenSource);
+          setPrimarySource(writtenSource);
         }
-        if (writeResult?.hadConflicts) {
-          setWarning(externalEditConflictMessage(primaryPath));
-        }
+        if (writeResult?.hadConflicts) setWarning(externalEditConflictMessage(primaryPath));
         // Do NOT push the active buffer into Yjs here. It is already synced
         // character-by-character by yCollab. Re-publishing it as a full
         // delete+insert of the whole Y.Text on every autosave collapses remote
         // carets and bounces recompiles between peers (the "cursors freeze /
         // PDF re-renders forever" bug). Only formatting and a backend three-way
         // merge are applied above because those edits never reached Yjs.
-        savedSourceRef.current = writtenSource;
-        setSavedSource(writtenSource);
+        setPrimarySaved(writtenSource);
         if (activeCollabVersion === 2) await collabV2ControllerRef.current?.settled();
         // Force the detector to inspect the next filesystem version. An Agent
         // may finish another atomic write after the backend response but before
         // a post-save stat; recording that newer mtime without reading it would
         // hide the Agent edit indefinitely.
         diskMtimeRef.current = -1;
-        wroteTex = wroteTex || primaryPath.endsWith(".tex");
-        wroteBib = wroteBib || /\.bib$/i.test(primaryPath);
-        wroteSemanticSource = /\.(?:md|mdx|tex)$/i.test(primaryPath);
         writtenPaths.push(primaryPath);
       }
       if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource
         && secondaryFileRef.current === secondaryPath && secondarySourceRef.current === currentSecondarySource) {
         const mutationGeneration = collabPathMutationGeneration(secondaryPath);
-        const content = /\.bib$/i.test(secondaryPath) ? formatBibDocument(currentSecondarySource) : currentSecondarySource;
-        if (content !== currentSecondarySource) {
-          secondarySourceRef.current = content;
-          setSecondarySource(content);
-        }
+        const content = formatForSave(secondaryPath, currentSecondarySource);
+        if (content !== currentSecondarySource) setSecondarySourceLive(content);
         // A visible secondary text editor has its own yCollab binding. Its
         // Y.Text is already current, so saving mirrors that buffer to disk
         // without replacing a concurrently edited shared span.
@@ -3144,26 +3068,7 @@ function App() {
         if (content !== currentSecondarySource && secondaryBinding && secondarySourceRef.current === content) {
           mergeTextIntoYText(secondaryBinding.ytext, content);
         }
-        let writeResult: EditorWriteResult | undefined;
-        if (workspaceLease) {
-          writeResult = await collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, secondaryPath, () => (
-            mutationGeneration === collabPathMutationGeneration(secondaryPath)
-              ? invoke<EditorWriteResult>("write_project_file", {
-                path: secondaryPath,
-                content,
-                baseContent: currentSecondarySavedSource,
-                projectRoot: workspaceLease.projectRoot,
-              })
-              : Promise.resolve(undefined)
-          ));
-        } else {
-          writeResult = await invoke<EditorWriteResult>("write_project_file", {
-            path: secondaryPath,
-            content,
-            baseContent: currentSecondarySavedSource,
-            projectRoot: project.root,
-          });
-        }
+        const writeResult = await writeEditorText(secondaryPath, content, currentSecondarySavedSource, mutationGeneration);
         if (mutationGeneration !== collabPathMutationGeneration(secondaryPath)) return true;
         const writtenSource = writeResult?.content ?? content;
         const secondaryUnchanged = secondaryFileRef.current === secondaryPath && secondarySourceRef.current === content;
@@ -3172,51 +3077,21 @@ function App() {
           else await publishTextToCollabV2(secondaryPath, writtenSource, mutationGeneration);
           await collabV2ControllerRef.current?.settled();
         }
-        if (writtenSource !== content && secondaryUnchanged) {
-          secondarySourceRef.current = writtenSource;
-          setSecondarySource(writtenSource);
-        }
-        if (writeResult?.hadConflicts) {
-          setWarning(externalEditConflictMessage(secondaryPath));
-        }
+        if (writtenSource !== content && secondaryUnchanged) setSecondarySourceLive(writtenSource);
+        if (writeResult?.hadConflicts) setWarning(externalEditConflictMessage(secondaryPath));
         // The project-transition late-edit check runs in the same async turn
         // as this save, before React is guaranteed to commit the state setter.
-        secondarySavedRef.current = writtenSource;
-        setSecondarySavedSource(writtenSource);
+        setSecondarySaved(writtenSource);
         secondaryMtimeRef.current = -1;
-        wroteTex = wroteTex || secondaryPath.endsWith(".tex");
-        wroteBib = wroteBib || /\.bib$/i.test(secondaryPath);
-        wroteSemanticSource = wroteSemanticSource || /\.(?:md|mdx|tex)$/i.test(secondaryPath);
         writtenPaths.push(secondaryPath);
       }
-      if (activePaper && currentPaperMarkdown !== currentSavedPaperMarkdown) {
-        const path = `.research/papers/${activePaper.arxivId}/paper.md`;
-        const published = await publishTextToCollabV2(path, currentPaperMarkdown);
-        if (!published) {
-          await invoke("write_project_file", {
-            path,
-            content: currentPaperMarkdown,
-            projectRoot: project.root,
-          });
+      for (const [view, content, savedContent] of activePaper ? paperBuffers : []) {
+        if (content === null || content === savedContent) continue;
+        const path = paperDocumentPath(activePaper!.arxivId, view);
+        if (!(await publishTextToCollabV2(path, content))) {
+          await invoke("write_project_file", { path, content, projectRoot: project.root });
         }
-        savedPaperMarkdownRef.current = currentPaperMarkdown;
-        setSavedPaperMarkdown(currentPaperMarkdown);
-        wroteSemanticSource = true;
-        writtenPaths.push(path);
-      }
-      if (activePaper && currentPaperBlog !== null && currentPaperBlog !== currentSavedPaperBlog) {
-        const path = `.research/papers/${activePaper.arxivId}/blog.md`;
-        const published = await publishTextToCollabV2(path, currentPaperBlog);
-        if (!published) {
-          await invoke("write_project_file", {
-            path,
-            content: currentPaperBlog,
-            projectRoot: project.root,
-          });
-        }
-        savedPaperBlogRef.current = currentPaperBlog;
-        setSavedPaperBlog(currentPaperBlog);
-        wroteSemanticSource = true;
+        markPaperSaved(view, content);
         writtenPaths.push(path);
       }
       if (!writtenPaths.length) return true;
@@ -3224,8 +3099,12 @@ function App() {
       // Saving must only wait for durable writes. The derived sidebars are
       // useful, but making file switches and builds wait on six independent
       // project scans turned every save into a visible pause.
-      refreshAfterSave(project.root, wroteTex, wroteBib);
-      if (wroteSemanticSource) requestSemanticReindex();
+      refreshAfterSave(
+        project.root,
+        writtenPaths.some((path) => path.endsWith(".tex")),
+        writtenPaths.some((path) => /\.bib$/i.test(path)),
+      );
+      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) requestSemanticReindex();
       return true;
     } catch (reason) {
       // Autosave runs constantly, so this path gets a plain notification rather
@@ -3244,11 +3123,16 @@ function App() {
     collabPathMutationGeneration,
     collabSession,
     externalEditConflictMessage,
+    markPaperSaved,
     project,
     publishTextToCollabV2,
     recordSavedPaths,
     refreshAfterSave,
     requestSemanticReindex,
+    setPrimarySaved,
+    setPrimarySource,
+    setSecondarySaved,
+    setSecondarySourceLive,
   ]);
   // Keep activity tracking outside the save body: React Compiler cannot lower
   // try/finally, while Promise.finally still covers every early return/error.
@@ -3277,16 +3161,10 @@ function App() {
     }
     if (pane === "primary") {
       if (activeFileRef.current !== path) return;
-      sourceRef.current = content;
-      savedSourceRef.current = content;
-      setSource(content);
-      setSavedSource(content);
+      commitPrimaryText(content);
     } else {
       if (secondaryFileRef.current !== path) return;
-      secondarySourceRef.current = content;
-      secondarySavedRef.current = content;
-      setSecondarySource(content);
-      setSecondarySavedSource(content);
+      commitSecondaryText(content);
     }
   }, [activeCollabVersion]);
 
@@ -3294,8 +3172,7 @@ function App() {
     hasLateProjectTransitionEditRef.current = () => {
       if (visualMarkdownFlushRef.current?.() === false) return true;
       const primaryDirty = activePaper
-        ? paperMarkdownRef.current !== savedPaperMarkdownRef.current
-          || paperBlogRef.current !== savedPaperBlogRef.current
+        ? paperBuffersDirty()
         : !activeAsset && sourceRef.current !== savedSourceRef.current;
       return primaryDirty || secondarySourceRef.current !== secondarySavedRef.current;
     };
@@ -3473,10 +3350,8 @@ function App() {
           const ytext = await controller.openPath(path, "secondary", { sideload: true });
           if (!isLatestSecondaryLoad()) return;
           const content = ytext.toString();
-          setSecondaryFile(path);
-          setSecondarySource(content);
-          setSecondarySavedSource(content);
-          setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
+          showSecondaryText(path, content);
+          addOpenTab(path);
           setFocusedPane("secondary");
           setError(null);
           // Same commit as the content, like the plain read below: a jump asked
@@ -3519,10 +3394,8 @@ function App() {
       try {
         const content = await invoke<string>("read_project_file", { path, projectRoot });
         if (!isLatestSecondaryLoad()) return;
-        setSecondaryFile(path);
-        setSecondarySource(content);
-        setSecondarySavedSource(content);
-        setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
+        showSecondaryText(path, content);
+        addOpenTab(path);
         setFocusedPane("secondary");
         setError(null);
         if (line) {
@@ -3619,12 +3492,10 @@ function App() {
     let gate: Promise<boolean> | undefined;
     const primaryDirty = sourceRef.current !== savedSourceRef.current
       || (Boolean(activePaper) && (
-        paperMarkdownRef.current !== savedPaperMarkdownRef.current
-        || paperBlogRef.current !== savedPaperBlogRef.current
+        paperBuffersDirty()
       ));
     const targetAliasesDirtyPaper = Boolean(activePaper) && (
-      paperMarkdownRef.current !== savedPaperMarkdownRef.current
-      || paperBlogRef.current !== savedPaperBlogRef.current
+      paperBuffersDirty()
     ) && (
       path === `.research/papers/${activePaper?.arxivId}/paper.md`
       || path === `.research/papers/${activePaper?.arxivId}/blog.md`
@@ -4252,20 +4123,6 @@ function App() {
     };
     const textDecoder = new TextDecoder("utf-8", { fatal: true });
     const textEncoder = new TextEncoder();
-    const setOpenBuffer = (path: string, content: string) => {
-      if (activeFileRef.current === path) {
-        sourceRef.current = content;
-        savedSourceRef.current = content;
-        setSource(content);
-        setSavedSource(content);
-      }
-      if (secondaryFileRef.current === path) {
-        secondarySourceRef.current = content;
-        secondarySavedRef.current = content;
-        setSecondarySource(content);
-        setSecondarySavedSource(content);
-      }
-    };
     const catalogKindForNewPath = (action: OverleafPreparedAction): OverleafAuthoritativeEntry["kind"] => {
       const lower = action.path.toLocaleLowerCase("en-US");
       if (action.binary) return "binary";
@@ -4383,7 +4240,7 @@ function App() {
           const content = textDecoder.decode(base64ToBytes(afterBase64));
           await controller.create(action.path, kind, { seedText: content });
           await local.writeText(action.path, content, projectRoot);
-          setOpenBuffer(action.path, content);
+          commitOpenText(action.path, content);
         }
         acceptedActions.push({ actionId: action.actionId, base64: afterBase64 });
         acceptedPaths.add(action.path);
@@ -4442,7 +4299,7 @@ function App() {
               }
             }
             await local.writeText(action.path, canonical, projectRoot);
-            setOpenBuffer(action.path, canonical);
+            commitOpenText(action.path, canonical);
             acceptedActions.push({
               actionId: action.actionId,
               base64: bytesToBase64(textEncoder.encode(canonical)),
@@ -4466,7 +4323,7 @@ function App() {
           }
           const canonical = await collabBindingContent(binding, collabKind);
           await local.writeText(action.path, canonical, projectRoot);
-          setOpenBuffer(action.path, canonical);
+          commitOpenText(action.path, canonical);
           acceptedActions.push({
             actionId: action.actionId,
             base64: bytesToBase64(textEncoder.encode(canonical)),
@@ -4779,20 +4636,7 @@ function App() {
       throw new Error(`Open Slide sent an incomplete edit for ${mutation.path}.`);
     }
 
-    if (canonicalText !== undefined) {
-      if (activeFileRef.current === mutation.path) {
-        sourceRef.current = canonicalText;
-        savedSourceRef.current = canonicalText;
-        setSource(canonicalText);
-        setSavedSource(canonicalText);
-      }
-      if (secondaryFileRef.current === mutation.path) {
-        secondarySourceRef.current = canonicalText;
-        secondarySavedRef.current = canonicalText;
-        setSecondarySource(canonicalText);
-        setSecondarySavedSource(canonicalText);
-      }
-    }
+    if (canonicalText !== undefined) commitOpenText(mutation.path, canonicalText);
     if (hadConflicts) {
       setWarning(`Open Slide and another editor changed the same lines in ${mutation.path}; Lattice kept both with conflict markers.`);
     }
@@ -5169,15 +5013,10 @@ function App() {
       setDiskTodos([]);
       setTodosOpen(false);
       setActivePaper(null);
-      setActiveAsset(null);
-      setSecondaryAsset(null);
-      setPaperMarkdown("");
-      setSavedPaperMarkdown("");
-      setPaperBlog(null);
-      setSavedPaperBlog(null);
-      setSecondaryFile(null);
-      setSecondarySource("");
-      setSecondarySavedSource("");
+      showActiveAsset(null);
+      showSecondaryAsset(null);
+      setPaperBuffers("", null);
+      showSecondaryText(null);
       setFocusedPane("primary");
       setOpenTabs([]);
       setPinnedTabs([]);
@@ -5324,17 +5163,13 @@ function App() {
             || fileLoadGenerationRef.current !== appliedPrimaryGeneration
             || secondaryFileLoadGenerationRef.current !== secondaryRestoreGeneration
           ) return;
-          setSecondaryFile(secondaryFile);
-          setSecondarySource(content);
-          setSecondarySavedSource(content);
+          showSecondaryText(secondaryFile, content);
         } catch {
           if (
             ownsProjectRestore()
             && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration
           ) {
-            setSecondaryFile(null);
-            setSecondarySource("");
-            setSecondarySavedSource("");
+            showSecondaryText(null);
           }
         }
       }
@@ -6311,8 +6146,7 @@ function App() {
       ]);
       const paperPath = `.research/papers/${paper.arxivId}/paper.md`;
       const blogPath = `.research/papers/${paper.arxivId}/blog.md`;
-      const activePaperBufferDirty = paperMarkdownRef.current !== savedPaperMarkdownRef.current
-        || paperBlogRef.current !== savedPaperBlogRef.current;
+      const activePaperBufferDirty = paperBuffersDirty();
       const targetAliasesDirtyBuffer = (
         activePaper?.arxivId === paper.arxivId && activePaperBufferDirty
       ) || (
@@ -6345,10 +6179,7 @@ function App() {
       // interval, keep it on screen for autosave instead of replacing it with
       // the Paper and dropping the late edit.
       if (flushAndCheckPrimaryDirty(activePaper ? "paper" : activeAsset ? "asset" : "file")) return null;
-      setPaperMarkdown(fullText);
-      setSavedPaperMarkdown(fullText);
-      setPaperBlog(blog);
-      setSavedPaperBlog(blog);
+      setPaperBuffers(fullText, blog);
       setPaperView((current) => (
         current === "fulltext" && fullText
           ? "fulltext"
@@ -6359,11 +6190,11 @@ function App() {
       if (!fullText && blog) setNotice("Full paper text is unavailable; showing the overview instead.");
       setActivePaper(paper);
       setPaperSide("left");
-      setActiveAsset(null);
+      showActiveAsset(null);
       setFocusedPane("primary");
       setCanvasMode("pdf");
       const key = paperTabKey(paper.arxivId);
-      setOpenTabs((tabs) => (tabs.includes(key) ? tabs : [...tabs, key]));
+      addOpenTab(key);
       recordNavigationTiming("paper", paper.title, switchStartedAt, {
         openingPaintMs,
         flushMs,
@@ -6482,13 +6313,9 @@ function App() {
       if (!isLatestLoad()) return false;
       const asset = await invoke<AssetPreview>("read_project_asset", { path });
       if (!isLatestLoad() || flushAndCheckPrimaryDirty(activePaper ? "paper" : activeAsset ? "asset" : "file")) return false;
-      setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path]));
-      setActiveAsset(asset);
-      setActivePaper(null);
-      setPaperMarkdown("");
-      setSavedPaperMarkdown("");
-      setPaperBlog(null);
-      setSavedPaperBlog(null);
+      addOpenTab(path);
+      showActiveAsset(asset);
+      closePaper();
       setCanvasMode("asset");
       setError(null);
       return true;
@@ -6550,17 +6377,6 @@ function App() {
       && projectOperationGenerationRef.current === projectGeneration
       && projectRef.current?.root === projectRoot
     );
-    const clearSecondaryPane = () => {
-      secondaryFileLoadGenerationRef.current += 1;
-      secondaryFileRef.current = null;
-      secondarySourceRef.current = "";
-      secondarySavedRef.current = "";
-      secondaryAssetRef.current = null;
-      setSecondaryFile(null);
-      setSecondarySource("");
-      setSecondarySavedSource("");
-      setSecondaryAsset(null);
-    };
     const sourceContent = (
       sourcePath: string,
       content: string,
@@ -6730,8 +6546,7 @@ function App() {
           primaryLoadGeneration = fileLoadGenerationRef.current;
           await opening;
           if (!isCurrentDrop() || activeFileRef.current !== path) return;
-          activeAssetRef.current = null;
-          setActiveAsset(null);
+          showActiveAsset(null);
           const standaloneMode = options?.preservePreview ? "pdf" : "source";
           if (isHtmlFilePath(path)) htmlViewModesRef.current.set(path, standaloneMode);
           else documentModeRef.current = standaloneMode;
@@ -6739,6 +6554,7 @@ function App() {
         }
         temporarilyPromotedSplitRef.current = null;
         setDualPanePreview(null);
+        secondaryFileLoadGenerationRef.current += 1;
         clearSecondaryPane();
         setFocusedPane("primary");
         return true;
@@ -6775,14 +6591,8 @@ function App() {
         });
         if (!openedPrimary || !isCurrentDrop()) return;
         secondaryFileLoadGenerationRef.current += 1;
-        secondaryFileRef.current = path;
-        secondarySourceRef.current = outgoingSource;
-        secondarySavedRef.current = outgoingSavedSource;
-        secondaryAssetRef.current = null;
-        setSecondaryFile(path);
-        setSecondarySource(outgoingSource);
-        setSecondarySavedSource(outgoingSavedSource);
-        setSecondaryAsset(null);
+        showSecondaryText(path, outgoingSource, outgoingSavedSource);
+        showSecondaryAsset(null);
         documentModeRef.current = "dual";
         if (!hasExistingPaneDivider) {
           setDualRatioResetGeneration((generation) => generation + 1);
@@ -6833,42 +6643,27 @@ function App() {
         fileLoadGenerationRef.current += 1;
         primaryLoadGeneration = fileLoadGenerationRef.current;
         setPrimaryOpening(null);
-        paperMarkdownRef.current = arrangedPaper.markdown;
-        savedPaperMarkdownRef.current = arrangedPaper.savedMarkdown;
-        paperBlogRef.current = arrangedPaper.blog;
-        savedPaperBlogRef.current = arrangedPaper.savedBlog;
-        setPaperMarkdown(arrangedPaper.markdown);
-        setSavedPaperMarkdown(arrangedPaper.savedMarkdown);
-        setPaperBlog(arrangedPaper.blog);
-        setSavedPaperBlog(arrangedPaper.savedBlog);
+        setPaperBuffers(
+          arrangedPaper.markdown,
+          arrangedPaper.blog,
+          arrangedPaper.savedMarkdown,
+          arrangedPaper.savedBlog,
+        );
         setPaperView(arrangedPaper.view);
         setActivePaper(arrangedPaper.paper);
         setPaperSide(left.kind === "paper" ? "left" : "right");
-        activeAssetRef.current = null;
-        setActiveAsset(null);
-        setOpenTabs((tabs) => tabs.includes(arrangedPaper.path) ? tabs : [...tabs, arrangedPaper.path]);
+        showActiveAsset(null);
+        addOpenTab(arrangedPaper.path);
 
         secondaryFileLoadGenerationRef.current += 1;
         if (other.kind === "source") {
-          secondaryFileRef.current = other.path;
-          secondarySourceRef.current = other.source;
-          secondarySavedRef.current = other.savedSource;
-          secondaryAssetRef.current = null;
-          setSecondaryFile(other.path);
-          setSecondarySource(other.source);
-          setSecondarySavedSource(other.savedSource);
-          setSecondaryAsset(null);
+          showSecondaryText(other.path, other.source, other.savedSource);
+          showSecondaryAsset(null);
         } else if (other.kind === "asset") {
-          secondaryFileRef.current = null;
-          secondarySourceRef.current = "";
-          secondarySavedRef.current = "";
-          secondaryAssetRef.current = other.asset;
-          setSecondaryFile(null);
-          setSecondarySource("");
-          setSecondarySavedSource("");
-          setSecondaryAsset(other.asset);
+          showSecondaryText(null);
+          showSecondaryAsset(other.asset);
         }
-        setOpenTabs((tabs) => tabs.includes(other.path) ? tabs : [...tabs, other.path]);
+        addOpenTab(other.path);
         documentModeRef.current = "dual";
         if (!hasExistingPaneDivider) {
           setDualRatioResetGeneration((generation) => generation + 1);
@@ -6886,43 +6681,25 @@ function App() {
         primaryLoadGeneration = fileLoadGenerationRef.current;
         await opening;
         if (!isCurrentDrop() || activeFileRef.current !== left.path) return;
-        activeAssetRef.current = null;
-        setActiveAsset(null);
+        showActiveAsset(null);
       } else {
         fileLoadGenerationRef.current += 1;
         primaryLoadGeneration = fileLoadGenerationRef.current;
         setPrimaryOpening(null);
-        activeAssetRef.current = left.asset;
-        setActiveAsset(left.asset);
-        setActivePaper(null);
-        setPaperMarkdown("");
-        setSavedPaperMarkdown("");
-        setPaperBlog(null);
-        setSavedPaperBlog(null);
-        setOpenTabs((tabs) => (tabs.includes(left.path) ? tabs : [...tabs, left.path]));
+        showActiveAsset(left.asset);
+        closePaper();
+        addOpenTab(left.path);
       }
 
       secondaryFileLoadGenerationRef.current += 1;
       if (right.kind === "source") {
-        secondaryFileRef.current = right.path;
-        secondarySourceRef.current = right.source;
-        secondarySavedRef.current = right.savedSource;
-        secondaryAssetRef.current = null;
-        setSecondaryFile(right.path);
-        setSecondarySource(right.source);
-        setSecondarySavedSource(right.savedSource);
-        setSecondaryAsset(null);
-        setOpenTabs((tabs) => (tabs.includes(right.path) ? tabs : [...tabs, right.path]));
+        showSecondaryText(right.path, right.source, right.savedSource);
+        showSecondaryAsset(null);
+        addOpenTab(right.path);
       } else {
-        secondaryFileRef.current = null;
-        secondarySourceRef.current = "";
-        secondarySavedRef.current = "";
-        secondaryAssetRef.current = right.asset;
-        setSecondaryFile(null);
-        setSecondarySource("");
-        setSecondarySavedSource("");
-        setSecondaryAsset(right.asset);
-        setOpenTabs((tabs) => (tabs.includes(right.path) ? tabs : [...tabs, right.path]));
+        showSecondaryText(null);
+        showSecondaryAsset(right.asset);
+        addOpenTab(right.path);
       }
       documentModeRef.current = "dual";
       if (!hasExistingPaneDivider) {
@@ -7040,8 +6817,7 @@ function App() {
       // behind a successful save and fallback load.
       if (visualMarkdownFlushRef.current?.() === false) return;
       if (
-        (paperMarkdownRef.current !== savedPaperMarkdownRef.current
-          || paperBlogRef.current !== savedPaperBlogRef.current)
+        (paperBuffersDirty())
         && !(await save())
       ) return;
       if (fileLoadGenerationRef.current !== loadGeneration) return;
@@ -7055,11 +6831,7 @@ function App() {
         if (!applied) return;
         setFocusedPane("primary");
       } else {
-        setActivePaper(null);
-        setPaperMarkdown("");
-        setSavedPaperMarkdown("");
-        setPaperBlog(null);
-        setSavedPaperBlog(null);
+        closePaper();
         setCanvasMode((mode) => mode === "pdf" ? "split" : mode);
       }
     }
@@ -7069,23 +6841,16 @@ function App() {
     if (isPaperTabKey(path)) return;
     if (projectAssetPaths.has(path)) {
       if (secondaryAsset?.path === path) {
-        secondaryAssetRef.current = null;
-        setSecondaryAsset(null);
+        showSecondaryAsset(null);
         setFocusedPane("primary");
         setCanvasMode(activeAsset ? "asset" : "source");
         return;
       }
       if (activeAsset?.path === path) {
-        activeAssetRef.current = null;
-        setActiveAsset(null);
+        showActiveAsset(null);
         if (canvasMode === "dual" || canvasMode === "columns") {
           if (secondaryFile === activeFile) {
-            secondaryFileRef.current = null;
-            secondarySourceRef.current = "";
-            secondarySavedRef.current = "";
-            setSecondaryFile(null);
-            setSecondarySource("");
-            setSecondarySavedSource("");
+            showSecondaryText(null);
             setCanvasMode("source");
           }
           setFocusedPane("primary");
@@ -7095,12 +6860,7 @@ function App() {
       return;
     }
     if (path === secondaryFile) {
-      secondaryFileRef.current = null;
-      secondarySourceRef.current = "";
-      secondarySavedRef.current = "";
-      setSecondaryFile(null);
-      setSecondarySource("");
-      setSecondarySavedSource("");
+      showSecondaryText(null);
       setFocusedPane("primary");
       if (path !== activeFile) return;
     }
@@ -7431,10 +7191,8 @@ function App() {
       ? (await controller.openPath(candidate, "secondary", { sideload: true })).toString()
       : await invoke<string>("read_project_file", { path: candidate, projectRoot });
     if (!isLatestRequest()) return null;
-    setSecondaryFile(candidate);
-    setSecondarySource(content);
-    setSecondarySavedSource(content);
-    setOpenTabs((tabs) => (tabs.includes(candidate) ? tabs : [...tabs, candidate]));
+    showSecondaryText(candidate, content);
+    addOpenTab(candidate);
     return candidate;
   }, [activeCollabVersion, openTabs, projectAssetPaths, secondaryFile]);
 
@@ -7560,16 +7318,12 @@ function App() {
         : mode;
       if (isHtmlFilePath(activeFile)) htmlViewModesRef.current.set(activeFile, nextMode);
       else documentModeRef.current = nextMode;
-      setActiveAsset(null);
-      setActivePaper(null);
-      setPaperMarkdown("");
-      setSavedPaperMarkdown("");
-      setPaperBlog(null);
-      setSavedPaperBlog(null);
+      showActiveAsset(null);
+      closePaper();
       // PDF can stand alone without a source tab. Returning to any source-backed
       // view restores the active document to the strip before rendering it.
       if (nextMode !== "pdf" && activeFile) {
-        setOpenTabs((tabs) => (tabs.includes(activeFile) ? tabs : [...tabs, activeFile]));
+        addOpenTab(activeFile);
       }
       if (nextMode === "dual" || nextMode === "columns") {
         try {
@@ -7649,9 +7403,7 @@ function App() {
       // Re-reading it added an IPC round trip and left a stale continuation
       // capable of committing only half of a pane swap.
       const secondaryContent = outgoingPrimary;
-      setSecondaryFile(nextSecondary);
-      setSecondarySource(secondaryContent);
-      setSecondarySavedSource(secondaryContent);
+      showSecondaryText(nextSecondary, secondaryContent);
       setOpenTabs((tabs) => {
         const next = new Set(tabs);
         next.add(nextPrimary);
@@ -8163,19 +7915,11 @@ function App() {
         setSavedSource("");
       }
       if (deletedActiveAsset) {
-        activeAssetRef.current = null;
-        setActiveAsset(null);
+        showActiveAsset(null);
       }
       if (deletedSecondaryFile || deletedSecondaryAsset) {
         secondaryFileLoadGenerationRef.current += 1;
-        secondaryFileRef.current = null;
-        secondarySourceRef.current = "";
-        secondarySavedRef.current = "";
-        secondaryAssetRef.current = null;
-        setSecondaryFile(null);
-        setSecondarySource("");
-        setSecondarySavedSource("");
-        setSecondaryAsset(null);
+        clearSecondaryPane();
         setFocusedPane("primary");
         if (
           (canvasMode === "dual" || canvasMode === "columns")
@@ -8275,9 +8019,7 @@ function App() {
     }));
     setOpenTabs((tabs) => tabs.map(remapPath));
     setPinnedTabs((tabs) => [...new Set(tabs.map(remapPath))]);
-    setSecondaryFile((path) => path ? remapPath(path) : path);
-    setActiveFile((path) => remapPath(path));
-    setActiveAsset((asset) => asset ? { ...asset, path: remapPath(asset.path) } : asset);
+    remapOpenPaths(remapPath);
     setNavStack((entries) => entries.map((entry) => ({ ...entry, path: remapPath(entry.path) })));
     setViewRestore((request) => request ? { ...request, path: remapPath(request.path) } : request);
     setOutlineSources((current) => Object.fromEntries(
@@ -8297,11 +8039,7 @@ function App() {
       [...viewStateRef.current].map(([path, state]) => [remapPath(path), state]),
     );
     scheduleFileViewStatePersistence();
-    activeFileRef.current = remapPath(activeFileRef.current);
-    secondaryFileRef.current = secondaryFileRef.current
-      ? remapPath(secondaryFileRef.current)
-      : null;
-  }, [invalidateFileViewStateCallbacks, scheduleFileViewStatePersistence]);
+  }, [invalidateFileViewStateCallbacks, remapOpenPaths, scheduleFileViewStatePersistence]);
 
   const renameProjectEntry = useCallback(async (path: string, name: string) => {
     projectTreeMutationCountRef.current += 1;
@@ -8927,24 +8665,14 @@ function App() {
           ? await publishTextToCollabV2(path, content)
           : false;
         if (!published && path === activeFile) {
-          sourceRef.current = content;
-          savedSourceRef.current = content;
-          setSource(content);
-          setSavedSource(content);
+          commitPrimaryText(content);
           await markDiskMtime(path);
         } else if (!published && path === secondaryFile) {
-          secondarySourceRef.current = content;
-          secondarySavedRef.current = content;
-          setSecondarySource(content);
-          setSecondarySavedSource(content);
+          commitSecondaryText(content);
         }
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) {
-        setActivePaper(null);
-        setPaperMarkdown("");
-        setSavedPaperMarkdown("");
-        setPaperBlog(null);
-        setSavedPaperBlog(null);
+        closePaper();
         setCanvasMode("split");
       }
       setError(null);
@@ -10647,14 +10375,7 @@ function App() {
             if (projectRootRef.current !== root) return;
             const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
             if (projectRootRef.current !== root) return;
-            if (activeFileRef.current === entry.path && sourceRef.current === savedSourceRef.current) {
-              sourceRef.current = content; savedSourceRef.current = content;
-              setSource(content); setSavedSource(content);
-            }
-            if (secondaryFileRef.current === entry.path && secondarySourceRef.current === secondarySavedRef.current) {
-              secondarySourceRef.current = content; secondarySavedRef.current = content;
-              setSecondarySource(content); setSecondarySavedSource(content);
-            }
+            commitCleanOpenText(entry.path, content);
             await publishTextToCollabV2(entry.path, content);
             // The drawer refreshes derived citation/history data once per
             // apply action (including bulk), outside the durable-write path.
