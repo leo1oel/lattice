@@ -67,6 +67,11 @@ Rust:
 different frontend hooks subscribe to it and filter by `type`
 (`src/overleaf/use-overleaf-realtime.ts:643`, `src/overleaf/use-overleaf-presence.ts:90`,
 `src/overleaf/use-overleaf-chat.ts:114`, `src/overleaf/use-overleaf-comments.ts:151`).
+Rust addresses each window's events with `emit_to`, but Tauri still delivers
+them to every untargeted listener, so subscribe only through
+`listenOverleafRealtime` (`src/overleaf/overleaf-realtime-listen.ts`), which
+scopes the listener to the current window — a bare `listen()` leaks one
+window's Overleaf project into every other open window.
 
 A fourth event, `trackpad-magnify`, is emitted from the macOS window layer
 (`src-tauri/src/macos_window.rs`) and consumed at `src/pdf/pdf-viewer.tsx:916`.
