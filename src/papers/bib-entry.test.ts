@@ -24,6 +24,23 @@ describe("bibliography entry drafting", () => {
 `);
   });
 
+  it("preserves balanced and TeX-escaped braces in modeled fields", () => {
+    expect(formatBibEntry({
+      type: "misc",
+      key: "protected",
+      title: "The {{NASA}} Set \\{x\\} {Study}",
+      author: "{{World Health Organization}} and Doe, Jane",
+      year: "2026",
+      note: "Drops unmatched } closing and { opening safely",
+    })).toBe(`@misc{protected,
+  title = {The {{NASA}} Set \\{x\\} {Study}},
+  author = {{{World Health Organization}} and Doe, Jane},
+  year = {2026},
+  note = {Drops unmatched  closing and  opening safely}
+}
+`);
+  });
+
   it("preserves extra fields without allowing modeled fields to reappear", () => {
     const formatted = formatBibEntry({
       type: "article",

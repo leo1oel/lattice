@@ -3165,6 +3165,7 @@ fn run_bibcite_cancellable(
             run_bibcite_input_cancellable(&isolated, query, false, cancel)?
         };
         let bibliography = fs::read_to_string(&isolated).map_err(err)?;
+        let bibliography = crate::citation_audit::prepare_import(&bibliography)?;
         let key = parse_citation_key(&output)
             .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
         validate_resolved_identity(query, &bibliography)?;
@@ -3252,7 +3253,8 @@ fn merge_resolved_citation(
         new_key = format!("{key}-{suffix}");
         suffix += 1;
     }
-    let raw = raw.trim();
+    let protected = crate::citation_audit::protect_bibtex(raw.trim());
+    let raw = protected.as_str();
     let opening = raw.find(['{', '(']).ok_or("Invalid citation entry.")?;
     let comma = raw.find(',').ok_or("Invalid citation key.")?;
     Ok((

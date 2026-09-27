@@ -27,7 +27,32 @@ export const BIB_ENTRY_TYPES: { value: BibEntryType; label: string }[] = [
 ];
 
 function escapeBibValue(value: string): string {
-  return value.replace(/[{}]/g, "");
+  const characters = [...value];
+  const unmatched = new Set<number>();
+  const openings: number[] = [];
+
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
+    if (character !== "{" && character !== "}") continue;
+
+    let precedingBackslashes = 0;
+    for (let cursor = index - 1; cursor >= 0 && characters[cursor] === "\\"; cursor -= 1) {
+      precedingBackslashes += 1;
+    }
+    // TeX escapes are literal braces and do not participate in grouping.
+    if (precedingBackslashes % 2 === 1) continue;
+
+    if (character === "{") {
+      openings.push(index);
+    } else if (openings.length > 0) {
+      openings.pop();
+    } else {
+      unmatched.add(index);
+    }
+  }
+
+  for (const index of openings) unmatched.add(index);
+  return characters.filter((_, index) => !unmatched.has(index)).join("");
 }
 
 export function slugifyCitationKey(title: string, author: string, year: string): string {

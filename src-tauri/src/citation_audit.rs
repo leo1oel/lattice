@@ -11,14 +11,15 @@ use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 mod proceedings;
+mod publication;
 
 const REPORT_DIRECTORY: &str = "bibliography-audits";
 
 fn report_relative_path(root: &Path) -> Result<String, String> {
     let canonical = root.canonicalize().map_err(|error| error.to_string())?;
     let digest = Sha256::digest(canonical.to_string_lossy().as_bytes());
-    // Older reports contain proposals made before independent identity checks.
-    Ok(format!("{REPORT_DIRECTORY}/v2-{digest:x}.json"))
+    // Older proposals predate deposited-venue checks and case protection.
+    Ok(format!("{REPORT_DIRECTORY}/v3-{digest:x}.json"))
 }
 
 pub fn load_report(
@@ -263,7 +264,7 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
                 source: "semanticscholar".into(),
                 outcome: "selected".into(),
             });
-            Some(cleanup_result(checked))
+            Some(publication::refine(cleanup_result(checked)))
         })
         .collect::<Vec<_>>();
     let dois = results
@@ -481,7 +482,9 @@ pub fn check_entry(
     request: AuditEntry,
     s2_batch_status: Option<&str>,
 ) -> Result<AuditResult, String> {
-    check_entry_metadata(root, request, s2_batch_status).map(cleanup_result)
+    check_entry_metadata(root, request, s2_batch_status)
+        .map(cleanup_result)
+        .map(publication::refine)
 }
 
 fn check_entry_metadata(
@@ -1444,8 +1447,15 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
             let equivalent = if *name == "author" {
                 author_names(&a) == author_names(&b)
             } else if *name == "title" {
-                // Keep local case-protection braces when correcting metadata.
-                normalize_title(&a) == normalize_title(&b)
+                // Keep local protection, but do not confuse identity matching
+                // (case-insensitive) with typography: ImageNet != Imagenet.
+                (a.contains('{') && normalize_title(&a) == normalize_title(&b))
+                    || a.replace(['{', '}'], "")
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        == b.replace(['{', '}'], "")
+                            .split_whitespace()
+                            .collect::<Vec<_>>()
             } else {
                 normalize_text(&a) == normalize_text(&b)
             };
@@ -1531,6 +1541,24 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
 
 // Local repairs must remain available even when a remote candidate is rejected.
 // They modify the current entry, never fields from that rejected candidate.
+pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
+    let checked = publication::refine(result("checked", "", raw.into()));
+    if let Some(candidate) = &checked.candidate {
+        let doi = fields(&candidate.bibtex)
+            .get("doi")
+            .cloned()
+            .unwrap_or_default();
+        return Err(format!("A published record was found ({doi}), but its identity fields differ from the preprint. Review the published record and import its DOI explicitly; no citation was added."));
+    }
+    Ok(cleanup_result(checked).after.unwrap_or_else(|| raw.into()))
+}
+
+pub(crate) fn protect_bibtex(raw: &str) -> String {
+    cleanup_result(result("checked", "", raw.into()))
+        .after
+        .unwrap_or_else(|| raw.into())
+}
+
 fn cleanup_result(checked: AuditResult) -> AuditResult {
     if checked.status == "conflict" {
         return checked;
@@ -1545,6 +1573,42 @@ fn cleanup_result(checked: AuditResult) -> AuditResult {
         return checked;
     }
     let mut changed = false;
+    if let Some(title) = values.get("title") {
+        // Preserve source casing rather than guessing a dictionary of model
+        // names. One mixed-case/acronym token protects the complete title,
+        // including adjacent proper nouns (e.g. Microsoft COCO).
+        let mut depth = 0;
+        let mut escaped = false;
+        let enclosed = title.starts_with('{')
+            && title.char_indices().all(|(i, c)| {
+                if escaped {
+                    escaped = false;
+                    return true;
+                }
+                if c == '\\' {
+                    escaped = true;
+                    return true;
+                }
+                if c == '{' {
+                    depth += 1;
+                }
+                if c == '}' {
+                    depth -= 1;
+                }
+                depth > 0 || i + c.len_utf8() == title.len()
+            });
+        if !enclosed
+            && title
+                .split_whitespace()
+                .any(|word| word.chars().filter(|c| c.is_uppercase()).count() > 1)
+            && expressions
+                .get("title")
+                .is_some_and(|raw| raw == &format!("{{{title}}}") || raw == &format!("\"{title}\""))
+        {
+            expressions.insert("title".into(), format!("{{{{{title}}}}}"));
+            changed = true;
+        }
+    }
     if let Some(author) = expressions
         .get("author")
         .and_then(|raw| deduplicated_authors(raw))
@@ -1594,6 +1658,7 @@ fn cleanup_result(checked: AuditResult) -> AuditResult {
     let mut cleaned = proposal(&checked.before, after, "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used.");
     cleaned.sources = checked.sources;
     cleaned.health = checked.health;
+    cleaned.publication_reason = checked.publication_reason;
     // Keep an incomplete health verdict when combining with a remote update.
     if checked.after.is_some() && checked.status == "unavailable" {
         cleaned.status = checked.status;
@@ -1664,10 +1729,22 @@ fn deduplicated_authors(raw: &str) -> Option<String> {
         };
         if !seen.contains(&normalized) {
             seen.push(normalized);
-            kept.push(*name);
+            // Unambiguous group suffixes in scholarly metadata are corporate
+            // authors, not a person whose surname happens to be "Team".
+            let corporate = !name.contains(['{', '}', ',', '\\'])
+                && name.split_whitespace().count() > 1
+                && name
+                    .split_whitespace()
+                    .last()
+                    .is_some_and(|last| matches!(last, "Team" | "Consortium" | "Collaboration"));
+            kept.push(if corporate {
+                format!("{{{name}}}")
+            } else {
+                (*name).to_string()
+            });
         }
     }
-    (kept.len() < names.len()).then(|| format!("{{{}}}", kept.join(" and ")))
+    (kept != names).then(|| format!("{{{}}}", kept.join(" and ")))
 }
 
 fn proposal(before: &str, after: String, message: &str) -> AuditResult {
@@ -1689,7 +1766,12 @@ fn proposal(before: &str, after: String, message: &str) -> AuditResult {
             } else {
                 (old, new)
             };
-            (normalize_text(&old) != normalize_text(&new)).then(|| FieldChange {
+            (if field == "title" {
+                old != new
+            } else {
+                normalize_text(&old) != normalize_text(&new)
+            })
+            .then(|| FieldChange {
                 field: field.clone(),
                 before: old,
                 after: new,
@@ -2205,6 +2287,43 @@ impl Drop for TempFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleanup_protects_imported_names_without_changing_identity() {
+        let before = "@misc{gemma,title={LLaVA VLMs ImageNet SigLIP DINOv2 EVEv2 Microsoft COCO},author={Gemma Team and Jane Doe},year={2024}}";
+        let checked = cleanup_result(result("checked", "", before.into()));
+        let after = checked.after.unwrap();
+        assert_eq!(
+            fields(&after)["title"],
+            "{LLaVA VLMs ImageNet SigLIP DINOv2 EVEv2 Microsoft COCO}"
+        );
+        assert_eq!(fields(&after)["author"], "{Gemma Team} and Jane Doe");
+        assert!(metadata_identity_matches(before, &after));
+        assert!(cleanup_result(result("checked", "", after)).after.is_none());
+    }
+
+    #[test]
+    fn title_repairs_preserve_expressions_and_explicit_protection() {
+        let before = "@misc{x,title={Imagenet},author={Jane Doe},year={2009}}";
+        let remote = before.replace("Imagenet", "ImageNet");
+        let repaired = cleanup_result(merge_metadata(before, &remote, false))
+            .after
+            .unwrap();
+        assert_eq!(fields(&repaired)["title"], "{ImageNet}");
+        let protected = before.replace("Imagenet", "{ImageNet}");
+        assert!(merge_metadata(&protected, before, false).after.is_none());
+        for title in [
+            "prefix#{NASA}",
+            "{NASA}#suffix",
+            "{NASA} # {Data}",
+            r"{{NASA \} data}}",
+        ] {
+            let raw = format!("@misc{{x,title={title},author={{Jane Doe}},year={{2024}}}}");
+            assert_eq!(protect_bibtex(&raw), raw);
+        }
+        let person = "@misc{x,title={A study},author={Team, Jane and {Research and Development Team}},year={2024}}";
+        assert_eq!(protect_bibtex(person), person);
+    }
 
     fn compare_batch(before: &str, paper: &crate::citation_batch::Paper) -> Option<AuditResult> {
         let bibtex = &paper.citation_styles.as_ref()?.bibtex;

@@ -3309,6 +3309,7 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     }
     if let Some(raw) = crate::papers::official_arxiv_citation(query)? {
         crate::papers::validate_resolved_identity(query, &raw)?;
+        let raw = crate::citation_audit::prepare_import(&raw)?;
         return Ok(citation_from_bibtex(&raw, ""));
     }
     let output = run_bibcite_get(query)?;
@@ -3318,6 +3319,10 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     if result.candidates.is_empty() {
         crate::papers::validate_resolved_identity(query, &result.bibtex)?;
         crate::papers::verify_title_citation(query, &result.bibtex)?;
+        let raw = crate::citation_audit::prepare_import(&result.bibtex)?;
+        let mut resolved = citation_from_bibtex(&raw, &result.key);
+        resolved.evidence = result.evidence;
+        return Ok(resolved);
     } else {
         for candidate in &result.candidates {
             crate::papers::validate_resolved_identity(query, &candidate.bibtex)?;
@@ -3433,6 +3438,8 @@ fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
 }
 
 fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
+    let protected = crate::citation_audit::protect_bibtex(bibtex);
+    let bibtex = protected.as_str();
     let entry_type = bibtex
         .trim_start()
         .strip_prefix('@')
@@ -3448,21 +3455,15 @@ fn citation_from_bibtex(bibtex: &str, fallback_key: &str) -> ResolvedCitation {
             body.strip_suffix('}').unwrap_or(body)
         })
         .unwrap_or("");
-    let fields = parse_bibliography_fields(body);
+    let fields = parse_bibliography_fields_raw(body);
     ResolvedCitation {
         key: info
             .as_ref()
             .map(|item| item.key.clone())
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| fallback_key.to_string()),
-        title: info
-            .as_ref()
-            .map(|item| item.title.clone())
-            .unwrap_or_else(|| fields.get("title").cloned().unwrap_or_default()),
-        author: info
-            .as_ref()
-            .map(|item| item.authors.clone())
-            .unwrap_or_else(|| fields.get("author").cloned().unwrap_or_default()),
+        title: fields.get("title").cloned().unwrap_or_default(),
+        author: fields.get("author").cloned().unwrap_or_default(),
         year: info
             .as_ref()
             .map(|item| item.year.clone())
@@ -8811,6 +8812,19 @@ mod tests {
         assert_eq!(resolved.doi, "10.1038/nature14539");
         assert_eq!(resolved.journal, "Nature");
         assert_eq!(resolved.entry_type, "article");
+    }
+
+    #[test]
+    fn citation_editor_receives_case_and_corporate_author_protection() {
+        let resolved = citation_from_bibtex(
+            "@misc{gemma,title={Gemma: Open AI Models},author={Gemma Team and Jane Doe},year={2024}}",
+            "fallback",
+        );
+        assert_eq!(resolved.title, "{Gemma: Open AI Models}");
+        assert_eq!(resolved.author, "{Gemma Team} and Jane Doe");
+        assert!(resolved
+            .bibtex
+            .contains("author = {{Gemma Team} and Jane Doe}"));
     }
 
     #[test]

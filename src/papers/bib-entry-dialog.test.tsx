@@ -41,6 +41,17 @@ function renderDialog(onResolve: (query: string) => Promise<ResolvedCitationDraf
 }
 
 describe("BibEntryDialog citation resolution", () => {
+  it("retains title and corporate author braces when editing and saving", () => {
+    const onSave = vi.fn();
+    render(<BibEntryDialog open busy={false} error={null} mode="edit"
+      initialDraft={resolved({ title: "{Gemma: Open AI Models}", author: "{Gemma Team} and Jane Doe" })}
+      onClose={vi.fn()} onSave={onSave} />);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    const bibtex = formatBibEntry(onSave.mock.calls[0][0]);
+    expect(bibtex).toContain("title = {{Gemma: Open AI Models}}");
+    expect(bibtex).toContain("author = {{Gemma Team} and Jane Doe}");
+  });
+
   it("shows both same-title records supplied by Papers before allowing a save", () => {
     const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
     const candidates = [

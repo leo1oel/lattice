@@ -71,7 +71,7 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
     }
 }
 
-fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String> {
+pub(super) fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String> {
     let response = client
         .get(url)
         .send()
@@ -89,7 +89,7 @@ fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String> {
     Ok(text)
 }
 
-fn links(html: &str) -> Vec<(String, String)> {
+pub(super) fn links(html: &str) -> Vec<(String, String)> {
     Html::parse_document(html)
         .select(&Selector::parse("a[href]").unwrap())
         .map(|a| {
