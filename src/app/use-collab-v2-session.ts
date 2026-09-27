@@ -46,7 +46,7 @@ import type { CollabDiskWriteQueue, CollabWorkspaceLease } from "../collab/colla
 import type { CollabDialogMode } from "../collab/collab-dialog";
 import type { CatalogV2 } from "../../protocol/collab-v2";
 import type { RecentProject } from "../settings/app-settings";
-import type { AssetPreview, ProjectSnapshot } from "../app-types";
+import type { AssetPreview, ProjectSnapshot, RefreshProject } from "../app-types";
 
 /** Notification source label for the live-collaboration surface. */
 export const SHARE_SOURCE = "Live collaboration";
@@ -57,6 +57,10 @@ export function bytesToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
   }
   return btoa(binary);
+}
+
+export function base64ToBytes(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
 }
 
 async function mutateRememberedRoomV2(
@@ -120,10 +124,7 @@ export type CollabV2SessionDeps = {
   setBusyLabel: (label: string | null) => void;
   startProjectTransition: () => Promise<boolean>;
   cancelProjectTransition: () => void;
-  refreshProject: (scope?: {
-    expectedRoot: string;
-    generation: number;
-  }) => Promise<ProjectSnapshot>;
+  refreshProject: RefreshProject;
   loadFile: (
     path: string,
     options?: { collabController?: CollabProjectControllerV2 },
@@ -310,8 +311,6 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
     }
   }, [clearCollabLocalState, restorePreCollabProject]);
 
-
-  /** Dialog button: host stops for everyone; guest leaves without affecting the host. */
   /**
    * Open the joined project's first document and make sure the share is
    * actually bound to it.
@@ -401,7 +400,6 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
     // Guest opened a different project: leave quietly; host keeps sharing.
     await leaveGuestShareSession("Left the shared session", false);
   }, [collabSessionRef, leaveGuestShareSession, leaveHostShareSession, projectRootRef]);
-
 
   const mapV2Status = useCallback((status: CollabProjectStatusV2) => {
     // Start sharing owns the more useful phase-by-phase progress copy. Provider
@@ -516,7 +514,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
     try {
       if (kind === "binary") {
         const asset = await invoke<AssetPreview>("read_project_asset", { path });
-        const bytes = Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
+        const bytes = base64ToBytes(asset.base64);
         const conflictWriter = {
           rename: async () => { throw new Error("Unexpected rename during binary publish"); },
           delete: async () => { throw new Error("Unexpected delete during binary publish"); },
@@ -604,8 +602,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
               inventory: async () => inventory,
               read: async (path) => {
                 if (kinds.get(path) === "text") return new TextEncoder().encode(await invoke<string>("read_project_file", { path }));
-                const asset = await invoke<AssetPreview>("read_project_asset", { path });
-                return Uint8Array.from(atob(asset.base64), (character) => character.charCodeAt(0));
+                return base64ToBytes((await invoke<AssetPreview>("read_project_asset", { path })).base64);
               },
             },
             onPrepareProgress: (completed, total) => { if (collabStartGenerationRef.current === startGeneration) setCollabStatusDetail(t`Preparing project files… ${completed}/${total}`); },
@@ -807,10 +804,6 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         setNotice(`Closed “${record.title}” for everyone`);
       } catch (reason) {
         const detail = toMessage(reason);
-        if (!remoteClosed) {
-          setError(`Could not close the room: ${detail}`);
-          return;
-        }
         setError(remoteClosed
           ? `The room was closed, but local cleanup did not finish: ${detail}. Keep this entry and retry Close to finish cleanup.`
           : `Could not close the room: ${detail}`);
