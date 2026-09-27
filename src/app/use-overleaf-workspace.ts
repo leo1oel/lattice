@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   loadOverleafRemoteDelete,
@@ -1169,8 +1169,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const projectRoot = project.root;
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void listen<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
-      "overleaf-realtime",
+    void listenOverleafRealtime<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
       (event) => {
         const payload = event.payload;
         if (disposed || payload.projectRoot !== projectRoot) return;

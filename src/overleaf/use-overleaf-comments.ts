@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenOverleafRealtime } from "./overleaf-realtime-listen";
 import type { OverleafThread } from "../app-types";
 import type { OverleafCommentTarget } from "./use-overleaf-realtime";
 
@@ -150,7 +150,7 @@ export function useOverleafComments(options: {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let unlisten: (() => void) | null = null;
-    void listen<{ type: string }>("overleaf-realtime", (event) => {
+    void listenOverleafRealtime<{ type: string }>((event) => {
       // A conversation changing and a span being commented are separate
       // events on separate channels, and either can move a thread's anchor.
       if (event.payload.type !== "threadsChanged" && event.payload.type !== "commentAnchored") {
