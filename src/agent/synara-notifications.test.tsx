@@ -1,12 +1,34 @@
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppToastStack } from "../telemetry/app-log";
 import { clearAppLogs } from "../telemetry/app-log-store";
+import { mountSynaraFrames, postFromFrame, postUntrusted, SYNARA_TEST_ORIGIN } from "./synara-frame-test-utils";
 import {
   parseSynaraNotificationMessage,
   SYNARA_EMBEDDED_NOTIFICATION,
   useSynaraNotificationBridge,
 } from "./synara-notifications";
+
+const piUpdateFailure = {
+  type: SYNARA_EMBEDDED_NOTIFICATION,
+  operation: "upsert",
+  id: "pi-update",
+  level: "error",
+  title: "Could not update Pi",
+  detail: "NotFound: ChildProcess.spawn (pi update)",
+  timeoutMs: 5000,
+  copyText: "pi update",
+};
+
+function mountBridge() {
+  const frames = mountSynaraFrames();
+  const hook = renderHook(() => useSynaraNotificationBridge({
+    frameRef: frames.frameRef,
+    origin: SYNARA_TEST_ORIGIN,
+    source: "Synara settings",
+  }));
+  return { ...frames, unmount: hook.unmount, toasts: render(<AppToastStack />).container };
+}
 
 describe("Synara notification messages", () => {
   beforeEach(() => {
@@ -19,125 +41,37 @@ describe("Synara notification messages", () => {
   });
 
   it("accepts the bounded provider update failure payload", () => {
-    expect(
-      parseSynaraNotificationMessage({
-        type: SYNARA_EMBEDDED_NOTIFICATION,
-        operation: "upsert",
-        id: "pi-update",
-        level: "error",
-        title: "Could not update Pi",
-        detail: "NotFound: ChildProcess.spawn (pi update)",
-        timeoutMs: 5000,
-        copyText: "pi update",
-      }),
-    ).toEqual({
-      type: SYNARA_EMBEDDED_NOTIFICATION,
-      operation: "upsert",
-      id: "pi-update",
-      level: "error",
-      title: "Could not update Pi",
-      detail: "NotFound: ChildProcess.spawn (pi update)",
-      timeoutMs: 5000,
-      copyText: "pi update",
-    });
+    expect(parseSynaraNotificationMessage(piUpdateFailure)).toEqual(piUpdateFailure);
   });
 
   it("rejects malformed levels, identifiers, and timeouts", () => {
-    const base = {
-      type: SYNARA_EMBEDDED_NOTIFICATION,
-      operation: "upsert",
-      id: "notification",
-      level: "info",
-      title: "Notice",
-      detail: "",
-      timeoutMs: 5000,
-    };
+    const base = { ...piUpdateFailure, id: "notification", level: "info", title: "Notice", detail: "" };
     expect(parseSynaraNotificationMessage({ ...base, id: "" })).toBeNull();
     expect(parseSynaraNotificationMessage({ ...base, level: "critical" })).toBeNull();
     expect(parseSynaraNotificationMessage({ ...base, timeoutMs: Infinity })).toBeNull();
   });
 
   it("accepts dismissals without trusting unrelated fields", () => {
-    expect(
-      parseSynaraNotificationMessage({
-        type: SYNARA_EMBEDDED_NOTIFICATION,
-        operation: "dismiss",
-        id: "pi-update",
-        title: "<script>",
-      }),
-    ).toEqual({
-      type: SYNARA_EMBEDDED_NOTIFICATION,
-      operation: "dismiss",
-      id: "pi-update",
-    });
+    const dismissal = { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id: "pi-update" };
+    expect(parseSynaraNotificationMessage({ ...dismissal, title: "<script>" })).toEqual(dismissal);
   });
 
   it("shows trusted iframe messages in the app toast stack and returns dismissals", async () => {
-    const iframe = document.createElement("iframe");
-    document.body.append(iframe);
-    const frameWindow = iframe.contentWindow;
-    expect(frameWindow).not.toBeNull();
-    const postMessage = vi.spyOn(frameWindow!, "postMessage");
-    const frameRef = { current: iframe };
-    const { unmount } = renderHook(() =>
-      useSynaraNotificationBridge({
-        frameRef,
-        origin: "http://127.0.0.1:4317",
-        source: "Synara settings",
-      }),
-    );
-    const { container } = render(<AppToastStack />);
+    const { frameWindow, toasts, unmount } = mountBridge();
+    const postMessage = vi.spyOn(frameWindow, "postMessage");
 
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          source: frameWindow,
-          origin: "http://127.0.0.1:4317",
-          data: {
-            type: SYNARA_EMBEDDED_NOTIFICATION,
-            operation: "upsert",
-            id: "pi-update",
-            level: "error",
-            title: "Could not update Pi",
-            detail: "NotFound: ChildProcess.spawn (pi update)",
-            timeoutMs: 5000,
-            copyText: "pi update",
-          },
-        }),
-      );
-    });
+    postFromFrame(frameWindow, piUpdateFailure);
+    expect(toasts.querySelector(".app-toast-stack")).toHaveTextContent("Could not update Pi");
+    expect(screen.getByRole("alert")).toHaveTextContent("NotFound: ChildProcess.spawn (pi update)");
 
-    expect(container.querySelector(".app-toast-stack")).toHaveTextContent(
-      "Could not update Pi",
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "NotFound: ChildProcess.spawn (pi update)",
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          source: frameWindow,
-          origin: "http://127.0.0.1:4317",
-          data: {
-            type: SYNARA_EMBEDDED_NOTIFICATION,
-            operation: "dismiss",
-            id: "pi-update",
-          },
-        }),
-      );
-    });
+    postFromFrame(frameWindow, { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id: "pi-update" });
     expect(screen.getByText("Could not update Pi")).toBeInTheDocument();
 
     const toast = screen.getByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
     expect(postMessage).toHaveBeenCalledWith(
-      {
-        type: "lattice:embedded-notification-action",
-        id: "pi-update",
-        action: "dismiss",
-      },
-      "http://127.0.0.1:4317",
+      { type: "lattice:embedded-notification-action", id: "pi-update", action: "dismiss" },
+      SYNARA_TEST_ORIGIN,
     );
     expect(screen.queryByRole("alert")).toBeNull();
     expect(toast).toHaveAttribute("inert");
@@ -146,46 +80,9 @@ describe("Synara notification messages", () => {
   });
 
   it("ignores the same payload from the wrong source or origin", () => {
-    const iframe = document.createElement("iframe");
-    const otherIframe = document.createElement("iframe");
-    document.body.append(iframe, otherIframe);
-    const frameRef = { current: iframe };
-    const { unmount } = renderHook(() =>
-      useSynaraNotificationBridge({
-        frameRef,
-        origin: "http://127.0.0.1:4317",
-        source: "Synara settings",
-      }),
-    );
-    render(<AppToastStack />);
-    const payload = {
-      type: SYNARA_EMBEDDED_NOTIFICATION,
-      operation: "upsert",
-      id: "untrusted",
-      level: "error",
-      title: "Should not render",
-      detail: "",
-      timeoutMs: 0,
-    };
-
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          source: otherIframe.contentWindow,
-          origin: "http://127.0.0.1:4317",
-          data: payload,
-        }),
-      );
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          source: iframe.contentWindow,
-          origin: "http://malicious.invalid",
-          data: payload,
-        }),
-      );
-    });
-
+    const frames = mountBridge();
+    postUntrusted(frames, { ...piUpdateFailure, id: "untrusted", title: "Should not render", detail: "", timeoutMs: 0 });
     expect(screen.queryByText("Should not render")).toBeNull();
-    unmount();
+    frames.unmount();
   });
 });

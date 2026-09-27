@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
 import { appendBibEntry, formatBibEntry } from "./bib-entry";
@@ -28,24 +28,23 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function renderDialog(onResolve: (query: string) => Promise<ResolvedCitationDraft | null>, onSave = vi.fn()) {
-  render(<BibEntryDialog
-    open
-    busy={false}
-    error={null}
-    onClose={vi.fn()}
-    onResolve={onResolve}
-    onSave={onSave}
-  />);
+function renderDialog(props: Partial<ComponentProps<typeof BibEntryDialog>> = {}) {
+  const onSave = vi.fn();
+  render(<BibEntryDialog open busy={false} error={null} onClose={vi.fn()} onSave={onSave} {...props} />);
   return onSave;
+}
+
+function resolveQuery(value: string) {
+  fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value } });
+  fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
 }
 
 describe("BibEntryDialog citation resolution", () => {
   it("retains title and corporate author braces when editing and saving", () => {
-    const onSave = vi.fn();
-    render(<BibEntryDialog open busy={false} error={null} mode="edit"
-      initialDraft={resolved({ title: "{Gemma: Open AI Models}", author: "{Gemma Team} and Jane Doe" })}
-      onClose={vi.fn()} onSave={onSave} />);
+    const onSave = renderDialog({
+      mode: "edit",
+      initialDraft: resolved({ title: "{Gemma: Open AI Models}", author: "{Gemma Team} and Jane Doe" }),
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     const bibtex = formatBibEntry(onSave.mock.calls[0][0]);
     expect(bibtex).toContain("title = {{Gemma: Open AI Models}}");
@@ -58,9 +57,7 @@ describe("BibEntryDialog citation resolution", () => {
       resolved({ title, year: "1997", journal: "Neurocase", doi: "10.1093/neucas/3.3.209-w" }),
       resolved({ title, year: "1987", journal: "Cognitive Neuropsychology", doi: "10.1080/02643298708252038" }),
     ];
-    const onSave = vi.fn();
-    render(<BibEntryDialog open busy={false} error={null} initialDraft={resolved({ candidates })}
-      onClose={vi.fn()} onSave={onSave} />);
+    const onSave = renderDialog({ initialDraft: resolved({ candidates }) });
     expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
     expect(screen.getByText("Neurocase")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Select this record" })[1]);
@@ -97,19 +94,15 @@ describe("BibEntryDialog citation resolution", () => {
       key: "", title: "", author: "", year: "", journal: "", booktitle: "",
       publisher: "", url: "", doi: "", entryType: "", candidates: [candidate],
     }));
-    const onSave = renderDialog(onResolve);
-
-    fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "paper" } });
-    fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
+    const onSave = renderDialog({ onResolve });
+    resolveQuery("paper");
     expect(await screen.findByText("The Paper")).toBeInTheDocument();
     expect(screen.getByText(/Source:/)).toHaveTextContent("Crossref");
     expect(screen.getByText("Authors unchecked")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
-
     fireEvent.click(screen.getByRole("button", { name: "Select this record" }));
     expect(screen.getByLabelText("Title")).toHaveValue("The Paper");
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
-
     expect(onResolve).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       title: "The Paper",
@@ -119,14 +112,10 @@ describe("BibEntryDialog citation resolution", () => {
 
   it("ignores a resolution result after the query changes", async () => {
     const pending = deferred<ResolvedCitationDraft | null>();
-    renderDialog(vi.fn(() => pending.promise));
-    const query = screen.getByLabelText("Citation resolve query");
-
-    fireEvent.change(query, { target: { value: "old query" } });
-    fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
-    fireEvent.change(query, { target: { value: "new query" } });
+    renderDialog({ onResolve: vi.fn(() => pending.promise) });
+    resolveQuery("old query");
+    fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "new query" } });
     pending.resolve(resolved({ title: "Stale result" }));
-
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue(""));
     expect(screen.queryByDisplayValue("Stale result")).not.toBeInTheDocument();
   });
@@ -134,10 +123,9 @@ describe("BibEntryDialog citation resolution", () => {
   it("deduplicates in-flight clicks and marks retrieved fields as edited", async () => {
     const pending = deferred<ResolvedCitationDraft | null>();
     const onResolve = vi.fn(() => pending.promise);
-    renderDialog(onResolve);
-    fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "paper" } });
+    renderDialog({ onResolve });
     const button = screen.getByRole("button", { name: "Resolve" });
-    fireEvent.click(button);
+    resolveQuery("paper");
     fireEvent.click(button);
     expect(onResolve).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();

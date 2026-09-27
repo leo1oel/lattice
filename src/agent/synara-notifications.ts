@@ -3,9 +3,9 @@ import {
   addAppLog,
   dismissAppToast,
   updateAppLog,
-  type AppLogLevel,
   type AppToastOptions,
 } from "../telemetry/app-log-store";
+import { boundedString, isRecord, listenToSynaraFrame } from "./agent-protocol";
 
 export const SYNARA_EMBEDDED_NOTIFICATION = "synara:embedded-notification";
 const LATTICE_EMBEDDED_NOTIFICATION_ACTION =
@@ -13,114 +13,60 @@ const LATTICE_EMBEDDED_NOTIFICATION_ACTION =
 
 type SynaraNotificationAction = "dismiss" | "primary" | "secondary";
 
-export type SynaraNotificationMessage =
-  | {
-      type: typeof SYNARA_EMBEDDED_NOTIFICATION;
-      operation: "dismiss";
-      id: string;
-    }
-  | {
-      type: typeof SYNARA_EMBEDDED_NOTIFICATION;
-      operation: "upsert";
-      id: string;
-      level: "error" | "info" | "loading" | "success" | "warning";
-      title: string;
-      detail: string;
-      timeoutMs: number;
-      copyText?: string;
-      primaryActionLabel?: string;
-      secondaryActionLabel?: string;
-    };
+const LEVELS = ["error", "info", "loading", "success", "warning"] as const;
 
-function boundedString(
-  value: unknown,
-  maximum: number,
-  allowEmpty = true,
-): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().slice(0, maximum);
-  if (normalized) return normalized;
-  return allowEmpty ? "" : null;
-}
+type SynaraNotificationUpsert = {
+  type: typeof SYNARA_EMBEDDED_NOTIFICATION;
+  operation: "upsert";
+  id: string;
+  level: (typeof LEVELS)[number];
+  title: string;
+  detail: string;
+  timeoutMs: number;
+  copyText?: string;
+  primaryActionLabel?: string;
+  secondaryActionLabel?: string;
+};
+
+export type SynaraNotificationMessage =
+  | { type: typeof SYNARA_EMBEDDED_NOTIFICATION; operation: "dismiss"; id: string }
+  | SynaraNotificationUpsert;
 
 export function parseSynaraNotificationMessage(
   value: unknown,
 ): SynaraNotificationMessage | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Record<string, unknown>;
-  if (candidate.type !== SYNARA_EMBEDDED_NOTIFICATION) return null;
-  const id = boundedString(candidate.id, 128, false);
+  if (!isRecord(value) || value.type !== SYNARA_EMBEDDED_NOTIFICATION) return null;
+  const id = boundedString(value.id, 128);
   if (!id) return null;
-  if (candidate.operation === "dismiss") {
+  if (value.operation === "dismiss") {
     return { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id };
   }
-  if (candidate.operation !== "upsert") return null;
-  const level = candidate.level;
-  if (
-    level !== "error" &&
-    level !== "info" &&
-    level !== "loading" &&
-    level !== "success" &&
-    level !== "warning"
-  ) {
-    return null;
-  }
-  const title = boundedString(candidate.title, 160, false);
-  const detail = boundedString(candidate.detail, 4_000);
+  const { level, timeoutMs } = value;
+  if (value.operation !== "upsert" || !LEVELS.includes(level as SynaraNotificationUpsert["level"])) return null;
+  const title = boundedString(value.title, 160);
+  const detail = boundedString(value.detail, 4_000, true);
   if (!title || detail === null) return null;
-  if (
-    typeof candidate.timeoutMs !== "number" ||
-    !Number.isFinite(candidate.timeoutMs)
-  ) {
-    return null;
-  }
-  const copyText = boundedString(candidate.copyText, 4_000, false);
-  const primaryActionLabel = boundedString(
-    candidate.primaryActionLabel,
-    48,
-    false,
-  );
-  const secondaryActionLabel = boundedString(
-    candidate.secondaryActionLabel,
-    48,
-    false,
-  );
+  if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs)) return null;
+  const copyText = boundedString(value.copyText, 4_000);
+  const primaryActionLabel = boundedString(value.primaryActionLabel, 48);
+  const secondaryActionLabel = boundedString(value.secondaryActionLabel, 48);
   return {
     type: SYNARA_EMBEDDED_NOTIFICATION,
     operation: "upsert",
     id,
-    level,
+    level: level as SynaraNotificationUpsert["level"],
     title,
     detail,
-    timeoutMs: Math.min(30_000, Math.max(0, Math.round(candidate.timeoutMs))),
+    timeoutMs: Math.min(30_000, Math.max(0, Math.round(timeoutMs))),
     ...(copyText ? { copyText } : {}),
     ...(primaryActionLabel ? { primaryActionLabel } : {}),
     ...(secondaryActionLabel ? { secondaryActionLabel } : {}),
   };
 }
 
-function appLogLevel(
-  level: Extract<SynaraNotificationMessage, { operation: "upsert" }>["level"],
-): AppLogLevel {
-  return level === "loading" ? "info" : level;
-}
-
-function actionMessage(id: string, action: SynaraNotificationAction) {
-  return { type: LATTICE_EMBEDDED_NOTIFICATION_ACTION, id, action };
-}
-
-function hostNotificationTimeout(
-  message: Extract<SynaraNotificationMessage, { operation: "upsert" }>,
-): number {
+function hostNotificationTimeout(message: SynaraNotificationUpsert): number {
   if (message.timeoutMs === 0) return 0;
-  if (
-    message.level === "error" ||
-    message.primaryActionLabel ||
-    message.secondaryActionLabel
-  ) {
-    return 9_000;
-  }
-  return 6_000;
+  return message.level === "error" || message.primaryActionLabel || message.secondaryActionLabel ? 9_000 : 6_000;
 }
 
 /**
@@ -136,24 +82,12 @@ export function useSynaraNotificationBridge(options: {
   const { frameRef, origin, source } = options;
   useEffect(() => {
     if (!origin) return;
-    const notificationBySynaraId = new Map<
-      string,
-      { appLogId: string; hostTimeoutMs: number }
-    >();
+    const notificationBySynaraId = new Map<string, { appLogId: string; hostTimeoutMs: number }>();
     const postAction = (id: string, action: SynaraNotificationAction) => {
-      frameRef.current?.contentWindow?.postMessage(
-        actionMessage(id, action),
-        origin,
-      );
+      frameRef.current?.contentWindow?.postMessage({ type: LATTICE_EMBEDDED_NOTIFICATION_ACTION, id, action }, origin);
     };
-    const receiveNotification = (event: MessageEvent) => {
-      if (
-        event.source !== frameRef.current?.contentWindow ||
-        event.origin !== origin
-      ) {
-        return;
-      }
-      const message = parseSynaraNotificationMessage(event.data);
+    const stopListening = listenToSynaraFrame(frameRef, origin, (data) => {
+      const message = parseSynaraNotificationMessage(data);
       if (!message) return;
       const existing = notificationBySynaraId.get(message.id);
       if (message.operation === "dismiss") {
@@ -167,59 +101,30 @@ export function useSynaraNotificationBridge(options: {
         return;
       }
       const hostTimeoutMs = hostNotificationTimeout(message);
+      const action = (label: string | undefined, kind: SynaraNotificationAction) => (
+        label ? { label, onClick: () => postAction(message.id, kind) } : undefined
+      );
+      const primaryAction = action(message.primaryActionLabel, "primary");
+      const secondaryAction = action(message.secondaryActionLabel, "secondary");
       const toastOptions: AppToastOptions = {
         timeoutMs: hostTimeoutMs,
         ...(message.copyText ? { copyText: message.copyText } : {}),
-        ...(message.primaryActionLabel
-          ? {
-              primaryAction: {
-                label: message.primaryActionLabel,
-                onClick: () => postAction(message.id, "primary"),
-              },
-            }
-          : {}),
-        ...(message.secondaryActionLabel
-          ? {
-              secondaryAction: {
-                label: message.secondaryActionLabel,
-                onClick: () => postAction(message.id, "secondary"),
-              },
-            }
-          : {}),
+        ...(primaryAction ? { primaryAction } : {}),
+        ...(secondaryAction ? { secondaryAction } : {}),
         onDismiss: () => postAction(message.id, "dismiss"),
       };
-      if (existing) {
-        updateAppLog(
-          existing.appLogId,
-          {
-            level: appLogLevel(message.level),
-            source,
-            title: message.title,
-            detail: message.detail,
-          },
-          toastOptions,
-        );
-        notificationBySynaraId.set(message.id, {
-          appLogId: existing.appLogId,
-          hostTimeoutMs,
-        });
-        return;
-      }
-      const entry = addAppLog({
-        level: appLogLevel(message.level),
+      const entry = {
+        level: message.level === "loading" ? "info" as const : message.level,
         source,
         title: message.title,
         detail: message.detail,
-        toastOptions,
-      });
-      notificationBySynaraId.set(message.id, {
-        appLogId: entry.id,
-        hostTimeoutMs,
-      });
-    };
-    window.addEventListener("message", receiveNotification);
+      };
+      const appLogId = existing?.appLogId ?? addAppLog({ ...entry, toastOptions }).id;
+      if (existing) updateAppLog(appLogId, entry, toastOptions);
+      notificationBySynaraId.set(message.id, { appLogId, hostTimeoutMs });
+    });
     return () => {
-      window.removeEventListener("message", receiveNotification);
+      stopListening();
       for (const notification of notificationBySynaraId.values()) {
         dismissAppToast(notification.appLogId, false);
       }

@@ -31,6 +31,7 @@ const state: PaperLookupState = {
     { arxivId: "", title: "Cited reference", citationKey: "smith2020", hasFullText: false, hasBlog: false },
   ],
 };
+const identity = { projectRoot: state.projectRoot, arxivId: state.papers[0].arxivId, citationKey: state.papers[0].citationKey };
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); native.listeners.clear(); });
 const send = (event: string, payload: unknown) => act(() => native.listeners.get(event)?.({ payload }));
 
@@ -53,7 +54,6 @@ describe("paper lookup", () => {
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: hitTest });
     renderHook(() => usePaperLookup(state, vi.fn(), vi.fn()));
     await waitFor(() => expect(native.listeners.has("native-drop")).toBe(true));
-    const identity = { projectRoot: state.projectRoot, arxivId: state.papers[0].arxivId, citationKey: state.papers[0].citationKey };
     const start = () => send("paper-native-drag", { id: "drag-1", paper: identity });
     const enter = (paths: string[] = []) => send("native-drop", { type: "enter", paths, position: { x: 92, y: 158 } });
     const drop = (paths: string[] = []) => send("native-drop", { type: "drop", paths, position: { x: 92, y: 158 } });
@@ -83,7 +83,6 @@ describe("paper lookup", () => {
     const values = new Map<string, string>();
     const data = { setData: (key: string, value: string) => values.set(key, value) } as unknown as DataTransfer;
     beginPaperDrag(data, state.projectRoot, state.papers[0], "project-2");
-    const identity = { projectRoot: state.projectRoot, arxivId: state.papers[0].arxivId, citationKey: state.papers[0].citationKey };
     expect(native.emitTo).toHaveBeenLastCalledWith("project-2", "paper-native-drag", { id: expect.any(String), paper: identity });
     const id = (native.emitTo.mock.lastCall as unknown as [string, string, { id: string }])[2].id;
     window.dispatchEvent(new Event("dragend"));

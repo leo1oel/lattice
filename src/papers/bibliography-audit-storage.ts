@@ -7,25 +7,28 @@ export type SavedAudit = { snapshot: string; result: AuditResult; applied: boole
 export type AuditReport = [string, SavedAudit][];
 const pendingWrites = new Map<string, Promise<void>>();
 
+const arrayOf = <T>(value: unknown, valid: (item: T) => boolean) => Array.isArray(value) && value.every((item) => valid(item));
+const validChange = (change: AuditResult["changes"][number]) =>
+  typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string";
+
 function validRecord(record: unknown): record is [string, SavedAudit] {
   if (!Array.isArray(record) || record.length !== 2) return false;
   const [key, value] = record;
+  const result = value?.result;
   return typeof key === "string"
     && typeof value?.snapshot === "string" && typeof value.applied === "boolean"
-    && typeof value.result?.before === "string" && typeof value.result.message === "string"
-    && ["checked", "update", "unavailable", "skipped", "conflict"].includes(value.result.status)
-    && (value.result.after === undefined || typeof value.result.after === "string")
-    && (value.result.checkedAt === undefined || (typeof value.result.checkedAt === "string" && Number.isFinite(Date.parse(value.result.checkedAt))))
-    && Array.isArray(value.result.changes) && value.result.changes.every((change: AuditResult["changes"][number]) =>
-      typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string")
-    && (value.result.candidate === undefined || (
-      typeof value.result.candidate === "object" && value.result.candidate !== null
-      && typeof value.result.candidate.bibtex === "string"
-      && Array.isArray(value.result.candidate.reasons) && value.result.candidate.reasons.every((reason: unknown) => typeof reason === "string")
-      && Array.isArray(value.result.candidate.changes) && value.result.candidate.changes.every((change: AuditResult["changes"][number]) =>
-        typeof change?.field === "string" && typeof change.before === "string" && typeof change.after === "string")))
-    && (value.result.sources === undefined || (Array.isArray(value.result.sources) && value.result.sources.every((source: NonNullable<AuditResult["sources"]>[number]) =>
-      typeof source?.source === "string" && typeof source.outcome === "string")));
+    && typeof result?.before === "string" && typeof result.message === "string"
+    && ["checked", "update", "unavailable", "skipped", "conflict"].includes(result.status)
+    && (result.after === undefined || typeof result.after === "string")
+    && (result.checkedAt === undefined || (typeof result.checkedAt === "string" && Number.isFinite(Date.parse(result.checkedAt))))
+    && arrayOf(result.changes, validChange)
+    && (result.candidate === undefined || (
+      typeof result.candidate === "object" && result.candidate !== null
+      && typeof result.candidate.bibtex === "string"
+      && arrayOf(result.candidate.reasons, (reason: unknown) => typeof reason === "string")
+      && arrayOf(result.candidate.changes, validChange)))
+    && (result.sources === undefined || arrayOf(result.sources, (source: NonNullable<AuditResult["sources"]>[number]) =>
+      typeof source?.source === "string" && typeof source.outcome === "string"));
 }
 
 // Serialize writes across dialog unmounts too: a late save must never replace

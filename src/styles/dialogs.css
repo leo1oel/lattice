@@ -63,13 +63,6 @@
   line-height: 1.45;
   white-space: pre-wrap;
 }
-.tex-setup-inline {
-  display: inline;
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-compact);
-  background: color-mix(in srgb, var(--text-primary) 6%, var(--surface-app));
-  font-size: var(--type-micro-size);
-}
 @keyframes tex-setup-progress-shimmer {
   to { transform: translateX(100%); }
 }
@@ -225,20 +218,6 @@
 .collab-field > .collab-name-help { margin: 0; }
 .collab-help code { font-family: var(--editor-font); color: var(--text-secondary); }
 .collab-drawer-content > .modal-actions { margin-top: 0; }
-.todo-count-badge {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  min-width: 12px;
-  height: 12px;
-  padding: 0 3px;
-  border-radius: var(--radius-pill);
-  background: var(--control-active);
-  color: var(--control-active-contrast);
-  font-style: normal;
-  font-size: var(--type-nano-size);
-  line-height: 12px;
-}
 .todo-drawer { width: min(460px, 100%); }
 .todo-hits { max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); }
 .todo-kind { color: var(--control-active); margin-right: var(--space-2); }
@@ -408,16 +387,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .dual-empty p { margin: 0; max-width: 220px; line-height: 1.45; }
 .columns-canvas > .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .editor-tab.beside:not(.active) button[role="tab"] { color: var(--control-active); }
-.editor-tab-beside {
-  width: var(--tab-close-size);
-  flex: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-tertiary);
-  display: grid;
-  place-items: center;
-}
-.editor-tab-beside:hover { color: var(--control-active); background: var(--control-active-soft); }
 .welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 /* Joyride puts pointer-events:auto inline on its SVG paths. WebKit can also
    hit-test the SVG viewport itself, so every overlay layer must be visual-only.
@@ -641,11 +610,10 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
 .modal-dialog-content { position: fixed; top: 50%; left: 50%; z-index: var(--z-modal); width: max-content; transform: translate(-50%, -50%); }
-/* The install guide is launched from Settings, so it must stack above it. */
-.tex-setup-backdrop { z-index: var(--z-nested-modal-backdrop); }
-.tex-setup-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
-.confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }
-.confirm-action-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
+/* The install guide (launched from Settings) and confirmations open over
+   another dialog, so both stack above it. */
+.tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }
+.tex-setup-backdrop + .modal-dialog-content, .confirm-action-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
 .modal { width: 390px; border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
@@ -695,10 +663,13 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
     var(--settings-content-padding-inline)
     var(--settings-content-padding-bottom);
 }
+/* The select popup is portalled out of the section, so its items name the
+   same typography contract directly. */
 .settings-section [data-slot="select-trigger"],
 .settings-section .ui-input,
 .settings-section .ui-textarea,
-.settings-section .ui-button {
+.settings-section .ui-button,
+[data-slot="select-content"][data-settings-control="true"] [data-slot="select-item"] {
   font-family: var(--settings-control-font-family);
   font-size: var(--settings-control-font-size);
   font-style: normal;
@@ -721,15 +692,7 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .settings-section .ui-button {
   text-align: center;
 }
-[data-slot="select-content"][data-settings-control="true"] [data-slot="select-item"] {
-  font-family: var(--settings-control-font-family);
-  font-size: var(--settings-control-font-size);
-  font-style: normal;
-  font-weight: var(--settings-control-font-weight);
-  line-height: var(--settings-control-line-height);
-  letter-spacing: normal;
-  text-align: start;
-}
+[data-slot="select-content"][data-settings-control="true"] [data-slot="select-item"] { text-align: start; }
 .settings-section .ui-button:not(.ui-button--primary):not(.ui-button--danger) {
   border-color: var(--border-strong);
   background: var(--surface-panel-raised);

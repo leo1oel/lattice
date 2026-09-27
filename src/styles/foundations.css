@@ -76,13 +76,8 @@
   --type-diff-meta-line-height: var(--type-micro-line-height);
   --type-diff-meta-weight: var(--weight-medium);
 
-  /* Compatibility aliases for the existing hand-written CSS. */
-  --font-ui-xs: var(--type-micro-size);
-  --font-ui-sm: var(--type-caption-size);
-  --font-ui-base: var(--type-label-size);
+  /* The pre-React fallback screens (main.tsx, browser-runtime.ts) inline this. */
   --font-ui-body: var(--type-body-size);
-  --font-ui-title: var(--type-title-size);
-  --font-ui-heading: var(--type-heading-size);
 
   /* Weight roles keep arbitrary 450/650 values out of feature styles. */
   --weight-regular: 400;
@@ -240,7 +235,6 @@
   --navigation-search-font-size: var(--type-label-size);
   --navigation-search-line-height: var(--type-project-tree-line-height);
   --navigation-search-font-weight: var(--type-project-tree-weight);
-  --navigation-row-height: var(--row-height-tree);
   --navigation-tab-hover-surface: color-mix(in srgb, var(--border-subtle) 35%, transparent);
   --navigation-tab-selected-surface: color-mix(in srgb, var(--border-subtle) 65%, transparent);
   --navigation-action-hover-surface: var(--chrome-hover-surface);
@@ -324,7 +318,6 @@
   --settings-control-font-weight: var(--type-body-weight);
   --settings-row-control-min-width: 170px;
   --settings-frame-border-width: 1px;
-  --settings-frame-border-color: var(--line-strong);
   --settings-control-border-color: var(--line-strong);
   --settings-frame-radius: var(--radius-control);
   --settings-control-hover-surface: color-mix(
@@ -349,7 +342,6 @@
    * scroll-area thumb, resizers, and the collab caret label. Those numbers are
    * local and mean nothing on this ladder. */
   --z-chrome: 5;
-  --z-menu-inline: 5;
   --z-menu-inline-raised: 6;
   --z-editor-overlay: 6;
   --z-editor-popover: 7;
@@ -363,7 +355,6 @@
   --z-radix-popper: 50;
   --z-selection-toolbar: 80;
   --z-tooltip: 81;
-  --z-banner: 90;
   /* Local to the spreadsheet's isolated stack, but on the ladder anyway: it has
      to clear Univer's own right-sidebar layer at 100, and a three-digit number
      left in a component stylesheet reads like an app-level claim. */
@@ -421,7 +412,6 @@
   --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) 52%, transparent);
   --pdf-page-surface: #f9f9fa;
   --status-info: var(--info);
-  --status-info-soft: color-mix(in srgb, var(--info) 12%, transparent);
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
 
@@ -435,7 +425,6 @@
   --tone-surface: color-mix(in srgb, currentColor 10%, transparent);
   --tone-hover-surface: color-mix(in srgb, currentColor 8%, transparent);
   --tone-border: color-mix(in srgb, currentColor 14%, transparent);
-  --tone-border-emphasis: color-mix(in srgb, currentColor 28%, transparent);
   --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
 }
 
@@ -482,13 +471,6 @@
   --type-diff-code-line-height: 20px;
   --type-diff-meta-size: var(--type-micro-size);
   --type-diff-meta-line-height: var(--type-micro-line-height);
-
-  --font-ui-xs: var(--type-micro-size);
-  --font-ui-sm: var(--type-caption-size);
-  --font-ui-base: var(--type-label-size);
-  --font-ui-body: var(--type-body-size);
-  --font-ui-title: var(--type-title-size);
-  --font-ui-heading: var(--type-heading-size);
 
   --settings-group-title-size: 14px;
   --settings-group-title-line-height: 20px;

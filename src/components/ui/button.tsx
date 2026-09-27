@@ -1,11 +1,5 @@
-import {
-  type ButtonHTMLAttributes,
-} from "react";
-import {
-  buttonClassName,
-  type ButtonSize,
-  type ButtonVariant,
-} from "./button-styles";
+import { type ButtonHTMLAttributes } from "react";
+import { buttonClassName, type ButtonSize, type ButtonVariant } from "./button-styles";
 import "./chrome.css";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

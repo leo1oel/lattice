@@ -26,11 +26,11 @@ import { SlidingTabs } from "../components/ui/motion";
 import type { CompileRepairState } from "./use-compile-repair";
 
 function SeverityIcon({ level }: { level: string }) {
-  const severity = diagnosticSeverity(level);
   // Errors and warnings share the glyph; the status colour carries severity.
-  if (severity === "error" || severity === "warning") return <CircleAlert size={15} />;
-  return <CircleHelp size={15} />;
+  return diagnosticSeverity(level) === "info" ? <CircleHelp size={15} /> : <CircleAlert size={15} />;
 }
+
+const SUMMARY_NOUNS = [["error", "error"], ["warning", "warning"], ["info", "note"]] as const;
 
 export function CompileDiagnosticsPanel(props: {
   diagnostics: CompileDiagnostic[];
@@ -51,11 +51,8 @@ export function CompileDiagnosticsPanel(props: {
   const diagnostics = sortDiagnostics(props.diagnostics);
   const summary = summarizeDiagnostics(diagnostics);
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
-  const parts = [
-    summary.error ? `${summary.error} error${summary.error === 1 ? "" : "s"}` : "",
-    summary.warning ? `${summary.warning} warning${summary.warning === 1 ? "" : "s"}` : "",
-    summary.info ? `${summary.info} note${summary.info === 1 ? "" : "s"}` : "",
-  ].filter(Boolean);
+  const parts = SUMMARY_NOUNS.filter(([severity]) => summary[severity])
+    .map(([severity, noun]) => `${summary[severity]} ${noun}${summary[severity] === 1 ? "" : "s"}`);
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
   if (props.success && !diagnostics.length && !props.repair) return null;
@@ -90,11 +87,7 @@ export function CompileDiagnosticsPanel(props: {
             <WandSparkles size={13} />{t`Fix all`}
           </Button>
         )}
-        <CloseButton
-          label="Dismiss diagnostics"
-          size="compact"
-          onClick={props.onDismiss}
-        />
+        <CloseButton label="Dismiss diagnostics" size="compact" onClick={props.onDismiss} />
       </div>
       {(props.repair?.message || props.repair?.status === "awaiting-approval") && (
         <p className="compile-repair-detail" role="status">{props.repair.message ?? t`Open the repair task to continue.`}</p>
@@ -118,11 +111,10 @@ export function CompileDiagnosticsPanel(props: {
               {diagnostics.map((diagnostic, index) => {
                 const severity = diagnosticSeverity(diagnostic.level);
                 const navigable = Boolean(diagnostic.file || diagnostic.line);
-                const key = `${severity}-${diagnostic.file ?? ""}-${diagnostic.line ?? ""}-${index}`;
-                const copyText = `${diagnosticLocationLabel(diagnostic)} ${diagnostic.message}`;
+                const location = diagnosticLocationLabel(diagnostic);
                 const missingFile = missingTexDependencyFile(diagnostic.message);
                 return (
-                  <li key={key}>
+                  <li key={`${severity}-${diagnostic.file ?? ""}-${diagnostic.line ?? ""}-${index}`}>
                     <button
                       className={`compile-diagnostic-item ${severity}`}
                       disabled={!navigable}
@@ -130,7 +122,7 @@ export function CompileDiagnosticsPanel(props: {
                       title={navigable ? "Jump to this location" : diagnostic.message}
                     >
                       <SeverityIcon level={diagnostic.level} />
-                      <span className="compile-diagnostic-location">{diagnosticLocationLabel(diagnostic)}</span>
+                      <span className="compile-diagnostic-location">{location}</span>
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
                     {missingFile && (
@@ -148,7 +140,7 @@ export function CompileDiagnosticsPanel(props: {
                       aria-label="Copy error message"
                       title="Copy error message"
                       iconSize={12}
-                      text={copyText}
+                      text={`${location} ${diagnostic.message}`}
                     />
                   </li>
                 );
@@ -179,11 +171,7 @@ export function CompileDiagnosticsPanel(props: {
             />
           )}
           {!props.success && !diagnostics.length && !hasLog && (
-            <EmptyState
-              align="start"
-              density="compact"
-              description="Build failed without a captured log"
-            />
+            <EmptyState align="start" density="compact" description="Build failed without a captured log" />
           )}
         </div>
       )}

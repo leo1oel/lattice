@@ -1,12 +1,6 @@
 import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  BookOpen,
-  Check,
-  ExternalLink,
-  Quote,
-  Search,
-} from "lucide-react";
+import { BookOpen, Check, ExternalLink, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { baseArxivId } from "./arxiv-id";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -20,8 +14,6 @@ import { ResizableDrawer } from "../components/ui/resizable-drawer";
 
 /** Notification source label for literature discovery. */
 const LITERATURE_SOURCE = "Literature";
-
-export { baseArxivId };
 
 export type LiteratureHit = {
   source: "alphaxiv" | "openalex" | string;
@@ -37,6 +29,11 @@ export type LiteratureHit = {
 };
 
 type LiteraturePage = { hits: LiteratureHit[]; hasMore: boolean };
+type LiteratureSearch = { query: string; precise: boolean };
+
+function searchLiterature(search: LiteratureSearch, page: number): Promise<LiteraturePage> {
+  return invoke<LiteraturePage>("search_literature", { ...search, page });
+}
 
 // Show a small first batch and reveal more as the user scrolls; fetch deeper
 // backend pages only once the already-loaded ones are exhausted.
@@ -98,14 +95,11 @@ export function LiteratureDiscoveryPanel(props: {
   const [notice, setNotice] = useState("");
   const pageRef = useRef(0);
   /**
-   * The query and mode the results on screen actually came from.
-   *
-   * "Load more" read the live box instead, so typing a new query without
-   * pressing Search — or toggling precise mode — and then scrolling to the
-   * bottom appended page 2 of the *new* search underneath the old results,
-   * with no separator and nothing said. Two literatures, one list.
+   * The query and mode the results on screen came from. "Load more" pages
+   * this search, never the live box: an edited but unsubmitted query would
+   * otherwise append another search's page 2 under these results.
    */
-  const searchedRef = useRef<{ query: string; precise: boolean } | null>(null);
+  const searchedRef = useRef<LiteratureSearch | null>(null);
   const seenRef = useRef(new Set<string>());
   const loadingMoreRef = useRef(false);
 
@@ -131,13 +125,10 @@ export function LiteratureDiscoveryPanel(props: {
     setNotice("");
     pageRef.current = 0;
     seenRef.current = new Set();
-    searchedRef.current = { query: trimmed, precise };
+    const searched = { query: trimmed, precise };
+    searchedRef.current = searched;
     try {
-      const page = await invoke<LiteraturePage>("search_literature", {
-        query: trimmed,
-        precise,
-        page: 0,
-      });
+      const page = await searchLiterature(searched, 0);
       const hits = dedupeFresh(page.hits);
       setResults(hits);
       setVisible(INITIAL_VISIBLE);
@@ -165,11 +156,7 @@ export function LiteratureDiscoveryPanel(props: {
     setLoadingMore(true);
     const nextPage = pageRef.current + 1;
     try {
-      const page = await invoke<LiteraturePage>("search_literature", {
-        query: searched.query,
-        precise: searched.precise,
-        page: nextPage,
-      });
+      const page = await searchLiterature(searched, nextPage);
       // A new search may have started while this page was in flight; its
       // results, paging, and seen-set belong to the old query — drop them.
       if (searchedRef.current !== searched) return;
@@ -188,64 +175,68 @@ export function LiteratureDiscoveryPanel(props: {
     }
   };
 
+  const importArxiv = (work: LiteratureHit, key: string) => {
+    setBusyId(key);
+    setError("");
+    Promise.resolve(props.onImportArxiv(work.arxivId!))
+      .then(() => {
+        notifySuccess(LITERATURE_SOURCE, t`Imported arXiv:${work.arxivId}`);
+        setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
+      })
+      .catch((reason) => setError(message(reason)))
+      .finally(() => setBusyId(null));
+  };
+
   return (
     <ResizableDrawer
-        className="literature-drawer"
-        onClose={props.onClose}
-        onScroll={(event) => {
-          const el = event.currentTarget;
-          if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD_PX) void loadMore();
+      className="literature-drawer"
+      onClose={props.onClose}
+      onScroll={(event) => {
+        const el = event.currentTarget;
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD_PX) void loadMore();
+      }}
+    >
+      <PanelHeader className="drawer-header" icon={<Search size={16} />} title={t`Discover literature`} onClose={props.onClose} />
+      <form
+        className="literature-search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void search();
         }}
       >
-        <PanelHeader
-          className="drawer-header"
-          icon={<Search size={16} />}
-          title={t`Discover literature`}
-          onClose={props.onClose}
+        <SearchField
+          aria-label={t`Search literature`}
+          placeholder={t`Attention Is All You Need, diffusion, …`}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onClear={() => setQuery("")}
+          autoFocus
+          showIcon={false}
         />
-        <form
-          className="literature-search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void search();
-          }}
-        >
-          <SearchField
-            aria-label={t`Search literature`}
-            placeholder={t`Attention Is All You Need, diffusion, …`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onClear={() => setQuery("")}
-            autoFocus
-            showIcon={false}
-          />
-          <CheckboxField
-            className="literature-precise"
-            checked={precise}
-            label={t`Title/abstract only`}
-            onChange={(event) => setPrecise(event.target.checked)}
-          />
-          <button type="submit" disabled={loading || !query.trim()}>
-            {loading ? <InfinityLoader size={14} /> : <Search size={14} />}
-            {t`Search`}
-          </button>
-        </form>
-        {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
-        {notice ? <InlineMessage level="info">{notice}</InlineMessage> : null}
-        <div className="literature-results">
-          {results.slice(0, visible).map((work) => {
-            const key = hitKey(work);
-            return (
+        <CheckboxField
+          className="literature-precise"
+          checked={precise}
+          label={t`Title/abstract only`}
+          onChange={(event) => setPrecise(event.target.checked)}
+        />
+        <button type="submit" disabled={loading || !query.trim()}>
+          {loading ? <InfinityLoader size={14} /> : <Search size={14} />}
+          {t`Search`}
+        </button>
+      </form>
+      {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
+      {notice ? <InlineMessage level="info">{notice}</InlineMessage> : null}
+      <div className="literature-results">
+        {results.slice(0, visible).map((work) => {
+          const key = hitKey(work);
+          return (
             <article className="literature-result" key={key}>
               <div className="literature-result-body">
                 <span className={`lit-source lit-source-${work.source}`}>
                   {work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex"}
                 </span>
                 <strong>{work.title}</strong>
-                <p>{hitMeta(work, {
-                  etAl: t` et al.`,
-                  cites: t`${work.citedByCount} cites`,
-                })}</p>
+                <p>{hitMeta(work, { etAl: t` et al.`, cites: t`${work.citedByCount} cites` })}</p>
                 {work.snippet ? <p className="lit-snippet">{work.snippet}</p> : null}
                 <div className="literature-result-ids">
                   {work.arxivId ? <em>arXiv:{work.arxivId}</em> : null}
@@ -253,69 +244,43 @@ export function LiteratureDiscoveryPanel(props: {
                 </div>
               </div>
               <div className="literature-result-actions">
-                {work.arxivId ? (
-                  isImported(work.arxivId) ? (
-                    <span className="lit-imported" title={t`Already in Papers`}>
-                      <Check size={13} /> {t`Imported`}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={busyId === key}
-                      title={t`Add bibliography entry and cache the arXiv paper`}
-                      onClick={() => {
-                        setBusyId(key);
-                        setError("");
-                        Promise.resolve(props.onImportArxiv(work.arxivId!))
-                          .then(() => {
-                            notifySuccess(LITERATURE_SOURCE, t`Imported arXiv:${work.arxivId}`);
-                            setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
-                          })
-                          .catch((reason) => setError(message(reason)))
-                          .finally(() => setBusyId(null));
-                      }}
-                    >
-                      {busyId === key ? <InfinityLoader size={13} /> : <BookOpen size={13} />}
-                      {t`Add`}
-                    </button>
-                  )
-                ) : null}
-                <button
-                  type="button"
-                  title={t`Resolve into bibliography entry`}
-                  onClick={() => props.onAddBib(work.doi || work.title)}
-                >
+                {!work.arxivId ? null : isImported(work.arxivId) ? (
+                  <span className="lit-imported" title={t`Already in Papers`}>
+                    <Check size={13} /> {t`Imported`}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busyId === key}
+                    title={t`Add bibliography entry and cache the arXiv paper`}
+                    onClick={() => importArxiv(work, key)}
+                  >
+                    {busyId === key ? <InfinityLoader size={13} /> : <BookOpen size={13} />}
+                    {t`Add`}
+                  </button>
+                )}
+                <button type="button" title={t`Resolve into bibliography entry`} onClick={() => props.onAddBib(work.doi || work.title)}>
                   <Quote size={13} /> {t`Bib`}
                 </button>
                 {work.landingUrl || work.doi ? (
-                  <a
-                    href={work.landingUrl || `https://doi.org/${work.doi}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={t`Open landing page`}
-                  >
+                  <a href={work.landingUrl || `https://doi.org/${work.doi}`} target="_blank" rel="noreferrer" title={t`Open landing page`}>
                     <ExternalLink size={13} />
                   </a>
                 ) : null}
               </div>
             </article>
-            );
-          })}
-          {(visible < results.length || hasMore) && (
-            <button
-              type="button"
-              className="lit-load-more"
-              disabled={loadingMore}
-              onClick={() => void loadMore()}
-            >
-              {loadingMore ? <InfinityLoader size={13} /> : null}
-              {loadingMore ? t`Loading…` : t`Load more`}
-            </button>
-          )}
-          {!loading && !results.length && !error && !notice && (
-            <EmptyState description={t`Search alphaXiv and OpenAlex to find related work before importing evidence`} />
-          )}
-        </div>
+          );
+        })}
+        {(visible < results.length || hasMore) && (
+          <button type="button" className="lit-load-more" disabled={loadingMore} onClick={() => void loadMore()}>
+            {loadingMore ? <InfinityLoader size={13} /> : null}
+            {loadingMore ? t`Loading…` : t`Load more`}
+          </button>
+        )}
+        {!loading && !results.length && !error && !notice && (
+          <EmptyState description={t`Search alphaXiv and OpenAlex to find related work before importing evidence`} />
+        )}
+      </div>
     </ResizableDrawer>
   );
 }

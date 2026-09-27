@@ -22,6 +22,9 @@ import {
   resolveAppLocale,
   type WorkspaceLayout,
 } from "./app-settings";
+import type { FileViewState } from "../app-types";
+
+beforeEach(() => localStorage.clear());
 
 const layout: WorkspaceLayout = {
   openTabs: ["main.tex", "sections/method.tex", "figures/model.png"],
@@ -37,8 +40,6 @@ const layout: WorkspaceLayout = {
 };
 
 describe("interface language persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("defaults to the system and restores explicit overrides", () => {
     expect(loadAppearance().interfaceLanguage).toBe("system");
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "zh-CN" }));
@@ -69,8 +70,6 @@ describe("interface language persistence", () => {
 });
 
 describe("fixed application fonts", () => {
-  beforeEach(() => localStorage.clear());
-
   it.each([APPEARANCE_KEY, "lattice.appearance.v4", "lattice.appearance.v3"])(
     "normalizes old font choices from %s without losing other preferences",
     (key) => {
@@ -91,8 +90,6 @@ describe("fixed application fonts", () => {
 });
 
 describe("prose spellcheck default", () => {
-  beforeEach(() => localStorage.clear());
-
   it("is on for fresh installs and for settings saved before the toggle existed", () => {
     expect(loadAppearance().editorSpellcheck).toBe(true);
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ editorFontSize: 16 }));
@@ -106,8 +103,6 @@ describe("prose spellcheck default", () => {
 });
 
 describe("workspace layout persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("round-trips tab order, active tab, and split layout per project", () => {
     persistWorkspaceLayout("/papers/alpha", layout);
     expect(loadWorkspaceLayout("/papers/alpha")).toEqual(layout);
@@ -179,10 +174,8 @@ describe("workspace layout persistence", () => {
 });
 
 describe("local file view state persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("round-trips each file's local view without mixing projects", () => {
-    persistFileViewStates("/papers/alpha", {
+    const views = {
       "main.tex": { text: { cursor: 42, scrollTop: 320 } },
       "data.lattice-sheet": {
         spreadsheet: {
@@ -195,58 +188,16 @@ describe("local file view state persistence", () => {
           },
         },
       },
-      "figures/model.png": {
-        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
-      },
-      "paper.pdf": {
-        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
-      },
-      "sketch.tldr": {
-        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
-      },
-      "slides/talk/index.tsx": {
-        openSlide: { page: 3 },
-      },
-      "report.html": {
-        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
-      },
-      "notes.md": {
-        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
-      },
-    });
+      "figures/model.png": { image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 } },
+      "paper.pdf": { pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 } },
+      "sketch.tldr": { board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } } },
+      "slides/talk/index.tsx": { openSlide: { page: 3 } },
+      "report.html": { html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 } },
+      "notes.md": { visualMarkdown: { scrollTop: 460, scrollRange: 1800 } },
+    } satisfies Record<string, FileViewState>;
+    persistFileViewStates("/papers/alpha", views);
 
-    expect(loadFileViewStates("/papers/alpha")).toEqual({
-      "main.tex": { text: { cursor: 42, scrollTop: 320 } },
-      "data.lattice-sheet": {
-        spreadsheet: {
-          activeSheetId: "sheet-2",
-          activeRange: "B4:D8",
-          activeCell: "B4",
-          sheets: {
-            "sheet-1": { zoomRatio: 1, scrollTop: 0, scrollLeft: 0 },
-            "sheet-2": { zoomRatio: 1.4, scrollTop: 240, scrollLeft: 80 },
-          },
-        },
-      },
-      "figures/model.png": {
-        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
-      },
-      "paper.pdf": {
-        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
-      },
-      "sketch.tldr": {
-        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
-      },
-      "slides/talk/index.tsx": {
-        openSlide: { page: 3 },
-      },
-      "report.html": {
-        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
-      },
-      "notes.md": {
-        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
-      },
-    });
+    expect(loadFileViewStates("/papers/alpha")).toEqual(views);
     expect(loadFileViewStates("/papers/beta")).toEqual({});
   });
 
@@ -295,8 +246,6 @@ describe("local file view state persistence", () => {
 });
 
 describe("tutorial persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("remembers that the tutorial has been shown across app versions", () => {
     expect(hasSeenTutorial()).toBe(false);
     markTutorialSeen();
@@ -315,8 +264,6 @@ describe("tutorial persistence", () => {
 });
 
 describe("local semantic search opt-in", () => {
-  beforeEach(() => localStorage.clear());
-
   it("is disabled until the user explicitly enables it", () => {
     expect(loadLocalSemanticSearchEnabled()).toBe(false);
     expect(localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY)).toBeNull();
@@ -330,8 +277,6 @@ describe("local semantic search opt-in", () => {
 });
 
 describe("recent projects across windows", () => {
-  beforeEach(() => localStorage.clear());
-
   it("keeps what another window recorded while this one was open", () => {
     // Both windows share one localStorage. This window loaded its copy before
     // the other window opened "Notes"; writing that stale copy back is what

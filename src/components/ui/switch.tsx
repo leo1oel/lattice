@@ -1,7 +1,4 @@
-import {
-  motion,
-  useReducedMotion,
-} from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import * as stylex from "@stylexjs/stylex";
 import { spring } from "@/components/ui/motion-values";
 import { cn } from "@/lib/utils";
@@ -45,9 +42,7 @@ export type SwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
-  id?: string;
   disabled?: boolean;
-  className?: string;
 };
 
 /**
@@ -56,14 +51,7 @@ export type SwitchProps = {
  * drag-to-toggle or a second clickable label around settings rows.
  * Source: https://www.fluidfunctionalism.com/r/base/switch.json
  */
-export function Switch({
-  checked,
-  className,
-  disabled,
-  label,
-  id,
-  onChange,
-}: SwitchProps) {
+export function Switch({ checked, disabled, label, onChange }: SwitchProps) {
   const reduceMotion = useReducedMotion();
   const rootStyleProps = stylex.props(
     styles.root,
@@ -75,14 +63,13 @@ export function Switch({
   return (
     <motion.button
       {...rootStyleProps}
-      id={id}
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
       data-slot="switch"
-      className={cn("ui-switch", rootStyleProps.className, className)}
+      className={cn("ui-switch", rootStyleProps.className)}
       onClick={() => onChange(!checked)}
       initial={false}
       animate="rest"

@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, type ComponentProps } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -24,6 +24,34 @@ async function checkAll() {
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
 }
+async function renderChecked(overrides: Partial<ComponentProps<typeof BibliographyAudit>> = {}) {
+  const p = { ...props(), ...overrides };
+  const view = render(<BibliographyAudit {...p} />);
+  await checkAll();
+  return { ...view, props: p };
+}
+const idle = () => waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+const calls = (command: string) => vi.mocked(invoke).mock.calls.filter(([name]) => name === command);
+/** Scans `scanned` and answers every remote check (batch or entry) with `result`. */
+function mockAudit(result: unknown, scanned = entries.slice(0, 1)) {
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: scanned, issues: [] } : result);
+}
+/** Every batch proposes an update for each of its entries. */
+function mockBatchUpdates() {
+  vi.mocked(invoke).mockImplementation(async (command, args) => command === "bibliography_audit_scan"
+    ? { entries, issues: [] }
+    : { results: (args as { entries: AuditEntry[] }).entries.map(entry => ({ ...updated, before: entry.bibtex })) });
+}
+/** Holds the S2 batch open while every per-entry check comes back incomplete. */
+function holdBatch() {
+  let finish!: (value: unknown) => void;
+  vi.mocked(invoke).mockImplementation(async command => {
+    if (command === "bibliography_audit_scan") return { entries, issues: [] };
+    if (command === "bibliography_audit_batch") return new Promise(resolve => { finish = resolve; });
+    return { ...updated, status: "unavailable", after: undefined };
+  });
+  return (value: unknown) => finish(value);
+}
 
 it("shows local issues first, bounds concurrency, and cancels the remaining queue", async () => {
   const pending: ((r: AuditResult) => void)[] = [];
@@ -38,7 +66,7 @@ it("shows local issues first, bounds concurrency, and cancels the remaining queu
   await waitFor(() => expect(pending).toHaveLength(2));
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));
   await act(async () => pending.forEach(resolve => resolve({ ...updated, status: "unavailable", after: undefined })));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+  await idle();
   expect(invoke).toHaveBeenCalledTimes(5);
   expect(screen.getAllByText("Check incomplete")).toHaveLength(2);
   expect(screen.getByText("Not checked")).toBeInTheDocument();
@@ -54,12 +82,10 @@ it.each([21, 22])("batches all %i entries including a single-entry final group",
     }
     return { ...updated, before: records[5].bibtex };
   });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
-  const calls = vi.mocked(invoke).mock.calls;
-  expect(calls.filter(([cmd]) => cmd === "bibliography_audit_batch").map(([, args]) => (args as { entries: AuditEntry[] }).entries.length)).toEqual([20, count - 20]);
-  expect(calls.filter(([cmd]) => cmd === "bibliography_audit_entry")).toHaveLength(1);
+  await renderChecked();
+  await idle();
+  expect(calls("bibliography_audit_batch").map(([, args]) => (args as { entries: AuditEntry[] }).entries.length)).toEqual([20, count - 20]);
+  expect(calls("bibliography_audit_entry")).toHaveLength(1);
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ s2BatchStatus: "checked" }));
   expect(screen.getAllByText("Update available")).toHaveLength(count);
 });
@@ -72,8 +98,7 @@ it("stops scheduling after cancellation during a batch", async () => {
     if (command === "bibliography_audit_batch") return new Promise(done => { finishBatch = done; });
     return new Promise<AuditResult>(done => { inFlight.push(done); });
   });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  await renderChecked();
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_batch", expect.anything()));
   const startedCalls = vi.mocked(invoke).mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));
@@ -83,9 +108,9 @@ it("stops scheduling after cancellation during a batch", async () => {
     finishBatch({ results: [updated, null, null] });
     inFlight.forEach(finish => finish({ ...updated, status: "checked", after: undefined }));
   });
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+  await idle();
   expect(invoke).toHaveBeenCalledTimes(startedCalls);
-  expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "bibliography_audit_entry").length).toBeLessThan(entries.length);
+  expect(calls("bibliography_audit_entry").length).toBeLessThan(entries.length);
 });
 
 it("does not repeat a failed batch request in subsequent groups", async () => {
@@ -95,39 +120,41 @@ it("does not repeat a failed batch request in subsequent groups", async () => {
     if (command === "bibliography_audit_batch") return { results: records.slice(0, 20).map(() => null), s2Failure: "upstream_rate_limit" };
     return { ...updated, sources: [{ source: "semanticscholar", outcome: "batch_upstream_rate_limit" }] };
   });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
-  expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "bibliography_audit_batch")).toHaveLength(1);
-  const fallbacks = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "bibliography_audit_entry");
+  await renderChecked();
+  await idle();
+  expect(calls("bibliography_audit_batch")).toHaveLength(1);
+  const fallbacks = calls("bibliography_audit_entry");
   expect(fallbacks).toHaveLength(22);
   expect(fallbacks.every(([, args]) => (args as { s2BatchStatus: string }).s2BatchStatus === "upstream_rate_limit")).toBe(true);
   expect(screen.getAllByText("Semantic Scholar rate limited the service; subsequent queries skipped")).toHaveLength(22);
 });
 
 it("continues other sources while S2 waits and discards its late result after cancellation", async () => {
-  let finishBatch!: (value: unknown) => void;
-  vi.mocked(invoke).mockImplementation(async command => {
-    if (command === "bibliography_audit_scan") return { entries, issues: [] };
-    if (command === "bibliography_audit_batch") return new Promise(resolve => { finishBatch = resolve; });
-    return { ...updated, status: "unavailable", after: undefined };
-  });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  const finishBatch = holdBatch();
+  await renderChecked();
   await screen.findByText(/Semantic Scholar is queued or querying/);
   await waitFor(() => expect(screen.getAllByText("Check incomplete")).toHaveLength(3));
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ s2BatchStatus: "checked" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+  await idle();
   await act(async () => finishBatch({ results: entries.map(() => updated) }));
   expect(screen.queryByText("Update available")).not.toBeInTheDocument();
 });
 
+it("uses a late batch proposal after parallel checks complete", async () => {
+  const finishBatch = holdBatch();
+  await renderChecked();
+  await waitFor(() => expect(screen.getAllByText("Check incomplete")).toHaveLength(3));
+  await act(async () => finishBatch({ results: [updated, null, null], s2Failure: undefined }));
+  await idle();
+  expect(screen.getAllByText("Update available")).toHaveLength(1);
+  expect(screen.getAllByText("Check incomplete")).toHaveLength(2);
+});
+
 it("keeps results usable and warns when native persistence fails", async () => {
   vi.mocked(saveAuditReport).mockRejectedValue(new Error("Disk full"));
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  mockAudit(updated);
+  await renderChecked();
   await screen.findByText("Update available");
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the report on this device");
 });
@@ -141,62 +168,51 @@ it("never overwrites a report or enables checking when loading the saved report 
   expect(saveAuditReport).not.toHaveBeenCalled();
 });
 
-it("uses a late batch proposal after parallel checks complete", async () => {
-  let finishBatch!: (value: unknown) => void;
-  vi.mocked(invoke).mockImplementation(async command => {
-    if (command === "bibliography_audit_scan") return { entries, issues: [] };
-    if (command === "bibliography_audit_batch") return new Promise(resolve => { finishBatch = resolve; });
-    return { ...updated, status: "unavailable", after: undefined };
-  });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await waitFor(() => expect(screen.getAllByText("Check incomplete")).toHaveLength(3));
-  await act(async () => finishBatch({ results: [updated, null, null], s2Failure: undefined }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
-  expect(screen.getAllByText("Update available")).toHaveLength(1);
-  expect(screen.getAllByText("Check incomplete")).toHaveLength(2);
+it.each([
+  ["distinguishes batch reuse and local queue limits from upstream rate limits", { ...updated, status: "unavailable", sources: [
+    { source: "semanticscholar", outcome: "batch_reused" },
+    { source: "openalex", outcome: "daily_quota" },
+    { source: "crossref", outcome: "queue_busy" },
+  ] }, ["Batch result reused", "Public daily quota exhausted", "Request queue busy"], ["Rate limited"]],
+  ["shows the selected metadata source and cache attribution for updates",
+    { ...updated, sources: [{ source: "crossref", outcome: "selected_cached" }] }, ["Crossref", "Metadata source · cached"], []],
+  ["does not present legacy selected cached sources as accepted for unavailable results",
+    { ...updated, status: "unavailable", after: undefined, publicationReason: "metadata_unavailable", sources: [{ source: "dblp", outcome: "selected_cached" }] },
+    ["Independent metadata unavailable", "Source record considered, not verified · cached record"], ["Metadata source · cached"]],
+] as const)("%s", async (_, result, shown, hidden) => {
+  mockAudit(result);
+  await renderChecked();
+  fireEvent.click(await screen.findByText("Details"));
+  for (const text of shown) expect(screen.getByText(text)).toBeVisible();
+  for (const text of hidden) expect(screen.queryByText(text)).not.toBeInTheDocument();
 });
 
-it("distinguishes batch reuse and local queue limits from upstream rate limits", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] }
-    : { ...updated, status: "unavailable", sources: [
-      { source: "semanticscholar", outcome: "batch_reused" },
-      { source: "openalex", outcome: "daily_quota" },
-      { source: "crossref", outcome: "queue_busy" },
-    ] });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await screen.findByText("Batch result reused");
-  expect(screen.getByText("Public daily quota exhausted")).toBeInTheDocument();
-  expect(screen.getByText("Request queue busy")).toBeInTheDocument();
-  expect(screen.queryByText("Rate limited")).not.toBeInTheDocument();
-});
-
-it("applies the exact reviewed snapshot without another network lookup, including StrictMode", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
+it("applies the exact reviewed snapshot without another network lookup and shows it as current, including StrictMode", async () => {
+  mockAudit(updated);
   const p = props();
   render(<StrictMode><BibliographyAudit {...p} /></StrictMode>);
   await checkAll();
   await screen.findByText("Update available");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+  await idle();
   fireEvent.click(screen.getByText("Review proposed changes"));
   fireEvent.click(screen.getByRole("button", { name: "Apply this update" }));
   await screen.findByText("Update applied");
   expect(p.onApply).toHaveBeenCalledWith(entries[0], expect.objectContaining(updated));
   expect(invoke).toHaveBeenCalledTimes(4);
+  fireEvent.click(screen.getByText("Current BibTeX"));
+  expect(screen.getAllByText(updated.after!)).toHaveLength(2);
+  expect(screen.queryByText(entries[0].bibtex)).not.toBeInTheDocument();
 });
 
 it("continues while hidden but prevents read-only updates", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  const p = { ...props(), canApply: false };
-  const { rerender } = render(<BibliographyAudit {...p} />);
-  await checkAll();
+  mockAudit(updated);
+  const { rerender, props: p } = await renderChecked({ canApply: false });
   await screen.findByText("Update available");
   rerender(<BibliographyAudit {...p} open={false} />);
   rerender(<BibliographyAudit {...p} />);
   fireEvent.click(screen.getByText("Review proposed changes"));
   expect(screen.getByRole("button", { name: "Apply this update" })).toBeDisabled();
+  expect(await screen.findByRole("button", { name: "Accept all updates" })).toBeDisabled();
   expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
     "bibliography_audit_scan", "bibliography_audit_scan", "bibliography_audit_entry", "bibliography_audit_scan",
   ]);
@@ -204,18 +220,16 @@ it("continues while hidden but prevents read-only updates", async () => {
 
 it("opens publisher notices through the native URL opener", async () => {
   const health = { kind: "corrected", link: "https://doi.org/10.1234/notice", checkedAt: "2026-09-05" };
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : { ...updated, health });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  mockAudit({ ...updated, health });
+  await renderChecked();
   fireEvent.click(await screen.findByRole("link", { name: "Open notice" }));
   expect(openUrl).toHaveBeenCalledWith(health.link);
 });
 
-it("keeps current and proposed BibTeX collapsed independently from the field diff", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await screen.findByText("Update available");
+it("marks an update with a success badge and keeps current and proposed BibTeX collapsed independently from the field diff", async () => {
+  mockAudit(updated);
+  await renderChecked();
+  expect((await screen.findByText("Update available")).closest('[data-slot="badge"]')).toHaveAttribute("data-tone", "success");
   expect(screen.getByText("Details").closest("details")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByText("Review proposed changes"));
   expect(screen.getByText("Title")).toBeVisible();
@@ -225,9 +239,7 @@ it("keeps current and proposed BibTeX collapsed independently from the field dif
 });
 
 it("shows the scanned BibTeX for not-checked and no-update entries", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 2), issues: [] }
-    : { status: "checked", message: "No update found.", before: entries[0].bibtex, changes: [] });
+  mockAudit({ status: "checked", message: "No update found.", before: entries[0].bibtex, changes: [] }, entries.slice(0, 2));
   render(<BibliographyAudit {...props()} />);
   const viewers = await screen.findAllByText("Current BibTeX");
   expect(viewers).toHaveLength(2);
@@ -250,14 +262,12 @@ it("shows an explicit empty state without claiming references were verified", as
 });
 
 it("explains partial publication lookups without exposing internal error codes", async () => {
-  const result: AuditResult = {
+  mockAudit({
     status: "unavailable", message: "Publication lookup: sources_unavailable.",
     publicationReason: "sources_unavailable", before: entries[0].bibtex, changes: [],
     sources: [{ source: "crossref", outcome: "no_match" }, { source: "semanticscholar", outcome: "rate_limited" }, { source: "dblp", outcome: "connection_failed" }],
-  };
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : result);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  });
+  await renderChecked();
   await screen.findByText("Some sources unavailable");
   expect(screen.queryByText(/sources_unavailable/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Results reflect available sources/)).not.toBeInTheDocument();
@@ -271,30 +281,18 @@ it("explains partial publication lookups without exposing internal error codes",
   expect(invoke).toHaveBeenCalledTimes(3);
 });
 
-it("distinguishes a completed publication search from unavailable sources", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : {
-    status: "checked", publicationReason: "no_published_version", message: "No published version was found.", before: entries[0].bibtex, changes: [],
-  });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  await screen.findByText("No update found");
-  fireEvent.click(screen.getByText("Details"));
-  expect(screen.getByText("No matching publication was found in the sources checked.")).toBeVisible();
-  expect(screen.queryByText("Some sources unavailable")).not.toBeInTheDocument();
-});
-
 it.each([
+  // A completed search is distinguished from unavailable sources.
+  ["checked", "no_published_version", "No update found", "No matching publication was found in the sources checked."],
   ["skipped", "missing_identity", "Reference lacks identifying metadata", "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."],
   ["checked", "no_match", "No matching publication found", "No matching publication was found in the sources checked."],
-] as const)("uses publication reason %s statuses for %s", async (status, publicationReason, label, explanation) => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] }
-    : { status, publicationReason, message: publicationReason, before: entries[0].bibtex, changes: [] });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+] as const)("uses %s status with publication reason %s", async (status, publicationReason, label, explanation) => {
+  mockAudit({ status, publicationReason, message: publicationReason, before: entries[0].bibtex, changes: [] });
+  await renderChecked();
   expect(await screen.findByText(label)).toBeInTheDocument();
   fireEvent.click(screen.getByText("Details"));
   expect(screen.getByText(explanation)).toBeVisible();
+  expect(screen.queryByText("Some sources unavailable")).not.toBeInTheDocument();
 });
 
 it("only performs the local scan when opened", async () => {
@@ -308,12 +306,12 @@ it("only performs the local scan when opened", async () => {
 });
 
 it("checks one row explicitly without checking its neighbors", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries, issues: [] } : updated);
+  mockAudit(updated, entries);
   render(<BibliographyAudit {...props()} />);
   fireEvent.click(await screen.findByRole("button", { name: "Check key1" }));
   await screen.findByText("Update available");
   expect(screen.getAllByText("Not checked")).toHaveLength(2);
-  expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "bibliography_audit_entry")).toHaveLength(1);
+  expect(calls("bibliography_audit_entry")).toHaveLength(1);
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ entry: entries[1] }));
 });
 
@@ -333,24 +331,16 @@ it("checks only selected rows and preserves unrelated results by path and key", 
   fireEvent.click(screen.getByRole("button", { name: "Check selected" }));
   await waitFor(() => expect(screen.getAllByText("Update available")).toHaveLength(3));
   expect(screen.getByRole("checkbox", { name: "Select key0" })).not.toBeChecked();
-  expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "bibliography_audit_batch")).toHaveLength(1);
+  expect(calls("bibliography_audit_batch")).toHaveLength(1);
   fireEvent.click(screen.getAllByText("Details")[0]);
   expect(screen.getByText("First result")).toBeVisible();
 });
 
-it("uses a success-tone badge for an available update", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  expect((await screen.findByText("Update available")).closest('[data-slot="badge"]')).toHaveAttribute("data-tone", "success");
-});
-
 it("accepts all updates sequentially without applying an item twice", async () => {
-  vi.mocked(invoke).mockImplementation(async (command, args) => command === "bibliography_audit_scan" ? { entries, issues: [] } : { results: (args as { entries: AuditEntry[] }).entries.map(entry => ({ ...updated, before: entry.bibtex })) });
+  mockBatchUpdates();
   const p = props();
   const onApplied = vi.fn();
-  render(<BibliographyAudit {...p} onApplied={onApplied} />);
-  await checkAll();
+  await renderChecked({ ...p, onApplied });
   fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
   await waitFor(() => expect(screen.getAllByText("Update applied")).toHaveLength(3));
   expect(onApplied).toHaveBeenCalledTimes(1);
@@ -359,11 +349,10 @@ it("accepts all updates sequentially without applying an item twice", async () =
 });
 
 it("stops bulk apply on failure while retaining earlier successes", async () => {
-  vi.mocked(invoke).mockImplementation(async (command, args) => command === "bibliography_audit_scan" ? { entries, issues: [] } : { results: (args as { entries: AuditEntry[] }).entries.map(entry => ({ ...updated, before: entry.bibtex })) });
+  mockBatchUpdates();
   const p = props();
   p.onApply.mockImplementation(async entry => { if (entry.key === "key1") throw new Error("write failed"); });
-  render(<BibliographyAudit {...p} />);
-  await checkAll();
+  await renderChecked(p);
   fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
   await screen.findByText("Error: write failed");
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1"]);
@@ -373,34 +362,16 @@ it("stops bulk apply on failure while retaining earlier successes", async () => 
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1", "key1"]);
 });
 
-it("disables bulk updates in read-only projects", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  render(<BibliographyAudit {...props()} canApply={false} />);
-  await checkAll();
-  expect(await screen.findByRole("button", { name: "Accept all updates" })).toBeDisabled();
-});
-
 it("explains when Semantic Scholar is not configured", async () => {
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries, issues: [] } : command === "bibliography_audit_batch"
     ? { results: entries.map(() => null), s2Failure: "not_configured" }
     : { ...updated, status: "unavailable", after: undefined });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  await renderChecked();
   await screen.findAllByText("Not enabled · add your own API key in Settings");
 });
 
-it("shows the selected metadata source and cache attribution for updates", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] }
-    : { ...updated, sources: [{ source: "crossref", outcome: "selected_cached" }] });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  expect(await screen.findByText("Crossref")).toBeInTheDocument();
-  expect(screen.getByText("Metadata source · cached")).toBeInTheDocument();
-});
-
 it("explains a candidate with localized identity fields and no apply action", async () => {
-  const candidate: AuditResult = {
+  mockAudit({
     status: "unavailable", message: "identity_conflict", publicationReason: "identity_conflict",
     before: entries[0].bibtex, changes: [], sources: [
       { source: "dblp", outcome: "candidate_cached" },
@@ -414,11 +385,8 @@ it("explains a candidate with localized identity fields and no apply action", as
       ],
       reasons: ["title", "author", "year", "venue", "arxiv", "insufficient_identity"],
     },
-  };
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] } : candidate);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  } satisfies AuditResult);
+  await renderChecked();
   expect(await screen.findByText("Candidate does not match reference")).toBeInTheDocument();
   fireEvent.click(screen.getByText("Details"));
   expect(screen.getByText("A source returned a possible record, but its identifying metadata conflicts with this reference.")).toBeVisible();
@@ -440,18 +408,6 @@ it("explains a candidate with localized identity fields and no apply action", as
   expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
 });
 
-it("shows the applied BibTeX as current after an individual update", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  fireEvent.click(await screen.findByText("Review proposed changes"));
-  fireEvent.click(screen.getByRole("button", { name: "Apply this update" }));
-  await screen.findByText("Update applied");
-  fireEvent.click(screen.getByText("Current BibTeX"));
-  expect(screen.getAllByText(updated.after!)).toHaveLength(2);
-  expect(screen.queryByText(entries[0].bibtex)).not.toBeInTheDocument();
-});
-
 it("never offers individual or bulk apply when a restored payload contains a malformed candidate", async () => {
   const malformed = { ...updated, candidate: { changes: "invalid" } } as unknown as AuditResult;
   vi.mocked(loadAuditReport).mockResolvedValue(new Map([[`${entries[0].path}\0${entries[0].key}`, {
@@ -465,23 +421,9 @@ it("never offers individual or bulk apply when a restored payload contains a mal
   expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
 });
 
-it("does not present legacy selected cached sources as accepted for unavailable results", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] }
-    : { ...updated, status: "unavailable", after: undefined, publicationReason: "metadata_unavailable", sources: [{ source: "dblp", outcome: "selected_cached" }] });
-  render(<BibliographyAudit {...props()} />);
-  await checkAll();
-  expect(await screen.findByText("Independent metadata unavailable")).toBeInTheDocument();
-  fireEvent.click(screen.getByText("Details"));
-  expect(screen.getByText("Source record considered, not verified · cached record")).toBeVisible();
-  expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
-});
-
 it("restores checked results after remount without making any remote checks", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
-    ? { entries: entries.slice(0, 1), issues: [] } : updated);
-  const first = render(<BibliographyAudit {...props()} />);
-  await checkAll();
+  mockAudit(updated);
+  const first = await renderChecked();
   await screen.findByText("Update available");
   const time = document.querySelector("time")!.dateTime;
   first.unmount();
@@ -495,13 +437,11 @@ it("restores checked results after remount without making any remote checks", as
 it("invalidates changed snapshots on reopen and never offers the stale proposal", async () => {
   let currentEntries = entries.slice(0, 1);
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: currentEntries, issues: [] } : updated);
-  const p = props();
-  const view = render(<BibliographyAudit {...p} />);
-  await checkAll();
+  const view = await renderChecked();
   await screen.findByText("Update available");
-  view.rerender(<BibliographyAudit {...p} open={false} />);
+  view.rerender(<BibliographyAudit {...view.props} open={false} />);
   currentEntries = [{ ...entries[0], bibtex: "@article{key0,title={Edited}}" }];
-  view.rerender(<BibliographyAudit {...p} />);
+  view.rerender(<BibliographyAudit {...view.props} />);
   await screen.findByText("Entry changed");
   expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
 });
@@ -511,8 +451,7 @@ it("preserves applied status against the post-apply snapshot", async () => {
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: currentEntries, issues: [] } : updated);
   const p = props();
   p.onApply.mockImplementation(async () => { currentEntries = [{ ...entries[0], bibtex: updated.after! }]; });
-  const view = render(<BibliographyAudit {...p} />);
-  await checkAll();
+  const view = await renderChecked(p);
   fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
   await screen.findByText("Update applied");
   view.unmount();
@@ -522,7 +461,7 @@ it("preserves applied status against the post-apply snapshot", async () => {
 });
 
 it("isolates project reports", async () => {
-  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: entries.slice(0, 1), issues: [] } : updated);
+  mockAudit(updated);
   const view = render(<BibliographyAudit {...props()} />);
   await screen.findByText("Not checked");
   await checkAll();

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { Wrench } from "lucide-react";
 import {
   isConferenceFontsMissing,
   missingTexToolNames,
@@ -11,11 +10,10 @@ import {
   type DoctorReportLike,
   type TexInstallProgress,
 } from "./tex-setup";
-import { MotionButton, PopIn } from "../components/ui/motion";
+import { TexInstallDialog } from "./tex-install-dialog";
+import { MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
-import { ModalDialog } from "../components/ui/modal-dialog";
-import { InlineMessage } from "../components/ui/inline-message";
 import { logAction } from "../telemetry/app-notify";
 import { toMessage } from "../app-utils";
 
@@ -97,17 +95,12 @@ export function TexSetupWizard(props: {
           }),
         );
       }
-      const missingTools = [
-        ...missingTexToolNames(report),
-        ...missingRequiredToolNames(report),
-      ];
+      const missingTools = [...missingTexToolNames(report), ...missingRequiredToolNames(report)];
       const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
       if (missingTools.length > 0 || fontCheck?.ok !== true) {
         const issues = [
           ...(missingTools.length > 0 ? [t`Missing tools: ${missingTools.join(", ")}`] : []),
-          ...(fontCheck?.ok !== true
-            ? [fontCheck?.detail ?? t`Conference font verification is missing.`]
-            : []),
+          ...(fontCheck?.ok !== true ? [fontCheck?.detail ?? t`Conference font verification is missing.`] : []),
         ];
         throw new Error(
           t({
@@ -128,59 +121,31 @@ export function TexSetupWizard(props: {
   const percent = Math.round(installProgress.progress * 100);
 
   return (
-    <ModalDialog label={t`Install LaTeX tools`} onClose={props.onClose} closeDisabled backdropClassName="tex-setup-backdrop">
-      <PopIn
-        className="modal tex-setup-modal"
+    <TexInstallDialog
+      label={t`Install LaTeX tools`}
+      title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
+      description={paperToolsOnly
+        ? t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute" })
+        : t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes` })}
+      closeDisabled
+      onClose={props.onClose}
+      progress={installing ? {
+        label: paperToolsOnly ? t`Required tools installation progress` : t`BasicTeX installation progress`,
+        percent,
+        stage: installStageLabel[installProgress.stage],
+        detail: installStageDetail[installProgress.stage],
+      } : null}
+      error={installError}
+    >
+      <MotionButton
+        type="button"
+        className={buttonClassName({ variant: "primary", className: "tex-setup-install" })}
+        onClick={() => { void startInstall(); }}
+        disabled={busy || ready}
       >
-        <div className="modal-icon"><Wrench size={18} /></div>
-        <h2>{paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}</h2>
-        {paperToolsOnly ? (
-          <p>
-            {t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute" })}
-          </p>
-        ) : (
-          <p>
-            {t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes` })}
-          </p>
-        )}
-
-        {installing && (
-          <div className="tex-setup-progress-block" aria-live="polite">
-            <div
-              className="tex-setup-progress"
-              role="progressbar"
-              aria-label={paperToolsOnly
-                ? t`Required tools installation progress`
-                : t`BasicTeX installation progress`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent}
-            >
-              <div className="tex-setup-progress-fill" style={{ width: `${percent}%` }} />
-            </div>
-            <div className="tex-setup-progress-copy">
-              <span>{installStageLabel[installProgress.stage]} {percent}%</span>
-              <small>{installStageDetail[installProgress.stage]}</small>
-            </div>
-          </div>
-        )}
-
-        {installError && (
-          <InlineMessage level="error" className="tex-setup-status">
-            {installError}
-          </InlineMessage>
-        )}
-
-        <MotionButton
-          type="button"
-          className={buttonClassName({ variant: "primary", className: "tex-setup-install" })}
-          onClick={() => { void startInstall(); }}
-          disabled={busy || ready}
-        >
-          {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
-          {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
-        </MotionButton>
-      </PopIn>
-    </ModalDialog>
+        {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
+        {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
+      </MotionButton>
+    </TexInstallDialog>
   );
 }

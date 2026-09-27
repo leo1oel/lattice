@@ -38,33 +38,12 @@ export function AnimatedProductIcon({
     };
   }, []);
 
+  const playing = playId > 0;
   return (
-    <span
-      ref={hostRef}
-      className={`animated-product-icon animated-product-icon--${kind}`}
-      aria-hidden="true"
-      style={{ pointerEvents: "none" }}
-    >
-      {source === "provided" ? (
-        <ProvidedAnimatedIcon
-          key={playId}
-          kind={kind as ProvidedIconKind}
-          size={size}
-          playing={playId > 0}
-          playId={playId}
-          reducedMotion={reducedMotion}
-        />
-      ) : (
-        <BakaiAnimatedIcon
-          key={playId}
-          kind={kind as BakaiIconKind}
-          size={size}
-          playing={playId > 0}
-          playId={playId}
-          reducedMotion={reducedMotion}
-          converted={converted}
-        />
-      )}
+    <span ref={hostRef} className={`animated-product-icon animated-product-icon--${kind}`} aria-hidden="true" style={{ pointerEvents: "none" }}>
+      {source === "provided"
+        ? <ProvidedAnimatedIcon key={playId} kind={kind as ProvidedIconKind} size={size} playing={playing} playId={playId} reducedMotion={reducedMotion} />
+        : <BakaiAnimatedIcon key={playId} kind={kind as BakaiIconKind} size={size} playing={playing} reducedMotion={reducedMotion} converted={converted} />}
     </span>
   );
 }

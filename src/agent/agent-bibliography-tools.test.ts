@@ -23,21 +23,14 @@ describe("agent bibliography host protocol", () => {
 
   it("accepts only the three typed bibliography mutations", () => {
     expect(parseAgentBibliographyToolRequest(request)).toEqual(request);
-    expect(parseAgentBibliographyToolRequest({ ...request, action: "write_file" })).toBeNull();
-    expect(parseAgentBibliographyToolRequest({
-      ...request,
-      params: { query: "paper", path: "references.bib" },
-    })).toBeNull();
-    expect(parseAgentBibliographyToolRequest({
-      ...request,
-      action: "upgrade_bibliography",
-      params: { dryRun: "false" },
-    })).toBeNull();
-    expect(parseAgentBibliographyToolRequest({
-      ...request,
-      action: "remove_reference",
-      params: { key: "" },
-    })).toBeNull();
+    for (const invalid of [
+      { action: "write_file" },
+      { params: { query: "paper", path: "references.bib" } },
+      { action: "upgrade_bibliography", params: { dryRun: "false" } },
+      { action: "remove_reference", params: { key: "" } },
+    ]) {
+      expect(parseAgentBibliographyToolRequest({ ...request, ...invalid })).toBeNull();
+    }
   });
 
   it("invokes the native broker only for the still-active project", async () => {

@@ -1,5 +1,3 @@
 import "./popup-motion.css"
 
-const popupMotionClassName = "popup-motion"
-
-export { popupMotionClassName }
+export const popupMotionClassName = "popup-motion"

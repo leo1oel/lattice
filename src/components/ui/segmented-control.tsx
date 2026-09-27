@@ -1,13 +1,7 @@
-import type { ReactNode } from "react";
-import { SlidingTabs } from "./motion";
+import { SlidingTabs, type SlidingTab } from "./motion";
 import "./chrome.css";
 
-export type SegmentedControlItem<Value extends string> = {
-  value: Value;
-  label: ReactNode;
-  title?: string;
-  dataTour?: string;
-};
+export type SegmentedControlItem<Value extends string> = SlidingTab & { value: Value };
 
 export function SegmentedControl<Value extends string>({
   value,

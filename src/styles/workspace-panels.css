@@ -103,100 +103,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lattice-file-diff-loading { display: flex; align-items: center; gap: var(--space-3); }
 .lattice-file-diff-loading .ui-infinity-loader { transform: translateY(-1px); }
 .lattice-file-diff-inline { padding: 9px; }
-/* Taller than it was: a change is much easier to place when some of the
-   document around it is visible at the same time. */
-.history-diff-body { margin: 0; max-height: 420px; overflow: auto; padding: var(--space-3) 0; font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); font-weight: var(--type-diff-code-weight); }
-.history-diff-line { display: block; width: 100%; padding: 0 var(--space-4); border: 0; background: transparent; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); font: inherit; }
-/* Line number and +/- sit in fixed columns so the text starts at the same
-   place on every row and the prose stays readable down the page. */
-.history-diff-lineno {
-  display: inline-block;
-  width: 3.5em;
-  margin-right: var(--space-3);
-  font-family: var(--ui-font);
-  font-size: var(--type-diff-meta-size);
-  font-weight: var(--type-diff-meta-weight);
-  line-height: var(--type-diff-code-line-height);
-  text-align: right;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
-.history-diff-sign { display: inline-block; width: 1em; user-select: none; }
-/* Reading the document rather than a list of edits: proportional type, more
-   line height, and no +/- column, because the marks themselves say what
-   happened and the prose should read like prose. */
-.history-diff-body.in-context {
-  font-family: var(--ui-font);
-  font-size: var(--type-label-size);
-  line-height: var(--type-body-line-height);
-}
-.history-diff-body.in-context .history-diff-line { padding: 0 var(--space-5); color: var(--text-primary); }
-.history-diff-body.in-context .history-diff-line.changed {
-  background: color-mix(in srgb, var(--control-active) 6%, transparent);
-}
-.history-diff-seg.added {
-  background: color-mix(in srgb, var(--status-success) 26%, transparent);
-  border-radius: 2px;
-}
-.history-diff-seg.removed {
-  background: color-mix(in srgb, var(--status-danger) 20%, transparent);
-  border-radius: 2px;
-  text-decoration: line-through;
-  opacity: .75;
-}
-/* Switching between reading the document and reading the edits. */
-.history-diff-views { display: flex; gap: var(--space-1); margin-left: auto; }
-.history-diff-views button {
-  height: 20px;
-  padding: 0 var(--space-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius-icon);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  font-weight: 600;
-  cursor: pointer;
-}
-.history-diff-views button.active { color: var(--text-primary); }
-.history-diff-steps { display: flex; align-items: center; gap: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.history-diff-steps button {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-compact);
-  background: transparent;
-  color: var(--text-secondary);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.history-diff-steps button:hover { color: var(--text-primary); background: var(--border-subtle); }
-/* The words that actually moved, inside a line that was rewritten. The line
-   tint alone says "this whole sentence changed", which is nearly useless for
-   prose when one word did. */
-.history-diff-line.added .history-diff-word {
-  background: color-mix(in srgb, var(--status-success) 30%, transparent);
-  border-radius: 2px;
-  font-weight: 600;
-}
-.history-diff-line.removed .history-diff-word {
-  background: color-mix(in srgb, var(--status-danger) 26%, transparent);
-  border-radius: 2px;
-  text-decoration: line-through;
-}
-.history-diff-line.added { background: color-mix(in srgb, var(--status-success) 12%, transparent); color: var(--status-success); }
-.history-diff-line.removed { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
-.history-diff-line.skip {
-  margin: var(--space-1) 0;
-  padding: 3px var(--space-4);
-  color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--border-subtle) 55%, transparent);
-  cursor: pointer;
-}
-.history-diff-line.skip:hover { color: var(--text-primary); }
-.history-diff-line.clickable { cursor: pointer; }
-.history-diff-line.clickable:hover { filter: brightness(1.06); }
 .history-diff-loading, .history-diff-error { margin: 0; font-size: var(--type-micro-size); color: var(--text-secondary); }
 .history-diff-loading { display: flex; align-items: center; gap: var(--gap-inline-tight); }
 .history-diff-error { color: var(--status-danger); }
@@ -242,158 +148,30 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .agent-git-workspace-close:hover { color: var(--text-primary); background: var(--control-active-soft); }
 .synara-source-control-frame { display: block; flex: 1; min-height: 0; width: 100%; border: 0; background: var(--surface-input); }
 .ui-panel-header-title > .ui-badge { margin-left: var(--space-1); }
-.git-section { margin-bottom: var(--space-8); }
-.git-section-select {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.git-section-header {
-  min-height: 24px;
-  margin-bottom: var(--space-3);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  font-size: var(--type-caption-size);
-}
-.git-section-header strong { color: var(--text-primary); }
-.git-section-header span { color: var(--text-tertiary); }
-.git-file-list { display: grid; gap: var(--space-1); }
-.git-file-row {
-  padding: 0 var(--space-2) 0 var(--space-3);
-  border-radius: var(--radius-icon);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.git-file-row:hover, .git-file-row.active { background: var(--border-subtle); }
-.git-file-check {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex: 1;
-}
-.git-status-code {
-  width: 14px;
-  text-align: center;
-  font-family: var(--editor-font);
-  font-size: var(--type-micro-size);
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-.git-status-code.added, .git-status-code.untracked { color: var(--status-success); }
-.git-status-code.deleted, .git-status-code.conflict { color: var(--status-danger); }
-.git-status-code.modified, .git-status-code.renamed, .git-status-code.copied { color: var(--control-active); }
-.git-file-path {
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--type-caption-size);
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.git-file-actions { display: flex; gap: var(--space-1); }
-.git-file-actions button {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-compact);
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: var(--text-secondary);
-}
-.git-file-actions button:hover:not(:disabled) { background: var(--surface-panel-raised); color: var(--text-primary); }
-.git-remote-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-.git-remote-input {
-  min-width: 0;
-  height: var(--control-height-default);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface-panel-raised);
-  color: var(--text-primary);
-  font-size: var(--type-caption-size);
-}
-.git-bulk-actions { margin-top: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-3); }
-.git-bulk-actions button, .git-commit-button, .git-open-file {
+.git-commit-button {
+  width: 100%;
   height: 26px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-icon);
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-app);
-  color: var(--text-primary);
+  border: 1px solid transparent;
+  background: var(--control-active-soft);
+  color: var(--control-active);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--gap-inline-tight);
   font-size: var(--type-micro-size);
 }
-.git-bulk-actions button:disabled, .git-commit-button:disabled { opacity: .45; }
-.git-commit-input {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  margin-bottom: var(--space-4);
-  padding: var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-app);
-  color: var(--text-primary);
-  resize: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font: inherit;
-  font-size: var(--type-caption-size);
-  line-height: 1.4;
-}
-.git-commit-button { width: 100%; justify-content: center; background: var(--control-active-soft); color: var(--control-active); border-color: transparent; }
+.git-commit-button:disabled { opacity: .45; }
 .git-commit-button:hover:not(:disabled) { filter: brightness(1.03); }
-.git-open-file { height: 22px; }
 .git-empty { margin: 0; font-size: var(--type-micro-size); color: var(--text-secondary); }
-.git-init-block { display: grid; gap: var(--space-5); }
-.git-init-block .git-commit-button { width: auto; justify-self: start; }
-.git-diff-body .history-diff-line.clickable { cursor: pointer; }
-.git-diff-body .history-diff-line.clickable:hover { filter: brightness(1.08); }
 
-.pdf-marks-drawer { width: min(420px, 100%); }
 .pdf-marks-toolbar {
   display: grid;
   gap: var(--drawer-section-gap);
   margin-bottom: var(--drawer-section-gap);
 }
 .pdf-marks-kind-filter { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.pdf-marks-export {
-  height: 26px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-icon);
-  background: var(--surface-panel);
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-inline-tight);
-  font-size: var(--type-caption-size);
-}
-.pdf-marks-export:hover:not(:disabled) {
-  color: var(--control-active);
-  border-color: var(--control-active-border);
-  background: var(--control-active-soft);
-}
-.pdf-marks-export:disabled { opacity: .45; }
 .pdf-mark-edit { display: grid; gap: var(--space-3); padding: 0 var(--space-2) var(--space-2); }
 .pdf-mark-edit textarea {
   width: 100%;
@@ -586,15 +364,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-size: var(--type-micro-size);
   line-height: 1.4;
 }
-.pdf-mark-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background: #ffd60a;
-}
-.pdf-mark-swatch.green { background: #34c759; }
-.pdf-mark-swatch.blue { background: #409cff; }
-.pdf-mark-swatch.pink { background: #ff6392; }
 .pdf-mark-actions {
   display: flex;
   flex-wrap: wrap;
@@ -708,7 +477,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .collab-peer-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; font-size: var(--type-nano-size); }
 
-.todo-toolbar-button { position: relative; }
 .collab-toolbar-button { position: relative; }
 .collab-toolbar-button.active { color: var(--control-active); }
 .collab-peer-badge {

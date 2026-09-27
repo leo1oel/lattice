@@ -1,5 +1,4 @@
-import { msg } from "@lingui/core/macro";
-import { i18n } from "../i18n";
+import { hasOnlyKeys, isRecord, isWorkspaceRelativePath } from "./agent-protocol";
 
 type SynaraRuntimeState = "starting" | "ready" | "stopped";
 
@@ -40,42 +39,30 @@ export interface AgentCompileResultMessage {
   diagnostics: { errors: number; warnings: number };
 }
 
+const COMPILE_RESULT_KEYS = ["type", "version", "threadId", "turnId", "checkpointRef", "compiledAt", "success", "durationMs", "rootDocument", "diagnostics"];
+
 export function parseAgentCompileResultMessage(value: unknown): AgentCompileResultMessage | null {
-  if (!value || typeof value !== "object") return null;
-  const item = value as Record<string, unknown>;
-  const diagnostics = item.diagnostics as Record<string, unknown> | null;
-  const rootDocument = typeof item.rootDocument === "string"
-    ? item.rootDocument.replace(/\\/g, "/")
-    : item.rootDocument;
-  const allowedKeys = new Set(["type", "version", "threadId", "turnId", "checkpointRef", "compiledAt", "success", "durationMs", "rootDocument", "diagnostics"]);
-  const allowedDiagnosticKeys = new Set(["errors", "warnings"]);
-  if (Object.keys(item).some((key) => !allowedKeys.has(key))
-    || item.type !== LATTICE_AGENT_COMPILE_RESULT || item.version !== 1
-    || !boundedCorrelationId(item.threadId)
-    || !boundedCorrelationId(item.turnId)
-    || !boundedCorrelationId(item.checkpointRef)
-    || !strictUtcTimestamp(item.compiledAt)
-    || typeof item.success !== "boolean"
-    || !(item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
+  if (!isRecord(value) || !hasOnlyKeys(value, COMPILE_RESULT_KEYS)) return null;
+  const { diagnostics, durationMs } = value;
+  const rootDocument = typeof value.rootDocument === "string"
+    ? value.rootDocument.replace(/\\/g, "/")
+    : value.rootDocument;
+  if (value.type !== LATTICE_AGENT_COMPILE_RESULT || value.version !== 1
+    || !boundedCorrelationId(value.threadId)
+    || !boundedCorrelationId(value.turnId)
+    || !boundedCorrelationId(value.checkpointRef)
+    || !strictUtcTimestamp(value.compiledAt)
+    || typeof value.success !== "boolean"
+    || !(durationMs === null || (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0))
     || !(rootDocument === null || projectRelativePath(rootDocument))
-    || !diagnostics || Object.keys(diagnostics).some((key) => !allowedDiagnosticKeys.has(key))
+    || !isRecord(diagnostics) || !hasOnlyKeys(diagnostics, ["errors", "warnings"])
     || !finiteNonNegativeInteger(diagnostics.errors)
     || !finiteNonNegativeInteger(diagnostics.warnings)) return null;
   return {
-    type: LATTICE_AGENT_COMPILE_RESULT,
-    version: 1,
-    threadId: item.threadId as string,
-    turnId: item.turnId as string,
-    checkpointRef: item.checkpointRef as string,
-    compiledAt: item.compiledAt as string,
-    success: item.success as boolean,
-    durationMs: item.durationMs as number | null,
-    rootDocument: rootDocument as string | null,
-    diagnostics: {
-      errors: diagnostics.errors as number,
-      warnings: diagnostics.warnings as number,
-    },
-  };
+    ...value,
+    rootDocument,
+    diagnostics: { errors: diagnostics.errors, warnings: diagnostics.warnings },
+  } as AgentCompileResultMessage;
 }
 
 export type AgentGitWorkspaceView = "changes" | "pull-requests";
@@ -121,15 +108,9 @@ function boundedCorrelationId(value: unknown): value is string {
 }
 
 function projectRelativePath(value: unknown): value is string {
-  return typeof value === "string"
-    && value.length > 0
-    && value.length <= 1_024
+  return isWorkspaceRelativePath(value)
     && !value.includes("\0")
-    && !value.includes("\\")
-    && !value.startsWith("/")
-    && !WINDOWS_ABSOLUTE_PATH_PATTERN.test(value)
-    && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)
-    && value.split("/").every((part) => part !== "" && part !== "." && part !== "..");
+    && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value);
 }
 
 function strictUtcTimestamp(value: unknown): value is string {
@@ -144,43 +125,40 @@ function strictUtcTimestamp(value: unknown): value is string {
 }
 
 function agentCheckpointFileSummary(value: unknown): value is AgentCheckpointFileSummary {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return projectRelativePath(candidate.path)
-    && typeof candidate.kind === "string"
-    && finiteNonNegativeInteger(candidate.additions)
-    && finiteNonNegativeInteger(candidate.deletions);
+  return isRecord(value)
+    && projectRelativePath(value.path)
+    && typeof value.kind === "string"
+    && finiteNonNegativeInteger(value.additions)
+    && finiteNonNegativeInteger(value.deletions);
 }
 
 function agentCheckpointHistoryEntry(value: unknown): value is AgentCheckpointHistoryEntry {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return boundedCorrelationId(candidate.id)
-    && typeof candidate.label === "string"
-    && strictUtcTimestamp(candidate.timestamp)
-    && boundedCorrelationId(candidate.threadId)
-    && typeof candidate.threadTitle === "string"
-    && boundedCorrelationId(candidate.turnId)
-    && finiteNonNegativeInteger(candidate.turnCount)
-    && boundedCorrelationId(candidate.checkpointRef)
-    && Array.isArray(candidate.files)
-    && candidate.files.every(agentCheckpointFileSummary);
+  return isRecord(value)
+    && boundedCorrelationId(value.id)
+    && typeof value.label === "string"
+    && strictUtcTimestamp(value.timestamp)
+    && boundedCorrelationId(value.threadId)
+    && typeof value.threadTitle === "string"
+    && boundedCorrelationId(value.turnId)
+    && finiteNonNegativeInteger(value.turnCount)
+    && boundedCorrelationId(value.checkpointRef)
+    && Array.isArray(value.files)
+    && value.files.every(agentCheckpointFileSummary);
 }
 
 export function parseAgentProjectHistorySnapshot(
   value: unknown,
 ): AgentProjectHistorySnapshot | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Record<string, unknown>;
   if (
-    candidate.type !== LATTICE_PROJECT_HISTORY
-    || !boundedCorrelationId(candidate.activeThreadId)
-    || !Array.isArray(candidate.entries)
-    || !candidate.entries.every(agentCheckpointHistoryEntry)
+    !isRecord(value)
+    || value.type !== LATTICE_PROJECT_HISTORY
+    || !boundedCorrelationId(value.activeThreadId)
+    || !Array.isArray(value.entries)
+    || !value.entries.every(agentCheckpointHistoryEntry)
   ) {
     return null;
   }
-  return candidate as unknown as AgentProjectHistorySnapshot;
+  return value as unknown as AgentProjectHistorySnapshot;
 }
 
 export function normalizeSynaraOrigin(value: string | null | undefined): string | null {
@@ -281,66 +259,4 @@ export function synaraFrameUrl(input: {
     url.hash = new URLSearchParams({ "lattice-auth": input.authToken }).toString();
   }
   return url.toString();
-}
-
-export interface CodexFileCitation {
-  path?: string;
-  purpose?: string;
-  artifactKind?: string;
-  sheet?: string;
-  range?: string;
-  line?: number;
-  raw: string;
-}
-
-const CODEX_CITATION_PATTERN = /:codex-file-citation\{([^}]+)\}/g;
-
-export function parseCodexFileCitation(directive: string): CodexFileCitation | null {
-  const match = /^:codex-file-citation\{([^}]+)\}$/.exec(directive.trim());
-  if (!match) return null;
-  const body = match[1];
-  const attributes: Record<string, string> = {};
-  const attrPattern = /([a-zA-Z_][a-zA-Z0-9_-]*)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
-  let attrMatch: RegExpExecArray | null;
-  while ((attrMatch = attrPattern.exec(body)) !== null) {
-    const key = attrMatch[1];
-    const val = attrMatch[2] ?? attrMatch[3] ?? attrMatch[4] ?? "";
-    attributes[key] = val;
-  }
-  return {
-    path: attributes.path,
-    purpose: attributes.purpose,
-    artifactKind: attributes.artifact_kind ?? attributes.artifactKind,
-    sheet: attributes.sheet,
-    range: attributes.range,
-    line: attributes.line ? Number(attributes.line) : undefined,
-    raw: directive,
-  };
-}
-
-function formatCodexCitationLabel(citation: CodexFileCitation, baseName: string): string {
-  if (citation.sheet && citation.range) {
-    return i18n._(msg`${baseName} • ${citation.sheet}!${citation.range}`);
-  }
-  if (citation.sheet) return i18n._(msg`${baseName} • ${citation.sheet}`);
-  if (citation.range) return i18n._(msg`${baseName} • ${citation.range}`);
-  if (citation.line) return i18n._(msg`${baseName}:L${citation.line}`);
-  return baseName;
-}
-
-/**
- * Replace raw `:codex-file-citation{...}` directive tokens with readable,
- * clickable markdown links formatted with file basenames and cell/line ranges.
- */
-export function formatCodexFileCitation(text: string, projectRoot?: string | null): string {
-  CODEX_CITATION_PATTERN.lastIndex = 0;
-  return text.replace(CODEX_CITATION_PATTERN, (rawMatch) => {
-    const citation = parseCodexFileCitation(rawMatch);
-    if (!citation || !citation.path) return "";
-    const relativePath = synaraProjectRelativeFilePath(citation.path, projectRoot)
-      || citation.path.split(/[\\/]/).at(-1)
-      || citation.path;
-    const baseName = relativePath.split(/[\\/]/).at(-1) || relativePath;
-    return ` [${formatCodexCitationLabel(citation, baseName)}](${relativePath})`;
-  });
 }

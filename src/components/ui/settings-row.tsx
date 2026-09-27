@@ -1,15 +1,9 @@
-import {
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { rowClassName } from "./row";
 import "./chrome.css";
 
-export type SettingsGroupProps = Omit<
-  ComponentPropsWithoutRef<"section">,
-  "title"
-> & {
+export type SettingsGroupProps = Omit<ComponentPropsWithoutRef<"section">, "title"> & {
   title: ReactNode;
   children: ReactNode;
 };
@@ -20,12 +14,7 @@ export type SettingsGroupProps = Omit<
  * The group heading carries the only rule on a settings page; rows below it are
  * separated by their own height rather than by more lines.
  */
-export function SettingsGroup({
-  children,
-  className,
-  title,
-  ...props
-}: SettingsGroupProps) {
+export function SettingsGroup({ children, className, title, ...props }: SettingsGroupProps) {
   return (
     <section
       data-slot="settings-group"
@@ -38,10 +27,7 @@ export function SettingsGroup({
   );
 }
 
-export type SettingsRowProps = Omit<
-  ComponentPropsWithoutRef<"div">,
-  "children" | "title"
-> & {
+export type SettingsRowProps = Omit<ComponentPropsWithoutRef<"div">, "children" | "title"> & {
   label: ReactNode;
   description?: ReactNode;
   htmlFor?: string;

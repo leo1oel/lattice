@@ -1,6 +1,7 @@
 import type { CanvasMode, EditorPosition, PaperSummary } from "../app-types";
 import type { AgentCommentsCollection } from "./agent-editor-comments";
 import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
+import { agentPaperPath } from "./agent-paper-library";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
 export const LATTICE_HOST_CONTEXT_REQUEST = "lattice:request-host-context";
@@ -29,19 +30,8 @@ export interface AgentPresentationContext {
   slideTitle: string;
   view: "slides" | "assets";
   pagePath: string;
-  pendingComments: Array<{
-    id: string;
-    line: number;
-    ts: string;
-    note: string;
-    hint?: string;
-  }>;
-  selection: {
-    line: number;
-    column: number;
-    tagName: string;
-    text: string;
-  } | null;
+  pendingComments: Array<{ id: string; line: number; ts: string; note: string; hint?: string }>;
+  selection: { line: number; column: number; tagName: string; text: string } | null;
   updatedAt: string;
 }
 
@@ -69,63 +59,7 @@ export function selectedMarkdownImageProjectPath(
   return normalized.slice(1);
 }
 
-export interface AgentHostContextSnapshot {
-  type: typeof LATTICE_HOST_CONTEXT;
-  version: 1;
-  capturedAt: string;
-  workspaceRoot: string;
-  requestId?: string;
-  editorComments?: AgentCommentsCollection;
-  presentationAuthoring: {
-    nativeEntryPattern: "slides/<deck-id>/index.tsx";
-    nativeFormat: "open_slide_tsx";
-    skill: "authoring-presentations";
-    defaultWhenOutputFormatUnspecified: true;
-    unsupportedPptx: true;
-    supportsHtmlExport: true;
-    supportsPdfExport: true;
-    explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native";
-  };
-  activeSurface: AgentHostSurface;
-  editor?: {
-    path: string;
-    line: number;
-    column: number;
-    secondaryPath?: string;
-    selection?: string;
-    selectionOmittedChars?: number;
-    selectionImage?: AgentHostSelectionImage;
-  };
-  presentation?: AgentPresentationContext;
-  pdf?: {
-    page: number;
-    pageCount: number | null;
-    selection?: string;
-    selectionOmittedChars?: number;
-  };
-  paper?: {
-    title: string;
-    arxivId: string;
-    citationKey?: string;
-    path: string;
-    view: "blog" | "fulltext";
-    selection?: string;
-    selectionOmittedChars?: number;
-    selectionImage?: AgentHostSelectionImage;
-  };
-}
-
-function boundedSelection(value: string): { selection?: string; selectionOmittedChars?: number } {
-  const normalized = value.trim();
-  if (!normalized) return {};
-  if (normalized.length <= MAX_SELECTION_LENGTH) return { selection: normalized };
-  return {
-    selection: normalized.slice(0, MAX_SELECTION_LENGTH),
-    selectionOmittedChars: normalized.length - MAX_SELECTION_LENGTH,
-  };
-}
-
-const PRESENTATION_AUTHORING_CONTEXT: AgentHostContextSnapshot["presentationAuthoring"] = {
+const PRESENTATION_AUTHORING_CONTEXT = {
   nativeEntryPattern: "slides/<deck-id>/index.tsx",
   nativeFormat: "open_slide_tsx",
   skill: "authoring-presentations",
@@ -134,7 +68,42 @@ const PRESENTATION_AUTHORING_CONTEXT: AgentHostContextSnapshot["presentationAuth
   supportsHtmlExport: true,
   supportsPdfExport: true,
   explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
-};
+} as const;
+
+/** The bounded text selection a surface shares, if it owns the selection. */
+type SelectionContext = { selection?: string; selectionOmittedChars?: number };
+type ImageSelectionContext = SelectionContext & { selectionImage?: AgentHostSelectionImage };
+
+export interface AgentHostContextSnapshot {
+  type: typeof LATTICE_HOST_CONTEXT;
+  version: 1;
+  capturedAt: string;
+  workspaceRoot: string;
+  requestId?: string;
+  editorComments?: AgentCommentsCollection;
+  presentationAuthoring: typeof PRESENTATION_AUTHORING_CONTEXT;
+  activeSurface: AgentHostSurface;
+  editor?: ImageSelectionContext & { path: string; line: number; column: number; secondaryPath?: string };
+  presentation?: AgentPresentationContext;
+  pdf?: SelectionContext & { page: number; pageCount: number | null };
+  paper?: ImageSelectionContext & {
+    title: string;
+    arxivId: string;
+    citationKey?: string;
+    path: string;
+    view: "blog" | "fulltext";
+  };
+}
+
+function boundedSelection(value: string): SelectionContext {
+  const normalized = value.trim();
+  if (!normalized) return {};
+  if (normalized.length <= MAX_SELECTION_LENGTH) return { selection: normalized };
+  return {
+    selection: normalized.slice(0, MAX_SELECTION_LENGTH),
+    selectionOmittedChars: normalized.length - MAX_SELECTION_LENGTH,
+  };
+}
 
 export function buildAgentHostContext(input: {
   workspaceRoot: string;
@@ -157,38 +126,28 @@ export function buildAgentHostContext(input: {
   const selected = (surface: AgentHostSurface) => (
     input.selectionSource === surface ? bounded : {}
   );
-  const selectedImage = (surface: AgentHostSurface) => (
-    input.selectionSource === surface
-      && bounded.selection
-      && input.selectionImage?.source === surface
-      ? {
-          selectionImage: {
-            sourcePath: input.selectionImage.sourcePath,
-            agentReadablePath: input.selectionImage.agentReadablePath,
-            mimeType: input.selectionImage.mimeType,
-          },
-        }
-      : {}
-  );
-  const capturedAt = (input.now ?? (() => new Date()))().toISOString();
+  const selectedImage = (surface: AgentHostSurface) => {
+    if (input.selectionSource !== surface || !bounded.selection || input.selectionImage?.source !== surface) return {};
+    const { sourcePath, agentReadablePath, mimeType } = input.selectionImage;
+    return { selectionImage: { sourcePath, agentReadablePath, mimeType } };
+  };
+  const envelope = {
+    type: LATTICE_HOST_CONTEXT,
+    version: 1,
+    capturedAt: (input.now ?? (() => new Date()))().toISOString(),
+    workspaceRoot: input.workspaceRoot,
+    presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
+  } as const;
   if (input.activePaper) {
-    const paperPath = `.research/papers/${input.activePaper.arxivId}/${
-      input.paperView === "blog" ? "blog.md" : "paper.md"
-    }`;
+    const { title, arxivId, citationKey } = input.activePaper;
     return {
-      type: LATTICE_HOST_CONTEXT,
-      version: 1,
-      capturedAt,
-      workspaceRoot: input.workspaceRoot,
-      presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
+      ...envelope,
       activeSurface: "paper",
       paper: {
-        title: input.activePaper.title,
-        arxivId: input.activePaper.arxivId,
-        ...(input.activePaper.citationKey
-          ? { citationKey: input.activePaper.citationKey }
-          : {}),
-        path: paperPath,
+        title,
+        arxivId,
+        ...(citationKey ? { citationKey } : {}),
+        path: agentPaperPath(arxivId, input.paperView),
         view: input.paperView,
         ...selected("paper"),
         ...selectedImage("paper"),
@@ -219,11 +178,7 @@ export function buildAgentHostContext(input: {
     ? input.presentation
     : null;
   return {
-    type: LATTICE_HOST_CONTEXT,
-    version: 1,
-    capturedAt,
-    workspaceRoot: input.workspaceRoot,
-    presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
+    ...envelope,
     activeSurface,
     ...(editor ? { editor } : {}),
     ...(presentation ? { presentation } : {}),

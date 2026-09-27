@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
@@ -9,6 +9,12 @@ export type CompileRepairState = {
   threadId?: string;
   message?: string;
 };
+
+type RepairOperation = { root: string; threadId?: string; cancelled: boolean; cancelRequested: boolean };
+
+const cancelRepair = (projectRoot: string, threadId: string) =>
+  invoke("compile_repair", { action: "cancel", projectRoot, threadId });
+const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 /** A user-initiated repair is separate from the visible agent conversation. */
 export function useCompileRepair(options: {
@@ -22,10 +28,17 @@ export function useCompileRepair(options: {
   const { t } = useLingui();
   const [state, setState] = useState<CompileRepairState | null>(null);
   const optionsRef = useRef(options);
-  optionsRef.current = options;
-  const operationRef = useRef<{ root: string; threadId?: string; cancelled: boolean; cancelRequested: boolean } | null>(null);
+  useLayoutEffect(() => {
+    optionsRef.current = options;
+  });
+  const operationRef = useRef<RepairOperation | null>(null);
+  // Keep the current phase: a transport error says nothing about the writer's lifetime.
+  const noteError = useCallback((error: unknown) => {
+    setState((previous) => previous && ({ ...previous, message: String(error) }));
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a different project starts without the previous project's repair.
     setState(null);
     return () => {
       const operation = operationRef.current;
@@ -33,9 +46,8 @@ export function useCompileRepair(options: {
       operation.cancelled = true;
       operationRef.current = null;
       if (operation.threadId) {
-        void invoke("compile_repair", {
-          action: "cancel", projectRoot: operation.root, threadId: operation.threadId,
-        }).catch(() => { /* The reviewable task remains in Agent if the service disconnected. */ });
+        void cancelRepair(operation.root, operation.threadId)
+          .catch(() => { /* The reviewable task remains in Agent if the service disconnected. */ });
       }
     };
   }, [options.projectRoot]);
@@ -44,7 +56,7 @@ export function useCompileRepair(options: {
     const current = optionsRef.current;
     const repairable = diagnostics.filter((item) => diagnosticSeverity(item.level) !== "info");
     if (!current.enabled || !current.projectRoot || operationRef.current || !repairable.length) return;
-    const operation = { root: current.projectRoot, cancelled: false, cancelRequested: false, threadId: undefined as string | undefined };
+    const operation: RepairOperation = { root: current.projectRoot, cancelled: false, cancelRequested: false };
     operationRef.current = operation;
     const owns = () => operationRef.current === operation
       && !operation.cancelled && optionsRef.current.projectRoot === operation.root;
@@ -61,39 +73,38 @@ export function useCompileRepair(options: {
           level, message, file: file ?? null, line: line ?? null,
         })),
       });
-      if (!result?.threadId) throw new Error(t`The repair service did not return a task.`);
-      operation.threadId = result.threadId;
+      const threadId = result?.threadId;
+      if (!threadId) throw new Error(t`The repair service did not return a task.`);
+      operation.threadId = threadId;
       if (!owns()) {
-        await invoke("compile_repair", { action: "cancel", projectRoot: operation.root, threadId: result.threadId });
+        await cancelRepair(operation.root, threadId);
         return;
       }
-      setState({ status: "running", threadId: result.threadId });
+      setState({ status: "running", threadId });
       if (operation.cancelRequested) {
-        await invoke("compile_repair", { action: "cancel", projectRoot: operation.root, threadId: result.threadId })
-          .catch((error) => { if (owns()) setState((previous) => previous && ({ ...previous, message: String(error) })); });
+        await cancelRepair(operation.root, threadId).catch((error) => { if (owns()) noteError(error); });
       }
       while (owns()) {
         let progress: CompileRepairState;
         try {
           progress = await invoke<CompileRepairState>("compile_repair", {
-            action: "status", projectRoot: operation.root, threadId: result.threadId,
+            action: "status", projectRoot: operation.root, threadId,
           });
         } catch (error) {
-          // A failed status request says nothing about the writer's lifetime.
-          if (owns()) setState((previous) => previous && ({ ...previous, message: String(error) }));
-          await new Promise((resolve) => window.setTimeout(resolve, 2000));
+          if (owns()) noteError(error);
+          await delay(2000);
           continue;
         }
         if (!owns()) return;
         if (progress.status === "failed") throw new Error(progress.message ?? t`Repair failed.`);
         if (progress.status === "completed") {
-          setState({ status: "compiling", threadId: result.threadId });
+          setState({ status: "compiling", threadId });
           await optionsRef.current.onComplete();
-          if (owns()) setState({ status: "completed", threadId: result.threadId });
+          if (owns()) setState({ status: "completed", threadId });
           return;
         }
-        setState({ ...progress, threadId: result.threadId });
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        setState({ ...progress, threadId });
+        await delay(1000);
       }
     } catch (error) {
       // The relay currently returns plain strings, not structured conflict codes.
@@ -108,26 +119,22 @@ export function useCompileRepair(options: {
     } finally {
       if (operationRef.current === operation) operationRef.current = null;
     }
-  }, [t]);
+  }, [noteError, t]);
 
   const cancel = useCallback(async () => {
     const operation = operationRef.current;
     if (!operation) return;
     operation.cancelRequested = true;
-    // Retain polling until the interrupt is acknowledged. A transport failure
-    // must not pretend that the provider has stopped writing.
-    if (operation.threadId) {
-      try {
-        await invoke("compile_repair", { action: "cancel", projectRoot: operation.root, threadId: operation.threadId });
-        // The command is accepted before the provider has necessarily stopped.
-        // Only a terminal status releases the editor and permits another fix.
-        return;
-      } catch (error) {
-        if (operationRef.current === operation) setState((previous) => previous && ({ ...previous, message: String(error) }));
-        return;
-      }
+    // The command is accepted before the provider has necessarily stopped, so
+    // polling continues: only a terminal status releases the editor and permits
+    // another fix. A transport failure must not pretend the provider stopped.
+    if (!operation.threadId) return;
+    try {
+      await cancelRepair(operation.root, operation.threadId);
+    } catch (error) {
+      if (operationRef.current === operation) noteError(error);
     }
-  }, []);
+  }, [noteError]);
 
   const busy = state !== null && !["completed", "failed"].includes(state.status);
   return { state, busy, start, cancel };

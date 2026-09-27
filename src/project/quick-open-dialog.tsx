@@ -23,69 +23,53 @@ function scorePath(path: string, query: string): number {
   return score;
 }
 
-export function QuickOpenDialog(props: {
-  open: boolean;
+type QuickOpenProps = {
   paths: string[];
   onClose: () => void;
   onOpen: (path: string) => void;
   onIntent?: (path: string) => void;
-}) {
-  if (!props.open) return null;
-  return (
-    <QuickOpenDialogForm
-      key="quick-open"
-      paths={props.paths}
-      onClose={props.onClose}
-      onOpen={props.onOpen}
-      onIntent={props.onIntent}
-    />
-  );
+};
+
+/** Unmounting the form while closed resets its query and highlight. */
+export function QuickOpenDialog({ open, ...props }: QuickOpenProps & { open: boolean }) {
+  return open ? <QuickOpenDialogForm {...props} /> : null;
 }
 
-function QuickOpenDialogForm(props: {
-  paths: string[];
-  onClose: () => void;
-  onOpen: (path: string) => void;
-  onIntent?: (path: string) => void;
-}) {
+function QuickOpenDialogForm(props: QuickOpenProps) {
   const { onIntent } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const results = useMemo(() => {
-    const ranked = props.paths
-      .map((path) => ({ path, score: scorePath(path, query.trim()) }))
-      .filter((item) => item.score > 0)
-      .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path));
-    return ranked.slice(0, 40).map((item) => item.path);
-  }, [props.paths, query]);
-  const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
+  const results = useMemo(() => props.paths
+    .map((path) => ({ path, score: scorePath(path, query.trim()) }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .slice(0, 40)
+    .map((item) => item.path), [props.paths, query]);
+  const lastIndex = Math.max(0, results.length - 1);
+  const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
   useEffect(() => {
     if (selected) onIntent?.(selected);
   }, [onIntent, selected]);
+  const search = (value: string) => {
+    setQuery(value);
+    setActive(0);
+  };
 
   return (
     <ModalDialog label="Quick open file" onClose={props.onClose}>
-      <div
-        className="modal quick-open-modal"
-      >
+      <div className="modal quick-open-modal">
         <div className="quick-open-header">
           <SearchField
             autoFocus
             aria-label="Quick open search"
             placeholder="Open file…"
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setActive(0);
-            }}
-            onClear={() => {
-              setQuery("");
-              setActive(0);
-            }}
+            onChange={(event) => search(event.target.value)}
+            onClear={() => search("")}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setActive((value) => Math.min(value + 1, Math.max(0, results.length - 1)));
+                setActive((value) => Math.min(value + 1, lastIndex));
               }
               if (event.key === "ArrowUp") {
                 event.preventDefault();
@@ -128,8 +112,4 @@ function QuickOpenDialogForm(props: {
       </div>
     </ModalDialog>
   );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

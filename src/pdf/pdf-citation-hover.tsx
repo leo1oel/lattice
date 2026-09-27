@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { createPortal } from "react-dom";
 import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
 import type { CitationInfo } from "../editor/latex/latex-text";
+import { addListeners } from "./pdf-viewer-utils";
 
 export type PdfCitationProps = {
   citations?: CitationInfo[];
@@ -59,27 +60,17 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
       cancelClose();
       setTarget(null);
     };
-    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") dismiss(); };
-    host.addEventListener("pointerover", enter);
-    host.addEventListener("pointerout", leave);
-    host.addEventListener("focusin", enter);
-    host.addEventListener("focusout", leave);
-    host.addEventListener("click", dismiss);
-    // Scrolling/zooming invalidates a hover; don't leave a detached card behind.
-    host.addEventListener("scroll", dismiss, true);
-    host.addEventListener("wheel", dismiss, { passive: true });
-    document.addEventListener("keydown", keydown);
+    const removeListeners = [
+      addListeners(host, { pointerover: enter, pointerout: leave, focusin: enter, focusout: leave, click: dismiss }),
+      // Scrolling/zooming invalidates a hover; don't leave a detached card behind.
+      addListeners(host, { scroll: dismiss }, { capture: true }),
+      addListeners(host, { wheel: dismiss }, { passive: true }),
+      addListeners(document, { keydown: (event: KeyboardEvent) => { if (event.key === "Escape") dismiss(); } }),
+    ];
     return () => {
       clearTimeout(openTimer);
       cancelClose();
-      host.removeEventListener("pointerover", enter);
-      host.removeEventListener("pointerout", leave);
-      host.removeEventListener("focusin", enter);
-      host.removeEventListener("focusout", leave);
-      host.removeEventListener("click", dismiss);
-      host.removeEventListener("scroll", dismiss, true);
-      host.removeEventListener("wheel", dismiss);
-      document.removeEventListener("keydown", keydown);
+      for (const remove of removeListeners) remove();
     };
   }, [hostRef, citations, cancelClose, closeSoon]);
 

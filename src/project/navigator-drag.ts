@@ -2,12 +2,12 @@
  * The pointer drag-and-drop core of the project file tree.
  *
  * Pierre renders the tree into a shadow root and its own HTML5 drag is
- * disabled (see `PIERRE_TREE_CSS` in `navigator.tsx`), so dropping a file is
- * decided here: where the pointer is over the tree, and what moves that
- * implies. Both answers are pure — one reads a composed event path, the other
- * only strings — which is what keeps the rules that have no visible failure
- * mode (a folder dropped into its own descendant, a drop that would move
- * nothing) checkable without driving a whole tree.
+ * disabled (see `PIERRE_TREE_CSS` in `project-tree-css.ts`), so dropping a
+ * file is decided here: where the pointer is over the tree, and what moves
+ * that implies. Both answers are pure — one reads a composed event path, the
+ * other only strings — which is what keeps the rules that have no visible
+ * failure mode (a folder dropped into its own descendant, a drop that would
+ * move nothing) checkable without driving a whole tree.
  */
 import type { FileTreeBatchOperation, FileTreeDropTarget } from "@pierre/trees";
 
@@ -17,6 +17,11 @@ export function fromPierrePath(path: string): string {
 
 export function toPierreDirectoryPath(path: string): string {
   return `${fromPierrePath(path)}/`;
+}
+
+/** The app-side directory a drop lands in ("" is the project root). */
+export function dropTargetDirectory(target: FileTreeDropTarget): string {
+  return fromPierrePath(target.flattenedSegmentPath ?? target.directoryPath ?? "");
 }
 
 export type PointerTreeDropLocation = {
@@ -34,74 +39,32 @@ export function pointerDropTarget(
   );
   if (!element) return null;
   const row = element.closest<HTMLElement>("[data-type='item']");
-  if (!row) {
-    return {
-      flattenedSegment: null,
-      row: null,
-      target: {
-        directoryPath: null,
-        flattenedSegmentPath: null,
-        hoveredPath: null,
-        kind: "root",
-      },
-    };
-  }
-  const hoveredPath = row.dataset.itemPath ?? null;
-  if (!hoveredPath) return null;
-  const flattenedSegment = element.closest<HTMLElement>("[data-item-flattened-subitem]");
-  const flattenedSegmentPath = flattenedSegment?.dataset.itemFlattenedSubitem ?? null;
-  if (flattenedSegmentPath?.endsWith("/")) {
-    return {
-      flattenedSegment,
-      row,
-      target: {
-        directoryPath: flattenedSegmentPath,
-        flattenedSegmentPath,
-        hoveredPath,
-        kind: "directory",
-      },
-    };
-  }
-  if (row.dataset.itemType === "folder") {
-    return {
-      flattenedSegment: null,
-      row,
-      target: {
-        directoryPath: hoveredPath,
-        flattenedSegmentPath: null,
-        hoveredPath,
-        kind: "directory",
-      },
-    };
-  }
-  const parentPath = row.dataset.itemParentPath ?? null;
-  if (!parentPath) {
-    return {
-      flattenedSegment: null,
-      row,
-      target: {
-        directoryPath: null,
-        flattenedSegmentPath: null,
-        hoveredPath,
-        kind: "root",
-      },
-    };
-  }
-  return {
-    flattenedSegment: null,
+  const hoveredPath = row?.dataset.itemPath || null;
+  if (row && !hoveredPath) return null;
+  const location = (
+    directoryPath: string | null,
+    flattenedSegment: HTMLElement | null = null,
+  ): PointerTreeDropLocation => ({
+    flattenedSegment,
     row,
     target: {
-      directoryPath: parentPath,
-      flattenedSegmentPath: null,
+      directoryPath,
+      flattenedSegmentPath: flattenedSegment ? directoryPath : null,
       hoveredPath,
-      kind: "directory",
+      kind: directoryPath ? "directory" : "root",
     },
-  };
+  });
+  // Empty space below the rows is still inside the tree: the project root.
+  if (!row) return location(null);
+  const flattenedSegment = element.closest<HTMLElement>("[data-item-flattened-subitem]");
+  const flattenedSegmentPath = flattenedSegment?.dataset.itemFlattenedSubitem;
+  if (flattenedSegmentPath?.endsWith("/")) return location(flattenedSegmentPath, flattenedSegment);
+  if (row.dataset.itemType === "folder") return location(hoveredPath);
+  return location(row.dataset.itemParentPath || null);
 }
 
 export function pointerDragBasename(path: string): string {
-  const trimmedPath = fromPierrePath(path);
-  const basename = trimmedPath.split("/").at(-1) ?? trimmedPath;
+  const basename = fromPierrePath(path).split("/").pop() ?? "";
   return path.endsWith("/") ? toPierreDirectoryPath(basename) : basename;
 }
 
@@ -117,33 +80,19 @@ export function normalizePointerDraggedPaths(paths: readonly string[]): string[]
   });
 }
 
+export type PointerTreeMove = Extract<FileTreeBatchOperation, { type: "move" }>;
+
 export function pointerDropOperations(
   draggedPaths: readonly string[],
   target: FileTreeDropTarget,
-): FileTreeBatchOperation[] {
-  const targetDirectoryPath = target.directoryPath;
-  if (
-    target.kind === "directory"
-    && targetDirectoryPath
-    && draggedPaths.some(
-      (path) => path.endsWith("/")
-        && (targetDirectoryPath === path || targetDirectoryPath.startsWith(path)),
-    )
-  ) {
+): PointerTreeMove[] {
+  const directory = target.kind === "root" ? null : target.directoryPath;
+  if (directory && draggedPaths.some((path) => path.endsWith("/") && directory.startsWith(path))) {
     return [];
   }
-  return draggedPaths.flatMap((path): FileTreeBatchOperation[] => {
+  return draggedPaths.flatMap((path): PointerTreeMove[] => {
     const basename = pointerDragBasename(path);
-    const finalPath = target.kind === "root" || !targetDirectoryPath
-      ? basename
-      : `${targetDirectoryPath}${basename}`;
-    if (finalPath === path) return [];
-    return [{
-      from: path,
-      to: target.kind === "root" || !targetDirectoryPath
-        ? basename
-        : targetDirectoryPath,
-      type: "move",
-    }];
+    if ((directory ? `${directory}${basename}` : basename) === path) return [];
+    return [{ from: path, to: directory || basename, type: "move" }];
   });
 }

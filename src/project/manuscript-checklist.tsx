@@ -19,6 +19,12 @@ export type ManuscriptChecklistData = {
   buildMessage: string;
 };
 
+/** A blank or non-numeric budget clears the limit. */
+function parseBudget(value: string): number | null {
+  const budget = value.trim() ? Number(value) : NaN;
+  return Number.isFinite(budget) ? Math.max(0, Math.floor(budget)) : null;
+}
+
 function BudgetRow(props: {
   label: string;
   value: string;
@@ -127,17 +133,7 @@ export function ManuscriptChecklistPanel(props: {
               onChange={(event) => setPageBudget(event.target.value)}
             />
           </label>
-          <button
-            type="button"
-            onClick={() => {
-              const words = wordBudget.trim() ? Number(wordBudget) : null;
-              const pages = pageBudget.trim() ? Number(pageBudget) : null;
-              props.onSaveBudgets(
-                words != null && Number.isFinite(words) ? Math.max(0, Math.floor(words)) : null,
-                pages != null && Number.isFinite(pages) ? Math.max(0, Math.floor(pages)) : null,
-              );
-            }}
-          >
+          <button type="button" onClick={() => props.onSaveBudgets(parseBudget(wordBudget), parseBudget(pageBudget))}>
             Save budgets
           </button>
         </div>

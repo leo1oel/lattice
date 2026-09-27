@@ -1,8 +1,4 @@
-import {
-  forwardRef,
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import "./search-field.css";

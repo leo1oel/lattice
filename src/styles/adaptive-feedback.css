@@ -3,8 +3,7 @@
   /* A docked assistant is explicitly a two-column writing layout: preserve
      its PDF column instead of applying the legacy single-column fallback. */
   .split-canvas:not(:has(.agent-dock-host)) { grid-template-columns: 1fr !important; }
-  .split-canvas:not(:has(.agent-dock-host)) .split-resizer { display: none; }
-  .split-canvas:not(:has(.agent-dock-host)) .pdf-preview { display: none; }
+  .split-canvas:not(:has(.agent-dock-host)) .split-resizer, .split-canvas:not(:has(.agent-dock-host)) .pdf-preview { display: none; }
 }
 
 @media (max-width: 680px) {
@@ -34,9 +33,8 @@
  * the build if one reappears. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .paper-import-track > span::after { animation: none; }
+  .paper-import-track > span::after, .welcome-content > :not(.busy-label) { animation: none; }
   .paper-import-track > span { transition: none; }
-  .welcome-content > :not(.busy-label) { animation: none; }
 }
 
 .app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }
@@ -80,7 +78,7 @@
 /* Logs tab: pin the settings scroll chain to the viewport so the settings
    page itself never scrolls — the log panel takes the remaining height and
    scrolls internally with the app's own ScrollArea scrollbar. */
-.settings-content [data-slot="scroll-area-content-shell"]:has(.app-logs-settings) { height: 100%; }
+.settings-content [data-slot="scroll-area-content-shell"]:has(.app-logs-settings),
 .settings-content [data-slot="scroll-area-content"]:has(.app-logs-settings) { height: 100%; }
 .app-logs-settings { height: 100%; max-width: none; display: flex; flex-direction: column; }
 .app-logs-settings .ui-settings-group { flex: 1; min-height: 0; display: flex; flex-direction: column; }

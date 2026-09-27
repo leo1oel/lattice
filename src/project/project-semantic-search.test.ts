@@ -21,6 +21,10 @@ function response(
   };
 }
 
+function lexicalHit(path: string, title: string, snippet: string, line: number): ProjectFindHit {
+  return { kind: "file", path, title, snippet, line, fileKind: "tex" };
+}
+
 function candidate(
   path: string,
   title: string,
@@ -51,14 +55,7 @@ describe("project semantic search fusion", () => {
   });
 
   it("keeps an exact lexical title ahead of a much stronger semantic-only candidate", () => {
-    const lexical: ProjectFindHit[] = [{
-      kind: "file",
-      path: "login.tex",
-      title: "Login",
-      snippet: "Login",
-      line: 1,
-      fileKind: "tex",
-    }];
+    const lexical = [lexicalHit("login.tex", "Login", "Login", 1)];
     const fused = fuseProjectSearchHits(
       lexical,
       "login",
@@ -72,23 +69,9 @@ describe("project semantic search fusion", () => {
   });
 
   it("uses real RRF ordering to promote a semantically strong body candidate", () => {
-    const lexical: ProjectFindHit[] = [
-      {
-        kind: "file",
-        path: "observability.tex",
-        title: "Observability",
-        snippet: "telemetry telemetry telemetry metrics",
-        line: 8,
-        fileKind: "tex",
-      },
-      {
-        kind: "file",
-        path: "pipeline.tex",
-        title: "Pipeline",
-        snippet: "telemetry ingestion",
-        line: 6,
-        fileKind: "tex",
-      },
+    const lexical = [
+      lexicalHit("observability.tex", "Observability", "telemetry telemetry telemetry metrics", 8),
+      lexicalHit("pipeline.tex", "Pipeline", "telemetry ingestion", 6),
     ];
     const fused = fuseProjectSearchHits(
       lexical,
@@ -103,14 +86,7 @@ describe("project semantic search fusion", () => {
   });
 
   it("returns the untouched lexical result when the model is unavailable", () => {
-    const lexical: ProjectFindHit[] = [{
-      kind: "file",
-      path: "main.tex",
-      title: "main.tex",
-      snippet: "exact phrase",
-      line: 10,
-      fileKind: "tex",
-    }];
+    const lexical = [lexicalHit("main.tex", "main.tex", "exact phrase", 10)];
     const unavailable: LocalSemanticSearchResponse = {
       status: {
         ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
@@ -126,14 +102,9 @@ describe("project semantic search fusion", () => {
   });
 
   it("does not drop lexical documents when semantic ranking is active", () => {
-    const lexical = Array.from({ length: 200 }, (_, index): ProjectFindHit => ({
-      kind: "file",
-      path: `notes/note-${index}.tex`,
-      title: `Note ${index}`,
-      snippet: "shared lexical phrase",
-      line: index + 1,
-      fileKind: "tex",
-    }));
+    const lexical = Array.from({ length: 200 }, (_, index) => (
+      lexicalHit(`notes/note-${index}.tex`, `Note ${index}`, "shared lexical phrase", index + 1)
+    ));
     lexical.push({
       kind: "paper",
       path: ".research/papers/2401.00001/paper.md",
@@ -145,12 +116,7 @@ describe("project semantic search fusion", () => {
     const fused = fuseProjectSearchHits(
       lexical,
       "shared lexical phrase",
-      response([candidate(
-        lexical[0].path,
-        lexical[0].title,
-        lexical[0].snippet,
-        0.8,
-      )]),
+      response([candidate(lexical[0].path, lexical[0].title, lexical[0].snippet, 0.8)]),
     );
 
     expect(new Set(fused.map((hit) => hit.path))).toEqual(
@@ -158,10 +124,8 @@ describe("project semantic search fusion", () => {
     );
   });
 
-  it("gates tiny queries without excluding a useful single concept", () => {
-    expect(semanticQueryEligible("a")).toBe(false);
-    expect(semanticQueryEligible("--")).toBe(false);
-    expect(semanticQueryEligible("CRDT")).toBe(true);
-    expect(semanticQueryEligible("本地搜索")).toBe(true);
-  });
+  it.each([["a", false], ["--", false], ["CRDT", true], ["本地搜索", true]])(
+    "gates tiny queries without excluding a useful single concept: %s",
+    (query, eligible) => expect(semanticQueryEligible(query)).toBe(eligible),
+  );
 });

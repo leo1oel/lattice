@@ -3,21 +3,15 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Check, Copy } from "lucide-react";
 
 type CopyButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
-  text?: string;
-  onCopy?: () => void | Promise<void>;
-  onCopied?: () => void;
+  text: string;
   iconSize?: number;
-  copiedLabel?: string;
   children?: ReactNode;
 };
 
 /** One copy interaction everywhere: copy icon, brief green confirmation, reset. */
 export function CopyButton({
   text,
-  onCopy,
-  onCopied,
   iconSize = 13,
-  copiedLabel = "Copied",
   children,
   title = "Copy",
   "aria-label": ariaLabel,
@@ -32,10 +26,8 @@ export function CopyButton({
   }, []);
 
   const copy = async () => {
-    if (onCopy) await onCopy();
-    else if (text !== undefined) await writeText(text);
+    await writeText(text);
     setCopied(true);
-    onCopied?.();
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       setCopied(false);
@@ -50,7 +42,7 @@ export function CopyButton({
       className={`copy-button ${copied ? "copied" : ""} ${className}`.trim()}
       title={title}
       aria-label={ariaLabel ?? title}
-      data-copy-state={copied ? copiedLabel.toLowerCase() : "idle"}
+      data-copy-state={copied ? "copied" : "idle"}
       onClick={() => void copy()}
     >
       <span className="copy-button-icon" aria-hidden="true">

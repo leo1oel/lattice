@@ -1,5 +1,3 @@
-"use client";
-
 import { Check, Pipette, Plus, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -106,16 +104,17 @@ function clampedNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function stepWithWheel(
-  event: ReactWheelEvent<HTMLElement>,
-  value: number,
-  min: number,
-  max: number,
-  onChange: (value: number) => void,
-) {
+/** Number fields step by one per wheel notch, within 0…max. */
+function stepWithWheel(event: ReactWheelEvent<HTMLElement>, value: number, max: number, onChange: (value: number) => void) {
   if (event.deltaY === 0) return;
   event.preventDefault();
-  onChange(clampedNumber(value + (event.deltaY < 0 ? 1 : -1), min, max));
+  onChange(clampedNumber(value + (event.deltaY < 0 ? 1 : -1), 0, max));
+}
+
+/** Typed number-field input, clamped into 0…max; text that is not a number is ignored. */
+function setNumber(text: string, max: number, onChange: (value: number) => void) {
+  const value = Number(text);
+  if (!Number.isNaN(value)) onChange(clampedNumber(value, 0, max));
 }
 
 function ColorGrid(props: {
@@ -154,17 +153,14 @@ function ColorGrid(props: {
 }
 
 function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
   const update = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const bounds = ref.current?.getBoundingClientRect();
-    if (!bounds) return;
-    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
-    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = clampedNumber((event.clientX - bounds.left) / bounds.width, 0, 1);
+    const y = clampedNumber((event.clientY - bounds.top) / bounds.height, 0, 1);
     props.onChange({ h: x * 360, s: (1 - y) * 100, v: props.hsv.v });
   };
   return (
     <div
-      ref={ref}
       role="application"
       aria-label="Color spectrum"
       className="highlight-spectrum"
@@ -189,6 +185,12 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
   );
 }
 
+const RGB_CHANNELS = [
+  { label: "Red", shortLabel: "R", key: "r", color: "#EF4444" },
+  { label: "Green", shortLabel: "G", key: "g", color: "#22C55E" },
+  { label: "Blue", shortLabel: "B", key: "b", color: "#3B82F6" },
+] as const;
+
 function SliderPicker(props: {
   rgb: Rgb;
   value: string;
@@ -202,55 +204,45 @@ function SliderPicker(props: {
   const resolvedHexDraft = hexDraft.source === props.value
     ? hexDraft.text
     : props.value.slice(1);
-  const channels = [
-    { label: "Red", shortLabel: "R", key: "r" as const, color: "#EF4444" },
-    { label: "Green", shortLabel: "G", key: "g" as const, color: "#22C55E" },
-    { label: "Blue", shortLabel: "B", key: "b" as const, color: "#3B82F6" },
-  ];
   return (
     <div className="highlight-slider-panel">
-      {channels.map((channel) => (
-        <div key={channel.key} className="highlight-slider-row">
-          <span className="highlight-slider-label">{channel.shortLabel}</span>
-          <div className="highlight-slider-track" style={{ background: `linear-gradient(to right, #000, ${channel.color})` }}>
+      {RGB_CHANNELS.map((channel) => {
+        const value = props.rgb[channel.key];
+        const setChannel = (next: number) => props.onRgbChange({ ...props.rgb, [channel.key]: next });
+        return (
+          <div key={channel.key} className="highlight-slider-row">
+            <span className="highlight-slider-label">{channel.shortLabel}</span>
+            <div className="highlight-slider-track" style={{ background: `linear-gradient(to right, #000, ${channel.color})` }}>
+              <input
+                type="range"
+                min="0"
+                max="255"
+                aria-label={channel.label}
+                value={value}
+                className="highlight-range-input"
+                onChange={(event) => setChannel(Number(event.target.value))}
+              />
+              <span
+                className="highlight-slider-thumb"
+                style={{
+                  "--slider-position": `${value / 2.55}%`,
+                  backgroundColor: rgbToHex({ r: 0, g: 0, b: 0, [channel.key]: value }),
+                } as CSSProperties}
+              />
+            </div>
             <input
-              type="range"
+              type="number"
               min="0"
               max="255"
-              aria-label={channel.label}
-              value={props.rgb[channel.key]}
-              className="highlight-range-input"
-              onChange={(event) => props.onRgbChange({ ...props.rgb, [channel.key]: Number(event.target.value) })}
-            />
-            <span
-              className="highlight-slider-thumb"
-              style={{
-                "--slider-position": `${props.rgb[channel.key] / 2.55}%`,
-                backgroundColor: rgbToHex({
-                  r: channel.key === "r" ? props.rgb.r : 0,
-                  g: channel.key === "g" ? props.rgb.g : 0,
-                  b: channel.key === "b" ? props.rgb.b : 0,
-                }),
-              } as CSSProperties}
+              aria-label={`${channel.label} value`}
+              value={value}
+              className="highlight-number-input"
+              onChange={(event) => setNumber(event.target.value, 255, setChannel)}
+              onWheel={(event) => stepWithWheel(event, value, 255, setChannel)}
             />
           </div>
-          <input
-            type="number"
-            min="0"
-            max="255"
-            aria-label={`${channel.label} value`}
-            value={props.rgb[channel.key]}
-            className="highlight-number-input"
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (!Number.isNaN(value)) props.onRgbChange({ ...props.rgb, [channel.key]: clampedNumber(value, 0, 255) });
-            }}
-            onWheel={(event) => stepWithWheel(event, props.rgb[channel.key], 0, 255, (value) => {
-              props.onRgbChange({ ...props.rgb, [channel.key]: value });
-            })}
-          />
-        </div>
-      ))}
+        );
+      })}
       <label className="highlight-hex-row">
         <span>Hex</span>
         <span className="highlight-hex-input-wrap">
@@ -310,7 +302,7 @@ function OpacitySlider(props: {
         </div>
         <label
           className="highlight-opacity-value"
-          onWheel={(event) => stepWithWheel(event, props.value, 0, 100, props.onChange)}
+          onWheel={(event) => stepWithWheel(event, props.value, 100, props.onChange)}
         >
           <input
             type="number"
@@ -319,10 +311,7 @@ function OpacitySlider(props: {
             aria-label="Opacity value"
             value={props.value}
             className="highlight-number-input"
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (!Number.isNaN(value)) props.onChange(clampedNumber(value, 0, 100));
-            }}
+            onChange={(event) => setNumber(event.target.value, 100, props.onChange)}
           />
           <span aria-hidden="true">%</span>
         </label>

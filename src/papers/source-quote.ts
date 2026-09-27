@@ -29,12 +29,7 @@ function normalizeWithOffsets(value: string): NormalizedText {
     }
 
     if (WHITE_SPACE.test(character)) {
-      let end = next;
-      while (end < value.length) {
-        const following = String.fromCodePoint(value.codePointAt(end)!);
-        if (!WHITE_SPACE.test(following)) break;
-        end += following.length;
-      }
+      const end = next + /^\s*/u.exec(value.slice(next))![0].length;
       if (text && text.at(-1) !== " ") {
         text += " ";
         starts.push(offset);

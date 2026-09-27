@@ -14,6 +14,7 @@ import {
   type TLShapePartial,
 } from "tldraw";
 import type { AgentCanvasAdapter } from "./agent-canvas-tools";
+import { isRecord, toolError } from "./agent-protocol";
 
 const MAX_SHAPES_PER_CALL = 100;
 const MAX_ARGUMENT_BYTES = 512 * 1024;
@@ -26,10 +27,6 @@ const GEO_ALIASES = new Set([
 ]);
 const COLORS = new Set(["black", "grey", "light-violet", "violet", "blue", "light-blue", "yellow", "orange", "green", "light-green", "light-red", "red", "white"]);
 const FILLS = new Set(["none", "semi", "solid", "pattern"]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
 
 function finiteNumber(record: Record<string, unknown>, key: string): number | undefined {
   const value = record[key];
@@ -68,13 +65,11 @@ function normalizedProps(input: Record<string, unknown>, type: string, geo?: str
   const height = boundedNumber(input, "height", 1, 1_000_000);
   if (width !== undefined) props.w = width;
   if (height !== undefined) props.h = height;
-  if (input.color !== undefined) {
-    if (typeof input.color !== "string" || !COLORS.has(input.color)) throw new Error("Unsupported canvas color.");
-    props.color = input.color;
-  }
-  if (input.fill !== undefined) {
-    if (typeof input.fill !== "string" || !FILLS.has(input.fill)) throw new Error("Unsupported canvas fill.");
-    props.fill = input.fill;
+  for (const [key, allowed, message] of [["color", COLORS, "Unsupported canvas color."], ["fill", FILLS, "Unsupported canvas fill."]] as const) {
+    const value = input[key];
+    if (value === undefined) continue;
+    if (typeof value !== "string" || !allowed.has(value)) throw new Error(message);
+    props[key] = value;
   }
   if (typeof input.text === "string") {
     if (input.text.length > 50_000) throw new Error("Canvas shape text is too long.");
@@ -151,7 +146,7 @@ export function createTldrawAgentCanvasAdapter(
   canWrite: () => boolean,
 ): AgentCanvasAdapter {
   const writable = () => {
-    if (!canWrite()) throw Object.assign(new Error("The active canvas is read-only."), { code: "canvas_read_only" });
+    if (!canWrite()) throw toolError("The active canvas is read-only.", "canvas_read_only");
   };
   return {
     execute(action, args) {

@@ -3,13 +3,24 @@ import { explicitArxivId } from "./arxiv-id";
 
 type PaperIdentity = Pick<PaperSummary, "arxivId" | "url">;
 
+/** An http(s) URL, or null for anything unparseable or on another scheme. */
+function webUrl(value: string | undefined): URL | null {
+  try {
+    const url = new URL(value ?? "");
+    return /^https?:$/.test(url.protocol) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+const hasCredentials = (url: URL) => Boolean(url.username || url.password);
+
 /** Bibliography fields are untrusted; only open web URLs, never local/OS schemes. */
 export function citationSourceUrl(citation?: { url?: string; doi?: string; arxivId?: string }): string | null {
   if (!citation) return null;
-  try {
-    const url = new URL(citation.url ?? "");
-    if (/^https?:$/.test(url.protocol) && !url.username && !url.password) return url.href;
-  } catch { /* Try a DOI or arXiv identity when there is no usable URL. */ }
+  const url = webUrl(citation.url);
+  if (url && !hasCredentials(url)) return url.href;
+  // Otherwise fall back to the DOI or arXiv identity.
   if (citation.doi && /^10\.\d{4,9}\/\S+$/i.test(citation.doi)) {
     return `https://doi.org/${citation.doi.split("/").map(encodeURIComponent).join("/")}`;
   }
@@ -27,16 +38,11 @@ export function paperPdfUrl(paper: PaperIdentity): string | null {
   if (/^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(paper.arxivId)) {
     return `https://arxiv.org/pdf/${paper.arxivId.split("/").map(encodeURIComponent).join("/")}`;
   }
-  try {
-    const url = new URL(paper.url ?? "");
-    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
-    const id = alphaxivId(url);
-    if (id) return `https://www.alphaxiv.org/abs/${id}.pdf`;
-    if (!/\.pdf$/i.test(url.pathname)) return null;
-    return url.href;
-  } catch {
-    return null;
-  }
+  const url = webUrl(paper.url);
+  if (!url || hasCredentials(url)) return null;
+  const id = alphaxivId(url);
+  if (id) return `https://www.alphaxiv.org/abs/${id}.pdf`;
+  return /\.pdf$/i.test(url.pathname) ? url.href : null;
 }
 
 export type PaperSourceCitation = { page: number; first: string; last: string };
@@ -71,13 +77,7 @@ export function isTitleQuery(input: string): boolean {
 /** DOI metadata identifies a work, not a downloadable full-text page. */
 export function canDownloadPaper(paper: PaperSummary): boolean {
   if (paper.arxivId) return true;
-  if (!paper.url) return false;
-  try {
-    const url = new URL(paper.url);
-    if (!/^https?:$/.test(url.protocol)) return false;
-    if (/^(?:dx\.)?doi\.org$/i.test(url.hostname)) return false;
-    return /\.pdf$/i.test(url.pathname) || !paper.doi;
-  } catch {
-    return false;
-  }
+  const url = webUrl(paper.url);
+  if (!url || /^(?:dx\.)?doi\.org$/i.test(url.hostname)) return false;
+  return /\.pdf$/i.test(url.pathname) || !paper.doi;
 }

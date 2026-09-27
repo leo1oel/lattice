@@ -41,15 +41,22 @@ const MATERIAL_ICON_SPRITE = `
   </symbol>
 </svg>`;
 
-const PDF_ICON: RemappedIcon = { name: "lattice-material-pdf", viewBox: "0 0 24 24" };
-const TEX_ICON: RemappedIcon = { name: "lattice-material-tex", viewBox: "0 0 1024 1024" };
-const TEX_STYLE_ICON: RemappedIcon = { name: "lattice-material-tex-style", viewBox: "0 0 1024 1024" };
-const BIBLIOGRAPHY_ICON: RemappedIcon = { name: "lattice-material-bibliography", viewBox: "0 0 1024 1024" };
-const BIBTEX_STYLE_ICON: RemappedIcon = { name: "lattice-material-bibtex-style", viewBox: "0 0 1024 1024" };
-// Material Icons (Apache-2.0) edit/pencil glyph, recolored.
-const BOARD_ICON: RemappedIcon = { name: "lattice-material-board", viewBox: "0 0 24 24" };
-const SPREADSHEET_ICON: RemappedIcon = { name: "lattice-material-spreadsheet", viewBox: "0 0 24 24" };
-const PRESENTATION_ICON: RemappedIcon = { name: "lattice-material-presentation", viewBox: "0 0 24 24" };
+const icon = (name: string, viewBox: string): RemappedIcon => ({ name: `lattice-material-${name}`, viewBox });
+const TEX_ICON = icon("tex", "0 0 1024 1024");
+const PRESENTATION_ICON = icon("presentation", "0 0 24 24");
+
+/** Extensions grouped by the icon they share. */
+const ICON_EXTENSIONS: [RemappedIcon, string[]][] = [
+  [icon("pdf", "0 0 24 24"), ["pdf"]],
+  [TEX_ICON, ["tex", "ltx", "cls", "clo", "latex", "aux", "tikz", "synctex", "synctex.gz", "dtx", "ins"]],
+  [icon("tex-style", "0 0 1024 1024"), ["sty", "sty.txt"]],
+  [icon("bibliography", "0 0 1024 1024"), ["bib", "bbl", "bcf", "blg"]],
+  [icon("bibtex-style", "0 0 1024 1024"), ["bst", "bbx", "cbx", "lbx"]],
+  ["file-tree-builtin-image", ["eps"]],
+  // Material Icons (Apache-2.0) edit/pencil glyph, recolored.
+  [icon("board", "0 0 24 24"), ["tldr"]],
+  [icon("spreadsheet", "0 0 24 24"), ["lattice-sheet"]],
+];
 
 export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
   set: "complete",
@@ -57,31 +64,7 @@ export const PROJECT_FILE_TREE_ICONS: FileTreeIconConfig = {
   byFileName: {
     "index.tsx": PRESENTATION_ICON,
   },
-  byFileExtension: {
-    pdf: PDF_ICON,
-    tex: TEX_ICON,
-    ltx: TEX_ICON,
-    cls: TEX_ICON,
-    clo: TEX_ICON,
-    latex: TEX_ICON,
-    aux: TEX_ICON,
-    tikz: TEX_ICON,
-    synctex: TEX_ICON,
-    "synctex.gz": TEX_ICON,
-    dtx: TEX_ICON,
-    ins: TEX_ICON,
-    sty: TEX_STYLE_ICON,
-    "sty.txt": TEX_STYLE_ICON,
-    bib: BIBLIOGRAPHY_ICON,
-    bbl: BIBLIOGRAPHY_ICON,
-    bcf: BIBLIOGRAPHY_ICON,
-    blg: BIBLIOGRAPHY_ICON,
-    bst: BIBTEX_STYLE_ICON,
-    bbx: BIBTEX_STYLE_ICON,
-    cbx: BIBTEX_STYLE_ICON,
-    lbx: BIBTEX_STYLE_ICON,
-    eps: "file-tree-builtin-image",
-    tldr: BOARD_ICON,
-    "lattice-sheet": SPREADSHEET_ICON,
-  },
+  byFileExtension: Object.fromEntries(
+    ICON_EXTENSIONS.flatMap(([remapped, extensions]) => extensions.map((extension) => [extension, remapped])),
+  ),
 };

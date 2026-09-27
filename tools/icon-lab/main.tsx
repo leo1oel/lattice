@@ -23,7 +23,6 @@ const settingsIcons: IconStudy[] = [
   { id: "editor", kind: "logs", label: "Editor & builds", rationale: "Bakai’s original Logs advances the build tail three times." },
   { id: "agent", kind: "robot", label: "Agent", rationale: "Bakai’s original Robot scans and blinks." },
   { id: "mcp", kind: "plugs", label: "MCP", rationale: "The plug halves separate, reconnect, and make contact arcs." },
-  { id: "subscriptions", kind: "users", label: "Subscriptions", rationale: "The three linked accounts rotate one place." },
   { id: "overleaf", kind: "cloud-upload", label: "Overleaf", rationale: "Bakai’s original Cloud Upload completes the upload stream." },
   { id: "api", kind: "api-key", label: "API keys", rationale: "The key levels, tumbles, and is caught." },
   { id: "doctor", kind: "sparkle", label: "TeX doctor", rationale: "The diagnostic result gathers and blooms cleanly." },
@@ -31,13 +30,7 @@ const settingsIcons: IconStudy[] = [
 
 const productIcons: IconStudy[] = [
   { id: "faders", kind: "faders", label: "Faders", rationale: "The three knobs cycle through settings." },
-  { id: "users", kind: "users", label: "Users three", rationale: "The three people rotate one place." },
-  { id: "list-checks", kind: "list-checks", label: "List checks", rationale: "The done row exits, the list closes, and a new row writes and ticks." },
-  { id: "kanban", kind: "kanban", label: "Kanban", rationale: "Two cards swap and hold their swapped places during the gesture, then the lab replay contract restores the original." },
-  { id: "folder", kind: "folder", label: "Folder", rationale: "The folder opens and shuts." },
-  { id: "gear", kind: "gear", label: "Gear", rationale: "The gear ticks three times." },
   { id: "chat", kind: "chat", label: "Chat", rationale: "The bubble pops while the dots type." },
-  { id: "trash", kind: "trash", label: "Trash", rationale: "The lid opens and trash tumbles in." },
   { id: "cloud-upload", kind: "cloud-upload", label: "Cloud upload", rationale: "The arrow uploads through the cloud." },
   { id: "product-api", kind: "api-key", label: "API key", rationale: "The key levels, tumbles, and is caught." },
   { id: "git-branch", kind: "git-branch", label: "Git branch", rationale: "The branch erases into its head and rewrites." },
@@ -48,11 +41,6 @@ const productIcons: IconStudy[] = [
 ];
 
 const conversionIcons: IconStudy[] = [
-  { id: "conversion-users", kind: "users", label: "Subscriptions", rationale: "Solid people become transparent figures with a uniform dark graphite contour; Bakai’s original one-place rotation is unchanged." },
-  { id: "conversion-checks", kind: "list-checks", label: "Checklist", rationale: "The solid card becomes a transparent field with a dark contour, while the former knockouts become dark checks and rules; Bakai’s list progression is unchanged." },
-  { id: "conversion-logs", kind: "logs", label: "Logs", rationale: "The clipboard, tab, and scrolling rows become a transparent 16-unit outline system without changing Bakai’s tail animation." },
-  { id: "conversion-robot", kind: "robot", label: "Robot", rationale: "The robot shell becomes transparent; its former eye and grille knockouts become dark foreground details." },
-  { id: "conversion-cloud", kind: "cloud-upload", label: "Cloud upload", rationale: "The cloud becomes a transparent contour and the knockout arrow becomes a clipped dark upload arrow." },
   { id: "conversion-chat", kind: "chat", label: "Chat", rationale: "The bubble becomes a transparent contour and its typing knockouts become dark dots, preserving Bakai’s pop sequence." },
 ];
 
@@ -66,8 +54,8 @@ const toolbarIcons: IconStudy[] = [
 
 const allIcons = [...conversionIcons, ...settingsIcons, ...toolbarIcons, ...productIcons];
 
-function LabIcon({ item, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean }) {
-  if (item.source === "provided") return <ProvidedAnimatedIcon kind={item.kind as ProvidedIconKind} {...props} />;
+function LabIcon({ item, playId, ...props }: { item: IconStudy; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; playId?: number; converted?: boolean }) {
+  if (item.source === "provided") return <ProvidedAnimatedIcon kind={item.kind as ProvidedIconKind} playId={playId} {...props} />;
   const converted = props.converted ?? item.converted;
   return <BakaiAnimatedIcon kind={item.kind as BakaiIconKind} {...props} converted={converted} />;
 }

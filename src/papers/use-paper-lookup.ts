@@ -13,6 +13,8 @@ export type PaperLookupState = { projectRoot: string; papers: PaperSummary[]; th
 export const PAPER_LOOKUP_STATE = "paper-lookup-state";
 export const PAPER_LOOKUP_READY = "paper-lookup-ready";
 export const PAPER_LOOKUP_OPEN = "paper-lookup-open";
+/** Reading surfaces and tab chrome, where a dropped paper opens instead of being cited. */
+const READING_SURFACES = String.raw`.canvas-panel, .titlebar-main`;
 
 export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
   const latest = useRef({ state, onOpen, onError });
@@ -21,17 +23,17 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
   useEffect(() => {
     const owner = getCurrentWindow().label;
     const label = `paper-lookup-${owner}`;
+    const ownWindow = { target: { kind: "Window", label: owner } } as const;
     let disposed = false;
     let activeDrag: NativePaperDrag | null = null;
     let enteredPaper: PaperDrag | null = null;
     let insidePaperDrop = false;
     const cleanups: (() => void)[] = [];
-    const register = (promise: Promise<() => void>) => {
-      return promise.then((cleanup) => disposed ? cleanup() : cleanups.push(cleanup));
-    };
+    const register = (promise: Promise<() => void>) =>
+      promise.then((cleanup) => disposed ? cleanup() : cleanups.push(cleanup));
     listenersReady.current = Promise.all([register(listen(PAPER_LOOKUP_READY, () => {
       void emitTo(label, PAPER_LOOKUP_STATE, latest.current.state).catch((error) => latest.current.onError(error));
-    }, { target: { kind: "Window", label: owner } })),
+    }, ownWindow)),
     register(listen<{ projectRoot: string; arxivId: string; citationKey?: string }>(PAPER_LOOKUP_OPEN, ({ payload }) => {
       const { state: current } = latest.current;
       if (payload.projectRoot !== current.projectRoot) return;
@@ -41,14 +43,14 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
         if (isBrowserHosted()) window.focus();
         else void getCurrentWindow().setFocus().catch((error) => latest.current.onError(error));
       }
-    }, { target: { kind: "Window", label: owner } })),
+    }, ownWindow)),
     register(listen<NativePaperDrag>(PAPER_NATIVE_DRAG, ({ payload }) => {
       if (payload.paper) {
         activeDrag = payload;
         if (insidePaperDrop) enteredPaper = payload.paper;
       }
       else if (activeDrag?.id === payload.id) activeDrag = null;
-    }, { target: { kind: "Window", label: owner } })),
+    }, ownWindow)),
     register(getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (disposed) return;
       if (payload.type === "enter") {
@@ -85,13 +87,13 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
     const onDragOver = (event: DragEvent) => {
       const data = event.dataTransfer;
       if (data && (hasPaperDrag(data) || data.types.includes("text/uri-list"))
-        && (event.target as Element).closest(String.raw`.canvas-panel, .titlebar-main`)) {
+        && (event.target as Element).closest(READING_SURFACES)) {
         event.preventDefault();
         data.dropEffect = "copy";
       }
     };
     const onDrop = (event: DragEvent) => {
-      if (!hasPaperDrag(event.dataTransfer) || !(event.target as Element).closest(String.raw`.canvas-panel, .titlebar-main`)) return;
+      if (!hasPaperDrag(event.dataTransfer) || !(event.target as Element).closest(READING_SURFACES)) return;
       event.preventDefault();
       const current = latest.current;
       const paper = resolvePaperDrag(event.dataTransfer, current.state.projectRoot, current.state.papers);

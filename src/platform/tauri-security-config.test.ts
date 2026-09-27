@@ -4,9 +4,7 @@ import { describe, expect, it } from "vitest";
 type Csp = Record<string, string[]>;
 
 type TauriConfig = {
-  build: {
-    beforeBuildCommand: string;
-  };
+  build: { beforeBuildCommand: string };
   app: {
     windows: Array<{ visible?: boolean }>;
     security: {
@@ -15,9 +13,7 @@ type TauriConfig = {
       dangerousDisableAssetCspModification?: string[] | boolean;
     };
   };
-  bundle: {
-    resources: string[];
-  };
+  bundle: { resources: string[] };
 };
 
 type Capability = {
@@ -53,11 +49,9 @@ describe("Tauri security boundary", () => {
     // Keep dev explicit rather than falling back implicitly. Vite uses the same
     // resource classes as production and does not require unsafe-eval.
     expect(development).toEqual(production);
-    expect(production?.["default-src"]).toEqual(["'none'"]);
-    expect(production?.["object-src"]).toEqual(["'none'"]);
-    expect(production?.["base-uri"]).toEqual(["'none'"]);
-    expect(production?.["form-action"]).toEqual(["'none'"]);
-    expect(production?.["frame-ancestors"]).toEqual(["'none'"]);
+    for (const directive of ["default-src", "object-src", "base-uri", "form-action", "frame-ancestors"]) {
+      expect(production?.[directive]).toEqual(["'none'"]);
+    }
     expect(JSON.stringify(production)).not.toContain('"*"');
     expect(JSON.stringify(production)).not.toContain("'unsafe-eval'");
     // Tauri normally appends script hashes. CSP3 then ignores unsafe-inline,
@@ -124,10 +118,9 @@ describe("Tauri security boundary", () => {
       "process:allow-restart",
       "log:default",
     ]);
-    expect(capability.permissions).not.toContain("opener:default");
-    expect(capability.permissions).not.toContain("opener:allow-open-path");
-    expect(capability.permissions).not.toContain("dialog:default");
-    expect(capability.permissions).not.toContain("updater:default");
+    for (const broad of ["opener:default", "opener:allow-open-path", "dialog:default", "updater:default"]) {
+      expect(capability.permissions).not.toContain(broad);
+    }
   });
 
   it("limits paper lookup permissions to events and its own window controls", () => {

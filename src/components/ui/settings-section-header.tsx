@@ -1,14 +1,8 @@
-import {
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import "./chrome.css";
 
-export type SettingsSectionHeaderProps = Omit<
-  ComponentPropsWithoutRef<"div">,
-  "title"
-> & {
+export type SettingsSectionHeaderProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;

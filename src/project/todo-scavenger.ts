@@ -5,19 +5,15 @@ export type TodoHit = {
   preview: string;
 };
 
+const COMMENT_MARKERS = ["FIXME", "XXX", "TODO"];
+
+/** A marker in a `%` comment (first match in priority order), else a `\todo` command. */
 export function todoKindInLine(line: string): string | null {
   const trimmed = line.trimStart();
-  if (trimmed.startsWith("%")) {
-    const upper = trimmed.toUpperCase();
-    if (upper.includes("FIXME")) return "FIXME";
-    if (upper.includes("XXX")) return "XXX";
-    if (upper.includes("TODO")) return "TODO";
-  }
-  const lower = trimmed.toLowerCase();
-  if (lower.includes("\\todo{") || lower.includes("\\todo[") || lower.includes("\\todo*{")) {
-    return "todo";
-  }
-  return null;
+  const upper = trimmed.toUpperCase();
+  const marker = trimmed.startsWith("%") && COMMENT_MARKERS.find((kind) => upper.includes(kind));
+  if (marker) return marker;
+  return /\\todo(?:[{[]|\*\{)/i.test(trimmed) ? "todo" : null;
 }
 
 export function todosInText(path: string, content: string): TodoHit[] {

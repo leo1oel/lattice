@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  type MouseEventHandler,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
 
 export function ModalDialog(props: {

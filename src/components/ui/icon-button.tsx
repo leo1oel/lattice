@@ -1,23 +1,14 @@
-import {
-  type ButtonHTMLAttributes,
-  type ReactNode,
-} from "react";
+import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/icon-tip";
 import "./chrome.css";
 
-type IconButtonSize = "compact" | "default" | "large";
-type IconButtonTone = "neutral" | "primary" | "danger";
-
-export type IconButtonProps = Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "aria-label" | "title"
-> & {
+export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "title"> & {
   label: string;
   tooltip?: ReactNode | false;
-  size?: IconButtonSize;
-  tone?: IconButtonTone;
+  size?: "compact" | "default";
+  tone?: "neutral" | "primary";
 };
 
 /**

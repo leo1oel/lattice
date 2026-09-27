@@ -2,26 +2,18 @@ import type { ReactNode } from "react";
 import { Checkbox, type CheckboxProps } from "./checkbox";
 import "./chrome.css";
 
-export type CheckboxFieldProps = Omit<CheckboxProps, "className"> & {
+export type CheckboxFieldProps = CheckboxProps & {
   label: ReactNode;
   description?: ReactNode;
-  className?: string;
-  checkboxClassName?: string;
 };
 
-export function CheckboxField({
-  label,
-  description,
-  className,
-  checkboxClassName,
-  ...checkboxProps
-}: CheckboxFieldProps) {
+export function CheckboxField({ label, description, className, ...checkboxProps }: CheckboxFieldProps) {
   return (
     <label
       data-slot="checkbox-field"
       className={`ui-checkbox-field${className ? ` ${className}` : ""}`}
     >
-      <Checkbox {...checkboxProps} className={checkboxClassName} />
+      <Checkbox {...checkboxProps} />
       <span className="ui-checkbox-field-copy">
         <span className="ui-checkbox-field-label">{label}</span>
         {description ? <span className="ui-checkbox-field-description">{description}</span> : null}

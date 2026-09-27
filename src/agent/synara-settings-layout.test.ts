@@ -16,85 +16,45 @@ describe("Synara settings layout", () => {
     expect(normalizeSynaraSettingsHeight(100_000)).toBe(64_000);
   });
 
-  it("recognizes a viewport close enough to follow a growing bottom edge", () => {
-    expect(
-      isSettingsViewportNearBottom({
-        clientHeight: 470,
-        scrollHeight: 1_200,
-        scrollTop: 706,
-      }),
-    ).toBe(true);
-    expect(
-      isSettingsViewportNearBottom({
-        clientHeight: 470,
-        scrollHeight: 1_200,
-        scrollTop: 705,
-      }),
-    ).toBe(false);
-    expect(
-      isSettingsViewportNearBottom({
-        clientHeight: 600,
-        scrollHeight: 470,
-        scrollTop: 0,
-      }),
-    ).toBe(false);
+  it.each([
+    [470, 1_200, 706, true],
+    [470, 1_200, 705, false],
+    [600, 470, 0, false],
+  ])("treats a %ipx viewport over %ipx content at scrollTop %i as near the bottom: %s", (clientHeight, scrollHeight, scrollTop, near) => {
+    expect(isSettingsViewportNearBottom({ clientHeight, scrollHeight, scrollTop })).toBe(near);
   });
 
   it("applies a reported height synchronously before the next wheel event", () => {
     const container = document.createElement("div");
     const frame = document.createElement("iframe");
 
-    expect(
-      applySynaraSettingsHeight({
-        container,
-        frame,
-        height: 4_812.2,
-        active: true,
-      }),
-    ).toBe(4_813);
+    expect(applySynaraSettingsHeight({ container, frame, height: 4_812.2, active: true })).toBe(4_813);
     expect(container.style.height).toBe("4813px");
     expect(frame.style.height).toBe("4813px");
 
-    applySynaraSettingsHeight({
-      container,
-      frame,
-      height: 4_813,
-      active: false,
-    });
+    applySynaraSettingsHeight({ container, frame, height: 4_813, active: false });
     expect(container.style.height).toBe("0px");
     expect(frame.style.height).toBe("4813px");
   });
 
-  it("uses the latest scroll range for the first forwarded wheel", () => {
-    const viewport = {
-      clientHeight: 470,
-      clientWidth: 500,
-      scrollHeight: 4_813,
-      scrollLeft: 0,
-      scrollTop: 1_000,
-      scrollWidth: 500,
-    };
+  const viewport = () => ({
+    clientHeight: 470,
+    clientWidth: 500,
+    scrollHeight: 4_813,
+    scrollLeft: 0,
+    scrollTop: 1_000,
+    scrollWidth: 500,
+  });
 
-    expect(scrollSynaraSettingsViewportBy(viewport, 5_000)).toEqual({
-      left: 0,
-      top: 4_343,
-    });
-    expect(viewport.scrollTop).toBe(4_343);
+  it("uses the latest scroll range for the first forwarded wheel", () => {
+    const settings = viewport();
+    expect(scrollSynaraSettingsViewportBy(settings, 5_000)).toEqual({ left: 0, top: 4_343 });
+    expect(settings.scrollTop).toBe(4_343);
   });
 
   it("scales line-mode wheels onto the host settings viewport", () => {
-    const viewport = {
-      clientHeight: 470,
-      clientWidth: 500,
-      scrollHeight: 4_813,
-      scrollLeft: 0,
-      scrollTop: 1_000,
-      scrollWidth: 500,
-    };
-
-    expect(
-      applySynaraSettingsWheel(viewport, { deltaX: 0, deltaY: 3, deltaMode: 1 }),
-    ).toEqual({ left: 0, top: 1_048 });
-    expect(viewport.scrollTop).toBe(1_048);
+    const settings = viewport();
+    expect(applySynaraSettingsWheel(settings, { deltaX: 0, deltaY: 3, deltaMode: 1 })).toEqual({ left: 0, top: 1_048 });
+    expect(settings.scrollTop).toBe(1_048);
   });
 });

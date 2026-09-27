@@ -3,21 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TUTORIAL_STEPS } from "./onboarding-steps";
 
 type CapturedJoyrideProps = {
-  options?: {
-    skipScroll?: boolean;
-  };
-  steps: Array<{
-    id?: string;
-    target: string;
-    spotlightTarget?: string;
-    content?: unknown;
-  }>;
-  onEvent: (event: {
-    status: string;
-    action: string;
-    type: string;
-    index: number;
-  }) => void;
+  options?: { skipScroll?: boolean };
+  steps: Array<{ id?: string; target: string; spotlightTarget?: string; content?: unknown }>;
+  onEvent: (event: { status: string; action: string; type: string; index: number }) => void;
 };
 
 const joyride = vi.hoisted(() => ({ props: null as CapturedJoyrideProps | null }));
@@ -34,181 +22,66 @@ vi.mock("react-joyride", () => ({
 
 import { OnboardingTour } from "./onboarding-tour";
 
+function renderTour(stepIndex: number) {
+  const callbacks = { onStepIndexChange: vi.fn(), onSkip: vi.fn(), onComplete: vi.fn(), onSelectTutorialFile: vi.fn() };
+  render(<OnboardingTour active stepIndex={stepIndex} {...callbacks} />);
+  return callbacks;
+}
+
+const continueFrom = (index: number) =>
+  act(() => joyride.props!.onEvent({ status: "running", action: "next", type: "step:after", index }));
+
 describe("onboarding tour", () => {
   beforeEach(() => {
     joyride.props = null;
   });
 
-  it("keeps spreadsheet ribbon features separate from Agent capabilities", () => {
-    render(
-      <OnboardingTour
-        active
-        stepIndex={TUTORIAL_STEPS.spreadsheet}
-        onStepIndexChange={vi.fn()}
-        onSkip={vi.fn()}
-        onComplete={vi.fn()}
-        onSelectTutorialFile={vi.fn()}
-      />,
-    );
-
+  it.each([
+    ["spreadsheet", { id: "spreadsheet", spotlightTarget: '[data-tour="spreadsheet-workspace"]' },
+      ["co-authors’ selections and pointers"], []],
+    // Spreadsheet ribbon features stay separate from Agent capabilities.
+    ["spreadsheetTools", { id: "spreadsheet-tools", target: '[data-u-comp="ribbon-toolbar"]' },
+      ["Formulas in the toolbar", "export the spreadsheet as an .xlsx file"], ["Agent"]],
+    ["presentationCreate", { id: "presentation-create", target: '[data-tour="new-document"]', title: "Create with the + menu" },
+      ["presentation, spreadsheet, or board"], ["tutorial already includes"]],
+    ["presentation", { id: "presentation", spotlightTarget: '[data-tour="open-slide-workspace"]', title: "Edit an Open Slide presentation" },
+      ["thumbnail rail", "Inspect or Design", "Present to show it", "React and TSX"], []],
+    ["agent", { id: "agent" }, ["Open Slide presentations", "build slides"], []],
+    // Collaboration, Overleaf sync, and the paper PDF actions are explained at their controls.
+    ["workspaceActions", { id: "workspace-actions", target: '[data-tour="workspace-actions"]' },
+      ["Live collaboration", "Overleaf opens or syncs"], []],
+    ["paperActions", { id: "paper-actions", target: '[data-tour="paper-actions"]' },
+      ["original PDF in Lattice", "external-link button"], []],
+  ] as const)("describes the %s step", (name, shape, included, excluded) => {
+    renderTour(TUTORIAL_STEPS[name]);
     expect(joyride.props?.options).toMatchObject({ skipScroll: true });
-    const spreadsheet = joyride.props!.steps[TUTORIAL_STEPS.spreadsheet];
-    expect(spreadsheet).toMatchObject({
-      id: "spreadsheet",
-      spotlightTarget: '[data-tour="spreadsheet-workspace"]',
-    });
-    expect(spreadsheet.content).toContain("co-authors’ selections and pointers");
-
-    const tools = joyride.props!.steps[TUTORIAL_STEPS.spreadsheetTools];
-    expect(tools).toMatchObject({
-      id: "spreadsheet-tools",
-      target: '[data-u-comp="ribbon-toolbar"]',
-    });
-    expect(tools.content).toContain("Formulas in the toolbar");
-    expect(tools.content).toContain("export the spreadsheet as an .xlsx file");
-    expect(tools.content).not.toContain("Agent");
-
-    const presentationCreate = joyride.props!.steps[TUTORIAL_STEPS.presentationCreate];
-    expect(presentationCreate).toMatchObject({
-      id: "presentation-create",
-      target: '[data-tour="new-document"]',
-      title: "Create with the + menu",
-    });
-    expect(presentationCreate.content).toContain("presentation, spreadsheet, or board");
-    expect(presentationCreate.content).not.toContain("tutorial already includes");
-
-    const presentation = joyride.props!.steps[TUTORIAL_STEPS.presentation];
-    expect(presentation).toMatchObject({
-      id: "presentation",
-      spotlightTarget: '[data-tour="open-slide-workspace"]',
-      title: "Edit an Open Slide presentation",
-    });
-    expect(presentation.content).toContain("thumbnail rail");
-    expect(presentation.content).toContain("Inspect or Design");
-    expect(presentation.content).toContain("Present to show it");
-    expect(presentation.content).toContain("React and TSX");
-
-    const agent = joyride.props!.steps[TUTORIAL_STEPS.agent];
-    expect(agent.content).toContain("Open Slide presentations");
-    expect(agent.content).toContain("build slides");
+    const step = joyride.props!.steps[TUTORIAL_STEPS[name]];
+    expect(step).toMatchObject(shape);
+    for (const text of included) expect(step.content).toContain(text);
+    for (const text of excluded) expect(step.content).not.toContain(text);
   });
 
-  it("opens the editable tutorial deck and returns to the manuscript afterward", () => {
-    const onSelectTutorialFile = vi.fn();
-    render(
-      <OnboardingTour
-        active
-        stepIndex={TUTORIAL_STEPS.presentationCreate}
-        onStepIndexChange={vi.fn()}
-        onSkip={vi.fn()}
-        onComplete={vi.fn()}
-        onSelectTutorialFile={onSelectTutorialFile}
-      />,
-    );
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.presentationCreate,
-    }));
-    expect(onSelectTutorialFile).toHaveBeenCalledWith(
-      "slides/understanding-attention/index.tsx",
-      TUTORIAL_STEPS.presentation,
-    );
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.presentation,
-    }));
-    expect(onSelectTutorialFile).toHaveBeenCalledWith(
-      "main.tex",
-      TUTORIAL_STEPS.viewModes,
-    );
+  it.each([
+    // Opens the editable tutorial deck and returns to the manuscript afterward.
+    [TUTORIAL_STEPS.presentationCreate, "slides/understanding-attention/index.tsx", TUTORIAL_STEPS.presentation],
+    [TUTORIAL_STEPS.presentation, "main.tex", TUTORIAL_STEPS.viewModes],
+    // Opens the sample sheet before returning to the manuscript.
+    [TUTORIAL_STEPS.board, "attention-results.lattice-sheet", TUTORIAL_STEPS.spreadsheet],
+    [TUTORIAL_STEPS.spreadsheetTools, "main.tex", TUTORIAL_STEPS.workspaceActions],
+  ])("continuing from step %i opens %s for step %i", (from, path, to) => {
+    const { onSelectTutorialFile, onStepIndexChange } = renderTour(from);
+    continueFrom(from);
+    expect(onSelectTutorialFile).toHaveBeenCalledWith(path, to);
+    expect(onStepIndexChange).not.toHaveBeenCalled();
   });
 
-  it("explains collaboration, Overleaf sync, and the paper PDF actions at their controls", () => {
-    const onStepIndexChange = vi.fn();
-    render(
-      <OnboardingTour
-        active
-        stepIndex={TUTORIAL_STEPS.workspaceActions}
-        onStepIndexChange={onStepIndexChange}
-        onSkip={vi.fn()}
-        onComplete={vi.fn()}
-        onSelectTutorialFile={vi.fn()}
-      />,
-    );
-
-    const workspace = joyride.props!.steps[TUTORIAL_STEPS.workspaceActions];
-    expect(workspace).toMatchObject({
-      id: "workspace-actions",
-      target: '[data-tour="workspace-actions"]',
-    });
-    expect(workspace.content).toContain("Live collaboration");
-    expect(workspace.content).toContain("Overleaf opens or syncs");
-
-    const paperActions = joyride.props!.steps[TUTORIAL_STEPS.paperActions];
-    expect(paperActions).toMatchObject({
-      id: "paper-actions",
-      target: '[data-tour="paper-actions"]',
-    });
-    expect(paperActions.content).toContain("original PDF in Lattice");
-    expect(paperActions.content).toContain("external-link button");
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.paperFullText,
-    }));
-    expect(onStepIndexChange).toHaveBeenCalledWith(TUTORIAL_STEPS.paperActions);
-  });
-
-  it("opens the sample sheet before returning to the manuscript", () => {
-    const onSelectTutorialFile = vi.fn();
-    const onStepIndexChange = vi.fn();
-    render(
-      <OnboardingTour
-        active
-        stepIndex={TUTORIAL_STEPS.board}
-        onStepIndexChange={onStepIndexChange}
-        onSkip={vi.fn()}
-        onComplete={vi.fn()}
-        onSelectTutorialFile={onSelectTutorialFile}
-      />,
-    );
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.board,
-    }));
-    expect(onSelectTutorialFile).toHaveBeenCalledWith(
-      "attention-results.lattice-sheet",
-      TUTORIAL_STEPS.spreadsheet,
-    );
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.spreadsheet,
-    }));
-    expect(onStepIndexChange).toHaveBeenCalledWith(TUTORIAL_STEPS.spreadsheetTools);
-
-    act(() => joyride.props!.onEvent({
-      status: "running",
-      action: "next",
-      type: "step:after",
-      index: TUTORIAL_STEPS.spreadsheetTools,
-    }));
-    expect(onSelectTutorialFile).toHaveBeenCalledWith(
-      "main.tex",
-      TUTORIAL_STEPS.workspaceActions,
-    );
+  it.each([
+    [TUTORIAL_STEPS.spreadsheet, TUTORIAL_STEPS.spreadsheetTools],
+    [TUTORIAL_STEPS.paperFullText, TUTORIAL_STEPS.paperActions],
+  ])("continuing from step %i advances to step %i without opening a file", (from, to) => {
+    const { onSelectTutorialFile, onStepIndexChange } = renderTour(from);
+    continueFrom(from);
+    expect(onStepIndexChange).toHaveBeenCalledWith(to);
+    expect(onSelectTutorialFile).not.toHaveBeenCalled();
   });
 });

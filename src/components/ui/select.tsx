@@ -3,24 +3,14 @@ import { ChevronDownIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import {
-  floatingSurfaceClassName,
-  menuItemClassName,
-  menuViewportClassName,
-} from "./menu-surface"
+import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import { FluidHoverSurface } from "./fluid-hover-surface"
 import "./form-controls.css"
 
-function Select({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
-}
+const Select = SelectPrimitive.Root
 
-function SelectValue({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Value>) {
+function SelectValue(props: React.ComponentProps<typeof SelectPrimitive.Value>) {
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 

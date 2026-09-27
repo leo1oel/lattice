@@ -1,12 +1,7 @@
-import {
-  type ComponentPropsWithoutRef,
-} from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { cn } from "@/lib/utils";
 import { uiTokens } from "./stylex-tokens.stylex";
-
-type BadgeTone = "neutral" | "accent" | "success" | "warning" | "danger";
-type BadgeSize = "compact" | "default";
 
 const styles = stylex.create({
   root: {
@@ -31,12 +26,6 @@ const styles = stylex.create({
     height: uiTokens.badgeHeightCompact,
     paddingInline: uiTokens.space2,
   },
-  default: {},
-  neutral: {},
-  accent: {
-    backgroundColor: uiTokens.controlActiveSoft,
-    color: uiTokens.controlActive,
-  },
   success: {
     backgroundColor: uiTokens.statusSuccessSoft,
     color: uiTokens.statusSuccess,
@@ -45,15 +34,11 @@ const styles = stylex.create({
     backgroundColor: uiTokens.statusWarningSoft,
     color: uiTokens.statusWarning,
   },
-  danger: {
-    backgroundColor: uiTokens.statusDangerSoft,
-    color: uiTokens.statusDanger,
-  },
 });
 
 export type BadgeProps = ComponentPropsWithoutRef<"span"> & {
-  tone?: BadgeTone;
-  size?: BadgeSize;
+  tone?: "neutral" | "success" | "warning";
+  size?: "compact" | "default";
 };
 
 /**
@@ -62,13 +47,12 @@ export type BadgeProps = ComponentPropsWithoutRef<"span"> & {
  * Counts that are positioned over an icon remain feature-owned because their
  * geometry is notification chrome rather than an inline badge.
  */
-export function Badge({
-  className,
-  size = "default",
-  tone = "neutral",
-  ...props
-}: BadgeProps) {
-  const styleProps = stylex.props(styles.root, styles[size], styles[tone]);
+export function Badge({ className, size = "default", tone = "neutral", ...props }: BadgeProps) {
+  const styleProps = stylex.props(
+    styles.root,
+    size === "compact" && styles.compact,
+    tone !== "neutral" && styles[tone],
+  );
 
   return (
     <span

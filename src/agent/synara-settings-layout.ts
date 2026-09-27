@@ -8,10 +8,7 @@ const MAX_SYNARA_SETTINGS_HEIGHT = 64_000;
 const SETTINGS_BOTTOM_PIN_TOLERANCE = 24;
 
 export function normalizeSynaraSettingsHeight(height: number): number {
-  return Math.min(
-    MAX_SYNARA_SETTINGS_HEIGHT,
-    Math.max(MIN_SYNARA_SETTINGS_HEIGHT, Math.ceil(height)),
-  );
+  return Math.min(MAX_SYNARA_SETTINGS_HEIGHT, Math.max(MIN_SYNARA_SETTINGS_HEIGHT, Math.ceil(height)));
 }
 
 export function isSettingsViewportNearBottom(
@@ -30,23 +27,14 @@ export function applySynaraSettingsHeight(options: {
 }): number {
   const height = normalizeSynaraSettingsHeight(options.height);
   const cssHeight = `${height}px`;
-  if (options.container) {
-    options.container.style.height = options.active ? cssHeight : "0px";
-  }
-  if (options.frame) {
-    options.frame.style.height = cssHeight;
-  }
+  if (options.container) options.container.style.height = options.active ? cssHeight : "0px";
+  if (options.frame) options.frame.style.height = cssHeight;
   return height;
 }
 
 type SynaraSettingsViewport = Pick<
   HTMLElement,
-  | "clientHeight"
-  | "clientWidth"
-  | "scrollHeight"
-  | "scrollLeft"
-  | "scrollTop"
-  | "scrollWidth"
+  "clientHeight" | "clientWidth" | "scrollHeight" | "scrollLeft" | "scrollTop" | "scrollWidth"
 >;
 
 export function scrollSynaraSettingsViewportBy(
@@ -74,9 +62,5 @@ export function applySynaraSettingsWheel(
     : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
       ? viewport.clientHeight
       : 1;
-  return scrollSynaraSettingsViewportBy(
-    viewport,
-    event.deltaY * scale,
-    event.deltaX * scale,
-  );
+  return scrollSynaraSettingsViewportBy(viewport, event.deltaY * scale, event.deltaX * scale);
 }

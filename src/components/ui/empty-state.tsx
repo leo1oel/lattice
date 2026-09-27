@@ -1,7 +1,4 @@
-import {
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import "./chrome.css";
 
@@ -12,7 +9,6 @@ export type EmptyStateProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
   actions?: ReactNode;
   density?: "compact" | "default";
   align?: "start" | "center";
-  variant?: "plain" | "outlined";
 };
 
 /** A reusable no-content state without feature-specific class dependencies. */
@@ -24,7 +20,6 @@ export function EmptyState({
   description,
   icon,
   title,
-  variant = "plain",
   ...props
 }: EmptyStateProps) {
   return (
@@ -32,7 +27,6 @@ export function EmptyState({
       data-slot="empty-state"
       data-align={align}
       data-density={density}
-      data-variant={variant}
       className={cn("ui-empty-state", className)}
       {...props}
     >

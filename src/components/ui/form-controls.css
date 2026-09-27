@@ -51,12 +51,6 @@
   word-break: break-word;
 }
 
-.ui-textarea[data-font="mono"] {
-  font-family: var(--editor-font);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line-height);
-}
-
 .ui-input::placeholder,
 .ui-textarea::placeholder {
   color: var(--text-tertiary);
@@ -98,7 +92,6 @@
 }
 
 [data-slot="select-trigger"] {
-  box-shadow: none;
   border-radius: var(--form-control-select-radius);
 }
 

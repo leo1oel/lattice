@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { FluidHoverHighlight, type FluidHoverHighlightProps } from "./fluid-hover-highlight";
+import { FluidHoverHighlight } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
 import "./fluid-hover.css";
 
@@ -13,10 +13,9 @@ const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading
  * rather than wrapping them, which would break Radix's asChild/collection API.
  * Mount inside a positioned `fluid-hover-surface`, in the scrolling viewport.
  */
-export function FluidHoverSurface({ selector = menuItems, preserveSelection = false, transition }: {
+export function FluidHoverSurface({ selector = menuItems, preserveSelection = false }: {
   selector?: string;
   preserveSelection?: boolean;
-  transition?: FluidHoverHighlightProps["transition"];
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const hover = useFluidHover(containerRef, { gapClick: false });
@@ -35,15 +34,16 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
       previous = null;
       setActiveIndex(null);
     };
+    const release = () => items.forEach((item, i) => {
+      registerItem(i, null);
+      item.removeAttribute("data-fluid-hover-item");
+    });
     const syncItems = () => {
       const next = Array.from(container.querySelectorAll<HTMLElement>(selector))
         .filter((item) => owns(item) && !item.closest('[hidden], [inert]'));
       if (next.length === items.length && next.every((item, i) => item === items[i])) return;
       clear();
-      items.forEach((item, i) => {
-        registerItem(i, null);
-        item.removeAttribute("data-fluid-hover-item");
-      });
+      release();
       items = next;
       items.forEach((item, i) => {
         item.setAttribute("data-fluid-hover-item", "");
@@ -85,28 +85,21 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
       }
     });
     observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "inert", "data-item-path"] });
-    container.addEventListener("pointermove", move);
-    container.addEventListener("pointerdown", clear);
-    container.addEventListener("pointerleave", clear);
+    const listening = new AbortController();
+    const { signal } = listening;
+    container.addEventListener("pointermove", move, { signal });
+    container.addEventListener("pointerdown", clear, { signal });
+    container.addEventListener("pointerleave", clear, { signal });
     // ScrollArea and virtual trees put the scroll owner ABOVE the row scope.
-    const eventRoot = container.getRootNode();
-    eventRoot.addEventListener("scroll", clear, true);
-    container.addEventListener("pointerenter", remeasure);
+    container.getRootNode().addEventListener("scroll", clear, { capture: true, signal });
+    container.addEventListener("pointerenter", remeasure, { signal });
     // Keyboard navigation immediately returns to the primitive's focus/selected
     // background, even for listboxes whose focus stays in a sibling search box.
-    container.ownerDocument.addEventListener("keydown", clear, true);
+    container.ownerDocument.addEventListener("keydown", clear, { capture: true, signal });
     return () => {
       observer.disconnect();
-      container.removeEventListener("pointermove", move);
-      container.removeEventListener("pointerdown", clear);
-      container.removeEventListener("pointerleave", clear);
-      eventRoot.removeEventListener("scroll", clear, true);
-      container.removeEventListener("pointerenter", remeasure);
-      container.ownerDocument.removeEventListener("keydown", clear, true);
-      items.forEach((item, i) => {
-        registerItem(i, null);
-        item.removeAttribute("data-fluid-hover-item");
-      });
+      listening.abort();
+      release();
     };
   }, [registerItem, remeasure, selector, preserveSelection, sessionRef, setActiveIndex]);
 
@@ -119,6 +112,6 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
 
   return <>
     <span hidden aria-hidden="true" ref={attach} />
-    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" transition={transition} />
+    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" />
   </>;
 }

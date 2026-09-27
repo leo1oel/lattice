@@ -30,34 +30,20 @@ function scoreItem(item: SearchPickerItem, query: string): number {
   return score;
 }
 
-export function SearchPickerDialog(props: {
-  open: boolean;
+type SearchPickerProps = {
   title: string;
   placeholder: string;
   items: SearchPickerItem[];
   onClose: () => void;
   onSelect: (item: SearchPickerItem) => void;
-}) {
-  if (!props.open) return null;
-  return (
-    <SearchPickerDialogForm
-      key={`${props.title}-${props.items.length}`}
-      title={props.title}
-      placeholder={props.placeholder}
-      items={props.items}
-      onClose={props.onClose}
-      onSelect={props.onSelect}
-    />
-  );
+};
+
+export function SearchPickerDialog({ open, ...props }: SearchPickerProps & { open: boolean }) {
+  // Re-keyed so a new title or item set starts from an empty query.
+  return open ? <SearchPickerDialogForm key={`${props.title}-${props.items.length}`} {...props} /> : null;
 }
 
-function SearchPickerDialogForm(props: {
-  title: string;
-  placeholder: string;
-  items: SearchPickerItem[];
-  onClose: () => void;
-  onSelect: (item: SearchPickerItem) => void;
-}) {
+function SearchPickerDialogForm(props: SearchPickerProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const results = useMemo(() => {
@@ -70,13 +56,11 @@ function SearchPickerDialogForm(props: {
         || left.item.label.localeCompare(right.item.label));
     return ranked.slice(0, 60).map((entry) => entry.item);
   }, [props.items, query]);
-  const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
+  const selected = results[Math.min(Math.max(0, active), results.length - 1)] ?? null;
 
   return (
     <ModalDialog label={props.title} onClose={props.onClose}>
-      <div
-        className="modal quick-open-modal"
-      >
+      <div className="modal quick-open-modal">
         <div className="quick-open-header">
           <SearchField
             autoFocus
@@ -134,8 +118,4 @@ function SearchPickerDialogForm(props: {
       </div>
     </ModalDialog>
   );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

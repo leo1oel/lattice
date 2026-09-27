@@ -107,42 +107,31 @@ afterAll(async () => {
 // browser APIs and only applies under jsdom.
 if (typeof window !== "undefined") setupDomShims();
 
-function setupDomShims() {
-
-// Vitest's jsdom environment sets pretendToBeVisual, so Window already has
-// requestAnimationFrame — as a ~16 ms setInterval. Preact 11's hooks call
-// cancelAnimationFrame during unmount, and navigator tests that install fake
-// timers can leave a scheduled frame whose cancel then throws
-// `cancelAnimationFrame is not defined` after every test has passed.
-//
-// The previous `typeof !== "function"` guard was a no-op here and left jsdom's
-// 16 ms frames in place. afterAll only waits 2 ms twice, so those frames
-// fired after jsdom teardown deleted cancelAnimationFrame. Always replace
-// both APIs with 0 ms timers so the drain actually runs them, and write them
-// onto window as well as globalThis — populateGlobal copies at environment
-// setup, and the two can diverge.
-{
-  const requestAnimationFrame = (callback: (time: number) => void) => (
-    globalThis.setTimeout(() => callback(Date.now()), 0) as unknown as number
-  );
-  const cancelAnimationFrame = (id: number) => { globalThis.clearTimeout(id); };
-  for (const target of [globalThis, window] as Array<typeof globalThis>) {
-    Object.defineProperty(target, "requestAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: requestAnimationFrame,
-    });
-    Object.defineProperty(target, "cancelAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: cancelAnimationFrame,
-    });
-  }
+/** Installs a configurable, writable stand-in so individual tests can still replace or spy on it. */
+function stub(target: object, name: string, value: unknown) {
+  Object.defineProperty(target, name, { configurable: true, writable: true, value });
 }
 
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  value: (query: string) => ({
+function setupDomShims() {
+  // Vitest's jsdom environment sets pretendToBeVisual, so Window already has
+  // requestAnimationFrame — as a ~16 ms setInterval. Preact 11's hooks call
+  // cancelAnimationFrame during unmount, and navigator tests that install fake
+  // timers can leave a scheduled frame whose cancel then throws
+  // `cancelAnimationFrame is not defined` after every test has passed.
+  //
+  // afterAll only waits 2 ms twice, so jsdom's 16 ms frames would fire after
+  // teardown deleted cancelAnimationFrame. Always replace both APIs with 0 ms
+  // timers so the drain actually runs them, and write them onto window as well
+  // as globalThis — populateGlobal copies at environment setup, and the two
+  // can diverge.
+  for (const target of [globalThis, window]) {
+    stub(target, "requestAnimationFrame", (callback: (time: number) => void) => (
+      globalThis.setTimeout(() => callback(Date.now()), 0) as unknown as number
+    ));
+    stub(target, "cancelAnimationFrame", (id: number) => { globalThis.clearTimeout(id); });
+  }
+
+  stub(window, "matchMedia", (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -151,83 +140,53 @@ Object.defineProperty(window, "matchMedia", {
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
     dispatchEvent: () => false,
-  }),
-});
+  }));
 
-const storage = new Map<string, string>();
-Object.defineProperty(window, "localStorage", {
-  configurable: true,
-  value: {
+  const storage = new Map<string, string>();
+  stub(window, "localStorage", {
     clear: () => storage.clear(),
     getItem: (key: string) => storage.get(key) ?? null,
     key: (index: number) => [...storage.keys()][index] ?? null,
     get length() { return storage.size; },
     removeItem: (key: string) => storage.delete(key),
     setItem: (key: string, value: string) => storage.set(key, String(value)),
-  },
-});
-
-Object.defineProperty(Element.prototype, "scrollIntoView", {
-  configurable: true,
-  value: () => undefined,
-});
-
-// Base UI waits for viewport animations before refreshing ScrollArea geometry.
-// jsdom does not implement the Web Animations API, so expose the settled state
-// browsers return when no CSS or JS animations are attached.
-if (!("getAnimations" in Element.prototype)) {
-  Object.defineProperty(Element.prototype, "getAnimations", {
-    configurable: true,
-    value: () => [],
   });
-}
 
-// jsdom has no 2D canvas backend; ThinkingOrb reads getContext("2d") and
-// bails when it is null, so return null here to exercise that path without
-// flooding the run with jsdom "Not implemented" warnings.
-Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
-  configurable: true,
-  value: () => null,
-});
+  stub(Element.prototype, "scrollIntoView", () => undefined);
+  // Base UI waits for viewport animations before refreshing ScrollArea geometry.
+  // jsdom does not implement the Web Animations API, so expose the settled state
+  // browsers return when no CSS or JS animations are attached.
+  if (!("getAnimations" in Element.prototype)) stub(Element.prototype, "getAnimations", () => []);
+  // jsdom has no 2D canvas backend; ThinkingOrb reads getContext("2d") and
+  // bails when it is null, so return null here to exercise that path without
+  // flooding the run with jsdom "Not implemented" warnings.
+  stub(HTMLCanvasElement.prototype, "getContext", () => null);
+  stub(Range.prototype, "getClientRects", () => []);
+  stub(Range.prototype, "getBoundingClientRect", () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0 }));
 
-Object.defineProperty(Range.prototype, "getClientRects", {
-  configurable: true,
-  value: () => [],
-});
-
-Object.defineProperty(Range.prototype, "getBoundingClientRect", {
-  configurable: true,
-  value: () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0, x: 0, y: 0 }),
-});
-
-// tldraw's environment detection calls CSS.supports at module scope; jsdom
-// exposes the CSS global without implementing it.
-if (typeof globalThis.CSS === "undefined" || typeof globalThis.CSS.supports !== "function") {
-  (globalThis as unknown as { CSS: unknown }).CSS = { supports: () => false };
-}
-// jsdom's CSS.supports rejects content-visibility, which would silently turn
-// the vendored chunk-wrapper-decoration plugin into a no-op at module init
-// and fail its tests. The shipping WKWebView (Safari 18+) supports it, so
-// tests should exercise the active plugin.
-{
+  // tldraw's environment detection calls CSS.supports at module scope; jsdom
+  // exposes the CSS global without implementing it.
+  if (typeof globalThis.CSS === "undefined" || typeof globalThis.CSS.supports !== "function") {
+    (globalThis as unknown as { CSS: unknown }).CSS = { supports: () => false };
+  }
+  // jsdom's CSS.supports rejects content-visibility, which would silently turn
+  // the vendored chunk-wrapper-decoration plugin into a no-op at module init
+  // and fail its tests. The shipping WKWebView (Safari 18+) supports it, so
+  // tests should exercise the active plugin.
   const supports = globalThis.CSS.supports.bind(globalThis.CSS);
   globalThis.CSS.supports = ((property: string, value?: string) => (
     property === "content-visibility" ? true : supports(property as never, value as never)
   )) as typeof globalThis.CSS.supports;
-}
 
-// Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
-if (!("ResizeObserver" in globalThis)) {
-  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-}
-for (const method of ["hasPointerCapture", "setPointerCapture", "releasePointerCapture"] as const) {
-  if (!(method in Element.prototype)) {
-    Object.defineProperty(Element.prototype, method, { configurable: true, value: () => undefined });
+  // Radix UI (shadcn menus/tooltips/etc.) relies on APIs jsdom doesn't implement.
+  if (!("ResizeObserver" in globalThis)) {
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
   }
-}
-
+  for (const method of ["hasPointerCapture", "setPointerCapture", "releasePointerCapture"]) {
+    if (!(method in Element.prototype)) stub(Element.prototype, method, () => undefined);
+  }
 }

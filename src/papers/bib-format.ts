@@ -4,7 +4,9 @@ import { i18n } from "../i18n";
 const SPECIAL_ENTRY_TYPES = new Set(["string", "preamble", "comment"]);
 
 type EntryBounds = { end: number; open: "{" | "("; close: "}" | ")" };
-type FormattedEntry = { start: number; end: number; formatted: string };
+/** A complete entry; `formatted` is null when it must be copied as written. */
+type ScannedEntry = { start: number; end: number; formatted: string | null };
+type FormattedEntry = ScannedEntry & { formatted: string };
 
 function findEntryEnd(source: string, openIndex: number): EntryBounds | null {
   const open = source[openIndex] as "{" | "(";
@@ -128,15 +130,18 @@ function formatEntry(type: string, body: string, open: "{" | "(", newline: strin
   return `@${type}${open}${key},${newline}${renderedFields}${trailingComma ? "," : ""}${newline}${close}`;
 }
 
-function formattedEntryAt(source: string, start: number, newline: string): FormattedEntry | null {
+/** Scans the entry whose "@" is at `start`, or null when none is complete there. */
+function entryAt(source: string, start: number, newline: string): ScannedEntry | null {
   const header = /^@([A-Za-z][A-Za-z0-9_-]*)[\t ]*([({])/.exec(source.slice(start));
   if (!header) return null;
   const openIndex = start + header[0].length - 1;
   const bounds = findEntryEnd(source, openIndex);
   if (!bounds) return null;
   const formatted = formatEntry(header[1], source.slice(openIndex + 1, bounds.end), bounds.open, newline);
-  return formatted ? { start, end: bounds.end, formatted } : null;
+  return { start, end: bounds.end, formatted };
 }
+
+const isFormatted = (entry: ScannedEntry | null): entry is FormattedEntry => Boolean(entry?.formatted);
 
 /**
  * Formats only complete, conventional BibTeX entries. Anything the scanner
@@ -149,29 +154,23 @@ export function formatBibDocument(source: string): string {
   let match: RegExpExecArray | null;
 
   while ((match = entryStart.exec(source)) !== null) {
-    const at = match.index + match[1].length + match[2].length;
-    const openIndex = entryStart.lastIndex - 1;
-    const bounds = findEntryEnd(source, openIndex);
-    if (!bounds) break;
-    const formatted = formatEntry(match[3], source.slice(openIndex + 1, bounds.end), bounds.open, newline);
-    if (formatted) {
-      entries.push({ start: at, end: bounds.end, formatted });
-
+    const entry = entryAt(source, match.index + match[1].length + match[2].length, newline);
+    if (!entry) break;
+    let previousEnd = entry.end;
+    if (isFormatted(entry)) {
+      entries.push(entry);
       // Once an entry establishes a BibTeX boundary, another entry may follow
       // without a line break. Only cross whitespace here: a general search for
       // "@" would mistake values and arbitrary prose for entry boundaries.
-      let previousEnd = bounds.end;
       while (previousEnd + 1 < source.length) {
         const gap = /^[\t \r\n]*/.exec(source.slice(previousEnd + 1))![0];
-        const adjacent = formattedEntryAt(source, previousEnd + 1 + gap.length, newline);
-        if (!adjacent) break;
+        const adjacent = entryAt(source, previousEnd + 1 + gap.length, newline);
+        if (!isFormatted(adjacent)) break;
         entries.push(adjacent);
         previousEnd = adjacent.end;
       }
-      entryStart.lastIndex = previousEnd + 1;
-    } else {
-      entryStart.lastIndex = bounds.end + 1;
     }
+    entryStart.lastIndex = previousEnd + 1;
   }
 
   let output = "";

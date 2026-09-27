@@ -52,43 +52,29 @@ const styles = stylex.create({
  *   state  → why this region has no content, or whether this field is valid
  *            → this component, in place
  *
- * Before this existed, every panel invented its own: `.overleaf-error`,
- * `.versions-notice`, `.conflict-error`, `.tex-setup-status`, each a bare
- * coloured `<p>` at a different size with no icon. Same icons and same status
- * colours as the toast, so the two read as one system.
- *
- * A form control's own caption stays as it is — a caption under a single
- * control is a label, not a message, and does not want an icon beside it.
+ * Same icons and same status colours as the toast, so the two read as one
+ * system. A form control's own caption stays as it is — a caption under a
+ * single control is a label, not a message, and does not want an icon beside it.
  */
-const INLINE_MESSAGE_ICON = {
-  info: Info,
-  success: CheckCircle2,
-  warning: CircleAlert,
-  error: CircleAlert,
+const LEVELS = {
+  info: { Icon: Info, iconStyle: styles.infoIcon },
+  success: { Icon: CheckCircle2, iconStyle: styles.successIcon },
+  warning: { Icon: CircleAlert, iconStyle: styles.warningIcon },
+  error: { Icon: CircleAlert, iconStyle: styles.errorIcon },
 };
 
-export type InlineMessageLevel = keyof typeof INLINE_MESSAGE_ICON;
+export type InlineMessageLevel = keyof typeof LEVELS;
 
-export function InlineMessage({
-  level = "info",
-  className,
-  children,
-}: {
+export function InlineMessage({ level = "info", className, children }: {
   level?: InlineMessageLevel;
   className?: string;
   children: ReactNode;
 }) {
-  const Icon = INLINE_MESSAGE_ICON[level];
+  const { Icon, iconStyle } = LEVELS[level];
   const rootStyleProps = stylex.props(
     styles.root,
     level === "error" && styles.errorText,
   );
-  const iconStyle = {
-    info: styles.infoIcon,
-    success: styles.successIcon,
-    warning: styles.warningIcon,
-    error: styles.errorIcon,
-  }[level];
 
   return (
     <p

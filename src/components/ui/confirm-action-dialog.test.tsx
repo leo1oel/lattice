@@ -12,57 +12,29 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function Harness() {
+/** A button that asks, and an output that shows the answer it got. */
+function Harness(props: { request: () => Promise<unknown> }) {
   const [answer, setAnswer] = useState("none");
   return (
     <ConfirmActionProvider>
-      <button
-        type="button"
-        onClick={() => {
-          void confirmAction("Delete “notes.tex” from this project?")
-            .then((confirmed) => setAnswer(String(confirmed)));
-        }}
-      >
-        Request deletion
+      <button type="button" onClick={() => void props.request().then((value) => setAnswer(String(value)))}>
+        Request
       </button>
       <output>{answer}</output>
     </ConfirmActionProvider>
   );
 }
 
-function ChoiceHarness() {
-  const [answer, setAnswer] = useState("none");
-  return (
-    <ConfirmActionProvider>
-      <button
-        type="button"
-        onClick={() => {
-          void chooseAction({
-            title: "Remove this bibliography entry?",
-            message: "It is cited in two places.",
-            confirmLabel: "Remove citations too",
-            alternativeLabel: "Keep citations",
-            alternativeDestructive: true,
-            destructive: true,
-          }).then(setAnswer);
-        }}
-      >
-        Request choice
-      </button>
-      <output>{answer}</output>
-    </ConfirmActionProvider>
-  );
-}
+const requestDeletion = () => confirmAction("Delete “notes.tex” from this project?");
 
 describe("ConfirmActionProvider", () => {
   it("uses the styled in-app dialog and keeps destructive actions cancelled by default", async () => {
-    render(<Harness />);
-    const trigger = screen.getByRole("button", { name: "Request deletion" });
+    render(<Harness request={requestDeletion} />);
+    const trigger = screen.getByRole("button", { name: "Request" });
     trigger.focus();
     fireEvent.click(trigger);
 
     const dialog = await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" });
-    expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAccessibleDescription("This action cannot be undone");
     expect(document.querySelector(".modal-backdrop"))
       .toHaveClass("confirm-action-backdrop");
@@ -76,8 +48,8 @@ describe("ConfirmActionProvider", () => {
   });
 
   it("returns true only after the destructive button is explicitly pressed", async () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Request deletion" }));
+    render(<Harness request={requestDeletion} />);
+    fireEvent.click(screen.getByRole("button", { name: "Request" }));
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.getByText("true")).toBeInTheDocument());
@@ -85,8 +57,15 @@ describe("ConfirmActionProvider", () => {
   });
 
   it("returns an explicit alternative without treating dialog dismissal as that choice", async () => {
-    render(<ChoiceHarness />);
-    fireEvent.click(screen.getByRole("button", { name: "Request choice" }));
+    render(<Harness request={() => chooseAction({
+      title: "Remove this bibliography entry?",
+      message: "It is cited in two places.",
+      confirmLabel: "Remove citations too",
+      alternativeLabel: "Keep citations",
+      alternativeDestructive: true,
+      destructive: true,
+    })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Request" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Remove this bibliography entry?" });
     expect(dialog).toHaveAccessibleDescription("It is cited in two places");

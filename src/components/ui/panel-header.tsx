@@ -1,15 +1,9 @@
-import {
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from "react";
+import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { CloseButton } from "./icon-button";
 import "./chrome.css";
 
-export type PanelHeaderProps = Omit<
-  ComponentPropsWithoutRef<"div">,
-  "title"
-> & {
+export type PanelHeaderProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
   title: ReactNode;
   icon?: ReactNode;
   titleAfter?: ReactNode;

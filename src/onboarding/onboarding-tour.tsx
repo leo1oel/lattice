@@ -1,20 +1,13 @@
 import { ArrowLeft, ArrowRight, MousePointer2, Sparkles } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ACTIONS,
-  EVENTS,
-  Joyride,
-  STATUS,
-  type EventData,
-  type Step,
-  type TooltipRenderProps,
-} from "react-joyride";
+import { ACTIONS, EVENTS, Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from "react-joyride";
 import { TUTORIAL_STEPS } from "./onboarding-steps";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
 
 const ACTION_BUTTONS: Step["buttons"] = ["back", "skip"];
 const READING_BUTTONS: Step["buttons"] = ["back", "skip", "primary"];
+const MARKDOWN_EDITOR = '[role="textbox"][aria-label="Markdown document editor"]';
 
 /**
  * Remounts to spend on re-resolving a step target before giving up on it.
@@ -45,12 +38,20 @@ const POINTER_TIMING = {
   markdownReady: 650,
 } as const;
 
-type TutorialPointerState = {
-  visible: boolean;
-  pressed: boolean;
-  x: number;
-  y: number;
+/** Steps whose Continue opens a sample file, clicked in the project tree when it is visible. */
+const FILE_TRANSITIONS: Partial<Record<number, { path: string; step: number }>> = {
+  [TUTORIAL_STEPS.welcome]: { path: "main.tex", step: TUTORIAL_STEPS.latex },
+  [TUTORIAL_STEPS.presentationCreate]: { path: "slides/understanding-attention/index.tsx", step: TUTORIAL_STEPS.presentation },
+  [TUTORIAL_STEPS.presentation]: { path: "main.tex", step: TUTORIAL_STEPS.viewModes },
+  [TUTORIAL_STEPS.viewModes]: { path: "notes.md", step: TUTORIAL_STEPS.markdown },
+  [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
+  [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },
+  [TUTORIAL_STEPS.board]: { path: "attention-results.lattice-sheet", step: TUTORIAL_STEPS.spreadsheet },
+  [TUTORIAL_STEPS.spreadsheetTools]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
 };
+
+type TutorialPointerState = { visible: boolean; pressed: boolean; x: number; y: number };
+type DualSpotlight = { viewBox: string; holes: string; reading: string; switcher: string };
 
 function roundedSpotlightPath(rect: DOMRect, padding = 8, radius = 10): string {
   const left = Math.max(0, rect.left - padding);
@@ -74,18 +75,31 @@ function roundedSpotlightPath(rect: DOMRect, padding = 8, radius = 10): string {
 }
 /* eslint-enable lingui/no-unlocalized-strings */
 
+/** The paper-blog step spotlights the reading view and the Blog/Paper switcher together. */
+function paperBlogTargets() {
+  const readingView = document.querySelector<HTMLElement>('[data-tour="paper-reading-view"]');
+  const paperTarget = document.querySelector<HTMLElement>('[data-tour="paper-fulltext"]');
+  const switchTarget = paperTarget?.closest<HTMLElement>(".paper-content-switcher") ?? paperTarget;
+  return { readingView, paperTarget, switchTarget };
+}
+
 function projectTreeFile(path: string): HTMLElement | null {
   const root = document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot;
   return Array.from(root?.querySelectorAll<HTMLElement>("button[data-item-path]") ?? [])
     .find((item) => item.dataset.itemPath === path) ?? null;
 }
 
+/** The visible Markdown block nearest the middle of the visual editor. */
 function markdownBlockForTour(): HTMLElement | null {
-  const editor = document.querySelector<HTMLElement>('[role="textbox"][aria-label="Markdown document editor"]');
+  const editor = document.querySelector<HTMLElement>(MARKDOWN_EDITOR);
   if (!editor) return null;
   const viewport = editor.closest<HTMLElement>('[data-tour="markdown-visual-editor"]')?.getBoundingClientRect()
     ?? editor.getBoundingClientRect();
   const center = viewport.top + viewport.height / 2;
+  const distance = (block: HTMLElement) => {
+    const rect = block.getBoundingClientRect();
+    return Math.abs((rect.top + rect.bottom) / 2 - center);
+  };
   return Array.from(editor.children).filter((child): child is HTMLElement => {
     const rect = child.getBoundingClientRect();
     return child instanceof HTMLElement
@@ -93,19 +107,12 @@ function markdownBlockForTour(): HTMLElement | null {
       && rect.height > 0
       && rect.bottom > viewport.top + 24
       && rect.top < viewport.bottom - 24;
-  }).sort((a, b) => {
-    const aRect = a.getBoundingClientRect();
-    const bRect = b.getBoundingClientRect();
-    return Math.abs((aRect.top + aRect.bottom) / 2 - center)
-      - Math.abs((bRect.top + bRect.bottom) / 2 - center);
-  })[0] ?? null;
+  }).sort((a, b) => distance(a) - distance(b))[0] ?? null;
 }
 
 function closeMarkdownSlashMenu() {
-  const menu = document.querySelector<HTMLElement>('[role="listbox"][aria-label="Slash commands"]');
-  if (!menu) return;
-  const editor = document.querySelector<HTMLElement>('[role="textbox"][aria-label="Markdown document editor"]');
-  editor?.dispatchEvent(new KeyboardEvent("keydown", {
+  if (!document.querySelector('[role="listbox"][aria-label="Slash commands"]')) return;
+  document.querySelector<HTMLElement>(MARKDOWN_EDITOR)?.dispatchEvent(new KeyboardEvent("keydown", {
     key: "Escape",
     code: "Escape",
     bubbles: true,
@@ -133,9 +140,7 @@ function LatticeTourTooltip(props: TooltipRenderProps) {
       <header className="lattice-tour-header">
         <span className="lattice-tour-mark" aria-hidden="true"><Sparkles size={15} /></span>
         <span className="lattice-tour-kicker">{index + 1} / {size}</span>
-        {canSkip && (
-          <button className="lattice-tour-skip" type="button" {...skipProps}>{t`Skip tutorial`}</button>
-        )}
+        {canSkip && <button className="lattice-tour-skip" type="button" {...skipProps}>{t`Skip tutorial`}</button>}
       </header>
       <progress className="lattice-tour-progress" max={size} value={index + 1} aria-label={t`Tutorial progress: step ${index + 1} of ${size}`} />
       <div className="lattice-tour-body">
@@ -180,35 +185,8 @@ export function OnboardingTour(props: {
   const pointerRunningRef = useRef(false);
   const [recoveryToken, setRecoveryToken] = useState(0);
   const recoveryAttemptsRef = useRef(0);
-  const [pointer, setPointer] = useState<TutorialPointerState>({
-    visible: false,
-    pressed: false,
-    x: 0,
-    y: 0,
-  });
-  const paperBlogSpotlightRef = useRef<SVGSVGElement>(null);
-  const paperBlogMaskRef = useRef<SVGPathElement>(null);
-  const paperBlogReadingRingRef = useRef<SVGPathElement>(null);
-  const paperBlogSwitcherRingRef = useRef<SVGPathElement>(null);
-
-  const updatePaperBlogSpotlight = useCallback(() => {
-    const spotlight = paperBlogSpotlightRef.current;
-    const mask = paperBlogMaskRef.current;
-    const readingRing = paperBlogReadingRingRef.current;
-    const switcherRing = paperBlogSwitcherRingRef.current;
-    const readingView = document.querySelector<HTMLElement>('[data-tour="paper-reading-view"]');
-    const paperTarget = document.querySelector<HTMLElement>('[data-tour="paper-fulltext"]');
-    const switchTarget = paperTarget?.closest<HTMLElement>(".paper-content-switcher") ?? paperTarget;
-    if (!spotlight || !mask || !readingRing || !switcherRing || !readingView || !switchTarget) return;
-    const readingRect = readingView.getBoundingClientRect();
-    const switchRect = switchTarget.getBoundingClientRect();
-    const readingPath = roundedSpotlightPath(readingRect);
-    const switcherPath = roundedSpotlightPath(switchRect, 6, 8);
-    spotlight.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
-    mask.setAttribute("d", `${readingPath} ${switcherPath}`);
-    readingRing.setAttribute("d", readingPath);
-    switcherRing.setAttribute("d", switcherPath);
-  }, []);
+  const [pointer, setPointer] = useState<TutorialPointerState>({ visible: false, pressed: false, x: 0, y: 0 });
+  const [blogSpotlight, setBlogSpotlight] = useState<DualSpotlight | null>(null);
 
   const clearPointerTimers = useCallback(() => {
     pointerTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -224,55 +202,48 @@ export function OnboardingTour(props: {
     // on the Markdown step, which starts an animation of its own — used to do
     // exactly that. Abandon the animation in progress, including whatever it
     // was about to click, and run the new action right away.
-    if (pointerRunningRef.current) {
-      clearPointerTimers();
+    const interrupted = pointerRunningRef.current;
+    clearPointerTimers();
+    if (interrupted || (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false)) {
       pointerRunningRef.current = false;
-      setPointer((current) => ({ ...current, visible: false, pressed: false }));
+      if (interrupted) setPointer((current) => ({ ...current, visible: false, pressed: false }));
       activate();
       return;
     }
     pointerRunningRef.current = true;
-    clearPointerTimers();
     const targetRect = target.getBoundingClientRect();
     const originRect = document.querySelector<HTMLElement>(".lattice-tour")?.getBoundingClientRect();
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    if (reducedMotion) {
-      activate();
-      pointerRunningRef.current = false;
-      return;
-    }
     setPointer({
       visible: true,
       pressed: false,
       x: originRect ? originRect.left + 24 : window.innerWidth / 2,
       y: originRect ? originRect.top + 24 : window.innerHeight / 2,
     });
-    pointerTimersRef.current.push(
-      window.setTimeout(() => setPointer((current) => ({
-        ...current,
-        x: targetRect.left + targetRect.width / 2,
-        y: targetRect.top + targetRect.height / 2,
-      })), POINTER_TIMING.startMove),
-      window.setTimeout(() => setPointer((current) => ({ ...current, pressed: true })), POINTER_TIMING.press),
-      window.setTimeout(() => {
-        activate();
-        setPointer((current) => ({ ...current, pressed: false }));
-      }, POINTER_TIMING.activate),
-      window.setTimeout(() => {
-        setPointer((current) => ({ ...current, visible: false }));
-        pointerRunningRef.current = false;
-      }, POINTER_TIMING.hide),
-    );
+    const at = (delay: number, frame: () => void) => pointerTimersRef.current.push(window.setTimeout(frame, delay));
+    at(POINTER_TIMING.startMove, () => setPointer((current) => ({
+      ...current,
+      x: targetRect.left + targetRect.width / 2,
+      y: targetRect.top + targetRect.height / 2,
+    })));
+    at(POINTER_TIMING.press, () => setPointer((current) => ({ ...current, pressed: true })));
+    at(POINTER_TIMING.activate, () => {
+      activate();
+      setPointer((current) => ({ ...current, pressed: false }));
+    });
+    at(POINTER_TIMING.hide, () => {
+      setPointer((current) => ({ ...current, visible: false }));
+      pointerRunningRef.current = false;
+    });
   }, [clearPointerTimers]);
 
   /**
    * Reset the per-step scratch state.
    *
-   * The tour used to be remounted on every step, which cleared this for free.
-   * It no longer is, so a pointer animation still marked as running when the
-   * step advances would make `animatePointerClick` bail out for the rest of
-   * the tour and silently strand every later auto-click. The pointer's own
-   * visibility needs no reset here — its hide timer is already scheduled.
+   * The tour is not remounted per step, so a pointer animation still marked
+   * as running when the step advances would make `animatePointerClick` bail
+   * out for the rest of the tour and silently strand every later auto-click.
+   * The pointer's own visibility needs no reset here — its hide timer is
+   * already scheduled.
    */
   useEffect(() => {
     recoveryAttemptsRef.current = 0;
@@ -303,10 +274,7 @@ export function OnboardingTour(props: {
       // this step. Opening the slash menu any earlier rewrites the block DOM
       // it is still measuring, and the step lands on a dimmed window with no
       // spotlight. The card is also this animation's origin point.
-      if (!document.querySelector(".lattice-tour")) {
-        retry();
-        return;
-      }
+      if (!document.querySelector(".lattice-tour")) return retry();
       const block = markdownBlockForTour();
       if (block) {
         const rect = block.getBoundingClientRect();
@@ -319,20 +287,11 @@ export function OnboardingTour(props: {
       const addButton = document.querySelector<HTMLElement>('button.ok-add-block-btn[aria-label="Add block below"]');
       const addRect = addButton?.getBoundingClientRect();
       const blockRect = block?.getBoundingClientRect();
-      if (
-        addButton
-        && addRect
-        && blockRect
-        && addRect.width > 0
-        && addRect.height > 0
-        && Math.abs(addRect.top - blockRect.top) < 72
-      ) {
-        // Guarded because the press lands 680ms after the pointer sets off,
-        // by which time the reader may already have moved on.
-        animatePointerClick(addButton, () => { if (!cancelled) addButton.click(); });
-        return;
-      }
-      retry();
+      if (!addButton || !addRect || !blockRect || addRect.width <= 0 || addRect.height <= 0
+        || Math.abs(addRect.top - blockRect.top) >= 72) return retry();
+      // Guarded because the press lands 680ms after the pointer sets off,
+      // by which time the reader may already have moved on.
+      animatePointerClick(addButton, () => { if (!cancelled) addButton.click(); });
     };
     pointerTimersRef.current.push(window.setTimeout(revealAndClickAdd, POINTER_TIMING.markdownReady));
     return () => { cancelled = true; };
@@ -341,6 +300,13 @@ export function OnboardingTour(props: {
   useEffect(() => {
     if (props.stepIndex !== TUTORIAL_STEPS.paperBlog) return;
     let frame = 0;
+    const updatePaperBlogSpotlight = () => {
+      const { readingView, switchTarget } = paperBlogTargets();
+      if (!readingView || !switchTarget) return;
+      const reading = roundedSpotlightPath(readingView.getBoundingClientRect());
+      const switcher = roundedSpotlightPath(switchTarget.getBoundingClientRect(), 6, 8);
+      setBlogSpotlight({ viewBox: `0 0 ${window.innerWidth} ${window.innerHeight}`, holes: `${reading} ${switcher}`, reading, switcher });
+    };
     const scheduleUpdate = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(updatePaperBlogSpotlight);
@@ -348,358 +314,204 @@ export function OnboardingTour(props: {
     scheduleUpdate();
     window.addEventListener("resize", scheduleUpdate);
     const observer = new ResizeObserver(scheduleUpdate);
-    const readingView = document.querySelector<HTMLElement>('[data-tour="paper-reading-view"]');
-    const switchTarget = document.querySelector<HTMLElement>('[data-tour="paper-fulltext"]');
-    if (readingView) observer.observe(readingView);
-    if (switchTarget) observer.observe(switchTarget);
+    const { readingView, paperTarget } = paperBlogTargets();
+    for (const element of [readingView, paperTarget]) if (element) observer.observe(element);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", scheduleUpdate);
       observer.disconnect();
     };
-  }, [props.stepIndex, updatePaperBlogSpotlight]);
+  }, [props.stepIndex]);
 
   const steps = useMemo<Step[]>(() => {
-    const viewportFloatingOptions = {
-      strategy: "fixed" as const,
-      flipOptions: false as const,
-      shiftOptions: {
-        boundary: document.documentElement,
-        rootBoundary: "viewport" as const,
-        padding: 12,
-      },
-    };
-    return [{
-      id: "welcome",
-      target: "body",
-      placement: "center",
-      title: t`Welcome to Lattice`,
-      content: t`We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time`,
-      buttons: ["skip", "primary"],
-    },
-    {
-      id: "latex",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="split-workspace"]',
-      title: t`Your LaTeX and your PDF, side by side`,
-      content: t`Edit main.tex on the left. The PDF on the right updates automatically`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "project-files",
-      target: '[data-tour="project-panel"]',
-      title: t`Everything for the paper lives in one folder`,
-      content: t`This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it`,
-      buttons: READING_BUTTONS,
-      placement: "right-start",
-    },
-    {
-      id: "presentation-create",
-      target: '[data-tour="new-document"]',
-      title: t`Create with the + menu`,
-      content: t`Use + to create a presentation, spreadsheet, or board`,
-      buttons: READING_BUTTONS,
-      placement: "bottom-end",
-      spotlightPadding: 5,
-    },
-    {
-      id: "presentation",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="open-slide-workspace"]',
-      title: t`Edit an Open Slide presentation`,
-      content: t`This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "view-modes",
-      target: '[data-tour="document-view"]',
-      title: t`Three ways to look at a document`,
-      content: t`Use Edit for the source, Split for both, and Preview for the finished result`,
-      buttons: READING_BUTTONS,
-      placement: "bottom",
-      spotlightPadding: 5,
-    },
-    {
-      id: "markdown",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="split-workspace"]',
-      title: t`Notes and drafts in Markdown`,
-      content: t`Edit notes.md on the left and see the formatted result update live on the right`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "markdown-visual",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="markdown-visual-editor"]',
-      title: t`The preview is editable too`,
-      content: t`Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images`,
-      data: { action: t`Try typing / in the visual editor` },
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "html",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="document-preview"]',
-      title: t`Preview interactive HTML`,
-      content: t`HTML files render live here, so you can build interactive demos and figures`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "board",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="board-workspace"]',
-      title: t`Think visually on a board`,
-      content: t`Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "spreadsheet",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="spreadsheet-workspace"]',
-      title: t`Analyze results in a live spreadsheet`,
-      content: t`Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "spreadsheet-tools",
-      target: '[data-u-comp="ribbon-toolbar"]',
-      title: t`Formulas and Excel export`,
-      content: t`Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file`,
-      buttons: READING_BUTTONS,
-      placement: "bottom-start",
-      spotlightPadding: 5,
-    },
-    {
-      id: "workspace-actions",
-      target: '[data-tour="workspace-actions"]',
-      title: isCollabEnabled() ? t`Collaboration, Overleaf, and history` : t`Overleaf and history`,
-      content: isCollabEnabled()
-        ? t`Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`
-        : t`Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`,
-      buttons: READING_BUTTONS,
-      placement: "bottom-end",
-    },
-    {
-      id: "open-papers",
-      target: '[data-tour="papers-tab"]',
-      title: t`Manage cited papers`,
-      content: t`Open Papers to see the sources cited by this manuscript`,
-      data: { action: t`Click Papers` },
-      buttons: ACTION_BUTTONS,
-      placement: "bottom",
-      disableFocusTrap: true,
-    },
-    {
-      id: "papers",
-      target: '[data-tour="project-panel"]',
-      title: t`Browse your bibliography`,
-      content: t`Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full`,
-      buttons: READING_BUTTONS,
-      placement: "right-start",
-    },
-    {
-      id: "import-vit",
-      target: '[data-tour="tutorial-vit-paper"]',
-      title: t`Let's download one of them`,
-      content: t`Lattice downloads the full text, figures, and metadata and keeps them with the citation`,
-      data: { action: t`Click “An Image is Worth 16×16 Words”` },
-      buttons: ACTION_BUTTONS,
-      placement: "right-start",
-      disableFocusTrap: true,
-    },
-    {
-      id: "paper-blog",
-      target: '[data-tour="paper-fulltext"]',
-      title: t`Get the gist before you dive in`,
-      content: t`Blog view gives you an illustrated overview before you read the full paper`,
-      data: { action: t`Click Paper to read the full text` },
-      buttons: ACTION_BUTTONS,
-      placement: "bottom",
-      disableFocusTrap: true,
-      hideOverlay: true,
-    },
-    {
-      id: "paper-full-text",
-      target: '[data-tour="canvas-tour-card-anchor"]',
-      spotlightTarget: '[data-tour="paper-reading-view"]',
-      title: t`Read the full paper here`,
-      content: t`Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft`,
-      buttons: READING_BUTTONS,
-      placement: "top-end",
-      floatingOptions: { ...viewportFloatingOptions, hideArrow: true },
-    },
-    {
-      id: "paper-actions",
-      target: '[data-tour="paper-actions"]',
-      title: t`Open the PDF in Lattice or your browser`,
-      content: t`Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser`,
-      buttons: READING_BUTTONS,
-      placement: "bottom-end",
-      spotlightPadding: 5,
-    },
-    {
-      id: "open-agent",
-      target: '[data-tour="agent-tab"]',
-      title: t`Last stop: your writing agent`,
-      content: t`Open the Agent tab to use Codex, Claude, or another provider`,
-      data: { action: t`Click Agent` },
-      buttons: ACTION_BUTTONS,
-      placement: "bottom",
-      disableFocusTrap: true,
-    },
-    {
-      id: "agent",
-      target: '[data-tour="agent-panel"]',
-      title: t`An agent that works across your project`,
-      content: t`Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project`,
-      buttons: READING_BUTTONS,
-      placement: "right-start",
-    },
+    const step = (id: string, target: string, placement: Step["placement"], title: string, content: string, extra?: Partial<Step>): Step =>
+      ({ id, target, placement, title, content, buttons: READING_BUTTONS, ...extra });
+    // The reader performs these steps by clicking the highlighted control.
+    const action = (id: string, target: string, placement: Step["placement"], title: string, content: string, instruction: string, extra?: Partial<Step>) =>
+      step(id, target, placement, title, content, { data: { action: instruction }, buttons: ACTION_BUTTONS, disableFocusTrap: true, ...extra });
+    // Whole-workspace steps pin the card to the canvas corner anchor and
+    // spotlight the workspace instead, so the card must stay in the viewport.
+    const canvas = (id: string, spotlightTarget: string, title: string, content: string, extra?: Partial<Step>) =>
+      step(id, '[data-tour="canvas-tour-card-anchor"]', "top-end", title, content, {
+        spotlightTarget,
+        floatingOptions: {
+          strategy: "fixed",
+          flipOptions: false,
+          shiftOptions: { boundary: document.documentElement, rootBoundary: "viewport", padding: 12 },
+          hideArrow: true,
+        },
+        ...extra,
+      });
+    const collab = isCollabEnabled();
+    return [
+      step("welcome", "body", "center",
+        t`Welcome to Lattice`,
+        t`We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time`,
+        { buttons: ["skip", "primary"] }),
+      canvas("latex", '[data-tour="split-workspace"]',
+        t`Your LaTeX and your PDF, side by side`,
+        t`Edit main.tex on the left. The PDF on the right updates automatically`),
+      step("project-files", '[data-tour="project-panel"]', "right-start",
+        t`Everything for the paper lives in one folder`,
+        t`This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it`),
+      step("presentation-create", '[data-tour="new-document"]', "bottom-end",
+        t`Create with the + menu`,
+        t`Use + to create a presentation, spreadsheet, or board`,
+        { spotlightPadding: 5 }),
+      canvas("presentation", '[data-tour="open-slide-workspace"]',
+        t`Edit an Open Slide presentation`,
+        t`This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source`),
+      step("view-modes", '[data-tour="document-view"]', "bottom",
+        t`Three ways to look at a document`,
+        t`Use Edit for the source, Split for both, and Preview for the finished result`,
+        { spotlightPadding: 5 }),
+      canvas("markdown", '[data-tour="split-workspace"]',
+        t`Notes and drafts in Markdown`,
+        t`Edit notes.md on the left and see the formatted result update live on the right`),
+      canvas("markdown-visual", '[data-tour="markdown-visual-editor"]',
+        t`The preview is editable too`,
+        t`Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images`,
+        { data: { action: t`Try typing / in the visual editor` } }),
+      canvas("html", '[data-tour="document-preview"]',
+        t`Preview interactive HTML`,
+        t`HTML files render live here, so you can build interactive demos and figures`),
+      canvas("board", '[data-tour="board-workspace"]',
+        t`Think visually on a board`,
+        t`Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable`),
+      canvas("spreadsheet", '[data-tour="spreadsheet-workspace"]',
+        t`Analyze results in a live spreadsheet`,
+        t`Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live`),
+      step("spreadsheet-tools", '[data-u-comp="ribbon-toolbar"]', "bottom-start",
+        t`Formulas and Excel export`,
+        t`Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file`,
+        { spotlightPadding: 5 }),
+      step("workspace-actions", '[data-tour="workspace-actions"]', "bottom-end",
+        collab ? t`Collaboration, Overleaf, and history` : t`Overleaf and history`,
+        collab
+          ? t`Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`
+          : t`Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`),
+      action("open-papers", '[data-tour="papers-tab"]', "bottom",
+        t`Manage cited papers`,
+        t`Open Papers to see the sources cited by this manuscript`,
+        t`Click Papers`),
+      step("papers", '[data-tour="project-panel"]', "right-start",
+        t`Browse your bibliography`,
+        t`Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full`),
+      action("import-vit", '[data-tour="tutorial-vit-paper"]', "right-start",
+        t`Let's download one of them`,
+        t`Lattice downloads the full text, figures, and metadata and keeps them with the citation`,
+        t`Click “An Image is Worth 16×16 Words”`),
+      action("paper-blog", '[data-tour="paper-fulltext"]', "bottom",
+        t`Get the gist before you dive in`,
+        t`Blog view gives you an illustrated overview before you read the full paper`,
+        t`Click Paper to read the full text`,
+        { hideOverlay: true }),
+      canvas("paper-full-text", '[data-tour="paper-reading-view"]',
+        t`Read the full paper here`,
+        t`Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft`),
+      step("paper-actions", '[data-tour="paper-actions"]', "bottom-end",
+        t`Open the PDF in Lattice or your browser`,
+        t`Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser`,
+        { spotlightPadding: 5 }),
+      action("open-agent", '[data-tour="agent-tab"]', "bottom",
+        t`Last stop: your writing agent`,
+        t`Open the Agent tab to use Codex, Claude, or another provider`,
+        t`Click Agent`),
+      step("agent", '[data-tour="agent-panel"]', "right-start",
+        t`An agent that works across your project`,
+        t`Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project`),
     ];
   }, [t]);
+
+  const advanceFrom = (index: number) => {
+    if (index >= steps.length - 1) props.onComplete();
+    else props.onStepIndexChange(index + 1);
+  };
 
   const handleEvent = (event: EventData) => {
     if (event.status === STATUS.SKIPPED || event.action === ACTIONS.SKIP) {
       props.onSkip();
-      return;
-    }
-    if (event.status === STATUS.FINISHED) {
+    } else if (event.status === STATUS.FINISHED) {
       if (event.index === steps.length - 1) props.onComplete();
-      return;
-    }
-    if (event.type === EVENTS.TARGET_NOT_FOUND) {
+    } else if (event.type === EVENTS.TARGET_NOT_FOUND) {
       // Remounting restarts Joyride's target polling, which is the only way
       // back out of the parked state while this tour owns the step index.
+      // Out of retries, move on rather than leave the window dimmed with
+      // nothing on it and no way forward.
       if (recoveryAttemptsRef.current < TARGET_RECOVERY_ATTEMPTS) {
         recoveryAttemptsRef.current += 1;
         setRecoveryToken((token) => token + 1);
-        return;
+      } else {
+        advanceFrom(props.stepIndex);
       }
-      // Out of retries: move on rather than leave the window dimmed with
-      // nothing on it and no way forward.
-      if (props.stepIndex >= steps.length - 1) props.onComplete();
-      else props.onStepIndexChange(props.stepIndex + 1);
-      return;
-    }
-    if (event.type !== EVENTS.STEP_AFTER) return;
-    if (event.action === ACTIONS.PREV) {
+    } else if (event.type === EVENTS.STEP_AFTER && event.action === ACTIONS.PREV) {
       props.onStepIndexChange(Math.max(0, event.index - 1));
-    } else if (event.action === ACTIONS.NEXT || event.action === ACTIONS.CLOSE) {
-      const fileTransition = ({
-        [TUTORIAL_STEPS.welcome]: { path: "main.tex", step: TUTORIAL_STEPS.latex },
-        [TUTORIAL_STEPS.presentationCreate]: {
-          path: "slides/understanding-attention/index.tsx",
-          step: TUTORIAL_STEPS.presentation,
-        },
-        [TUTORIAL_STEPS.presentation]: { path: "main.tex", step: TUTORIAL_STEPS.viewModes },
-        [TUTORIAL_STEPS.viewModes]: { path: "notes.md", step: TUTORIAL_STEPS.markdown },
-        [TUTORIAL_STEPS.markdownVisual]: { path: "attention-demo.html", step: TUTORIAL_STEPS.html },
-        [TUTORIAL_STEPS.html]: { path: "attention-map.tldr", step: TUTORIAL_STEPS.board },
-        [TUTORIAL_STEPS.board]: { path: "attention-results.lattice-sheet", step: TUTORIAL_STEPS.spreadsheet },
-        [TUTORIAL_STEPS.spreadsheetTools]: { path: "main.tex", step: TUTORIAL_STEPS.workspaceActions },
-      } as Record<number, { path: string; step: number }>)[event.index];
-      if (fileTransition) {
-        if (event.index === TUTORIAL_STEPS.markdownVisual) closeMarkdownSlashMenu();
-        const file = projectTreeFile(fileTransition.path);
-        const select = () => props.onSelectTutorialFile(fileTransition.path, fileTransition.step);
-        if (file) animatePointerClick(file, select);
-        else select();
-        return;
-      }
-      if (event.index === TUTORIAL_STEPS.papers) {
-        props.onStepIndexChange(TUTORIAL_STEPS.importVit);
-        return;
-      }
-      if (event.index === TUTORIAL_STEPS.paperFullText) {
-        props.onStepIndexChange(TUTORIAL_STEPS.paperActions);
-        return;
-      }
-      if (event.index === steps.length - 1) {
-        props.onComplete();
-        return;
-      }
-      props.onStepIndexChange(Math.min(steps.length - 1, event.index + 1));
+    } else if (event.type === EVENTS.STEP_AFTER && (event.action === ACTIONS.NEXT || event.action === ACTIONS.CLOSE)) {
+      const transition = FILE_TRANSITIONS[event.index];
+      if (!transition) return advanceFrom(event.index);
+      if (event.index === TUTORIAL_STEPS.markdownVisual) closeMarkdownSlashMenu();
+      const file = projectTreeFile(transition.path);
+      const select = () => props.onSelectTutorialFile(transition.path, transition.step);
+      if (file) animatePointerClick(file, select);
+      else select();
     }
   };
 
   return (
     <>
-    {props.stepIndex === TUTORIAL_STEPS.paperBlog && (
-      <svg
-        ref={paperBlogSpotlightRef}
-        className="lattice-tour-dual-spotlight"
+      {props.stepIndex === TUTORIAL_STEPS.paperBlog && (
+        <svg className="lattice-tour-dual-spotlight" viewBox={blogSpotlight?.viewBox} aria-hidden="true">
+          <defs>
+            <mask id="lattice-tour-paper-blog-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+              <rect className="lattice-tour-dual-spotlight-mask-base" width="100%" height="100%" />
+              <path className="lattice-tour-dual-spotlight-mask-holes" d={blogSpotlight?.holes} />
+            </mask>
+          </defs>
+          <rect className="lattice-tour-dual-spotlight-mask" width="100%" height="100%" mask="url(#lattice-tour-paper-blog-mask)" />
+          <path className="lattice-tour-dual-spotlight-ring" d={blogSpotlight?.reading} />
+          <path className="lattice-tour-dual-spotlight-ring emphasized" d={blogSpotlight?.switcher} />
+        </svg>
+      )}
+      <Joyride
+        key={`joyride:${recoveryToken}`}
+        run={props.active}
+        continuous
+        stepIndex={props.stepIndex}
+        steps={steps}
+        onEvent={handleEvent}
+        tooltipComponent={LatticeTourTooltip}
+        floatingOptions={{ hideArrow: true }}
+        locale={{ back: t`Back`, last: t`Finish`, next: t`Continue`, skip: t`Skip tutorial` }}
+        options={{
+          arrowColor: "var(--surface-panel-raised)",
+          backgroundColor: "var(--surface-panel-raised)",
+          dismissKeyAction: false,
+          overlayClickAction: false,
+          overlayColor: "rgb(8 10 14 / 0.48)",
+          primaryColor: "var(--control-active)",
+          showProgress: true,
+          skipBeacon: true,
+          // The app shell and every tour target already fit the WebView. Letting
+          // Joyride center a target's internal scroll parent also scrolls the
+          // document in WebKit, shifting the entire fixed-height app offscreen.
+          skipScroll: true,
+          spotlightPadding: 8,
+          spotlightRadius: 10,
+          targetWaitTimeout: 4_000,
+          textColor: "var(--text-primary)",
+          width: 350,
+          zIndex: 1500,
+        }}
+        styles={{ tooltip: { backgroundColor: "transparent", padding: 0 } }}
+      />
+      <div
+        className={`lattice-tour-pointer${pointer.pressed ? " pressed" : ""}`}
         aria-hidden="true"
+        data-visible={pointer.visible || undefined}
+        style={{ left: pointer.x, top: pointer.y }}
       >
-        <defs>
-          <mask id="lattice-tour-paper-blog-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
-            <rect className="lattice-tour-dual-spotlight-mask-base" width="100%" height="100%" />
-            <path ref={paperBlogMaskRef} className="lattice-tour-dual-spotlight-mask-holes" />
-          </mask>
-        </defs>
-        <rect
-          className="lattice-tour-dual-spotlight-mask"
-          width="100%"
-          height="100%"
-          mask="url(#lattice-tour-paper-blog-mask)"
-        />
-        <path ref={paperBlogReadingRingRef} className="lattice-tour-dual-spotlight-ring" />
-        <path ref={paperBlogSwitcherRingRef} className="lattice-tour-dual-spotlight-ring emphasized" />
-      </svg>
-    )}
-    <Joyride
-      key={`joyride:${recoveryToken}`}
-      run={props.active}
-      continuous
-      stepIndex={props.stepIndex}
-      steps={steps}
-      onEvent={handleEvent}
-      tooltipComponent={LatticeTourTooltip}
-      floatingOptions={{ hideArrow: true }}
-      locale={{ back: t`Back`, last: t`Finish`, next: t`Continue`, skip: t`Skip tutorial` }}
-      options={{
-        arrowColor: "var(--surface-panel-raised)",
-        backgroundColor: "var(--surface-panel-raised)",
-        dismissKeyAction: false,
-        overlayClickAction: false,
-        overlayColor: "rgb(8 10 14 / 0.48)",
-        primaryColor: "var(--control-active)",
-        showProgress: true,
-        skipBeacon: true,
-        // The app shell and every tour target already fit the WebView. Letting
-        // Joyride center a target's internal scroll parent also scrolls the
-        // document in WebKit, shifting the entire fixed-height app offscreen.
-        skipScroll: true,
-        spotlightPadding: 8,
-        spotlightRadius: 10,
-        targetWaitTimeout: 4_000,
-        textColor: "var(--text-primary)",
-        width: 350,
-        zIndex: 1500,
-      }}
-      styles={{ tooltip: { backgroundColor: "transparent", padding: 0 } }}
-    />
-    <div
-      className={`lattice-tour-pointer${pointer.pressed ? " pressed" : ""}`}
-      aria-hidden="true"
-      data-visible={pointer.visible || undefined}
-      style={{ left: pointer.x, top: pointer.y }}
-    >
-      <MousePointer2 size={25} strokeWidth={1.8} />
-    </div>
+        <MousePointer2 size={25} strokeWidth={1.8} />
+      </div>
     </>
   );
 }

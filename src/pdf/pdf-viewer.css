@@ -31,8 +31,7 @@
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
 .pdf-search { min-width: 0; padding-right: var(--space-2); }
 .pdf-search.disabled { opacity: .52; }
-.pdf-search small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
-.pdf-search .pdf-search-position { min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
+.pdf-search .pdf-search-position { flex: none; min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
 .pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -73,7 +72,6 @@
 .pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }
 .pdf-text-layer.selecting :is(span, br),
 .pdf-text-layer.has-selection :is(span, br) { user-select: text; }
-.pdf-page-content.is-selecting-text .pdf-link-annotation,
 .pdfViewer .page.is-selecting-text .annotationLayer { pointer-events: none; }
 .pdf-text-layer > :not(.markedContent), .pdf-text-layer .markedContent span:not(.markedContent) { --font-height: 0; --scale-x: 1; --rotate: 0deg; font-size: calc(var(--text-scale-factor) * var(--font-height)); transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); z-index: 1; }
 .pdf-text-layer span.markedContent { top: 0; height: 0; }
@@ -85,9 +83,6 @@
 .pdf-text-layer .highlight { background: var(--highlight-match-surface); color: transparent; }
 .pdf-text-layer .highlight.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
 .pdf-text-layer .pdf-source-quote-highlight { background: var(--highlight-match-current-surface); color: transparent; outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; }
-.pdf-annotation-layer { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
-.pdf-link-annotation { position: absolute; pointer-events: auto; border: 0; padding: 0; background: transparent; cursor: pointer; outline: 1px solid transparent; }
-.pdf-link-annotation:hover, .pdf-link-annotation:focus-visible { outline-color: color-mix(in srgb, var(--control-active) 65%, transparent); background: color-mix(in srgb, var(--control-active) 12%, transparent); }
 .pdf-zoom-controls button { position: relative; }
 .pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
 .pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }

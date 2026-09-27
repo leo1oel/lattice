@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -12,7 +12,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { loadAuditReport, saveAuditReport, type AuditReport } from "./bibliography-audit-storage";
+import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
 import "./bibliography-audit.css";
 
 export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[] };
@@ -35,6 +35,42 @@ export type AuditResult = {
   };
   health?: PaperSummary["citationHealth"];
 };
+
+/** Results follow an entry across rescans by its file and citation key. */
+const auditKey = (entry: AuditEntry) => `${entry.path}\0${entry.key}`;
+
+function auditReport(scan: AuditScan, results: Record<number, AuditResult>, applied: Set<number>): AuditReport {
+  return scan.entries.flatMap((entry, index) => results[index]
+    ? [[auditKey(entry), { snapshot: entry.bibtex, result: results[index], applied: applied.has(index) }]]
+    : []);
+}
+
+/**
+ * Carries prior results over to a fresh scan while an entry's BibTeX is
+ * unchanged; `changed` decides what an edited entry shows instead.
+ */
+function carryOver(entries: AuditEntry[], prior: Map<string, SavedAudit>, changed?: (entry: AuditEntry, saved: SavedAudit) => AuditResult) {
+  const results: Record<number, AuditResult> = {};
+  const applied = new Set<number>();
+  entries.forEach((entry, index) => {
+    const saved = prior.get(auditKey(entry));
+    if (saved?.snapshot === entry.bibtex) {
+      results[index] = saved.result;
+      if (saved.applied) applied.add(index);
+    } else if (saved && changed) {
+      results[index] = changed(entry, saved);
+    }
+  });
+  return { results, applied };
+}
+
+/** A collapsed section with the drawer's rotating chevron. */
+function Disclosure(props: { className: string; summary: ReactNode; open?: boolean; children: ReactNode }) {
+  return <details className={props.className} open={props.open}>
+    <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{props.summary}</summary>
+    {props.children}
+  </details>;
+}
 
 // This component stays mounted when hidden so a large audit doesn't block
 // editing. Changing projects unmounts it and stops scheduling further work.
@@ -67,11 +103,8 @@ export function BibliographyAudit(props: {
 
   useEffect(() => {
     if (!scan || loading) return;
-    const saved: AuditReport = scan.entries.flatMap((entry, index) => results[index] ? [[`${entry.path}\0${entry.key}`, {
-      snapshot: entry.bibtex, result: results[index], applied: applied.has(index),
-    }]] : []);
     let disposed = false;
-    void saveAuditReport(props.projectRoot, saved).then(
+    void saveAuditReport(props.projectRoot, auditReport(scan, results, applied)).then(
       () => { if (!disposed) setStorageFailed(false); },
       () => { if (!disposed) setStorageFailed(true); },
     );
@@ -80,13 +113,13 @@ export function BibliographyAudit(props: {
 
   const start = async (only?: number[]) => {
     if (!scan || loading || run.current.busy || applying !== null) return;
-    const requested = only && new Set(only.map(index => `${scan?.entries[index].path}\0${scan?.entries[index].key}`));
+    const requested = only && new Set(only.map(index => auditKey(scan.entries[index])));
     const generation = ++run.current.generation;
     const current = () => run.current.generation === generation;
     run.current.busy = true;
     run.current.stop = false;
     setCheckStartedAt(new Date().toISOString());
-    setCheckCount(only?.length ?? scan?.entries.length ?? 0);
+    setCheckCount(only?.length ?? scan.entries.length);
     const cancelled = new Promise<void>(resolve => { cancelWait.current = resolve; });
     setBusy(true); setStopping(false); setError("");
     try {
@@ -95,19 +128,10 @@ export function BibliographyAudit(props: {
       const next = await invoke<AuditScan>("bibliography_audit_scan", { projectRoot: props.projectRoot });
       if (!current()) return;
       setScan(next);
-      const indexesToCheck = next.entries.flatMap((entry, index) => !requested || requested.has(`${entry.path}\0${entry.key}`) ? [index] : []);
+      const indexesToCheck = next.entries.flatMap((entry, index) => !requested || requested.has(auditKey(entry)) ? [index] : []);
       setCheckCount(indexesToCheck.length);
-      const previous = new Map(scan?.entries.map((entry, index) => [`${entry.path}\0${entry.key}`, { entry, result: results[index], applied: applied.has(index) }]));
-      const retained: Record<number, AuditResult> = {};
-      const retainedApplied = new Set<number>();
-      next.entries.forEach((entry, index) => {
-        const prior = previous.get(`${entry.path}\0${entry.key}`);
-        if (prior?.entry.bibtex === entry.bibtex && prior.result) {
-          retained[index] = prior.result;
-          if (prior.applied) retainedApplied.add(index);
-        }
-      });
-      setResults(retained); setApplied(retainedApplied); setSelected(new Set());
+      const retained = carryOver(next.entries, new Map(auditReport(scan, results, applied)));
+      setResults(retained.results); setApplied(retained.applied); setSelected(new Set());
       let s2Failure: S2BatchStatus | undefined;
       // Twenty keeps cancellation responsive and fits the health-cache refresh
       // budget. The API supports larger batches; this isn't twenty HTTP calls.
@@ -180,11 +204,10 @@ export function BibliographyAudit(props: {
             entries.forEach((_, offset) => {
               const result = batch[offset] ?? updated[indexes[offset]];
               if (!result) return;
-              updated[indexes[offset]] = s2Failure ? {
-                ...result,
-                checkedAt: batch[offset] ? new Date().toISOString() : updated[indexes[offset]]?.checkedAt,
+              const checkedAt = batch[offset] ? new Date().toISOString() : updated[indexes[offset]]?.checkedAt;
+              updated[indexes[offset]] = { ...result, checkedAt, ...(s2Failure ? {
                 sources: [...(result.sources ?? []).filter(source => source.source !== "semanticscholar"), { source: "semanticscholar", outcome: s2Failure === "not_configured" ? "not_configured" : `batch_${s2Failure}` }],
-              } : { ...result, checkedAt: batch[offset] ? new Date().toISOString() : updated[indexes[offset]]?.checkedAt };
+              } : {}) };
             });
             return updated;
           });
@@ -209,20 +232,11 @@ export function BibliographyAudit(props: {
       ])
         .then(([value, saved]) => {
           if (disposed || run.current.generation !== generation) return;
-          const restored: Record<number, AuditResult> = {};
-          const restoredApplied = new Set<number>();
-          value.entries.forEach((entry, index) => {
-            const prior = saved.get(`${entry.path}\0${entry.key}`);
-            if (!prior) return;
-            if (prior.snapshot === entry.bibtex) {
-              restored[index] = prior.result;
-              if (prior.applied) restoredApplied.add(index);
-            } else {
-              restored[index] = { status: "conflict", before: entry.bibtex, changes: [], checkedAt: prior.result.checkedAt,
-                message: "Reference changed since the last check. Check this reference again." };
-            }
-          });
-          setScan(value); setResults(restored); setApplied(restoredApplied); setSelected(new Set());
+          const restored = carryOver(value.entries, saved, (entry, prior) => ({
+            status: "conflict", before: entry.bibtex, changes: [], checkedAt: prior.result.checkedAt,
+            message: "Reference changed since the last check. Check this reference again.",
+          }));
+          setScan(value); setResults(restored.results); setApplied(restored.applied); setSelected(new Set());
         })
         .catch(reason => {
           if (!disposed && run.current.generation === generation) {
@@ -237,25 +251,13 @@ export function BibliographyAudit(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.open]);
 
-  const apply = async (index: number) => {
-    if (!scan || loading || applying !== null || busy || !props.canApply) return;
-    setApplying(index); setError("");
-    try {
-      await props.onApply(scan.entries[index], results[index]);
-      setApplied(previous => new Set(previous).add(index));
-      setScan(previous => previous && ({ ...previous, entries: previous.entries.map((entry, i) => i === index ? { ...entry, bibtex: results[index].after! } : entry) }));
-    } catch (reason) { setError(String(reason)); }
-    finally { setApplying(null); props.onApplied?.(); }
-  };
-
-  const hasCandidate = (result?: AuditResult) => !!result && Object.prototype.hasOwnProperty.call(result, "candidate") && result.candidate != null;
-  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index));
-  const applyAll = async () => {
+  // `applying` is the row being written, or -1 while accepting all updates.
+  const apply = async (indexes: number[], applyingIndex: number) => {
     if (!scan || loading || busy || applying !== null || !props.canApply) return;
-    setApplying(-1); setError("");
+    setApplying(applyingIndex); setError("");
     try {
       const generation = run.current.generation;
-      for (const index of updates) {
+      for (const index of indexes) {
         if (run.current.generation !== generation) break;
         await props.onApply(scan.entries[index], results[index]);
         setApplied(previous => new Set(previous).add(index));
@@ -264,6 +266,9 @@ export function BibliographyAudit(props: {
     } catch (reason) { setError(String(reason)); }
     finally { setApplying(null); props.onApplied?.(); }
   };
+
+  const hasCandidate = (result?: AuditResult) => result?.candidate != null;
+  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index));
 
   if (!props.open) return null;
   const completed = Object.values(results).filter(result => !busy || (result.checkedAt && result.checkedAt >= checkStartedAt)).length;
@@ -334,11 +339,10 @@ export function BibliographyAudit(props: {
     if (result.status === "unavailable" && outcome === "selected_cached") return t`Source record considered, not verified · cached record`;
     return sourceOutcomes[outcome] ?? t`Unknown source response`;
   };
-  const reasonLabel = (reason: string) => reason === "insufficient_identity" ? t`Insufficient identifying metadata`
-    : reason === "record" ? t`Record identity`
-      : reason === "venue" ? t`Venue`
-        : reason === "arxiv" ? t`arXiv identifier`
-          : fieldLabels[reason] ?? reason;
+  const reasonLabels: Record<string, string> = {
+    ...fieldLabels, insufficient_identity: t`Insufficient identifying metadata`,
+    record: t`Record identity`, venue: t`Venue`, arxiv: t`arXiv identifier`,
+  };
   return <ResizableDrawer className="bibliography-audit" ariaLabel={t`Check references`} onClose={props.onClose}>
     <PanelHeader className="drawer-header" icon={<ClipboardCheck size={16} />} title={t`Check references`} titleAfter={scan && <Badge>{total}</Badge>} onClose={props.onClose} />
     <div className="bibliography-audit-overview">
@@ -357,7 +361,7 @@ export function BibliographyAudit(props: {
       {scan && <div className="bibliography-audit-toolbar">
         <label className="bibliography-audit-status"><Checkbox aria-label={t`Select all references`} disabled={busy || applying !== null} checked={total > 0 && selected.size === total} indeterminate={selected.size > 0 && selected.size < total} onChange={event => setSelected(event.target.checked ? new Set(scan.entries.map((_, index) => index)) : new Set())} />{t`Select all`}</label>
         <Button size="compact" variant="ghost" disabled={busy || applying !== null || selected.size === 0} onClick={() => void start([...selected])}>{t`Check selected`}</Button>
-        {updates.length > 0 && <Button size="compact" variant="primary" disabled={busy || applying !== null || !props.canApply} onClick={() => void applyAll()}><Check size={12} />{t`Accept all updates`}</Button>}
+        {updates.length > 0 && <Button size="compact" variant="primary" disabled={busy || applying !== null || !props.canApply} onClick={() => void apply(updates, -1)}><Check size={12} />{t`Accept all updates`}</Button>}
       </div>}
       {waitingForS2 && <p className="bibliography-audit-copy" role="status">{t`Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it.`}</p>}
       {scan && <progress aria-label={t`Reference check progress`} max={Math.max(progressTotal, 1)} value={waitingForS2 ? undefined : completed} />}
@@ -367,10 +371,10 @@ export function BibliographyAudit(props: {
     {!props.canApply && <p className="bibliography-audit-notice">{t`Updates are disabled in read-only projects. You can still check references.`}</p>}
     {error && <p role="alert" className="bibliography-audit-notice" data-tone="danger">{error}</p>}
     {storageFailed && <p role="alert" className="bibliography-audit-notice">{t`Could not save the report on this device. Keep this window open to retain the results.`}</p>}
-    {scan && scan.issues.length > 0 && <details className="bibliography-audit-local" open>
-      <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><AlertTriangle size={14} /><span>{t`Local issues`}</span><Badge tone="warning">{scan.issues.length}</Badge></summary>
+    {scan && scan.issues.length > 0 && <Disclosure className="bibliography-audit-local" open
+      summary={<><AlertTriangle size={14} /><span>{t`Local issues`}</span><Badge tone="warning">{scan.issues.length}</Badge></>}>
       <ul>{scan.issues.map((issue, index) => <li key={index}><span>{issue.path}{issue.key ? ` · ${issue.key}` : ""}</span><p>{issue.message}</p></li>)}</ul>
-    </details>}
+    </Disclosure>}
     {scan && total === 0 && <div className="bibliography-audit-empty"><ClipboardCheck size={24} aria-hidden="true" /><p>{t`No references to check`}</p></div>}
     {scan?.entries.map((entry, index) => {
       const result = results[index];
@@ -397,10 +401,9 @@ export function BibliographyAudit(props: {
           </Badge>
           {result?.checkedAt && <span className="bibliography-audit-meta">{t`Last checked`}: <time dateTime={result.checkedAt}>{new Date(result.checkedAt).toLocaleString(i18n.locale)}</time></span>}
         </div>
-        <details className="bibliography-audit-source bibliography-audit-current-source">
-          <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Current BibTeX`}</summary>
+        <Disclosure className="bibliography-audit-source" summary={t`Current BibTeX`}>
           <pre>{currentBibtex}</pre>
-        </details>
+        </Disclosure>
         {health && (notice || (health.link && /^https?:\/\//i.test(health.link))) && <div className="bibliography-audit-notice" data-tone={!notice ? "neutral" : health.kind === "retracted" ? "danger" : "warning"}>
           {notice && <p><AlertTriangle size={13} aria-hidden="true" />{t`Publisher notice`}: {health.updateType || health.kind}</p>}
           {health.link && /^https?:\/\//i.test(health.link) && <a href={health.link} onClick={(event) => {
@@ -408,8 +411,7 @@ export function BibliographyAudit(props: {
             void openUrl(health.link!).catch(reason => setError(String(reason)));
           }}>{t`Open notice`}<ExternalLink size={12} aria-hidden="true" /></a>}
         </div>}
-        {result && <details className="bibliography-audit-details">
-          <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Details`}</summary>
+        {result && <Disclosure className="bibliography-audit-details" summary={t`Details`}>
           <p>{publicationMessage(result)}</p>
           {!!result.sources?.length && <dl className="bibliography-audit-sources">
             {result.sources.map(source => <div key={source.source}>
@@ -418,11 +420,11 @@ export function BibliographyAudit(props: {
             </div>)}
           </dl>}
           {health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={health.checkedAt}>{new Date(health.checkedAt).toLocaleString(i18n.locale)}</time>{health.stale ? ` · ${t`Stale result`}` : ""}</p>}
-        </details>}
-        {candidate && <details className="bibliography-audit-changes">
-          <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><span>{t`Review candidate`}</span><Badge size="compact">{candidate.changes.length}</Badge></summary>
+        </Disclosure>}
+        {candidate && <Disclosure className="bibliography-audit-changes"
+          summary={<><span>{t`Review candidate`}</span><Badge size="compact">{candidate.changes.length}</Badge></>}>
           <p className="bibliography-audit-copy">{t`This source record is shown for comparison only. It was not verified and cannot be applied.`}</p>
-          {candidate.reasons.length > 0 && <p className="bibliography-audit-copy">{t`Conflicting or insufficient fields`}: {candidate.reasons.map(reasonLabel).join(", ")}</p>}
+          {candidate.reasons.length > 0 && <p className="bibliography-audit-copy">{t`Conflicting or insufficient fields`}: {candidate.reasons.map(reason => reasonLabels[reason] ?? reason).join(", ")}</p>}
           <dl className="bibliography-audit-diff">{candidate.changes.map((change, changeIndex) => <div key={`${change.field}:${changeIndex}`}>
             <dt>{fieldLabels[change.field] ?? change.field}</dt>
             <dd className="bibliography-audit-candidate-values">
@@ -430,19 +432,19 @@ export function BibliographyAudit(props: {
               <div><span>{t`Source candidate (not applied)`}</span><span>{change.after || "—"}</span></div>
             </dd>
           </div>)}</dl>
-          {candidate.bibtex && <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Unverified candidate BibTeX`}</summary><pre>{candidate.bibtex}</pre></details>}
-        </details>}
-        {result?.after && !candidatePresent && <details className="bibliography-audit-changes">
-          <summary><ChevronRight size={12} className="bibliography-audit-chevron" /><span>{t`Review proposed changes`}</span><Badge size="compact">{result.changes.length}</Badge></summary>
+          {candidate.bibtex && <Disclosure className="bibliography-audit-source" summary={t`Unverified candidate BibTeX`}><pre>{candidate.bibtex}</pre></Disclosure>}
+        </Disclosure>}
+        {result?.after && !candidatePresent && <Disclosure className="bibliography-audit-changes"
+          summary={<><span>{t`Review proposed changes`}</span><Badge size="compact">{result.changes.length}</Badge></>}>
           <dl className="bibliography-audit-diff">{result.changes.map(change => <div key={change.field}>
             <dt>{fieldLabels[change.field] ?? change.field}</dt>
             <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
           </div>)}</dl>
-          <details className="bibliography-audit-source"><summary><ChevronRight size={12} className="bibliography-audit-chevron" />{t`Proposed BibTeX`}</summary><pre>{result.after}</pre></details>
-          <div className="bibliography-audit-apply"><Button size="compact" variant="primary" disabled={busy || !props.canApply || applying !== null || isApplied} onClick={() => void apply(index)}>
+          <Disclosure className="bibliography-audit-source" summary={t`Proposed BibTeX`}><pre>{result.after}</pre></Disclosure>
+          <div className="bibliography-audit-apply"><Button size="compact" variant="primary" disabled={busy || !props.canApply || applying !== null || isApplied} onClick={() => void apply([index], index)}>
             {applying === index ? <InfinityLoader size={13} /> : <Check size={13} aria-hidden="true" />}{t`Apply this update`}
           </Button></div>
-        </details>}
+        </Disclosure>}
       </article>;
     })}
     </div>

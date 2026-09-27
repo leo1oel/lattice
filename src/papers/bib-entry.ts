@@ -2,7 +2,9 @@ import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import { bibEntryKeys } from "./bib-format";
 
-export type BibEntryType = "article" | "inproceedings" | "book" | "misc";
+/** BibTeX entry types the entry editor offers; each value is the wire format. */
+export const BIB_ENTRY_TYPES = ["article", "inproceedings", "book", "misc"] as const;
+export type BibEntryType = (typeof BIB_ENTRY_TYPES)[number];
 
 export type BibEntryDraft = {
   type: BibEntryType;
@@ -19,38 +21,20 @@ export type BibEntryDraft = {
   extraFields?: Record<string, string>;
 };
 
-export const BIB_ENTRY_TYPES: { value: BibEntryType; label: string }[] = [
-  { value: "article", label: "Article" },
-  { value: "inproceedings", label: "In proceedings" },
-  { value: "book", label: "Book" },
-  { value: "misc", label: "Misc" },
-];
-
 function escapeBibValue(value: string): string {
   const characters = [...value];
   const unmatched = new Set<number>();
   const openings: number[] = [];
-
-  for (let index = 0; index < characters.length; index += 1) {
-    const character = characters[index];
-    if (character !== "{" && character !== "}") continue;
-
+  characters.forEach((character, index) => {
+    if (character !== "{" && character !== "}") return;
     let precedingBackslashes = 0;
-    for (let cursor = index - 1; cursor >= 0 && characters[cursor] === "\\"; cursor -= 1) {
-      precedingBackslashes += 1;
-    }
+    while (characters[index - 1 - precedingBackslashes] === "\\") precedingBackslashes += 1;
     // TeX escapes are literal braces and do not participate in grouping.
-    if (precedingBackslashes % 2 === 1) continue;
-
-    if (character === "{") {
-      openings.push(index);
-    } else if (openings.length > 0) {
-      openings.pop();
-    } else {
-      unmatched.add(index);
-    }
-  }
-
+    if (precedingBackslashes % 2 === 1) return;
+    if (character === "{") openings.push(index);
+    else if (openings.length > 0) openings.pop();
+    else unmatched.add(index);
+  });
   for (const index of openings) unmatched.add(index);
   return characters.filter((_, index) => !unmatched.has(index)).join("");
 }
@@ -109,6 +93,6 @@ export function appendBibEntry(existing: string, entry: string): string {
     throw new Error(`Citation key '${keys[0]}' already exists. Choose a different key or edit the existing reference.`);
   }
   const trimmed = existing.replace(/\s*$/, "");
-  if (!trimmed) return entry.endsWith("\n") ? entry : `${entry}\n`;
-  return `${trimmed}\n\n${entry.endsWith("\n") ? entry : `${entry}\n`}`;
+  const terminated = entry.endsWith("\n") ? entry : `${entry}\n`;
+  return trimmed ? `${trimmed}\n\n${terminated}` : terminated;
 }

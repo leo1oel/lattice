@@ -19,6 +19,12 @@ afterEach(() => {
   while (cleanups.length) cleanups.pop()?.();
 });
 
+function seededDoc(): Y.Doc {
+  const doc = new Y.Doc();
+  seedSpreadsheetDoc(doc);
+  return doc;
+}
+
 function request(
   action: AgentSpreadsheetToolRequest["action"],
   args: Record<string, unknown>,
@@ -47,8 +53,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("applies one semantic batch, commits it, and publishes bounded Agent presence", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const awareness = new Awareness(doc);
     awareness.setLocalState({ user: { id: "ada", name: "Ada", color: "#3366ff" } });
     let finishCommit!: () => void;
@@ -83,8 +88,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("stores quoted plain numbers from the Agent as numeric cells", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", { doc, canWrite: true }));
 
     await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
@@ -97,8 +101,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("rejects expired, invalid, and read-only updates without partial writes", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("readonly.lattice-sheet", { doc, canWrite: false }));
 
     await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
@@ -117,8 +120,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("sideloads an unopened document and disposes the resolver-owned Y.Doc", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const dispose = vi.fn(() => doc.destroy());
     cleanups.push(registerAgentSpreadsheetDocumentResolver(async (path) => (
       path === "unopened.lattice-sheet" ? { doc, canWrite: true, dispose } : null
@@ -132,10 +134,8 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("keeps unfocused open sheets registered and prefers the focused pane", async () => {
-    const unfocusedDoc = new Y.Doc();
-    const focusedDoc = new Y.Doc();
-    seedSpreadsheetDoc(unfocusedDoc);
-    seedSpreadsheetDoc(focusedDoc);
+    const unfocusedDoc = seededDoc();
+    const focusedDoc = seededDoc();
     applySpreadsheetBatch(unfocusedDoc, {
       operations: [{ type: "set_values", range: "A1", values: [["unfocused"]] }],
     });
@@ -169,8 +169,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("waits until the requested spreadsheet editor registers its live document", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     let settled = false;
     const waiting = waitForAgentSpreadsheetDocument("new.lattice-sheet", 1_000)
       .then(() => { settled = true; });
@@ -183,8 +182,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("does not invite a duplicate structural update when persistence is unconfirmed", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const commit = vi.fn()
       .mockRejectedValueOnce(new Error("disk unavailable"))
       .mockResolvedValueOnce(undefined);
