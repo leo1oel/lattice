@@ -184,6 +184,10 @@ async function readOverleafLink(root: string): Promise<OverleafLinkFor | null> {
  * The three sync-gate refs are owned by App rather than created here because
  * `beginProjectTransition` and `startProjectTransition` — both declared long
  * before this hook runs — have to be able to wait a sync out.
+ *
+ * Refs arriving here are stable `useRef` results the lint rule cannot see
+ * through; hooks below list them anyway, so a standing exhaustive-deps warning
+ * never hides the next genuine omission.
  */
 export type OverleafWorkspaceDeps = {
   project: ProjectSnapshot | null;
@@ -281,35 +285,11 @@ export async function applyOverleafRemoteText(
  */
 export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const {
-    project,
-    projectRef,
-    projectOperationGenerationRef,
-    activeFile,
-    activeFileRef,
-    activePaper,
-    activeAsset,
-    source,
-    sourceRef,
-    savedSourceRef,
-    viewStateRef,
-    editorPosition,
-    editorPositionRef,
-    build,
-    saveGeneration,
-    savedPathsRef,
-    wholeFileEditingPaths,
-    wholeFileDraftPaths,
-    collabSession,
-    collabName,
-    runSharedOverleafSync,
-    save,
-    compile,
-    loadFile,
-    refreshProject,
-    openProjectFile,
-    overleafSyncingRef,
-    overleafSyncSettledRef,
-    resolveOverleafSyncRef,
+    project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
+    source, sourceRef, savedSourceRef, viewStateRef, editorPosition, editorPositionRef, build,
+    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, collabSession, collabName,
+    runSharedOverleafSync, save, compile, loadFile, refreshProject, openProjectFile,
+    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   } = deps;
   const { t } = useLingui();
 
@@ -454,8 +434,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }, () => {
       if (generation === overleafLinkLoadGenerationRef.current) setOverleafLinkFor(null);
     });
-    // The refs arrive through `deps`, so the lint rule cannot see that they are
-    // `useRef` results with a stable identity; listing them changes nothing.
   }, [projectRef]);
 
   const publishProjectToOverleaf = useCallback(async (projectName: string): Promise<boolean> => {
@@ -754,10 +732,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       trace.finish("cancelled", t`Overleaf sync cancelled`);
       release();
     }
-    // The refs arrive through `deps`, so the lint rule cannot see that they are
-    // `useRef` results with a stable identity; listing them changes nothing at
-    // runtime. They are listed anyway so this callback stops carrying a standing
-    // exhaustive-deps warning, making the next genuine omission easier to miss.
   }, [
     activeFileRef,
     collabName,

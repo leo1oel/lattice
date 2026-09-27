@@ -93,7 +93,8 @@ async function mutateRememberedRoomV2(
  * `collabReady`, the controller/lease/write-queue refs and the per-path
  * mutation counter) have to be declared above it and are passed back down
  * here. Everything the share needs in order to *start, run and stop* lives in
- * this hook instead.
+ * this hook instead. Its refs and setters are stable identities the lint rule
+ * cannot see through; hooks below list them anyway.
  */
 export type CollabV2SessionDeps = {
   project: ProjectSnapshot | null;
@@ -141,31 +142,11 @@ export type CollabV2SessionDeps = {
  */
 export function useCollabV2Session(deps: CollabV2SessionDeps) {
   const {
-    project,
-    projectRef,
-    projectRootRef,
-    projectOperationGenerationRef,
-    activeFile,
-    recentProjects,
-    editorCommentAuthorId,
-    activeCollabVersion,
-    setActiveCollabVersion,
-    collabSession,
-    setCollabSession,
-    collabSessionRef,
-    setCollabReady,
-    collabV2ControllerRef,
-    collabWorkspaceLeaseRef,
-    collabDiskWriteQueueRef,
-    collabPathMutationGeneration,
-    collabDetachRef,
-    enterProjectRef,
-    setBusyLabel,
-    startProjectTransition,
-    cancelProjectTransition,
-    refreshProject,
-    loadFile,
-    v2WorkspaceCallbacks,
+    project, projectRef, projectRootRef, projectOperationGenerationRef, activeFile, recentProjects,
+    editorCommentAuthorId, activeCollabVersion, setActiveCollabVersion, collabSession, setCollabSession,
+    collabSessionRef, setCollabReady, collabV2ControllerRef, collabWorkspaceLeaseRef, collabDiskWriteQueueRef,
+    collabPathMutationGeneration, collabDetachRef, enterProjectRef, setBusyLabel, startProjectTransition,
+    cancelProjectTransition, refreshProject, loadFile, v2WorkspaceCallbacks,
   } = deps;
   // Called here rather than taken from App: the Lingui macro only rewrites
   // `t` in the scope that destructured it from `useLingui()`.
@@ -227,8 +208,6 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         setCollabFileCount(0);
       }
     }
-    // Refs and setters arrive through `deps`, so the lint rule cannot see that
-    // their identities are stable; listing them changes nothing at runtime.
   }, [collabDetachRef, collabSessionRef, collabV2ControllerRef, collabWorkspaceLeaseRef, setActiveCollabVersion, setCollabReady, setCollabSession]);
 
   const restorePreCollabProject = useCallback(async () => {

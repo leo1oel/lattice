@@ -249,10 +249,9 @@ export function relativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+/** Like absoluteProjectPath, except the empty path names the project root itself. */
 export function projectItemPath(root: string, relativePath: string): string {
-  if (!relativePath) return root;
-  const separator = root.includes("\\") ? "\\" : "/";
-  return `${root.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/[\\/]/g, separator)}`;
+  return relativePath ? absoluteProjectPath(root, relativePath) : root;
 }
 
 function deepestElementFromPoint(x: number, y: number): Element | null {

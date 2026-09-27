@@ -2,7 +2,6 @@ import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffe
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -52,11 +51,20 @@ import {
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
-import { usePanelLayout } from "./app/use-panel-layout";
+import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
 import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
 import { useLocalSemanticSearch } from "./app/use-local-semantic-search";
+import { useSynaraHost, useSynaraSnapshots } from "./app/use-synara-host";
+import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
+import { loadBibliographyIndex, useProjectLibrary } from "./app/use-project-library";
 import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
-import { resolveSidebarModeTier, type SidebarModeTier } from "./app/sidebar-mode-layout";
+import {
+  useFullscreen,
+  useLeavePresenceOnClose,
+  useTrafficLightAlignment,
+  useWindowMinimumSize,
+} from "./app/use-native-window";
+import { afterNextPaintOpportunity } from "./app/effect-helpers";
 import { useCollabChat } from "./collab/use-collab-chat";
 import {
   OVERLEAF_COMMENT_PREFIX,
@@ -85,12 +93,7 @@ import { AvatarGroup } from "./components/ui/avatar-group";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
-import {
-  isSynaraPermissionMode,
-  persistSynaraThread,
-  type AgentTurnReview,
-  type SynaraPermissionMode,
-} from "./app/app-synara-embed";
+import { persistSynaraThread, type AgentTurnReview } from "./app/app-synara-embed";
 import {
   type RecentProject,
   type BuildPreferences,
@@ -114,24 +117,10 @@ import {
 import {
   type EditorComment,
 } from "./editor/comments/editor-comment-data";
-import {
-  executeAgentCanvasToolRequest,
-  parseAgentCanvasToolRequest,
-  waitForAgentCanvasAdapter,
-} from "./agent/agent-canvas-tools";
-import {
-  executeAgentBibliographyToolRequest,
-  parseAgentBibliographyToolRequest,
-} from "./agent/agent-bibliography-tools";
-import {
-  executeAgentProjectDocumentToolRequest,
-  parseAgentProjectDocumentToolRequest,
-  type AgentProjectDocumentToolRequest,
-} from "./agent/agent-project-document-tools";
+import { waitForAgentCanvasAdapter } from "./agent/agent-canvas-tools";
+import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
 import {
-  executeAgentSpreadsheetToolRequest,
-  parseAgentSpreadsheetToolRequest,
   registerAgentSpreadsheetDocumentResolver,
   waitForAgentSpreadsheetDocument,
 } from "./agent/agent-spreadsheet-tools";
@@ -164,7 +153,6 @@ import {
 import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
-  mayApplyProjectRefreshV2,
   parsePreferredCollabInvitation,
   planRemoteCollabDeleteUiV2,
   requireRememberedV2Credential,
@@ -206,19 +194,15 @@ import { type ReplacePreviewResult } from "./project/project-replace-dialog";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
 import { findAppendixMarker } from "./editor/latex/appendix-pages";
-import { mergeTodosWithBuffer, type TodoHit } from "./project/todo-scavenger";
+import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import type {
   ProjectVenue,
   ProjectManifest,
-  WordCount,
-  UnusedSymbols,
   FileViewState,
   NavigationEntry,
   ProjectSnapshot,
   FileNode,
-  GitFileStatus,
-  GitStatus,
   AssetPreview,
   FigureDropRequest,
   FigurePointerDrag,
@@ -273,44 +257,30 @@ import {
 import {
   LATTICE_AGENT_COMPILE_RESULT,
   parseAgentCompileResultMessage,
-  parseAgentProjectHistorySnapshot,
   synaraProjectRelativeFilePath,
   type AgentGitWorkspaceView,
+  type AgentProjectHistorySnapshot,
   type AgentCheckpointHistoryEntry,
   type AgentCompileResultMessage,
 } from "./agent/synara-runtime";
 import {
   buildAgentHostContext,
-  LATTICE_HOST_CONTEXT,
-  LATTICE_HOST_CONTEXT_REQUEST,
-  LATTICE_HOST_CONTEXT_SELECTION_CLEAR,
   selectedMarkdownImageProjectPath,
   type AgentHostContextSnapshot,
   type AgentHostSelectionImage,
   type AgentHostSurface,
 } from "./agent/agent-host-context";
-import {
-  buildAgentPaperLibrary,
-  LATTICE_PAPER_LIBRARY_REQUEST,
-  type AgentPaperLibrarySnapshot,
-} from "./agent/agent-paper-library";
+import { buildAgentPaperLibrary, type AgentPaperLibrarySnapshot } from "./agent/agent-paper-library";
 import {
   buildAgentComposerFilesMessage,
   type AgentComposerFilePayload,
 } from "./agent/agent-composer-files";
-import { useSynaraRuntime } from "./agent/use-synara-runtime";
-import { useSynaraNotificationBridge } from "./agent/synara-notifications";
-import { useSynaraConfirmationBridge } from "./agent/synara-confirmations";
 import { logAction, notifyError } from "./telemetry/app-notify";
 import { diagnosticInvoke } from "./telemetry/diagnostic-request";
 // setError / setWarning / setNotice are the ~170-call-site toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
 import { setError, setNotice, setWarning } from "./app/notify";
 import { addAppLog } from "./telemetry/app-log-store";
-import {
-  APP_WINDOW_MIN_HEIGHT,
-  minimumWindowWidth,
-} from "./app/window-layout";
 import "./App.css";
 
 type RemoveReferenceResult = {
@@ -469,22 +439,6 @@ type PendingWindowAction = {
 // failure. Everything else it can fail with is the project itself.
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
 
-const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
-const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
-const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
-const LATTICE_HOST_POINTER = "lattice:host-pointer";
-const SYNARA_AGENT_PERMISSION_MODE_STATUS = "synara:agent-permission-mode";
-const SYNARA_LAYOUT_METRICS = "synara:layout-metrics";
-const SYNARA_EMBED_READY = "synara:embed-ready";
-const SYNARA_OPEN_SETTINGS = "synara:open-settings";
-const SYNARA_OPEN_REVIEW = "synara:open-review";
-const SYNARA_OPEN_FILE = "synara:open-file";
-const SYNARA_OPEN_EXTERNAL = "synara:open-external";
-const SYNARA_SIDEBAR_INITIAL_MINIMUM = 310;
-const SYNARA_SIDEBAR_MINIMUM = 180;
-const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
-const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
-
 function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
 }
@@ -509,23 +463,6 @@ function collectQuickOpenPaths(nodes: FileNode[], paths: string[] = []): string[
     if (node.children.length) collectQuickOpenPaths(node.children, paths);
   }
   return paths;
-}
-
-function getCurrentWindowSafely() {
-  try {
-    return getCurrentWindow();
-  } catch {
-    // Browser previews, recovery pages, and a briefly unavailable Tauri
-    // bridge should not replace the entire application with a white screen.
-    return null;
-  }
-}
-
-/** Let React commit an opening state and WebKit paint it before heavy sync work. */
-function afterNextPaintOpportunity(): Promise<void> {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
-  });
 }
 
 function recordNavigationTiming(
@@ -578,16 +515,24 @@ function normalizeProjectRelativePath(path: string): string | null {
   return parts.join("/") || null;
 }
 
-// Keep import expressions outside the component: React Compiler cannot lower them.
-function loadAgentEditorComments() {
-  return import("./agent/agent-editor-comments");
-}
 
 function App() {
   const { t } = useLingui();
   const browserHosted = isBrowserHosted();
   const bundledChromium = isBundledChromium();
-  const [project, setProject] = useState<ProjectSnapshot | null>(null);
+  const projectState = useProjectState();
+  const {
+    project, setProject, projectRef, projectBeforeTransitionRef,
+    projectOperationGenerationRef,
+    cancelProjectTransition, reconcileProjectTree, withTreeMutation,
+  } = projectState;
+  const library = useProjectLibrary(projectState);
+  const {
+    papers, citationKeys, setCitationKeys, citations, setCitations, references, setReferences,
+    unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
+    loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
+    refreshAfterSave, refreshProject,
+  } = library;
   const buffers = useDocumentBuffers();
   const {
     activeFile, setActiveFile, activeFileRef,
@@ -610,7 +555,6 @@ function App() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const autoTutorialAttemptedRef = useRef(false);
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
-  const projectRef = useRef<ProjectSnapshot | null>(project);
   const {
     workspaceIndex,
     cancelPreviewPrewarm,
@@ -621,11 +565,6 @@ function App() {
     activePaperId: activePaper?.arxivId,
     paperView,
   });
-  // Incremented before any command that can replace the backend project root.
-  // Long-running work captures this value so results from A cannot update B
-  // during the short gap between the backend switch and React committing B.
-  const projectOperationGenerationRef = useRef(0);
-  const projectRefreshGenerationRef = useRef(0);
   const fileLoadGenerationRef = useRef(0);
   // Set as soon as a Paper intent reserves the primary surface, including the
   // network-fetch phase before openPaper starts. A later local-file intent in
@@ -634,7 +573,6 @@ function App() {
   const paperLoadGenerationRef = useRef<number | null>(null);
   const secondaryFileLoadGenerationRef = useRef(0);
   const documentViewGenerationRef = useRef(0);
-  const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
   /**
    * Previous checkpoints from agent history snapshots. Snapshots
    * re-arrive on every thread update (and stream while a turn is still
@@ -698,35 +636,14 @@ function App() {
     // only its UI phase after a failed switch could leave newly pulled bytes
     // hidden behind an old editor buffer that later overwrites them.
     if (overleafSyncingRef.current && !force) return false;
-    if (projectRef.current) projectBeforeTransitionRef.current = projectRef.current;
-    projectOperationGenerationRef.current += 1;
+    projectState.beginTransition();
     fileLoadGenerationRef.current += 1;
     secondaryFileLoadGenerationRef.current += 1;
     resetAgentCompileTracking(true);
     cancelPreviewPrewarm();
     setPrimaryOpening(null);
-    // A root-changing backend command may finish before React commits the new
-    // snapshot. Nulling only the imperative identity closes that gap without
-    // flashing the welcome screen or discarding the rendered old project.
-    projectRef.current = null;
     return true;
-  }, [cancelPreviewPrewarm, resetAgentCompileTracking]);
-  const cancelProjectTransition = useCallback(() => {
-    if (!projectRef.current) projectRef.current = projectBeforeTransitionRef.current;
-    projectBeforeTransitionRef.current = null;
-  }, []);
-  const projectTreeMutationCountRef = useRef(0);
-  const postSaveRefreshGenerationRef = useRef(0);
-  const bibliographyRefreshGenerationRef = useRef(0);
-  useLayoutEffect(() => {
-    projectRef.current = project;
-    projectBeforeTransitionRef.current = null;
-  }, [project]);
-  const [projectGitStatus, setProjectGitStatus] = useState<{
-    projectRoot: string;
-    files: GitFileStatus[];
-    remoteUrl: string | null;
-  }>({ projectRoot: "", files: [], remoteUrl: null });
+  }, [cancelPreviewPrewarm, projectState, resetAgentCompileTracking]);
   const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
@@ -777,11 +694,6 @@ function App() {
    *  set stays dismissed through the recompiles that autosave keeps firing. */
   const dismissedDiagnosticsRef = useRef<string | null>(null);
   const [building, setBuilding] = useState(false);
-  const [papers, setPapers] = useState<PaperSummary[]>([]);
-  const [citationKeys, setCitationKeys] = useState<string[]>([]);
-  const [citations, setCitations] = useState<CitationInfo[]>([]);
-  const [references, setReferences] = useState<ReferenceInfo[]>([]);
-  const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>({ labels: [], citations: [] });
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const openTabsRef = useRef<string[]>([]);
   useLayoutEffect(() => { openTabsRef.current = openTabs; }, [openTabs]);
@@ -940,7 +852,6 @@ function App() {
   const requestEditorLine = useCallback((path: string, line: number) => {
     setEditorNavigation({ path, line, id: crypto.randomUUID() });
   }, []);
-  const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
@@ -972,7 +883,6 @@ function App() {
   const paperFetchTimers = useRef<Record<string, number>>({});
   const [assetImporting, setAssetImporting] = useState(false);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [agentHistoryByThread, setAgentHistoryByThread] = useState<
     Record<string, AgentCheckpointHistoryEntry[]>
   >({});
@@ -981,11 +891,7 @@ function App() {
     resetAgentCompileTracking();
     return () => resetAgentCompileTracking();
   }, [project?.root, resetAgentCompileTracking]);
-  useEffect(() => () => {
-    projectOperationGenerationRef.current += 1;
-    resetAgentCompileTracking(true);
-    projectRef.current = null;
-  }, [resetAgentCompileTracking]);
+  useEffect(() => () => resetAgentCompileTracking(true), [resetAgentCompileTracking]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
@@ -998,7 +904,6 @@ function App() {
    */
   const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
   const [todosOpen, setTodosOpen] = useState(false);
-  const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
   const [editorComments, setEditorComments] = useState<EditorComment[]>([]);
   /** Read inside async publishes, where the state captured at call time is already stale. */
   const editorCommentsRef = useRef<EditorComment[]>([]);
@@ -1248,167 +1153,59 @@ function App() {
     symbol: string;
     occurrences: SymbolOccurrence[];
   } | null>(null);
-  const [synaraMinimumSidebarWidth, setSynaraMinimumSidebarWidth] = useState(
-    SYNARA_SIDEBAR_INITIAL_MINIMUM,
-  );
+  const sidebar = useWorkspaceSidebar(project?.root);
   const {
-    sidebarOpen,
-    setSidebarOpen,
-    sidebarWidth,
-    sidebarDragWidth,
-    sidebarResizing,
-    sidebarCollapsePreview,
-    sidebarRestoring,
-    sidebarRebounding,
-    finishSidebarRestore,
-    beginSidebarResize,
-    nudgeSidebar,
-    fitSidebarToContent,
-  } = usePanelLayout(synaraMinimumSidebarWidth);
-  const [agentDocked, setAgentDocked] = useState(() => {
-    try {
-      return localStorage.getItem("lattice.agent-docked.v1") === "1";
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("lattice.agent-docked.v1", agentDocked ? "1" : "0");
-    } catch {
-      // Docking still works for the current session without storage.
-    }
-  }, [agentDocked]);
-  const [sidebarMode, setSidebarMode] = useState<"project" | "papers" | "agent">(() => {
-    try {
-      const saved = localStorage.getItem("lattice.sidebar-mode.v1");
-      return saved === "papers" || saved === "agent" ? saved : "project";
-    } catch {
-      return "project";
-    }
-  });
-  // One-way by design. A hidden Synara surface may still own a background turn
-  // or PTY, so the first request starts the service for the rest of this app
-  // process; process-idle shutdown needs an explicit lease/task protocol.
-  const [synaraRuntimeRequested, setSynaraRuntimeRequested] = useState(false);
-  const {
-    runtime: synaraRuntime,
-    retry: retrySynaraRuntime,
-  } = useSynaraRuntime(synaraRuntimeRequested);
-  const synaraOrigin =
-    synaraRuntime.state === "ready" ? synaraRuntime.origin : null;
-  const sidebarModeHeaderRef = useRef<HTMLDivElement>(null);
-  const sidebarModeActionsRef = useRef<HTMLDivElement>(null);
-  const [sidebarModeTier, setSidebarModeTier] = useState<SidebarModeTier>(4);
-  useEffect(() => {
-    const header = sidebarModeHeaderRef.current;
-    const actions = sidebarModeActionsRef.current;
-    const tabs = header?.querySelector<HTMLElement>(".sidebar-mode-tabs");
-    if (!header || !actions || !tabs) return;
-
-    let frameId: number | null = null;
-    const measure = () => {
-      frameId = null;
-      const styles = getComputedStyle(header);
-      const collapsedWidth = Number.parseFloat(
-        styles.getPropertyValue("--navigation-control-height"),
-      );
-      const expandedWidth = Number.parseFloat(
-        styles.getPropertyValue("--navigation-tab-expanded-width"),
-      );
-      const tabGap = Number.parseFloat(styles.getPropertyValue("--navigation-tab-gap"));
-      const actionsGap = Number.parseFloat(
-        styles.getPropertyValue("--navigation-mode-actions-gap"),
-      );
-      if (![collapsedWidth, expandedWidth, tabGap, actionsGap].every(Number.isFinite)) return;
-
-      const tabCount = tabs.querySelectorAll<HTMLElement>("[role=tab]").length;
-      if (tabCount === 0) return;
-      const tabsLeft = tabs.getBoundingClientRect().left;
-      const actionsLeft = actions.getBoundingClientRect().left;
-      const availableWidth = Math.max(0, actionsLeft - tabsLeft - actionsGap);
-      const nextTier = resolveSidebarModeTier({
-        availableWidth,
-        collapsedWidth,
-        expandedWidth,
-        tabCount,
-        tabGap,
-      });
-      setSidebarModeTier((current) => current === nextTier ? current : nextTier);
-    };
-    const scheduleMeasure = () => {
-      if (frameId !== null) cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(measure);
-    };
-
-    scheduleMeasure();
-    const observer = typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(scheduleMeasure);
-    observer?.observe(header);
-    observer?.observe(actions);
-    window.addEventListener("resize", scheduleMeasure);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", scheduleMeasure);
-      if (frameId !== null) cancelAnimationFrame(frameId);
-    };
-  }, [project?.root, sidebarMode, sidebarOpen]);
+    sidebarOpen, setSidebarOpen, sidebarWidth, sidebarDragWidth, sidebarResizing,
+    sidebarCollapsePreview, sidebarRestoring, sidebarRebounding, finishSidebarRestore,
+    beginSidebarResize, nudgeSidebar, fitSidebarToContent,
+    agentDocked, setAgentDocked, sidebarMode, setSidebarMode,
+  } = sidebar;
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [boardCreateRequest, setBoardCreateRequest] = useState(0);
   const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
   const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
-  const synaraIframeRef = useRef<HTMLIFrameElement>(null);
-  const synaraSourceControlFrameRef = useRef<HTMLIFrameElement>(null);
-  useSynaraNotificationBridge({
-    frameRef: synaraIframeRef,
-    origin: synaraOrigin,
-    source: "Synara agent",
-  });
-  useSynaraConfirmationBridge({
-    frameRef: synaraIframeRef,
-    origin: synaraOrigin,
-  });
-  useSynaraNotificationBridge({
-    frameRef: synaraSourceControlFrameRef,
-    origin: synaraOrigin,
-    source: "Synara source control",
-  });
-  useSynaraConfirmationBridge({
-    frameRef: synaraSourceControlFrameRef,
-    origin: synaraOrigin,
-  });
-  const [synaraFrameMounted, setSynaraFrameMounted] = useState(false);
-  const [readySynaraFrameKey, setReadySynaraFrameKey] = useState<string | null>(null);
   // Reading only suppresses the dock; its preference and live iframe survive.
   // Non-previewable editors can retain the previous document's canvasMode.
   const readingOnly = Boolean(activePaper)
     || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile))
     || (canvasMode === "asset" && /\.pdf$/i.test(activeAsset?.path ?? ""));
   const agentVisible = agentDocked ? !readingOnly : sidebarOpen && sidebarMode === "agent";
-  useEffect(() => {
-    if (!project || !agentVisible) return;
-    // Keep the cross-origin iframe out of the initial WebKit root render,
-    // without requiring a click to restore the user's last workspace.
-    const frame = window.requestAnimationFrame(() => {
-      setSynaraRuntimeRequested(true);
-      setSynaraFrameMounted(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [project, agentVisible]);
-  const synaraFrameKey = synaraOrigin && project
-    ? `${synaraOrigin}\0${project.root}`
-    : null;
+  const synara = useSynaraHost({
+    project,
+    projectRef,
+    agentVisible,
+    bridge: {
+      openProviderSettings: () => {
+        setSettingsTab("agent");
+        setSettingsOpen(true);
+      },
+      openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
+      openReview: (turn) => {
+        if (turn) setAgentTurnReview({ ...turn, filePath: null });
+        else setGitWorkspaceView("changes");
+        setGitOpen(true);
+      },
+      clearSelection: () => {
+        const source = selectionSourceRef.current;
+        dismissedSelectionRef.current = source && selection ? { source, text: selection } : null;
+        selectionSourceRef.current = null;
+        setSelection("");
+        setSelectionSource(null);
+      },
+      flushVisualMarkdown: () => {
+        visualMarkdownFlushRef.current?.();
+      },
+      agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
+      projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
+      onHistorySnapshot: (snapshot) => handleAgentHistorySnapshot(snapshot),
+      onMinimumSidebarWidth: sidebar.setMinimumSidebarWidth,
+    },
+  });
   useEffect(() => {
     setAgentHistoryByThread({});
     setActiveAgentHistoryThreadId(null);
   }, [project?.root]);
-  const synaraFrameReady =
-    synaraFrameKey !== null && readySynaraFrameKey === synaraFrameKey;
-  const [synaraPermissionMode, setSynaraPermissionMode] =
-    useState<SynaraPermissionMode>("full-access");
-  const [synaraAutoModeAvailable, setSynaraAutoModeAvailable] = useState(true);
   useEffect(() => {
     setAgentActiveSurface((current) => {
       if (activePaper) return "paper";
@@ -1479,8 +1276,8 @@ function App() {
     selectionImageSourcePath
     && selectionSource
     && project?.root
-    && synaraOrigin
-    && synaraFrameMounted
+    && synara.origin
+    && synara.frameMounted
     && agentVisible,
   );
   const directAgentSelectionImage = useMemo<(
@@ -1585,10 +1382,6 @@ function App() {
       selectionSource,
     ],
   );
-  const latestAgentHostContextRef = useRef(agentHostContext);
-  useLayoutEffect(() => {
-    latestAgentHostContextRef.current = agentHostContext;
-  }, [agentHostContext]);
   const agentPaperLibrary = useMemo<AgentPaperLibrarySnapshot | null>(
     () => project
       ? buildAgentPaperLibrary({
@@ -1598,98 +1391,12 @@ function App() {
       : null,
     [papers, project],
   );
-  const latestAgentPaperLibraryRef = useRef(agentPaperLibrary);
-  useLayoutEffect(() => {
-    latestAgentPaperLibraryRef.current = agentPaperLibrary;
-  }, [agentPaperLibrary]);
-  const postSynaraMessage = useCallback(async (message: object) => {
-    if (!synaraOrigin) return;
-    if ("type" in message && message.type === LATTICE_HOST_CONTEXT && !("editorComments" in message)) {
-      const context = message as AgentHostContextSnapshot;
-      const options = agentCommentsOptionsRef.current?.();
-      if (options?.workspaceRoot === context.workspaceRoot) {
-        const { buildAgentCommentsSnapshot } = await loadAgentEditorComments();
-        if (projectRootRef.current !== context.workspaceRoot) return;
-        message = {
-          ...context,
-          editorComments: buildAgentCommentsSnapshot({
-            ...options, path: context.paper?.path ?? context.editor?.path, limit: 10,
-          }),
-        };
-      }
-    }
-    synaraIframeRef.current?.contentWindow?.postMessage(
-      message,
-      synaraOrigin,
-    );
-  }, [synaraOrigin]);
-  // WebKit drops pointerleave when the cursor crosses out of the agent iframe,
-  // so hover states inside it (its overlay scrollbar) stick until the pointer
-  // returns. Any pointerover in this document means the pointer is not over
-  // the iframe; relay it, throttled, as the missing leave signal.
-  useEffect(() => {
-    if (!synaraOrigin) return;
-    let lastPost = 0;
-    const notify = () => {
-      const now = performance.now();
-      if (now - lastPost < 150) return;
-      lastPost = now;
-      postSynaraMessage({ type: LATTICE_HOST_POINTER });
-    };
-    document.addEventListener("pointerover", notify, true);
-    return () => document.removeEventListener("pointerover", notify, true);
-  }, [postSynaraMessage, synaraOrigin]);
-  useEffect(() => {
-    if (
-      !agentHostContext ||
-      !synaraOrigin ||
-      !synaraFrameMounted ||
-      !synaraFrameReady ||
-      !agentVisible
-    ) return;
-    const frame = window.requestAnimationFrame(() => {
-      postSynaraMessage(agentHostContext);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [
-    agentHostContext,
-    postSynaraMessage,
-    agentVisible,
-    synaraFrameMounted,
-    synaraFrameReady,
-    synaraOrigin,
-  ]);
-  useEffect(() => {
-    if (
-      !agentPaperLibrary ||
-      !synaraOrigin ||
-      !synaraFrameMounted ||
-      !synaraFrameReady ||
-      !agentVisible
-    ) return;
-    const frame = window.requestAnimationFrame(() => {
-      postSynaraMessage(agentPaperLibrary);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [
-    agentPaperLibrary,
-    postSynaraMessage,
-    agentVisible,
-    synaraFrameMounted,
-    synaraFrameReady,
-    synaraOrigin,
-  ]);
-  const changeSynaraPermissionMode = useCallback((mode: SynaraPermissionMode) => {
-    postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
-  }, [postSynaraMessage]);
+  useSynaraSnapshots(synara, agentHostContext, agentPaperLibrary);
   const chooseSidebarMode = (mode: "project" | "papers" | "agent") => {
     if (mode === "agent") {
       setAgentDocked(false);
-      setSynaraRuntimeRequested(true);
-      setSynaraFrameMounted(true);
-      if (synaraFrameReady) {
-        postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
-      }
+      synara.mountFrame();
+      synara.notifyPanelOpened();
     }
     setSidebarMode(mode);
     setSidebarOpen(true);
@@ -1704,266 +1411,79 @@ function App() {
   };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  useEffect(() => {
-    try {
-      localStorage.setItem("lattice.sidebar-mode.v1", sidebarMode);
-    } catch {
-      // Mode still switches for the current session without storage.
+  /**
+   * Agent edits land on disk without passing through the editor, so the
+   * dirty-buffer autosave path never rebuilds the PDF for them. Detect fresh
+   * checkpoint work in each history snapshot and rebuild once the snapshots go
+   * quiet (they stream while a turn is still editing).
+   */
+  const handleAgentHistorySnapshot = useCallback((historySnapshot: AgentProjectHistorySnapshot) => {
+    const projectRoot = projectRef.current?.root;
+    if (projectRoot) persistSynaraThread(projectRoot, historySnapshot.activeThreadId);
+    setAgentHistoryByThread((current) => ({
+      ...current,
+      [historySnapshot.activeThreadId]: historySnapshot.entries,
+    }));
+    setActiveAgentHistoryThreadId(historySnapshot.activeThreadId);
+    const previousEntries = agentCheckpointEntriesRef.current;
+    const incomingKeys = new Set(historySnapshot.entries.map((entry) => `${entry.threadId}\u0000${entry.id}`));
+    const removedEntries: AgentCheckpointHistoryEntry[] = [];
+    for (const [key, entry] of previousEntries) {
+      if (entry.threadId !== historySnapshot.activeThreadId || incomingKeys.has(key)) continue;
+      previousEntries.delete(key);
+      pendingAgentCompileResultsRef.current.delete(key);
+      removedEntries.push(entry);
     }
-  }, [sidebarMode]);
+    const changedEntries: AgentCheckpointHistoryEntry[] = [];
+    for (const entry of historySnapshot.entries) {
+      const entryKey = `${entry.threadId}\u0000${entry.id}`;
+      const previous = previousEntries.get(entryKey);
+      previousEntries.set(entryKey, entry);
+      // Equal line counts do not imply equal content. The completion
+      // timestamp/ref also move when a checkpoint is regenerated.
+      if (previous?.timestamp === entry.timestamp
+        && previous.checkpointRef === entry.checkpointRef
+        && JSON.stringify(previous.files) === JSON.stringify(entry.files)) continue;
+      changedEntries.push(entry);
+    }
+    const primedThreads = agentHistoryPrimedThreadsRef.current;
+    if (!primedThreads.has(historySnapshot.activeThreadId)) {
+      primedThreads.add(historySnapshot.activeThreadId);
+      return;
+    }
+    const buildRelevant = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) =>
+      !file.path.startsWith(".research/") && !file.path.startsWith(".git/"));
+    const buildRelevantEntries = changedEntries.filter(buildRelevant);
+    // Undo clears a turn's diff, so Synara omits it from the next history
+    // snapshot. It is disk work too, even when no new entry arrives.
+    const restored = removedEntries.some(buildRelevant);
+    externalOverleafEditsRef.current([...new Set(
+      [...buildRelevantEntries, ...removedEntries.filter(buildRelevant)]
+        .flatMap((entry) => entry.files.map((file) => file.path))
+        .filter((path) => !path.startsWith(".research/") && !path.startsWith(".git/")),
+    )]);
+    if (!restored && (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic")) return;
+    for (const entry of buildRelevantEntries) {
+      pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
+        threadId: entry.threadId,
+        turnId: entry.turnId,
+        checkpointRef: entry.checkpointRef,
+      });
+    }
+    if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
+    const scheduledProjectRoot = projectRef.current?.root;
+    agentEditsBuildTimerRef.current = window.setTimeout(() => {
+      agentEditsBuildTimerRef.current = null;
+      if (projectRef.current?.root !== scheduledProjectRoot) return;
+      void compileRef.current(false, false, { consumeAgentAssociations: true });
+    }, restored ? 0 : 1_500);
+  }, [projectRef]);
   useEffect(() => {
-    if (!synaraOrigin) return;
-    const receiveSynaraMessage = (event: MessageEvent) => {
-      if (
-        event.source !== synaraIframeRef.current?.contentWindow ||
-        event.origin !== synaraOrigin
-      ) {
-        return;
-      }
-      if (event.data?.type === SYNARA_EMBED_READY) {
-        if (synaraFrameKey) setReadySynaraFrameKey(synaraFrameKey);
-        postSynaraMessage({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
-        const hostContext = latestAgentHostContextRef.current;
-        if (hostContext) postSynaraMessage(hostContext);
-        const paperLibrary = latestAgentPaperLibraryRef.current;
-        if (paperLibrary) postSynaraMessage(paperLibrary);
-        if (agentVisible) {
-          postSynaraMessage({ type: LATTICE_AGENT_PANEL_OPENED });
-        }
-        return;
-      }
-      if (
-        event.data?.type === SYNARA_OPEN_SETTINGS &&
-        event.data.section === "providers"
-      ) {
-        setSynaraRuntimeRequested(true);
-        setSettingsTab("agent");
-        setSettingsOpen(true);
-        return;
-      }
-      if (event.data?.type === SYNARA_OPEN_FILE) {
-        // A file the agent named in its answer. The panel has no editor of its
-        // own to show it in, and the one beside it is ours. Route cached Paper
-        // markdown through the reader just like links inside our own preview.
-        const path = synaraProjectRelativeFilePath(
-          event.data.filePath,
-          projectRef.current?.root,
-        );
-        if (path) openMarkdownProjectPathRef.current(path);
-        return;
-      }
-      if (event.data?.type === SYNARA_OPEN_EXTERNAL) {
-        // WebKit does not hand an embedded frame's `_blank` navigation to the
-        // system browser. Keep that privileged operation in the host instead.
-        const url = typeof event.data.url === "string" ? event.data.url.trim() : "";
-        if (/^https?:\/\//i.test(url)) {
-          void openUrl(url).catch(() => undefined);
-        }
-        return;
-      }
-      if (event.data?.type === SYNARA_OPEN_REVIEW) {
-        // The embedded chat has no diff surface of its own. A file row carries
-        // its path and opens in the host's native file surface; the bare Review
-        // button opens the drawer pinned to that turn's checkpoint diff — the
-        // working tree may already be clean (undo, saved version) and would
-        // review nothing.
-        const filePath = synaraProjectRelativeFilePath(
-          event.data.filePath,
-          projectRef.current?.root,
-        );
-        if (filePath) {
-          openMarkdownProjectPathRef.current(filePath);
-          return;
-        }
-        const threadId = typeof event.data.threadId === "string" ? event.data.threadId.trim() : "";
-        const turnId = typeof event.data.turnId === "string" ? event.data.turnId.trim() : "";
-        if (threadId && turnId) {
-          setAgentTurnReview({ threadId, turnId, filePath: null });
-        } else {
-          setGitWorkspaceView("changes");
-        }
-        setGitOpen(true);
-        return;
-      }
-      if (event.data?.type === LATTICE_HOST_CONTEXT_REQUEST) {
-        const hostContext = latestAgentHostContextRef.current;
-        if (!hostContext) return;
-        const { requestId, workspaceRoot, refreshComments } = event.data;
-        if (refreshComments === true && typeof requestId === "string" && requestId.length <= 128
-          && workspaceRoot === hostContext.workspaceRoot) {
-          visualMarkdownFlushRef.current?.();
-          const options = agentCommentsOptionsRef.current?.();
-          if (!options || options.workspaceRoot !== workspaceRoot) return;
-          void loadAgentEditorComments().then(({ readAgentCommentsSnapshot }) => readAgentCommentsSnapshot({
-            ...options, path: hostContext.paper?.path ?? hostContext.editor?.path, limit: 10,
-          })).then((editorComments) => {
-            // Never publish a previous project's comments after navigation.
-            const latest = latestAgentHostContextRef.current;
-            if (projectRootRef.current !== workspaceRoot || latest?.workspaceRoot !== workspaceRoot) return;
-            postSynaraMessage({ ...hostContext, requestId, editorComments });
-          });
-        } else if (refreshComments !== true) postSynaraMessage(hostContext);
-        return;
-      }
-      if (event.data?.type === LATTICE_PAPER_LIBRARY_REQUEST) {
-        const paperLibrary = latestAgentPaperLibraryRef.current;
-        if (paperLibrary) postSynaraMessage(paperLibrary);
-        return;
-      }
-      if (event.data?.type === LATTICE_HOST_CONTEXT_SELECTION_CLEAR) {
-        const source = selectionSourceRef.current;
-        dismissedSelectionRef.current =
-          source && selection ? { source, text: selection } : null;
-        selectionSourceRef.current = null;
-        setSelection("");
-        setSelectionSource(null);
-        return;
-      }
-      const bibliographyRequest = parseAgentBibliographyToolRequest(event.data);
-      if (bibliographyRequest) {
-        void executeAgentBibliographyToolRequest(
-          bibliographyRequest,
-          projectRootRef.current,
-        ).then(postSynaraMessage);
-        return;
-      }
-      const projectDocumentRequest = parseAgentProjectDocumentToolRequest(event.data);
-      if (projectDocumentRequest) {
-        void executeAgentProjectDocumentToolRequest(
-          projectDocumentRequest,
-          agentProjectDocumentCreatorRef.current,
-        ).then(postSynaraMessage);
-        return;
-      }
-      if (event.data?.type === "synara:editor-comments-tool-request") {
-        void loadAgentEditorComments().then(async (tools) => {
-          const request = tools.parseAgentEditorCommentsToolRequest(event.data);
-          if (!request) return;
-          const result = await tools.executeAgentEditorCommentsToolRequest(
-            request,
-            () => projectRootRef.current,
-            async (request) => {
-              visualMarkdownFlushRef.current?.();
-              const options = agentCommentsOptionsRef.current?.();
-              if (!options) throw new Error("editor_comments_host_unavailable");
-              return tools.readAgentCommentsSnapshot({ ...options, ...request.args });
-            },
-          );
-          await postSynaraMessage(result);
-        });
-        return;
-      }
-      const canvasRequest = parseAgentCanvasToolRequest(event.data);
-      if (canvasRequest) {
-        void executeAgentCanvasToolRequest(canvasRequest).then(postSynaraMessage);
-        return;
-      }
-      const spreadsheetRequest = parseAgentSpreadsheetToolRequest(event.data);
-      if (spreadsheetRequest) {
-        void executeAgentSpreadsheetToolRequest(spreadsheetRequest).then(postSynaraMessage);
-        return;
-      }
-      const historySnapshot = parseAgentProjectHistorySnapshot(event.data);
-      if (historySnapshot) {
-        const projectRoot = projectRef.current?.root;
-        if (projectRoot) persistSynaraThread(projectRoot, historySnapshot.activeThreadId);
-        setAgentHistoryByThread((current) => ({
-          ...current,
-          [historySnapshot.activeThreadId]: historySnapshot.entries,
-        }));
-        setActiveAgentHistoryThreadId(historySnapshot.activeThreadId);
-        // Agent edits land on disk without passing through the editor, so the
-        // dirty-buffer autosave path never rebuilds the PDF for them. Detect
-        // fresh checkpoint work here and rebuild once the snapshots go quiet
-        // (they stream while a turn is still editing).
-        const previousEntries = agentCheckpointEntriesRef.current;
-        const incomingKeys = new Set(historySnapshot.entries.map((entry) => `${entry.threadId}\u0000${entry.id}`));
-        const removedEntries: AgentCheckpointHistoryEntry[] = [];
-        for (const [key, entry] of previousEntries) {
-          if (entry.threadId !== historySnapshot.activeThreadId || incomingKeys.has(key)) continue;
-          previousEntries.delete(key);
-          pendingAgentCompileResultsRef.current.delete(key);
-          removedEntries.push(entry);
-        }
-        const changedEntries: AgentCheckpointHistoryEntry[] = [];
-        for (const entry of historySnapshot.entries) {
-          const entryKey = `${entry.threadId}\u0000${entry.id}`;
-          const previous = previousEntries.get(entryKey);
-          previousEntries.set(entryKey, entry);
-          // Equal line counts do not imply equal content. The completion
-          // timestamp/ref also move when a checkpoint is regenerated.
-          if (previous?.timestamp === entry.timestamp
-            && previous.checkpointRef === entry.checkpointRef
-            && JSON.stringify(previous.files) === JSON.stringify(entry.files)) continue;
-          changedEntries.push(entry);
-        }
-        const primedThreads = agentHistoryPrimedThreadsRef.current;
-        if (!primedThreads.has(historySnapshot.activeThreadId)) {
-          primedThreads.add(historySnapshot.activeThreadId);
-          return;
-        }
-        const buildRelevant = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) =>
-          !file.path.startsWith(".research/") && !file.path.startsWith(".git/"));
-        const buildRelevantEntries = changedEntries.filter(buildRelevant);
-        // Undo clears a turn's diff, so Synara omits it from the next history
-        // snapshot. It is disk work too, even when no new entry arrives.
-        const restored = removedEntries.some(buildRelevant);
-        externalOverleafEditsRef.current([...new Set(
-          [...buildRelevantEntries, ...removedEntries.filter(buildRelevant)]
-            .flatMap((entry) => entry.files.map((file) => file.path))
-            .filter((path) => !path.startsWith(".research/") && !path.startsWith(".git/")),
-        )]);
-        if (!restored && (!buildRelevantEntries.length || autoBuildModeRef.current !== "automatic")) return;
-        for (const entry of buildRelevantEntries) {
-          pendingAgentCompileResultsRef.current.set(`${entry.threadId}\u0000${entry.id}`, {
-            threadId: entry.threadId,
-            turnId: entry.turnId,
-            checkpointRef: entry.checkpointRef,
-          });
-        }
-        if (agentEditsBuildTimerRef.current) window.clearTimeout(agentEditsBuildTimerRef.current);
-        const scheduledProjectRoot = projectRef.current?.root;
-        agentEditsBuildTimerRef.current = window.setTimeout(() => {
-          agentEditsBuildTimerRef.current = null;
-          if (projectRef.current?.root !== scheduledProjectRoot) return;
-          void compileRef.current(false, false, { consumeAgentAssociations: true });
-        }, restored ? 0 : 1_500);
-        return;
-      }
-      if (
-        event.data?.type === SYNARA_AGENT_PERMISSION_MODE_STATUS &&
-        isSynaraPermissionMode(event.data.mode)
-      ) {
-        setSynaraPermissionMode(event.data.mode);
-        setSynaraAutoModeAvailable(event.data.autoModeAvailable !== false);
-        return;
-      }
-      if (
-        event.data?.type === SYNARA_LAYOUT_METRICS &&
-        typeof event.data.minimumSidebarWidth === "number" &&
-        Number.isFinite(event.data.minimumSidebarWidth)
-      ) {
-        const reportedMinimum = Math.round(
-          Math.min(
-            SYNARA_SIDEBAR_MAXIMUM_MINIMUM,
-            Math.max(SYNARA_SIDEBAR_MINIMUM, event.data.minimumSidebarWidth),
-          ),
-        );
-        // Synara reports an intrinsic control width, not the footer's currently
-        // assigned grid width, so this value may safely decrease after controls
-        // or model labels change.
-        setSynaraMinimumSidebarWidth(reportedMinimum);
-      }
-    };
-    window.addEventListener("message", receiveSynaraMessage);
-    return () => window.removeEventListener("message", receiveSynaraMessage);
-  }, [postSynaraMessage, selection, agentVisible, synaraFrameKey, synaraOrigin]);
-  useEffect(() => {
-    if (!synaraOrigin || !gitOpen) return;
+    if (!synara.origin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
       if (
-        event.source !== synaraSourceControlFrameRef.current?.contentWindow ||
-        event.origin !== synaraOrigin ||
+        event.source !== synara.sourceControlFrameRef.current?.contentWindow ||
+        event.origin !== synara.origin ||
         event.data?.type !== "lattice:close-source-control"
       ) {
         return;
@@ -1972,85 +1492,9 @@ function App() {
     };
     window.addEventListener("message", closeSourceControl);
     return () => window.removeEventListener("message", closeSourceControl);
-  }, [gitOpen, synaraOrigin]);
+  }, [gitOpen, synara.origin]);
 
-  useEffect(() => {
-    const initialProject = projectRef.current;
-    if (!initialProject || sidebarMode !== "project") return;
-    let stopped = false;
-    let checking = false;
-    const refreshProjectTreeState = async () => {
-      if (checking || projectTreeMutationCountRef.current > 0) return;
-      checking = true;
-      const refreshGeneration = projectRefreshGenerationRef.current + 1;
-      projectRefreshGenerationRef.current = refreshGeneration;
-      try {
-        const [snapshotResult, gitStatusResult] = await Promise.allSettled([
-          invoke<ProjectSnapshot>("refresh_project"),
-          invoke<GitStatus>("git_status"),
-        ]);
-        const currentProject = projectRef.current;
-        if (
-          !stopped
-          && refreshGeneration === projectRefreshGenerationRef.current
-          && currentProject
-          && projectTreeMutationCountRef.current === 0
-          && snapshotResult.status === "fulfilled"
-          && snapshotResult.value.root === currentProject.root
-          && JSON.stringify(snapshotResult.value.files) !== JSON.stringify(currentProject.files)
-        ) {
-          setProject(snapshotResult.value);
-        }
-        if (
-          !stopped
-          && currentProject?.root === initialProject.root
-          && projectTreeMutationCountRef.current === 0
-          && gitStatusResult.status === "fulfilled"
-        ) {
-          const gitStatus = gitStatusResult.value;
-          const files = gitStatus?.repository ? gitStatus.files : [];
-          const remoteUrl = gitStatus?.repository ? gitStatus.remoteUrl ?? null : null;
-          setProjectGitStatus((current) => {
-            if (
-              currentProject
-              && current.projectRoot === currentProject.root
-              && JSON.stringify(current.files) === JSON.stringify(files)
-              && current.remoteUrl === remoteUrl
-            ) {
-              return current;
-            }
-            return { projectRoot: currentProject?.root ?? "", files, remoteUrl };
-          });
-        }
-      } catch {
-        // The next poll retries after transient filesystem races.
-      } finally {
-        checking = false;
-      }
-    };
-    void refreshProjectTreeState();
-    // Event-driven refresh: the Rust watcher coalesces filesystem bursts into
-    // one project-fs-changed broadcast (payload carries the root so a window
-    // showing another project ignores it). The interval is only a safety net
-    // for anything a watcher can genuinely miss (network volumes, overflow).
-    void invoke("watch_project").catch(() => {
-      // Watcher-less operation degrades to the fallback poll below.
-    });
-    let unlisten: (() => void) | null = null;
-    void listen<{ root: string }>("project-fs-changed", (event) => {
-      if (stopped || event.payload.root !== initialProject.root) return;
-      void refreshProjectTreeState();
-    }).then((dispose) => {
-      if (stopped) dispose();
-      else unlisten = dispose;
-    });
-    const timer = window.setInterval(() => { void refreshProjectTreeState(); }, 30_000);
-    return () => {
-      stopped = true;
-      unlisten?.();
-      window.clearInterval(timer);
-    };
-  }, [project?.root, sidebarMode]);
+  const projectGit = useProjectTreeWatch(projectState, sidebarMode === "project");
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
@@ -2060,30 +1504,13 @@ function App() {
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
   }, [appearance.interfaceSounds]);
-  useLayoutEffect(() => {
-    const appWindow = getCurrentWindowSafely();
-    if (!appWindow) return;
-    if (typeof appWindow.setMinSize !== "function") return;
-    const minimumWorkspaceWidth = Number(
-      document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")
-        ?.dataset.minimumWorkspaceWidth,
-    ) || 0;
-    const width = minimumWindowWidth({
-      interfaceScale: appearance.interfaceScale,
-      minimumSidebarWidth: synaraMinimumSidebarWidth,
-      minimumWorkspaceWidth,
-      sidebarOpen,
-    });
-    void appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT)).catch(() => {
-      // Browser previews and older desktop capabilities may not expose this.
-    });
-  }, [
-    appearance.interfaceScale,
-    canvasMode,
-    project?.root,
+  useWindowMinimumSize({
+    interfaceScale: appearance.interfaceScale,
+    minimumSidebarWidth: sidebar.minimumSidebarWidth,
     sidebarOpen,
-    synaraMinimumSidebarWidth,
-  ]);
+    canvasMode,
+    projectRoot: project?.root,
+  });
   /**
    * Claim the right to switch projects, waiting out an Overleaf sync rather
    * than refusing.
@@ -2145,7 +1572,7 @@ function App() {
   useEffect(() => {
     autoBuildModeRef.current = buildPreferences.autoBuildMode;
   }, [buildPreferences.autoBuildMode]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const isFullscreen = useFullscreen();
   const saveTimer = useRef<number | null>(null);
   const automaticBuildPending = useRef(false);
   const automaticBuildQueued = useRef(false);
@@ -2158,11 +1585,6 @@ function App() {
       path: snapshot.root,
     }));
   }, []);
-
-  const refreshHistory = useCallback(async () => {
-    if (!project) return;
-    setHistory(await invoke<HistoryItem[]>("list_history"));
-  }, [project]);
 
   const projectHistory = useMemo<HistoryItem[]>(() => {
     const agentItems = Object.values(agentHistoryByThread).flatMap((entries) =>
@@ -2190,129 +1612,6 @@ function App() {
       right.timestamp.localeCompare(left.timestamp),
     );
   }, [activeAgentHistoryThreadId, agentHistoryByThread, history]);
-
-  const refreshTodos = useCallback(async () => {
-    if (!project) {
-      setDiskTodos([]);
-      return;
-    }
-    try {
-      setDiskTodos(await invoke<TodoHit[]>("list_todos"));
-    } catch {
-      setDiskTodos([]);
-    }
-  }, [project]);
-
-  const refreshWordCount = useCallback(async () => {
-    if (!project) {
-      setProjectWordCount(null);
-      return;
-    }
-    try {
-      setProjectWordCount(await invoke<WordCount>("count_project_words"));
-    } catch {
-      setProjectWordCount(null);
-    }
-  }, [project]);
-
-  const refreshUnusedSymbols = useCallback(async () => {
-    try {
-      setUnusedSymbols(await invoke<UnusedSymbols>("list_unused_symbols"));
-    } catch {
-      setUnusedSymbols({ labels: [], citations: [] });
-    }
-  }, []);
-
-  const refreshAfterSave = useCallback((
-    projectRoot: string,
-    wroteTex: boolean,
-    wroteBib: boolean,
-  ) => {
-    const generation = postSaveRefreshGenerationRef.current + 1;
-    postSaveRefreshGenerationRef.current = generation;
-    // A subsequent .tex save must not discard a pending bibliography refresh,
-    // and slow history/word-count scans must not delay the Papers update.
-    if (wroteBib) {
-      const bibliographyGeneration = ++bibliographyRefreshGenerationRef.current;
-      void Promise.allSettled([
-        invoke<string[]>("list_citation_keys"),
-        invoke<CitationInfo[]>("list_citations"),
-        invoke<PaperSummary[]>("list_papers"),
-      ]).then(([keys, citations, papers]) => {
-        if (projectRef.current?.root !== projectRoot || bibliographyGeneration !== bibliographyRefreshGenerationRef.current) return;
-        if (keys.status === "fulfilled") setCitationKeys(keys.value);
-        if (citations.status === "fulfilled") setCitations(citations.value);
-        if (papers.status === "fulfilled") setPapers(papers.value);
-      });
-    }
-    const refresh = async () => {
-      const [
-        referenceResult,
-        unusedResult,
-        historyResult,
-        todoResult,
-        wordCountResult,
-      ] = await Promise.allSettled([
-        wroteTex
-          ? invoke<ReferenceInfo[]>("list_references")
-          : Promise.resolve(null),
-        invoke<UnusedSymbols>("list_unused_symbols"),
-        invoke<HistoryItem[]>("list_history"),
-        invoke<TodoHit[]>("list_todos"),
-        invoke<WordCount>("count_project_words"),
-      ] as const);
-      if (projectRef.current?.root !== projectRoot) return;
-      if (generation !== postSaveRefreshGenerationRef.current) return;
-      if (referenceResult.status === "fulfilled" && referenceResult.value) {
-        setReferences(referenceResult.value ?? []);
-      }
-      if (unusedResult.status === "fulfilled") setUnusedSymbols(unusedResult.value);
-      if (historyResult.status === "fulfilled") setHistory(historyResult.value);
-      if (todoResult.status === "fulfilled") setDiskTodos(todoResult.value);
-      if (wordCountResult.status === "fulfilled") setProjectWordCount(wordCountResult.value);
-    };
-    void refresh();
-  }, []);
-
-  const refreshProject = useCallback(async (scope?: {
-    expectedRoot: string;
-    generation: number;
-  }) => {
-    const refreshGeneration = projectRefreshGenerationRef.current + 1;
-    projectRefreshGenerationRef.current = refreshGeneration;
-    const mayApply = (snapshotRoot?: string) => mayApplyProjectRefreshV2({
-      refreshGeneration,
-      currentRefreshGeneration: projectRefreshGenerationRef.current,
-      scope,
-      currentProjectGeneration: projectOperationGenerationRef.current,
-      currentRoot: projectRef.current?.root,
-      snapshotRoot,
-    });
-    const snapshot = await invoke<ProjectSnapshot>("refresh_project");
-    if (!mayApply(snapshot.root)) return snapshot;
-    setProject(snapshot);
-    const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
-      invoke<PaperSummary[]>("list_papers"),
-      invoke<string[]>("list_citation_keys"),
-      invoke<CitationInfo[]>("list_citations"),
-      invoke<ReferenceInfo[]>("list_references"),
-    ]);
-    if (!mayApply(snapshot.root)) return snapshot;
-    setPapers(nextPapers);
-    setCitationKeys(nextCitationKeys);
-    setCitations(nextCitations);
-    setReferences(nextReferences ?? []);
-    await refreshUnusedSymbols();
-    return snapshot;
-  }, [refreshUnusedSymbols]);
-
-  const reconcileProjectTree = useCallback(async () => {
-    const refreshGeneration = projectRefreshGenerationRef.current + 1;
-    projectRefreshGenerationRef.current = refreshGeneration;
-    const snapshot = await invoke<ProjectSnapshot>("refresh_project");
-    if (refreshGeneration === projectRefreshGenerationRef.current) setProject(snapshot);
-    return snapshot;
-  }, []);
 
   const diskMtimeRef = useRef<number | null>(null);
   const secondaryMtimeRef = useRef<number | null>(null);
@@ -2484,39 +1783,7 @@ function App() {
     }
   }, [activeCollabVersion, collabPathMutationGeneration, markDiskMtime]);
 
-  useEffect(() => {
-    const appWindow = getCurrentWindowSafely();
-    if (!appWindow || typeof appWindow.onCloseRequested !== "function" || typeof appWindow.destroy !== "function") return;
-    let active = true;
-    let closing = false;
-    let unlisten: (() => void) | undefined;
-    void appWindow.onCloseRequested((event) => {
-      if (closing) return;
-      closing = true;
-      event.preventDefault();
-      const controller = collabV2ControllerRef.current;
-      const leave = controller?.leavePresence() ?? Promise.resolve();
-      const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 500));
-      void Promise.race([leave.catch(() => undefined), deadline]).finally(() => {
-        if (!active) return;
-        // Preventing the close above means this call is the only thing that
-        // still closes the window: swallowing its rejection (a missing
-        // core:window:allow-destroy grant did exactly that) leaves the traffic
-        // light dead with nothing on screen to explain it.
-        void appWindow.destroy().catch((reason) => {
-          closing = false;
-          setError(`Lattice could not close its window: ${toMessage(reason)}`);
-        });
-      });
-    }).then((stop) => {
-      if (active) unlisten = stop;
-      else stop();
-    });
-    return () => {
-      active = false;
-      unlisten?.();
-    };
-  }, []);
+  useLeavePresenceOnClose(collabV2ControllerRef);
 
   const handleRemoteCollabDeleteV2 = useCallback(async (
     path: string,
@@ -3468,9 +2735,9 @@ function App() {
           warnings: diagnostics.filter((item) => item.level === "warning").length,
         },
       } satisfies AgentCompileResultMessage);
-      if (message) postSynaraMessage(message);
+      if (message) synara.postMessage(message);
     }
-  }, [postSynaraMessage]);
+  }, [synara.postMessage]);
 
   const runBuild = useCallback(async function runBuild(
     force = false,
@@ -4610,7 +3877,7 @@ function App() {
   const compileRepair = useCompileRepair({
     projectRoot: project?.root,
     rootDocument: build?.rootDocument,
-    runtimeMode: synaraPermissionMode,
+    runtimeMode: synara.permissionMode,
     enabled: repairWritable && !building,
     save: async () => {
       if (visualMarkdownFlushRef.current?.() === false) return false;
@@ -4798,23 +4065,15 @@ function App() {
         snapshot.manifest.rootDocuments.find((document) => document.path === "main.tex")
         ?? snapshot.manifest.rootDocuments.find((document) => document.isDefault)
         ?? snapshot.manifest.rootDocuments[0];
-      const bibliographyGeneration = ++bibliographyRefreshGenerationRef.current;
-      const [nextPapers, nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
-        invoke<PaperSummary[]>("list_papers"),
-        invoke<string[]>("list_citation_keys"),
-        invoke<CitationInfo[]>("list_citations"),
-        invoke<ReferenceInfo[]>("list_references"),
-      ]);
+      const isLatestBibliography = library.claimBibliographyRefresh();
+      const bibliographyIndex = await loadBibliographyIndex();
+      const [nextPapers, , , nextReferences] = bibliographyIndex;
       if (!ownsProjectRestore()) return;
       // Opening a file cancels workspace restoration, not the project's paper
       // scan. Apply metadata before the editor-generation guards below, but do
       // not overwrite a newer bibliography refresh triggered by a save.
-      if (bibliographyGeneration === bibliographyRefreshGenerationRef.current) {
-        setPapers(nextPapers);
-        setCitationKeys(nextCitationKeys);
-        setCitations(nextCitations);
-      }
-      setReferences(nextReferences ?? []);
+      if (isLatestBibliography()) library.applyBibliographyIndex(bibliographyIndex);
+      else setReferences(nextReferences ?? []);
       const allPaths = flattenProjectPaths(snapshot.files);
       const assetPaths = collectAssetPaths(snapshot.files);
       const sourcePaths = new Set(allPaths.filter((path) => (
@@ -4942,22 +4201,10 @@ function App() {
       setNavStack(primaryFile ? [{ path: primaryFile, line: 1 }] : []);
       setNavIndex(primaryFile ? 0 : -1);
       await refreshUnusedSymbols();
-      setHistory(await invoke<HistoryItem[]>("list_history"));
-      try {
-        setEditorComments(await invoke<EditorComment[]>("list_editor_comments"));
-      } catch {
-        setEditorComments([]);
-      }
-      try {
-        setDiskTodos(await invoke<TodoHit[]>("list_todos"));
-      } catch {
-        setDiskTodos([]);
-      }
-      try {
-        setProjectWordCount(await invoke<WordCount>("count_project_words"));
-      } catch {
-        setProjectWordCount(null);
-      }
+      await loadHistory();
+      setEditorComments(await invoke<EditorComment[]>("list_editor_comments").catch(() => []));
+      await loadTodos();
+      await loadWordCount();
       setPdfPageCount(null);
       setChecklistOpen(false);
       if (paperKeys.has(activeTab) || assetPaths.has(activeTab)) {
@@ -5507,104 +4754,7 @@ function App() {
     }
   }, [buildPreferences]);
 
-  useEffect(() => {
-    const appWindow = getCurrentWindowSafely();
-    if (!appWindow) return;
-    if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.onResized !== "function") return;
-    let active = true;
-    let stopListening: (() => void) | undefined;
-    let refreshTimer: number | undefined;
-    const refreshNow = () => {
-      void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
-    };
-    const scheduleRefresh = () => {
-      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
-      // Native resize events can arrive much faster than WebKit presents
-      // frames. A trailing check avoids queueing an IPC round trip per pixel.
-      refreshTimer = window.setTimeout(() => {
-        refreshTimer = undefined;
-        refreshNow();
-      }, 80);
-    };
-    refreshNow();
-    void appWindow.onResized(scheduleRefresh).then((unlisten) => {
-      if (active) stopListening = unlisten;
-      else unlisten();
-    });
-    return () => {
-      active = false;
-      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
-      stopListening?.();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (browserHosted || isFullscreen) return;
-    let active = true;
-    let stopListening: (() => void) | undefined;
-    let resizeTimer: number | undefined;
-    const align = () => {
-      if (!active) return;
-      const shell = shellRef.current;
-      const titlebar = shell?.querySelector<HTMLElement>(".titlebar");
-      if (!shell || !titlebar) return;
-      const rect = titlebar.getBoundingClientRect();
-      // WebKit reports unzoomed CSS pixels while AppKit consumes logical
-      // points. Measuring the rendered titlebar and applying the live webview
-      // zoom keeps the native center aligned for every interface scale.
-      // Horizontally, Hide Sidebar sits at the midpoint between the green
-      // traffic-light's right edge and the project *label* (not the padded
-      // button box — padding made the control look biased left).
-      const placeToggle = (greenRight: number) => {
-        if (!active) return;
-        shell.style.setProperty("--titlebar-traffic-space-width", `${greenRight}px`);
-        const projectTitle = shell.querySelector<HTMLElement>(".project-title");
-        if (!projectTitle) return;
-        const label = projectTitle.querySelector<HTMLElement>(":scope > span") ?? projectTitle;
-        const titlebarLeft = titlebar.getBoundingClientRect().left;
-        const projectLeft = label.getBoundingClientRect().left - titlebarLeft;
-        if (!(projectLeft > greenRight)) return;
-        shell.style.setProperty("--titlebar-toggle-center", `${(greenRight + projectLeft) / 2}px`);
-      };
-      void invoke<number | null>("align_traffic_lights", {
-        centerFromTop:
-          (rect.top + rect.height / 2 - TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX)
-          * appearance.interfaceScale,
-      }).then((clusterRightPoints) => {
-        if (!active) return;
-        const greenRight = clusterRightPoints != null && Number.isFinite(clusterRightPoints)
-          ? clusterRightPoints / appearance.interfaceScale
-          : 70;
-        placeToggle(greenRight);
-        requestAnimationFrame(() => placeToggle(greenRight));
-      }).catch(() => {
-        // Browser tests and non-macOS builds have no native traffic lights.
-        placeToggle(70);
-        requestAnimationFrame(() => placeToggle(70));
-      });
-    };
-    const frame = window.requestAnimationFrame(align);
-    const initialTimer = window.setTimeout(align, 120);
-    const appWindow = getCurrentWindowSafely();
-    if (appWindow && typeof appWindow.onResized === "function") {
-      void appWindow.onResized(() => {
-        if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
-        // Wait until AppKit's live-resize layout pass has settled, then measure
-        // once. Updating on every resize event makes the native buttons jitter.
-        resizeTimer = window.setTimeout(align, 120);
-      }).then((unlisten) => {
-        if (active) stopListening = unlisten;
-        else unlisten();
-      });
-    }
-    return () => {
-      active = false;
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(initialTimer);
-      if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
-      stopListening?.();
-    };
-  }, [appearance.interfaceScale, browserHosted, isFullscreen, project?.manifest.name]);
+  useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
 
   useEffect(() => {
     const documentDirty = Boolean(!activePaper && !activeAsset && activeFile && source !== savedSource);
@@ -7420,7 +6570,7 @@ function App() {
             void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", {
               paths: event.payload.paths,
             })
-              .then((files) => postSynaraMessage(buildAgentComposerFilesMessage(files)))
+              .then((files) => synara.postMessage(buildAgentComposerFilesMessage(files)))
               .catch((error) => setError(toMessage(error)));
           } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
             void importProjectSources(event.payload.paths).then(async (paths) => {
@@ -7475,7 +6625,7 @@ function App() {
       active = false;
       dispose?.();
     };
-  }, [importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset, postSynaraMessage, project]);
+  }, [importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset, synara.postMessage, project]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
@@ -7727,7 +6877,7 @@ function App() {
       );
     }
     setProject((current) => current ? applyProjectPathChanges(current, changes) : current);
-    setProjectGitStatus((current) => ({
+    projectGit.setGitStatus((current) => ({
       ...current,
       files: current.files.map((file) => ({ ...file, path: remapPath(file.path) })),
     }));
@@ -7755,8 +6905,7 @@ function App() {
     scheduleFileViewStatePersistence();
   }, [invalidateFileViewStateCallbacks, remapOpenPaths, scheduleFileViewStatePersistence]);
 
-  const renameProjectEntry = useCallback(async (path: string, name: string) => {
-    projectTreeMutationCountRef.current += 1;
+  const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
     try {
       const requestedPath = `${path.includes("/") ? `${path.slice(0, path.lastIndexOf("/") + 1)}` : ""}${name}`;
       const v2 = collabV2ControllerRef.current;
@@ -7779,13 +6928,8 @@ function App() {
       setError(toMessage(reason));
       await reconcileProjectTree().catch(() => undefined);
       throw reason;
-    } finally {
-      projectTreeMutationCountRef.current = Math.max(
-        0,
-        projectTreeMutationCountRef.current - 1,
-      );
     }
-  }, [activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, reconcileProjectTree]);
+  }), [activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, reconcileProjectTree, withTreeMutation]);
 
   const moveProjectEntries = useCallback(async (
     paths: string[],
@@ -7802,114 +6946,109 @@ function App() {
     const originalPrimaryPath = activeFileRef.current;
     const originalSecondaryPath = secondaryFileRef.current;
     let optimisticChangesApplied = false;
-
-    projectTreeMutationCountRef.current += 1;
-    try {
-      if (plannedChanges.some((change) => (
-        /\.(?:tex|md)$/i.test(change.previousPath)
-        && (
-          change.previousPath === originalPrimaryPath
-          || change.previousPath === originalSecondaryPath
-        )
-      ))) {
-        if (visualMarkdownFlushRef.current?.() === false) {
-          setError(t`Try again`);
-          return [];
+    return withTreeMutation(async () => {
+      try {
+        if (plannedChanges.some((change) => (
+          /\.(?:tex|md)$/i.test(change.previousPath)
+          && (
+            change.previousPath === originalPrimaryPath
+            || change.previousPath === originalSecondaryPath
+          )
+        ))) {
+          if (visualMarkdownFlushRef.current?.() === false) {
+            setError(t`Try again`);
+            return [];
+          }
+          if (!(await save())) {
+            // save() already reports the path and underlying write failure.
+            return [];
+          }
         }
-        if (!(await save())) {
-          // save() already reports the path and underlying write failure.
-          return [];
-        }
-      }
-      applyProjectEntryPathChanges(plannedChanges);
-      optimisticChangesApplied = true;
-      for (const planned of plannedChanges) {
-        const v2 = collabV2ControllerRef.current;
-        const movedPath = activeCollabVersion === 2 && v2
-          ? await v2.rename(planned.previousPath, planned.nextPath, {
-            rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("move_project_entry", { path: oldPath, targetDirectory: normalizedTarget, projectRoot })),
-            delete: async () => { throw new Error("Unexpected delete during move"); },
-          })
-          : await invoke<string>("move_project_entry", {
-            path: planned.previousPath,
-            targetDirectory: normalizedTarget,
-            projectRoot: project?.root,
-          });
-        const completed = { previousPath: planned.previousPath, nextPath: movedPath };
-        completedChanges.push(completed);
-        if (planned.nextPath !== movedPath) {
-          applyProjectEntryPathChanges([{
-            previousPath: planned.nextPath,
-            nextPath: movedPath,
-          }]);
-        }
-        if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
-          let content: string;
-          if (activeCollabVersion === 2 && v2?.hasTextPath(movedPath)) {
-            const ytext = await v2.openPath(movedPath, "secondary", { sideload: true });
-            content = ytext.toString();
-          } else if (planned.previousPath === originalPrimaryPath) {
-            content = sourceRef.current;
-          } else if (planned.previousPath === originalSecondaryPath) {
-            content = secondarySourceRef.current;
-          } else {
-            content = await invoke<string>("read_project_file", {
-              path: movedPath,
+        applyProjectEntryPathChanges(plannedChanges);
+        optimisticChangesApplied = true;
+        for (const planned of plannedChanges) {
+          const v2 = collabV2ControllerRef.current;
+          const movedPath = activeCollabVersion === 2 && v2
+            ? await v2.rename(planned.previousPath, planned.nextPath, {
+              rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("move_project_entry", { path: oldPath, targetDirectory: normalizedTarget, projectRoot })),
+              delete: async () => { throw new Error("Unexpected delete during move"); },
+            })
+            : await invoke<string>("move_project_entry", {
+              path: planned.previousPath,
+              targetDirectory: normalizedTarget,
               projectRoot: project?.root,
             });
+          const completed = { previousPath: planned.previousPath, nextPath: movedPath };
+          completedChanges.push(completed);
+          if (planned.nextPath !== movedPath) {
+            applyProjectEntryPathChanges([{
+              previousPath: planned.nextPath,
+              nextPath: movedPath,
+            }]);
           }
-          const rewritten = rewriteMovedDocumentAssetPaths(
-            content,
-            planned.previousPath,
-            movedPath,
-            projectAssetPaths,
-          );
-          if (rewritten !== content) {
-            if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
-            if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
-            const published = await publishTextToCollabV2(movedPath, rewritten);
-            if (!published) {
-              await invoke("write_project_file", {
+          if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
+            let content: string;
+            if (activeCollabVersion === 2 && v2?.hasTextPath(movedPath)) {
+              const ytext = await v2.openPath(movedPath, "secondary", { sideload: true });
+              content = ytext.toString();
+            } else if (planned.previousPath === originalPrimaryPath) {
+              content = sourceRef.current;
+            } else if (planned.previousPath === originalSecondaryPath) {
+              content = secondarySourceRef.current;
+            } else {
+              content = await invoke<string>("read_project_file", {
                 path: movedPath,
-                content: rewritten,
                 projectRoot: project?.root,
               });
             }
-            if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) {
-              savedSourceRef.current = rewritten;
-              setSavedSource(rewritten);
-            }
-            if (planned.previousPath === originalSecondaryPath && secondarySourceRef.current === rewritten) {
-              secondarySavedRef.current = rewritten;
-              setSecondarySavedSource(rewritten);
+            const rewritten = rewriteMovedDocumentAssetPaths(
+              content,
+              planned.previousPath,
+              movedPath,
+              projectAssetPaths,
+            );
+            if (rewritten !== content) {
+              if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
+              if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
+              const published = await publishTextToCollabV2(movedPath, rewritten);
+              if (!published) {
+                await invoke("write_project_file", {
+                  path: movedPath,
+                  content: rewritten,
+                  projectRoot: project?.root,
+                });
+              }
+              if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) {
+                savedSourceRef.current = rewritten;
+                setSavedSource(rewritten);
+              }
+              if (planned.previousPath === originalSecondaryPath && secondarySourceRef.current === rewritten) {
+                secondarySavedRef.current = rewritten;
+                setSecondarySavedSource(rewritten);
+              }
             }
           }
         }
+        if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
+        setError(null);
+        return completedChanges.map((change) => change.nextPath);
+      } catch (reason) {
+        const completedPaths = new Set(completedChanges.map((change) => change.previousPath));
+        const rollbackChanges = optimisticChangesApplied
+          ? plannedChanges
+            .filter((change) => !completedPaths.has(change.previousPath))
+            .reverse()
+            .map((change) => ({
+              previousPath: change.nextPath,
+              nextPath: change.previousPath,
+            }))
+          : [];
+        applyProjectEntryPathChanges(rollbackChanges);
+        setError(toMessage(reason));
+        await reconcileProjectTree().catch(() => undefined);
+        throw reason;
       }
-      if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
-      setError(null);
-      return completedChanges.map((change) => change.nextPath);
-    } catch (reason) {
-      const completedPaths = new Set(completedChanges.map((change) => change.previousPath));
-      const rollbackChanges = optimisticChangesApplied
-        ? plannedChanges
-          .filter((change) => !completedPaths.has(change.previousPath))
-          .reverse()
-          .map((change) => ({
-            previousPath: change.nextPath,
-            nextPath: change.previousPath,
-          }))
-        : [];
-      applyProjectEntryPathChanges(rollbackChanges);
-      setError(toMessage(reason));
-      await reconcileProjectTree().catch(() => undefined);
-      throw reason;
-    } finally {
-      projectTreeMutationCountRef.current = Math.max(
-        0,
-        projectTreeMutationCountRef.current - 1,
-      );
-    }
+    });
   }, [
     activeCollabVersion,
     applyProjectEntryPathChanges,
@@ -8411,7 +7550,7 @@ function App() {
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
-    if (isSynaraSettingsTab(tab)) setSynaraRuntimeRequested(true);
+    if (isSynaraSettingsTab(tab)) synara.requestRuntime();
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
@@ -8570,9 +7709,9 @@ function App() {
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
       <SettingsDialog
-        synaraRuntime={synaraRuntime}
+        synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
-        onRetrySynaraRuntime={retrySynaraRuntime}
+        onRetrySynaraRuntime={synara.retry}
         overleafSyncMode={overleafSyncMode}
         overleafRemoteDelete={overleafRemoteDelete}
         onOverleafRemoteDeleteChange={(mode) => {
@@ -8588,7 +7727,7 @@ function App() {
         }}
         tab={settingsTab}
         setTab={(tab) => {
-          if (isSynaraSettingsTab(tab)) setSynaraRuntimeRequested(true);
+          if (isSynaraSettingsTab(tab)) synara.requestRuntime();
           setSettingsTab(tab);
           if (tab === "doctor") void runDoctor();
         }}
@@ -9386,7 +8525,7 @@ function App() {
           onHistory={() => setHistoryOpen(true)}
           onGit={() => {
             if (tutorialActive) return;
-            setSynaraRuntimeRequested(true);
+            synara.requestRuntime();
             setGitOpen(true);
           }}
           commentCount={allEditorComments.filter((comment) => !comment.resolved).length}
@@ -9497,7 +8636,7 @@ function App() {
             agentPanelDropActive={agentPanelDropActive}
             appLocale={appLocale}
             beginSidebarResize={beginSidebarResize}
-            changeSynaraPermissionMode={changeSynaraPermissionMode}
+            changeSynaraPermissionMode={synara.changePermissionMode}
             chooseSidebarMode={chooseSidebarMode}
             onCheckReferences={() => { setBibliographyAuditRoot(project.root); setBibliographyAuditOpen(true); }}
             navigator={(
@@ -9511,7 +8650,7 @@ function App() {
               presentationCreateRequest={presentationCreateRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
-              gitStatus={projectGitStatus.projectRoot === project.root ? projectGitStatus.files : []}
+              gitStatus={projectGit.gitFiles}
               activeFile={activeAsset || activePaper ? "" : activeFile}
               activeAssetPath={activeAsset?.path ?? ""}
               protectedPaths={[
@@ -9569,7 +8708,7 @@ function App() {
             nudgeSidebar={nudgeSidebar}
             openBibEntryDialog={openBibEntryDialog}
             project={project}
-            retrySynaraRuntime={retrySynaraRuntime}
+            retrySynaraRuntime={synara.retry}
             setBoardCreateRequest={setBoardCreateRequest}
             setLiteratureOpen={setLiteratureOpen}
             setProjectFindError={setProjectFindError}
@@ -9579,20 +8718,20 @@ function App() {
             setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
             sidebarMode={sidebarMode}
-            sidebarModeActionsRef={sidebarModeActionsRef}
-            sidebarModeHeaderRef={sidebarModeHeaderRef}
-            sidebarModeTier={sidebarModeTier}
+            sidebarModeActionsRef={sidebar.sidebarModeActionsRef}
+            sidebarModeHeaderRef={sidebar.sidebarModeHeaderRef}
+            sidebarModeTier={sidebar.sidebarModeTier}
             sidebarWidth={sidebarWidth}
             sidebarOpen={sidebarOpen}
             sidebarResizing={sidebarResizing}
             onCollapseSidebar={() => setSidebarOpen(false)}
-            synaraAutoModeAvailable={synaraAutoModeAvailable}
-            synaraFrameMounted={synaraFrameMounted}
-            synaraFrameReady={synaraFrameReady}
-            synaraIframeRef={synaraIframeRef}
-            synaraOrigin={synaraOrigin}
-            synaraPermissionMode={synaraPermissionMode}
-            synaraRuntime={synaraRuntime}
+            synaraAutoModeAvailable={synara.autoModeAvailable}
+            synaraFrameMounted={synara.frameMounted}
+            synaraFrameReady={synara.frameReady}
+            synaraIframeRef={synara.frameRef}
+            synaraOrigin={synara.origin}
+            synaraPermissionMode={synara.permissionMode}
+            synaraRuntime={synara.runtime}
             theme={theme}
           />
 
@@ -9674,7 +8813,7 @@ function App() {
                   onExpandedChange={setDiagnosticsExpanded}
                   onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
                   onInstallDependency={installTexDependency}
-                  onFixAll={() => { setSynaraRuntimeRequested(true); void compileRepair.start(build.diagnostics); }}
+                  onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
                   fixDisabled={!repairWritable || building || compileRepair.busy}
                   repair={compileRepair.state}
                   onCancelRepair={() => void compileRepair.cancel()}
@@ -9682,14 +8821,13 @@ function App() {
                     const threadId = compileRepair.state?.threadId;
                     if (!threadId) return;
                     persistSynaraThread(project.root, threadId);
-                    setSynaraRuntimeRequested(true);
-                    setSynaraFrameMounted(true);
+                    synara.mountFrame();
                     if (!agentDocked) {
                       setSidebarMode("agent");
                       setSidebarOpen(true);
                     }
-                    const frame = synaraIframeRef.current;
-                    if (frame && synaraOrigin) {
+                    const frame = synara.frameRef.current;
+                    if (frame && synara.origin) {
                       const url = new URL(frame.src);
                       url.pathname = `/${encodeURIComponent(threadId)}`;
                       frame.src = url.toString();
@@ -9945,9 +9083,7 @@ function App() {
         compile={compile}
         deleteHistory={deleteHistory}
         gitOpen={gitOpen}
-        gitRemoteUrl={projectGitStatus.projectRoot === project.root
-          ? projectGitStatus.remoteUrl
-          : null}
+        gitRemoteUrl={projectGit.gitRemoteUrl}
         gitWorkspaceView={gitWorkspaceView}
         historyOpen={historyOpen}
         loadFile={loadFile}
@@ -9957,17 +9093,17 @@ function App() {
         projectHistory={projectHistory}
         refreshHistory={refreshHistory}
         refreshProject={refreshProject}
-        retrySynaraRuntime={retrySynaraRuntime}
+        retrySynaraRuntime={synara.retry}
         revert={revert}
         runOverleafSync={runOverleafSync}
         setAgentTurnReview={setAgentTurnReview}
         setGitOpen={setGitOpen}
         setGitWorkspaceView={setGitWorkspaceView}
         setHistoryOpen={setHistoryOpen}
-        synaraIframeRef={synaraIframeRef}
-        synaraOrigin={synaraOrigin}
-        synaraRuntime={synaraRuntime}
-        synaraSourceControlFrameRef={synaraSourceControlFrameRef}
+        synaraIframeRef={synara.frameRef}
+        synaraOrigin={synara.origin}
+        synaraRuntime={synara.runtime}
+        synaraSourceControlFrameRef={synara.sourceControlFrameRef}
         theme={theme}
       />
 
