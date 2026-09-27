@@ -135,6 +135,10 @@ msgstr "已检查 {completed} / {progressTotal} 条引用"
 msgid "{count} comments"
 msgstr "{count} 条评论"
 
+#: src/history/conflict-resolver.tsx
+msgid "{count} lines"
+msgstr "{count} 行"
+
 #: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "{count} papers"
@@ -143,6 +147,10 @@ msgstr "{count} 篇论文"
 #: src/canvas/document-canvas.tsx
 msgid "{count} TODO"
 msgstr "{count} 项待办"
+
+#: src/history/conflict-resolver.tsx
+msgid "{decided} of {total} decided"
+msgstr "已决定 {decided}/{total} 处"
 
 #: src/settings/settings-dialog.tsx
 msgid "{detail} Find in project will stay lexical"
@@ -206,6 +214,10 @@ msgstr "⌘⇧T 重新打开"
 #: src/collab/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 个文件"
+
+#: src/history/conflict-resolver.tsx
+msgid "1 line"
+msgstr "1 行"
 
 #: src/project/navigator.tsx
 msgid "1 of {total} papers"
@@ -623,6 +635,10 @@ msgstr "反撇号"
 msgid "Back to {view}"
 msgstr "返回{view}"
 
+#: src/history/conflict-resolver.tsx
+msgid "Back to choices"
+msgstr "返回选择"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bar accent"
 msgstr "横线记号"
@@ -849,6 +865,7 @@ msgstr "提示框"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -1057,6 +1074,10 @@ msgstr "检查 Lattice 编译 LaTeX 所需的工具"
 #: src/editor/insert/insert-snippets.ts
 msgid "Chi"
 msgstr "希"
+
+#: src/history/conflict-resolver.tsx
+msgid "Choose for every spot"
+msgstr "为所有位置选择"
 
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
@@ -1343,6 +1364,10 @@ msgstr "缺少会议字体验证。"
 msgid "Conflicting or insufficient fields"
 msgstr "冲突或不足的字段"
 
+#: src/history/conflict-resolver.tsx
+msgid "Conflicting spots"
+msgstr "冲突位置"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Congruent"
 msgstr "全等"
@@ -1516,6 +1541,11 @@ msgstr "无法从 Overleaf 删除 {0}：{1}"
 msgid "Could not render these changes: {0}"
 msgstr "无法渲染这些更改：{0}"
 
+#. placeholder {0}: resources.error.message
+#: src/history/conflict-resolver.tsx
+msgid "Could not render this file: {0}"
+msgstr "无法显示此文件：{0}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "无法在此设备上保存检查报告，请保持此窗口打开以保留结果。"
@@ -1617,6 +1647,10 @@ msgstr "数据"
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
+
+#: src/history/conflict-resolver.tsx
+msgid "Decided"
+msgstr "已决定"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1900,6 +1934,10 @@ msgstr "编辑并预览 HTML"
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
 
+#: src/history/conflict-resolver.tsx
+msgid "Edit before saving"
+msgstr "保存前编辑"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/navigator.tsx
 msgid "Edit bibliography entry"
@@ -1940,6 +1978,10 @@ msgstr "编辑源文件"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "编辑源文件并预览 PDF"
+
+#: src/history/conflict-resolver.tsx
+msgid "Edit the combined file if anything still needs fixing, then save it."
+msgstr "如仍需修改，请编辑合并后的文件，然后保存。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
@@ -2012,6 +2054,14 @@ msgstr "强调"
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasized text command"
 msgstr "强调文字命令"
+
+#: src/history/conflict-resolver.tsx
+msgid "Empty"
+msgstr "空"
+
+#: src/history/conflict-resolver.tsx
+msgid "Empty at the last sync."
+msgstr "上次同步时为空。"
 
 #: src/canvas/document-canvas.tsx
 msgid "Empty secondary editor"
@@ -2111,6 +2161,10 @@ msgstr "估计量 / 单位向量记号"
 #: src/editor/insert/insert-snippets.ts
 msgid "Eta"
 msgstr "伊塔"
+
+#: src/history/conflict-resolver.tsx
+msgid "Every spot decided"
+msgstr "所有位置均已决定"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
@@ -2292,6 +2346,10 @@ msgstr "用于排查 Agent 启动或连接失败。包含最近的 lattice、sid
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "任意"
+
+#: src/history/conflict-resolver.tsx
+msgid "For every spot:"
+msgstr "所有位置："
 
 #: src/App.tsx
 msgid "Format document"
@@ -2932,6 +2990,10 @@ msgstr "只有你"
 msgid "Kappa"
 msgstr "卡帕"
 
+#: src/history/conflict-resolver.tsx
+msgid "Keep both"
+msgstr "两者都保留"
+
 #: src/App.tsx
 msgid "Keep citations"
 msgstr "保留引用"
@@ -2947,6 +3009,14 @@ msgstr "在 Overleaf 上保留"
 #: src/papers/paper-lookup.tsx
 msgid "Keep on top"
 msgstr "全局置顶"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keep Overleaf's version"
+msgstr "保留 Overleaf 的版本"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keep this computer's version"
+msgstr "保留本机的版本"
 
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
@@ -3515,6 +3585,10 @@ msgstr "自然连接 / 蝶形"
 msgid "Navigate"
 msgstr "导航"
 
+#: src/history/conflict-resolver.tsx
+msgid "Needs a decision"
+msgstr "待决定"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
 msgstr "等待授权"
@@ -4050,6 +4124,7 @@ msgstr "有序列表"
 msgid "Outline"
 msgstr "大纲"
 
+#: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -4097,6 +4172,10 @@ msgstr "Overleaf 项目操作"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf 项目"
+
+#: src/history/conflict-resolver.tsx
+msgid "Overleaf removed this part."
+msgstr "Overleaf 删除了这一部分。"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf sync cancelled"
@@ -4535,6 +4614,10 @@ msgstr "在此阅读全文"
 msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 msgstr "来自其他文档中“镜像源”内容块的只读副本；在源处编辑后，此处会实时更新。"
 
+#: src/history/conflict-resolver.tsx
+msgid "Reading the file…"
+msgstr "正在读取文件…"
+
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
 #: src/settings/settings-dialog.tsx
@@ -4876,11 +4959,19 @@ msgstr "调整工作区侧边栏大小"
 msgid "Resolve"
 msgstr "解析"
 
+#: src/history/conflict-resolver.tsx
+msgid "Resolve changes to {path}"
+msgstr "解决 {path} 的更改"
+
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Resolve comment"
 msgstr "解决评论"
+
+#: src/history/conflict-resolver.tsx
+msgid "Resolve conflicts in {path}"
+msgstr "解决 {path} 中的冲突"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve from DOI / arXiv / title"
@@ -5020,6 +5111,10 @@ msgstr "查看候选记录"
 msgid "Review proposed changes"
 msgstr "查看拟议修改"
 
+#: src/history/conflict-resolver.tsx
+msgid "Review the final file before saving"
+msgstr "保存前请检查最终文件"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Rho"
 msgstr "柔"
@@ -5130,6 +5225,10 @@ msgstr "保存更改"
 msgid "Save compiled PDF"
 msgstr "保存已编译的 PDF"
 
+#: src/history/conflict-resolver.tsx
+msgid "Save decided spots"
+msgstr "保存已决定的位置"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save entry"
 msgstr "保存条目"
@@ -5149,6 +5248,10 @@ msgstr "请先保存未保存的编辑，再检查引用。"
 #: src/App.tsx
 msgid "Save pending edits before updating references."
 msgstr "请先保存未保存的编辑，再更新引用。"
+
+#: src/history/conflict-resolver.tsx
+msgid "Save resolved file"
+msgstr "保存已解决的文件"
 
 #: src/App.tsx
 msgid "Save the current workspace before opening it in a browser."
@@ -5178,6 +5281,7 @@ msgstr "已保存到 {path}"
 msgid "Saved version"
 msgstr "已保存的版本"
 
+#: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "正在保存…"
@@ -5403,6 +5507,10 @@ msgstr "显示大纲"
 msgid "Show sidebar"
 msgstr "显示侧边栏"
 
+#: src/history/conflict-resolver.tsx
+msgid "Show the last synced version"
+msgstr "显示上次同步的版本"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
@@ -5572,6 +5680,12 @@ msgstr "分栏"
 msgid "Split editor right"
 msgstr "向右分栏编辑器"
 
+#. placeholder {0}: props.position
+#. placeholder {1}: props.total
+#: src/history/conflict-resolver.tsx
+msgid "Spot {0} of {1}"
+msgstr "第 {0} 处，共 {1} 处"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Square"
 msgstr "空心方块"
@@ -5647,6 +5761,11 @@ msgstr "正在启动 Open Slide…"
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
 msgstr "正在启动索引。{semanticSearchPrivacy}"
+
+#. placeholder {0}: hunk.line
+#: src/history/conflict-resolver.tsx
+msgid "Starts at line {0}"
+msgstr "从第 {0} 行开始"
 
 #: src/collab/collab-dialog.tsx
 msgid "status"
@@ -5866,6 +5985,10 @@ msgstr "共享服务今日请求额度已用完。请在 UTC 00:00（北京时�
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"
 
+#: src/history/conflict-resolver.tsx
+msgid "The copy on Overleaf"
+msgstr "Overleaf 上的副本"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
@@ -6015,6 +6138,18 @@ msgstr "此评论还没有内容"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "此评论已不再关联任何文本，因此 Overleaf 无法应用此操作。"
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer"
+msgstr "本机"
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer and Overleaf both changed the same part of this file since the last sync. Choose which version to keep for each spot. Saving writes your choice to this file, and Overleaf sync then uploads it."
+msgstr "自上次同步以来，本机和 Overleaf 都修改了此文件的同一部分。请为每一处选择要保留的版本。保存会把你的选择写入此文件，随后由 Overleaf 同步上传。"
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer removed this part."
+msgstr "本机删除了这一部分。"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
@@ -6484,6 +6619,11 @@ msgstr "已为版本命名。"
 msgid "Version saved."
 msgstr "版本已保存。"
 
+#. placeholder {0}: props.position
+#: src/history/conflict-resolver.tsx
+msgid "Version to keep for spot {0}"
+msgstr "第 {0} 处要保留的版本"
+
 #: src/history/history-drawer.tsx
 msgid "Versions"
 msgstr "版本"
@@ -6645,6 +6785,10 @@ msgstr "当前已是最新版本"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "LaTeX 和 PDF 并排显示"
+
+#: src/history/conflict-resolver.tsx
+msgid "Your Lattice copy"
+msgstr "你的 Lattice 副本"
 
 #: src/collab/collab-dialog.tsx
 msgid "Your name"

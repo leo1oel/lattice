@@ -135,6 +135,10 @@ msgstr "{completed} of {progressTotal} references checked"
 msgid "{count} comments"
 msgstr "{count} comments"
 
+#: src/history/conflict-resolver.tsx
+msgid "{count} lines"
+msgstr "{count} lines"
+
 #: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "{count} papers"
@@ -143,6 +147,10 @@ msgstr "{count} papers"
 #: src/canvas/document-canvas.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
+
+#: src/history/conflict-resolver.tsx
+msgid "{decided} of {total} decided"
+msgstr "{decided} of {total} decided"
 
 #: src/settings/settings-dialog.tsx
 msgid "{detail} Find in project will stay lexical"
@@ -206,6 +214,10 @@ msgstr "⌘⇧T to reopen"
 #: src/collab/collab-dialog.tsx
 msgid "1 file"
 msgstr "1 file"
+
+#: src/history/conflict-resolver.tsx
+msgid "1 line"
+msgstr "1 line"
 
 #: src/project/navigator.tsx
 msgid "1 of {total} papers"
@@ -623,6 +635,10 @@ msgstr "Back prime"
 msgid "Back to {view}"
 msgstr "Back to {view}"
 
+#: src/history/conflict-resolver.tsx
+msgid "Back to choices"
+msgstr "Back to choices"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bar accent"
 msgstr "Bar accent"
@@ -849,6 +865,7 @@ msgstr "Callout"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -1057,6 +1074,10 @@ msgstr "Checks the tools Lattice needs to compile LaTeX"
 #: src/editor/insert/insert-snippets.ts
 msgid "Chi"
 msgstr "Chi"
+
+#: src/history/conflict-resolver.tsx
+msgid "Choose for every spot"
+msgstr "Choose for every spot"
 
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
@@ -1343,6 +1364,10 @@ msgstr "Conference font verification is missing."
 msgid "Conflicting or insufficient fields"
 msgstr "Conflicting or insufficient fields"
 
+#: src/history/conflict-resolver.tsx
+msgid "Conflicting spots"
+msgstr "Conflicting spots"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Congruent"
 msgstr "Congruent"
@@ -1516,6 +1541,11 @@ msgstr "Could not remove {0} from Overleaf: {1}"
 msgid "Could not render these changes: {0}"
 msgstr "Could not render these changes: {0}"
 
+#. placeholder {0}: resources.error.message
+#: src/history/conflict-resolver.tsx
+msgid "Could not render this file: {0}"
+msgstr "Could not render this file: {0}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
@@ -1617,6 +1647,10 @@ msgstr "Data"
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
+
+#: src/history/conflict-resolver.tsx
+msgid "Decided"
+msgstr "Decided"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -1900,6 +1934,10 @@ msgstr "Edit and preview HTML"
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
+#: src/history/conflict-resolver.tsx
+msgid "Edit before saving"
+msgstr "Edit before saving"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/navigator.tsx
 msgid "Edit bibliography entry"
@@ -1940,6 +1978,10 @@ msgstr "Edit source"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit source and preview PDF"
 msgstr "Edit source and preview PDF"
+
+#: src/history/conflict-resolver.tsx
+msgid "Edit the combined file if anything still needs fixing, then save it."
+msgstr "Edit the combined file if anything still needs fixing, then save it."
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
@@ -2012,6 +2054,14 @@ msgstr "Emphasis"
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasized text command"
 msgstr "Emphasized text command"
+
+#: src/history/conflict-resolver.tsx
+msgid "Empty"
+msgstr "Empty"
+
+#: src/history/conflict-resolver.tsx
+msgid "Empty at the last sync."
+msgstr "Empty at the last sync."
 
 #: src/canvas/document-canvas.tsx
 msgid "Empty secondary editor"
@@ -2111,6 +2161,10 @@ msgstr "Estimator / unit vector mark"
 #: src/editor/insert/insert-snippets.ts
 msgid "Eta"
 msgstr "Eta"
+
+#: src/history/conflict-resolver.tsx
+msgid "Every spot decided"
+msgstr "Every spot decided"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Everything for the paper lives in one folder"
@@ -2292,6 +2346,10 @@ msgstr "For Agent startup or connection failures. Includes recent lattice, sidec
 #: src/editor/insert/insert-snippets.ts
 msgid "For all"
 msgstr "For all"
+
+#: src/history/conflict-resolver.tsx
+msgid "For every spot:"
+msgstr "For every spot:"
 
 #: src/App.tsx
 msgid "Format document"
@@ -2932,6 +2990,10 @@ msgstr "just you"
 msgid "Kappa"
 msgstr "Kappa"
 
+#: src/history/conflict-resolver.tsx
+msgid "Keep both"
+msgstr "Keep both"
+
 #: src/App.tsx
 msgid "Keep citations"
 msgstr "Keep citations"
@@ -2947,6 +3009,14 @@ msgstr "Keep it on Overleaf"
 #: src/papers/paper-lookup.tsx
 msgid "Keep on top"
 msgstr "Keep on top"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keep Overleaf's version"
+msgstr "Keep Overleaf's version"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keep this computer's version"
+msgstr "Keep this computer's version"
 
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
@@ -3515,6 +3585,10 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
+#: src/history/conflict-resolver.tsx
+msgid "Needs a decision"
+msgstr "Needs a decision"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
 msgstr "Needs approval"
@@ -4050,6 +4124,7 @@ msgstr "Ordered List"
 msgid "Outline"
 msgstr "Outline"
 
+#: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -4097,6 +4172,10 @@ msgstr "Overleaf project actions"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
+
+#: src/history/conflict-resolver.tsx
+msgid "Overleaf removed this part."
+msgstr "Overleaf removed this part."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf sync cancelled"
@@ -4535,6 +4614,10 @@ msgstr "Read the full paper here"
 msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 msgstr "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 
+#: src/history/conflict-resolver.tsx
+msgid "Reading the file…"
+msgstr "Reading the file…"
+
 #. placeholder {0}: status.indexedFiles
 #. placeholder {1}: status.indexedChunks
 #: src/settings/settings-dialog.tsx
@@ -4878,11 +4961,19 @@ msgstr "Resize workspace sidebar"
 msgid "Resolve"
 msgstr "Resolve"
 
+#: src/history/conflict-resolver.tsx
+msgid "Resolve changes to {path}"
+msgstr "Resolve changes to {path}"
+
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
+
+#: src/history/conflict-resolver.tsx
+msgid "Resolve conflicts in {path}"
+msgstr "Resolve conflicts in {path}"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve from DOI / arXiv / title"
@@ -5022,6 +5113,10 @@ msgstr "Review candidate"
 msgid "Review proposed changes"
 msgstr "Review proposed changes"
 
+#: src/history/conflict-resolver.tsx
+msgid "Review the final file before saving"
+msgstr "Review the final file before saving"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Rho"
 msgstr "Rho"
@@ -5132,6 +5227,10 @@ msgstr "Save changes"
 msgid "Save compiled PDF"
 msgstr "Save compiled PDF"
 
+#: src/history/conflict-resolver.tsx
+msgid "Save decided spots"
+msgstr "Save decided spots"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save entry"
 msgstr "Save entry"
@@ -5151,6 +5250,10 @@ msgstr "Save pending edits before checking references."
 #: src/App.tsx
 msgid "Save pending edits before updating references."
 msgstr "Save pending edits before updating references."
+
+#: src/history/conflict-resolver.tsx
+msgid "Save resolved file"
+msgstr "Save resolved file"
 
 #: src/App.tsx
 msgid "Save the current workspace before opening it in a browser."
@@ -5180,6 +5283,7 @@ msgstr "Saved to {path}"
 msgid "Saved version"
 msgstr "Saved version"
 
+#: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "Saving…"
@@ -5405,6 +5509,10 @@ msgstr "Show outline"
 msgid "Show sidebar"
 msgstr "Show sidebar"
 
+#: src/history/conflict-resolver.tsx
+msgid "Show the last synced version"
+msgstr "Show the last synced version"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
@@ -5574,6 +5682,12 @@ msgstr "Split"
 msgid "Split editor right"
 msgstr "Split editor right"
 
+#. placeholder {0}: props.position
+#. placeholder {1}: props.total
+#: src/history/conflict-resolver.tsx
+msgid "Spot {0} of {1}"
+msgstr "Spot {0} of {1}"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Square"
 msgstr "Square"
@@ -5649,6 +5763,11 @@ msgstr "Starting Open Slide…"
 #: src/settings/settings-dialog.tsx
 msgid "Starting the index. {semanticSearchPrivacy}"
 msgstr "Starting the index. {semanticSearchPrivacy}"
+
+#. placeholder {0}: hunk.line
+#: src/history/conflict-resolver.tsx
+msgid "Starts at line {0}"
+msgstr "Starts at line {0}"
 
 #: src/collab/collab-dialog.tsx
 msgid "status"
@@ -5870,6 +5989,10 @@ msgstr "The collaboration service has reached its daily request limit. Try again
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
 
+#: src/history/conflict-resolver.tsx
+msgid "The copy on Overleaf"
+msgstr "The copy on Overleaf"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
@@ -6019,6 +6142,18 @@ msgstr "This comment has no text yet"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer"
+msgstr "This computer"
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer and Overleaf both changed the same part of this file since the last sync. Choose which version to keep for each spot. Saving writes your choice to this file, and Overleaf sync then uploads it."
+msgstr "This computer and Overleaf both changed the same part of this file since the last sync. Choose which version to keep for each spot. Saving writes your choice to this file, and Overleaf sync then uploads it."
+
+#: src/history/conflict-resolver.tsx
+msgid "This computer removed this part."
+msgstr "This computer removed this part."
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
@@ -6488,6 +6623,11 @@ msgstr "Version named."
 msgid "Version saved."
 msgstr "Version saved."
 
+#. placeholder {0}: props.position
+#: src/history/conflict-resolver.tsx
+msgid "Version to keep for spot {0}"
+msgstr "Version to keep for spot {0}"
+
 #: src/history/history-drawer.tsx
 msgid "Versions"
 msgstr "Versions"
@@ -6649,6 +6789,10 @@ msgstr "You’re on the latest version"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Your LaTeX and your PDF, side by side"
 msgstr "Your LaTeX and your PDF, side by side"
+
+#: src/history/conflict-resolver.tsx
+msgid "Your Lattice copy"
+msgstr "Your Lattice copy"
 
 #: src/collab/collab-dialog.tsx
 msgid "Your name"

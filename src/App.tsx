@@ -6190,6 +6190,11 @@ function App() {
       if (projectRootRef.current !== importRoot) return;
       if (importRoot) setRecentPaperImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
       const snapshot = await refreshProject();
+      // papers.rs writes the bibliography directly; hand it to Overleaf sync
+      // like any other disk edit instead of waiting for an unrelated save.
+      if (!result.alreadyImported && result.citationKey) {
+        externalOverleafEditsRef.current([snapshot.manifest.primaryBibliography]);
+      }
       await refreshHistory();
       if (collabSession && !result.alreadyImported) {
         // Bibliography is the shared paper catalog. Full-text bundles stay
@@ -8716,6 +8721,7 @@ function App() {
           projectRoot: project.root,
         });
       }
+      externalOverleafEditsRef.current([bibliography]);
       // Re-sync the editor buffer and collab peers with what's now on disk.
       const next = await invoke<string>("read_project_file", { path: bibliography });
       await publishTextToCollabV2(bibliography, next);
@@ -9273,6 +9279,9 @@ function App() {
           projectRoot={project?.root ?? ""}
           onClose={() => setConflictPath(null)}
           onResolved={async (path) => {
+            // Sync held this file back while it carried markers. Now that it
+            // is settled, queue the upload so the choice reaches Overleaf.
+            externalOverleafEditsRef.current([path]);
             await refreshProject();
             if (activeFile === path) await loadFile(path);
             setError(null);
@@ -10644,6 +10653,12 @@ function App() {
             if (!await save()) throw new Error(t`Save pending edits before updating references.`);
             if (projectRootRef.current !== root || !writable()) throw new Error(t`The project or its permissions changed. Check references again.`);
             await invoke("bibliography_audit_apply", { projectRoot: root, path: entry.path, key: entry.key, before: result.before, after: result.after });
+            // The update was written straight to disk, not through a save, so
+            // nothing would otherwise schedule its Overleaf upload. Left
+            // unsynced, it meets the next unrelated sync as a local edit and
+            // any Overleaf change to the bibliography in between turns into a
+            // conflict.
+            externalOverleafEditsRef.current([entry.path]);
             if (projectRootRef.current !== root) return;
             const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
             if (projectRootRef.current !== root) return;

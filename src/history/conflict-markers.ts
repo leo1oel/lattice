@@ -1,10 +1,15 @@
 /**
  * Parsing and resolving the conflict markers a three-way merge leaves behind.
  *
- * The markers are the standard `<<<<<<< / ======= / >>>>>>>` form, so a file
- * carrying them is readable in any editor. Understanding them here is what
- * lets the app offer "keep mine / keep theirs / keep both" per spot instead of
- * asking someone to hand-edit around the markers.
+ * The markers are the standard `<<<<<<< / ======= / >>>>>>>` form, optionally
+ * with a diff3 `|||||||` section carrying the last common version between the
+ * two sides. Overleaf sync writes the diff3 form (diffy's default style), so
+ * the base section is not an edge case: treating it as part of "ours" put the
+ * previous synced text back into the file whenever someone kept their side.
+ *
+ * Everything works on line arrays rather than joined strings, so an empty side
+ * (one side deleted the whole region) resolves to no lines at all instead of
+ * leaving a stray blank line where the region used to be.
  */
 
 export type ConflictHunk = {
@@ -12,6 +17,11 @@ export type ConflictHunk = {
   index: number;
   ours: string;
   theirs: string;
+  /** The last synced version of this spot, when the markers carry one. */
+  base: string | null;
+  oursLines: string[];
+  theirsLines: string[];
+  baseLines: string[] | null;
   /** 1-based line where the conflict starts, for jumping to it. */
   line: number;
 };
@@ -19,16 +29,30 @@ export type ConflictHunk = {
 export type ConflictChoice = "ours" | "theirs" | "both";
 
 type Block =
-  | { kind: "text"; text: string }
-  | { kind: "conflict"; ours: string; theirs: string; line: number };
+  | { kind: "text"; lines: string[] }
+  | {
+    kind: "conflict";
+    ours: string[];
+    base: string[] | null;
+    theirs: string[];
+    /** The marker lines and body exactly as found, kept for undecided spots. */
+    raw: string[];
+    line: number;
+  };
 
 const START = "<<<<<<<";
+const BASE = "|||||||";
 const MIDDLE = "=======";
 const END = ">>>>>>>";
 
+const isMarker = (line: string, marker: string) => (
+  line === marker || line.startsWith(`${marker} `)
+);
+
 /**
- * Split a file into plain stretches and conflict blocks. Unterminated markers
- * are treated as ordinary text, so a half-written file is never mangled.
+ * Split a file into plain stretches and conflict blocks. Unterminated or
+ * malformed markers are treated as ordinary text, so a half-written file is
+ * never mangled.
  */
 export function parseConflictBlocks(content: string): Block[] {
   const lines = content.split("\n");
@@ -38,41 +62,44 @@ export function parseConflictBlocks(content: string): Block[] {
 
   const flushText = () => {
     if (text.length) {
-      blocks.push({ kind: "text", text: text.join("\n") });
+      blocks.push({ kind: "text", lines: text });
       text = [];
     }
   };
 
   while (index < lines.length) {
     const line = lines[index] ?? "";
-    if (!line.startsWith(START)) {
+    if (!isMarker(line, START)) {
       text.push(line);
       index += 1;
       continue;
     }
-    const startLine = index + 1;
     const ours: string[] = [];
+    let base: string[] | null = null;
     const theirs: string[] = [];
+    let section: "ours" | "base" | "theirs" = "ours";
     let cursor = index + 1;
-    let sawMiddle = false;
     let closed = false;
     while (cursor < lines.length) {
       const current = lines[cursor] ?? "";
-      if (current.startsWith(MIDDLE)) {
-        sawMiddle = true;
-        cursor += 1;
-        continue;
-      }
-      if (current.startsWith(END)) {
+      if (section === "ours" && isMarker(current, BASE)) {
+        section = "base";
+        base = [];
+      } else if (section !== "theirs" && isMarker(current, MIDDLE)) {
+        section = "theirs";
+      } else if (section === "theirs" && isMarker(current, END)) {
         closed = true;
         cursor += 1;
         break;
+      } else if (isMarker(current, START)) {
+        // A nested start means this one was never closed.
+        break;
+      } else {
+        (section === "ours" ? ours : section === "base" ? base! : theirs).push(current);
       }
-      (sawMiddle ? theirs : ours).push(current);
       cursor += 1;
     }
     if (!closed) {
-      // No closing marker: leave the rest exactly as it is.
       text.push(line);
       index += 1;
       continue;
@@ -80,9 +107,11 @@ export function parseConflictBlocks(content: string): Block[] {
     flushText();
     blocks.push({
       kind: "conflict",
-      ours: ours.join("\n"),
-      theirs: theirs.join("\n"),
-      line: startLine,
+      ours,
+      base,
+      theirs,
+      raw: lines.slice(index, cursor),
+      line: index + 1,
     });
     index = cursor;
   }
@@ -94,7 +123,16 @@ export function conflictHunks(content: string): ConflictHunk[] {
   const hunks: ConflictHunk[] = [];
   parseConflictBlocks(content).forEach((block, index) => {
     if (block.kind === "conflict") {
-      hunks.push({ index, ours: block.ours, theirs: block.theirs, line: block.line });
+      hunks.push({
+        index,
+        ours: block.ours.join("\n"),
+        theirs: block.theirs.join("\n"),
+        base: block.base?.join("\n") ?? null,
+        oursLines: block.ours,
+        theirsLines: block.theirs,
+        baseLines: block.base,
+        line: block.line,
+      });
     }
   });
   return hunks;
@@ -106,28 +144,19 @@ export function hasConflictMarkers(content: string): boolean {
 
 /**
  * Rebuild the file with a choice applied to each resolved conflict. Blocks left
- * undecided keep their markers, so a partial pass is safe to save.
+ * undecided keep their original markers (base section included), so a partial
+ * pass is safe to save and can be finished later.
  */
 export function resolveConflicts(
   content: string,
-  choices: Map<number, ConflictChoice>,
+  choices: ReadonlyMap<number, ConflictChoice>,
 ): string {
-  const blocks = parseConflictBlocks(content);
-  const parts = blocks.map((block, index) => {
-    if (block.kind === "text") return block.text;
+  return parseConflictBlocks(content).flatMap((block, index) => {
+    if (block.kind === "text") return block.lines;
     const choice = choices.get(index);
-    if (!choice) {
-      return [
-        `${START} ours`,
-        block.ours,
-        MIDDLE,
-        block.theirs,
-        `${END} theirs`,
-      ].join("\n");
-    }
     if (choice === "ours") return block.ours;
     if (choice === "theirs") return block.theirs;
-    return `${block.ours}\n${block.theirs}`;
-  });
-  return parts.join("\n");
+    if (choice === "both") return [...block.ours, ...block.theirs];
+    return block.raw;
+  }).join("\n");
 }

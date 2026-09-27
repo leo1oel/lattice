@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,46 +14,21 @@ const conflict = [
   "after",
 ].join("\n");
 
+// The file Overleaf sync wrote when Overleaf's references.bib was emptied
+// while Papers had appended an entry locally: one diff3 block around the
+// whole file, with an empty Overleaf side.
+const ours = "@misc{a,\n  title = {A},\n}\n\n@misc{b,\n  title = {B},\n}";
+const wholeFile = [
+  "<<<<<<< ours",
+  ours,
+  "||||||| original",
+  "@misc{a,\n  title = {A},\n}",
+  "=======",
+  ">>>>>>> theirs",
+  "",
+].join("\n");
+
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@pierre/diffs", () => ({
-  UnresolvedFile: class {
-    private options: { onMergeConflictResolve: (file: { contents: string }) => void };
-    private container?: HTMLElement;
-
-    constructor(options: { onMergeConflictResolve: (file: { contents: string }) => void }) {
-      this.options = options;
-    }
-
-    render({ containerWrapper }: { containerWrapper: HTMLElement }) {
-      this.container = document.createElement("diffs-container");
-      containerWrapper.append(this.container);
-      const resolveAll = document.createElement("button");
-      resolveAll.textContent = "Use Overleaf";
-      resolveAll.addEventListener("click", () => {
-        this.options.onMergeConflictResolve({ contents: "before\nremote\nafter" });
-      });
-      const resolveFirst = document.createElement("button");
-      resolveFirst.textContent = "Resolve first";
-      resolveFirst.addEventListener("click", () => {
-        this.options.onMergeConflictResolve({ contents: [
-          "before",
-          "remote",
-          "<<<<<<< ours",
-          "second local",
-          "=======",
-          "second remote",
-          ">>>>>>> theirs",
-          "after",
-        ].join("\n") });
-      });
-      this.container.append(resolveAll, resolveFirst);
-    }
-
-    cleanUp() {
-      this.container?.replaceChildren();
-    }
-  },
-}));
 vi.mock("@pierre/diffs/edit", () => ({ Editor: class {} }));
 vi.mock("./file-diff-view", () => ({
   PIERRE_UNSAFE_CSS: "pierre styles",
@@ -85,17 +60,31 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function renderDialog(content: string, path = "references.bib") {
+  vi.mocked(invoke).mockImplementation(async (command) => {
+    if (command === "read_project_file") return content;
+    return undefined;
+  });
+  const onClose = vi.fn();
+  const onResolved = vi.fn();
+  render(
+    <ConflictResolverDialog open path={path} projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />,
+  );
+  return { onClose, onResolved };
+}
+
+const written = () => vi.mocked(invoke).mock.calls
+  .filter(([command]) => command === "write_project_file")
+  .map(([, args]) => (args as { content: string }).content);
+
 describe("ConflictResolverDialog", () => {
   it("closes a stale conflict request without offering to save a marker-free file", async () => {
-    vi.mocked(invoke).mockResolvedValue("The writer has already continued editing.\n");
-    const onClose = vi.fn();
-    const onResolved = vi.fn();
-    render(<ConflictResolverDialog open path="section.tex" projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />);
+    const { onClose, onResolved } = renderDialog("The writer has already continued editing.\n", "section.tex");
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "section.tex", projectRoot: "/tmp/paper" });
     expect(onResolved).not.toHaveBeenCalled();
-    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "write_project_file")).toBe(false);
+    expect(written()).toEqual([]);
   });
 
   it("does not dismiss a newer conflict when an older marker-free read finishes late", async () => {
@@ -108,73 +97,102 @@ describe("ConflictResolverDialog", () => {
     const props = { open: true, projectRoot: "/tmp/paper", onClose, onResolved: vi.fn() };
     const view = render(<ConflictResolverDialog {...props} path="old.tex" />);
     view.rerender(<ConflictResolverDialog {...props} path="new.tex" />);
-    await screen.findByRole("button", { name: "Use Overleaf" });
+    await screen.findByRole("radio", { name: "Keep Overleaf's version" });
     await act(async () => { finishOldRead("Already resolved"); });
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "Resolve conflicts in new.tex" })).toBeInTheDocument();
   });
 
-  it("resolves through Pierre, lets the user edit the result, and saves that draft", async () => {
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "read_project_file") return conflict;
-      return undefined;
+  it("names each side and shows an empty Overleaf side as a removal", async () => {
+    renderDialog(wholeFile);
+    const local = await screen.findByRole("region", { name: "This computer" });
+    const overleaf = screen.getByRole("region", { name: "Overleaf" });
+    expect(within(local).getByText(/@misc\{b,/)).toBeInTheDocument();
+    expect(within(local).queryByText(/\|\|\|\|\|\|\|/)).not.toBeInTheDocument();
+    expect(within(overleaf).getByText("Overleaf removed this part.")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("0 of 1 decided");
+    expect(screen.getByRole("button", { name: "Save decided spots" })).toBeDisabled();
+  });
+
+  it.each([
+    ["Keep this computer's version", `${ours}\n`],
+    ["Keep Overleaf's version", ""],
+    ["Keep both", `${ours}\n`],
+  ])("writes exactly the chosen side for %s, never the base section", async (label, expected) => {
+    const { onClose, onResolved } = renderDialog(wholeFile);
+    const choice = await screen.findByRole("radio", { name: label });
+    fireEvent.click(choice);
+    expect(choice).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Every spot decided");
+    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    await waitFor(() => expect(written()).toEqual([expected]));
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "references.bib",
+      content: expected,
+      projectRoot: "/tmp/paper",
     });
-    const onClose = vi.fn();
-    const onResolved = vi.fn();
+    expect(onResolved).toHaveBeenCalledWith("references.bib");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 
-    render(
-      <ConflictResolverDialog
-        open
-        path="main.tex"
-        projectRoot="/tmp/paper"
-        onClose={onClose}
-        onResolved={onResolved}
-      />,
-    );
+  it("lets the user change a choice before saving", async () => {
+    renderDialog(conflict, "main.tex");
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep this computer's version" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Keep Overleaf's version" }));
+    expect(screen.getByRole("radio", { name: "Keep this computer's version" })).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    await waitFor(() => expect(written()).toEqual(["before\nremote\nafter"]));
+  });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Use Overleaf" }));
-    expect(await screen.findByText("1 of 1 decided")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Review and edit/ }));
+  it("lets the user edit the combined result and saves that draft", async () => {
+    const { onResolved } = renderDialog(conflict, "main.tex");
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep Overleaf's version" }));
+    fireEvent.click(screen.getByRole("button", { name: /Edit before saving/ }));
 
     const editor = await screen.findByRole("textbox", { name: "Resolved file" });
     expect(editor).toHaveValue("before\nremote\nafter");
     fireEvent.change(editor, { target: { value: "before\nrevised remote\nafter" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "main.tex",
-      content: "before\nrevised remote\nafter",
-      projectRoot: "/tmp/paper",
-    }));
+    await waitFor(() => expect(written()).toEqual(["before\nrevised remote\nafter"]));
     expect(onResolved).toHaveBeenCalledWith("main.tex");
-    expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("saves a resolved first conflict while preserving later conflict markers", async () => {
+  it("saves decided spots while preserving later conflict markers", async () => {
     const twoConflicts = `${conflict.replace("after", "middle")}\n<<<<<<< ours\nsecond local\n=======\nsecond remote\n>>>>>>> theirs\nafter`;
+    renderDialog(twoConflicts, "main.tex");
+    const [firstOverleaf] = await screen.findAllByRole("radio", { name: "Keep Overleaf's version" });
+    fireEvent.click(firstOverleaf);
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 2 decided");
+    fireEvent.click(screen.getByRole("button", { name: "Save decided spots" }));
+
+    await waitFor(() => expect(written()).toEqual([
+      "before\nremote\nmiddle\n<<<<<<< ours\nsecond local\n=======\nsecond remote\n>>>>>>> theirs\nafter",
+    ]));
+  });
+
+  it("applies one choice to every spot at once", async () => {
+    const twoConflicts = `${conflict.replace("after", "middle")}\n<<<<<<< ours\nsecond local\n=======\nsecond remote\n>>>>>>> theirs\nafter`;
+    renderDialog(twoConflicts, "main.tex");
+    const bulk = await screen.findByRole("group", { name: "Choose for every spot" });
+    fireEvent.click(within(bulk).getByRole("button", { name: "Keep this computer's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    await waitFor(() => expect(written()).toEqual(["before\nlocal\nmiddle\nsecond local\nafter"]));
+  });
+
+  it("keeps the dialog open and reports a failed write", async () => {
     vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "read_project_file") return twoConflicts;
+      if (command === "read_project_file") return conflict;
+      if (command === "write_project_file") throw new Error("disk full");
       return undefined;
     });
-
-    render(
-      <ConflictResolverDialog
-        open
-        path="main.tex"
-        projectRoot="/tmp/paper"
-        onClose={vi.fn()}
-        onResolved={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(await screen.findByRole("button", { name: "Resolve first" }));
-    expect(await screen.findByText("1 of 2 decided")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save progress" }));
-
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "main.tex",
-      content: expect.stringContaining("<<<<<<< ours\nsecond local"),
-      projectRoot: "/tmp/paper",
-    }));
+    const onClose = vi.fn();
+    const onResolved = vi.fn();
+    render(<ConflictResolverDialog open path="main.tex" projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep both" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    expect(await screen.findByText(/disk full/)).toBeInTheDocument();
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
