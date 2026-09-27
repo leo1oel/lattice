@@ -21,7 +21,7 @@ import {
 import { formatBibDocument } from "./papers/bib-format";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
 import { listenForBrowserProjectDrops } from "./project/browser-project-drop";
-import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
+import { SearchPickerDialog } from "./components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
 import { paperImportStageLabel } from "./papers/paper-import-progress";
@@ -74,7 +74,7 @@ import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppOnboardingTour } from "./app/app-onboarding-tour";
 import { AppProjectDialogs, TexSetupDialogs, type CreateProjectForm } from "./app/app-project-dialogs";
-import { AppProjectSearchDialogs, AppSearchDialogs } from "./app/app-search-dialogs";
+import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { AppWorkspaceSidebar } from "./app/app-workspace-sidebar";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -156,12 +156,7 @@ import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
 import { TUTORIAL_STEPS } from "./onboarding/onboarding-steps";
-import {
-  activeOutlineNode,
-  flattenOutline,
-  includedPathsIn,
-  parseProjectOutline,
-} from "./editor/latex/latex-outline";
+import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "./editor/latex/latex-outline";
 import { katexMacrosFromSources } from "./editor/latex/katex-macros";
 import {
   editorDropPreviewAt,
@@ -340,15 +335,6 @@ function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<st
       paths.add(node.path);
     }
     if (node.children.length) collectAssetPaths(node.children, paths);
-  }
-  return paths;
-}
-
-function collectQuickOpenPaths(nodes: FileNode[], paths: string[] = []): string[] {
-  for (const node of nodes) {
-    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
-    if (!isDirectory && node.path) paths.push(node.path);
-    if (node.children.length) collectQuickOpenPaths(node.children, paths);
   }
   return paths;
 }
@@ -606,8 +592,7 @@ function App() {
   const projectSearch = useProjectSearch();
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
-  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
-  const [gotoLineOpen, setGotoLineOpen] = useState(false);
+  const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const referencePreviewCache = useRef(new Map<string, ReferencePreviewCacheEntry>());
@@ -669,12 +654,7 @@ function App() {
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
     useState<AgentGitWorkspaceView>("changes");
-  /**
-   * Non-null while the drawer is pinned to one agent turn's checkpoint diff.
-   * Kept separate from gitWorkspaceView: the review needs a thread + turn to
-   * mean anything, so the tab only exists while a request is present, and
-   * switching to Changes / Pull requests drops back to the working tree.
-   */
+  // Pinned turn review: see HistoryDrawersState.
   const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
   const [todosOpen, setTodosOpen] = useState(false);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
@@ -861,11 +841,14 @@ function App() {
     };
   }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
+  /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
+  const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
+    setCiteInsertRequest({ key, command, id: crypto.randomUUID() });
+    setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+  }, []);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
-  const [refCitePicker, setRefCitePicker] = useState<"cite" | "ref" | null>(null);
   const closedTabsRef = useRef<string[]>([]);
   const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
   const [referenceHits, setReferenceHits] = useState<{
@@ -3265,10 +3248,7 @@ function App() {
         setSavedSource(content);
       },
     },
-    onCite: (key) => {
-      setCiteInsertRequest({ key, command: "cite", id: crypto.randomUUID() });
-      setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-    },
+    onCite: (key) => insertCitation(key, "cite"),
   });
 
   const openPaper = useCallback(async (
@@ -5524,34 +5504,6 @@ function App() {
     setSettingsOpen(true);
   }, []);
 
-  const revert = useCallback(
-    async (id: string) => {
-      if (!await confirmAction(
-        "Restore the project to the state before this change? The restore will be added as a new history entry.",
-      )) return;
-      try {
-        await invoke("revert_transaction", { transactionId: id, projectRoot: project?.root });
-        if (activeFile) await loadFile(activeFile);
-        await refreshProject();
-        await refreshHistory();
-        await compile();
-      } catch (reason) {
-        setError(toMessage(reason));
-      }
-    },
-    [activeFile, compile, loadFile, project?.root, refreshHistory, refreshProject],
-  );
-
-  const deleteHistory = useCallback(async (id: string) => {
-    if (!await confirmAction("Delete this history entry? This cannot be undone.")) return;
-    try {
-      await invoke("delete_history_entry", { transactionId: id });
-      await refreshHistory();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [refreshHistory]);
-
 
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
@@ -5707,10 +5659,6 @@ function App() {
     () => (project ? flattenProjectPaths(project.files) : []),
     [project],
   );
-  const quickOpenPaths = useMemo(
-    () => (project ? collectQuickOpenPaths(project.files) : []),
-    [project],
-  );
   const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
     ?? project?.manifest.rootDocuments[0]?.path
     ?? "";
@@ -5781,45 +5729,6 @@ function App() {
     }
     return merged;
   }, [activeFile, activeTexSource, references, secondaryFile, secondaryTexSource]);
-  const goToSymbolItems = useMemo((): SearchPickerItem[] => {
-    const sections = flattenOutline(outlineNodes)
-      .filter((node) => node.kind !== "input")
-      .map((node) => ({
-        id: `section:${node.id}`,
-        label: node.title,
-        detail: `${node.path || activeFile}:${node.line}`,
-        group: "Section",
-      }));
-    const labels = liveReferences.map((reference) => ({
-      id: `label:${reference.path}:${reference.label}`,
-      label: reference.label,
-      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
-      group: "Label",
-    }));
-    return [...sections, ...labels];
-  }, [activeFile, liveReferences, outlineNodes]);
-  const citePickerItems = useMemo((): SearchPickerItem[] => (
-    (citations.length
-      ? citations.map((citation) => ({
-        id: `cite:${citation.key}`,
-        label: citation.key,
-        detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
-        group: "Citation",
-      }))
-      : citationKeys.map((key) => ({
-        id: `cite:${key}`,
-        label: key,
-        group: "Citation",
-      })))
-  ), [citationKeys, citations]);
-  const refPickerItems = useMemo((): SearchPickerItem[] => (
-    liveReferences.map((reference) => ({
-      id: `ref:${reference.path}:${reference.label}`,
-      label: reference.label,
-      detail: `${reference.path}:${reference.line}`,
-      group: "Reference",
-    }))
-  ), [liveReferences]);
   const activeOutlineId = useMemo(() => {
     if (!activeFile.endsWith(".tex") || !editorPosition) return null;
     return activeOutlineNode(outlineNodes, activeFile, editorPosition.line)?.id ?? null;
@@ -6105,9 +6014,9 @@ function App() {
     { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
     { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
     { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
-    { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setQuickOpenOpen(true) },
-    { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setGotoLineOpen(true) },
-    { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setGoToSymbolOpen(true) },
+    { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
+    { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
+    { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
     { id: "back", key: "[", run: () => void navigateHistory(-1) },
     { id: "forward", key: "]", run: () => void navigateHistory(1) },
     { id: "palette", key: "p", shift: true, run: () => setCommandPaletteOpen(true) },
@@ -6133,8 +6042,8 @@ function App() {
       run: () => openCollabDialog(),
     },
     { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
-    { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setRefCitePicker("cite") },
-    { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setRefCitePicker("ref") },
+    { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
+    { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
     { id: "bib", label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
     { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => referenceImport.setLiteratureOpen(true) },
     { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
@@ -6720,7 +6629,7 @@ function App() {
             onWrapEnvHandled={(id) => setWrapEnvRequest((current) => current?.id === id ? null : current)}
             localMacros={liveMacros}
             katexMacros={katexMacros}
-            onGotoLineRequest={() => setGotoLineOpen(true)}
+            onGotoLineRequest={() => setSearchDialog("goto-line")}
             outlineOpen={outlineOpen}
             onOutlineOpenChange={setOutlineOpen}
             outlineNodes={outlineNodes}
@@ -6831,34 +6740,24 @@ function App() {
       )}
 
       <AppHistoryDrawers
+        drawers={{
+          historyOpen, setHistoryOpen, gitOpen, setGitOpen, gitWorkspaceView, setGitWorkspaceView,
+          agentTurnReview, setAgentTurnReview,
+        }}
+        synara={synara}
+        project={project}
         activeFile={activeFile}
-        agentTurnReview={agentTurnReview}
         appLocale={appLocale}
+        theme={theme}
         compile={compile}
-        deleteHistory={deleteHistory}
-        gitOpen={gitOpen}
         gitRemoteUrl={projectGit.gitRemoteUrl}
-        gitWorkspaceView={gitWorkspaceView}
-        historyOpen={historyOpen}
         loadFile={loadFile}
         openProjectFile={openProjectFile}
         overleafLink={overleafLink}
-        project={project}
         projectHistory={projectHistory}
         refreshHistory={refreshHistory}
         refreshProject={refreshProject}
-        retrySynaraRuntime={synara.retry}
-        revert={revert}
         runOverleafSync={runOverleafSync}
-        setAgentTurnReview={setAgentTurnReview}
-        setGitOpen={setGitOpen}
-        setGitWorkspaceView={setGitWorkspaceView}
-        setHistoryOpen={setHistoryOpen}
-        synaraIframeRef={synara.frameRef}
-        synaraOrigin={synara.origin}
-        synaraRuntime={synara.runtime}
-        synaraSourceControlFrameRef={synara.sourceControlFrameRef}
-        theme={theme}
       />
 
       <AppEditorPanels
@@ -6903,29 +6802,23 @@ function App() {
       />
 
       <AppSearchDialogs
+        open={searchDialog}
+        setOpen={setSearchDialog}
         activeFile={activeFile}
-        citePickerItems={citePickerItems}
+        files={project.files}
+        citations={citations}
+        citationKeys={citationKeys}
         editorPosition={editorPosition}
-        gotoLineOpen={gotoLineOpen}
-        goToSymbolItems={goToSymbolItems}
-        goToSymbolOpen={goToSymbolOpen}
         liveReferences={liveReferences}
+        outlineNodes={outlineNodes}
+        source={source}
         openProjectAsset={openProjectAsset}
         openProjectFile={openProjectFile}
-        outlineNodes={outlineNodes}
         prewarmLikelyProjectFile={prewarmLikelyProjectFile}
-        quickOpenOpen={quickOpenOpen}
-        quickOpenPaths={quickOpenPaths}
-        refCitePicker={refCitePicker}
-        refPickerItems={refPickerItems}
-        setCanvasMode={setCanvasMode}
-        setCiteInsertRequest={setCiteInsertRequest}
-        setEditorNavigation={setEditorNavigation}
-        setGotoLineOpen={setGotoLineOpen}
-        setGoToSymbolOpen={setGoToSymbolOpen}
-        setQuickOpenOpen={setQuickOpenOpen}
-        setRefCitePicker={setRefCitePicker}
-        source={source}
+        insertReference={insertCitation}
+        goToLine={(line) => {
+          if (activeFile) setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
+        }}
       />
 
       {bibliographyAuditRoot === project.root && <Suspense fallback={null}>

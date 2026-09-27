@@ -7,7 +7,7 @@
  * whole project on the Rust side, find and replace, which need the project
  * generation refs to discard results from a project that has moved on.
  */
-import { type Dispatch, type RefObject, type SetStateAction } from "react";
+import type { RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { GotoLineDialog } from "../editor/goto-line-dialog";
@@ -24,106 +24,134 @@ import {
 import type { useLocalSemanticSearch } from "./use-local-semantic-search";
 import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
-import { type ReferenceInfo } from "../editor/latex/latex-text";
+import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
 import { setError, setNotice } from "./notify";
 import type {
-  CanvasMode,
-  EditorNavigation,
-  EditorPosition,
-  InsertSymbolCommand,
-  OpenProjectFile,
-  ProjectSnapshot,
-  RefreshProject,
-  ReplaceResult,
+  EditorPosition, FileNode, OpenProjectFile, ProjectSnapshot, RefreshProject, ReplaceResult,
 } from "../app-types";
 
-export type AppSearchDialogsProps = {
+/** The navigation dialogs; at most one is open at a time. */
+export type SearchDialog = "quick-open" | "goto-symbol" | "goto-line" | "cite" | "ref";
+
+function collectQuickOpenPaths(nodes: FileNode[], paths: string[] = []): string[] {
+  for (const node of nodes) {
+    const isDirectory = node.kind === "directory" || node.contentKind === "directory";
+    if (!isDirectory && node.path) paths.push(node.path);
+    if (node.children.length) collectQuickOpenPaths(node.children, paths);
+  }
+  return paths;
+}
+
+export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, outlineNodes, liveReferences, ...props }: {
+  open: SearchDialog | null;
+  setOpen: (dialog: SearchDialog | null) => void;
   activeFile: string;
-  citePickerItems: SearchPickerItem[];
+  files: FileNode[];
+  citations: CitationInfo[];
+  citationKeys: string[];
   editorPosition: EditorPosition | null;
-  gotoLineOpen: boolean;
-  goToSymbolItems: SearchPickerItem[];
-  goToSymbolOpen: boolean;
   liveReferences: ReferenceInfo[];
+  outlineNodes: OutlineNode[];
+  source: string;
   openProjectAsset: (path: string) => Promise<boolean>;
   openProjectFile: OpenProjectFile;
-  outlineNodes: OutlineNode[];
   prewarmLikelyProjectFile: (path: string) => void;
-  quickOpenOpen: boolean;
-  quickOpenPaths: string[];
-  refCitePicker: "ref" | "cite" | null;
-  refPickerItems: SearchPickerItem[];
-  setCanvasMode: Dispatch<SetStateAction<CanvasMode>>;
-  setCiteInsertRequest: Dispatch<SetStateAction<{ key: string; command: InsertSymbolCommand; id: string; } | null>>;
-  setEditorNavigation: Dispatch<SetStateAction<EditorNavigation | null>>;
-  setGotoLineOpen: Dispatch<SetStateAction<boolean>>;
-  setGoToSymbolOpen: Dispatch<SetStateAction<boolean>>;
-  setQuickOpenOpen: Dispatch<SetStateAction<boolean>>;
-  setRefCitePicker: Dispatch<SetStateAction<"ref" | "cite" | null>>;
-  source: string;
-};
-
-export function AppSearchDialogs(props: AppSearchDialogsProps) {
+  /** Insert `\cite{key}` or `\ref{key}` at the editor caret. */
+  insertReference: (key: string, command: "cite" | "ref") => void;
+  goToLine: (line: number) => void;
+}) {
   const { t } = useLingui();
-  const { activeFile, openProjectFile, setRefCitePicker } = props;
+  const close = () => setOpen(null);
+  // Items are derived only for the dialog on screen.
+  const symbolItems = (): SearchPickerItem[] => [
+    ...flattenOutline(outlineNodes).filter((node) => node.kind !== "input").map((node) => ({
+      id: `section:${node.id}`,
+      label: node.title,
+      detail: `${node.path || activeFile}:${node.line}`,
+      group: "Section",
+    })),
+    ...liveReferences.map((reference) => ({
+      id: `label:${reference.path}:${reference.label}`,
+      label: reference.label,
+      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
+      group: "Label",
+    })),
+  ];
   const insertPickers = [
-    { command: "cite", title: t`Insert citation`, placeholder: t({ message: "Insert \\cite{…}" }), items: props.citePickerItems },
-    { command: "ref", title: t`Insert reference`, placeholder: t({ message: "Insert \\ref{…}" }), items: props.refPickerItems },
+    {
+      command: "cite", title: t`Insert citation`, placeholder: t({ message: "Insert \\cite{…}" }),
+      items: (): SearchPickerItem[] => props.citations.length
+        ? props.citations.map((citation) => ({
+          id: `cite:${citation.key}`,
+          label: citation.key,
+          detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
+          group: "Citation",
+        }))
+        : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: "Citation" })),
+    },
+    {
+      command: "ref", title: t`Insert reference`, placeholder: t({ message: "Insert \\ref{…}" }),
+      items: (): SearchPickerItem[] => liveReferences.map((reference) => ({
+        id: `ref:${reference.path}:${reference.label}`,
+        label: reference.label,
+        detail: `${reference.path}:${reference.line}`,
+        group: "Reference",
+      })),
+    },
   ] as const;
   return (
     <>
       <QuickOpenDialog
-        open={props.quickOpenOpen}
-        paths={props.quickOpenPaths}
-        onClose={() => props.setQuickOpenOpen(false)}
+        open={open === "quick-open"}
+        paths={open === "quick-open" ? collectQuickOpenPaths(props.files) : []}
+        onClose={close}
         onIntent={props.prewarmLikelyProjectFile}
         onOpen={(path) => {
-          props.setQuickOpenOpen(false);
+          close();
           if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
           else void openProjectFile(path);
         }}
       />
       <SearchPickerDialog
-        open={props.goToSymbolOpen}
+        open={open === "goto-symbol"}
         title={t`Go to symbol`}
         placeholder={t`Go to section or label…`}
-        items={props.goToSymbolItems}
-        onClose={() => props.setGoToSymbolOpen(false)}
+        items={open === "goto-symbol" ? symbolItems() : []}
+        onClose={close}
         onSelect={(item) => {
-          props.setGoToSymbolOpen(false);
+          close();
           if (item.id.startsWith("section:")) {
-            const node = flattenOutline(props.outlineNodes).find((entry) => `section:${entry.id}` === item.id);
+            const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
             if (node) void openProjectFile(node.path || activeFile, node.line);
             return;
           }
-          const reference = props.liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
+          const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
           if (reference) void openProjectFile(reference.path, reference.line);
         }}
       />
       {insertPickers.map((picker) => (
         <SearchPickerDialog
           key={picker.command}
-          open={props.refCitePicker === picker.command}
+          open={open === picker.command}
           title={picker.title}
           placeholder={picker.placeholder}
-          items={picker.items}
-          onClose={() => setRefCitePicker(null)}
+          items={open === picker.command ? picker.items() : []}
+          onClose={close}
           onSelect={(item) => {
-            setRefCitePicker(null);
-            props.setCiteInsertRequest({ key: item.label, command: picker.command, id: crypto.randomUUID() });
-            props.setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+            close();
+            props.insertReference(item.label, picker.command);
           }}
         />
       ))}
       <GotoLineDialog
-        open={props.gotoLineOpen}
+        open={open === "goto-line"}
         line={props.editorPosition?.line ?? 1}
         maxLine={Math.max(1, props.source.split("\n").length)}
-        onClose={() => props.setGotoLineOpen(false)}
+        onClose={close}
         onGoto={(line) => {
-          props.setGotoLineOpen(false);
-          if (activeFile) props.setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
+          close();
+          props.goToLine(line);
         }}
       />
     </>
