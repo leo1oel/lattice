@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { EditorDropPreviewPortal, EditorTabs, editorDropPreviewAt } from "./editor-tabs";
@@ -7,6 +8,42 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
+type TabsProps = ComponentProps<typeof EditorTabs>;
+
+function tabsProps(overrides: Partial<TabsProps> = {}): TabsProps {
+  return {
+    tabs: [{ path: "main.tex" }, { path: "sections/intro.tex" }],
+    activePath: "main.tex",
+    onSelect: vi.fn(),
+    onClose: vi.fn(),
+    onReorder: vi.fn(),
+    ...overrides,
+  };
+}
+
+function renderTabs(overrides: Partial<TabsProps> = {}) {
+  const props = tabsProps(overrides);
+  return { ...render(<EditorTabs {...props} />), props };
+}
+
+/** Tabs with a `.canvas-body` drop surface at x 200–1000, y 40–640. */
+function renderTabsOverCanvas(overrides: Partial<TabsProps> = {}) {
+  const props = tabsProps(overrides);
+  const view = render(<><EditorTabs {...props} /><div className="canvas-body" /></>);
+  mockRect(view.container.querySelector<HTMLElement>(".canvas-body")!, { left: 200, top: 40, width: 800, height: 600 });
+  return {
+    ...view,
+    props,
+    rerenderTabs: (next: Partial<TabsProps>) => view.rerender(<><EditorTabs {...tabsProps(next)} /><div className="canvas-body" /></>),
+  };
+}
+
+function mockRect(element: HTMLElement, { left, top, width, height }: { left: number; top: number; width: number; height: number }) {
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+    left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}),
+  } as DOMRect);
+}
 
 // jsdom gives every element a zero-size rect, so lay the tabs out by hand:
 // 100px-wide tabs at x = 0, 100, 200, keyed off their data-tab-path.
@@ -18,17 +55,15 @@ function mockTabLayout(lefts: Record<string, number>) {
   });
 }
 
+const tab = (name: RegExp | string) => screen.getByRole("tab", { name }).closest<HTMLElement>(".editor-tab")!;
+const dropPreview = () => document.querySelector(".editor-tab-split-drop-preview");
+
 describe("EditorTabs", () => {
   it("exposes distinct paths for same-name tabs on focus", async () => {
-    render(
-      <EditorTabs
-        tabs={[{ path: "chapters/intro.tex" }, { path: "appendices/intro.tex", label: "intro.tex" }]}
-        activePath="chapters/intro.tex"
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
+    renderTabs({
+      tabs: [{ path: "chapters/intro.tex" }, { path: "appendices/intro.tex", label: "intro.tex" }],
+      activePath: "chapters/intro.tex",
+    });
     const tabs = screen.getAllByRole("tab", { name: "intro.tex" });
     fireEvent.focus(tabs[0]);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("chapters/intro.tex");
@@ -39,46 +74,21 @@ describe("EditorTabs", () => {
   });
 
   it("renders the active filename when only one tab is open", () => {
-    render(
-      <EditorTabs
-        tabs={[{ path: "main.tex", dirty: true }]}
-        activePath="main.tex"
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
+    renderTabs({ tabs: [{ path: "main.tex", dirty: true }] });
     expect(screen.getByRole("tab", { name: /main\.tex/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Unsaved changes")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close main.tex" })).not.toBeInTheDocument();
   });
 
   it("keeps the tab strip mounted when the PDF has no open tabs", () => {
-    const { container } = render(
-      <EditorTabs
-        tabs={[]}
-        activePath=""
-        canCloseLast
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
+    const { container } = renderTabs({ tabs: [], activePath: "", canCloseLast: true });
     expect(container.querySelector(".editor-tabs")).toBeInTheDocument();
     expect(screen.getByRole("tablist", { name: "Open files" })
       .querySelector(".editor-tabs-content")).toBeEmptyDOMElement();
   });
 
   it("uses the shared horizontal scroll area and maps a plain wheel vertically", () => {
-    const { container } = render(
-      <EditorTabs
-        tabs={[{ path: "a.tex" }, { path: "b.tex" }]}
-        activePath="a.tex"
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
+    const { container } = renderTabs();
     const root = container.querySelector(".editor-tabs-scroll");
     const viewport = screen.getByRole("tablist", { name: "Open files" });
     expect(root).toHaveAttribute("data-slot", "scroll-area");
@@ -90,73 +100,32 @@ describe("EditorTabs", () => {
   });
 
   it("allows PDF mode to close its last tab", () => {
-    const onClose = vi.fn();
-    render(
-      <EditorTabs
-        tabs={[{ path: "main.tex" }]}
-        activePath="main.tex"
-        canCloseLast
-        onSelect={vi.fn()}
-        onClose={onClose}
-        onReorder={vi.fn()}
-      />,
-    );
+    const { props } = renderTabs({ tabs: [{ path: "main.tex" }], canCloseLast: true });
     fireEvent.click(screen.getByRole("button", { name: "Close main.tex" }));
-    expect(onClose).toHaveBeenCalledWith("main.tex");
+    expect(props.onClose).toHaveBeenCalledWith("main.tex");
   });
 
   it("selects a tab on click", () => {
-    const onSelect = vi.fn();
-    render(
-      <EditorTabs
-        tabs={[
-          { path: "main.tex" },
-          { path: "sections/intro.tex" },
-        ]}
-        activePath="main.tex"
-        onSelect={onSelect}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
+    const { props } = renderTabs();
     fireEvent.click(screen.getByRole("tab", { name: /intro\.tex/i }));
-    expect(onSelect).toHaveBeenCalledWith("sections/intro.tex");
+    expect(props.onSelect).toHaveBeenCalledWith("sections/intro.tex");
   });
 
   it("closes without selecting or starting a drag", () => {
-    const onSelect = vi.fn();
-    const onClose = vi.fn();
-    render(
-      <EditorTabs
-        tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
-        activePath="main.tex"
-        onSelect={onSelect}
-        onClose={onClose}
-        onReorder={vi.fn()}
-      />,
-    );
+    const { props } = renderTabs();
     const close = screen.getByRole("button", { name: "Close intro.tex" });
     expect(close).toHaveClass("editor-tab-close");
     fireEvent.pointerDown(close, { button: 0, clientX: 150 });
     fireEvent.click(close);
-    expect(onClose).toHaveBeenCalledWith("sections/intro.tex");
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(props.onClose).toHaveBeenCalledWith("sections/intro.tex");
+    expect(props.onSelect).not.toHaveBeenCalled();
     expect(document.body).not.toHaveClass("reordering-tabs");
   });
 
   it("localizes tab actions and the close tooltip in Chinese", async () => {
     await activateAppLocale("zh-CN");
-    render(
-      <EditorTabs
-        tabs={[{ path: "sections/intro.tex" }]}
-        activePath="sections/intro.tex"
-        canCloseLast
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={vi.fn()}
-      />,
-    );
-    fireEvent.contextMenu(screen.getByRole("tab", { name: "intro.tex" }).closest(".editor-tab")!);
+    renderTabs({ tabs: [{ path: "sections/intro.tex" }], activePath: "sections/intro.tex", canCloseLast: true });
+    fireEvent.contextMenu(tab("intro.tex"));
     expect(await screen.findByRole("menuitem", { name: "打开" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "关闭" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "固定标签页" })).toBeInTheDocument();
@@ -164,39 +133,21 @@ describe("EditorTabs", () => {
   });
 
   it("closes from the context menu", async () => {
-    const onClose = vi.fn();
-    render(
-      <EditorTabs
-        tabs={[
-          { path: "main.tex" },
-          { path: "sections/intro.tex" },
-        ]}
-        activePath="main.tex"
-        onSelect={vi.fn()}
-        onClose={onClose}
-        onReorder={vi.fn()}
-      />,
-    );
-    const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab");
-    fireEvent.contextMenu(introTab as HTMLElement);
+    const { props } = renderTabs();
+    fireEvent.contextMenu(tab(/intro\.tex/i));
     fireEvent.click(await screen.findByRole("menuitem", { name: /^close$/i }));
-    expect(onClose).toHaveBeenCalledWith("sections/intro.tex");
+    expect(props.onClose).toHaveBeenCalledWith("sections/intro.tex");
   });
 
   it("pins and unpins from the context menu and protects pinned tabs from closing", async () => {
     const onClose = vi.fn();
     const onSetPinned = vi.fn();
-    const { rerender } = render(
-      <EditorTabs
-        tabs={[{ path: "main.tex", pinned: true }, { path: "notes.tex" }]}
-        activePath="main.tex"
-        onSelect={vi.fn()}
-        onClose={onClose}
-        onSetPinned={onSetPinned}
-        onReorder={vi.fn()}
-      />,
-    );
-    const mainTab = screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab")!;
+    const { rerender } = renderTabs({
+      tabs: [{ path: "main.tex", pinned: true }, { path: "notes.tex" }],
+      onClose,
+      onSetPinned,
+    });
+    const mainTab = tab(/main\.tex/i);
     expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close main.tex" })).toBeNull();
     fireEvent(mainTab, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
@@ -205,117 +156,50 @@ describe("EditorTabs", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Unpin tab" }));
     expect(onSetPinned).toHaveBeenCalledWith("main.tex", false);
 
-    rerender(
-      <EditorTabs
-        tabs={[{ path: "main.tex" }, { path: "notes.tex" }]}
-        activePath="main.tex"
-        onSelect={vi.fn()}
-        onClose={onClose}
-        onSetPinned={onSetPinned}
-        onReorder={vi.fn()}
-      />,
-    );
-    fireEvent.contextMenu(screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab")!);
+    rerender(<EditorTabs {...tabsProps({ tabs: [{ path: "main.tex" }, { path: "notes.tex" }], onClose, onSetPinned })} />);
+    fireEvent.contextMenu(tab(/main\.tex/i));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Pin tab" }));
     expect(onSetPinned).toHaveBeenLastCalledWith("main.tex", true);
   });
 
-  it("drags a back tab to the front", () => {
-    const onReorder = vi.fn();
-    mockTabLayout({ "a.tex": 0, "b.tex": 100, "c.tex": 200 });
-    render(
-      <EditorTabs
-        tabs={[{ path: "a.tex" }, { path: "b.tex" }, { path: "c.tex" }]}
-        activePath="a.tex"
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={onReorder}
-      />,
-    );
-    const cTab = screen.getByRole("tab", { name: /c\.tex/i }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(cTab, { button: 0, clientX: 250 });
-    fireEvent.pointerMove(window, { clientX: 10 });
-    fireEvent.pointerUp(window, { clientX: 10 });
-    expect(onReorder).toHaveBeenLastCalledWith(["c.tex", "a.tex", "b.tex"]);
-  });
-
-  it("keeps pinned and ordinary tabs in separate drag partitions", () => {
-    const onReorder = vi.fn();
-    mockTabLayout({ "pinned.tex": 0, "a.tex": 100, "b.tex": 200 });
-    render(
-      <EditorTabs
-        tabs={[{ path: "pinned.tex", pinned: true }, { path: "a.tex" }, { path: "b.tex" }]}
-        activePath="a.tex"
-        onSelect={vi.fn()}
-        onClose={vi.fn()}
-        onReorder={onReorder}
-      />,
-    );
-    const ordinary = screen.getByRole("tab", { name: /b\.tex/i }).closest(".editor-tab")!;
-    fireEvent.pointerDown(ordinary, { button: 0, clientX: 250 });
+  it.each([
+    {
+      name: "drags a back tab to the front",
+      tabs: [{ path: "a.tex" }, { path: "b.tex" }, { path: "c.tex" }],
+      drag: "c.tex",
+      expected: ["c.tex", "a.tex", "b.tex"],
+    },
+    {
+      name: "keeps pinned and ordinary tabs in separate drag partitions",
+      tabs: [{ path: "pinned.tex", pinned: true }, { path: "a.tex" }, { path: "b.tex" }],
+      drag: "b.tex",
+      expected: ["pinned.tex", "b.tex", "a.tex"],
+    },
+  ])("$name", ({ tabs, drag, expected }) => {
+    mockTabLayout(Object.fromEntries(tabs.map((item, index) => [item.path, index * 100])));
+    const { props } = renderTabs({ tabs, activePath: "a.tex" });
+    fireEvent.pointerDown(tab(new RegExp(drag.replace(".", "\\."))), { button: 0, clientX: 250 });
     fireEvent.pointerMove(window, { clientX: 0 });
     fireEvent.pointerUp(window, { clientX: 0 });
-    expect(onReorder).toHaveBeenLastCalledWith(["pinned.tex", "b.tex", "a.tex"]);
+    expect(props.onReorder).toHaveBeenLastCalledWith(expected);
   });
 
   it("reports the selected left, center, or right drop zone", () => {
-    const onDropTab = vi.fn();
-    const { container } = render(
-      <>
-        <EditorTabs
-          tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
-          activePath="main.tex"
-          onDropTab={onDropTab}
-          onSelect={vi.fn()}
-          onClose={vi.fn()}
-          onReorder={vi.fn()}
-        />
-        <div className="canvas-body" />
-      </>,
-    );
-    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
-    const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(introTab, { button: 0, clientX: 150, clientY: 16 });
-    fireEvent.pointerMove(window, { clientX: 250, clientY: 300 });
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "left");
-    expect(document.querySelector(".editor-tab-split-drop-target"))
-      .toHaveAttribute("data-drop-target", "left");
-    fireEvent.pointerMove(window, { clientX: 600, clientY: 300 });
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "center");
-    expect(document.querySelector(".editor-tab-split-drop-target"))
-      .toHaveAttribute("data-drop-target", "center");
-    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "right");
+    const { props } = renderTabsOverCanvas({ onDropTab: vi.fn() });
+    fireEvent.pointerDown(tab(/intro\.tex/i), { button: 0, clientX: 150, clientY: 16 });
+    for (const [clientX, zone] of [[250, "left"], [600, "center"], [850, "right"]] as const) {
+      fireEvent.pointerMove(window, { clientX, clientY: 300 });
+      expect(dropPreview()).toHaveAttribute("data-drop-zone", zone);
+      expect(document.querySelector(".editor-tab-split-drop-target")).toHaveAttribute("data-drop-target", zone);
+    }
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
-    expect(onDropTab).toHaveBeenCalledWith("sections/intro.tex", "right");
-    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+    expect(props.onDropTab).toHaveBeenCalledWith("sections/intro.tex", "right");
+    expect(dropPreview()).toBeNull();
   });
 
   it("localizes every split drop target", async () => {
     await activateAppLocale("zh-CN");
-    const preview = {
-      path: "main.tex",
-      left: 0,
-      top: 0,
-      width: 900,
-      height: 600,
-      dividerLeft: null,
-      dividerRight: null,
-    };
+    const preview = { path: "main.tex", left: 0, top: 0, width: 900, height: 600, dividerLeft: null, dividerRight: null };
     render(
       <>
         <EditorDropPreviewPortal preview={{ ...preview, zone: "left" }} />
@@ -339,30 +223,8 @@ describe("EditorTabs", () => {
         </div>
       </div>,
     );
-    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
-    const divider = container.querySelector<HTMLElement>(".split-resizer")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
-    vi.spyOn(divider, "getBoundingClientRect").mockReturnValue({
-      left: 720,
-      right: 721,
-      width: 1,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 720,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    mockRect(container.querySelector<HTMLElement>(".canvas-body")!, { left: 200, top: 40, width: 800, height: 600 });
+    mockRect(container.querySelector<HTMLElement>(".split-resizer")!, { left: 720, top: 40, width: 1, height: 600 });
 
     expect(editorDropPreviewAt("main.tex", 250, 300)).toMatchObject({
       zone: "left",
@@ -379,105 +241,35 @@ describe("EditorTabs", () => {
   });
 
   it("reports active-tab drops so the owner can move or replace panes safely", () => {
-    const onDropTab = vi.fn();
-    const { container } = render(
-      <>
-        <EditorTabs
-          tabs={[{ path: "main.tex" }, { path: "sections/intro.tex" }]}
-          activePath="main.tex"
-          onDropTab={onDropTab}
-          onSelect={vi.fn()}
-          onClose={vi.fn()}
-          onReorder={vi.fn()}
-        />
-        <div className="canvas-body" />
-      </>,
-    );
-    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
-    const mainTab = screen.getByRole("tab", { name: /main\.tex/i }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(mainTab, { button: 0, clientX: 50, clientY: 16 });
+    const { props } = renderTabsOverCanvas({ onDropTab: vi.fn() });
+    fireEvent.pointerDown(tab(/main\.tex/i), { button: 0, clientX: 50, clientY: 16 });
     fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
-    expect(onDropTab).toHaveBeenCalledWith("main.tex", "right");
-    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+    expect(props.onDropTab).toHaveBeenCalledWith("main.tex", "right");
+    expect(dropPreview()).toBeNull();
   });
 
   it("cancels a pending drop when the layout stops accepting file drops", () => {
     const onDropTab = vi.fn();
-    const commonProps = {
-      tabs: [{ path: "main.tex" }, { path: "sections/intro.tex" }],
-      activePath: "main.tex",
-      onSelect: vi.fn(),
-      onClose: vi.fn(),
-      onReorder: vi.fn(),
-    };
-    const { container, rerender } = render(
-      <>
-        <EditorTabs
-          {...commonProps}
-          onDropTab={onDropTab}
-        />
-        <div className="canvas-body" />
-      </>,
-    );
-    const canvas = container.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
-    const introTab = screen.getByRole("tab", { name: /intro\.tex/i }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(introTab, { button: 0, pointerId: 7, clientX: 150, clientY: 16 });
+    const { rerenderTabs } = renderTabsOverCanvas({ onDropTab });
+    fireEvent.pointerDown(tab(/intro\.tex/i), { button: 0, pointerId: 7, clientX: 150, clientY: 16 });
     fireEvent.pointerMove(window, { pointerId: 7, clientX: 850, clientY: 300 });
-    expect(document.querySelector(".editor-tab-split-drop-preview")).not.toBeNull();
+    expect(dropPreview()).not.toBeNull();
 
-    rerender(
-      <>
-        <EditorTabs {...commonProps} />
-        <div className="canvas-body" />
-      </>,
-    );
-    expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
+    rerenderTabs({});
+    expect(dropPreview()).toBeNull();
     fireEvent.pointerUp(window, { pointerId: 7, clientX: 850, clientY: 300 });
     expect(onDropTab).not.toHaveBeenCalled();
     expect(document.body).not.toHaveClass("reordering-tabs");
   });
 
   it("does not reorder or select on a plain click (no drag)", () => {
-    const onReorder = vi.fn();
-    const onSelect = vi.fn();
     mockTabLayout({ "a.tex": 0, "b.tex": 100 });
-    render(
-      <EditorTabs
-        tabs={[{ path: "a.tex" }, { path: "b.tex" }]}
-        activePath="a.tex"
-        onSelect={onSelect}
-        onClose={vi.fn()}
-        onReorder={onReorder}
-      />,
-    );
-    const bTab = screen.getByRole("tab", { name: /b\.tex/i }).closest(".editor-tab") as HTMLElement;
-    fireEvent.pointerDown(bTab, { button: 0, clientX: 150 });
+    const { props } = renderTabs({ tabs: [{ path: "a.tex" }, { path: "b.tex" }], activePath: "a.tex" });
+    fireEvent.pointerDown(tab(/b\.tex/i), { button: 0, clientX: 150 });
     fireEvent.pointerUp(window, { clientX: 150 });
     fireEvent.click(screen.getByRole("tab", { name: /b\.tex/i }));
-    expect(onReorder).not.toHaveBeenCalled();
-    expect(onSelect).toHaveBeenCalledWith("b.tex");
+    expect(props.onReorder).not.toHaveBeenCalled();
+    expect(props.onSelect).toHaveBeenCalledWith("b.tex");
   });
 });

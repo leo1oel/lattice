@@ -566,9 +566,6 @@ export function DocumentCanvas(props: {
   const latexLiveRef = useRef(latexLive);
   latexLiveRef.current = latexLive;
 
-  const diagnosticsRef = useRef({ build: buildDiagnostics, texlab: texlabDiagnostics });
-  diagnosticsRef.current = { build: buildDiagnostics, texlab: texlabDiagnostics };
-
   useEffect(() => {
     for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
       if (view) refreshLint(view);
@@ -604,8 +601,6 @@ export function DocumentCanvas(props: {
     if (selectionToolbarOwnerRef.current?.pane !== pane) dismissSelectionToolbar();
   };
 
-  const collabSeedSourceRef = useRef(props.source);
-  collabSeedSourceRef.current = props.source;
   const collabExtensions = useMemo(() => {
     // Binding before the host's Y.Texts have synced can create a competing
     // placeholder. Keep this stable across keystrokes so yCollab listeners live.
@@ -614,7 +609,7 @@ export function DocumentCanvas(props: {
     // Never turn a transient path mismatch into a render-time app crash; the
     // awaited loadFile/openPath flow will re-render once this path is active.
     if (collabSession.activePath !== activeFile) return EMPTY_EXTENSIONS;
-    collabSession.setActivePath(activeFile, collabSeedSourceRef.current);
+    collabSession.setActivePath(activeFile, latestRef.current.source);
     return collabEditorExtensions(collabSession);
     // awarenessVersion: a transport reconnect swaps provider.awareness — rebuild
     // yCollab against the live Awareness or remote carets silently freeze.
@@ -1068,9 +1063,9 @@ export function DocumentCanvas(props: {
     ]),
   ];
   const diagnosticsExtensions = (path: string): Extension[] => [
-    linter((view) => editorDiagnosticsForFile(diagnosticsRef.current.build, path, view.state.doc), { delay: 150 }),
+    linter((view) => editorDiagnosticsForFile(latestRef.current.buildDiagnostics, path, view.state.doc), { delay: 150 }),
     ...(isLatexSourcePath(path) ? [linter(
-      (view) => editorTexlabDiagnosticsForFile(diagnosticsRef.current.texlab, path, view.state.doc),
+      (view) => editorTexlabDiagnosticsForFile(latestRef.current.texlabDiagnostics, path, view.state.doc),
       { delay: 200 },
     )] : []),
   ];

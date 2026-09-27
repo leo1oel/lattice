@@ -28,36 +28,6 @@ import {
 } from "../components/ui/dropdown-menu";
 import { SegmentedControl } from "../components/ui/segmented-control";
 
-/**
- * What the cloud button says when this file is not live.
- *
- * The live channel either carries the open document or it doesn't, and when it
- * doesn't the reason matters — silently falling back to syncing looks exactly
- * like the feature being broken.
- */
-function overleafChannelLabel(
-  channel: "off" | "connecting" | "live" | "error" | undefined,
-  detail: string | null | undefined,
-  labels: {
-    connecting: string;
-    error: (detail: string | null | undefined) => string;
-    live: string;
-    liveDetail: string;
-    sync: string;
-  },
-) {
-  if (channel === "connecting") {
-    return detail || labels.connecting;
-  }
-  if (channel === "error") {
-    return labels.error(detail);
-  }
-  if (channel === "live") {
-    return detail ? `${detail} · ${labels.liveDetail}` : labels.live;
-  }
-  return labels.sync;
-}
-
 type CanvasToolbarProps = {
   mode: CanvasMode;
   selectedDocumentViewMode?: DocumentViewMode;
@@ -122,6 +92,28 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   const showOverleafOnline = Boolean(props.overleafLinked && (
     props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live"
   ));
+  const [editTitle, splitTitle, previewTitle] = props.markdown
+    ? [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`]
+    : props.html
+      ? [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`]
+      : [t`Edit source`, t`Edit source and preview PDF`, t`Preview PDF`];
+  const overleafLabel = () => {
+    if (!props.overleafLinked) return t`Open a project from Overleaf`;
+    if (props.overleafSyncing) return t`Syncing with Overleaf…`;
+    if (props.overleafPending) return t`New changes on Overleaf — click to bring them in`;
+    if (props.overleafLiveEditing) return t`Editing live with Overleaf · click to sync everything else`;
+    // When this file is not live, say why: silently falling back to syncing
+    // looks exactly like the feature being broken.
+    const detail = props.overleafChannelDetail;
+    switch (props.overleafChannel) {
+      case "connecting": return detail || t`Connecting to Overleaf's live channel…`;
+      case "error": return detail
+        ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
+        : t`Live editing unavailable · syncing instead`;
+      case "live": return detail ? `${detail} · ${t`click to sync`}` : t`Connected live · click to sync everything`;
+      default: return t`Sync with Overleaf`;
+    }
+  };
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
@@ -135,33 +127,9 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             ariaLabel={t`Document view`}
             className="canvas-view-switcher"
             items={[
-              {
-                value: "source",
-                label: t`Edit`,
-                title: props.markdown
-                    ? t`Edit Markdown`
-                    : props.html
-                      ? t`Edit HTML`
-                      : t`Edit source`,
-              },
-              {
-                value: "split",
-                label: t`Split`,
-                title: props.markdown
-                    ? t`Edit and preview Markdown`
-                    : props.html
-                      ? t`Edit and preview HTML`
-                      : t`Edit source and preview PDF`,
-              },
-              {
-                value: "pdf",
-                label: t`Preview`,
-                title: props.markdown
-                    ? t`Preview Markdown`
-                    : props.html
-                      ? t`Preview HTML`
-                      : t`Preview PDF`,
-              },
+              { value: "source", label: t`Edit`, title: editTitle },
+              { value: "split", label: t`Split`, title: splitTitle },
+              { value: "pdf", label: t`Preview`, title: previewTitle },
             ]}
           />
         ) : null}
@@ -237,24 +205,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (
           <div className={props.overleafLinked ? "overleaf-toolbar-group" : undefined}>
-            <Tip label={props.overleafLinked
-              ? (props.overleafSyncing
-                ? t`Syncing with Overleaf…`
-                : props.overleafPending
-                  ? t`New changes on Overleaf — click to bring them in`
-                  : props.overleafLiveEditing
-                    ? t`Editing live with Overleaf · click to sync everything else`
-                    : overleafChannelLabel(props.overleafChannel, props.overleafChannelDetail, {
-                      connecting: t`Connecting to Overleaf's live channel…`,
-                      error: (detail) => detail
-                        ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
-                        : t`Live editing unavailable · syncing instead`,
-                      live: t`Connected live · click to sync everything`,
-                      liveDetail: t`click to sync`,
-                      sync: t`Sync with Overleaf`,
-                    }))
-              : t`Open a project from Overleaf`}
-            >
+            <Tip label={overleafLabel()}>
               <button
                 data-tour="overleaf"
                 className={props.overleafLinked
@@ -353,6 +304,14 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   );
 });
 
+const FORWARDED_HANDLERS = {
+  setMode: true, onSplit: true, onCloseSplit: true, onPaperView: true, onInsert: true, onCollab: true,
+  onHistory: true, onGit: true, onComments: true, onOverleafSync: true, onOverleafOpenCurrent: true,
+  onOverleafOpen: true, onOverleafChat: true,
+} as const satisfies Partial<Record<keyof CanvasToolbarProps, true>>;
+type ForwardedHandlers = Pick<CanvasToolbarProps, keyof typeof FORWARDED_HANDLERS>;
+const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandlers)[];
+
 /**
  * App rebuilds this toolbar's handlers inline on every render, and it renders
  * on every keystroke — so the toolbar was re-rendering constantly even though
@@ -366,37 +325,13 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
   useEffect(() => {
     latest.current = props;
   });
-  const stable = useMemo(() => ({
-    setMode: (mode: DocumentViewMode) => latest.current.setMode(mode),
-    onSplit: () => latest.current.onSplit?.(),
-    onCloseSplit: () => latest.current.onCloseSplit?.(),
-    onPaperView: (view: "blog" | "fulltext") => latest.current.onPaperView?.(view),
-    onInsert: () => latest.current.onInsert(),
-    onCollab: () => latest.current.onCollab(),
-    onHistory: () => latest.current.onHistory(),
-    onGit: () => latest.current.onGit(),
-    onComments: () => latest.current.onComments(),
-    onOverleafSync: () => latest.current.onOverleafSync?.(),
-    onOverleafOpenCurrent: () => latest.current.onOverleafOpenCurrent?.(),
-    onOverleafOpen: () => latest.current.onOverleafOpen?.(),
-    onOverleafChat: () => latest.current.onOverleafChat?.(),
-  }), []);
-  return (
-    <CanvasToolbarView
-      {...props}
-      setMode={stable.setMode}
-      onSplit={props.onSplit ? stable.onSplit : undefined}
-      onCloseSplit={props.onCloseSplit ? stable.onCloseSplit : undefined}
-      onPaperView={props.onPaperView ? stable.onPaperView : undefined}
-      onInsert={stable.onInsert}
-      onCollab={stable.onCollab}
-      onHistory={stable.onHistory}
-      onGit={stable.onGit}
-      onComments={stable.onComments}
-      onOverleafSync={props.onOverleafSync ? stable.onOverleafSync : undefined}
-      onOverleafOpenCurrent={props.onOverleafOpenCurrent ? stable.onOverleafOpenCurrent : undefined}
-      onOverleafOpen={props.onOverleafOpen ? stable.onOverleafOpen : undefined}
-      onOverleafChat={props.onOverleafChat ? stable.onOverleafChat : undefined}
-    />
-  );
+  const stable = useMemo(() => Object.fromEntries(HANDLER_NAMES.map((name) => [
+    name,
+    (...args: unknown[]) => (latest.current[name] as ((...args: unknown[]) => void) | undefined)?.(...args),
+  ])) as Required<ForwardedHandlers>, []);
+  const forwarded = Object.fromEntries(HANDLER_NAMES.map((name) => [
+    name,
+    props[name] ? stable[name] : undefined,
+  ])) as ForwardedHandlers;
+  return <CanvasToolbarView {...props} {...forwarded} />;
 }

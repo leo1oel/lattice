@@ -438,19 +438,14 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(secondaryMarks()).toEqual([]));
   });
 
-  it("gives the whole canvas to the editor in source mode", async () => {
-    const { container } = renderCanvas({ mode: "source" });
+  it.each([
+    { mode: "source", editor: true, preview: false },
+    { mode: "pdf", editor: false, preview: true },
+  ] as const)("gives the whole canvas to one surface in $mode mode", async ({ mode, editor, preview }) => {
+    const { container } = renderCanvas({ mode });
 
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    expect(screen.queryByTestId("pdf-preview")).toBeNull();
-    expect(container.querySelector(".split-canvas")).toBeNull();
-  });
-
-  it("gives the whole canvas to the preview in pdf mode", async () => {
-    const { container } = renderCanvas({ mode: "pdf" });
-
-    expect(await screen.findByTestId("pdf-preview")).toBeInTheDocument();
-    expect(sourceEditor(container)).toBeNull();
+    await waitFor(() => expect(Boolean(sourceEditor(container))).toBe(editor));
+    await waitFor(() => expect(Boolean(screen.queryByTestId("pdf-preview"))).toBe(preview));
     expect(container.querySelector(".split-canvas")).toBeNull();
   });
 
@@ -562,19 +557,15 @@ describe("DocumentCanvas / mode", () => {
 });
 
 describe("DocumentCanvas / editor for the open document", () => {
-  it("mounts the board editor for a .tldr file", async () => {
-    const { container } = renderCanvas({ activeFile: "diagram.tldr", source: "{}" });
+  it.each([
+    { activeFile: "diagram.tldr", testId: "board-editor" },
+    { activeFile: "data.lattice-sheet", testId: "spreadsheet-editor" },
+  ])("mounts the $testId for $activeFile", async ({ activeFile, testId }) => {
+    const { container } = renderCanvas({ activeFile, source: "{}" });
 
-    const board = await screen.findByTestId("board-editor");
-    expect(board.dataset.source).toBe("{}");
-    expect(sourceEditor(container)).toBeNull();
-  });
-
-  it("mounts the spreadsheet editor for a .lattice-sheet file", async () => {
-    const { container } = renderCanvas({ activeFile: "data.lattice-sheet", source: "{}" });
-
-    const sheet = await screen.findByTestId("spreadsheet-editor");
-    expect(sheet.dataset.path).toBe("data.lattice-sheet");
+    const editor = await screen.findByTestId(testId);
+    expect(editor.dataset.path).toBe(activeFile);
+    expect(editor.dataset.source).toBe("{}");
     expect(sourceEditor(container)).toBeNull();
   });
 
@@ -770,11 +761,17 @@ describe("DocumentCanvas / split ratio", () => {
     expect(offset()).toBe(0);
   });
 
-  it("opens at the ratio the last session left behind", () => {
-    localStorage.setItem(SPLIT_RATIO_KEY, "0.6");
+  it.each([
+    // Persisted values outlive the layout that produced them (a wider window,
+    // an older build), and either extreme leaves one side unusable.
+    { stored: "0.6", shown: "60", case: "opens at the ratio the last session left behind" },
+    { stored: "not-a-ratio", shown: "46", case: "falls back to the default when nothing usable is stored" },
+    { stored: "0.97", shown: "80", case: "clamps a stored ratio that would collapse a pane" },
+  ])("$case", ({ stored, shown }) => {
+    localStorage.setItem(SPLIT_RATIO_KEY, stored);
     renderCanvas({ mode: "split" });
 
-    expect(separator()).toHaveAttribute("aria-valuenow", "60");
+    expect(separator()).toHaveAttribute("aria-valuenow", shown);
   });
 
   it("does not replace the saved split preference when a restored window is temporarily narrow", () => {
@@ -813,22 +810,6 @@ describe("DocumentCanvas / split ratio", () => {
     expect(document.body).not.toHaveClass("resizing-split");
   });
 
-  it("falls back to the default when nothing usable is stored", () => {
-    localStorage.setItem(SPLIT_RATIO_KEY, "not-a-ratio");
-    renderCanvas({ mode: "split" });
-
-    expect(separator()).toHaveAttribute("aria-valuenow", "46");
-  });
-
-  it("clamps a stored ratio that would collapse a pane", () => {
-    // Persisted values outlive the layout that produced them (a wider window,
-    // an older build), and either extreme leaves one side unusable.
-    localStorage.setItem(SPLIT_RATIO_KEY, "0.97");
-    renderCanvas({ mode: "split" });
-
-    expect(separator()).toHaveAttribute("aria-valuenow", "80");
-  });
-
   it("nudges the split with the arrow keys and remembers where it stopped", () => {
     renderCanvas({ mode: "split" });
 
@@ -840,23 +821,17 @@ describe("DocumentCanvas / split ratio", () => {
     expect(Number(localStorage.getItem(SPLIT_RATIO_KEY))).toBeCloseTo(0.43, 5);
   });
 
-  it("stops nudging at the edge instead of hiding a pane", () => {
+  it("ignores keys that are not a nudge, and stops nudging at the edge instead of hiding a pane", () => {
     renderCanvas({ mode: "split" });
+
+    fireEvent.keyDown(separator(), { key: "ArrowUp" });
+    expect(separator()).toHaveAttribute("aria-valuenow", "46");
+    expect(localStorage.getItem(SPLIT_RATIO_KEY)).toBeNull();
 
     for (let step = 0; step < 20; step += 1) {
       fireEvent.keyDown(separator(), { key: "ArrowLeft" });
     }
-
     expect(separator()).toHaveAttribute("aria-valuenow", "20");
-  });
-
-  it("ignores keys that are not a nudge", () => {
-    renderCanvas({ mode: "split" });
-
-    fireEvent.keyDown(separator(), { key: "ArrowUp" });
-
-    expect(separator()).toHaveAttribute("aria-valuenow", "46");
-    expect(localStorage.getItem(SPLIT_RATIO_KEY)).toBeNull();
   });
 });
 
