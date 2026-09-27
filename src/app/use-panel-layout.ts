@@ -22,10 +22,7 @@ const minimumTabStripWidth = () => {
   const gap = Number.parseFloat(contentStyle.columnGap || contentStyle.gap) || 4;
   const horizontalPadding = (Number.parseFloat(contentStyle.paddingLeft) || 0)
     + (Number.parseFloat(contentStyle.paddingRight) || 0);
-  const tabsWidth = tabs.reduce((width, tab) => {
-    const minWidth = Number.parseFloat(window.getComputedStyle(tab).minWidth) || 104;
-    return width + minWidth;
-  }, 0);
+  const tabsWidth = tabs.reduce((width, tab) => width + (Number.parseFloat(window.getComputedStyle(tab).minWidth) || 104), 0);
   return Math.max(MIN_TAB_STRIP_WIDTH, tabsWidth + gap * (tabs.length - 1) + horizontalPadding);
 };
 
@@ -33,24 +30,13 @@ const minimumEditorWidth = () => {
   const toolbarWidth = document.querySelector<HTMLElement>(".titlebar-main > .canvas-toolbar")?.offsetWidth ?? 0;
   const titleActionsWidth = document.querySelector<HTMLElement>(".titlebar-main > .title-actions")?.offsetWidth ?? 0;
   const workspaceWidth = window.innerWidth > 1180
-    ? Number(
-      document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")
-        ?.dataset.minimumWorkspaceWidth,
-    ) || 0
+    ? Number(document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")?.dataset.minimumWorkspaceWidth) || 0
     : 0;
-  return Math.max(
-    FALLBACK_MIN_EDITOR_WIDTH,
-    workspaceWidth,
-    toolbarWidth + titleActionsWidth + minimumTabStripWidth(),
-  );
+  return Math.max(FALLBACK_MIN_EDITOR_WIDTH, workspaceWidth, toolbarWidth + titleActionsWidth + minimumTabStripWidth());
 };
 
 const resizedWidth = (start: number, delta: number, minimumSidebarWidth: number) =>
-  clamp(
-    start + delta,
-    minimumSidebarWidth,
-    Math.max(minimumSidebarWidth, window.innerWidth - minimumEditorWidth()),
-  );
+  clamp(start + delta, minimumSidebarWidth, Math.max(minimumSidebarWidth, window.innerWidth - minimumEditorWidth()));
 
 /** Owns the single workspace sidebar's visibility and width. */
 export function usePanelLayout(minimumSidebarWidth = 180) {
@@ -96,18 +82,15 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
   useEffect(() => {
     let timer: number | undefined;
     const fitAfterWindowResize = () => {
-      if (timer !== undefined) window.clearTimeout(timer);
+      window.clearTimeout(timer);
       // This calculation deliberately reads several rendered widths. Doing it
       // once per native resize event forces repeated synchronous layouts and
       // can make WKWebView fall behind the window server during a fast drag.
-      timer = window.setTimeout(() => {
-        timer = undefined;
-        fitSidebarToContent();
-      }, 80);
+      timer = window.setTimeout(fitSidebarToContent, 80);
     };
     window.addEventListener("resize", fitAfterWindowResize);
     return () => {
-      if (timer !== undefined) window.clearTimeout(timer);
+      window.clearTimeout(timer);
       window.removeEventListener("resize", fitAfterWindowResize);
     };
   }, [fitSidebarToContent]);
@@ -149,11 +132,7 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
       // Keep pointer capture alive through the preview. Pulling back rescues
       // the sidebar; releasing commits the close and retains its prior width.
       if (collapse) return;
-      latest = resizedWidth(
-        startWidth,
-        delta,
-        minimumSidebarWidthRef.current,
-      );
+      latest = resizedWidth(startWidth, delta, minimumSidebarWidthRef.current);
       // A rescued panel opens directly to a valid width. Stretching it below
       // the minimum here would add a second movement when the pointer releases.
       overshoot = rescued ? 0 : startWidth + delta - latest;

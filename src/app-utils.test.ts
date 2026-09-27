@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   absoluteProjectPath,
   applyProjectPathChanges,
-  canvasContentAt,
   classifyExternalProjectDrop,
   dropAgentPanelAt,
   dropCanvasAt,
@@ -21,7 +20,7 @@ import {
   resolveKnownWholeFileProjectPath,
   stripFrontmatter,
 } from "./app-utils";
-import type { ProjectSnapshot } from "./app-types";
+import type { FileNode, ProjectSnapshot } from "./app-types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -39,56 +38,47 @@ function expectEach<T>(check: (input: T) => unknown, cases: ReadonlyArray<readon
 }
 
 describe("absoluteProjectPath", () => {
-  it("joins project-relative paths using the root's platform separator", () => {
-    expect(absoluteProjectPath("/Users/example/paper", "figures/result.png"))
-      .toBe("/Users/example/paper/figures/result.png");
-    expect(absoluteProjectPath("C:\\Users\\example\\paper", "figures/result.png"))
-      .toBe("C:\\Users\\example\\paper\\figures\\result.png");
-  });
-
-  it("does not duplicate a trailing root separator", () => {
-    expect(absoluteProjectPath("/Users/example/paper/", "main.tex"))
-      .toBe("/Users/example/paper/main.tex");
+  // Joins with the root's own platform separator, never doubling a trailing one.
+  it.each([
+    ["/Users/example/paper", "figures/result.png", "/Users/example/paper/figures/result.png"],
+    ["C:\\Users\\example\\paper", "figures/result.png", "C:\\Users\\example\\paper\\figures\\result.png"],
+    ["/Users/example/paper/", "main.tex", "/Users/example/paper/main.tex"],
+  ])("joins %s and %s", (root, path, expected) => {
+    expect(absoluteProjectPath(root, path)).toBe(expected);
   });
 });
 
-describe("isProjectSourceFilePath", () => {
-  it("recognizes native spreadsheets as importable project sources", () => {
-    expectEach(isProjectSourceFilePath, [
-      ["tables/results.lattice-sheet", true],
-      ["tables/results.LATTICE-SHEET", true],
-    ]);
-  });
+it("recognizes native spreadsheets as importable project sources", () => {
+  expectEach(isProjectSourceFilePath, [
+    ["tables/results.lattice-sheet", true],
+    ["tables/results.LATTICE-SHEET", true],
+  ]);
 });
 
-describe("overleafHostsMatch", () => {
-  it("matches harmless spelling differences on the same origin", () => {
-    expect(overleafHostsMatch("HTTPS://OVERLEAF.EXAMPLE/", "https://overleaf.example")).toBe(true);
-    expect(overleafHostsMatch("overleaf.example", "https://overleaf.example/")).toBe(true);
+describe("Overleaf host matching", () => {
+  // Harmless spelling differences match; scheme, host, and port stay distinct.
+  it.each([
+    ["HTTPS://OVERLEAF.EXAMPLE/", "https://overleaf.example", true],
+    ["overleaf.example", "https://overleaf.example/", true],
+    ["https://overleaf-a.example", "https://overleaf-b.example", false],
+    ["https://overleaf.example", "http://overleaf.example", false],
+    ["https://overleaf.example:8443", "https://overleaf.example", false],
+    ["https://overleaf.example", "", false],
+  ])("compares %s with %s by origin", (left, right, expected) => {
+    expect(overleafHostsMatch(left, right)).toBe(expected);
   });
 
-  it("keeps scheme, host, and port boundaries distinct", () => {
-    expect(overleafHostsMatch("https://overleaf-a.example", "https://overleaf-b.example")).toBe(false);
-    expect(overleafHostsMatch("https://overleaf.example", "http://overleaf.example")).toBe(false);
-    expect(overleafHostsMatch("https://overleaf.example:8443", "https://overleaf.example")).toBe(false);
-  });
-});
-
-describe("overleafLinkMatchesSession", () => {
   it("treats a legacy link without a stored host as belonging to the session", () => {
     expect(overleafLinkMatchesSession("https://overleaf.example", "")).toBe(true);
-    expect(overleafHostsMatch("https://overleaf.example", "")).toBe(false);
   });
 });
 
 describe("stripFrontmatter", () => {
-  it("removes separator blank lines without changing indented Markdown", () => {
-    expect(stripFrontmatter("---\ntitle: Paper\n---\n\n    indented code\n"))
-      .toBe("    indented code\n");
-  });
-
-  it("returns an empty body for frontmatter-only papers", () => {
-    expect(stripFrontmatter("---\ntitle: Empty\n---")).toBe("");
+  it.each([
+    ["removes separator blank lines without changing indented Markdown", "---\ntitle: Paper\n---\n\n    indented code\n", "    indented code\n"],
+    ["returns an empty body for frontmatter-only papers", "---\ntitle: Empty\n---", ""],
+  ])("%s", (_name, markdown, expected) => {
+    expect(stripFrontmatter(markdown)).toBe(expected);
   });
 
   it.each([
@@ -237,20 +227,13 @@ describe("editor file drops", () => {
     ]);
   });
 
-  it("recovers project-root whole-file links resolved relative to a Markdown folder", () => {
-    const paths = ["notes/local.tldr", "slides/research-update/index.tsx", "results.lattice-sheet", "sketch.tldr"];
+  it("recovers project-root whole-file links from a Markdown folder, keeping exact and missing paths", () => {
+    const paths = ["notes/local.tldr", "slides/research-update/index.tsx", "results.lattice-sheet", "sketch.tldr", "notes/other.md"];
 
     expectEach((path: string) => resolveKnownWholeFileProjectPath(path, paths), [
       ["notes/slides/research-update/index.tsx", "slides/research-update/index.tsx"],
       ["notes/results.lattice-sheet", "results.lattice-sheet"],
       ["notes/sketch.tldr", "sketch.tldr"],
-    ]);
-  });
-
-  it("preserves exact, ordinary Markdown, and missing whole-file link paths", () => {
-    const paths = ["notes/local.tldr", "results.lattice-sheet", "notes/other.md"];
-
-    expectEach((path: string) => resolveKnownWholeFileProjectPath(path, paths), [
       ["notes/local.tldr", "notes/local.tldr"],
       ["notes/other.md", "notes/other.md"],
       ["notes/missing.tldr", "notes/missing.tldr"],
@@ -289,7 +272,7 @@ describe("editor file drops", () => {
     expect(dropEditorAt({ x: 24, y: 40 })).toEqual({ x: 24, y: 40, pane: "secondary" });
   });
 
-  it("identifies the document canvas for pointer and native drop coordinates", () => {
+  it("identifies the document canvas under a native drop position", () => {
     const canvas = document.createElement("div");
     canvas.className = "canvas-body";
     const preview = document.createElement("div");
@@ -298,7 +281,6 @@ describe("editor file drops", () => {
     document.body.append(canvas);
     stubHit(document, () => preview);
 
-    expect(canvasContentAt({ x: 24, y: 40 })).toBe(true);
     expect(dropCanvasAt({ x: 24, y: 40 })).toBe(true);
   });
 
@@ -331,19 +313,16 @@ const projectSnapshot: ProjectSnapshot = {
     trusted: false,
   },
   files: [
-    { name: "figures", path: "figures", kind: "directory", children: [] },
-    {
-      name: "sections",
-      path: "sections",
-      kind: "directory",
-      children: [
-        { name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] },
-      ],
-    },
-    { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-    { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+    fileNode("figures", "directory"),
+    fileNode("sections", "directory", [fileNode("sections/intro.tex", "tex")]),
+    fileNode("main.tex", "tex"),
+    fileNode("references.bib", "bib"),
   ],
 };
+
+function fileNode(path: string, kind: string, children: FileNode[] = []): FileNode {
+  return { name: path.split("/").at(-1) ?? path, path, kind, children };
+}
 
 describe("project path changes", () => {
   it("moves a file into a directory without rescanning the project", () => {

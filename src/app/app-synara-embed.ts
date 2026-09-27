@@ -1,7 +1,7 @@
 /**
- * Synara embed plumbing shared by App and the render-tree modules split out of
- * it: the permission-mode guard App needs for the sidecar's postMessage
- * handshake, and the frame URLs for the agent panel and the Git/review drawer.
+ * Synara embed plumbing shared by App and its render-tree modules: the
+ * permission-mode guard for the sidecar's postMessage handshake, and the frame
+ * URLs for the agent panel and the Git/review drawer.
  */
 import {
   agentGitWorkspacePath,
@@ -10,10 +10,11 @@ import {
 } from "../agent/synara-runtime";
 import { type AppLocale } from "../settings/app-settings";
 
-export type SynaraPermissionMode = "approval-required" | "auto" | "full-access";
+const SYNARA_PERMISSION_MODES = ["approval-required", "auto", "full-access"] as const;
+export type SynaraPermissionMode = typeof SYNARA_PERMISSION_MODES[number];
 
 export function isSynaraPermissionMode(value: unknown): value is SynaraPermissionMode {
-  return value === "approval-required" || value === "auto" || value === "full-access";
+  return SYNARA_PERMISSION_MODES.includes(value as SynaraPermissionMode);
 }
 
 const THREAD_KEY_PREFIX = "lattice.agent-thread.v1:";
@@ -35,17 +36,8 @@ export type SynaraFrameContext = {
   locale: AppLocale;
 };
 
-function frameUrl(frame: SynaraFrameContext, surface: "chrome" | "drawer", path: string): string {
-  return synaraFrameUrl({
-    origin: frame.origin,
-    path,
-    workspaceRoot: frame.projectRoot,
-    theme: frame.theme,
-    locale: frame.locale,
-    surface,
-    hostOrigin: window.location.origin,
-    authToken: frame.authToken,
-  });
+function frameUrl({ projectRoot, ...frame }: SynaraFrameContext, surface: "chrome" | "drawer", path: string): string {
+  return synaraFrameUrl({ ...frame, path, workspaceRoot: projectRoot, surface, hostOrigin: window.location.origin });
 }
 
 export function synaraEmbedUrl(frame: SynaraFrameContext): string {

@@ -1,21 +1,32 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { OverleafThread } from "../app-types";
+import type { OverleafThread, ProjectSnapshot } from "../app-types";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import { applyOverleafRemoteText, projectOverleafEditorComments, useOverleafWorkspace, type OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
 afterEach(() => {
+  cleanup();
   vi.mocked(invoke).mockReset();
-  vi.useRealTimers();
   localStorage.clear();
 });
 
+/** The realtime channel's answers for a project whose only document is section.tex. */
+function realtimeReply(command: string, serverText: string) {
+  if (command === "overleaf_rt_connect") return {
+    publicId: "me", docs: [{ id: "section", path: "section.tex" }], entities: [],
+    permission: "readAndWrite", trackChanges: false, userId: "me",
+  };
+  if (command === "overleaf_rt_join_doc") return {
+    text: serverText, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
+  };
+}
+
 function remoteFixture() {
   const deps: Parameters<typeof applyOverleafRemoteText>[0] = {
-    projectRef: { current: { root: "/project" } as NonNullable<Parameters<typeof applyOverleafRemoteText>[0]["projectRef"]["current"]> },
+    projectRef: { current: { root: "/project" } as ProjectSnapshot },
     projectOperationGenerationRef: { current: 1 },
     activeFileRef: { current: "section.tex" },
     sourceRef: { current: "old caption" },
@@ -31,16 +42,7 @@ describe("safe Overleaf remote text delivery", () => {
     const { deps } = remoteFixture();
     deps.sourceRef.current = deps.savedSourceRef.current = "agent caption and new section";
     const notice = vi.fn();
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "overleaf_rt_connect") return {
-        publicId: "me", docs: [{ id: "section", path: "section.tex" }], entities: [],
-        permission: "readAndWrite", trackChanges: false, userId: "me",
-      };
-      if (command === "overleaf_rt_join_doc") return {
-        text: "old caption", version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
-      };
-      return undefined;
-    });
+    vi.mocked(invoke).mockImplementation(async (command) => realtimeReply(command, "old caption"));
     const view = renderHook(() => useOverleafRealtime({
       enabled: true, documents: true, projectRoot: "/project", activeFile: "section.tex",
       readCaret: () => 0, onNotice: notice,
@@ -54,7 +56,6 @@ describe("safe Overleaf remote text delivery", () => {
     });
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "write_project_file")).toBe(false);
     expect(deps.sourceRef.current).toBe("agent caption and new section");
-    view.unmount();
   });
 
   it("does not replace the editor when disk rejects a stale live write", async () => {
@@ -135,13 +136,7 @@ function syncFixture() {
     if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
     if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
     if (command === "read_project_file") return disk;
-    if (command === "overleaf_rt_connect") return {
-      publicId: "me", docs: [{ id: "section", path: "section.tex" }], entities: [],
-      permission: "readAndWrite", trackChanges: false, userId: "me",
-    };
-    if (command === "overleaf_rt_join_doc") return {
-      text: server, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
-    };
+    if (command.startsWith("overleaf_rt_")) return realtimeReply(command, server) ?? [];
     if (command === "overleaf_sync") {
       if (failSync) {
         failSync = false;
@@ -159,7 +154,8 @@ function syncFixture() {
     return [];
   });
   return {
-    deps, edit: (text: string) => { disk = text; },
+    deps,
+    edit: (text: string) => { disk = text; },
     hold: () => { holdSync = true; },
     conflict: (alreadyResolved = false) => {
       conflict = true;
@@ -172,124 +168,116 @@ function syncFixture() {
   };
 }
 
+/** Mount the workspace over `syncFixture` in `mode`, on fake timers the tests advance. */
+function mountWorkspace(mode: "live" | "manual", prepare?: (fixture: ReturnType<typeof syncFixture>) => void) {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  localStorage.setItem("lattice.overleaf.sync-mode.v1", mode);
+  const fixture = syncFixture();
+  prepare?.(fixture);
+  const view = renderHook(() => useOverleafWorkspace(fixture.deps));
+  const realtime = () => view.result.current.overleafRealtime;
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  const suspend = () => act(() => realtime().suspendPaths(["section.tex"]));
+  const synced = () => vi.mocked(invoke).mock.calls.some(([command]) => command === "overleaf_sync");
+  return { fixture, view, realtime, advance, suspend, synced };
+}
+
 describe("external edit Overleaf handoff", () => {
   it.each([true, false])("checks current file markers before opening a conflict (already resolved: %s)", async (resolved) => {
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
-    const fixture = syncFixture();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.status).toBe("live"));
+    const { fixture, view, realtime } = mountWorkspace("manual");
+    await waitFor(() => expect(realtime().status).toBe("live"));
     fixture.conflict(resolved);
     await act(async () => { await view.result.current.runOverleafSync(); });
     expect(view.result.current.conflictPath).toBe(resolved ? null : "section.tex");
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "section.tex", projectRoot: "/project" });
-    view.unmount();
   });
 
   it("does not reload or rejoin a file deleted by the agent", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const fixture = syncFixture();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+    const { fixture, realtime, advance, suspend } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
     fixture.deleteFile();
-    act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
-    await waitFor(() => expect(view.result.current.overleafRealtime.livePaths).toEqual([]));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
+    suspend();
+    await waitFor(() => expect(realtime().livePaths).toEqual([]));
+    await advance(2_600);
     expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({ live: [] }));
     expect(fixture.deps.loadFile).not.toHaveBeenCalled();
-    expect(view.result.current.overleafRealtime.liveFile).toBe(false);
-    view.unmount();
+    expect(realtime().liveFile).toBe(false);
   });
 
   it("automatically recovers from a rejected stale join, including a transient sync failure", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const fixture = syncFixture();
-    fixture.edit("agent wrote while disconnected");
-    fixture.deps.sourceRef.current = fixture.deps.savedSourceRef.current = "agent wrote while disconnected";
-    fixture.deps.source = "agent wrote while disconnected";
-    fixture.failOnce();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.detail).toMatch(/outside live editing/));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
-    expect(view.result.current.overleafRealtime.liveFile).toBe(false);
+    const { fixture, realtime, advance } = mountWorkspace("live", (fixture) => {
+      fixture.edit("agent wrote while disconnected");
+      fixture.deps.sourceRef.current = fixture.deps.savedSourceRef.current = "agent wrote while disconnected";
+      fixture.deps.source = "agent wrote while disconnected";
+      fixture.failOnce();
+    });
+    await waitFor(() => expect(realtime().detail).toMatch(/outside live editing/));
+    await advance(2_600);
+    expect(realtime().liveFile).toBe(false);
     expect(fixture.server()).toBe("old caption");
-    await act(async () => { await vi.advanceTimersByTimeAsync(46_000); });
-    await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+    await advance(46_000);
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
     expect(fixture.server()).toBe("agent wrote while disconnected");
-    expect(view.result.current.overleafRealtime.detail).toBeNull();
-    view.unmount();
+    expect(realtime().detail).toBeNull();
   });
 
-  it.each(["live", "manual"])("reconciles disk writes in %s mode without a remote change signal", async (mode) => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", mode);
-    const fixture = syncFixture();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.status).toBe("live"));
-    if (mode === "live") await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+  it.each(["live", "manual"] as const)("reconciles disk writes in %s mode without a remote change signal", async (mode) => {
+    const { fixture, view, realtime, advance, suspend, synced } = mountWorkspace(mode);
+    await waitFor(() => expect(realtime().status).toBe("live"));
+    if (mode === "live") await waitFor(() => expect(realtime().liveFile).toBe(true));
     fixture.edit("agent caption and new section");
-    act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
-    expect(view.result.current.overleafRealtime.liveFile).toBe(false);
-    await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
+    suspend();
+    expect(realtime().liveFile).toBe(false);
+    await advance(2_600);
     if (mode === "manual") {
-      expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "overleaf_sync")).toBe(false);
+      expect(synced()).toBe(false);
       await act(async () => { await view.result.current.runOverleafSync(); });
     } else {
-      await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+      await waitFor(() => expect(realtime().liveFile).toBe(true));
     }
     expect(fixture.server()).toBe("agent caption and new section");
     expect(fixture.deps.sourceRef.current).toBe(fixture.server());
     expect(fixture.deps.compile).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({ live: [] }));
-    view.unmount();
   });
 
   it.each(["new disk edit", "typing", "conflict"])("does not resume an older sync after %s", async (change) => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const fixture = syncFixture();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+    const { fixture, view, realtime, advance, suspend } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
     fixture.edit("first agent edit");
     fixture.hold();
-    act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
-    await waitFor(() => expect(view.result.current.overleafRealtime.livePaths).toEqual([]));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2_600); });
+    suspend();
+    await waitFor(() => expect(realtime().livePaths).toEqual([]));
+    await advance(2_600);
     expect(fixture.deps.overleafSyncingRef.current).toBe(true);
     if (change === "new disk edit") {
       fixture.edit("second agent edit");
-      act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
+      suspend();
     } else if (change === "typing") fixture.deps.sourceRef.current = "unsaved user words";
     else fixture.conflict();
     await act(async () => { fixture.finish(); });
-    expect(view.result.current.overleafRealtime.liveFile).toBe(false);
+    expect(realtime().liveFile).toBe(false);
     expect(fixture.server()).toBe("first agent edit");
     if (change === "typing") expect(fixture.deps.sourceRef.current).toBe("unsaved user words");
     if (change === "conflict") expect(view.result.current.conflictPath).toBe("section.tex");
     if (change === "new disk edit") {
-      await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
-      await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+      await advance(31_000);
+      await waitFor(() => expect(realtime().liveFile).toBe(true));
       expect(fixture.server()).toBe("second agent edit");
     }
-    view.unmount();
   });
 
   it("cancels a pending disk-edit upload when switching projects", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const fixture = syncFixture();
-    const view = renderHook(() => useOverleafWorkspace(fixture.deps));
-    await waitFor(() => expect(view.result.current.overleafRealtime.liveFile).toBe(true));
+    const { fixture, view, realtime, advance, suspend, synced } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
     fixture.edit("old project agent edit");
-    act(() => view.result.current.overleafRealtime.suspendPaths(["section.tex"]));
+    suspend();
     fixture.deps.project = { ...fixture.deps.project!, root: "/next-project" };
     fixture.deps.projectRef.current = fixture.deps.project;
     fixture.deps.projectOperationGenerationRef.current += 1;
     view.rerender();
-    await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
-    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "overleaf_sync")).toBe(false);
-    view.unmount();
+    await advance(31_000);
+    expect(synced()).toBe(false);
   });
 });
 

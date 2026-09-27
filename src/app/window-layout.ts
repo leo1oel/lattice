@@ -23,9 +23,7 @@ export function minimumWindowWidth(options: {
   minimumWorkspaceWidth: number;
   sidebarOpen: boolean;
 }) {
-  const scale = Number.isFinite(options.interfaceScale)
-    ? Math.max(0.1, options.interfaceScale)
-    : 1;
+  const scale = Number.isFinite(options.interfaceScale) ? Math.max(0.1, options.interfaceScale) : 1;
   const contentWidth = options.minimumWorkspaceWidth
     + (options.sidebarOpen ? options.minimumSidebarWidth + SIDEBAR_RESIZER_WIDTH : 0);
 

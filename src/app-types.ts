@@ -108,11 +108,6 @@ export type FileViewState = {
   visualMarkdown?: ScrollFileViewState;
 };
 
-export type NavigationEntry = {
-  path: string;
-  line: number;
-};
-
 export type FileNode = {
   name: string;
   path: string;
@@ -167,10 +162,9 @@ export type FigurePointerDrag = {
   insertAtEditor: boolean;
 };
 
-export type SyncTexTarget = {
-  path: string;
-  line: number;
-};
+/** A line in a project file: a SyncTeX jump target, or a back/forward history entry. */
+export type SyncTexTarget = { path: string; line: number };
+export type NavigationEntry = SyncTexTarget;
 
 export type EditorNavigation = SyncTexTarget & { id: string };
 export type EditorPosition = { path: string; line: number; column: number };
@@ -228,9 +222,9 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "asset";
-export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
+export type CanvasMode = DocumentViewMode | "asset";
+export type EditorPaneId = "primary" | "secondary";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
