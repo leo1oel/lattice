@@ -228,6 +228,10 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
             },
 
             onUpdate(props: SuggestionProps<SlashCommandItem>) {
+              // @tiptap/suggestion (3.27+) sends a loading pass with empty
+              // items before every result, even though these items are
+              // synchronous. Keep the current menu until the result lands.
+              if (props.loading) return;
               currentProps = props;
               selectedIndex = Math.min(selectedIndex, Math.max(0, props.items.length - 1));
               rerender();
