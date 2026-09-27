@@ -17,11 +17,7 @@ function imageViewState(viewport: HTMLElement | null, scale: number): ImageFileV
 }
 
 /** A project image or PDF figure, with its zoom and scroll position kept as per-file view state. */
-export function ProjectAssetPreview({
-  asset,
-  viewState,
-  onViewState,
-}: {
+export function ProjectAssetPreview({ asset, viewState, onViewState }: {
   asset: AssetPreview;
   viewState?: FileViewState;
   onViewState?: (update: Partial<FileViewState>) => void;
@@ -37,10 +33,8 @@ export function ProjectAssetPreview({
   const isPdf = asset.mimeType === "application/pdf";
   useLayoutEffect(() => {
     scaleRef.current = scale;
-  }, [scale]);
-  useLayoutEffect(() => {
     onViewStateRef.current = onViewState;
-  }, [onViewState]);
+  }, [onViewState, scale]);
   useLayoutEffect(() => {
     if (isPdf) return;
     const viewport = stageViewportRef.current;

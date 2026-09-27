@@ -5,10 +5,9 @@ import { OpenSlideWorkspace } from "./canvas-lazy-editors";
 
 type CachedOpenSlideWorkspace = Omit<ComponentProps<typeof OpenSlideWorkspace>, "active">;
 
-function openSlideSessionKey(projectRoot: string, path: string): string {
-  return `${projectRoot}\n${path}`;
-}
+const openSlideSessionKey = (projectRoot: string, path: string) => `${projectRoot}\n${path}`;
 
+/** The sessions to keep: every still-open deck, plus the active one with its view state carried over. */
 function reconcileOpenSlideSessions(
   current: Map<string, CachedOpenSlideWorkspace>,
   projectRoot: string,
@@ -34,12 +33,7 @@ function reconcileOpenSlideSessions(
 }
 
 /** Keeps every open presentation tab's iframe mounted, showing only the active one. */
-export function OpenSlideTabPool({
-  projectRoot,
-  activeWorkspace,
-  openPaths,
-  getFileViewState,
-}: {
+export function OpenSlideTabPool({ projectRoot, activeWorkspace, openPaths, getFileViewState }: {
   projectRoot: string;
   activeWorkspace: CachedOpenSlideWorkspace | null;
   openPaths: readonly string[];
@@ -52,31 +46,18 @@ export function OpenSlideTabPool({
     openPaths,
     sessions: reconcileOpenSlideSessions(new Map(), projectRoot, activeWorkspace, openPaths, getFileViewState),
   }));
-  const activeKey = activeWorkspace ? openSlideSessionKey(projectRoot, activeWorkspace.path) : null;
   let sessions = cache.sessions;
-  if (
-    cache.projectRoot !== projectRoot
-    || cache.activeWorkspace !== activeWorkspace
-    || cache.openPaths !== openPaths
-  ) {
-    sessions = reconcileOpenSlideSessions(
-      cache.projectRoot === projectRoot ? cache.sessions : new Map(),
-      projectRoot,
-      activeWorkspace,
-      openPaths,
-      getFileViewState,
-    );
+  if (cache.projectRoot !== projectRoot || cache.activeWorkspace !== activeWorkspace || cache.openPaths !== openPaths) {
+    const current = cache.projectRoot === projectRoot ? cache.sessions : new Map();
+    sessions = reconcileOpenSlideSessions(current, projectRoot, activeWorkspace, openPaths, getFileViewState);
     setCache({ projectRoot, activeWorkspace, openPaths, sessions });
   }
-
-  const sessionKeys = Array.from(sessions.keys());
-  const renderKeys = activeKey && !sessions.has(activeKey) ? [...sessionKeys, activeKey] : sessionKeys;
+  // Reconciling always keeps the active deck's session, so it is among these.
+  const activeKey = activeWorkspace ? openSlideSessionKey(projectRoot, activeWorkspace.path) : null;
   return (
     <div className="open-slide-tab-pool" data-active={activeKey ? "true" : "false"} aria-hidden={!activeKey}>
-      {renderKeys.map((key) => {
+      {Array.from(sessions, ([key, workspace]) => {
         const active = key === activeKey;
-        const workspace = sessions.get(key);
-        if (!workspace) return null;
         return (
           <div key={key} className="open-slide-tab-session" data-active={active ? "true" : "false"}>
             <Suspense

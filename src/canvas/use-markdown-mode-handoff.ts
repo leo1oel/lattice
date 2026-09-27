@@ -3,10 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
 import type { CanvasMode } from "../app-types";
 import {
-  captureViewport,
-  capturePreviewViewport,
-  restorePreviewViewport,
-  restoreViewport,
+  captureViewport, capturePreviewViewport, restorePreviewViewport, restoreViewport, scrollRange,
   type MarkdownModeViewportHandoff,
 } from "./markdown-preview-sync";
 
@@ -23,19 +20,8 @@ const isMarkdownMode = (mode: CanvasMode) => mode === "source" || mode === "spli
  * which pauses the split scroll coordinator.
  */
 export function useMarkdownModeHandoff({
-  activeFile,
-  mode,
-  markdownDocument,
-  previewStart,
-  primaryViewRef,
-  primaryViewPathRef,
-  previewViewportRef,
-  previewViewport,
-  primaryView,
-  activeFileRef,
-  scrollSyncSuppressedRef,
-  reconcileFromSourceRef,
-  onViewMarkdownSource,
+  activeFile, mode, markdownDocument, previewStart, primaryViewRef, primaryViewPathRef, previewViewportRef,
+  previewViewport, primaryView, activeFileRef, scrollSyncSuppressedRef, reconcileFromSourceRef, onViewMarkdownSource,
 }: {
   activeFile: string;
   mode: CanvasMode;
@@ -60,15 +46,14 @@ export function useMarkdownModeHandoff({
   const explicitViewInSourcePendingGenerationRef = useRef<number | null>(null);
   const identityRef = useRef({ path: activeFile, mode });
 
-  const currentSourceView = useCallback(() => (
-    primaryViewRef.current?.dom.isConnected && primaryViewPathRef.current === activeFile
-      ? primaryViewRef.current
-      : null
+  /** The primary source view, when it is connected and showing this file. */
+  const livePrimaryView = useCallback(() => (
+    primaryViewRef.current?.dom.isConnected && primaryViewPathRef.current === activeFile ? primaryViewRef.current : null
   ), [activeFile, primaryViewPathRef, primaryViewRef]);
 
   const captureMarkdownModeViewport = useCallback(() => {
     if (!markdownDocument || !isMarkdownMode(mode)) return;
-    const sourceView = currentSourceView();
+    const sourceView = livePrimaryView();
     const preview = previewViewportRef.current?.isConnected ? previewViewportRef.current : null;
     if (!sourceView && !preview) return;
     handoffRef.current = {
@@ -77,7 +62,7 @@ export function useMarkdownModeHandoff({
       ...(sourceView ? { source: captureViewport(sourceView.scrollDOM) } : {}),
       ...(preview ? { preview: capturePreviewViewport(preview) } : {}),
     };
-  }, [activeFile, currentSourceView, markdownDocument, mode, previewViewportRef]);
+  }, [activeFile, livePrimaryView, markdownDocument, mode, previewViewportRef]);
 
   useLayoutEffect(() => {
     const restoreGeneration = ++restoreGenerationRef.current;
@@ -105,7 +90,7 @@ export function useMarkdownModeHandoff({
       scrollSyncSuppressedRef.current = true;
       const restore = () => {
         if (restoreGenerationRef.current !== restoreGeneration) return false;
-        const sourceView = currentSourceView();
+        const sourceView = livePrimaryView();
         const preview = previewViewportRef.current;
         let ready = true;
         if (mode !== "pdf") {
@@ -144,7 +129,7 @@ export function useMarkdownModeHandoff({
       if (restoreFrame != null) window.cancelAnimationFrame(restoreFrame);
     };
     // The viewport states re-run the restore once a remounted pane exists.
-  }, [activeFile, currentSourceView, markdownDocument, mode, previewViewport, previewViewportRef, primaryView, scrollSyncSuppressedRef]);
+  }, [activeFile, livePrimaryView, markdownDocument, mode, previewViewport, previewViewportRef, primaryView, scrollSyncSuppressedRef]);
 
   const viewMarkdownSource = useCallback((sourceOffset: number) => {
     // This is an explicit cross-pane reveal. Preview-only and Split have
@@ -187,18 +172,15 @@ export function useMarkdownModeHandoff({
       if (!revealIsCurrent()) return;
       const view = primaryViewRef.current;
       const preview = previewViewportRef.current;
-      const target = preview
-        ? Array.from(preview.querySelectorAll<HTMLElement>("[data-source-offset]"))
-            .filter((element) => {
-              const from = Number(element.dataset.sourceOffset);
-              const to = Number(element.dataset.sourceEndOffset);
-              return Number.isFinite(from) && Number.isFinite(to) && sourceOffset >= from && sourceOffset <= to;
-            })
-            .sort((left, right) => (
-              Number(left.dataset.sourceEndOffset) - Number(left.dataset.sourceOffset)
-              - (Number(right.dataset.sourceEndOffset) - Number(right.dataset.sourceOffset))
-            ))[0] ?? null
-        : null;
+      // The tightest source-labelled block that contains the offset.
+      const span = (element: HTMLElement) => Number(element.dataset.sourceEndOffset) - Number(element.dataset.sourceOffset);
+      const target = Array.from(preview?.querySelectorAll<HTMLElement>("[data-source-offset]") ?? [])
+        .filter((element) => {
+          const from = Number(element.dataset.sourceOffset);
+          const to = Number(element.dataset.sourceEndOffset);
+          return Number.isFinite(from) && Number.isFinite(to) && sourceOffset >= from && sourceOffset <= to;
+        })
+        .sort((left, right) => span(left) - span(right))[0] ?? null;
       if (identityRef.current.mode !== "split" || !view?.dom.isConnected || !preview?.isConnected || !target) {
         if (attempts++ < 30) window.requestAnimationFrame(focusSource);
         // Source reveal remains useful even if a malformed document never
@@ -213,28 +195,18 @@ export function useMarkdownModeHandoff({
       const sourceFrom = clamp(previewStart + previewFrom, 0, view.state.doc.length);
       const sourceTo = clamp(previewStart + Math.max(previewFrom, previewTo - 1), sourceFrom, view.state.doc.length);
       const sourceCenter = (view.lineBlockAt(sourceFrom).top + view.lineBlockAt(sourceTo).bottom) / 2;
-      const sourceMaxScroll = Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
-      view.scrollDOM.scrollTop = clamp(sourceCenter - view.scrollDOM.clientHeight / 2, 0, sourceMaxScroll);
-      const previewRect = preview.getBoundingClientRect();
+      view.scrollDOM.scrollTop = clamp(sourceCenter - view.scrollDOM.clientHeight / 2, 0, scrollRange(view.scrollDOM));
       const targetRect = target.getBoundingClientRect();
-      const previewCenter = preview.scrollTop + targetRect.top - previewRect.top + targetRect.height / 2;
-      const previewMaxScroll = Math.max(0, preview.scrollHeight - preview.clientHeight);
-      preview.scrollTop = clamp(previewCenter - preview.clientHeight / 2, 0, previewMaxScroll);
+      const previewCenter = preview.scrollTop + targetRect.top - preview.getBoundingClientRect().top + targetRect.height / 2;
+      preview.scrollTop = clamp(previewCenter - preview.clientHeight / 2, 0, scrollRange(preview));
       view.focus();
       releaseScrollSync();
     };
     window.requestAnimationFrame(focusSource);
   }, [
-    activeFile,
-    activeFileRef,
-    mode,
-    onViewMarkdownSource,
-    previewStart,
-    previewViewportRef,
-    primaryViewRef,
-    reconcileFromSourceRef,
-    scrollSyncSuppressedRef,
+    activeFile, activeFileRef, mode, onViewMarkdownSource, previewStart, previewViewportRef, primaryViewRef,
+    reconcileFromSourceRef, scrollSyncSuppressedRef,
   ]);
 
-  return { captureMarkdownModeViewport, viewMarkdownSource };
+  return { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView };
 }

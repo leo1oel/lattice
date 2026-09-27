@@ -5,11 +5,7 @@ import { Tip } from "../components/icon-tip";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
-function OutlineBranch({
-  nodes,
-  activeId,
-  onSelect,
-}: {
+function OutlineBranch({ nodes, activeId, onSelect }: {
   nodes: OutlineNode[];
   activeId: string | null;
   onSelect: (path: string, line: number) => void;
@@ -41,14 +37,13 @@ export function DocumentOutline(props: {
   activeId?: string | null;
   open: boolean;
   onSelect: (path: string, line: number) => void;
-  onClose: () => void;
-  onOpen: () => void;
+  onOpenChange: (open: boolean) => void;
   available: boolean;
 }) {
   const { t } = useLingui();
   if (!props.available) return null;
   return (
-    <Popover open={props.open} onOpenChange={(open) => open ? props.onOpen() : props.onClose()}>
+    <Popover open={props.open} onOpenChange={(open) => props.onOpenChange(open)}>
       <Tip label={t`Show outline`}>
         <PopoverTrigger asChild>
           <button type="button" className="pdf-outline-trigger" aria-label={t`Show document outline`} title={t`Show outline`}>

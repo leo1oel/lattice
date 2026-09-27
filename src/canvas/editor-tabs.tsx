@@ -22,9 +22,7 @@ export type EditorTab = {
 };
 
 function tabLabel(tab: EditorTab): string {
-  if (tab.label) return tab.label;
-  const parts = tab.path.split("/");
-  return parts[parts.length - 1] || tab.path;
+  return tab.label || tab.path.split("/").at(-1) || tab.path;
 }
 
 function sameOrder(a: string[], b: string[]): boolean {
@@ -33,14 +31,7 @@ function sameOrder(a: string[], b: string[]): boolean {
 
 function sameDropPreview(a: EditorDropPreview | null, b: EditorDropPreview | null): boolean {
   if (!a || !b) return a === b;
-  return a.path === b.path
-    && a.zone === b.zone
-    && a.left === b.left
-    && a.top === b.top
-    && a.width === b.width
-    && a.height === b.height
-    && a.dividerLeft === b.dividerLeft
-    && a.dividerRight === b.dividerRight;
+  return (Object.keys(a) as (keyof EditorDropPreview)[]).every((key) => a[key] === b[key]);
 }
 
 export type EditorDropPreview = {
@@ -57,12 +48,7 @@ export type EditorDropPreview = {
 export type EditorDropZone = "left" | "center" | "right";
 
 const DROP_ZONE_EDGE_SHARE = 0.28;
-const DROP_TARGET_SPRING = {
-  type: "spring" as const,
-  stiffness: 420,
-  damping: 38,
-  mass: 0.65,
-};
+const DROP_TARGET_SPRING = { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.65 };
 
 function dropZoneForX(bounds: DOMRect, clientX: number): EditorDropPreview["zone"] {
   const relativeX = (clientX - bounds.left) / bounds.width;
@@ -71,25 +57,12 @@ function dropZoneForX(bounds: DOMRect, clientX: number): EditorDropPreview["zone
   return "center";
 }
 
-function dropTargetGeometry(preview: EditorDropPreview) {
-  const halfWidth = preview.width / 2;
-  if (preview.zone === "left") {
-    return {
-      x: 0,
-      width: preview.dividerLeft ?? halfWidth,
-    };
-  }
-  if (preview.zone === "right") {
-    const x = preview.dividerRight ?? halfWidth;
-    return {
-      x,
-      width: Math.max(0, preview.width - x),
-    };
-  }
-  return {
-    x: 0,
-    width: preview.width,
-  };
+/** The highlighted part of the canvas: the half (or live split side) a drop opens into, else all of it. */
+function dropTargetGeometry({ zone, width, dividerLeft, dividerRight }: EditorDropPreview) {
+  if (zone === "left") return { x: 0, width: dividerLeft ?? width / 2 };
+  if (zone === "center") return { x: 0, width };
+  const x = dividerRight ?? width / 2;
+  return { x, width: Math.max(0, width - x) };
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- project-tree and tab drags share one canvas hit-test.
@@ -101,28 +74,20 @@ export function editorDropPreviewAt(
   const canvas = document.querySelector<HTMLElement>(".canvas-body");
   if (!canvas) return null;
   const bounds = canvas.getBoundingClientRect();
-  const overCanvas = clientX >= bounds.left
-    && clientX <= bounds.right
-    && clientY >= bounds.top
-    && clientY <= bounds.bottom;
-  if (!overCanvas || bounds.width <= 0 || bounds.height <= 0) return null;
-  const divider = canvas.querySelector<HTMLElement>(".split-canvas > .split-resizer");
-  const dividerBounds = divider?.getBoundingClientRect();
-  const hasLiveDivider = Boolean(
-    dividerBounds
-    && dividerBounds.width > 0
-    && dividerBounds.left > bounds.left
-    && dividerBounds.right < bounds.right,
-  );
+  const { left, top, right, bottom, width, height } = bounds;
+  const overCanvas = clientX >= left && clientX <= right && clientY >= top && clientY <= bottom;
+  if (!overCanvas || width <= 0 || height <= 0) return null;
+  const divider = canvas.querySelector<HTMLElement>(".split-canvas > .split-resizer")?.getBoundingClientRect();
+  const liveDivider = divider && divider.width > 0 && divider.left > left && divider.right < right ? divider : null;
   return {
     path,
     zone: dropZoneForX(bounds, clientX),
-    left: bounds.left,
-    top: bounds.top,
-    width: bounds.width,
-    height: bounds.height,
-    dividerLeft: hasLiveDivider ? dividerBounds!.left - bounds.left : null,
-    dividerRight: hasLiveDivider ? dividerBounds!.right - bounds.left : null,
+    left,
+    top,
+    width,
+    height,
+    dividerLeft: liveDivider ? liveDivider.left - left : null,
+    dividerRight: liveDivider ? liveDivider.right - left : null,
   };
 }
 
@@ -136,25 +101,15 @@ export function EditorDropPreviewPortal(props: {
   const preview = props.preview;
   if (!preview) return null;
   const targetGeometry = dropTargetGeometry(preview);
-  const targetPresentation = preview.zone === "left"
-    ? { label: t`Open on left`, icon: PanelLeft }
-    : preview.zone === "right"
-      ? { label: t`Open on right`, icon: PanelRight }
-      : { label: t`Open here`, icon: Square };
-  if (preview.zone === props.preferredZone && props.preferredLabel) {
-    targetPresentation.label = props.preferredLabel;
-  }
-  const TargetIcon = targetPresentation.icon;
+  const TargetIcon = { left: PanelLeft, center: Square, right: PanelRight }[preview.zone];
+  const label = preview.zone === props.preferredZone && props.preferredLabel
+    ? props.preferredLabel
+    : { left: t`Open on left`, center: t`Open here`, right: t`Open on right` }[preview.zone];
   return createPortal(
     <motion.div
       className="editor-tab-split-drop-preview"
       data-drop-zone={preview.zone}
-      style={{
-        left: preview.left,
-        top: preview.top,
-        width: preview.width,
-        height: preview.height,
-      }}
+      style={{ left: preview.left, top: preview.top, width: preview.width, height: preview.height }}
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.12 }}
@@ -164,12 +119,7 @@ export function EditorDropPreviewPortal(props: {
         className="editor-tab-split-drop-target"
         data-drop-target={preview.zone}
         initial={false}
-        animate={{
-          x: targetGeometry.x,
-          y: 0,
-          width: targetGeometry.width,
-          height: preview.height,
-        }}
+        animate={{ x: targetGeometry.x, y: 0, width: targetGeometry.width, height: preview.height }}
         transition={reduceMotion ? { duration: 0 } : DROP_TARGET_SPRING}
       >
         <AnimatePresence initial={false} mode="wait">
@@ -183,7 +133,7 @@ export function EditorDropPreviewPortal(props: {
           >
             <div className="editor-tab-split-drop-label-content">
               <TargetIcon size={16} />
-              <span>{targetPresentation.label}</span>
+              <span>{label}</span>
             </div>
           </motion.div>
         </AnimatePresence>
@@ -230,13 +180,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
     onDropTabRef.current = props.onDropTab;
   });
   const tabEls = useRef(new Map<string, HTMLElement>());
-  const dragRef = useRef<{
-    path: string;
-    pointerId: number;
-    startX: number;
-    startY: number;
-    active: boolean;
-  } | null>(null);
+  const dragRef = useRef<{ path: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const suppressClick = useRef(false);
 
@@ -270,12 +214,11 @@ export const EditorTabs = memo(function EditorTabs(props: {
     return gap;
   }, []);
 
-  const splitTargetAt = useCallback((path: string, clientX: number, clientY: number): EditorDropPreview | null => {
-    if (!onDropTabRef.current) return null;
-    const tab = tabsRef.current.find((item) => item.path === path);
-    if (!tab) return null;
-    return editorDropPreviewAt(path, clientX, clientY);
-  }, []);
+  const splitTargetAt = useCallback((path: string, clientX: number, clientY: number): EditorDropPreview | null => (
+    onDropTabRef.current && tabsRef.current.some((item) => item.path === path)
+      ? editorDropPreviewAt(path, clientX, clientY)
+      : null
+  ), []);
 
   const updateSplitDropPreview = useCallback((next: EditorDropPreview | null) => {
     splitDropPreviewRef.current = next;
@@ -306,9 +249,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
     const requestedIndex = Math.max(0, Math.min(without.length, gap > from ? gap - 1 : gap));
     const draggedPinned = tabsRef.current[from]?.pinned === true;
     const pinnedCount = tabsRef.current.filter((tab) => tab.pinned && tab.path !== state.path).length;
-    const insertAt = draggedPinned
-      ? Math.min(requestedIndex, pinnedCount)
-      : Math.max(requestedIndex, pinnedCount);
+    const insertAt = draggedPinned ? Math.min(requestedIndex, pinnedCount) : Math.max(requestedIndex, pinnedCount);
     without.splice(insertAt, 0, state.path);
     if (!sameOrder(without, paths)) onReorderRef.current(without);
   }, [gapIndexForX, splitTargetAt, updateSplitDropPreview]);
@@ -322,11 +263,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
     // A drag that moved must not also fire the tab's click (which would select).
     suppressClick.current = Boolean(state?.active);
     setDragPath(null);
-    if (
-      commitSplit
-      && state?.active
-      && splitTarget
-    ) onDropTabRef.current?.(state.path, splitTarget.zone);
+    if (commitSplit && state?.active && splitTarget) onDropTabRef.current?.(state.path, splitTarget.zone);
   }, [updateSplitDropPreview]);
 
   const startDrag = useCallback((path: string, event: React.PointerEvent<HTMLDivElement>) => {
@@ -334,13 +271,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
     if ((event.target as HTMLElement).closest(".editor-tab-close")) return;
     dragCleanupRef.current?.();
     const pointerId = event.pointerId;
-    dragRef.current = {
-      path,
-      pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      active: false,
-    };
+    dragRef.current = { path, pointerId, startX: event.clientX, startY: event.clientY, active: false };
     const cleanup = () => {
       window.removeEventListener("pointermove", moveDrag);
       window.removeEventListener("pointerup", finish);
@@ -348,20 +279,13 @@ export const EditorTabs = memo(function EditorTabs(props: {
       window.removeEventListener("blur", cancel);
       if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
     };
-    const finish = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
+    const end = (commitSplit: boolean) => {
       cleanup();
-      completeDrag(true);
+      completeDrag(commitSplit);
     };
-    const cancelPointer = (pointerEvent: PointerEvent) => {
-      if (pointerEvent.pointerId !== pointerId) return;
-      cleanup();
-      completeDrag(false);
-    };
-    const cancel = () => {
-      cleanup();
-      completeDrag(false);
-    };
+    const finish = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId && end(true);
+    const cancelPointer = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId && end(false);
+    const cancel = () => end(false);
     dragCleanupRef.current = cleanup;
     window.addEventListener("pointermove", moveDrag, { passive: false });
     window.addEventListener("pointerup", finish);
@@ -391,9 +315,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
           "aria-label": "Open files",
           onWheel: (event) => {
             // A plain mouse wheel (deltaY only) still scrolls the tab strip.
-            if (event.deltaX === 0 && event.deltaY !== 0) {
-              event.currentTarget.scrollLeft += event.deltaY;
-            }
+            if (event.deltaX === 0 && event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
           },
         }}
       >
@@ -435,11 +357,8 @@ export const EditorTabs = memo(function EditorTabs(props: {
                       aria-selected={active}
                       onClick={() => {
                         // Swallow the click that ends a drag so it doesn't re-select.
-                        if (suppressClick.current) {
-                          suppressClick.current = false;
-                          return;
-                        }
-                        props.onSelect(tab.path);
+                        if (!suppressClick.current) props.onSelect(tab.path);
+                        suppressClick.current = false;
                       }}
                     >
                       {tab.pinned && <Pin className="editor-tab-pin" size={11} aria-label={t`Pinned`} />}

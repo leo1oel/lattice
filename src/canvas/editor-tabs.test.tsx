@@ -73,11 +73,16 @@ describe("EditorTabs", () => {
     expect(tabs[1]).not.toHaveAttribute("title");
   });
 
-  it("renders the active filename when only one tab is open", () => {
-    renderTabs({ tabs: [{ path: "main.tex", dirty: true }] });
+  it("renders the active filename when only one tab is open, closable only where the last tab may close", () => {
+    const { props, rerender } = renderTabs({ tabs: [{ path: "main.tex", dirty: true }] });
     expect(screen.getByRole("tab", { name: /main\.tex/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Unsaved changes")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close main.tex" })).not.toBeInTheDocument();
+
+    // PDF mode may close its last tab.
+    rerender(<EditorTabs {...props} canCloseLast />);
+    fireEvent.click(screen.getByRole("button", { name: "Close main.tex" }));
+    expect(props.onClose).toHaveBeenCalledWith("main.tex");
   });
 
   it("keeps the tab strip mounted when the PDF has no open tabs", () => {
@@ -97,18 +102,6 @@ describe("EditorTabs", () => {
     Object.defineProperty(viewport, "scrollLeft", { configurable: true, writable: true, value: 0 });
     fireEvent.wheel(viewport, { deltaX: 0, deltaY: 64 });
     expect(viewport.scrollLeft).toBe(64);
-  });
-
-  it("allows PDF mode to close its last tab", () => {
-    const { props } = renderTabs({ tabs: [{ path: "main.tex" }], canCloseLast: true });
-    fireEvent.click(screen.getByRole("button", { name: "Close main.tex" }));
-    expect(props.onClose).toHaveBeenCalledWith("main.tex");
-  });
-
-  it("selects a tab on click", () => {
-    const { props } = renderTabs();
-    fireEvent.click(screen.getByRole("tab", { name: /intro\.tex/i }));
-    expect(props.onSelect).toHaveBeenCalledWith("sections/intro.tex");
   });
 
   it("closes without selecting or starting a drag", () => {
@@ -184,33 +177,29 @@ describe("EditorTabs", () => {
     expect(props.onReorder).toHaveBeenLastCalledWith(expected);
   });
 
-  it("reports the selected left, center, or right drop zone", () => {
+  // The active tab's drops are reported too, so the owner can move or replace panes safely.
+  it.each([
+    { name: /intro\.tex/i, path: "sections/intro.tex", clientX: 150 },
+    { name: /main\.tex/i, path: "main.tex", clientX: 50 },
+  ])("reports the selected left, center, or right drop zone for $path", ({ name, path, clientX: startX }) => {
     const { props } = renderTabsOverCanvas({ onDropTab: vi.fn() });
-    fireEvent.pointerDown(tab(/intro\.tex/i), { button: 0, clientX: 150, clientY: 16 });
+    fireEvent.pointerDown(tab(name), { button: 0, clientX: startX, clientY: 16 });
     for (const [clientX, zone] of [[250, "left"], [600, "center"], [850, "right"]] as const) {
       fireEvent.pointerMove(window, { clientX, clientY: 300 });
       expect(dropPreview()).toHaveAttribute("data-drop-zone", zone);
       expect(document.querySelector(".editor-tab-split-drop-target")).toHaveAttribute("data-drop-target", zone);
     }
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
-    expect(props.onDropTab).toHaveBeenCalledWith("sections/intro.tex", "right");
+    expect(props.onDropTab).toHaveBeenCalledWith(path, "right");
     expect(dropPreview()).toBeNull();
   });
 
   it("localizes every split drop target", async () => {
     await activateAppLocale("zh-CN");
     const preview = { path: "main.tex", left: 0, top: 0, width: 900, height: 600, dividerLeft: null, dividerRight: null };
-    render(
-      <>
-        <EditorDropPreviewPortal preview={{ ...preview, zone: "left" }} />
-        <EditorDropPreviewPortal preview={{ ...preview, zone: "center" }} />
-        <EditorDropPreviewPortal preview={{ ...preview, zone: "right" }} />
-      </>,
-    );
+    render(<>{(["left", "center", "right"] as const).map((zone) => <EditorDropPreviewPortal key={zone} preview={{ ...preview, zone }} />)}</>);
 
-    expect(screen.getByText("在左侧打开")).toBeInTheDocument();
-    expect(screen.getByText("在此打开")).toBeInTheDocument();
-    expect(screen.getByText("在右侧打开")).toBeInTheDocument();
+    for (const label of ["在左侧打开", "在此打开", "在右侧打开"]) expect(screen.getByText(label)).toBeInTheDocument();
   });
 
   it("uses the live split divider for full-bleed left and right targets", () => {
@@ -226,27 +215,8 @@ describe("EditorTabs", () => {
     mockRect(container.querySelector<HTMLElement>(".canvas-body")!, { left: 200, top: 40, width: 800, height: 600 });
     mockRect(container.querySelector<HTMLElement>(".split-resizer")!, { left: 720, top: 40, width: 1, height: 600 });
 
-    expect(editorDropPreviewAt("main.tex", 250, 300)).toMatchObject({
-      zone: "left",
-      dividerLeft: 520,
-      dividerRight: 521,
-      width: 800,
-      height: 600,
-    });
-    expect(editorDropPreviewAt("main.tex", 900, 300)).toMatchObject({
-      zone: "right",
-      dividerLeft: 520,
-      dividerRight: 521,
-    });
-  });
-
-  it("reports active-tab drops so the owner can move or replace panes safely", () => {
-    const { props } = renderTabsOverCanvas({ onDropTab: vi.fn() });
-    fireEvent.pointerDown(tab(/main\.tex/i), { button: 0, clientX: 50, clientY: 16 });
-    fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
-    expect(props.onDropTab).toHaveBeenCalledWith("main.tex", "right");
-    expect(dropPreview()).toBeNull();
+    expect(editorDropPreviewAt("main.tex", 250, 300)).toMatchObject({ zone: "left", dividerLeft: 520, dividerRight: 521, width: 800, height: 600 });
+    expect(editorDropPreviewAt("main.tex", 900, 300)).toMatchObject({ zone: "right", dividerLeft: 520, dividerRight: 521 });
   });
 
   it("cancels a pending drop when the layout stops accepting file drops", () => {
@@ -263,7 +233,7 @@ describe("EditorTabs", () => {
     expect(document.body).not.toHaveClass("reordering-tabs");
   });
 
-  it("does not reorder or select on a plain click (no drag)", () => {
+  it("selects without reordering on a plain click (no drag)", () => {
     mockTabLayout({ "a.tex": 0, "b.tex": 100 });
     const { props } = renderTabs({ tabs: [{ path: "a.tex" }, { path: "b.tex" }], activePath: "a.tex" });
     fireEvent.pointerDown(tab(/b\.tex/i), { button: 0, clientX: 150 });

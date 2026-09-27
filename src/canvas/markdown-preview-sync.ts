@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";
 import { clamp } from "../settings/app-settings";
 import type { CanvasMode } from "../app-types";
 
@@ -12,18 +13,19 @@ import type { CanvasMode } from "../app-types";
  * collaborator, an agent write — are therefore published on the same idle
  * budget the preview already spends on the opposite direction.
  *
- * `immediate` bypasses the wait for documents the preview itself just wrote.
- * Settling those would leave the preview's accepted document behind the real
- * source for the length of the budget, and an edit landing in that window is
- * rejected against the stale text and surfaces as a spurious conflict draft.
+ * Documents the preview itself wrote (`markEcho`, called with the whole
+ * `source` it produced) bypass the wait. Settling those would leave the
+ * preview's accepted document behind the real source for the length of the
+ * budget, and an edit landing in that window is rejected against the stale
+ * text and surfaces as a spurious conflict draft. The echo is state, not a
+ * ref, so the comparison is a render-safe read; the update batches with the
+ * source write it accompanies and costs no extra render.
  */
-export function useSettledPreviewText(
-  text: string,
-  immediate: boolean,
-  resetKey: string,
-  idleMs: number,
-  maxMs: number,
-): string {
+export function useSettledPreviewText(source: string, text: string, resetKey: string) {
+  const policy = markdownPreviewSyncPolicy(text.length);
+  const { publicationIdleMs: idleMs, publicationMaxMs: maxMs } = policy;
+  const [echo, markEcho] = useState<string | null>(null);
+  const immediate = source === echo;
   const [settled, setSettled] = useState(text);
   const [settledKey, setSettledKey] = useState(resetKey);
   const latestTextRef = useRef(text);
@@ -41,18 +43,16 @@ export function useSettledPreviewText(
     // Refreshed here rather than during render so the max timer below, which
     // outlives the commit that armed it, publishes the newest document.
     latestTextRef.current = text;
+    const clearMaxTimer = () => {
+      if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    };
     if (settled === text) {
-      if (maxTimerRef.current) {
-        clearTimeout(maxTimerRef.current);
-        maxTimerRef.current = null;
-      }
+      clearMaxTimer();
       return;
     }
     const publish = () => {
-      if (maxTimerRef.current) {
-        clearTimeout(maxTimerRef.current);
-        maxTimerRef.current = null;
-      }
+      clearMaxTimer();
       setSettled(latestTextRef.current);
     };
     // A max timer keeps continuous typing from starving the preview entirely;
@@ -66,7 +66,7 @@ export function useSettledPreviewText(
     if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
   }, []);
 
-  return settled;
+  return { settled, markEcho, policy };
 }
 
 /**
@@ -115,13 +115,13 @@ export function rangesWithinPreview<T extends { from: number; to: number }>(item
   ));
 }
 
+/**
+ * Map `value` from one pane's scroll space into the other's through the
+ * monotonic anchor `pairs`, interpolating linearly between neighbouring anchors
+ * and the two ends of each range.
+ */
 export function interpolateScrollAnchors(
-  value: number,
-  pairs: Array<{ from: number; to: number }>,
-  fromMin: number,
-  fromMax: number,
-  toMin: number,
-  toMax: number,
+  value: number, pairs: Array<{ from: number; to: number }>, fromMin: number, fromMax: number, toMin: number, toMax: number,
 ) {
   const bound = (target: number, key: "from" | "to", upper: boolean, low = 0, high = pairs.length) => {
     while (low < high) {
@@ -132,30 +132,17 @@ export function interpolateScrollAnchors(
     }
     return low;
   };
-  const firstInterior = Math.max(
-    bound(fromMin, "from", true),
-    bound(toMin, "to", true),
-  );
-  const afterInterior = Math.min(
-    bound(fromMax, "from", false, firstInterior),
-    bound(toMax, "to", false, firstInterior),
-  );
+  const firstInterior = Math.max(bound(fromMin, "from", true), bound(toMin, "to", true));
+  const afterInterior = Math.min(bound(fromMax, "from", false, firstInterior), bound(toMax, "to", false, firstInterior));
   const insertion = bound(value, "from", false, firstInterior, afterInterior);
-  const lower = insertion > firstInterior
-    ? pairs[insertion - 1]
-    : { from: fromMin, to: toMin };
-  const upper = insertion < afterInterior
-    ? pairs[insertion]
-    : { from: fromMax, to: toMax };
+  const lower = insertion > firstInterior ? pairs[insertion - 1] : { from: fromMin, to: toMin };
+  const upper = insertion < afterInterior ? pairs[insertion] : { from: fromMax, to: toMax };
   const span = upper.from - lower.from;
   const progress = span > 0 ? (value - lower.from) / span : 0;
   return clamp(lower.to + progress * (upper.to - lower.to), toMin, toMax);
 }
 
-export type ViewportSnapshot = {
-  scrollTop: number;
-  scrollRange: number;
-};
+export type ViewportSnapshot = { scrollTop: number; scrollRange: number };
 
 type PreviewViewportSnapshot = ViewportSnapshot & {
   blockIndex?: number;
@@ -172,35 +159,29 @@ export type MarkdownModeViewportHandoff = {
   preview?: PreviewViewportSnapshot;
 };
 
+/** How far `scroller` can scroll vertically. */
+export const scrollRange = (scroller: HTMLElement) => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+
 export function captureViewport(viewport: HTMLElement): ViewportSnapshot {
-  return {
-    scrollTop: viewport.scrollTop,
-    scrollRange: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
-  };
+  return { scrollTop: viewport.scrollTop, scrollRange: scrollRange(viewport) };
 }
 
 function previewViewportBlocks(viewport: HTMLElement): HTMLElement[] {
-  return Array.from(viewport.querySelectorAll<HTMLElement>(".ProseMirror")).flatMap(
-    (proseMirror) => Array.from(proseMirror.children).filter(
-      (child): child is HTMLElement => child instanceof HTMLElement,
-    ),
-  );
+  return Array.from(viewport.querySelectorAll<HTMLElement>(".ProseMirror")).flatMap((proseMirror) => (
+    Array.from(proseMirror.children).filter((child): child is HTMLElement => child instanceof HTMLElement)
+  ));
 }
 
 export function capturePreviewViewport(viewport: HTMLElement): PreviewViewportSnapshot {
   const snapshot: PreviewViewportSnapshot = captureViewport(viewport);
   const blocks = previewViewportBlocks(viewport);
   const viewportRect = viewport.getBoundingClientRect();
-  const blockIndex = blocks.findIndex((block) => (
-    block.getBoundingClientRect().bottom > viewportRect.top
-  ));
+  const blockIndex = blocks.findIndex((block) => block.getBoundingClientRect().bottom > viewportRect.top);
   const block = blocks[blockIndex];
   if (!block) return snapshot;
   const sourceOffset = Number(block.dataset.sourceOffset);
   const chunk = block.closest<HTMLElement>("[data-visual-chunk-id]");
-  const chunkBlocks = chunk
-    ? Array.from(chunk.querySelector<HTMLElement>(".ProseMirror")?.children ?? [])
-    : [];
+  const chunkBlocks = chunk ? Array.from(chunk.querySelector<HTMLElement>(".ProseMirror")?.children ?? []) : [];
   return {
     ...snapshot,
     blockIndex,
@@ -213,21 +194,15 @@ export function capturePreviewViewport(viewport: HTMLElement): PreviewViewportSn
   };
 }
 
-export function restoreViewport(
-  viewport: HTMLElement,
-  snapshot: ViewportSnapshot,
-): boolean {
-  const targetRange = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+export function restoreViewport(viewport: HTMLElement, snapshot: ViewportSnapshot): boolean {
+  const targetRange = scrollRange(viewport);
   viewport.scrollTop = snapshot.scrollRange > 0 && targetRange > 0
     ? (snapshot.scrollTop / snapshot.scrollRange) * targetRange
     : snapshot.scrollTop;
   return snapshot.scrollTop <= 0 || snapshot.scrollRange <= 0 || targetRange > 0;
 }
 
-export function restorePreviewViewport(
-  viewport: HTMLElement,
-  snapshot: PreviewViewportSnapshot,
-): boolean {
+export function restorePreviewViewport(viewport: HTMLElement, snapshot: PreviewViewportSnapshot): boolean {
   const viewportReady = restoreViewport(viewport, snapshot);
   if (snapshot.blockIndex == null || snapshot.blockViewportTop == null) return viewportReady;
   const blocks = previewViewportBlocks(viewport);
@@ -235,20 +210,15 @@ export function restorePreviewViewport(
     ? null
     : blocks.find((candidate) => Number(candidate.dataset.sourceOffset) === snapshot.blockSourceOffset) ?? null;
   if (!block && snapshot.chunkId != null && snapshot.chunkBlockIndex != null) {
-    const chunk = Array.from(
-      viewport.querySelectorAll<HTMLElement>("[data-visual-chunk-id]"),
-    ).find((candidate) => candidate.dataset.visualChunkId === snapshot.chunkId);
-    const candidate = chunk?.querySelector<HTMLElement>(".ProseMirror")
-      ?.children[snapshot.chunkBlockIndex];
+    const chunk = Array.from(viewport.querySelectorAll<HTMLElement>("[data-visual-chunk-id]"))
+      .find((candidate) => candidate.dataset.visualChunkId === snapshot.chunkId);
+    const candidate = chunk?.querySelector<HTMLElement>(".ProseMirror")?.children[snapshot.chunkBlockIndex];
     if (candidate instanceof HTMLElement) block = candidate;
   }
   if (!block && snapshot.chunkId != null) return false;
   block ??= blocks[snapshot.blockIndex] ?? null;
   if (!block) return false;
-  const blockViewportTop = block.getBoundingClientRect().top
-    - viewport.getBoundingClientRect().top;
-  if (Number.isFinite(blockViewportTop)) {
-    viewport.scrollTop += blockViewportTop - snapshot.blockViewportTop;
-  }
+  const blockViewportTop = block.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+  if (Number.isFinite(blockViewportTop)) viewport.scrollTop += blockViewportTop - snapshot.blockViewportTop;
   return viewportReady;
 }

@@ -7,6 +7,9 @@ function thumbGeometry(scroller: HTMLElement) {
   return { thumbHeight, travel: trackHeight - thumbHeight, maxScroll: scroller.scrollHeight - scroller.clientHeight };
 }
 
+/** The CodeMirror scroller the overlay `bar` sits beside. */
+const scrollerBeside = (bar: HTMLElement) => bar.parentElement?.querySelector<HTMLElement>(".cm-scroller");
+
 /** Lattice's overlay scrollbar for a CodeMirror view: a thumb that tracks the scroller and can be dragged. */
 export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
@@ -82,9 +85,7 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     dragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     scrollingActiveRef.current = false;
     setScrolling(false);
   };
@@ -96,8 +97,7 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
       data-scrolling={scrolling || undefined}
       aria-hidden="true"
       onPointerDown={(event) => {
-        const scroller = event.currentTarget.parentElement
-          ?.querySelector<HTMLElement>(".cm-scroller");
+        const scroller = scrollerBeside(event.currentTarget);
         if (!scroller || !hasOverflow) return;
         event.preventDefault();
         event.stopPropagation();
@@ -113,8 +113,7 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
         scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
       }}
       onPointerMove={(event) => {
-        const scroller = event.currentTarget.parentElement
-          ?.querySelector<HTMLElement>(".cm-scroller");
+        const scroller = scrollerBeside(event.currentTarget);
         const drag = dragRef.current;
         if (!scroller || !drag) return;
         const { travel, maxScroll } = thumbGeometry(scroller);

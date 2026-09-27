@@ -1,10 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
 import { DocumentCanvas, OpenSlideTabPool } from "./document-canvas";
 import { createEditorComment } from "../editor/comments/editor-comments";
 import { EditorView } from "@codemirror/view";
+import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-workspace";
+import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
 
 /**
  * The canvas decides *what* to mount; the editors themselves are covered by
@@ -17,23 +19,14 @@ import { EditorView } from "@codemirror/view";
  * so an assertion reads like the thing a user would notice.
  */
 vi.mock("./canvas-lazy-modules", () => {
-  const PdfPreview = (props: {
-    url: string | null;
-    fileName?: string;
-    initialViewState?: { page?: number };
-    onViewState?: (state: { page: number; scale: number; fitMode: null; scrollTop: number; scrollLeft: number }) => void;
-  }) => (
+  const PdfPreview = (props: ComponentProps<typeof RealPdfPreview>) => (
     <div
       data-testid="pdf-preview"
       data-url={props.url ?? ""}
       data-file-name={props.fileName ?? ""}
       data-restored-page={String(props.initialViewState?.page ?? "")}
     >
-      <button
-        type="button"
-        data-testid="pdf-view-state"
-        onClick={() => props.onViewState?.({ page: 7, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 })}
-      />
+      <button data-testid="pdf-view-state" onClick={() => props.onViewState?.({ page: 7, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 })} />
     </div>
   );
   const editorStub = (testId: string) => (props: {
@@ -59,34 +52,11 @@ vi.mock("./canvas-lazy-modules", () => {
       ))}
       {props.onCreateComment && <button data-testid="preview-create-comment" onClick={() => props.onCreateComment?.(2, 7, "Preview comment")} />}
       {props.onEligibilityChange && (
-        <button
-          type="button"
-          data-testid={`${testId}-report-lossy`}
-          onClick={() => props.onEligibilityChange?.(
-            "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.",
-          )}
-        />
+        <button data-testid={`${testId}-report-lossy`} onClick={() => props.onEligibilityChange?.("Visual editing is unavailable here.")} />
       )}
     </div>
   );
-  const OpenSlideWorkspace = (props: {
-    projectRoot: string;
-    path: string;
-    source: string;
-    locale: "en" | "zh-CN";
-    theme: "light" | "dark";
-    active?: boolean;
-    editable?: boolean;
-    initialViewState?: { page: number };
-    onViewState?: (state: { page: number }) => void;
-    onMutation: (mutation: {
-      id: number;
-      path: string;
-      kind: "write";
-      text: string;
-      previousText: string;
-    }) => Promise<unknown>;
-  }) => (
+  const OpenSlideWorkspace = (props: OpenSlideWorkspaceProps) => (
     <div
       data-testid="open-slide-workspace"
       data-project-root={props.projectRoot}
@@ -95,25 +65,13 @@ vi.mock("./canvas-lazy-modules", () => {
       data-locale={props.locale}
       data-theme={props.theme}
       data-active={String(props.active ?? true)}
-      data-editable={String(props.editable ?? true)}
+      data-editable={String(props.editable)}
       data-restored-page={String(props.initialViewState?.page ?? "")}
     >
-      <button
-        type="button"
-        data-testid="open-slide-mutation"
-        onClick={() => void props.onMutation({
-          id: 1,
-          path: props.path,
-          kind: "write",
-          text: "export default [];\n",
-          previousText: props.source,
-        })}
-      />
-      <button
-        type="button"
-        data-testid="open-slide-view-state"
-        onClick={() => props.onViewState?.({ page: 3 })}
-      />
+      <button data-testid="open-slide-mutation" onClick={() => void props.onMutation({
+        id: 1, path: props.path, kind: "write", text: "export default [];\n", previousText: props.source,
+      })} />
+      <button type="button" data-testid="open-slide-view-state" onClick={() => props.onViewState?.({ page: 3 })} />
     </div>
   );
   return {
@@ -136,126 +94,44 @@ const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 
 type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 
+/** Callbacks every canvas gets as a bare spy; the ones that must answer something are set in `baseProps`. */
+const HANDLERS = [
+  "setSecondarySource", "onFocusPane", "setSource", "setSelection", "onPdfTextSelect", "onPaperTextSelect",
+  "onContextSurfaceActivate", "onViewMarkdownSource", "onEditorLeave", "onPasteImageFile", "onFigureDropHandled",
+  "onEditorNavigationHandled", "onEditorPosition", "onCompletionActiveChange", "onViewState", "onViewRestoreHandled",
+  "onGotoDefinition", "onTexlabGoto", "onFindReferences", "onRenameSymbol", "onRenameEnvironment", "onWrapEnvironment",
+  "onEnvRenameHandled", "onWrapEnvHandled", "onGotoLineRequest", "onOutlineOpenChange", "onOutlineNavigate",
+  "onInsertOpenChange", "onTableGeneratorOpenChange", "onCiteInsertHandled", "onForwardSync", "onPdfSource",
+  "onCreateEditorComment", "onOpenEditorComments", "onResolveEditorComment", "onReplyEditorComment",
+  "onCommentFocusHandled", "onOpenTodos", "onPdfPageCount", "onPdfPageChange", "onCreateMissingFile",
+  "onOpenMarkdownPath", "onOpenCitation",
+] as const satisfies readonly (keyof CanvasProps)[];
+
 function baseProps(): CanvasProps {
   return {
-    projectRoot: "/tmp/project",
-    locale: "en",
-    theme: "light",
-    mode: "source",
-    source: "\\section{Intro}\n",
-    activeFile: "main.tex",
-    secondaryFile: null,
-    secondarySource: "",
-    setSecondarySource: vi.fn(),
-    focusedPane: "primary",
-    onFocusPane: vi.fn(),
+    ...Object.fromEntries(HANDLERS.map((name) => [name, vi.fn()])) as Record<(typeof HANDLERS)[number], Mock>,
+    projectRoot: "/tmp/project", locale: "en", theme: "light", mode: "source",
+    source: "\\section{Intro}\n", activeFile: "main.tex", secondaryFile: null, secondarySource: "", focusedPane: "primary",
     dualRatioResetGeneration: 0,
-    setSource: vi.fn(),
     onSave: vi.fn(async () => true),
-    setSelection: vi.fn(),
-    onPdfTextSelect: vi.fn(),
-    onPaperTextSelect: vi.fn(),
-    onContextSurfaceActivate: vi.fn(),
-    onViewMarkdownSource: vi.fn(),
     onOpenSlideMutation: vi.fn(async () => []),
-    pdfUrl: null,
-    pdfBase64: null,
-    activePaper: null,
-    paperSide: "left",
-    activeAsset: null,
-    secondaryAsset: null,
-    citationKeys: [],
-    citations: [],
-    references: [],
-    unusedLabels: [],
-    unusedCitations: [],
     onLoadReferenceImage: vi.fn(async () => null),
-    onEditorLeave: vi.fn(),
     onPrepareFigure: vi.fn(async () => null),
-    onPasteImageFile: vi.fn(),
-    nativeFigureDropActive: false,
-    fileDropTargetPane: null,
-    figurePointerPosition: null,
-    figureDropRequest: null,
-    onFigureDropHandled: vi.fn(),
-    editorNavigation: null,
-    onEditorNavigationHandled: vi.fn(),
-    onEditorPosition: vi.fn(),
-    onCompletionActiveChange: vi.fn(),
-    onViewState: vi.fn(),
-    viewRestore: null,
-    onViewRestoreHandled: vi.fn(),
-    onGotoDefinition: vi.fn(),
-    onTexlabGoto: vi.fn(),
-    onFindReferences: vi.fn(),
-    onRenameSymbol: vi.fn(),
-    onRenameEnvironment: vi.fn(),
-    onWrapEnvironment: vi.fn(),
-    envRenameRequest: null,
-    onEnvRenameHandled: vi.fn(),
-    wrapEnvRequest: null,
-    onWrapEnvHandled: vi.fn(),
-    localMacros: [],
-    katexMacros: {},
-    onGotoLineRequest: vi.fn(),
-    outlineOpen: false,
-    onOutlineOpenChange: vi.fn(),
-    outlineNodes: [],
-    activeOutlineId: null,
-    onOutlineNavigate: vi.fn(),
-    insertOpen: false,
-    onInsertOpenChange: vi.fn(),
-    tableGeneratorOpen: false,
-    onTableGeneratorOpenChange: vi.fn(),
-    editorKeymap: "default",
-    editorSpellcheck: false,
-    spellingWords: [],
     onAddSpellingWord: vi.fn(() => true),
-    citeInsertRequest: null,
-    onCiteInsertHandled: vi.fn(),
-    projectPaths: ["main.tex"],
-    graphicsRoots: [],
-    buildDiagnostics: [],
-    texlabDiagnostics: [],
-    pdfSyncTarget: null,
-    canForwardSync: false,
-    locatingPdf: false,
-    onForwardSync: vi.fn(),
-    onPdfSource: vi.fn(),
-    editorComments: [],
-    overleafPresenceCursors: [],
-    overleafChanges: [],
-    overleafTrackChangeActions: {
-      authorName: () => "Unknown",
-      canAct: () => false,
-      onAccept: vi.fn(),
-      onReject: vi.fn(),
-    },
-    activeEditorCommentId: null,
-    commentAuthorName: "Ada",
-    commentAuthorId: "ada",
-    onCreateEditorComment: vi.fn(),
-    onOpenEditorComments: vi.fn(),
-    onResolveEditorComment: vi.fn(),
-    onReplyEditorComment: vi.fn(),
-    commentFocusRequest: null,
-    onCommentFocusHandled: vi.fn(),
-    todoCount: 0,
-    onOpenTodos: vi.fn(),
-    projectWordCount: null,
-    onPdfPageCount: vi.fn(),
-    onPdfPageChange: vi.fn(),
-    onCreateMissingFile: vi.fn(),
-    onOpenMarkdownPath: vi.fn(),
-    interactivePreviewsEnabled: false,
-    collabSession: null,
-    collabPeers: [],
-    collabReady: false,
-    collabEditorKey: "local",
-    editorEditable: true,
-    secondaryEditorEditable: true,
-    onOpenCitation: vi.fn(),
     canOpenCitation: () => false,
+    pdfUrl: null, pdfBase64: null, activePaper: null, paperSide: "left", activeAsset: null, secondaryAsset: null,
+    citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
+    localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
+    buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
+    overleafPresenceCursors: [], overleafChanges: [], collabPeers: [],
+    figureDropRequest: null, editorNavigation: null, viewRestore: null, envRenameRequest: null, wrapEnvRequest: null,
+    citeInsertRequest: null, commentFocusRequest: null, figurePointerPosition: null, fileDropTargetPane: null,
+    activeOutlineId: null, activeEditorCommentId: null, pdfSyncTarget: null, projectWordCount: null, collabSession: null,
+    nativeFigureDropActive: false, outlineOpen: false, insertOpen: false, tableGeneratorOpen: false,
+    canForwardSync: false, locatingPdf: false, interactivePreviewsEnabled: false, collabReady: false,
+    editorKeymap: "default", editorSpellcheck: false, editorEditable: true, secondaryEditorEditable: true,
+    overleafTrackChangeActions: { authorName: () => "Unknown", canAct: () => false, onAccept: vi.fn(), onReject: vi.fn() },
+    commentAuthorName: "Ada", commentAuthorId: "ada", todoCount: 0, collabEditorKey: "local",
   };
 }
 
@@ -265,21 +141,39 @@ function renderCanvas(overrides?: Partial<CanvasProps>) {
   return {
     ...view,
     props,
-    rerenderWith: (next: Partial<CanvasProps>) => {
-      view.rerender(<DocumentCanvas {...props} {...next} />);
-    },
+    rerenderWith: (next: Partial<CanvasProps>) => view.rerender(<DocumentCanvas {...props} {...next} />),
   };
 }
 
-const imageAsset: AssetPreview = {
-  path: "figures/plot.png",
-  mimeType: "image/png",
-  base64: "aGk=",
-};
+const imageAsset: AssetPreview = { path: "figures/plot.png", mimeType: "image/png", base64: "aGk=" };
 
 /** The primary source editor, which every mode either shows or deliberately omits. */
 function sourceEditor(container: HTMLElement) {
   return container.querySelector("[data-editor-pane='primary'] .cm-editor");
+}
+
+/** The primary source editor's view, once it has mounted. */
+async function primarySourceView(container: HTMLElement) {
+  await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
+  return EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+}
+
+/**
+ * Select "bold" in "Hello bold world" and open the comment composer from the
+ * selection toolbar. jsdom has no text layout, so the editor reports `bounds`
+ * and the selection sits wherever `coords` says.
+ */
+async function composeCommentOnBold(container: HTMLElement, bounds: DOMRect, coords: () => { left: number; right: number; top: number; bottom: number }) {
+  const view = await primarySourceView(container);
+  vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
+  vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
+  vi.spyOn(view, "coordsAtPos").mockImplementation(coords);
+  act(() => {
+    view.focus();
+    view.dispatch({ selection: { anchor: 6, head: 10 } });
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+  return { view, composer: await screen.findByRole("dialog", { name: "Add comment" }) };
 }
 
 afterEach(cleanup);
@@ -295,12 +189,9 @@ describe("DocumentCanvas / mode", () => {
       source: "first\nsecond\ntarget\nlast\n",
       viewRestore: { path: "main.tex", cursor: 2, scrollTop: 450, id: "saved" },
     });
-    rerenderWith({
-      mode: "split",
-      editorNavigation: { path: "main.tex", line: 3, id: "jump" },
-    });
+    rerenderWith({ mode: "split", editorNavigation: { path: "main.tex", line: 3, id: "jump" } });
     await waitFor(() => expect(props.onEditorNavigationHandled).toHaveBeenCalledWith("jump"));
-    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
+    const view = await primarySourceView(container);
     expect(view.state.selection.main.head).toBe(13);
     // App acknowledges requests and supplies a new inline restore callback on
     // its next render. An unconsumed restore must not move the cursor then.
@@ -321,13 +212,9 @@ describe("DocumentCanvas / mode", () => {
     "still restores a saved position without a competing jump in that file (%j)",
     async (editorNavigation) => {
       const { container, props, rerenderWith } = renderCanvas({ source: "first\nsecond\ntarget\n" });
-      await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-      rerenderWith({
-        editorNavigation,
-        viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" },
-      });
+      const view = await primarySourceView(container);
+      rerenderWith({ editorNavigation, viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" } });
       await waitFor(() => expect(props.onViewRestoreHandled).toHaveBeenCalledWith("saved"));
-      const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
       expect(view.state.selection.main.head).toBe(8);
       expect(view.scrollDOM.scrollTop).toBe(120);
     },
@@ -341,19 +228,12 @@ describe("DocumentCanvas / mode", () => {
       return this.classList.contains("editor-comment-popover") ? 180 : 0;
     });
     const { container, props } = renderCanvas({ source: "Hello bold world" });
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
-    const bounds = new DOMRect(20, 50, 600, 500);
-    vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
-    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
     let textTop = initialTextTop;
-    vi.spyOn(view, "coordsAtPos").mockImplementation(() => ({ left: 100, right: 150, top: textTop, bottom: textTop + 20 }));
-    act(() => {
-      view.focus();
-      view.dispatch({ selection: { anchor: 6, head: 10 } });
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    const { view, composer } = await composeCommentOnBold(
+      container,
+      new DOMRect(20, 50, 600, 500),
+      () => ({ left: 100, right: 150, top: textTop, bottom: textTop + 20 }),
+    );
     fireEvent.change(within(composer).getByRole("textbox"), { target: { value: "Keep this draft" } });
     const initialTop = Number.parseFloat(composer.style.top);
     expect(initialTop).toBe(expectedTop);
@@ -376,19 +256,11 @@ describe("DocumentCanvas / mode", () => {
     const source = "Hello bold world";
     const existing = createEditorComment({ path: "main.tex", source, from: 6, to: 10, body: "Existing", authorId: "ada", authorName: "Ada" })!;
     const { container, props } = renderCanvas({ source, editorComments: [existing] });
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    const view = EditorView.findFromDOM(sourceEditor(container) as HTMLElement)!;
-    // jsdom has no text layout; the floating toolbar needs real selection coordinates.
-    const bounds = new DOMRect(0, 0, 600, 500);
-    vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
-    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
-    vi.spyOn(view, "coordsAtPos").mockReturnValue({ left: 100, right: 150, top: 100, bottom: 120 });
-    act(() => {
-      view.focus();
-      view.dispatch({ selection: { anchor: 6, head: 10 } });
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    const { view, composer } = await composeCommentOnBold(
+      container,
+      new DOMRect(0, 0, 600, 500),
+      () => ({ left: 100, right: 150, top: 100, bottom: 120 }),
+    );
     expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
     expect(props.onCreateEditorComment).not.toHaveBeenCalled();
     fireEvent.click(within(composer).getByRole("button", { name: "Cancel" }));
@@ -439,14 +311,21 @@ describe("DocumentCanvas / mode", () => {
   });
 
   it.each([
-    { mode: "source", editor: true, preview: false },
-    { mode: "pdf", editor: false, preview: true },
-  ] as const)("gives the whole canvas to one surface in $mode mode", async ({ mode, editor, preview }) => {
-    const { container } = renderCanvas({ mode });
+    // Source and PDF give the whole canvas to one surface.
+    { mode: "source", editors: 1, pdf: false, separators: [] },
+    { mode: "pdf", editors: 0, pdf: true, separators: [] },
+    { mode: "split", editors: 1, pdf: true, separators: ["Resize editor and PDF preview"] },
+    // Two editors and no project preview, until columns adds it with its own resizer.
+    { mode: "dual", editors: 2, pdf: false, separators: ["Resize dual source panes"] },
+    { mode: "columns", editors: 2, pdf: true, separators: ["Resize dual source panes", "Resize PDF pane"] },
+  ] as const)("lays out $mode mode with $editors editors, PDF: $pdf", async ({ mode, editors, pdf, separators }) => {
+    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "\\section{Appendix}\n" });
 
-    await waitFor(() => expect(Boolean(sourceEditor(container))).toBe(editor));
-    await waitFor(() => expect(Boolean(screen.queryByTestId("pdf-preview"))).toBe(preview));
-    expect(container.querySelector(".split-canvas")).toBeNull();
+    await waitFor(() => expect(container.querySelectorAll(".cm-editor")).toHaveLength(editors));
+    await waitFor(() => expect(Boolean(screen.queryByTestId("pdf-preview"))).toBe(pdf));
+    expect(screen.queryAllByRole("separator").map((separator) => separator.getAttribute("aria-label"))).toEqual(separators);
+    expect(Boolean(container.querySelector(".split-canvas"))).toBe(separators.length > 0);
+    expect(Boolean(container.querySelector(".columns-canvas"))).toBe(mode === "columns");
   });
 
   it("embeds standalone data HTML frames inside the sandboxed HTML preview", async () => {
@@ -466,14 +345,6 @@ describe("DocumentCanvas / mode", () => {
     expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
   });
 
-  it("shows editor and preview either side of a resizer in split mode", async () => {
-    const { container } = renderCanvas({ mode: "split" });
-
-    expect(await screen.findByTestId("pdf-preview")).toBeInTheDocument();
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    expect(screen.getByRole("separator", { name: "Resize editor and PDF preview" })).toBeInTheDocument();
-  });
-
   it("names the resizer after whatever is actually being previewed", async () => {
     // The separator is the only label a screen reader gets for the pane it
     // moves, and the pane's contents depend on the open document's kind.
@@ -485,31 +356,12 @@ describe("DocumentCanvas / mode", () => {
     expect(screen.getByRole("separator", { name: "Resize editor and asset preview" })).toBeInTheDocument();
   });
 
-  it("puts two editors and no project preview in dual mode", async () => {
-    const { container } = renderCanvas({
-      mode: "dual",
-      secondaryFile: "appendix.tex",
-      secondarySource: "\\section{Appendix}\n",
-    });
-
-    await waitFor(() => expect(container.querySelectorAll(".cm-editor").length).toBeGreaterThan(1));
-    expect(screen.getByRole("separator", { name: "Resize dual source panes" })).toBeInTheDocument();
-    expect(screen.queryByTestId("pdf-preview")).toBeNull();
-    expect(container.querySelector(".columns-canvas")).toBeNull();
-  });
-
   it("places a Paper beside an editor on either side", async () => {
     const { container, rerenderWith } = renderCanvas({
       mode: "dual",
       activeFile: ".research/papers/1706.03762/paper.md",
       source: "## Abstract\n\nPaper content.",
-      activePaper: {
-        arxivId: "1706.03762",
-        title: "Attention Is All You Need",
-        authors: "Ashish Vaswani and Noam Shazeer",
-        hasFullText: true,
-        hasBlog: false,
-      },
+      activePaper: { arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Ashish Vaswani and Noam Shazeer", hasFullText: true, hasBlog: false },
       paperSide: "left",
       secondaryFile: "main.tex",
       secondarySource: "\\documentclass{article}\n",
@@ -523,36 +375,17 @@ describe("DocumentCanvas / mode", () => {
     expect(split.lastElementChild).toHaveClass("paper-pane");
   });
 
-  it("adds the preview column and its own resizer in columns mode", async () => {
-    const { container } = renderCanvas({
-      mode: "columns",
-      secondaryFile: "appendix.tex",
-      secondarySource: "\\section{Appendix}\n",
-    });
+  // Mode and asset arrive from different pieces of App state, so the two can be
+  // out of step for a render; without an asset the canvas must fall back to the
+  // editor rather than preview nothing and lose the open file.
+  it.each([imageAsset, null])("shows only the asset in asset mode, if there is one (%j)", async (activeAsset) => {
+    const { container } = renderCanvas({ mode: "asset", activeAsset });
 
-    expect(await screen.findByTestId("pdf-preview")).toBeInTheDocument();
-    expect(container.querySelector(".columns-canvas")).not.toBeNull();
-    expect(screen.getByRole("separator", { name: "Resize dual source panes" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize PDF pane" })).toBeInTheDocument();
-  });
-
-  it("shows only the asset in asset mode", () => {
-    const { container } = renderCanvas({ mode: "asset", activeAsset: imageAsset });
-
-    expect(container.querySelector(".asset-preview")).not.toBeNull();
+    await waitFor(() => expect(Boolean(sourceEditor(container))).toBe(!activeAsset));
+    expect(Boolean(container.querySelector(".asset-preview"))).toBe(Boolean(activeAsset));
+    if (!activeAsset) return;
     expect(screen.getByText("figures/plot.png")).toBeInTheDocument();
-    expect(sourceEditor(container)).toBeNull();
     expect(screen.queryByTestId("pdf-preview")).toBeNull();
-  });
-
-  it("falls back to the editor when asset mode has no asset to show", async () => {
-    // Mode and asset arrive from different pieces of App state, so the two can
-    // be out of step for a render; without the guard the canvas renders a
-    // preview of nothing and the open file disappears.
-    const { container } = renderCanvas({ mode: "asset", activeAsset: null });
-
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    expect(container.querySelector(".asset-preview")).toBeNull();
   });
 });
 
@@ -582,13 +415,7 @@ describe("DocumentCanvas / editor for the open document", () => {
       mode: "pdf",
       activeFile: ".research/papers/2408.05088/paper.md",
       source: "Paper body.",
-      activePaper: {
-        arxivId: "2408.05088",
-        title: "UNIC",
-        authors: "Mert and Philippe",
-        hasFullText: true,
-        hasBlog: false,
-      },
+      activePaper: { arxivId: "2408.05088", title: "UNIC", authors: "Mert and Philippe", hasFullText: true, hasBlog: false },
     });
 
     fireEvent.click(await screen.findByTestId("visual-markdown-editor-report-lossy"));
@@ -597,19 +424,16 @@ describe("DocumentCanvas / editor for the open document", () => {
 
     expect(warning).toHaveTextContent("Visual editing is unavailable");
     expect(warning).toHaveClass("paper-visual-eligibility");
-    expect(warning.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .toBeTruthy();
+    expect(warning.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("hosts a native Open Slide deck as the complete presentation workspace", async () => {
-    const onOpenSlideMutation = vi.fn(async () => []);
-    const { container } = renderCanvas({
+    const { container, props } = renderCanvas({
       mode: "source",
       activeFile: "slides/research-update/index.tsx",
       source: "export default [];\n",
       locale: "zh-CN",
       theme: "dark",
-      onOpenSlideMutation,
     });
 
     const presentation = await screen.findByTestId("open-slide-workspace");
@@ -619,10 +443,7 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(presentation.dataset.theme).toBe("dark");
     expect(sourceEditor(container)).toBeNull();
     fireEvent.click(screen.getByTestId("open-slide-mutation"));
-    expect(onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({
-      path: "slides/research-update/index.tsx",
-      kind: "write",
-    }));
+    expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path: "slides/research-update/index.tsx", kind: "write" }));
   });
 
   it("keeps an open presentation iframe mounted while another tab is active", async () => {
@@ -636,34 +457,19 @@ describe("DocumentCanvas / editor for the open document", () => {
       theme: "light" as const,
       onMutation: vi.fn(async () => []),
     };
-    const { rerender } = render(
-      <OpenSlideTabPool
-        projectRoot="/tmp/project"
-        activeWorkspace={activeWorkspace}
-        openPaths={[path]}
-      />,
+    const pool = (workspace: typeof activeWorkspace | null, openPaths: string[]) => (
+      <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={workspace} openPaths={openPaths} />
     );
+    const { rerender } = render(pool(activeWorkspace, [path]));
     const presentation = await screen.findByTestId("open-slide-workspace");
 
-    rerender(
-      <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={null} openPaths={[path]} />,
-    );
-    expect(screen.getByTestId("open-slide-workspace")).toBe(presentation);
-    expect(presentation.dataset.active).toBe("false");
+    for (const [workspace, active] of [[null, "false"], [activeWorkspace, "true"]] as const) {
+      rerender(pool(workspace, [path]));
+      expect(screen.getByTestId("open-slide-workspace")).toBe(presentation);
+      expect(presentation.dataset.active).toBe(active);
+    }
 
-    rerender(
-      <OpenSlideTabPool
-        projectRoot="/tmp/project"
-        activeWorkspace={activeWorkspace}
-        openPaths={[path]}
-      />,
-    );
-    expect(screen.getByTestId("open-slide-workspace")).toBe(presentation);
-    expect(presentation.dataset.active).toBe("true");
-
-    rerender(
-      <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={null} openPaths={[]} />,
-    );
+    rerender(pool(null, []));
     expect(screen.queryByTestId("open-slide-workspace")).toBeNull();
   });
 
@@ -720,9 +526,7 @@ describe("DocumentCanvas / editor for the open document", () => {
 });
 
 describe("DocumentCanvas / split ratio", () => {
-  function separator() {
-    return screen.getByRole("separator", { name: "Resize editor and PDF preview" });
-  }
+  const separator = () => screen.getByRole("separator", { name: "Resize editor and PDF preview" });
 
   it.each([
     { mode: "split", label: "Resize editor and PDF preview", inside: 700, saved: 1099 / 1599, key: SPLIT_RATIO_KEY },
@@ -810,27 +614,20 @@ describe("DocumentCanvas / split ratio", () => {
     expect(document.body).not.toHaveClass("resizing-split");
   });
 
-  it("nudges the split with the arrow keys and remembers where it stopped", () => {
+  it("nudges the split with the arrow keys only, remembers where it stopped, and stops at the edge instead of hiding a pane", () => {
     renderCanvas({ mode: "split" });
 
+    fireEvent.keyDown(separator(), { key: "ArrowUp" });
+    expect(separator()).toHaveAttribute("aria-valuenow", "46");
+    expect(localStorage.getItem(SPLIT_RATIO_KEY)).toBeNull();
     fireEvent.keyDown(separator(), { key: "ArrowRight" });
     expect(separator()).toHaveAttribute("aria-valuenow", "49");
     fireEvent.keyDown(separator(), { key: "ArrowLeft" });
     fireEvent.keyDown(separator(), { key: "ArrowLeft" });
     expect(separator()).toHaveAttribute("aria-valuenow", "43");
     expect(Number(localStorage.getItem(SPLIT_RATIO_KEY))).toBeCloseTo(0.43, 5);
-  });
 
-  it("ignores keys that are not a nudge, and stops nudging at the edge instead of hiding a pane", () => {
-    renderCanvas({ mode: "split" });
-
-    fireEvent.keyDown(separator(), { key: "ArrowUp" });
-    expect(separator()).toHaveAttribute("aria-valuenow", "46");
-    expect(localStorage.getItem(SPLIT_RATIO_KEY)).toBeNull();
-
-    for (let step = 0; step < 20; step += 1) {
-      fireEvent.keyDown(separator(), { key: "ArrowLeft" });
-    }
+    for (let step = 0; step < 20; step += 1) fireEvent.keyDown(separator(), { key: "ArrowLeft" });
     expect(separator()).toHaveAttribute("aria-valuenow", "20");
   });
 });
@@ -843,21 +640,9 @@ describe("DocumentCanvas / per-file view state", () => {
     return {
       updates,
       getFileViewState: (path: string) => states[path],
-      onFileViewState: (path: string, update: Partial<FileViewState>) => {
-        updates.push({ path, update });
-      },
+      onFileViewState: (path: string, update: Partial<FileViewState>) => void updates.push({ path, update }),
     };
   }
-
-  it("restores each document's own place and files updates back under it", async () => {
-    const state = viewStates({ "main.tex": { pdf: pdfViewState(3) } });
-    renderCanvas({ mode: "pdf", activeFile: "main.tex", ...state });
-
-    expect((await screen.findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
-
-    fireEvent.click(screen.getByTestId("pdf-view-state"));
-    expect(state.updates).toEqual([{ path: "main.tex", update: { pdf: pdfViewState(7) } }]);
-  });
 
   it("hands the board its own saved view, not the previous file's", async () => {
     const state = viewStates({
@@ -915,21 +700,20 @@ describe("DocumentCanvas / per-file view state", () => {
     expect(await screen.findByTestId("pdf-preview")).not.toBe(preview);
   });
 
-  it("keeps the preview on the last file that owns one", async () => {
+  it("restores each document's own place, files updates back under it, and keeps it for files without a preview", async () => {
+    const state = viewStates({ "main.tex": { pdf: pdfViewState(3) }, "refs.bib": { pdf: pdfViewState(9) } });
+    const { rerenderWith } = renderCanvas({ mode: "pdf", activeFile: "main.tex", ...state });
+    expect((await screen.findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
+    fireEvent.click(screen.getByTestId("pdf-view-state"));
+    expect(state.updates).toEqual([{ path: "main.tex", update: { pdf: pdfViewState(7) } }]);
+
     // Opening a .bib from a citation, or a .sty from a macro, must not throw
     // away the reader's page in the compiled PDF: those files have no preview
     // of their own, so the preview column keeps the document it was showing.
-    const state = viewStates({
-      "main.tex": { pdf: pdfViewState(3) },
-      "refs.bib": { pdf: pdfViewState(9) },
-    });
-    const { rerenderWith } = renderCanvas({ mode: "pdf", activeFile: "main.tex", ...state });
-    expect((await screen.findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
-
     rerenderWith({ activeFile: "refs.bib", source: "@article{a}\n" });
-
     await waitFor(() => expect(screen.getByTestId("pdf-preview").dataset.restoredPage).toBe("3"));
     fireEvent.click(screen.getByTestId("pdf-view-state"));
-    expect(state.updates).toEqual([{ path: "main.tex", update: { pdf: pdfViewState(7) } }]);
+    expect(state.updates.at(-1)).toEqual({ path: "main.tex", update: { pdf: pdfViewState(7) } });
+    expect(state.updates.every((update) => update.path === "main.tex")).toBe(true);
   });
 });

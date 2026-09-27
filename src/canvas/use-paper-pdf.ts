@@ -8,15 +8,12 @@ import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
 import type { CanvasMode, PaperSummary } from "../app-types";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
+import { captureViewport, type ViewportSnapshot } from "./markdown-preview-sync";
 
-type PaperPdfSource = {
-  key: string;
-  url: string;
-  fileName: string;
-  generic: boolean;
-};
+/** An original PDF a Paper links to; `generic` sources are fetched through the backend rather than opened directly. */
+type PaperPdfSource = { key: string; url: string; fileName: string; generic: boolean };
 
-export type PaperPdfView = PaperPdfSource & {
+type PaperPdfView = PaperPdfSource & {
   bytes: ArrayBuffer | null;
   previewUrl: string | null;
   error: boolean;
@@ -33,43 +30,36 @@ function normalizedArxivId(value: string): string {
     : "";
 }
 
+/** `value` as an http(s) URL; anything malformed or unsafe to hand the OS opener is null. */
+function httpUrl(value: string | null | undefined): URL | null {
+  try {
+    const parsed = new URL(value ?? "");
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function paperPdfSource(paper: PaperLink): PaperPdfSource | null {
   const arxivId = normalizedArxivId(paper.arxivId);
   if (arxivId) {
     const url = `https://arxiv.org/pdf/${arxivId.split("/").map(encodeURIComponent).join("/")}`;
     return { key: url, url, fileName: `${arxivId.replace("/", "-")}.pdf`, generic: false };
   }
-  const sourceUrl = paperPdfUrl(paper);
-  if (!sourceUrl) return null;
+  const parsed = httpUrl(paperPdfUrl(paper));
+  if (!parsed?.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
+  const pathName = parsed.pathname.split("/").at(-1) || "paper.pdf";
+  let fileName = pathName;
   try {
-    const parsed = new URL(sourceUrl);
-    if ((parsed.protocol !== "https:" && parsed.protocol !== "http:")
-      || !parsed.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
-    const pathName = parsed.pathname.split("/").at(-1) || "paper.pdf";
-    let fileName = pathName;
-    try {
-      fileName = decodeURIComponent(pathName);
-    } catch {
-      // A malformed escape in the display name must not make an otherwise safe PDF URL unusable.
-    }
-    return { key: parsed.href, url: parsed.href, fileName, generic: true };
+    fileName = decodeURIComponent(pathName);
   } catch {
-    return null;
+    // A malformed escape in the display name must not make an otherwise safe PDF URL unusable.
   }
+  return { key: parsed.href, url: parsed.href, fileName, generic: true };
 }
 
 function paperBrowserUrl(paper: PaperLink): string | null {
-  const pdfUrl = paperPdfUrl(paper);
-  if (pdfUrl) return pdfUrl;
-  if (paper.url) {
-    try {
-      const parsed = new URL(paper.url);
-      if (parsed.protocol === "https:" || parsed.protocol === "http:") return parsed.href;
-    } catch {
-      // Do not hand a malformed or unsafe bibliography URL to the OS opener.
-    }
-  }
-  return null;
+  return paperPdfUrl(paper) || httpUrl(paper.url)?.href || null;
 }
 
 type PaperQuoteFallback = { paperId: string; path: string; returnPath: string; quote: PdfSourceQuote };
@@ -81,13 +71,7 @@ type PaperQuoteFallback = { paperId: string; path: string; returnPath: string; q
  * cannot be shown in the PDF.
  */
 export function usePaperPdf({
-  activePaper,
-  activeFile,
-  mode,
-  onOpenMarkdownPath,
-  flushVisualMarkdown,
-  previewViewportRef,
-  settledPreviewText,
+  activePaper, activeFile, mode, onOpenMarkdownPath, flushVisualMarkdown, previewViewportRef, settledPreviewText,
 }: {
   activePaper: PaperSummary | null;
   activeFile: string;
@@ -101,17 +85,13 @@ export function usePaperPdf({
   const { t } = useLingui();
   const activePaperId = activePaper?.arxivId;
   const activePaperUrl = activePaper?.url;
-  const pdfSource = useMemo(
-    () => activePaperId !== undefined ? paperPdfSource({ arxivId: activePaperId, url: activePaperUrl }) : null,
-    [activePaperId, activePaperUrl],
-  );
-  const browserUrl = useMemo(
-    () => activePaperId !== undefined ? paperBrowserUrl({ arxivId: activePaperId, url: activePaperUrl }) : null,
-    [activePaperId, activePaperUrl],
-  );
+  const { pdfSource, browserUrl } = useMemo(() => {
+    const paper = activePaperId !== undefined ? { arxivId: activePaperId, url: activePaperUrl } : null;
+    return { pdfSource: paper && paperPdfSource(paper), browserUrl: paper && paperBrowserUrl(paper) };
+  }, [activePaperId, activePaperUrl]);
   const [pdfView, setPdfView] = useState<PaperPdfView | null>(null);
   const [quoteFallback, setQuoteFallback] = useState<PaperQuoteFallback | null>(null);
-  const returnViewportRef = useRef<{ path: string; scrollTop: number; scrollRange: number } | null>(null);
+  const returnViewportRef = useRef<ViewportSnapshot & { path: string } | null>(null);
   const pagesRef = useRef(new Map<string, number>());
   // Retain only the last complete PDF, not an unbounded library of buffers.
   // PdfPreview copies bytes before transferring them to its worker.
@@ -130,12 +110,13 @@ export function usePaperPdf({
     // Start it here so a later PDF click waits only for the remote source and PDF.js.
     if (pdfSource) void loadPdfPreviewModule();
   }, [pdfSource]);
-  useEffect(() => {
-    // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
-    // Choosing one while the PDF is open exits the alternate PDF surface.
+  const closePdf = useCallback(() => {
     requestRef.current += 1;
     setPdfView(null);
-  }, [activeFile, mode]);
+  }, []);
+  // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
+  // Choosing one while the PDF is open exits the alternate PDF surface.
+  useEffect(() => closePdf(), [activeFile, closePdf, mode]);
   useEffect(() => {
     const viewport = previewViewportRef.current;
     if (!quoteFallback || quoteFallback.paperId !== activePaperId || quoteFallback.path !== activeFile || !viewport) return;
@@ -175,10 +156,7 @@ export function usePaperPdf({
     if (!pdfSource) return;
     if (flushVisualMarkdown() === false) return;
     const viewport = previewViewportRef.current;
-    if (viewport) returnViewportRef.current = {
-      path: activeFile, scrollTop: viewport.scrollTop,
-      scrollRange: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
-    };
+    if (viewport) returnViewportRef.current = { path: activeFile, ...captureViewport(viewport) };
     const request = ++requestRef.current;
     const cached = bytesRef.current;
     const bytes = cached?.key === pdfSource.key ? cached.bytes : null;
@@ -199,10 +177,6 @@ export function usePaperPdf({
       fallbackToQuote(quote);
     });
   }, [activeFile, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
-  const closePdf = useCallback(() => {
-    requestRef.current += 1;
-    setPdfView(null);
-  }, []);
   const capturePdf = useCallback((bytes: ArrayBuffer) => {
     if (!pdfSource) return;
     bytesRef.current = { key: pdfSource.key, bytes };
@@ -226,16 +200,8 @@ export function usePaperPdf({
     pdfView: activePaper && pdfView && pdfView.key === pdfSource?.key ? pdfView : null,
     quoteFallback,
     /** Where the reader came from before a quote fell back into this full text, while it is shown. */
-    quoteReturnPath: quoteFallback?.paperId === activePaperId && quoteFallback?.path === activeFile
-      ? quoteFallback.returnPath
-      : null,
+    quoteReturnPath: quoteFallback?.paperId === activePaperId && quoteFallback?.path === activeFile ? quoteFallback.returnPath : null,
     clearQuoteFallback: () => setQuoteFallback(null),
-    returnViewportRef,
-    openPdf,
-    closePdf,
-    capturePdf,
-    rememberPage,
-    fallbackToQuote,
-    openInBrowser,
+    returnViewportRef, openPdf, closePdf, capturePdf, rememberPage, fallbackToQuote, openInBrowser,
   };
 }

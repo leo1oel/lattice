@@ -30,12 +30,12 @@ export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof Visual
   const { t } = useLingui();
   const [ready, setReady] = useState(isVisualMarkdownEditorWarmed);
   useEffect(() => {
-    if (ready) return;
+    if (ready) {
+      markVisualMarkdownEditorWarmed();
+      return;
+    }
     const frame = window.requestAnimationFrame(() => setReady(true));
     return () => window.cancelAnimationFrame(frame);
-  }, [ready]);
-  useEffect(() => {
-    if (ready) markVisualMarkdownEditorWarmed();
   }, [ready]);
   if (!ready) {
     return <div className="visual-markdown-preparing" aria-busy="true" aria-label={t`Preparing Markdown editor`} />;

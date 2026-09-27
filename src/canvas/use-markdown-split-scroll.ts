@@ -1,11 +1,10 @@
 import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
-import { interpolateScrollAnchors } from "./markdown-preview-sync";
+import { interpolateScrollAnchors, scrollRange } from "./markdown-preview-sync";
 
 type Side = "editor" | "preview";
 const otherSide = (side: Side): Side => side === "editor" ? "preview" : "editor";
-const scrollRange = (scroller: HTMLElement) => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
 
 /**
  * Split-mode scroll coordination between the Markdown source editor and its
@@ -16,15 +15,7 @@ const scrollRange = (scroller: HTMLElement) => Math.max(0, scroller.scrollHeight
  * listener and for the explicit View-in-source reveal, respectively.
  */
 export function useMarkdownSplitScroll({
-  view,
-  preview,
-  active,
-  previewStart,
-  peerScrollSettleMs,
-  suppressedRef,
-  viewportLockRef,
-  cursorRevealRef,
-  reconcileRef,
+  view, preview, active, previewStart, peerScrollSettleMs, suppressedRef, viewportLockRef, cursorRevealRef, reconcileRef,
 }: {
   view: EditorView | null;
   preview: HTMLDivElement | null;
@@ -79,9 +70,7 @@ export function useMarkdownSplitScroll({
           preview: Math.max(0, preview.scrollTop + anchorRect.top - previewRect.top + anchorRect.height / 2),
         };
         const previous = pairs.at(-1);
-        if (!previous || (pair.editor > previous.editor && pair.preview > previous.preview)) {
-          pairs.push(pair);
-        }
+        if (!previous || (pair.editor > previous.editor && pair.preview > previous.preview)) pairs.push(pair);
       }
       anchorMaps.editor = pairs.map((pair) => ({ from: pair.editor, to: pair.preview }));
       anchorMaps.preview = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
@@ -108,11 +97,9 @@ export function useMarkdownSplitScroll({
       cancelAnchorPrebuild();
       const run = () => {
         anchorPrebuild = null;
-        if (anchorsDirty) rebuildAnchorPairs();
+        refreshAnchorsIfNeeded();
       };
-      anchorPrebuild = usesIdleCallback
-        ? window.requestIdleCallback(run, { timeout: 1_000 })
-        : window.setTimeout(run, 200);
+      anchorPrebuild = usesIdleCallback ? window.requestIdleCallback(run, { timeout: 1_000 }) : window.setTimeout(run, 200);
     };
     /** Move the other pane so the block centred in `source` is centred there too. */
     const follow = (source: Side, measureAnchors = true) => {
@@ -127,12 +114,8 @@ export function useMarkdownSplitScroll({
       const fromHalf = from.scroller.clientHeight / 2;
       const toHalf = to.scroller.clientHeight / 2;
       const targetCenter = interpolateScrollAnchors(
-        from.scroller.scrollTop + fromHalf,
-        anchorMaps[source],
-        fromHalf,
-        scrollRange(from.scroller) + fromHalf,
-        toHalf,
-        scrollRange(to.scroller) + toHalf,
+        from.scroller.scrollTop + fromHalf, anchorMaps[source],
+        fromHalf, scrollRange(from.scroller) + fromHalf, toHalf, scrollRange(to.scroller) + toHalf,
       );
       const nextTop = targetCenter - toHalf;
       if (Math.abs(to.scroller.scrollTop - nextTop) <= 1) return;
@@ -171,11 +154,7 @@ export function useMarkdownSplitScroll({
       const rect = best.element.getBoundingClientRect();
       const previewRect = preview.getBoundingClientRect();
       if (rect.bottom > previewRect.top + 8 && rect.top < previewRect.bottom - 8) return;
-      const target = clamp(
-        preview.scrollTop + rect.top - previewRect.top - (preview.clientHeight - rect.height) / 2,
-        0,
-        scrollRange(preview),
-      );
+      const target = clamp(preview.scrollTop + rect.top - previewRect.top - (preview.clientHeight - rect.height) / 2, 0, scrollRange(preview));
       if (Math.abs(preview.scrollTop - target) <= 1) return;
       panes.preview.ignore = true;
       preview.scrollTop = target;
@@ -247,20 +226,21 @@ export function useMarkdownSplitScroll({
       panes[side].ignore = false;
       holdScrollOwnership(side);
     };
-    const ownEditorScroll = ownScroll("editor");
-    const ownPreviewScroll = ownScroll("preview");
     const editorInteraction = interaction("editor");
     const previewInteraction = interaction("preview");
-    const editorRoot = view.scrollDOM.closest<HTMLElement>(".source-editor") ?? view.scrollDOM;
     const previewRoot = preview.closest<HTMLElement>("[data-slot='scroll-area']");
-    view.scrollDOM.addEventListener("scroll", ownEditorScroll, { passive: true });
-    preview.addEventListener("scroll", ownPreviewScroll, { passive: true });
-    view.scrollDOM.addEventListener("wheel", editorInteraction, { passive: true });
-    editorRoot.addEventListener("pointerdown", editorInteraction, { capture: true, passive: true });
-    view.scrollDOM.addEventListener("keydown", editorInteraction);
-    previewRoot?.addEventListener("wheel", previewInteraction, { passive: true });
-    previewRoot?.addEventListener("pointerdown", previewInteraction, { capture: true, passive: true });
-    previewRoot?.addEventListener("keydown", previewInteraction);
+    const passive = { passive: true };
+    const listeners: [EventTarget | null, string, () => void, AddEventListenerOptions?][] = [
+      [view.scrollDOM, "scroll", ownScroll("editor"), passive],
+      [preview, "scroll", ownScroll("preview"), passive],
+      [view.scrollDOM, "wheel", editorInteraction, passive],
+      [view.scrollDOM.closest(".source-editor") ?? view.scrollDOM, "pointerdown", editorInteraction, { capture: true, passive: true }],
+      [view.scrollDOM, "keydown", editorInteraction],
+      [previewRoot, "wheel", previewInteraction, passive],
+      [previewRoot, "pointerdown", previewInteraction, { capture: true, passive: true }],
+      [previewRoot, "keydown", previewInteraction],
+    ];
+    for (const [target, type, listener, options] of listeners) target?.addEventListener(type, listener, options);
     const markAnchorsDirty = () => {
       // Source labels and child nodes change after every settled visual edit.
       // Measuring every block here forces a full layout after each source
@@ -270,12 +250,7 @@ export function useMarkdownSplitScroll({
       scheduleAnchorPrebuild();
     };
     const observer = new MutationObserver(markAnchorsDirty);
-    observer.observe(preview, {
-      attributes: true,
-      attributeFilter: ["data-source-offset", "data-source-end-offset"],
-      childList: true,
-      subtree: true,
-    });
+    observer.observe(preview, { attributes: true, attributeFilter: ["data-source-offset", "data-source-end-offset"], childList: true, subtree: true });
     const resizeObserver = new ResizeObserver(markAnchorsDirty);
     resizeObserver.observe(preview);
     const previewContent = preview.firstElementChild;
@@ -295,14 +270,7 @@ export function useMarkdownSplitScroll({
       cancelAnchorPrebuild();
       observer.disconnect();
       resizeObserver.disconnect();
-      view.scrollDOM.removeEventListener("scroll", ownEditorScroll);
-      preview.removeEventListener("scroll", ownPreviewScroll);
-      view.scrollDOM.removeEventListener("wheel", editorInteraction);
-      editorRoot.removeEventListener("pointerdown", editorInteraction, true);
-      view.scrollDOM.removeEventListener("keydown", editorInteraction);
-      previewRoot?.removeEventListener("wheel", previewInteraction);
-      previewRoot?.removeEventListener("pointerdown", previewInteraction, true);
-      previewRoot?.removeEventListener("keydown", previewInteraction);
+      for (const [target, type, listener, options] of listeners) target?.removeEventListener(type, listener, options);
     };
   }, [active, cursorRevealRef, peerScrollSettleMs, preview, previewStart, reconcileRef, suppressedRef, view, viewportLockRef]);
 }

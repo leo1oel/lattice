@@ -38,8 +38,7 @@ type VimGetCM = typeof import("@replit/codemirror-vim").getCM;
 
 function readVimMode(cm: ReturnType<VimGetCM>): string {
   const state = cm?.state.vim;
-  if (state?.insertMode) return "insert";
-  return state?.mode ?? "normal";
+  return state?.insertMode ? "insert" : state?.mode ?? "normal";
 }
 
 function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void): Extension {
@@ -61,49 +60,27 @@ function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void)
 
 // Hoisted loaders: inline `import()` expressions inside a hook make the React
 // Compiler bail out of it (the same pattern App.tsx uses for lazy panels).
-const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) =>
-  import("@replit/codemirror-vim").then((module) => [
-    module.vim({ status: false }),
-    vimModeExtension(module.getCM, onVimModeChange),
-  ]);
-const loadEmacsKeymapExtensions = () =>
-  import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
+const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) => import("@replit/codemirror-vim")
+  .then((module) => [module.vim({ status: false }), vimModeExtension(module.getCM, onVimModeChange)]);
+const loadEmacsKeymapExtensions = () => import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
 
-/**
- * Vim/Emacs keymaps, loaded on demand.
- *
- * `onVimModeChange` must be referentially stable — the callers pass
- * `reportPrimaryVimMode`/`reportSecondaryVimMode`, which are `useCallback`s for
- * this reason. The effect below lists it as a dependency and unconditionally
- * calls `setLoaded` with a freshly allocated object, so an inline lambda at the
- * call site turns this into an infinite render loop rather than one extra
- * render. This hook is compiled by the React Compiler (DocumentCanvas itself is
- * not), so nothing else absorbs the mistake.
- */
-export function useOptionalKeymapExtensions(
-  keymap: EditorKeymap,
-  onVimModeChange: (mode: string) => void,
-): Extension[] {
-  const [loaded, setLoaded] = useState<{ keymap: EditorKeymap; extensions: Extension[] }>({
-    keymap: "default",
-    extensions: EMPTY_EXTENSIONS,
-  });
+/** Vim/Emacs keymaps, loaded on demand, and the Vim mode the editor last reported. */
+export function useOptionalKeymapExtensions(keymap: EditorKeymap): [extensions: Extension[], vimMode: string] {
+  const [loaded, setLoaded] = useState<{ keymap: EditorKeymap; extensions: Extension[] }>({ keymap: "default", extensions: EMPTY_EXTENSIONS });
+  const [vimMode, setVimMode] = useState("normal");
 
   useEffect(() => {
-    let disposed = false;
     if (keymap === "default") {
       setLoaded({ keymap, extensions: EMPTY_EXTENSIONS });
-      return () => { disposed = true; };
+      return;
     }
-
-    const loading = keymap === "vim"
-      ? loadVimKeymapExtensions(onVimModeChange)
-      : loadEmacsKeymapExtensions();
+    let disposed = false;
+    const loading = keymap === "vim" ? loadVimKeymapExtensions(setVimMode) : loadEmacsKeymapExtensions();
     void loading.then((extensions) => {
       if (!disposed) setLoaded({ keymap, extensions });
     });
     return () => { disposed = true; };
-  }, [keymap, onVimModeChange]);
+  }, [keymap]);
 
-  return loaded.keymap === keymap ? loaded.extensions : EMPTY_EXTENSIONS;
+  return [loaded.keymap === keymap ? loaded.extensions : EMPTY_EXTENSIONS, vimMode];
 }

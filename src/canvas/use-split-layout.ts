@@ -21,19 +21,17 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
   const preferredSplitRatioRef = useRef(splitRatio);
   const handledDualRatioResetRef = useRef(dualRatioResetGeneration);
   const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
-  const commitSplitRatio = (ratio: number) => {
+  const commitSplitRatio = useCallback((ratio: number) => {
     preferredSplitRatioRef.current = ratio;
     setSplitRatio(ratio);
     persistSplitRatio(ratio);
-  };
+  }, []);
 
   useLayoutEffect(() => {
     if (mode !== "dual" || handledDualRatioResetRef.current === dualRatioResetGeneration) return;
     handledDualRatioResetRef.current = dualRatioResetGeneration;
-    preferredSplitRatioRef.current = 0.5;
-    setSplitRatio(0.5);
-    persistSplitRatio(0.5);
-  }, [dualRatioResetGeneration, mode]);
+    commitSplitRatio(0.5);
+  }, [commitSplitRatio, dualRatioResetGeneration, mode]);
 
   const constrainSplitRatio = useCallback((ratio: number) => {
     const width = splitRef.current?.getBoundingClientRect().width ?? 0;
@@ -58,23 +56,17 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
     return () => observer.disconnect();
   }, [constrainSplitRatio, mode]);
 
-  const editorsShare = 1 - columnsPdfRatio;
   const beginDualResize = (event: PointerEvent<HTMLDivElement>) => {
     let latest = splitRatio;
+    // Columns mode resizes only across the two editor panes (everything left of the PDF).
+    const [share, minimumRatio, minimumWidth] = mode === "columns" ? [1 - columnsPdfRatio, 0.25, 160] : [1, 0.2, 220];
     trackResizeDrag(event, (moveEvent, grip) => {
       const bounds = splitRef.current?.getBoundingClientRect();
       if (!bounds?.width) return;
-      if (mode === "columns") {
-        // Resize only across the two editor panes (everything left of the PDF).
-        const editorsWidth = bounds.width * editorsShare;
-        latest = clamp((moveEvent.clientX - bounds.left) / Math.max(editorsWidth, 1), 0.25, 0.75);
-        const edge = clamp(latest * editorsWidth, 160, Math.max(160, editorsWidth - 160));
-        setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
-      } else {
-        latest = clamp((moveEvent.clientX - bounds.left) / bounds.width, 0.2, 0.8);
-        const edge = clamp(latest * bounds.width, 220, Math.max(220, bounds.width - 220));
-        setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
-      }
+      const editorsWidth = bounds.width * share;
+      latest = clamp((moveEvent.clientX - bounds.left) / Math.max(editorsWidth, 1), minimumRatio, 1 - minimumRatio);
+      const edge = clamp(latest * editorsWidth, minimumWidth, Math.max(minimumWidth, editorsWidth - minimumWidth));
+      setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
       setSplitRatio(latest);
     }, () => {
       preferredSplitRatioRef.current = latest;

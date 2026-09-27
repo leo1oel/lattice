@@ -46,9 +46,7 @@ function htmlSourceFromDataUrl(dataUrl: string): string | null {
   if (metadata.shift()?.toLocaleLowerCase() !== "data:text/html") return null;
   const payload = dataUrl.slice(comma + 1);
   try {
-    if (!metadata.some((part) => part.toLocaleLowerCase() === "base64")) {
-      return decodeURIComponent(payload);
-    }
+    if (!metadata.some((part) => part.toLocaleLowerCase() === "base64")) return decodeURIComponent(payload);
     const binary = atob(payload);
     return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
   } catch {
@@ -60,13 +58,10 @@ function htmlSourceFromDataUrl(dataUrl: string): string | null {
 function referencedProjectResources(source: string, path: string): Set<string> {
   const document = new DOMParser().parseFromString(source, "text/html");
   const projectPaths = new Set<string>();
-  for (const image of document.querySelectorAll<HTMLImageElement>("img[src]")) {
-    const projectPath = htmlPreviewProjectPath(image.getAttribute("src") ?? "", path);
-    if (projectPath) projectPaths.add(projectPath);
-  }
-  for (const frame of document.querySelectorAll<HTMLIFrameElement>("iframe[src]")) {
-    const projectPath = htmlPreviewProjectPath(frame.getAttribute("src") ?? "", path);
-    if (projectPath?.toLocaleLowerCase().endsWith(".html")) projectPaths.add(projectPath);
+  for (const element of document.querySelectorAll("img[src], iframe[src]")) {
+    const projectPath = htmlPreviewProjectPath(element.getAttribute("src") ?? "", path);
+    const inlined = element.localName === "img" || projectPath?.toLocaleLowerCase().endsWith(".html");
+    if (projectPath && inlined) projectPaths.add(projectPath);
   }
   return projectPaths;
 }
@@ -77,22 +72,25 @@ function referencedProjectResources(source: string, path: string): Set<string> {
  * accept scroll/zoom requests, since the opaque-origin frame is otherwise
  * unreachable from the host.
  */
-function buildPreviewDocument(
-  source: string,
-  path: string,
-  resources: Map<string, string>,
-  relativeLinkTitle: string,
-): string {
+function buildPreviewDocument(source: string, path: string, resources: Map<string, string>, relativeLinkTitle: string): string {
   const document = new DOMParser().parseFromString(source, "text/html");
+  const resourceAt = (src: string) => {
+    const projectPath = htmlPreviewProjectPath(src, path);
+    return projectPath ? resources.get(projectPath) : undefined;
+  };
+  const inject = (parent: HTMLElement, tag: "style" | "script", name: string, text: string) => {
+    const element = document.createElement(tag);
+    element.dataset.latticePreview = name;
+    element.textContent = text;
+    parent.append(element);
+  };
   for (const image of document.querySelectorAll<HTMLImageElement>("img[src]")) {
-    const projectPath = htmlPreviewProjectPath(image.getAttribute("src") ?? "", path);
-    const dataUrl = projectPath ? resources.get(projectPath) : undefined;
+    const dataUrl = resourceAt(image.getAttribute("src") ?? "");
     if (dataUrl) image.setAttribute("src", dataUrl);
   }
   for (const frame of document.querySelectorAll<HTMLIFrameElement>("iframe[src]")) {
     const frameSource = frame.getAttribute("src") ?? "";
-    const projectPath = htmlPreviewProjectPath(frameSource, path);
-    const dataUrl = projectPath ? resources.get(projectPath) : undefined;
+    const dataUrl = resourceAt(frameSource);
     const embeddedHtml = htmlSourceFromDataUrl(frameSource) ?? (dataUrl ? htmlSourceFromDataUrl(dataUrl) : null);
     if (embeddedHtml == null) continue;
     frame.removeAttribute("src");
@@ -107,24 +105,15 @@ function buildPreviewDocument(
   const isolatedBase = document.createElement("base");
   isolatedBase.href = "about:blank";
   document.head.prepend(isolatedBase);
-  const scrollbarStyles = document.createElement("style");
-  scrollbarStyles.dataset.latticePreview = "scrollbar";
-  scrollbarStyles.textContent = HTML_PREVIEW_SCROLLBAR_STYLES;
-  document.head.append(scrollbarStyles);
+  inject(document.head, "style", "scrollbar", HTML_PREVIEW_SCROLLBAR_STYLES);
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href]")) {
     const href = link.getAttribute("href")?.trim() ?? "";
     if (/^(?:#|\/\/|[a-z][a-z0-9+.-]*:)/i.test(href)) continue;
     link.removeAttribute("href");
     if (!link.title) link.title = relativeLinkTitle;
   }
-  const fragmentNavigation = document.createElement("script");
-  fragmentNavigation.dataset.latticePreview = "fragment-navigation";
-  fragmentNavigation.textContent = `document.addEventListener("click",(event)=>{const link=event.target instanceof Element?event.target.closest("a[href]"):null;if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const href=link.getAttribute("href");if(!href)return;if(/^(?:https?:|mailto:)/i.test(href)){event.preventDefault();parent.postMessage({type:${JSON.stringify(HTML_PREVIEW_OPEN_EXTERNAL)},href},"*");return}if(href==="#"||!href.startsWith("#"))return;let id;try{id=decodeURIComponent(href.slice(1))}catch{return}const target=document.getElementById(id);if(!target)return;event.preventDefault();target.scrollIntoView()});`;
-  document.body.append(fragmentNavigation);
-  const scrollbarBridge = document.createElement("script");
-  scrollbarBridge.dataset.latticePreview = "scrollbar-bridge";
-  scrollbarBridge.textContent = `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const scrollType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};const zoomType=${JSON.stringify(HTML_PREVIEW_SET_ZOOM)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data)return;const root=document.scrollingElement||document.documentElement;if(event.data.type===scrollType&&typeof event.data.scrollTop==="number")root.scrollTop=event.data.scrollTop;else if(event.data.type===zoomType&&typeof event.data.scale==="number"&&event.data.scale>0)document.documentElement.style.zoom=String(event.data.scale);else return;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`;
-  document.body.append(scrollbarBridge);
+  inject(document.body, "script", "fragment-navigation", `document.addEventListener("click",(event)=>{const link=event.target instanceof Element?event.target.closest("a[href]"):null;if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const href=link.getAttribute("href");if(!href)return;if(/^(?:https?:|mailto:)/i.test(href)){event.preventDefault();parent.postMessage({type:${JSON.stringify(HTML_PREVIEW_OPEN_EXTERNAL)},href},"*");return}if(href==="#"||!href.startsWith("#"))return;let id;try{id=decodeURIComponent(href.slice(1))}catch{return}const target=document.getElementById(id);if(!target)return;event.preventDefault();target.scrollIntoView()});`);
+  inject(document.body, "script", "scrollbar-bridge", `(()=>{const type=${JSON.stringify(HTML_PREVIEW_SCROLL)};const scrollType=${JSON.stringify(HTML_PREVIEW_SET_SCROLL_TOP)};const zoomType=${JSON.stringify(HTML_PREVIEW_SET_ZOOM)};let frame=0;const send=()=>{frame=0;const root=document.scrollingElement||document.documentElement;parent.postMessage({type,clientHeight:root.clientHeight,scrollHeight:root.scrollHeight,scrollTop:root.scrollTop},"*")};const schedule=()=>{if(!frame)frame=requestAnimationFrame(send)};window.addEventListener("scroll",schedule,{passive:true});window.addEventListener("resize",schedule,{passive:true});window.addEventListener("message",(event)=>{if(event.source!==parent||!event.data)return;const root=document.scrollingElement||document.documentElement;if(event.data.type===scrollType&&typeof event.data.scrollTop==="number")root.scrollTop=event.data.scrollTop;else if(event.data.type===zoomType&&typeof event.data.scale==="number"&&event.data.scale>0)document.documentElement.style.zoom=String(event.data.scale);else return;schedule()});new ResizeObserver(schedule).observe(document.documentElement);new ResizeObserver(schedule).observe(document.body);new MutationObserver(schedule).observe(document.documentElement,{attributes:true,childList:true,subtree:true});schedule()})();`);
   return `<!doctype html>${document.documentElement.outerHTML}`;
 }
 
@@ -136,15 +125,7 @@ function isScrollReport(data: object): data is { clientHeight: number; scrollHei
 }
 
 /** A sandboxed live preview of a project HTML file, with Lattice's own zoom and scrollbar. */
-export function HtmlPreview({
-  path,
-  source,
-  assetRevision = 0,
-  sourceEditorView,
-  initialViewState,
-  onViewState,
-  onLoadAsset,
-}: {
+export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView, initialViewState, onViewState, onLoadAsset }: {
   path: string;
   source: string;
   assetRevision?: number;
@@ -172,24 +153,15 @@ export function HtmlPreview({
   const restoreScrollTopRef = useRef(initialScrollTop);
   const scrollRangeRef = useRef(initialViewState?.scrollRange ?? 0);
   const awaitingInitialRestoreRef = useRef(initialScrollTop > 0);
-  const dragRef = useRef<{
-    pointerId: number;
-    scrollPerPixel: number;
-    startClientY: number;
-    startScrollTop: number;
-  } | null>(null);
+  const dragRef = useRef<{ pointerId: number; scrollPerPixel: number; startClientY: number; startScrollTop: number } | null>(null);
   const scrollbarRef = useRef<HTMLDivElement | null>(null);
   const scrollGeometry = useMemo(() => calculateVerticalScrollGeometry(scrollMetrics), [scrollMetrics]);
 
   useLayoutEffect(() => {
     scrollMetricsRef.current = scrollMetrics;
-  }, [scrollMetrics]);
-  useLayoutEffect(() => {
     scaleRef.current = scale;
-  }, [scale]);
-  useLayoutEffect(() => {
     onViewStateRef.current = onViewState;
-  }, [onViewState]);
+  }, [onViewState, scale, scrollMetrics]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPreviewSource(source), 180);
@@ -204,10 +176,7 @@ export function HtmlPreview({
     for (const projectPath of projectPaths) {
       void onLoadAsset(projectPath).then((dataUrl) => {
         if (cancelled || !dataUrl) return;
-        setLoadedProjectResources((current) => {
-          if (current.get(projectPath) === dataUrl) return current;
-          return new Map(current).set(projectPath, dataUrl);
-        });
+        setLoadedProjectResources((current) => current.get(projectPath) === dataUrl ? current : new Map(current).set(projectPath, dataUrl));
       }).catch(() => undefined);
     }
     return () => { cancelled = true; };
@@ -222,17 +191,11 @@ export function HtmlPreview({
         setScrollMetrics({ clientHeight: data.clientHeight, scrollHeight: data.scrollHeight, scrollTop: data.scrollTop });
         // A reloaded frame reports 0 before the restore lands; keep the last
         // real position so the restore has something to aim at.
-        if (data.scrollTop > 0 || data.scrollHeight <= data.clientHeight) {
-          awaitingInitialRestoreRef.current = false;
-        }
+        if (data.scrollTop > 0 || data.scrollHeight <= data.clientHeight) awaitingInitialRestoreRef.current = false;
         if (!awaitingInitialRestoreRef.current) {
           restoreScrollTopRef.current = data.scrollTop;
           scrollRangeRef.current = Math.max(0, data.scrollHeight - data.clientHeight);
-          onViewStateRef.current?.({
-            scale: scaleRef.current,
-            scrollTop: data.scrollTop,
-            scrollRange: scrollRangeRef.current,
-          });
+          onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: data.scrollTop, scrollRange: scrollRangeRef.current });
         }
         setScrolling(true);
         if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
@@ -257,30 +220,21 @@ export function HtmlPreview({
       window.removeEventListener("message", handleMessage);
       if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
       const metrics = scrollMetricsRef.current;
-      onViewStateRef.current?.({
-        scale: scaleRef.current,
-        scrollTop: restoreScrollTopRef.current,
-        scrollRange: Math.max(0, metrics.scrollHeight - metrics.clientHeight),
-      });
+      const scrollRange = Math.max(0, metrics.scrollHeight - metrics.clientHeight);
+      onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: restoreScrollTopRef.current, scrollRange });
     };
   }, []);
 
   const html = useMemo(
-    () => buildPreviewDocument(
-      previewSource,
-      path,
-      loadedProjectResources,
-      t`Relative project links are unavailable in this preview`,
-    ),
+    () => buildPreviewDocument(previewSource, path, loadedProjectResources, t`Relative project links are unavailable in this preview`),
     [loadedProjectResources, path, previewSource, t],
   );
 
-  const postToFrame = useCallback((message: object) => {
-    frameRef.current?.contentWindow?.postMessage(message, "*");
-  }, []);
-  const setScrollTop = useCallback((scrollTop: number) => {
-    postToFrame({ type: HTML_PREVIEW_SET_SCROLL_TOP, scrollTop });
-  }, [postToFrame]);
+  const postToFrame = useCallback((message: object) => frameRef.current?.contentWindow?.postMessage(message, "*"), []);
+  const setScrollTop = useCallback(
+    (scrollTop: number) => postToFrame({ type: HTML_PREVIEW_SET_SCROLL_TOP, scrollTop }),
+    [postToFrame],
+  );
 
   useEffect(() => {
     if (!sourceEditorView) return;
@@ -306,18 +260,11 @@ export function HtmlPreview({
 
   useEffect(() => {
     postToFrame({ type: HTML_PREVIEW_SET_ZOOM, scale });
-    onViewStateRef.current?.({
-      scale,
-      scrollTop: restoreScrollTopRef.current,
-      scrollRange: scrollRangeRef.current,
-    });
+    onViewStateRef.current?.({ scale, scrollTop: restoreScrollTopRef.current, scrollRange: scrollRangeRef.current });
   }, [postToFrame, scale]);
 
   // The track insets both ends, and the thumb travels what remains of it.
-  const thumbTravel = Math.max(
-    0,
-    Math.max(0, scrollGeometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2) - scrollGeometry.thumbHeight,
-  );
+  const thumbTravel = Math.max(0, Math.max(0, scrollGeometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2) - scrollGeometry.thumbHeight);
   const scrollToThumbOffset = (thumbOffset: number) => {
     if (thumbTravel <= 0) return;
     setScrollTop(scrollGeometry.maxScrollTop * (Math.min(Math.max(0, thumbOffset), thumbTravel) / thumbTravel));
@@ -374,9 +321,7 @@ export function HtmlPreview({
           const isThumb = event.target instanceof HTMLElement && event.target.dataset.slot === "scroll-area-thumb";
           if (!isThumb) {
             const rect = event.currentTarget.getBoundingClientRect();
-            scrollToThumbOffset(
-              event.clientY - rect.top - EXTERNAL_SCROLLBAR_TRACK_INSET - scrollGeometry.thumbHeight / 2,
-            );
+            scrollToThumbOffset(event.clientY - rect.top - EXTERNAL_SCROLLBAR_TRACK_INSET - scrollGeometry.thumbHeight / 2);
           }
           dragRef.current = {
             pointerId: event.pointerId,
@@ -403,10 +348,7 @@ export function HtmlPreview({
         <div
           className="lattice-scrollbar-thumb"
           data-slot="scroll-area-thumb"
-          style={{
-            height: scrollGeometry.thumbHeight,
-            transform: `translate3d(-2px, ${scrollGeometry.thumbOffset}px, 0)`,
-          }}
+          style={{ height: scrollGeometry.thumbHeight, transform: `translate3d(-2px, ${scrollGeometry.thumbOffset}px, 0)` }}
         />
       </div>
     </div>

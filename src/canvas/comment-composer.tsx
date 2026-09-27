@@ -53,17 +53,16 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
         popup.style.visibility = "hidden";
         return;
       }
-      popup.style.visibility = "visible";
       const width = Math.min(320, Math.max(0, bounds.width - 16));
-      popup.style.width = `${width}px`;
+      Object.assign(popup.style, { visibility: "visible", width: `${width}px` });
       // Choose a side once so scrolling cannot make the draft jump across its text.
-      if (above === undefined) {
-        above = bottom - anchor.bottom - 8 < popup.offsetHeight && anchor.top - top > bottom - anchor.bottom;
-      }
-      popup.style.left = `${clamp(anchor.left - bounds.left, 8, Math.max(8, bounds.width - width - 8))}px`;
-      popup.style.top = `${(above ? anchor.top - 8 : anchor.bottom + 8) - bounds.top}px`;
-      popup.style.translate = above ? "0 -100%" : "none";
-      popup.style.maxHeight = `${Math.max(0, Math.min(280, above ? anchor.top - top - 8 : bottom - anchor.bottom - 8))}px`;
+      if (above === undefined) above = bottom - anchor.bottom - 8 < popup.offsetHeight && anchor.top - top > bottom - anchor.bottom;
+      Object.assign(popup.style, {
+        left: `${clamp(anchor.left - bounds.left, 8, Math.max(8, bounds.width - width - 8))}px`,
+        top: `${(above ? anchor.top - 8 : anchor.bottom + 8) - bounds.top}px`,
+        translate: above ? "0 -100%" : "none",
+        maxHeight: `${Math.max(0, Math.min(280, above ? anchor.top - top - 8 : bottom - anchor.bottom - 8))}px`,
+      });
     };
     const scheduleReposition = () => {
       if (frame !== null) return;

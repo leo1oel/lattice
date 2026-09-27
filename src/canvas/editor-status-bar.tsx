@@ -7,23 +7,7 @@ import type { EditorComment } from "../editor/comments/editor-comments";
 import type { EditorKeymap, WordCount } from "../app-types";
 
 /** Caret position, Vim mode, section breadcrumb, shortcuts, comments/TODOs, and word counts for the focused editor. */
-export function EditorStatusBar({
-  position,
-  onGotoLine,
-  keymap,
-  vimMode,
-  breadcrumb,
-  breadcrumbPath,
-  onNavigate,
-  hasDiagnostics,
-  comments,
-  onOpenComments,
-  todoCount,
-  onOpenTodos,
-  projectWordCount,
-  selectedText,
-  source,
-}: {
+export function EditorStatusBar(props: {
   position: { line: number; column: number };
   onGotoLine: () => void;
   keymap: EditorKeymap;
@@ -41,18 +25,19 @@ export function EditorStatusBar({
   selectedText: string;
   source: string;
 }) {
+  const { position, breadcrumb, todoCount, projectWordCount, selectedText, source } = props;
   const { t } = useLingui();
   const wordCount = useMemo(() => countWords(source), [source]);
   const selectionStats = useMemo(() => textStats(selectedText), [selectedText]);
-  const openComments = comments.filter((comment) => !comment.resolved).length;
+  const openComments = props.comments.filter((comment) => !comment.resolved).length;
   return (
     <div className="editor-status-bar" aria-label={t`Editor status`}>
-      <button type="button" className="status-goto" title={t`Go to line (⌘G)`} onClick={onGotoLine}>
+      <button type="button" className="status-goto" title={t`Go to line (⌘G)`} onClick={props.onGotoLine}>
         {t({ message: `Ln ${{ line: position.line }}, Col ${{ column: position.column + 1 }}` })}
       </button>
-      {keymap === "vim" && (
+      {props.keymap === "vim" && (
         <span className="status-vim-mode" aria-live="polite" title={t`Vim mode`}>
-          --{vimMode.toUpperCase()}--
+          --{props.vimMode.toUpperCase()}--
         </span>
       )}
       {breadcrumb.length > 0 && (
@@ -63,7 +48,7 @@ export function EditorStatusBar({
               <button
                 type="button"
                 title={t({ message: `Go to ${{ title: node.title }}` })}
-                onClick={() => onNavigate(node.path || breadcrumbPath, node.line)}
+                onClick={() => props.onNavigate(node.path || props.breadcrumbPath, node.line)}
               >
                 {node.title}
               </button>
@@ -72,7 +57,7 @@ export function EditorStatusBar({
         </span>
       )}
       <span className="status-hint" title={t`Editor shortcuts`}>
-        {hasDiagnostics
+        {props.hasDiagnostics
           ? <><kbd>F8</kbd> {t`next`} · <kbd>⇧F8</kbd> {t`previous`}</>
           : <><kbd>⌘F</kbd> {t`find`} · <kbd>⌘/</kbd> {t`comment`} · <kbd>⌘⇧I</kbd> {t`insert`}</>}
       </span>
@@ -80,7 +65,7 @@ export function EditorStatusBar({
         type="button"
         className={`status-todos status-comments${openComments ? " has-todos" : ""}`}
         title={t`Editor comments`}
-        onClick={onOpenComments}
+        onClick={props.onOpenComments}
       >
         <MessageSquareText size={12} />
         {openComments ? t({ message: `${{ count: openComments }} comments` }) : t`Comments`}
@@ -89,7 +74,7 @@ export function EditorStatusBar({
         type="button"
         className={`status-todos status-manuscript-todos${todoCount ? " has-todos" : ""}`}
         title={t`Manuscript TODOs`}
-        onClick={onOpenTodos}
+        onClick={props.onOpenTodos}
       >
         <ListTodo size={12} />
         {todoCount ? t({ message: `${{ count: todoCount }} TODO` }) : t`TODOs`}

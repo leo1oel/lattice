@@ -1,15 +1,4 @@
-import {
-  BookOpen,
-  ChevronDown,
-  Cloud,
-  Columns2,
-  ExternalLink,
-  FileCode2,
-  Image,
-  MessagesSquare,
-  Omega,
-  PanelRightClose,
-} from "lucide-react";
+import { BookOpen, ChevronDown, Cloud, Columns2, ExternalLink, FileCode2, Image, MessagesSquare, Omega, PanelRightClose } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
@@ -19,12 +8,7 @@ import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { SegmentedControl } from "../components/ui/segmented-control";
 
@@ -89,9 +73,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   // left no visible way to bring the compiled PDF back beside the source.
   const switcherMode = props.selectedDocumentViewMode
     ?? (props.mode === "dual" || props.mode === "columns" ? "source" : props.mode);
-  const showOverleafOnline = Boolean(props.overleafLinked && (
-    props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live"
-  ));
+  const showOverleafOnline = Boolean(props.overleafLinked)
+    && Boolean(props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live");
   const [editTitle, splitTitle, previewTitle] = props.markdown
     ? [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`]
     : props.html
@@ -133,11 +116,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             ]}
           />
         ) : null}
-        {props.activeKind === "paper"
-          && props.paperView
-          && props.onPaperView
-          && props.paperHasBlog
-          && props.paperHasFullText && (
+        {props.activeKind === "paper" && props.paperView && props.onPaperView && props.paperHasBlog && props.paperHasFullText && (
           <SegmentedControl
             value={props.paperView}
             onChange={props.onPaperView}
@@ -153,31 +132,21 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
       <div className="canvas-actions" data-tour="workspace-actions">
         {props.onSplit && (
           <Tip label={t`Split editor right`}>
-            <button type="button" onClick={props.onSplit}>
-              <Columns2 size={14} />
-            </button>
+            <button type="button" onClick={props.onSplit}><Columns2 size={14} /></button>
           </Tip>
         )}
         {props.onCloseSplit && (
           <Tip label={t`Close split`}>
-            <button type="button" onClick={props.onCloseSplit}>
-              <PanelRightClose size={14} />
-            </button>
+            <button type="button" onClick={props.onCloseSplit}><PanelRightClose size={14} /></button>
           </Tip>
         )}
         {props.activeKind === "document" && (
           <>
             {props.canInsert && <Tip label={t`Insert snippet or symbol (⌘⇧I)`}>
-              <button type="button" onClick={props.onInsert}>
-                <Omega size={14} />
-              </button>
+              <button type="button" onClick={props.onInsert}><Omega size={14} /></button>
             </Tip>}
             {!props.overleafLinked && <Tip label={t`Editor comments`}>
-              <button
-                type="button"
-                className={props.commentCount ? "active" : ""}
-                onClick={props.onComments}
-              >
+              <button type="button" className={props.commentCount ? "active" : ""} onClick={props.onComments}>
                 <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </button>
@@ -249,16 +218,10 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem
-                    className="overleaf-toolbar-menu-item"
-                    onSelect={props.onOverleafOpenCurrent}
-                  >
+                  <DropdownMenuItem className="overleaf-toolbar-menu-item" onSelect={props.onOverleafOpenCurrent}>
                     <ExternalLink /> {t`Open in Overleaf`}
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="overleaf-toolbar-menu-item"
-                    onSelect={props.onOverleafOpen}
-                  >
+                  <DropdownMenuItem className="overleaf-toolbar-menu-item" onSelect={props.onOverleafOpen}>
                     <Cloud /> {t`Open another Overleaf project`}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -277,9 +240,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               onClick={props.onOverleafChat}
             >
               <MessagesSquare size={14} />
-              {props.overleafUnreadChat
-                ? <em className="collab-peer-badge">{props.overleafUnreadChat}</em>
-                : null}
+              {props.overleafUnreadChat ? <em className="collab-peer-badge">{props.overleafUnreadChat}</em> : null}
             </button>
           </Tip>
         )}
@@ -313,12 +274,11 @@ type ForwardedHandlers = Pick<CanvasToolbarProps, keyof typeof FORWARDED_HANDLER
 const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandlers)[];
 
 /**
- * App rebuilds this toolbar's handlers inline on every render, and it renders
- * on every keystroke — so the toolbar was re-rendering constantly even though
- * nothing it displays had changed. The handlers below keep one identity for the
- * life of the component and forward to the newest props through a ref, which
- * lets the view memoize on the values it actually draws. Optional handlers stay
- * optional: the view reads their presence to decide what to render.
+ * App rebuilds these handlers inline on every render, i.e. every keystroke.
+ * Here they keep one identity for the component's life and forward to the
+ * newest props through a ref, so the view memoizes on what it actually draws.
+ * Optional handlers stay optional: the view reads their presence to decide what
+ * to render.
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
   const latest = useRef(props);
@@ -329,9 +289,6 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     name,
     (...args: unknown[]) => (latest.current[name] as ((...args: unknown[]) => void) | undefined)?.(...args),
   ])) as Required<ForwardedHandlers>, []);
-  const forwarded = Object.fromEntries(HANDLER_NAMES.map((name) => [
-    name,
-    props[name] ? stable[name] : undefined,
-  ])) as ForwardedHandlers;
+  const forwarded = Object.fromEntries(HANDLER_NAMES.map((name) => [name, props[name] ? stable[name] : undefined])) as ForwardedHandlers;
   return <CanvasToolbarView {...props} {...forwarded} />;
 }

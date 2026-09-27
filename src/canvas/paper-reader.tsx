@@ -12,17 +12,7 @@ import type { usePaperPdf } from "./use-paper-pdf";
  * A Paper's reading surface: its Blog/Paper Markdown with local actions, or —
  * while one is open — the original PDF in its place.
  */
-export function PaperReader({
-  paper,
-  activeFile,
-  pdf,
-  markdown,
-  onOpenMarkdownPath,
-  onContextSurfaceActivate,
-  onTextSelect,
-  getFileViewState,
-  onFileViewState,
-}: {
+export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
   paper: PaperSummary;
   activeFile: string;
   pdf: ReturnType<typeof usePaperPdf>;
@@ -67,7 +57,7 @@ export function PaperReader({
             {pdf.quoteReturnPath !== null && (
               <Tip label={quoteReturnLabel}>
                 <button type="button" className="paper-local-action" aria-label={quoteReturnLabel} onClick={() => {
-                  onOpenMarkdownPath(pdf.quoteReturnPath!);
+                  props.onOpenMarkdownPath(pdf.quoteReturnPath!);
                   pdf.clearQuoteFallback();
                 }}><ArrowLeft size={14} aria-hidden="true" /></button>
               </Tip>
@@ -78,15 +68,15 @@ export function PaperReader({
                 <span>{t`PDF`}</span>
               </button>
             ) : null}
-            {browserAction(true) ?? null}
+            {browserAction(true)}
           </div>
         </header>
       )}
       {view ? (
         <div
           className="paper-pdf-preview"
-          onPointerDownCapture={() => onContextSurfaceActivate("paper")}
-          onFocusCapture={() => onContextSurfaceActivate("paper")}
+          onPointerDownCapture={() => props.onContextSurfaceActivate("paper")}
+          onFocusCapture={() => props.onContextSurfaceActivate("paper")}
         >
           {!view.previewUrl && !view.bytes ? (
             <div className="pdf-preview">
@@ -114,10 +104,10 @@ export function PaperReader({
               onLoadError={() => pdf.fallbackToQuote(view.quote)}
               saveLabel={t`Download PDF`}
               timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
-              onTextSelect={onTextSelect}
+              onTextSelect={props.onTextSelect}
               onPageChange={pdf.rememberPage}
-              initialViewState={getFileViewState?.(activeFile)?.pdf}
-              onViewState={(state) => onFileViewState?.(activeFile, { pdf: state })}
+              initialViewState={props.getFileViewState?.(activeFile)?.pdf}
+              onViewState={(state) => props.onFileViewState?.(activeFile, { pdf: state })}
               onDocumentData={view.bytes ? undefined : pdf.capturePdf}
               toolbarStart={toolbarStart}
               toolbarEnd={toolbarEnd}
