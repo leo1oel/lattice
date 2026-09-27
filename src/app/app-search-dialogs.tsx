@@ -20,8 +20,9 @@ import {
   fuseProjectSearchHits,
   semanticQueryEligible,
   type LocalSemanticSearchResponse,
-  type LocalSemanticSearchStatus,
 } from "../project/project-semantic-search";
+import type { useLocalSemanticSearch } from "./use-local-semantic-search";
+import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
 import { type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
@@ -129,107 +130,67 @@ export function AppSearchDialogs(props: AppSearchDialogsProps) {
   );
 }
 
-export type AppProjectSearchDialogsProps = {
+export function AppProjectSearchDialogs({ search, semanticSearch, captureProjectScope, projectRef, dirty, ...props }: {
+  search: ProjectSearch;
+  semanticSearch: ReturnType<typeof useLocalSemanticSearch>;
+  captureProjectScope: () => () => boolean;
+  projectRef: RefObject<ProjectSnapshot | null>;
+  /** Whether the open editor holds unsaved edits a replace must write first. */
+  dirty: boolean;
   activeFile: string;
   loadFile: (path: string) => Promise<boolean>;
-  localSemanticSearchEnabled: boolean;
-  localSemanticSearchStatus: LocalSemanticSearchStatus;
   openMarkdownProjectPath: (path: string) => void;
   openProjectFile: OpenProjectFile;
-  projectFindBusy: boolean;
-  projectFindError: string | null;
-  projectFindHits: ProjectFindHit[];
-  projectFindOpen: boolean;
-  projectFindSearchGenerationRef: RefObject<number>;
-  projectOperationGenerationRef: RefObject<number>;
-  projectRef: RefObject<ProjectSnapshot | null>;
-  projectReplaceBusy: boolean;
-  projectReplaceError: string | null;
-  projectReplaceOpen: boolean;
-  projectReplacePreview: ReplacePreviewResult | null;
   refreshHistory: () => Promise<void>;
   refreshProject: RefreshProject;
   save: () => Promise<boolean>;
-  savedSource: string;
-  setLocalSemanticSearchStatus: Dispatch<SetStateAction<LocalSemanticSearchStatus>>;
-  setProjectFindBusy: Dispatch<SetStateAction<boolean>>;
-  setProjectFindError: Dispatch<SetStateAction<string | null>>;
-  setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
-  setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectReplaceBusy: Dispatch<SetStateAction<boolean>>;
-  setProjectReplaceError: Dispatch<SetStateAction<string | null>>;
-  setProjectReplaceOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectReplacePreview: Dispatch<SetStateAction<ReplacePreviewResult | null>>;
-  source: string;
-};
-
-export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
-  const {
-    projectFindSearchGenerationRef: searchGenerationRef,
-    projectOperationGenerationRef,
-    projectRef,
-    setProjectFindBusy,
-    setProjectFindError,
-    setProjectFindHits,
-    setProjectReplaceBusy,
-    setProjectReplaceError,
-    setProjectReplacePreview,
-  } = props;
+}) {
+  const { find, setFind, replace, setReplace, searchGenerationRef } = search;
   /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
   const runReplaceStep = (step: () => Promise<void>, onError?: () => void) => {
     void (async () => {
-      setProjectReplaceBusy(true);
-      setProjectReplaceError(null);
+      setReplace({ busy: true, error: null });
       try {
-        if (props.source !== props.savedSource && !(await props.save())) return;
+        if (dirty && !(await props.save())) return;
         await step();
       } catch (reason) {
         onError?.();
-        setProjectReplaceError(toMessage(reason));
+        setReplace({ error: toMessage(reason) });
       } finally {
-        setProjectReplaceBusy(false);
+        setReplace({ busy: false });
       }
     })();
   };
   return (
     <>
       <ProjectFindDialog
-        open={props.projectFindOpen}
-        busy={props.projectFindBusy}
-        error={props.projectFindError}
-        hits={props.projectFindHits}
-        semanticEnabled={props.localSemanticSearchEnabled}
-        semanticStatus={props.localSemanticSearchStatus}
+        open={find.open}
+        busy={find.busy}
+        error={find.error}
+        hits={find.hits}
+        semanticEnabled={semanticSearch.enabled}
+        semanticStatus={semanticSearch.status}
         onClose={() => {
           searchGenerationRef.current += 1;
-          props.setProjectFindOpen(false);
-          setProjectFindBusy(false);
-          setProjectFindError(null);
-          setProjectFindHits([]);
+          setFind({ open: false, busy: false, error: null, hits: [] });
         }}
         onSearch={(query) => {
           const generation = ++searchGenerationRef.current;
           void (async () => {
             if (!query.trim()) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
-              setProjectFindError(null);
+              setFind({ hits: [], busy: false, error: null });
               return;
             }
-            setProjectFindBusy(true);
-            setProjectFindError(null);
+            setFind({ busy: true, error: null });
             const projectRoot = projectRef.current?.root;
-            const projectGeneration = projectOperationGenerationRef.current;
             if (!projectRoot) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
+              setFind({ hits: [], busy: false });
               return;
             }
-            const superseded = () => generation !== searchGenerationRef.current
-              || projectGeneration !== projectOperationGenerationRef.current
-              || projectRef.current?.root !== projectRoot;
+            const ownsProject = captureProjectScope();
+            const superseded = () => generation !== searchGenerationRef.current || !ownsProject();
             try {
-              const semanticPromise = props.localSemanticSearchEnabled && semanticQueryEligible(query)
+              const semanticPromise = semanticSearch.enabled && semanticQueryEligible(query)
                 ? invoke<LocalSemanticSearchResponse>("semantic_search_project", { projectRoot, query }).catch(() => null)
                 : Promise.resolve(null);
               const [results, semantic] = await Promise.all([
@@ -237,14 +198,13 @@ export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
                 semanticPromise,
               ]);
               if (superseded()) return;
-              if (semantic) props.setLocalSemanticSearchStatus(semantic.status);
-              setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
+              if (semantic) semanticSearch.setStatus(semantic.status);
+              setFind({ hits: fuseProjectSearchHits(results, query, semantic) });
             } catch (reason) {
               if (superseded()) return;
-              setProjectFindHits([]);
-              setProjectFindError(toMessage(reason));
+              setFind({ hits: [], error: toMessage(reason) });
             } finally {
-              if (generation === searchGenerationRef.current) setProjectFindBusy(false);
+              if (generation === searchGenerationRef.current) setFind({ busy: false });
             }
           })();
         }}
@@ -254,25 +214,22 @@ export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
         }}
       />
       <ProjectReplaceDialog
-        open={props.projectReplaceOpen}
-        busy={props.projectReplaceBusy}
-        error={props.projectReplaceError}
-        preview={props.projectReplacePreview}
-        onClose={() => {
-          props.setProjectReplaceOpen(false);
-          setProjectReplacePreview(null);
-        }}
+        open={replace.open}
+        busy={replace.busy}
+        error={replace.error}
+        preview={replace.preview}
+        onClose={() => setReplace({ open: false, preview: null })}
         onOpenMatch={(path, line) => {
           void props.openProjectFile(path, line);
         }}
         onPreview={(query, options) => runReplaceStep(async () => {
-          setProjectReplacePreview(await invoke<ReplacePreviewResult>("preview_replace_in_project", {
+          setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", {
             query,
             paths: null,
             matchCase: options.matchCase,
             useRegex: options.useRegex,
-          }));
-        }, () => setProjectReplacePreview(null))}
+          }) });
+        }, () => setReplace({ preview: null }))}
         onReplace={(query, replacement, options) => runReplaceStep(async () => {
           const result = await invoke<ReplaceResult>("replace_in_project", {
             query,
@@ -284,8 +241,7 @@ export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
           if (props.activeFile) await props.loadFile(props.activeFile);
           await props.refreshProject();
           await props.refreshHistory();
-          props.setProjectReplaceOpen(false);
-          setProjectReplacePreview(null);
+          setReplace({ open: false, preview: null });
           setError(null);
           setNotice(result.replacements
             ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`

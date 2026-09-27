@@ -36,7 +36,6 @@ import { SlidingTabs } from "../components/ui/motion";
 import { type SynaraPermissionMode } from "./app-synara-embed";
 import { type SidebarModeTier } from "./sidebar-mode-layout";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
-import type { ProjectFindHit } from "../project/project-find-dialog";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { ProjectSnapshot } from "../app-types";
 
@@ -62,9 +61,7 @@ export type AppWorkspaceSidebarProps = {
   retrySynaraRuntime: () => void;
   setBoardCreateRequest: Dispatch<SetStateAction<number>>;
   setLiteratureOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectFindError: Dispatch<SetStateAction<string | null>>;
-  setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
-  setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
+  openProjectFind: () => void;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
   setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
   setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
@@ -139,9 +136,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                     aria-label={t`Find in project`}
                     onClick={() => {
                       props.setProjectSearchOpen(false);
-                      props.setProjectFindError(null);
-                      props.setProjectFindHits([]);
-                      props.setProjectFindOpen(true);
+                      props.openProjectFind();
                     }}
                   >
                     <Search size={13} />

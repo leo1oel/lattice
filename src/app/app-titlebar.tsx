@@ -54,8 +54,7 @@ export type AppTitlebarProps = {
   requestCloseEditorTab: (path: string) => void;
   setEditorTabPinned: (path: string, pinned: boolean) => void;
   selectEditorTab: (path: string) => void;
-  setCreateError: Dispatch<SetStateAction<string | null>>;
-  setCreateOpen: Dispatch<SetStateAction<boolean>>;
+  onNewProject: () => void;
   setOpenTabs: Dispatch<SetStateAction<string[]>>;
   setOverleafPickerOpen: Dispatch<SetStateAction<boolean>>;
   setProjectMenuOpen: Dispatch<SetStateAction<boolean>>;
@@ -101,10 +100,7 @@ export function AppTitlebar(props: AppTitlebarProps) {
               busyLabel={props.busyLabel}
               onRecent={props.chooseRecentProject}
               onOpen={() => void props.chooseExisting()}
-              onNew={() => {
-                props.setCreateError(null);
-                props.setCreateOpen(true);
-              }}
+              onNew={props.onNewProject}
               onOpenOverleaf={() => props.setOverleafPickerOpen(true)}
               onOpenTutorial={() => void props.openTutorialProject()}
               onExportZip={() => void props.exportProjectZip()}

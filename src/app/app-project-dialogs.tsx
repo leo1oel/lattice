@@ -4,13 +4,12 @@
  * bibliography entry editor with the literature discovery panel that feeds it;
  * plus the TeX toolchain setup and package-install dialogs.
  */
-import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
-import { type BibEntryDraft } from "../papers/bib-entry";
-import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
+import { lazy, Suspense } from "react";
 import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 import { TexDependencyInstaller } from "../build/tex-dependency-installer";
 import { TexSetupWizard } from "../build/tex-setup-wizard";
+import type { ReferenceImport } from "./use-reference-import";
 import type { TexSetup } from "./use-tex-setup";
 
 const BibEntryDialog = lazy(() =>
@@ -20,103 +19,68 @@ const LiteratureDiscoveryPanel = lazy(() =>
   import("../papers/literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
 );
 
-export type AppProjectDialogsProps = {
-  bibEntryBusy: boolean;
-  bibEntryError: string | null;
-  bibEntryInitial: ResolvedCitationDraft | undefined;
-  bibEntryKey: number;
-  bibEntryMode: "add" | "edit";
-  bibEntryOpen: boolean;
-  bibEntryResolving: boolean;
-  bibResolveSeed: string;
-  createError: string | null;
-  createOpen: boolean;
-  createProject: () => Promise<void>;
-  importedArxivIds: Set<string>;
-  importReferenceInput: (input: string) => Promise<void>;
-  literatureOpen: boolean;
-  openBibEntryDialog: (resolveSeed?: string) => void;
-  projectName: string;
-  projectVenue: ProjectVenue;
-  renameError: string | null;
-  renameTarget: RenameTarget | null;
-  resolveBibQuery: (query: string) => Promise<ResolvedCitationDraft | null>;
-  saveBibEntry: (draft: BibEntryDraft, insertCite: boolean) => Promise<void>;
-  setBibEntryOpen: Dispatch<SetStateAction<boolean>>;
-  setCreateError: Dispatch<SetStateAction<string | null>>;
-  setCreateOpen: Dispatch<SetStateAction<boolean>>;
-  setLiteratureOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectName: Dispatch<SetStateAction<string>>;
-  setProjectVenue: Dispatch<SetStateAction<ProjectVenue>>;
-  setRenameError: Dispatch<SetStateAction<string | null>>;
-  setRenameTarget: Dispatch<SetStateAction<RenameTarget | null>>;
-  submitRename: (name: string) => Promise<void>;
-};
+/** The new-project form; every edit clears the previous attempt's error. */
+export type CreateProjectForm = { open: boolean; error: string | null; name: string; venue: ProjectVenue };
 
-export function AppProjectDialogs(props: AppProjectDialogsProps) {
-  const { bibEntryBusy, bibEntryResolving, setCreateError, setLiteratureOpen } = props;
+export function AppProjectDialogs({ references, importedArxivIds, createForm, updateCreateForm, createProject, rename }: {
+  references: ReferenceImport;
+  importedArxivIds: Set<string>;
+  createForm: CreateProjectForm;
+  updateCreateForm: (update: Partial<CreateProjectForm>) => void;
+  createProject: () => Promise<void>;
+  rename: {
+    target: RenameTarget | null;
+    error: string | null;
+    submit: (name: string) => Promise<void>;
+    close: () => void;
+  };
+}) {
+  const { bibEntry, setLiteratureOpen } = references;
   return (
     <>
       <Suspense fallback={null}>
         <BibEntryDialog
-          key={props.bibEntryKey}
-          open={props.bibEntryOpen}
-          busy={bibEntryBusy}
-          resolving={bibEntryResolving}
-          error={props.bibEntryError}
-          mode={props.bibEntryMode}
-          initialResolveQuery={props.bibResolveSeed}
-          initialDraft={props.bibEntryInitial}
+          key={bibEntry.key}
+          open={bibEntry.open}
+          busy={bibEntry.busy}
+          resolving={bibEntry.resolving}
+          error={bibEntry.error}
+          mode={bibEntry.mode}
+          initialResolveQuery={bibEntry.resolveSeed}
+          initialDraft={bibEntry.initial}
           onClose={() => {
-            if (!bibEntryBusy && !bibEntryResolving) props.setBibEntryOpen(false);
+            if (!bibEntry.busy && !bibEntry.resolving) references.setBibEntry({ open: false });
           }}
-          onResolve={props.resolveBibQuery}
-          onSave={(draft, insertCite) => { void props.saveBibEntry(draft, insertCite); }}
+          onResolve={references.resolveBibQuery}
+          onSave={(draft, insertCite) => { void references.saveBibEntry(draft, insertCite); }}
         />
       </Suspense>
-      {props.literatureOpen && (
+      {references.literatureOpen && (
         <Suspense fallback={null}>
           <LiteratureDiscoveryPanel
             onClose={() => setLiteratureOpen(false)}
-            importedIds={props.importedArxivIds}
-            onImportArxiv={(arxivId) => props.importReferenceInput(arxivId)}
+            importedIds={importedArxivIds}
+            onImportArxiv={async (arxivId) => { await references.importReference(arxivId); }}
             onAddBib={(query) => {
               setLiteratureOpen(false);
-              props.openBibEntryDialog(query);
+              references.openBibEntry(query);
             }}
           />
         </Suspense>
       )}
-      {props.createOpen && (
+      {createForm.open && (
         <CreateProjectDialog
-          projectName={props.projectName}
-          setProjectName={(value) => {
-            props.setProjectName(value);
-            setCreateError(null);
-          }}
-          projectVenue={props.projectVenue}
-          setProjectVenue={(value) => {
-            props.setProjectVenue(value);
-            setCreateError(null);
-          }}
-          error={props.createError}
-          onCreate={props.createProject}
-          onClose={() => {
-            setCreateError(null);
-            props.setCreateOpen(false);
-          }}
+          projectName={createForm.name}
+          setProjectName={(name) => updateCreateForm({ name })}
+          projectVenue={createForm.venue}
+          setProjectVenue={(venue) => updateCreateForm({ venue })}
+          error={createForm.error}
+          onCreate={createProject}
+          onClose={() => updateCreateForm({ open: false })}
         />
       )}
-      {props.renameTarget && (
-        <RenameDialog
-          target={props.renameTarget}
-          error={props.renameError}
-          onRename={props.submitRename}
-          onClose={() => {
-            props.setRenameError(null);
-            props.setRenameTarget(null);
-          }}
-        />
+      {rename.target && (
+        <RenameDialog target={rename.target} error={rename.error} onRename={rename.submit} onClose={rename.close} />
       )}
     </>
   );

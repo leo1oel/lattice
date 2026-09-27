@@ -18,15 +18,13 @@ import {
   type ReferenceInfo,
   type SymbolTarget,
 } from "./editor/latex/latex-text";
-import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "./papers/bib-entry";
 import { formatBibDocument } from "./papers/bib-format";
-import { type ResolvedCitationDraft } from "./papers/bib-entry-dialog";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
 import { listenForBrowserProjectDrops } from "./project/browser-project-drop";
 import { SearchPickerDialog, type SearchPickerItem } from "./components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "./papers/paper-link";
-import { canDownloadPaper, citationSourceUrl, isTitleQuery } from "./papers/paper-source";
-import { PAPER_IMPORT_PROGRESS_EVENT, paperImportStageLabel } from "./papers/paper-import-progress";
+import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
+import { paperImportStageLabel } from "./papers/paper-import-progress";
 import {
   assertCollabWorkspaceLease,
   CollabDiskWriteQueue,
@@ -43,6 +41,8 @@ import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
 import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
 import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
 import { useFileViewStates } from "./app/use-file-view-states";
+import { useProjectSearch } from "./app/use-project-search";
+import { useReferenceImport } from "./app/use-reference-import";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useTexSetup } from "./app/use-tex-setup";
@@ -80,7 +80,7 @@ import { AppCollabDialog, AppOverleafCollabDrawer } from "./app/app-collab-surfa
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppOnboardingTour } from "./app/app-onboarding-tour";
-import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
+import { AppProjectDialogs, TexSetupDialogs, type CreateProjectForm } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { AppWorkspaceSidebar } from "./app/app-workspace-sidebar";
@@ -180,15 +180,12 @@ import {
   type EditorDropPreview,
   type EditorDropZone,
 } from "./canvas/editor-tabs";
-import { type ProjectFindHit } from "./project/project-find-dialog";
-import { type ReplacePreviewResult } from "./project/project-replace-dialog";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
 import { findAppendixMarker } from "./editor/latex/appendix-pages";
 import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import type {
-  ProjectVenue,
   ProjectManifest,
   NavigationEntry,
   ProjectSnapshot,
@@ -568,15 +565,8 @@ function App() {
   const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
   const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
-  const [projectReplaceOpen, setProjectReplaceOpen] = useState(false);
-  const [projectReplaceBusy, setProjectReplaceBusy] = useState(false);
-  const [projectReplaceError, setProjectReplaceError] = useState<string | null>(null);
-  const [projectReplacePreview, setProjectReplacePreview] = useState<ReplacePreviewResult | null>(null);
-  const [projectFindOpen, setProjectFindOpen] = useState(false);
-  const [projectFindBusy, setProjectFindBusy] = useState(false);
-  const [projectFindError, setProjectFindError] = useState<string | null>(null);
-  const [projectFindHits, setProjectFindHits] = useState<ProjectFindHit[]>([]);
-  const projectFindSearchGenerationRef = useRef(0);
+  const projectSearch = useProjectSearch();
+  const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [gotoLineOpen, setGotoLineOpen] = useState(false);
@@ -633,29 +623,6 @@ function App() {
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
-  const [importInput, setImportInput] = useState("");
-  const [importing, setImporting] = useState(false);
-  const paperImportInFlight = useRef(false);
-  const paperImportRequestId = useRef<string | null>(null);
-  const [recentPaperImport, setRecentPaperImport] = useState<{ projectRoot: string; query: string; citationKey?: string; arxivId: string } | null>(null);
-  // Which network step the literature pipeline is in, from the backend's
-  // "paper-import-progress" events. Cleared by whichever operation owned the
-  // spinner; agent-driven imports run in a separate process and never emit.
-  const [paperImportStage, setPaperImportStage] = useState<string | null>(null);
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void listen<string>(PAPER_IMPORT_PROGRESS_EVENT, (event) => {
-      setPaperImportStage(event.payload);
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
   const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
   const paperFetchTimers = useRef<Record<string, number>>({});
   const [assetImporting, setAssetImporting] = useState(false);
@@ -683,11 +650,6 @@ function App() {
   const [commentFocusRequest, setCommentFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
   const commentOpenGenerationRef = useRef(0);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
-  const [literatureOpen, setLiteratureOpen] = useState(false);
-  const [bibResolveSeed, setBibResolveSeed] = useState("");
-  const [bibEntryMode, setBibEntryMode] = useState<"add" | "edit">("add");
-  const [bibEntryInitial, setBibEntryInitial] = useState<ResolvedCitationDraft | undefined>(undefined);
-  const [bibEntryImportRoot, setBibEntryImportRoot] = useState<string | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
   const dualPreviewPanes = {
@@ -871,13 +833,8 @@ function App() {
     };
   }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
   const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
-  const [bibEntryOpen, setBibEntryOpen] = useState(false);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
-  const [bibEntryBusy, setBibEntryBusy] = useState(false);
-  const [bibEntryResolving, setBibEntryResolving] = useState(false);
-  const [bibEntryError, setBibEntryError] = useState<string | null>(null);
-  const [bibEntryKey, setBibEntryKey] = useState(0);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [goToSymbolOpen, setGoToSymbolOpen] = useState(false);
   const [refCitePicker, setRefCitePicker] = useState<"cite" | "ref" | null>(null);
@@ -960,7 +917,7 @@ function App() {
   });
   const { build, setBuild, building, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
-  const { resetQueue: resetBuildQueue } = buildPipeline;
+  const { resetQueue: resetBuildQueue, cycleDiagnostic } = buildPipeline;
   const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
     resetAgentCheckpoints();
     resetBuildQueue(cancelQueuedBuild);
@@ -1112,12 +1069,14 @@ function App() {
     return false;
   }, [beginProjectTransition]);
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [projectVenue, setProjectVenue] = useState<ProjectVenue>("neurips");
+  const [createForm, setCreateForm] = useState<CreateProjectForm>({
+    open: false, error: null, name: "Untitled research", venue: "neurips",
+  });
+  const updateCreateForm = useCallback((update: Partial<CreateProjectForm>) => {
+    setCreateForm((form) => ({ ...form, error: null, ...update }));
+  }, []);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
-  const [projectName, setProjectName] = useState("Untitled research");
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
@@ -2988,8 +2947,8 @@ function App() {
   }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, save, startProjectTransition]);
 
   const createProject = useCallback(async () => {
-    if (!projectName.trim()) {
-      setCreateError("Enter a project name.");
+    if (!createForm.name.trim()) {
+      updateCreateForm({ error: "Enter a project name." });
       return;
     }
     const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
@@ -3003,21 +2962,20 @@ function App() {
       if (openHere && !await startProjectTransition()) return;
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
         parent,
-        name: projectName,
-        venue: projectVenue,
+        name: createForm.name,
+        venue: createForm.venue,
       });
-      setCreateError(null);
-      setCreateOpen(false);
+      updateCreateForm({ open: false });
       await revealNewProject(snapshot.root);
     } catch (reason) {
       if (openHere) cancelProjectTransition();
-      setCreateError(toMessage(reason));
+      updateCreateForm({ error: toMessage(reason) });
     } finally {
       setBusyLabel(null);
     }
   }, [
-    cancelProjectTransition, project?.root, projectName, projectVenue, revealNewProject, save,
-    startProjectTransition,
+    cancelProjectTransition, createForm.name, createForm.venue, project?.root, revealNewProject, save,
+    startProjectTransition, updateCreateForm,
   ]);
 
   const openTutorialProject = useCallback(async () => {
@@ -3285,122 +3243,24 @@ function App() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [activePaper, chooseExisting, compile, flushDeferredWholeFileSync, save]);
 
-  const importReferenceInput = useCallback(async (input: string) => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    if (paperImportInFlight.current) return;
-    paperImportInFlight.current = true;
-    const requestId = crypto.randomUUID();
-    paperImportRequestId.current = requestId;
-    const importRoot = projectRootRef.current;
-    setImporting(true);
-    try {
-      let importInput = trimmed;
-      // Only ambiguous/incomplete results need review. Import the resolved
-      // snapshot, never a second title search that could choose another work.
-      if (isTitleQuery(trimmed)) {
-        const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query: trimmed });
-        if (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId) return;
-        if (resolved.candidates?.length || !resolved.bibtex?.trim()) {
-          setBibEntryError(null);
-          setBibEntryMode("add");
-          setBibEntryImportRoot(importRoot);
-          setBibEntryInitial(resolved);
-          setBibResolveSeed(trimmed);
-          setBibEntryKey((value) => value + 1);
-          setBibEntryOpen(true);
-          return;
-        }
-        importInput = resolved.bibtex;
-      }
-      const result = await invoke<{
-        arxivId: string;
-        title: string;
-        citationKey?: string;
-        alreadyImported: boolean;
-        fetchError?: string;
-        cancelled?: boolean;
-        paperPath?: string;
-      }>("import_reference", {
-        input: importInput,
-        requestId,
-      });
-      if (projectRootRef.current !== importRoot) return;
-      if (importRoot) setRecentPaperImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
-      const snapshot = await refreshProject();
-      await refreshHistory();
-      if (collabSession && !result.alreadyImported) {
-        // Bibliography is the shared paper catalog. Full-text bundles stay
-        // local — collaborators fetch them when they open a paper.
-        try {
-          const content = await invoke<string>("read_project_file", {
-            path: snapshot.manifest.primaryBibliography,
-          });
-          await publishTextToCollabV2(snapshot.manifest.primaryBibliography, content);
-        } catch {
-          // Optional sidecar / bib may be missing.
-        }
-      }
-      // The citation lands even when the download does not (papers.rs commits
-      // the bibliography before fetching), so a fetch failure is a notice on a
-      // success, not an error. The converter's stderr ends with its one
-      // meaningful "Error: …" line; the Papers row keeps a Download button for
-      // retrying, which surfaces the full message.
-      const fetchNote = result.fetchError
-        ?.trim().split("\n").filter((line) => line.trim()).pop()?.replace(/^Error:\s*/, "");
-      // "cite it with \cite{…}" over the old "as \cite{…}": the key's whole
-      // point is being pasted into the manuscript, so the notice hands over
-      // the exact command instead of assuming the reader parses BibTeX-ese.
-      const citeHint = result.citationKey ? ` — cite it with \\cite{${result.citationKey}}` : "";
-      const citationCommand = `\\cite{${result.citationKey}}`;
-      setNotice(result.cancelled
-        ? result.citationKey
-          ? result.paperPath
-            ? t({ message: `Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.` })
-            : t({ message: `Import cancelled. “${result.title}” remains in the bibliography — cite it with ${citationCommand}; full-text enrichment stopped.` })
-          : result.paperPath
-            ? t`Paper import cancelled before changing the bibliography; the downloaded full text remains available.`
-            : t`Paper import cancelled before making changes.`
-        : result.alreadyImported
-        ? `“${result.title}” is already in Papers${citeHint}.`
-        : result.arxivId
-          ? result.fetchError
-            ? `Added “${result.title}” to the bibliography${citeHint}. The full text could not be downloaded: ${fetchNote}`
-            : `Imported “${result.title}”${citeHint}.`
-          : `Added “${result.title}” to the bibliography${citeHint}. No full text to open.`);
-      return result;
-    } catch (reason) {
-      if (isTitleQuery(trimmed) && (projectRootRef.current !== importRoot || paperImportRequestId.current !== requestId)) return;
-      setError(toMessage(reason));
-      throw reason instanceof Error ? reason : new Error(toMessage(reason));
-    } finally {
-      paperImportInFlight.current = false;
-      if (paperImportRequestId.current === requestId) paperImportRequestId.current = null;
-      setImporting(false);
-      setPaperImportStage(null);
-    }
-    // `collabSession` alone is not enough to keep the publish above alive: it can
-    // reach state a commit before `activeCollabVersion` does, and this memo would
-    // then pin the closure that answers `false` for the rest of the share (see
-    // `publishTextToCollabV2`). An imported reference would reach disk here and
-    // never reach the people sharing the project.
-  }, [collabSession, publishTextToCollabV2, refreshHistory, refreshProject, t]);
-
-  const cancelPaperImport = useCallback(() => {
-    const requestId = paperImportRequestId.current;
-    if (!requestId) return;
-    paperImportRequestId.current = null;
-    void invoke("cancel_reference_import", { requestId }).catch((reason) => setError(toMessage(reason)));
-  }, []);
-
-  const importPaper = useCallback(async () => {
-    if (!importInput.trim()) return;
-    try {
-      await importReferenceInput(importInput);
-    } catch {
-      // Error already surfaced by importReferenceInput.
-    }
-  }, [importReferenceInput, importInput]);
+  const referenceImport = useReferenceImport({
+    project, projectRootRef, refreshProject, refreshHistory, publishToShare: publishTextToCollabV2,
+    shared: Boolean(collabSession),
+    editor: {
+      activeFile,
+      source,
+      dirty: source !== savedSource,
+      save,
+      commit: (content) => {
+        setSource(content);
+        setSavedSource(content);
+      },
+    },
+    onCite: (key) => {
+      setCiteInsertRequest({ key, command: "cite", id: crypto.randomUUID() });
+      setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+    },
+  });
 
   const openPaper = useCallback(async (
     paper: PaperSummary,
@@ -3575,7 +3435,7 @@ function App() {
       if (paperLoadGenerationRef.current === loadGeneration) {
         paperLoadGenerationRef.current = null;
       }
-      setPaperImportStage(null);
+      referenceImport.clearStage();
     }
   }, [changePaperView, openPaper, refreshProject, tutorialActive, tutorialStep]);
 
@@ -5472,36 +5332,6 @@ function App() {
     }
   }, [openProjectFile]);
 
-  const openBibEntryDialog = useCallback((resolveSeed = "") => {
-    setBibEntryError(null);
-    setBibEntryMode("add");
-    setBibEntryImportRoot(null);
-    setBibEntryInitial(undefined);
-    setBibResolveSeed(resolveSeed);
-    setBibEntryKey((value) => value + 1);
-    setBibEntryOpen(true);
-  }, []);
-
-  const openEditBibEntry = useCallback(async (paper: PaperSummary) => {
-    if (!paper.citationKey) return;
-    try {
-      const entry = await invoke<ResolvedCitationDraft | null>("read_bib_entry", { key: paper.citationKey });
-      if (!entry) {
-        setError(`Couldn't find a bibliography entry for \\cite{${paper.citationKey}}.`);
-        return;
-      }
-      setBibEntryError(null);
-      setBibEntryMode("edit");
-      setBibEntryImportRoot(null);
-      setBibEntryInitial(entry);
-      setBibResolveSeed("");
-      setBibEntryKey((value) => value + 1);
-      setBibEntryOpen(true);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, []);
-
   const importClipboardImageFile = useCallback(async (file: File): Promise<string | null> => {
     try {
       const base64 = await fileToBase64(file);
@@ -5578,84 +5408,6 @@ function App() {
     });
   }, [activeFile, importSystemClipboardImage, project]);
 
-  const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
-    setBibEntryResolving(true);
-    setBibEntryError(null);
-    try {
-      const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
-      return resolved;
-    } catch (reason) {
-      setBibEntryError(toMessage(reason));
-      return null;
-    } finally {
-      setBibEntryResolving(false);
-    }
-  }, []);
-
-  const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
-    if (!project) return;
-    if (bibEntryImportRoot !== null && bibEntryImportRoot !== project.root) return;
-    const bibliography = project.manifest.primaryBibliography;
-    if (!bibliography) {
-      setBibEntryError("This project has no primary bibliography.");
-      return;
-    }
-    if (!draft.title.trim() || !draft.author.trim() || !draft.year.trim()) {
-      setBibEntryError("Title, author, and year are required.");
-      return;
-    }
-    setBibEntryBusy(true);
-    setBibEntryError(null);
-    try {
-      if (source !== savedSource) {
-        const saved = await save();
-        if (!saved) return;
-      }
-      if (bibEntryImportRoot !== null && bibEntryMode === "add") {
-        const result = await importReferenceInput(formatBibEntry(draft));
-        if (!result || projectRootRef.current !== bibEntryImportRoot) return;
-        setBibEntryOpen(false);
-        setBibEntryImportRoot(null);
-        if (insertCite && result.citationKey) {
-          setCiteInsertRequest({ key: result.citationKey, command: "cite", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }
-        setError(null);
-        return;
-      }
-      if (bibEntryMode === "edit") {
-        // The key is read-only when editing, so this replaces the entry in place.
-        await invoke("save_bib_entry", { key: draft.key, bibtex: formatBibEntry(draft) });
-      } else {
-        const existing = bibliography === activeFile
-          ? source
-          : await invoke<string>("read_project_file", { path: bibliography });
-        await invoke("write_project_file", {
-          path: bibliography,
-          content: appendBibEntry(existing, formatBibEntry(draft)),
-          projectRoot: project.root,
-        });
-      }
-      // Re-sync the editor buffer and collab peers with what's now on disk.
-      const next = await invoke<string>("read_project_file", { path: bibliography });
-      await publishTextToCollabV2(bibliography, next);
-      if (bibliography === activeFile) {
-        setSource(next);
-        setSavedSource(next);
-      }
-      await refreshProject();
-      setBibEntryOpen(false);
-      if (insertCite) {
-        setCiteInsertRequest({ key: draft.key, command: "cite", id: crypto.randomUUID() });
-        setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-      }
-      setError(null);
-    } catch (reason) {
-      setBibEntryError(toMessage(reason));
-    } finally {
-      setBibEntryBusy(false);
-    }
-  }, [activeFile, bibEntryImportRoot, bibEntryMode, collabSession, importReferenceInput, project, publishTextToCollabV2, refreshProject, save, savedSource, source]);
 
 
 
@@ -6507,7 +6259,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {
         event.preventDefault();
-        buildPipeline.cycleDiagnostic(event.shiftKey ? -1 : 1);
+        cycleDiagnostic(event.shiftKey ? -1 : 1);
         return;
       }
       const mod = event.metaKey || event.ctrlKey;
@@ -6561,46 +6313,30 @@ function App() {
       }
       if (event.key.toLocaleLowerCase() === "h" && event.shiftKey) {
         event.preventDefault();
-        setProjectReplaceError(null);
-        setProjectReplacePreview(null);
-        setProjectReplaceOpen(true);
+        openProjectReplace();
       }
       if (event.key.toLocaleLowerCase() === "f" && event.shiftKey) {
         event.preventDefault();
-        setProjectFindError(null);
-        setProjectFindHits([]);
-        setProjectFindOpen(true);
+        openProjectFind();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [buildPipeline.cycleDiagnostic, canInsert, navigateHistory, reopenClosedTab, revealSourceInPdf]);
+  }, [canInsert, cycleDiagnostic, navigateHistory, openProjectFind, openProjectReplace, reopenClosedTab, revealSourceInPdf]);
 
   if (!project) {
     return (
       <>
         <Welcome
           busyLabel={busyLabel}
-          createOpen={createOpen}
-          createError={createError}
-          projectName={projectName}
-          projectVenue={projectVenue}
-          onOpenCreate={() => {
-            setCreateError(null);
-            setCreateOpen(true);
-          }}
-          onCloseCreate={() => {
-            setCreateError(null);
-            setCreateOpen(false);
-          }}
-          setProjectName={(value) => {
-            setProjectName(value);
-            setCreateError(null);
-          }}
-          setProjectVenue={(value) => {
-            setProjectVenue(value);
-            setCreateError(null);
-          }}
+          createOpen={createForm.open}
+          createError={createForm.error}
+          projectName={createForm.name}
+          projectVenue={createForm.venue}
+          onOpenCreate={() => updateCreateForm({ open: true })}
+          onCloseCreate={() => updateCreateForm({ open: false })}
+          setProjectName={(name) => updateCreateForm({ name })}
+          setProjectVenue={(venue) => updateCreateForm({ venue })}
           onCreate={createProject}
           onOpen={chooseExisting}
           onImportZip={() => void importOverleafZip()}
@@ -6801,7 +6537,7 @@ function App() {
         dropProjectPath={dropProjectPath}
         editorTabItems={editorTabItems}
         exportProjectZip={exportProjectZip}
-        importing={importing}
+        importing={referenceImport.importing}
         openSettings={openSettings}
         openTutorialProject={openTutorialProject}
         project={project}
@@ -6810,8 +6546,7 @@ function App() {
         requestCloseEditorTab={requestCloseEditorTab}
         setEditorTabPinned={setEditorTabPinned}
         selectEditorTab={selectEditorTab}
-        setCreateError={setCreateError}
-        setCreateOpen={setCreateOpen}
+        onNewProject={() => updateCreateForm({ open: true })}
         setOpenTabs={setOpenTabs}
         setOverleafPickerOpen={setOverleafPickerOpen}
         setProjectMenuOpen={setProjectMenuOpen}
@@ -6917,27 +6652,25 @@ function App() {
               onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
               paperFetchStates={paperFetchStates}
               onDeletePaper={deletePaper}
-              onEditBibEntry={(paper) => void openEditBibEntry(paper)}
-              importInput={importInput}
-              recentImport={recentPaperImport?.projectRoot === project.root ? recentPaperImport : null}
-              importStage={paperImportStage ? paperImportStageLabel(paperImportStage) : null}
-              importStageId={paperImportStage}
-              setImportInput={setImportInput}
-              onImport={importPaper}
-              onCancelImport={cancelPaperImport}
-              importing={importing}
+              onEditBibEntry={(paper) => void referenceImport.editBibEntry(paper)}
+              importInput={referenceImport.input}
+              recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
+              importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
+              importStageId={referenceImport.stage}
+              setImportInput={referenceImport.setInput}
+              onImport={referenceImport.importFromInput}
+              onCancelImport={referenceImport.cancelImport}
+              importing={referenceImport.importing}
             />
             </Suspense>
             )}
             nudgeSidebar={nudgeSidebar}
-            openBibEntryDialog={openBibEntryDialog}
+            openBibEntryDialog={referenceImport.openBibEntry}
             project={project}
             retrySynaraRuntime={synara.retry}
             setBoardCreateRequest={setBoardCreateRequest}
-            setLiteratureOpen={setLiteratureOpen}
-            setProjectFindError={setProjectFindError}
-            setProjectFindHits={setProjectFindHits}
-            setProjectFindOpen={setProjectFindOpen}
+            setLiteratureOpen={referenceImport.setLiteratureOpen}
+            openProjectFind={projectSearch.openFind}
             setProjectSearchOpen={setProjectSearchOpen}
             setPresentationCreateRequest={setPresentationCreateRequest}
             setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
@@ -7395,70 +7128,35 @@ function App() {
         />
       </Suspense>}
       <AppProjectSearchDialogs
+        search={projectSearch}
+        semanticSearch={semanticSearch}
+        captureProjectScope={projectState.captureProjectScope}
+        projectRef={projectRef}
+        dirty={source !== savedSource}
         activeFile={activeFile}
         loadFile={loadFile}
-        localSemanticSearchEnabled={semanticSearch.enabled}
-        localSemanticSearchStatus={semanticSearch.status}
         openMarkdownProjectPath={openMarkdownProjectPath}
         openProjectFile={openProjectFile}
-        projectFindBusy={projectFindBusy}
-        projectFindError={projectFindError}
-        projectFindHits={projectFindHits}
-        projectFindOpen={projectFindOpen}
-        projectFindSearchGenerationRef={projectFindSearchGenerationRef}
-        projectOperationGenerationRef={projectOperationGenerationRef}
-        projectRef={projectRef}
-        projectReplaceBusy={projectReplaceBusy}
-        projectReplaceError={projectReplaceError}
-        projectReplaceOpen={projectReplaceOpen}
-        projectReplacePreview={projectReplacePreview}
         refreshHistory={refreshHistory}
         refreshProject={refreshProject}
         save={save}
-        savedSource={savedSource}
-        setLocalSemanticSearchStatus={semanticSearch.setStatus}
-        setProjectFindBusy={setProjectFindBusy}
-        setProjectFindError={setProjectFindError}
-        setProjectFindHits={setProjectFindHits}
-        setProjectFindOpen={setProjectFindOpen}
-        setProjectReplaceBusy={setProjectReplaceBusy}
-        setProjectReplaceError={setProjectReplaceError}
-        setProjectReplaceOpen={setProjectReplaceOpen}
-        setProjectReplacePreview={setProjectReplacePreview}
-        source={source}
       />
 
       <AppProjectDialogs
-        bibEntryBusy={bibEntryBusy}
-        bibEntryError={bibEntryError}
-        bibEntryInitial={bibEntryInitial}
-        bibEntryKey={bibEntryKey}
-        bibEntryMode={bibEntryMode}
-        bibEntryOpen={bibEntryOpen}
-        bibEntryResolving={bibEntryResolving}
-        bibResolveSeed={bibResolveSeed}
-        createError={createError}
-        createOpen={createOpen}
-        createProject={createProject}
+        references={referenceImport}
         importedArxivIds={importedArxivIds}
-        importReferenceInput={async (input) => { await importReferenceInput(input); }}
-        literatureOpen={literatureOpen}
-        openBibEntryDialog={openBibEntryDialog}
-        projectName={projectName}
-        projectVenue={projectVenue}
-        renameError={renameError}
-        renameTarget={renameTarget}
-        resolveBibQuery={resolveBibQuery}
-        saveBibEntry={saveBibEntry}
-        setBibEntryOpen={setBibEntryOpen}
-        setCreateError={setCreateError}
-        setCreateOpen={setCreateOpen}
-        setLiteratureOpen={setLiteratureOpen}
-        setProjectName={setProjectName}
-        setProjectVenue={setProjectVenue}
-        setRenameError={setRenameError}
-        setRenameTarget={setRenameTarget}
-        submitRename={submitRename}
+        createForm={createForm}
+        updateCreateForm={updateCreateForm}
+        createProject={createProject}
+        rename={{
+          target: renameTarget,
+          error: renameError,
+          submit: submitRename,
+          close: () => {
+            setRenameError(null);
+            setRenameTarget(null);
+          },
+        }}
       />
 
       {/* The command palette stays here rather than in a component of its own.
@@ -7543,18 +7241,10 @@ function App() {
             case "table": setTableGeneratorOpen(true); break;
             case "cite": setRefCitePicker("cite"); break;
             case "ref": setRefCitePicker("ref"); break;
-            case "bib": openBibEntryDialog(); break;
-            case "discover": setLiteratureOpen(true); break;
-            case "find":
-              setProjectFindError(null);
-              setProjectFindHits([]);
-              setProjectFindOpen(true);
-              break;
-            case "replace":
-              setProjectReplaceError(null);
-              setProjectReplacePreview(null);
-              setProjectReplaceOpen(true);
-              break;
+            case "bib": referenceImport.openBibEntry(); break;
+            case "discover": referenceImport.setLiteratureOpen(true); break;
+            case "find": projectSearch.openFind(); break;
+            case "replace": projectSearch.openReplace(); break;
             case "todos":
               void refreshTodos();
               setTodosOpen(true);
