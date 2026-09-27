@@ -410,7 +410,7 @@ const FILE_KINDS: Record<string, string> = {
 function fileNode(
   path: string, kind = FILE_KINDS[path.split(".").pop() ?? ""] ?? "text", extra?: Partial<FileNode>,
 ): FileNode {
-  return { name: path.split("/").pop() ?? path, path, kind, ...extra, children: [] };
+  return { name: path.split("/").pop() ?? path, path, kind, children: [], ...extra };
 }
 
 function dirNode(path: string, children: FileNode[] = []): FileNode {
@@ -444,6 +444,9 @@ function projectCommands(snapshot: ProjectSnapshot | null, source = "\\documentc
     list_history: () => [],
   } satisfies Record<string, CommandResult>;
 }
+
+/** The paper the citation-removal tests cite as `chen2024single`. */
+const SINGLE_TRANSFORMER = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
 
 /** The paper most Papers tests import, with whatever metadata a test needs. */
 function attentionPaper<T extends object>(paper: T = {} as T) {
@@ -497,6 +500,52 @@ function projectSnapshot({
     },
     files,
   };
+}
+
+/** A second project holding one private Markdown draft. */
+const notesSnapshot = () => projectSnapshot({
+  root: "/tmp/notes", projectId: "notes-id", name: "Notes", rootDocuments: [], files: [fileNode("draft.md")],
+});
+/** The project most Overleaf tests link. */
+const overleafPaperSnapshot = () => projectSnapshot({
+  root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
+});
+/** A root document registered under the short name some fixtures use. */
+const MAIN_DOCUMENT = [{ path: "main.tex", name: "Main", isDefault: true }];
+const EMPTY_BOARD = "{\"tldrawFileFormatVersion\":1,\"records\":[]}";
+
+/** A `build_project` answer: a successful build unless `result` says otherwise. */
+function buildResult(result: object = {}) {
+  return () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [], ...result });
+}
+
+/** Answers `read_project_file` from `files` by path, else with `fallback`. */
+function readFiles(files: Record<string, unknown>, fallback: unknown = "\\documentclass{article}") {
+  return (args: InvokeArgs | undefined) => files[argPath(args)] ?? fallback;
+}
+
+/** Answers each read with `content:<path>`, so a pane shows which file it holds. */
+const readPathContent = (args: InvokeArgs | undefined) => `content:${argPath(args)}`;
+
+function setAutoBuildMode(autoBuildMode: "manual" | "automatic") {
+  localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode }));
+}
+
+/** Switches the interface language the way a persisted user choice does. */
+async function setInterfaceLanguage(locale: "en" | "zh-CN") {
+  await activateAppLocale(locale);
+  localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: locale }));
+}
+
+/** The project the bottom-assistant tests open. */
+const agentDockSnapshot = () => projectSnapshot({
+  root: "/tmp/agent-dock", projectId: "dock", name: "Dock test", rootDocuments: MAIN_DOCUMENT,
+});
+
+/** Restores the sidebar open on the Agent, as a previous session left it. */
+function showAgentSidebar() {
+  localStorage.setItem("lattice.sidebar-open.v1", "1");
+  localStorage.setItem("lattice.sidebar-mode.v1", "agent");
 }
 
 // The provider/model/effort pickers are Radix Selects: options are portaled
@@ -587,12 +636,23 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  // Drop tests stub the hit test; jsdom has none of its own.
+  Reflect.deleteProperty(document, "elementFromPoint");
 });
 
-/** Renders the app, first answering `invoke` from `commands` when given. */
-function renderApp(commands?: Record<string, CommandResult>) {
+/**
+ * Renders the app, first answering `invoke` from `commands` when given.
+ * `confirmations` mounts the in-app confirmation dialog host `main.tsx` provides.
+ */
+function renderApp(commands?: Record<string, CommandResult>, { confirmations = false } = {}) {
   if (commands) mockCommands(commands);
-  return render(<App />);
+  return render(confirmations ? <ConfirmActionProvider><App /></ConfirmActionProvider> : <App />);
+}
+
+/** Opens Settings from the titlebar button, then `section` when given. */
+async function openSettings(section?: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  if (section) fireEvent.click(await screen.findByRole("button", { name: section }));
 }
 
 describe("collaboration status mapping", () => {
@@ -656,6 +716,22 @@ async function findEditorView(selector = ".cm-editor", options?: Parameters<type
   return view;
 }
 
+/** Waits for the CodeMirror view at `selector` and types `text` at its end. */
+async function appendToEditor(text: string, selector?: string) {
+  const view = await findEditorView(selector);
+  view.dispatch({ changes: { from: view.state.doc.length, insert: text } });
+  return view;
+}
+
+/** Waits until the CodeMirror view at `selector` holds exactly `text`, and returns it. */
+function expectEditorText(text: string, selector?: string, options?: Parameters<typeof waitFor>[1]) {
+  return waitFor(() => {
+    const view = editorViewAt(selector);
+    expect(view.state.doc.toString()).toBe(text);
+    return view;
+  }, options);
+}
+
 /** Delivers a window message from `source`, by default as the Synara origin. */
 function postWindowMessage(source: MessageEventSource | null, data: unknown, origin = synaraHook.runtime.origin!) {
   act(() => {
@@ -696,6 +772,12 @@ function stubRect(element: Element, left: number, top: number, width: number, he
 
 function stubElementFromPoint(element: Element | null) {
   Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => element) });
+}
+
+/** The per-file editor view states the app persisted, by project root and path. */
+function storedFileViews() {
+  return JSON.parse(localStorage.getItem("lattice.file-view-states.v1") ?? "{}") as
+    Record<string, Record<string, { text?: { cursor: number; scrollTop: number } }>>;
 }
 
 /** Delivers a Finder drop through the native webview drag-and-drop handler. */
@@ -765,6 +847,46 @@ async function openAgentFrame({ ready = false } = {}) {
   return { frame, postMessage };
 }
 
+/** Posts the Agent's project-history snapshot for `activeThreadId`. */
+function postProjectHistory(frame: HTMLIFrameElement, activeThreadId: string, entries: unknown[], origin?: string) {
+  postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId, entries }, origin);
+}
+
+/** An Agent checkpoint `cp-<id>` on thread `thread-<id>` that modified one file. */
+function agentCheckpoint(id: string, file: { path?: string; additions: number; deletions: number }, extra = {}) {
+  return {
+    id: `cp-${id}`, label: "Edited files", timestamp: "2026-08-07T10:00:00.000Z", threadId: `thread-${id}`,
+    threadTitle: "Agent task", turnId: `turn-${id}`, turnCount: 1, checkpointRef: `ref-${id}`,
+    files: [{ path: "sections/intro.tex", kind: "modified", ...file }], ...extra,
+  };
+}
+
+/** The messages of `type` the host posted through a `postMessage` spy, oldest first. */
+function postedOfType<T extends object>(postMessage: { mock: { calls: unknown[][] } }, type: string) {
+  return postMessage.mock.calls.map(([message]) => message as T & { type?: string })
+    .filter((message) => message?.type === type);
+}
+
+/** The toasts currently on screen from `source`. */
+function visibleToasts(source: string) {
+  return getVisibleAppToastIds().map((id) => getAppLogEntry(id)).filter((entry) => entry?.source === source);
+}
+
+/** Opens the sharing dialog from its titlebar control once it mounts. */
+async function openCollaboration() {
+  fireEvent.click(await findElement('[data-tour="collaboration"]'));
+}
+
+/** Waits for the Overleaf sync control to accept a manual sync. */
+function findOverleafSyncButton() {
+  return waitFor(() => {
+    const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
+    expect(button).not.toBeNull();
+    expect(button).not.toBeDisabled();
+    return button!;
+  });
+}
+
 /** Drags an editor tab onto the right edge of an 800px canvas; `whileOver` runs before the drop. */
 function dragTabToRightEdge(name: RegExp, whileOver?: () => void) {
   stubRect(document.querySelector(".canvas-body")!, 200, 40, 800, 600);
@@ -773,6 +895,41 @@ function dragTabToRightEdge(name: RegExp, whileOver?: () => void) {
   fireEvent.pointerMove(window, { clientX: 850, clientY: 300 });
   whileOver?.();
   fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
+}
+
+/** Drags `source` (a tree row or tab) with pointer `pointerId` to (`x`, `y`) in the window. */
+function dragToPoint(source: Element, [x, y]: [number, number], {
+  pointerId = 41, from = [10, 10], whileOver,
+}: { pointerId?: number; from?: [number, number]; whileOver?: () => void } = {}) {
+  const pointer = { pointerId, pointerType: "mouse" };
+  fireEvent.pointerDown(source, { button: 0, clientX: from[0], clientY: from[1], ...pointer });
+  fireEvent.pointerMove(window, { clientX: x, clientY: y, ...pointer });
+  whileOver?.();
+  fireEvent.pointerUp(window, { clientX: x, clientY: y, ...pointer });
+}
+
+/** Drags a project-tree row over `target` and drops it there; a function target is re-queried for the drop. */
+function dragTreeItem(source: Element, target: Element | (() => Element)) {
+  const at = () => (typeof target === "function" ? target() : target);
+  const pointer = { pointerId: 1, pointerType: "mouse" };
+  fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, ...pointer });
+  fireEvent.pointerMove(at(), { clientX: 20, clientY: 20, ...pointer });
+  fireEvent.pointerUp(at(), { clientX: 20, clientY: 20, ...pointer });
+}
+
+/** Gives the canvas a fixed box so drop zones can be computed. */
+function stubCanvasRect(left: number, top: number, width: number, height: number) {
+  stubRect(document.querySelector(".canvas-body")!, left, top, width, height);
+}
+
+/** A loaded pdf.js document of identical stub pages; `pages` overrides the page stub. */
+function pdfDocumentStub(numPages: number, pages: object = {}, extra: object = {}) {
+  return { numPages, getPage: vi.fn(async () => pdfPageStub(pages)), getDestination: vi.fn(), getPageIndex: vi.fn(), ...extra };
+}
+
+/** Makes every pdf.js load resolve to `document()`. */
+function mockPdfDocument(load: () => unknown) {
+  vi.mocked(getDocument).mockImplementation(() => ({ promise: Promise.resolve(load()), destroy: vi.fn() }) as never);
 }
 
 /** Stubs blob URLs; `url` names each one created. */
@@ -794,6 +951,11 @@ function pdfPageStub(overrides: object = {}) {
     cleanup: vi.fn(),
     ...overrides,
   };
+}
+
+async function chooseNewDocument(name: string) {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), { button: 0, pointerType: "mouse" });
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
 }
 
 async function chooseProjectMenuItem(name: string) {
@@ -866,13 +1028,10 @@ describe("welcome screen", () => {
     ["directly on a genuinely empty first launch", false],
   ])("starts the guided tutorial %s", async (_when, tutorialSeen) => {
     if (!tutorialSeen) localStorage.removeItem("lattice.tutorial-seen.v1");
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return null;
-      if (command === "open_tutorial_project") throw new Error("Tutorial fixture stopped after invocation.");
-      throw new Error(`Unexpected command: ${command}`);
+    renderApp({
+      initial_project: null,
+      open_tutorial_project: () => { throw new Error("Tutorial fixture stopped after invocation."); },
     });
-
-    renderApp();
     if (tutorialSeen) fireEvent.click(screen.getByRole("button", { name: "Guided tutorial" }));
 
     await expectInvoked("open_tutorial_project");
@@ -890,12 +1049,10 @@ describe("welcome screen", () => {
 
   it("keeps duplicate project errors inside the creation dialog", async () => {
     vi.mocked(open).mockResolvedValue("/tmp/research");
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return null;
-      if (command === "create_project") throw new Error("That folder already exists and is not empty.");
-      throw new Error(`Unexpected command: ${command}`);
+    renderApp({
+      initial_project: null,
+      create_project: () => { throw new Error("That folder already exists and is not empty."); },
     });
-    renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That folder already exists and is not empty.");
@@ -909,11 +1066,8 @@ describe("welcome screen", () => {
     });
     renderApp({
       ...projectCommands(snapshot),
-      open_tutorial_project: () => {
-        throw new Error("Tutorial fixture stopped after invocation.");
-      },
+      open_tutorial_project: () => { throw new Error("Tutorial fixture stopped after invocation."); },
     });
-
     await expectInvoked("read_project_file", { path: "main.tex", projectRoot: snapshot.root });
     expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
     expect(open).not.toHaveBeenCalled();
@@ -930,12 +1084,11 @@ describe("welcome screen", () => {
       // Creation no longer binds a window; the caller places the project.
       open_project: snapshot,
       harper_lint: () => [],
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
-    const venuePicker = screen.getByRole("combobox", { name: "Venue template" });
-    fireEvent.keyDown(venuePicker, { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("option", { name: "ICML" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await expectInvoked("create_project", { parent: "/tmp/research", name: "New paper", venue: "icml" });
@@ -948,19 +1101,11 @@ describe("welcome screen", () => {
 
   it("preserves a forced build queued behind an ordinary build", async () => {
     const snapshot = projectSnapshot();
-    const success = { success: true, hasPdf: false, log: "", durationMs: 1, diagnostics: [] };
+    const success = buildResult({ durationMs: 1 })();
     let resolveOrdinaryBuild!: (result: typeof success) => void;
-    const ordinaryBuild = new Promise<typeof success>((resolve) => {
-      resolveOrdinaryBuild = resolve;
-    });
+    const ordinaryBuild = new Promise<typeof success>((resolve) => { resolveOrdinaryBuild = resolve; });
     let buildCalls = 0;
-    renderApp({
-      ...projectCommands(snapshot),
-      build_project: () => {
-        buildCalls += 1;
-        return buildCalls === 1 ? ordinaryBuild : success;
-      },
-    });
+    renderApp({ ...projectCommands(snapshot), build_project: () => (++buildCalls === 1 ? ordinaryBuild : success) });
     await screen.findByRole("button", { name: "Stop" });
     await waitFor(() => expect(buildCalls).toBe(1));
 
@@ -999,12 +1144,8 @@ describe("welcome screen", () => {
     }));
     renderApp();
     expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const settingsNavigation = await screen.findByRole(
-      "navigation",
-      { name: "Settings sections" },
-      { timeout: 5000 },
-    );
+    await openSettings();
+    const settingsNavigation = await screen.findByRole("navigation", { name: "Settings sections" }, { timeout: 5000 });
     expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
       .toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
@@ -1023,8 +1164,7 @@ describe("welcome screen", () => {
     });
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    expect(within(settingsNavigation).getByRole("button", { name: "Appearance" }))
-      .not.toHaveAttribute("aria-current");
+    expect(within(settingsNavigation).getByRole("button", { name: "Appearance" })).not.toHaveAttribute("aria-current");
     expect(within(settingsNavigation).getByRole("button", { name: "Editor & builds" }))
       .toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
@@ -1039,45 +1179,27 @@ describe("welcome screen", () => {
 
   it("does not load provider settings when opening a non-Agent settings page", async () => {
     const snapshot = projectSnapshot();
-    renderApp({
-      ...projectCommands(snapshot),
-      harper_lint: () => [],
-      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
-    });
+    renderApp({ ...projectCommands(snapshot), harper_lint: () => [], build_project: buildResult() });
     await chooseProjectMenuItem("Settings");
 
-    expect(await screen.findByRole(
-      "heading",
-      { name: "Appearance" },
-      { timeout: 60_000 },
-    )).toBeInTheDocument();
-    expect(document.querySelector('iframe[title="Synara Providers settings"]')).toBeNull();
-
+    expect(await screen.findByRole("heading", { name: "Appearance" }, { timeout: 60_000 })).toBeInTheDocument();
+    const providersFrame = 'iframe[title="Synara Providers settings"]';
+    expect(document.querySelector(providersFrame)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
-    await waitFor(() => expect(document.querySelector(
-      'iframe[title="Synara Providers settings"]',
-    )).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(providersFrame)).not.toBeNull());
   }, 60_000);
 
   it("keeps successful TeX checks compact while retaining failure details", async () => {
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return null;
-      if (command === "run_doctor") {
-        return {
-          ok: true,
-          summary: "ready",
-          checks: [
-            { name: "latexmk", detail: "LaTeX build driver: /Library/TeX/texbin/latexmk", ok: true },
-            { name: "texlab", detail: "TexLab language server: not found on PATH", ok: false },
-          ],
-        };
-      }
-      throw new Error(`Unexpected command: ${command}`);
+    renderApp({
+      initial_project: null,
+      run_doctor: {
+        ok: true, summary: "ready", checks: [
+          { name: "latexmk", detail: "LaTeX build driver: /Library/TeX/texbin/latexmk", ok: true },
+          { name: "texlab", detail: "TexLab language server: not found on PATH", ok: false },
+        ],
+      },
     });
-
-    renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "TeX doctor" }));
+    await openSettings("TeX doctor");
     fireEvent.click(screen.getByRole("button", { name: "Run TeX doctor" }));
 
     const checklist = await findElement(".doctor-checklist");
@@ -1091,39 +1213,21 @@ describe("welcome screen", () => {
 
   it("uses the doctor button for progress and hides setup actions when tools are ready", async () => {
     const readyReport = {
-      ok: true,
-      summary: "ready",
-      checks: [
-        { name: "latexmk", detail: "ok", ok: true },
-        { name: "pdflatex", detail: "ok", ok: true },
-        { name: "synctex", detail: "ok", ok: true },
-        { name: "bibtex", detail: "ok", ok: true },
-        { name: "conference-fonts", detail: "ok", ok: true },
-        { name: "uv", detail: "ok", ok: true },
-        { name: "uvx", detail: "ok", ok: true },
-      ],
+      ok: true, summary: "ready",
+      checks: ["latexmk", "pdflatex", "synctex", "bibtex", "conference-fonts", "uv", "uvx"]
+        .map((name) => ({ name, detail: "ok", ok: true })),
     };
     let finishDoctor!: (report: typeof readyReport) => void;
-    const doctor = new Promise<typeof readyReport>((resolve) => {
-      finishDoctor = resolve;
-    });
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "initial_project") return null;
-      if (command === "run_doctor") return doctor;
-      throw new Error(`Unexpected command: ${command}`);
-    });
-
-    renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "TeX doctor" }));
+    const doctor = new Promise<typeof readyReport>((resolve) => { finishDoctor = resolve; });
+    renderApp({ initial_project: null, run_doctor: () => doctor });
+    await openSettings("TeX doctor");
 
     const runButton = screen.getByRole("button", { name: "Run TeX doctor" });
     await waitFor(() => expect(runButton).toBeDisabled());
     expect(screen.queryByText("Checking local tools…")).not.toBeInTheDocument();
 
     await act(async () => finishDoctor(readyReport));
-    await waitFor(() => expect(document.querySelector(".doctor-status"))
-      .toHaveTextContent("Ready to compile"));
+    await waitFor(() => expect(document.querySelector(".doctor-status")).toHaveTextContent("Ready to compile"));
     expect(screen.queryByRole("button", { name: "Install required tools" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Copy summary" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
@@ -1131,14 +1235,9 @@ describe("welcome screen", () => {
 
   it("resets the settings page scroll position when leaving Logs", async () => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Logs" }));
-
-    const settingsViewport = document.querySelector<HTMLDivElement>(
-      ".settings-content [data-slot='scroll-area-viewport']",
-    );
-    expect(settingsViewport).not.toBeNull();
-    settingsViewport!.scrollTop = 400;
+    await openSettings("Logs");
+    const settingsViewport = await findElement(".settings-content [data-slot='scroll-area-viewport']");
+    settingsViewport.scrollTop = 400;
 
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     await waitFor(() => expect(settingsViewport).toHaveProperty("scrollTop", 0));
@@ -1150,27 +1249,24 @@ describe("welcome screen", () => {
     await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Providers" }, { timeout: 10_000 }));
     const frame = await findFrame("Synara Providers settings");
-    const settingsViewport = document.querySelector<HTMLDivElement>(
-      ".settings-content [data-slot='scroll-area-viewport']",
-    )!;
+    const settingsViewport = document.querySelector<HTMLDivElement>(".settings-content [data-slot='scroll-area-viewport']")!;
     Object.defineProperties(settingsViewport, {
       clientHeight: { configurable: true, value: 470 },
       scrollHeight: { configurable: true, get: () => Number.parseInt(frame.style.height, 10) + 730 },
     });
     await act(() => nextFrames(2));
 
-    settingsViewport.scrollTop = 500;
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:settings-content-height", height: 1_200, section: "providers",
+    const providersHeight = (height: number) => postWindowMessage(frame.contentWindow, {
+      type: "synara:settings-content-height", height, section: "providers",
     });
+    settingsViewport.scrollTop = 500;
+    providersHeight(1_200);
     await waitFor(() => expect(frame.style.height).toBe("1200px"));
     await act(() => nextFrames(2));
     expect(settingsViewport.scrollTop).toBe(500);
 
     settingsViewport.scrollTop = 1_445;
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:settings-content-height", height: 1_400, section: "providers",
-    });
+    providersHeight(1_400);
     await waitFor(() => expect(settingsViewport.scrollTop).toBe(2_130));
 
     // Skills replaces a list with a detail page, unlike the disclosure above.
@@ -1182,8 +1278,7 @@ describe("welcome screen", () => {
     Object.defineProperties(settingsViewport, {
       scrollHeight: { configurable: true, get: () => Number.parseInt(skillsFrame.style.height, 10) },
       scrollTop: {
-        configurable: true,
-        get: () => scrollTop,
+        configurable: true, get: () => scrollTop,
         set: (value: number) => { scrollTop = Math.max(0, Math.min(value, settingsViewport.scrollHeight - 470)); },
       },
     });
@@ -1208,8 +1303,7 @@ describe("welcome screen", () => {
 
   it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-
+    await openSettings();
     expect(screen.getByLabelText("Interface language")).toHaveTextContent("Follow system (default)");
     await chooseOption("Interface language", "Simplified Chinese");
 
@@ -1227,7 +1321,7 @@ describe("welcome screen", () => {
 
   it("keeps Settings draggable from its header and the top window strip", async () => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await openSettings();
     const dialog = await screen.findByRole("dialog", { name: "Settings" });
     const header = dialog.querySelector<HTMLElement>(".settings-header")!;
 
@@ -1246,33 +1340,22 @@ describe("welcome screen", () => {
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
   });
 
-  it("persists the editor spellcheck setting when it is turned off", async () => {
+  it.each([
+    ["persists the editor spellcheck setting when it is turned off", "Editor & builds", "Check spelling in prose", "editorSpellcheck"],
+    ["lets the user mute the small set of interface sounds", undefined, "Interface sounds", "interfaceSounds"],
+  ])("%s", async (_name, section, label, setting) => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
-    const spellcheck = screen.getByLabelText("Check spelling in prose");
-    expect(spellcheck).toBeChecked();
-    fireEvent.click(spellcheck);
-    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain('"editorSpellcheck":false'));
-  });
-
-  it("lets the user mute the small set of interface sounds", async () => {
-    renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-
-    const soundToggle = await screen.findByLabelText("Interface sounds");
-    expect(soundToggle).toBeChecked();
-    fireEvent.click(soundToggle);
-
-    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5"))
-      .toContain('"interfaceSounds":false'));
-    expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
+    await openSettings(section);
+    const toggle = await screen.findByLabelText(label);
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    await waitFor(() => expect(localStorage.getItem("lattice.appearance.v5")).toContain(`"${setting}":false`));
+    if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the resident browser entry at the bottom of Appearance and controls login startup", async () => {
     renderApp({ initial_project: null, browser_access_enabled: true, set_browser_access_enabled: null });
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-
+    await openSettings();
     const residentAccess = await screen.findByLabelText("Start browser access after login");
     expect(residentAccess).toBeChecked();
     expect(screen.getByText("Browser").compareDocumentPosition(screen.getByText("Feedback")))
@@ -1286,8 +1369,7 @@ describe("welcome screen", () => {
 
   it("moves a browser workspace back into the desktop app from Settings", async () => {
     browserRuntime.hosted = true;
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp({ ...projectCommands(snapshot), return_to_desktop: "project-1" });
+    renderApp({ ...projectCommands(projectSnapshot({ files: [] })), return_to_desktop: "project-1" });
     await screen.findByRole("tab", { name: "main.tex" });
     await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Open desktop app" }));
@@ -1300,15 +1382,12 @@ describe("welcome screen", () => {
     browserRuntime.hosted = true;
     browserRuntime.bundled = true;
     renderApp({ open_in_system_browser: null });
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-
+    await openSettings();
     await screen.findByLabelText("Start browser access after login");
     fireEvent.click(screen.getByRole("button", { name: "Open in browser" }));
 
     await expectInvoked("open_in_system_browser");
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
   });
 
   it.each([
@@ -1317,8 +1396,7 @@ describe("welcome screen", () => {
   ])("%s", async (_name, key, label) => {
     localStorage.setItem(key, JSON.stringify({ autoBuildMode: "manual" }));
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
+    await openSettings("Editor & builds");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent(label);
   });
 });
@@ -1360,12 +1438,9 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       list_project_tree_with_hidden: () => snapshot.files,
-      read_project_file: (args) => {
-        const path = argPath(args);
-        if (path === "references.bib") return "@article{lattice, title={Lattice}}";
-        if (path === "conference.sty") return "\\ProvidesPackage{conference}";
-        return "\\documentclass{article}";
-      },
+      read_project_file: readFiles({
+        "references.bib": "@article{lattice, title={Lattice}}", "conference.sty": "\\ProvidesPackage{conference}",
+      }),
     });
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
@@ -1382,47 +1457,37 @@ describe("project workspace", () => {
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
 
-    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" }))
-      .getByRole("tab", { name: "Split" }));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" })).getByRole("tab", { name: "Split" }));
     await openTreeFile("conference.sty");
     await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
 
     fireEvent.click(await findProjectTreeItem("main.tex"));
-    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" })).toBeInTheDocument();
   });
 
   it("restores pinned tabs, protects them from eviction and close, and persists unpinning", async () => {
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-pinned",
-      projectId: "pinned-id",
-      name: "Pinned tabs",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-      files: ["main.tex", "pinned.tex", "old.tex"].map((path) => ({
-        name: path, path, kind: "tex", children: [],
-      })),
+      root: "/tmp/lattice-pinned", projectId: "pinned-id", name: "Pinned tabs", rootDocuments: MAIN_DOCUMENT,
+      files: ["main.tex", "pinned.tex", "old.tex"].map((path) => fileNode(path)),
     });
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ maxOpenTabs: 2 }));
     persistLayout(snapshot.root, {
-      openTabs: ["old.tex", "main.tex", "pinned.tex", "missing.tex"],
-      pinnedTabs: ["pinned.tex", "missing.tex"],
-      activeFile: "main.tex",
-      canvasMode: "source",
-      tabRecency: ["main.tex", "old.tex", "pinned.tex"],
+      openTabs: ["old.tex", "main.tex", "pinned.tex", "missing.tex"], pinnedTabs: ["pinned.tex", "missing.tex"],
+      activeFile: "main.tex", canvasMode: "source", tabRecency: ["main.tex", "old.tex", "pinned.tex"],
     });
-    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `content:${argPath(args)}` });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     const tabs = await screen.findByRole("tablist", { name: "Open files" });
+    const pinnedTab = () => within(tabs).getByRole("tab", { name: /pinned\.tex/ });
     await waitFor(() => expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent))
       .toEqual(["pinned.tex", "main.tex"]));
-    fireEvent.click(within(tabs).getByRole("tab", { name: /pinned\.tex/ }));
-    await waitFor(() => expect(within(tabs).getByRole("tab", { name: /pinned\.tex/ }))
-      .toHaveAttribute("aria-selected", "true"));
-    fireEvent(within(tabs).getByRole("tab", { name: /pinned\.tex/ }), new MouseEvent("auxclick", { bubbles: true, button: 1 }));
-    expect(within(tabs).getByRole("tab", { name: /pinned\.tex/ })).toBeInTheDocument();
+    fireEvent.click(pinnedTab());
+    await waitFor(() => expect(pinnedTab()).toHaveAttribute("aria-selected", "true"));
+    fireEvent(pinnedTab(), new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+    expect(pinnedTab()).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close pinned.tex" })).toBeNull();
-    fireEvent.contextMenu(within(tabs).getByRole("tab", { name: /pinned\.tex/ }));
+    fireEvent.contextMenu(pinnedTab());
     fireEvent.click(await screen.findByRole("menuitem", { name: "Unpin tab" }));
     await waitFor(() => expect(loadWorkspaceLayout(snapshot.root)?.pinnedTabs).toEqual([]));
     fireEvent.click(screen.getByRole("button", { name: "Close pinned.tex" }));
@@ -1435,13 +1500,10 @@ describe("project workspace", () => {
       files: [fileNode("old.tex"), fileNode("recent.md"), fileNode("current.bib")],
     });
     persistLayout(snapshot.root, {
-      openTabs: ["old.tex", "recent.md", "current.bib"],
-      activeFile: "current.bib",
-      secondaryFile: "old.tex",
-      canvasMode: "source",
-      tabRecency: ["current.bib", "recent.md", "old.tex"],
+      openTabs: ["old.tex", "recent.md", "current.bib"], activeFile: "current.bib", secondaryFile: "old.tex",
+      canvasMode: "source", tabRecency: ["current.bib", "recent.md", "old.tex"],
     });
-    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `content:${argPath(args)}` });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
 
     await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:recent.md"));
@@ -1451,7 +1513,7 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     localStorage.setItem("lattice.split-ratio.v1", "0.7");
 
-    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `content:${argPath(args)}` });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     await screen.findByRole("tablist", { name: "Document view" });
     const documentView = () => within(screen.getByRole("tablist", { name: "Document view" }));
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
@@ -1459,8 +1521,7 @@ describe("project workspace", () => {
     fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
     expect(screen.getByRole("button", { name: "Split editor right" })).toBeInTheDocument();
     fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
-    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
 
     fireEvent.click(documentView().getByRole("tab", { name: "Edit" }));
@@ -1481,8 +1542,7 @@ describe("project workspace", () => {
     expect(documentView().getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
 
     fireEvent.click(documentView().getByRole("tab", { name: "Split" }));
-    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" })).toBeInTheDocument();
     fireEvent.click(documentView().getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
 
@@ -1493,13 +1553,7 @@ describe("project workspace", () => {
 
   it("previews a document focused in the right pane and restores the dual layout", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        const path = argPath(args);
-        return path === "main.tex" ? "\\documentclass{article}" : "@article{lattice, title={Lattice}}";
-      },
-    });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readFiles({ "references.bib": "@article{lattice, title={Lattice}}" }) });
     await openTreeFile("references.bib");
     fireEvent.click(await findProjectTreeItem("main.tex"));
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
@@ -1507,12 +1561,13 @@ describe("project workspace", () => {
 
     dragTabToRightEdge(/main\.tex/);
 
-    await waitFor(() => {
+    // The bibliography stays on the left, main.tex on the right.
+    const expectBothSources = () => {
       expect(paneContent("primary")).toHaveTextContent("@article{lattice");
       expect(paneContent("secondary")).toHaveTextContent("\\documentclass{article}");
-    });
-    const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
-    stubRect(dualCanvas, 0, 0, 1000, 700);
+    };
+    await waitFor(expectBothSources);
+    stubRect(document.querySelector<HTMLElement>(".dual-canvas")!, 0, 0, 1000, 700);
     fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }));
     fireEvent.pointerMove(window, { clientX: 650 });
     fireEvent.pointerUp(window, { clientX: 650 });
@@ -1522,41 +1577,33 @@ describe("project workspace", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument());
-    expect(within(document.querySelector(
-      ".dual-pane-preview[data-editor-pane='secondary']",
-    ) as HTMLElement).getByLabelText("Show document outline")).toBeInTheDocument();
+    expect(within(document.querySelector<HTMLElement>(".dual-pane-preview[data-editor-pane='secondary']")!)
+      .getByLabelText("Show document outline")).toBeInTheDocument();
     expect(paneContent("primary")).toHaveTextContent("@article{lattice");
     expect(document.querySelector(".source-editor[data-editor-pane='secondary']")).toBeNull();
-    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
-      .toContain("0.65fr");
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns).toContain("0.65fr");
     expect(document.querySelector(".active-document")).toHaveTextContent("main.tex");
     expect(screen.getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
 
     fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     await waitFor(() => {
-      expect(paneContent("primary")).toHaveTextContent("@article{lattice");
-      expect(paneContent("secondary")).toHaveTextContent("\\documentclass{article}");
+      expectBothSources();
       expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
     });
-    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
-      .toContain("0.65fr");
+    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns).toContain("0.65fr");
 
     fireEvent.click(screen.getByRole("tab", { name: "Split" }));
-    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" })).toBeInTheDocument();
     expect(paneContent("primary")).toHaveTextContent("\\documentclass{article}");
 
     fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
-    await waitFor(() => {
-      expect(paneContent("primary")).toHaveTextContent("@article{lattice");
-      expect(paneContent("secondary")).toHaveTextContent("\\documentclass{article}");
-    });
+    await waitFor(expectBothSources);
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
   });
 
   it("splits a TeX preview without replacing it with the source editor", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("notes.md")] });
-    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `content:${argPath(args)}` });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     await openTreeFile("notes.md");
     await openTreeFile("main.tex");
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
@@ -1571,8 +1618,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeNull());
     expect(document.querySelector(".pdf-column")).toBeInTheDocument();
     expect(document.querySelector(".source-editor")).toBeNull();
-    expect(within(documentView).getByRole("tab", { name: "Preview" }))
-      .toHaveAttribute("aria-selected", "true");
+    expect(within(documentView).getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("does not forward-sync a stale TeX cursor when the visible split peer is a spreadsheet", async () => {
@@ -1583,11 +1629,9 @@ describe("project workspace", () => {
     } as never);
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => argPath(args) === "main.tex" ? "\\documentclass{article}" : "{}",
+      read_project_file: readFiles({ "results.lattice-sheet": "{}" }),
       read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
-      build_project: () => ({
-        success: true, hasPdf: true, log: "", durationMs: 1, diagnostics: [], rootDocument: "main.tex",
-      }),
+      build_project: buildResult({ hasPdf: true, durationMs: 1, rootDocument: "main.tex" }),
       synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
     });
     await screen.findByRole("button", { name: /Reveal cursor in PDF/i });
@@ -1613,26 +1657,22 @@ describe("project workspace", () => {
   it("previews each Markdown pane independently and allows both previews", { timeout: 60_000 }, async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("left.md"), fileNode("right.md")] });
     persistLayout(snapshot.root, {
-      openTabs: ["left.md", "right.md"],
-      activeFile: "left.md",
-      secondaryFile: "right.md",
-      canvasMode: "dual",
+      openTabs: ["left.md", "right.md"], activeFile: "left.md", secondaryFile: "right.md", canvasMode: "dual",
     });
     renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => argPath(args) === "left.md" ? "# Left notes" : "# Right notes",
+      ...projectCommands(snapshot), read_project_file: readFiles({ "left.md": "# Left notes" }, "# Right notes"),
       write_project_file: undefined,
     });
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
-    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), {
-      timeout: 20_000,
-    });
+    await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), { timeout: 20_000 });
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
+    const visualPaths = () => Array.from(
+      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"), (editor) => editor.dataset.activePath,
+    );
     await waitFor(() => expect(screen.getAllByRole("textbox", { name: "Markdown document editor" }))
       .toHaveLength(1), { timeout: 30_000 });
-    expect(Array.from(document.querySelectorAll<HTMLElement>(".visual-markdown-editor"))
-      .map((editor) => editor.dataset.activePath)).toEqual(["left.md"]);
+    expect(visualPaths()).toEqual(["left.md"]);
     const rightSource = paneContent("secondary");
     expect(rightSource).toHaveTextContent("# Right notes");
 
@@ -1641,42 +1681,27 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-selected", "true"));
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
 
-    await waitFor(() => expect(Array.from(
-      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"),
-    ).map((editor) => editor.dataset.activePath)).toEqual(["left.md", "right.md"]));
+    await waitFor(() => expect(visualPaths()).toEqual(["left.md", "right.md"]));
     expect(screen.getAllByRole("textbox", { name: "Markdown document editor" })).toHaveLength(2);
     expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(0);
 
     const rightPreview = screen.getAllByRole("textbox", { name: "Markdown document editor" })[1];
-    const rightVisualEditor = visualEditorOf(rightPreview);
-    act(() => {
-      rightVisualEditor.commands.setContent(parseVisualMarkdown("# Right preview edit"));
-    });
+    act(() => { visualEditorOf(rightPreview).commands.setContent(parseVisualMarkdown("# Right preview edit")); });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    await waitFor(() => expect(Array.from(
-      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"),
-    ).map((editor) => editor.dataset.activePath)).toEqual(["left.md"]));
+    await waitFor(() => expect(visualPaths()).toEqual(["left.md"]));
     expect(paneContent("secondary")).toHaveTextContent("# Right preview edit");
   });
 
   it.each(["left.md", "right.md"])("restores both split files when returning through %s", { timeout: 30_000 }, async (returnPath) => {
     const snapshot = projectSnapshot({
       rootDocuments: [{ path: "left.md", name: "Notes", isDefault: true }],
-      files: ["left.md", "right.md", "references.bib"].map((path) => ({
-        name: path, path, kind: path.endsWith(".md") ? "markdown" : "bib", children: [],
-      })),
+      files: ["left.md", "right.md", "references.bib"].map((path) => fileNode(path)),
     });
     persistLayout(snapshot.root, {
-      openTabs: ["left.md", "right.md", "references.bib"],
-      activeFile: "left.md",
-      secondaryFile: "right.md",
+      openTabs: ["left.md", "right.md", "references.bib"], activeFile: "left.md", secondaryFile: "right.md",
       canvasMode: "dual",
     });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => `# ${argPath(args)}`,
-      write_project_file: undefined,
-    });
+    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `# ${argPath(args)}`, write_project_file: undefined });
     await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), { timeout: 20_000 });
     fireEvent.click(screen.getByRole("tab", { name: /references\.bib/ }));
     await waitFor(() => {
@@ -1689,8 +1714,7 @@ describe("project workspace", () => {
       expect(paneContent("secondary")).toHaveTextContent("# right.md");
     });
     expect(screen.queryByRole("textbox", { name: "Markdown document editor" })).toBeNull();
-    expect(screen.getByRole("tab", { name: fileTabName(returnPath) }))
-      .toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: fileTabName(returnPath) })).toHaveAttribute("aria-selected", "true");
   });
 
   it.each([
@@ -1700,19 +1724,10 @@ describe("project workspace", () => {
   ])("collapses a two-file split with %s and keeps %s closed", async (button, closedPath, survivingPath) => {
     const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
     persistLayout(snapshot.root, {
-      openTabs: ["left.md", "right.md"],
-      activeFile: "left.md",
-      activeTab: "right.md",
-      secondaryFile: "right.md",
-      focusedPane: "secondary",
-      canvasMode: "dual",
-      tabRecency: ["right.md", "left.md"],
+      openTabs: ["left.md", "right.md"], activeFile: "left.md", activeTab: "right.md", secondaryFile: "right.md",
+      focusedPane: "secondary", canvasMode: "dual", tabRecency: ["right.md", "left.md"],
     });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => `# ${argPath(args)}`,
-      write_project_file: undefined,
-    });
+    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `# ${argPath(args)}`, write_project_file: undefined });
     await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2));
     fireEvent.click(screen.getByRole("button", { name: button }));
 
@@ -1729,19 +1744,10 @@ describe("project workspace", () => {
   it("renders a board canvas rather than its JSON in the secondary split pane", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("sketch.tldr"), fileNode("notes.md")] });
     persistLayout(snapshot.root, {
-      openTabs: ["sketch.tldr", "notes.md"],
-      activeFile: "notes.md",
-      activeTab: "sketch.tldr",
-      secondaryFile: "sketch.tldr",
-      focusedPane: "secondary",
-      canvasMode: "dual",
+      openTabs: ["sketch.tldr", "notes.md"], activeFile: "notes.md", activeTab: "sketch.tldr",
+      secondaryFile: "sketch.tldr", focusedPane: "secondary", canvasMode: "dual",
     });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => argPath(args).endsWith(".tldr")
-        ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
-        : "# Notes",
-    });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readFiles({ "sketch.tldr": EMPTY_BOARD }, "# Notes") });
     const secondaryBoard = await screen.findByTestId("board-editor-mock");
     expect(secondaryBoard.closest("[data-editor-pane='secondary']")).not.toBeNull();
     expect(document.querySelector(".dual-canvas")).not.toBeNull();
@@ -1755,28 +1761,17 @@ describe("project workspace", () => {
     });
     persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "split" });
     renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => argPath(args) === "sketch.tldr"
-        ? "{\"tldrawFileFormatVersion\":1,\"records\":[]}"
-        : "# Notes",
+      ...projectCommands(snapshot), read_project_file: readFiles({ "sketch.tldr": EMPTY_BOARD }, "# Notes"),
       harper_lint: () => [],
     });
     await screen.findByRole("separator", { name: "Resize editor and Markdown preview" });
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 200, 40, 800, 600);
-
-    const board = await findProjectTreeItem("sketch.tldr");
-    fireEvent.pointerDown(board, {
-      button: 0, clientX: 10, clientY: 10, pointerId: 45, pointerType: "mouse",
-    });
-    fireEvent.pointerMove(window, { clientX: 250, clientY: 300, pointerId: 45, pointerType: "mouse" });
-    fireEvent.pointerUp(window, { clientX: 250, clientY: 300, pointerId: 45, pointerType: "mouse" });
+    stubCanvasRect(200, 40, 800, 600);
+    dragToPoint(await findProjectTreeItem("sketch.tldr"), [250, 300], { pointerId: 45 });
 
     const boardCanvas = await screen.findByTestId("board-editor-mock");
     expect(boardCanvas.closest("[data-editor-pane='primary']")).not.toBeNull();
-    expect(document.querySelector(
-      ".dual-pane-preview[data-editor-pane='secondary'] .secondary-markdown-preview",
-    )).not.toBeNull();
+    expect(document.querySelector(".dual-pane-preview[data-editor-pane='secondary'] .secondary-markdown-preview"))
+      .not.toBeNull();
     expect(document.querySelector(".source-editor[data-editor-pane='secondary']")).toBeNull();
   });
 
@@ -1785,34 +1780,21 @@ describe("project workspace", () => {
     let resolveSplitRead: ((content: string) => void) | null = null;
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        const path = argPath(args);
-        if (path === "intro.tex") {
-          return new Promise<string>((resolve) => {
-            resolveSplitRead = resolve;
-          });
-        }
-        return `content:${path}`;
-      },
+      read_project_file: (args) => argPath(args) === "intro.tex"
+        ? new Promise<string>((resolve) => { resolveSplitRead = resolve; })
+        : readPathContent(args),
       write_project_file: undefined,
     });
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     const introTab = await findProjectTreeItem("intro.tex");
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
 
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 200, 40, 800, 600);
-    fireEvent.pointerDown(introTab, {
-      button: 0, pointerId: 9, pointerType: "mouse", clientX: 120, clientY: 16,
-    });
-    fireEvent.pointerMove(window, { pointerId: 9, clientX: 850, clientY: 300 });
-    fireEvent.pointerUp(window, { pointerId: 9, clientX: 850, clientY: 300 });
+    stubCanvasRect(200, 40, 800, 600);
+    dragToPoint(introTab, [850, 300], { pointerId: 9, from: [120, 16] });
     await waitFor(() => expect(resolveSplitRead).not.toBeNull());
 
     const editor = editorViewAt(".source-editor[data-editor-pane='primary'] .cm-editor");
-    act(() => editor.dispatch({
-      changes: { from: editor.state.doc.length, insert: "\nEdited while splitting." },
-    }));
+    act(() => editor.dispatch({ changes: { from: editor.state.doc.length, insert: "\nEdited while splitting." } }));
     act(() => resolveSplitRead?.("content:intro.tex"));
 
     await waitFor(() => {
@@ -1825,15 +1807,11 @@ describe("project workspace", () => {
   it("restores tab order and active pane while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex"), fileNode("method.tex")] });
     persistLayout(snapshot.root, {
-      openTabs: ["intro.tex", "main.tex", "method.tex"],
-      activeFile: "main.tex",
-      activeTab: "method.tex",
-      secondaryFile: "method.tex",
-      focusedPane: "secondary",
-      canvasMode: "columns",
+      openTabs: ["intro.tex", "main.tex", "method.tex"], activeFile: "main.tex", activeTab: "method.tex",
+      secondaryFile: "method.tex", focusedPane: "secondary", canvasMode: "columns",
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
-    renderApp({ ...projectCommands(snapshot), read_project_file: (args) => `content:${argPath(args)}` });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
 
     await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeInTheDocument());
     expect(document.querySelector(".columns-canvas")).toBeNull();
@@ -1861,15 +1839,16 @@ describe("project workspace", () => {
         return [{ ...paper, title: "Updated title" }];
       },
       write_project_file: (args) => ({ content: (args as { content: string }).content, hadConflicts: false }),
-      read_project_file: (args) => argPath(args) === "references.bib"
-        ? "@article{hinton06,title={A Fast Learning Algorithm for Deep Belief Nets}}" : "Main",
+      read_project_file: readFiles({
+        "references.bib": "@article{hinton06,title={A Fast Learning Algorithm for Deep Belief Nets}}",
+      }, "Main"),
     });
     await waitFor(() => expect(finishScan).toBeDefined());
     fireEvent.click(await findProjectTreeItem("references.bib", 10_000));
     await waitFor(() => expect(document.querySelector(".source-editor .cm-content"))
       .toHaveTextContent("@article{hinton06"), { timeout: 10_000 });
     if (saveBeforeScan) {
-      const view = EditorView.findFromDOM(document.querySelector<HTMLElement>(".source-editor .cm-editor")!)!;
+      const view = editorViewAt(".source-editor .cm-editor");
       act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "@article{hinton06,title={Updated title}}" } }));
       fireEvent.keyDown(window, { key: "s", metaKey: true });
       await waitFor(() => expect(scanCalls).toBe(2));
@@ -1885,52 +1864,32 @@ describe("project workspace", () => {
   it.each([
     ["references.bib", "primary"], ["other.bib", "primary"], ["other.bib", "secondary"],
   ] as const)("formats %s in %s on save and refreshes Papers without losing later edits", async (path, pane) => {
-    const snapshot = projectSnapshot({
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: path, path, kind: "bib", children: [] },
-      ],
-    });
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode(path)] });
     const original = "@article{x,title={Old},author={Ada},year={2024}}";
     const edited = "@article{x,title={New},author={Ada},year={2024}}";
     const formatted = "@article{x,\n  title = {New},\n  author = {Ada},\n  year = {2024}\n}";
     let finishWrite: (() => void) | undefined;
     let saved = false;
     persistLayout(snapshot.root, {
-      openTabs: ["main.tex", path],
-      activeFile: pane === "primary" ? path : "main.tex",
-      activeTab: path,
-      secondaryFile: pane === "secondary" ? path : null,
-      focusedPane: pane,
-      canvasMode: pane === "secondary" ? "dual" : "source",
-      documentMode: "source",
-      paperView: "fulltext",
+      openTabs: ["main.tex", path], activeFile: pane === "primary" ? path : "main.tex", activeTab: path,
+      secondaryFile: pane === "secondary" ? path : null, focusedPane: pane,
+      canvasMode: pane === "secondary" ? "dual" : "source", documentMode: "source", paperView: "fulltext",
       tabRecency: [path, "main.tex"],
     });
     renderApp({
       initial_project: snapshot,
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === path ? original : "Main",
-      list_papers: () => [{
-        arxivId: "bib:x", title: saved ? "New" : "Old", authors: "Ada", hasFullText: false, hasBlog: false,
-      }],
+      read_project_file: readFiles({ [path]: original }, "Main"),
+      list_papers: () => [{ arxivId: "bib:x", title: saved ? "New" : "Old", authors: "Ada", hasFullText: false, hasBlog: false }],
       // The bibliography refresh must not wait for unrelated project scans.
-      list_history: () => {
-        if (saved) return new Promise(() => {});
-        return mockAppCommand("list_history");
-      },
+      list_history: () => (saved ? new Promise(() => {}) : mockAppCommand("list_history")),
       write_project_file: async (args) => {
         await new Promise<void>(resolve => { finishWrite = resolve; });
         saved = true;
         return { content: (args as { content: string }).content, hadConflicts: false };
       },
     });
-    const view = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(`.source-editor[data-editor-pane='${pane}'] .cm-editor`);
-      const editor = element && EditorView.findFromDOM(element);
-      expect(editor?.state.doc.toString()).toBe(original);
-      return editor!;
-    }, { timeout: 10_000 });
+    const view = await expectEditorText(original, `.source-editor[data-editor-pane='${pane}'] .cm-editor`, { timeout: 10_000 });
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: edited } });
     if (path === "references.bib") await switchSidebarMode("Papers");
     else if (pane === "primary") fireEvent.keyDown(window, { key: "s", metaKey: true });
@@ -1955,16 +1914,10 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     const writeResolvers: Array<() => void> = [];
     renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => `content:${argPath(args)}`,
-      write_project_file: async () => {
-        await new Promise<void>((resolve) => writeResolvers.push(resolve));
-        return undefined;
-      },
+      ...projectCommands(snapshot), read_project_file: readPathContent,
+      write_project_file: () => new Promise<void>((resolve) => writeResolvers.push(resolve)),
     });
-    const view = await findEditorView();
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
-
+    await appendToEditor("\nEdited.");
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     // The read of the next file starts while the previous file's write is
     // still pending — they used to run serially.
@@ -1979,15 +1932,10 @@ describe("project workspace", () => {
   it("keeps the current document when the pre-switch save fails", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
     renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => `content:${argPath(args)}`,
-      write_project_file: () => {
-        throw new Error("disk full");
-      },
+      ...projectCommands(snapshot), read_project_file: readPathContent,
+      write_project_file: () => { throw new Error("disk full"); },
     });
-    const view = await findEditorView();
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
-
+    await appendToEditor("\nEdited.");
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     await expectNotification(/Could not save main\.tex/);
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
@@ -1997,32 +1945,21 @@ describe("project workspace", () => {
   it("serializes the switch when the target is the dirty secondary file", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("method.tex")] });
     persistLayout(snapshot.root, {
-      openTabs: ["main.tex", "method.tex"],
-      activeFile: "main.tex",
-      secondaryFile: "method.tex",
-      canvasMode: "dual",
+      openTabs: ["main.tex", "method.tex"], activeFile: "main.tex", secondaryFile: "method.tex", canvasMode: "dual",
     });
     const writeResolvers: Array<() => void> = [];
     renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => `content:${argPath(args)}`,
-      write_project_file: async () => {
-        await new Promise<void>((resolve) => writeResolvers.push(resolve));
-        return undefined;
-      },
+      ...projectCommands(snapshot), read_project_file: readPathContent,
+      write_project_file: () => new Promise<void>((resolve) => writeResolvers.push(resolve)),
     });
-    const view = await findEditorView(".source-editor[data-editor-pane='secondary'] .cm-editor");
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
+    await appendToEditor("\nEdited.", ".source-editor[data-editor-pane='secondary'] .cm-editor");
     vi.mocked(invoke).mockClear();
 
     fireEvent.click(await findProjectTreeItem("method.tex"));
     await waitFor(() => expect(writeResolvers.length).toBeGreaterThan(0));
     // save() rewrites method.tex itself, so the read may not start until the
     // write has finished — otherwise the editor would load pre-save contents.
-    expect(invoke).not.toHaveBeenCalledWith(
-      "read_project_file",
-      expect.objectContaining({ path: "method.tex" }),
-    );
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "method.tex" }));
     writeResolvers.splice(0).forEach((resolve) => resolve());
     await expectInvoked("read_project_file", expect.objectContaining({ path: "method.tex" }));
   });
@@ -2042,28 +1979,23 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === "notes/index.md"
-        ? "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview"
-        : "# Native unified view",
+      read_project_file: readFiles({
+        "notes/index.md": "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview",
+      }, "# Native unified view"),
       write_project_file: undefined,
     });
     const editor = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-      expect(element).not.toBeNull();
-      const view = element ? EditorView.findFromDOM(element) : null;
-      expect(view?.state.doc.toString()).toContain("[Native unified view]");
-      expect(view ? syntaxTree(view.state).toString() : "").toContain("Link(");
-      return view!;
+      const view = editorViewAt(".source-editor .cm-editor");
+      expect(view.state.doc.toString()).toContain("[Native unified view]");
+      expect(syntaxTree(view.state).toString()).toContain("Link(");
+      return view;
     }, { timeout: 10_000 });
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(await screen.findByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
-    const visualSurface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const visualEditor = visualEditorOf(visualSurface);
+    const visualEditor = visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
     act(() => {
-      visualEditor.commands.setContent(
-        parseVisualMarkdown("[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"),
-      );
+      visualEditor.commands.setContent(parseVisualMarkdown("[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"));
     });
     await waitFor(() => expect(editor.state.doc.toString())
       .toContain("[Visually edited view](native-unified-view.md)"));
@@ -2098,27 +2030,19 @@ describe("project workspace", () => {
     editor.scrollDOM.scrollTop = 360;
     initialSplitPreview.scrollTop = 520;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    const editEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    expect(editEditorDom).not.toBeNull();
+    const editEditor = editorViewAt(".source-editor .cm-editor");
     expect(document.querySelector(".markdown-preview")).toBeNull();
-    const editEditor = editEditorDom ? EditorView.findFromDOM(editEditorDom) : null;
-    if (!editEditor) throw new Error("Markdown edit-only editor was not created.");
     await waitFor(() => expect(editEditor.scrollDOM.scrollTop).toBe(360));
 
     editEditor.scrollDOM.scrollTop = 420;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
-    const splitEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    expect(splitEditorDom).not.toBeNull();
+    const splitEditor = editorViewAt(".source-editor .cm-editor");
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(screen.getByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
-    const splitEditor = splitEditorDom ? EditorView.findFromDOM(splitEditorDom) : null;
-    if (!splitEditor) throw new Error("Markdown split editor was not created.");
     await waitFor(() => expect(splitEditor.scrollDOM.scrollTop).toBe(420));
     await waitFor(() => expect(screen.getByTestId("editor-scroll-container").scrollTop).toBe(420));
     splitEditor.dispatch({
-      changes: {
-        from: 0, to: splitEditor.state.doc.length, insert: "[Updated native view](native-unified-view.md)",
-      },
+      changes: { from: 0, to: splitEditor.state.doc.length, insert: "[Updated native view](native-unified-view.md)" },
     });
     // Re-rendering the preview costs a full parse of the document, so source
     // keystrokes reach it on an idle budget instead of one parse per key. The
@@ -2153,17 +2077,13 @@ describe("project workspace", () => {
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => expect(screen.getByTestId("editor-scroll-container").scrollTop).toBe(570));
 
-    const previewSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const previewEditor = visualEditorOf(previewSurface);
-    act(() => {
-      previewEditor.commands.setTextSelection({ from: 1, to: 8 });
-    });
+    const previewEditor = visualEditorOf(screen.getByRole("textbox", { name: "Markdown document editor" }));
+    act(() => { previewEditor.commands.setTextSelection({ from: 1, to: 8 }); });
     const viewSourceButton = await screen.findByRole("button", { name: "View in source Markdown" });
     const explicitPreviewViewport = screen.getByTestId("editor-scroll-container");
     explicitPreviewViewport.scrollTop = 480;
     fireEvent.click(viewSourceButton);
-    expect(await screen.findByRole("separator", { name: "Resize editor and Markdown preview" }))
-      .toBeInTheDocument();
+    expect(await screen.findByRole("separator", { name: "Resize editor and Markdown preview" })).toBeInTheDocument();
     const splitPreviewViewport = screen.getByTestId("editor-scroll-container");
     expect(splitPreviewViewport).not.toBe(explicitPreviewViewport);
     const revealedEditor = editorViewAt(".source-editor .cm-editor");
@@ -2182,22 +2102,12 @@ describe("project workspace", () => {
     const previewRectSpy = stubRect(splitPreviewViewport, 0, 100, 500, 400);
     const sourceBackedBlock = splitPreviewViewport.querySelector<HTMLElement>("[data-source-offset='0']");
     if (!sourceBackedBlock) throw new Error("Split Preview did not publish a source-backed block.");
-    const sourceBackedBlockRectSpy = vi.spyOn(sourceBackedBlock, "getBoundingClientRect").mockImplementation(() => ({
-      x: 0,
-      y: 1_000 - splitPreviewViewport.scrollTop,
-      top: 1_000 - splitPreviewViewport.scrollTop,
-      bottom: 1_040 - splitPreviewViewport.scrollTop,
-      left: 0,
-      right: 500,
-      width: 500,
-      height: 40,
-      toJSON: () => ({}),
-    }));
-    const lineBlockSpy = vi.spyOn(revealedEditor, "lineBlockAt").mockReturnValue({
-      top: 600, bottom: 620,
-    } as never);
-    const splitVisualSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const splitVisualEditor = visualEditorOf(splitVisualSurface);
+    const sourceBackedBlockRectSpy = vi.spyOn(sourceBackedBlock, "getBoundingClientRect").mockImplementation(() => {
+      const top = 1_000 - splitPreviewViewport.scrollTop;
+      return { x: 0, y: top, top, bottom: top + 40, left: 0, right: 500, width: 500, height: 40, toJSON: () => ({}) };
+    });
+    const lineBlockSpy = vi.spyOn(revealedEditor, "lineBlockAt").mockReturnValue({ top: 600, bottom: 620 } as never);
+    const splitVisualEditor = visualEditorOf(screen.getByRole("textbox", { name: "Markdown document editor" }));
     act(() => splitVisualEditor.commands.setTextSelection({ from: 1, to: 8 }));
     fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
     await waitFor(() => expect(revealedEditor.scrollDOM.scrollTop).toBe(410));
@@ -2254,14 +2164,8 @@ describe("project workspace", () => {
       ],
     });
     const contentByPath: Record<string, string> = {
-      "notes/index.md": [
-        "[Open slides](slides/native/index.tsx)",
-        "[Open sheet](results.lattice-sheet)",
-        "[Open board](sketch.tldr)",
-      ].join("\n\n"),
-      "slides/native/index.tsx": "export default [];\n",
-      "results.lattice-sheet": "{}",
-      "sketch.tldr": "{\"tldrawFileFormatVersion\":1,\"records\":[]}",
+      "notes/index.md": "[Open slides](slides/native/index.tsx)\n\n[Open sheet](results.lattice-sheet)\n\n[Open board](sketch.tldr)",
+      "slides/native/index.tsx": "export default [];\n", "results.lattice-sheet": "{}", "sketch.tldr": EMPTY_BOARD,
     };
     persistLayout(snapshot.root, {
       openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split",
@@ -2286,23 +2190,16 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("link", { name: "Open slides" }));
     expect(await screen.findByTestId("open-slide-workspace-mock"))
       .toHaveAttribute("data-path", "slides/native/index.tsx");
-    expect(invoke).not.toHaveBeenCalledWith("read_project_file", {
-      path: "notes/slides/native/index.tsx", projectRoot: snapshot.root,
-    });
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", { path: "notes/slides/native/index.tsx", projectRoot: snapshot.root });
 
-    fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
-    fireEvent.click(await screen.findByRole("link", { name: "Open sheet" }));
-    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("read_project_file", {
-      path: "results.lattice-sheet", projectRoot: snapshot.root,
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
-    fireEvent.click(await screen.findByRole("link", { name: "Open board" }));
-    expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("read_project_file", {
-      path: "sketch.tldr", projectRoot: snapshot.root,
-    });
+    for (const [link, editor, path] of [
+      ["Open sheet", "spreadsheet-editor-mock", "results.lattice-sheet"], ["Open board", "board-editor-mock", "sketch.tldr"],
+    ]) {
+      fireEvent.click(screen.getByRole("tab", { name: /index\.md/ }));
+      fireEvent.click(await screen.findByRole("link", { name: link }));
+      expect(await screen.findByTestId(editor)).toBeInTheDocument();
+      expect(invoke).toHaveBeenCalledWith("read_project_file", { path, projectRoot: snapshot.root });
+    }
   }, 40_000);
 
   it("opens HTML documents in an interactive sandboxed preview with Edit and Split views", async () => {
@@ -2318,69 +2215,49 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === "report.html"
-        ? "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><iframe src='figures/chart.html' title='Plot'></iframe><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>"
-        : "# Notes",
-      read_project_asset: (args) => {
-        if (argPath(args) === "figures/chart.html") {
-          return {
-            path: "figures/chart.html",
-            mimeType: "text/html",
-            base64: btoa("<!doctype html><html><body><div id='plot'></div><script>Plotly.newPlot('plot', [], {})</script></body></html>"),
-          };
-        }
-        return { path: argPath(args), mimeType: "image/png", base64: imageBase64 };
-      },
+      read_project_file: readFiles({
+        "report.html": "<!doctype html><html><head><base href='https://example.com/'><style>h1{color:tomato}</style></head><body><h1 id='results'>Results</h1><img src='figures/figure1_feature_retention.png' alt='Feature Retention'><iframe src='figures/chart.html' title='Plot'></iframe><button onclick='this.textContent=&quot;Done&quot;'>Run</button><a href='./details.html'>Details</a><a href='#results'>Jump</a><script>window.previewReady=true</script></body></html>",
+      }, "# Notes"),
+      read_project_asset: (args) => argPath(args) === "figures/chart.html" ? {
+        path: "figures/chart.html", mimeType: "text/html",
+        base64: btoa("<!doctype html><html><body><div id='plot'></div><script>Plotly.newPlot('plot', [], {})</script></body></html>"),
+      } : { path: argPath(args), mimeType: "image/png", base64: imageBase64 },
       write_project_file: undefined,
     });
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     expect(screen.queryByTitle("HTML preview for report.html")).not.toBeInTheDocument();
     fireEvent.pointerDown(documentView);
-    const preview = await screen.findByTitle<HTMLIFrameElement>(
-      "HTML preview for report.html",
-      {},
-      { timeout: 30_000 },
-    );
+    const preview = await screen.findByTitle<HTMLIFrameElement>("HTML preview for report.html", {}, { timeout: 30_000 });
+    const srcdoc = () => preview.getAttribute("srcdoc");
     expect(within(documentView).getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
     expect(preview).toHaveAttribute("sandbox", "allow-scripts");
     expect(preview).toHaveAttribute("referrerpolicy", "no-referrer");
-    expect(preview.getAttribute("srcdoc")).toContain('<h1 id="results">Results</h1>');
-    expect(preview.getAttribute("srcdoc")).toContain("h1{color:tomato}");
-    expect(preview.getAttribute("srcdoc")).toContain("<script>window.previewReady=true</script>");
-    expect(preview.getAttribute("srcdoc")).toContain("onclick=");
-    expect(preview.getAttribute("srcdoc")).toContain('<base href="about:blank">');
-    expect(preview.getAttribute("srcdoc")).not.toContain("https://example.com/");
-    expect(preview.getAttribute("srcdoc")).not.toContain("href=\"./details.html\"");
-    expect(preview.getAttribute("srcdoc")).toContain("href=\"#results\"");
-    expect(preview.getAttribute("srcdoc")).toContain('data-lattice-preview="fragment-navigation"');
-    expect(preview.getAttribute("srcdoc")).toContain("target.scrollIntoView()");
-    expect(preview.getAttribute("srcdoc")).toContain("lattice:html-preview-open-external");
-    await waitFor(() => expect(preview.getAttribute("srcdoc"))
-      .toContain('src="data:image/png;base64,iVBORw0KGgo="'));
-    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
-      path: "figures/figure1_feature_retention.png", projectRoot: ROOT,
-    });
-    await waitFor(() => expect(preview.getAttribute("srcdoc")).toContain("Plotly.newPlot"));
-    expect(preview.getAttribute("srcdoc")).not.toContain('src="figures/chart.html"');
-    expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
-    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
-      path: "figures/chart.html", projectRoot: ROOT,
-    });
+    for (const kept of [
+      '<h1 id="results">Results</h1>', "h1{color:tomato}", "<script>window.previewReady=true</script>", "onclick=",
+      '<base href="about:blank">', "href=\"#results\"", 'data-lattice-preview="fragment-navigation"',
+      "target.scrollIntoView()", "lattice:html-preview-open-external",
+    ]) expect(srcdoc()).toContain(kept);
+    expect(srcdoc()).not.toContain("https://example.com/");
+    expect(srcdoc()).not.toContain("href=\"./details.html\"");
+    await waitFor(() => expect(srcdoc()).toContain('src="data:image/png;base64,iVBORw0KGgo="'));
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "figures/figure1_feature_retention.png", projectRoot: ROOT });
+    await waitFor(() => expect(srcdoc()).toContain("Plotly.newPlot"));
+    expect(srcdoc()).not.toContain('src="figures/chart.html"');
+    expect(srcdoc()).toContain('sandbox="allow-scripts"');
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "figures/chart.html", projectRoot: ROOT });
 
     const assetReadsBeforePaperFetch = invokeCalls("read_project_asset").length;
     imageBase64 = "bmV3LWltYWdl";
     await switchSidebarMode("Agent");
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Agent" }))
-      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Agent" })).toHaveAttribute("aria-selected", "true"));
     await waitFor(() => expect(tauriEventApi.handlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
     emitTauriEvent("project-fs-changed", { root: ROOT, paths: [".research/papers/1706.03762/paper.md"] });
     await act(async () => { await pause(0); });
     expect(invokeCalls("read_project_asset")).toHaveLength(assetReadsBeforePaperFetch);
-    expect(preview.getAttribute("srcdoc")).toContain('src="data:image/png;base64,iVBORw0KGgo="');
+    expect(srcdoc()).toContain('src="data:image/png;base64,iVBORw0KGgo="');
 
     emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["figures/figure1_feature_retention.png"] });
-    await waitFor(() => expect(preview.getAttribute("srcdoc"))
-      .toContain('src="data:image/png;base64,bmV3LWltYWdl"'));
+    await waitFor(() => expect(srcdoc()).toContain('src="data:image/png;base64,bmV3LWltYWdl"'));
 
     const zoomMessages = vi.spyOn(preview.contentWindow!, "postMessage");
     expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("100");
@@ -2406,11 +2283,7 @@ describe("project workspace", () => {
 
     const editor = editorViewAt(".source-editor .cm-editor");
     editor.dispatch({
-      changes: {
-        from: 0,
-        to: editor.state.doc.length,
-        insert: "<!doctype html><html><body><h2>Updated results</h2></body></html>",
-      },
+      changes: { from: 0, to: editor.state.doc.length, insert: "<!doctype html><html><body><h2>Updated results</h2></body></html>" },
     });
     await waitFor(() => expect(screen.getByTitle("HTML preview for report.html").getAttribute("srcdoc"))
       .toContain("<h2>Updated results</h2>"));
@@ -2424,35 +2297,26 @@ describe("project workspace", () => {
     }, "");
     const postMessage = vi.spyOn(reloaded.contentWindow!, "postMessage");
     fireEvent.load(reloaded);
-    expect(postMessage).toHaveBeenCalledWith(
-      { type: "lattice:html-preview-set-scroll-top", scrollTop: 420 },
-      "*",
-    );
+    expect(postMessage).toHaveBeenCalledWith({ type: "lattice:html-preview-set-scroll-top", scrollTop: 420 }, "*");
 
     stubScrollBox(editor.scrollDOM, 600, 2600);
     editor.scrollDOM.scrollTop = 1000;
     postMessage.mockClear();
     fireEvent.scroll(editor.scrollDOM);
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
-      { type: "lattice:html-preview-set-scroll-top", scrollTop: 1700 },
-      "*",
-    ));
+    await waitFor(() => expect(postMessage)
+      .toHaveBeenCalledWith({ type: "lattice:html-preview-set-scroll-top", scrollTop: 1700 }, "*"));
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 200, 40, 800, 600);
-    fireEvent.pointerDown(await findProjectTreeItem("notes.md"), {
-      button: 0, pointerId: 73, pointerType: "mouse", clientX: 20, clientY: 20,
+    stubCanvasRect(200, 40, 800, 600);
+    dragToPoint(await findProjectTreeItem("notes.md"), [850, 300], {
+      pointerId: 73, from: [20, 20], whileOver: () => {
+        expect(document.body).toHaveClass("dragging-project-item");
+        expect(document.querySelector(".editor-tab-split-drop-preview")).toHaveAttribute("data-drop-zone", "right");
+      },
     });
-    fireEvent.pointerMove(window, { pointerId: 73, pointerType: "mouse", clientX: 850, clientY: 300 });
-    expect(document.body).toHaveClass("dragging-project-item");
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "right");
-    fireEvent.pointerUp(window, { pointerId: 73, pointerType: "mouse", clientX: 850, clientY: 300 });
 
     await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("# Notes"));
-    expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .html-preview-frame"))
-      .toBeInTheDocument();
+    expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .html-preview-frame")).toBeInTheDocument();
     expect(document.body).not.toHaveClass("dragging-project-item");
   });
 
@@ -2484,12 +2348,7 @@ describe("project workspace", () => {
     await Promise.all([import("./app/app-agent-panel"), import("./settings/settings-dialog")]);
     const snapshot = projectSnapshot();
     synaraHook.runtime = {
-      state: "stopped",
-      origin: null,
-      authToken: null,
-      message: "Synara did not start.",
-      startupMs: null,
-      version: null,
+      state: "stopped", origin: null, authToken: null, message: "Synara did not start.", startupMs: null, version: null,
       revision: null,
     };
     renderApp(projectCommands(snapshot));
@@ -2505,8 +2364,7 @@ describe("project workspace", () => {
     expect(screen.queryByPlaceholderText(/ask the agent/i)).not.toBeInTheDocument();
     expect(screen.queryByTitle("Conversation history")).not.toBeInTheDocument();
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), { button: 0 });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Providers" }));
     const settings = screen.getByRole("dialog", { name: "Settings" });
     expect(await within(settings).findByRole("alert")).toHaveTextContent("Agent unavailable");
@@ -2517,21 +2375,13 @@ describe("project workspace", () => {
   it("moves the sidebar assistant below the editor and back without replacing its frame", async () => {
     // Keep cold module compilation outside the DOM query timeout.
     await import("./app/app-agent-panel");
-    const snapshot = projectSnapshot({
-      root: "/tmp/agent-dock",
-      projectId: "dock",
-      name: "Dock test",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-    });
-    localStorage.setItem("lattice.sidebar-open.v1", "1");
-    localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+    const snapshot = agentDockSnapshot();
+    showAgentSidebar();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{article}",
+      ...projectCommands(snapshot),
       list_papers: () => [attentionPaper({ authors: "Ashish Vaswani", hasBlog: false })],
       read_paper: "## Abstract\n\nPaper content.",
       read_paper_blog_local: null,
-      list_history: () => [],
     });
     await screen.findByRole("button", { name: "Move assistant below editor" });
     expect(screen.queryByRole("button", { name: "Toggle assistant" })).toBeNull();
@@ -2578,15 +2428,8 @@ describe("project workspace", () => {
 
   it.each([true, false])("restores the bottom assistant independently of sidebar visibility (open: %s)", async (open) => {
     await import("./app/app-agent-panel");
-    const snapshot = projectSnapshot({
-      root: "/tmp/agent-dock",
-      projectId: "dock",
-      name: "Dock test",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-    });
-    localStorage.setItem("lattice.sidebar-open.v1", "1");
-    localStorage.setItem("lattice.sidebar-mode.v1", "agent");
-    const view = renderApp(projectCommands(snapshot));
+    showAgentSidebar();
+    const view = renderApp(projectCommands(agentDockSnapshot()));
     fireEvent.click(await screen.findByRole("button", { name: "Move assistant below editor" }));
     if (open) fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     view.unmount();
@@ -2637,17 +2480,11 @@ describe("project workspace", () => {
     postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
 
     await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
-    expect(postMessage).toHaveBeenCalledWith(
-      { type: "lattice:request-agent-permission-mode" },
-      synaraHook.runtime.origin,
-    );
+    expect(postMessage).toHaveBeenCalledWith({ type: "lattice:request-agent-permission-mode" }, synaraHook.runtime.origin);
 
-    const history = (activeThreadId: string, origin?: string) => postWindowMessage(
-      frame.contentWindow, { type: "lattice:project-history", activeThreadId, entries: [] }, origin,
-    );
-    history("wrong-thread", "https://untrusted.example");
+    postProjectHistory(frame, "wrong-thread", [], "https://untrusted.example");
     expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("saved-thread");
-    history("selected-thread");
+    postProjectHistory(frame, "selected-thread", []);
     expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("selected-thread");
     // Recording navigation must not reload the live iframe or interrupt a turn.
     expect(new URL(frame.src).pathname).toBe("/saved-thread");
@@ -2658,8 +2495,7 @@ describe("project workspace", () => {
 
     postWindowMessage(frame.contentWindow, openSettings);
     const settings = await screen.findByRole("dialog", { name: "Settings" });
-    expect(within(settings).getByRole("button", { name: "Providers" }))
-      .toHaveAttribute("aria-current", "page");
+    expect(within(settings).getByRole("button", { name: "Providers" })).toHaveAttribute("aria-current", "page");
     view.unmount();
     renderApp();
     await waitFor(() => {
@@ -2674,12 +2510,8 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       git_status: () => ({
-        available: true,
-        repository: true,
-        branch: "main",
-        remote: "origin",
-        remoteUrl: "git@github.com:leo1oel/lattice.git",
-        files: [],
+        available: true, repository: true, branch: "main", remote: "origin",
+        remoteUrl: "git@github.com:leo1oel/lattice.git", files: [],
       }),
     });
     await screen.findByRole("button", { name: "Switch project" });
@@ -2695,84 +2527,53 @@ describe("project workspace", () => {
 
   it("routes agent paper, file, link, and review requests to their native surfaces", async () => {
     const snapshot = projectSnapshot({
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "sections",
-          path: "sections",
-          kind: "folder",
-          children: [{ name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] }],
-        },
-      ],
+      files: [fileNode("main.tex"), fileNode("sections", "folder", { children: [fileNode("sections/intro.tex")] })],
     });
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       read_project_file: (args) => {
-        const path = (args as { path?: string } | undefined)?.path;
-        if (path?.endsWith(".png")) {
-          throw new Error("This is a binary or unsupported file and cannot be opened in the source editor.");
-        }
-        return "\\documentclass{article}";
+        if (!argPath(args)?.endsWith(".png")) return "\\documentclass{article}";
+        throw new Error("This is a binary or unsupported file and cannot be opened in the source editor.");
       },
       read_project_asset: (args) => ({ path: argPath(args), mimeType: "image/png", base64: "iVBORw0KGgo=" }),
       stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
       list_papers: () => [attentionPaper({ authors: "Ashish Vaswani and Noam Shazeer", hasBlog: false })],
       read_paper: "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.",
       read_paper_blog_local: null,
-      list_history: () => [],
-      build_project: () => ({
-        success: true,
-        hasPdf: false,
-        log: "",
-        durationMs: 5,
-        rootDocument: "/private/outside/main.tex",
-        diagnostics: [],
-      }),
+      build_project: buildResult({ durationMs: 5, rootDocument: "/private/outside/main.tex" }),
     });
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Papers");
     await screen.findByTitle("Attention Is All You Need");
     const { frame } = await openAgentFrame();
 
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:open-file", filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md",
-    });
-    await expectInvoked("read_project_file",
-      expect.objectContaining({ path: "notes/detailed distillation.md" }));
+    const agent = (data: object) => postWindowMessage(frame.contentWindow, data);
+    agent({ type: "synara:open-file", filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md" });
+    await expectInvoked("read_project_file", expect.objectContaining({ path: "notes/detailed distillation.md" }));
 
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:open-external", url: "https://example.com/paper",
-    });
+    agent({ type: "synara:open-external", url: "https://example.com/paper" });
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/paper"));
 
-    postWindowMessage(frame.contentWindow, { type: "synara:open-external", url: "javascript:alert(1)" });
+    agent({ type: "synara:open-external", url: "javascript:alert(1)" });
     expect(openUrl).toHaveBeenCalledTimes(1);
 
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:open-file", filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md",
-    });
+    agent({ type: "synara:open-file", filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md" });
     expect(await screen.findByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
 
-    postWindowMessage(frame.contentWindow, { type: "synara:open-review", filePath: "sections/intro.tex" });
+    agent({ type: "synara:open-review", filePath: "sections/intro.tex" });
     await expectInvoked("read_project_file", expect.objectContaining({ path: "sections/intro.tex" }));
     expect(screen.queryByRole("tab", { name: "Changes" })).not.toBeInTheDocument();
 
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:open-review", filePath: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
-    });
-    expect(await screen.findByAltText(
-      "Preview of figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
-    )).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("read_project_asset", {
-      path: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
-    });
+    const figure = "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png";
+    agent({ type: "synara:open-review", filePath: figure });
+    expect(await screen.findByAltText(`Preview of ${figure}`)).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: figure });
 
-    postWindowMessage(frame.contentWindow, { type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" });
+    agent({ type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" });
     expect(await screen.findByRole("tab", { name: "Agent turn" })).toBeInTheDocument();
-    const gitWorkspaceTabs = screen.getByRole("tablist", { name: "Git workspace" });
-    expect(gitWorkspaceTabs).toHaveClass("drawer-view-tabs");
+    expect(screen.getByRole("tablist", { name: "Git workspace" })).toHaveClass("drawer-view-tabs");
     expect(screen.getByRole("tab", { name: "Changes" })).toHaveClass("drawer-view-tab");
     expect(screen.getByRole("tab", { name: "Changes" })).not.toHaveClass("ui-compact-selectable");
     const reviewFrame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent turn review"]');
@@ -2787,33 +2588,20 @@ describe("project workspace", () => {
   });
 
   it.each(["undo", "undo in manual mode", "same-count edit"])("rebuilds after an Agent %s", async (change) => {
-    if (change === "undo in manual mode") {
-      localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    }
-    const snapshot = projectSnapshot();
+    if (change === "undo in manual mode") setAutoBuildMode("manual");
     renderApp({
-      ...projectCommands(snapshot),
+      ...projectCommands(projectSnapshot()),
       stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
       harper_lint: () => [],
-      build_project: () => ({
-        success: true, hasPdf: false, log: "", durationMs: 5, rootDocument: "main.tex", diagnostics: [],
-      }),
+      build_project: buildResult({ durationMs: 5, rootDocument: "main.tex" }),
     });
     await screen.findByRole("button", { name: "Switch project" });
     const { frame } = await openAgentFrame();
-    const entry = {
-      id: "cp-undo", label: "Edited files", timestamp: "2026-08-07T10:00:00.000Z",
-      threadId: "thread-undo", threadTitle: "Agent task", turnId: "turn-undo",
-      turnCount: 1, checkpointRef: "ref-undo",
-      files: [{ path: "sections/intro.tex", kind: "modified", additions: 2, deletions: 2 }],
-    };
-    const post = (entries: unknown[]) => postWindowMessage(frame.contentWindow, {
-      type: "lattice:project-history", activeThreadId: entry.threadId, entries,
-    });
-    post([entry]);
+    const entry = agentCheckpoint("undo", { additions: 2, deletions: 2 });
+    postProjectHistory(frame, entry.threadId, [entry]);
     const builds = () => invokeCalls("build_project").length;
     const baseline = builds();
-    post(change.startsWith("undo") ? [] : [{ ...entry, timestamp: "2026-08-07T10:01:00.000Z" }]);
+    postProjectHistory(frame, entry.threadId, change.startsWith("undo") ? [] : [{ ...entry, timestamp: "2026-08-07T10:01:00.000Z" }]);
     await waitFor(() => expect(builds()).toBe(baseline + 1), { timeout: 4_000 });
   });
 
@@ -2824,14 +2612,7 @@ describe("project workspace", () => {
       root: "/tmp/tutorial-paper",
       manifest: { ...snapshot.manifest, projectId: "tutorial-id", name: "Tutorial paper" },
     };
-    const buildResult = {
-      success: true,
-      hasPdf: false,
-      log: "",
-      durationMs: 5,
-      rootDocument: "/private/outside/main.tex",
-      diagnostics: [],
-    };
+    const built = buildResult({ durationMs: 5, rootDocument: "/private/outside/main.tex" })();
     let deferNextBuild = false;
     let nextBuildHasPdf = false;
     let deferNextPdfRead = false;
@@ -2841,19 +2622,9 @@ describe("project workspace", () => {
     const tutorialBuilds = () => invokeCalls(
       "build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root,
     );
-    const checkpoint = (files: { path: string; additions: number; deletions: number }[]) => ({
-      id: "cp-1",
-      label: "Edited files",
-      timestamp: "2026-08-07T10:00:00.000Z",
-      threadId: "thread-1",
-      threadTitle: "Agent task",
-      turnId: "turn-1",
-      turnCount: 1,
-      checkpointRef: "ref-1",
-      files: files.map((file) => ({ ...file, kind: "modified" })),
-    });
-    const postSnapshot = (frame: HTMLIFrameElement, entries: unknown[]) => {
-      postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: "thread-1", entries });
+    // One checkpoint whose intro.tex work grows by `additions` lines.
+    const postCheckpoint = (frame: HTMLIFrameElement, additions: number, deletions = 2) => {
+      postProjectHistory(frame, "thread-1", [agentCheckpoint("1", { additions, deletions })]);
     };
 
     const view = renderApp({
@@ -2861,7 +2632,7 @@ describe("project workspace", () => {
       open_tutorial_project: tutorialSnapshot,
       stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
       build_project: async () => {
-        const result = nextBuildHasPdf ? { ...buildResult, hasPdf: true } : buildResult;
+        const result = nextBuildHasPdf ? { ...built, hasPdf: true } : built;
         nextBuildHasPdf = false;
         if (deferNextBuild) {
           deferNextBuild = false;
@@ -2889,36 +2660,24 @@ describe("project workspace", () => {
 
     // The first snapshot for a thread replays its existing history; it must
     // prime the fingerprints without scheduling a rebuild.
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 1, deletions: 0 }])]);
+    postCheckpoint(frame, 1, 0);
     const baseline = buildCalls();
     await pause(2_200);
     expect(buildCalls()).toBe(baseline);
 
     // The same checkpoint growing new file work is fresh agent editing.
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 5, deletions: 2 }])]);
+    postCheckpoint(frame, 5);
     await waitFor(() => expect(buildCalls()).toBe(baseline + 1), { timeout: 4_000 });
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "lattice:agent-compile-result",
-        version: 1,
-        threadId: "thread-1",
-        turnId: "turn-1",
-        checkpointRef: "ref-1",
-        success: true,
-        durationMs: 5,
-        rootDocument: null,
-        diagnostics: { errors: 0, warnings: 0 },
-      }),
-      synaraHook.runtime.origin,
-    ));
-    const agentCompileRelays = () => postMessage.mock.calls.filter(([message]) => (
-      (message as { type?: string }).type === "lattice:agent-compile-result"
-    )).length;
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: "lattice:agent-compile-result", version: 1, threadId: "thread-1", turnId: "turn-1", checkpointRef: "ref-1",
+      success: true, durationMs: 5, rootDocument: null, diagnostics: { errors: 0, warnings: 0 },
+    }), synaraHook.runtime.origin));
+    const agentCompileRelays = () => postedOfType(postMessage, "lattice:agent-compile-result").length;
     const relaysAfterFirstCheckpoint = agentCompileRelays();
 
     // A manual build during the checkpoint debounce must not consume its
     // association. The dedicated automatic pass still runs and owns the relay.
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 9, deletions: 2 }])]);
+    postCheckpoint(frame, 9);
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 2));
     await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
@@ -2931,7 +2690,7 @@ describe("project workspace", () => {
     deferNextBuild = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 4));
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 13, deletions: 2 }])]);
+    postCheckpoint(frame, 13);
     await pause(1_800);
     expect(buildCalls()).toBe(baseline + 4);
     expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 1);
@@ -2944,7 +2703,7 @@ describe("project workspace", () => {
     deferNextBuild = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 6));
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 15, deletions: 2 }])]);
+    postCheckpoint(frame, 15);
     await pause(1_800);
     deferredBuild.settle?.(new Error("build rejected"));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 7));
@@ -2956,7 +2715,7 @@ describe("project workspace", () => {
     deferNextPdfRead = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(deferredPdfRead.settle).not.toBeNull());
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 16, deletions: 2 }])]);
+    postCheckpoint(frame, 16);
     await pause(1_800);
     deferredPdfRead.settle?.(new Error("PDF read rejected"));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 9));
@@ -2968,12 +2727,9 @@ describe("project workspace", () => {
     deferNextBuild = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 10));
-    postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 17, deletions: 2 }])]);
+    postCheckpoint(frame, 17);
     await pause(1_800);
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await chooseProjectMenuItem("Guided tutorial");
     await expectInvoked("open_tutorial_project");
     deferredBuild.settle?.();
     await waitFor(() => expect(tutorialBuilds()).toHaveLength(1));
@@ -2981,7 +2737,7 @@ describe("project workspace", () => {
     expect(tutorialBuilds()).toHaveLength(1);
 
     const tutorialFrame = await findFrame();
-    postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 10, deletions: 2 }])]);
+    postCheckpoint(tutorialFrame, 10);
     await pause(2_000);
     expect(tutorialBuilds()).toHaveLength(1);
 
@@ -2990,7 +2746,7 @@ describe("project workspace", () => {
     deferNextBuild = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(tutorialBuilds()).toHaveLength(2));
-    postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 14, deletions: 2 }])]);
+    postCheckpoint(tutorialFrame, 14);
     await pause(1_800);
     view.unmount();
     deferredBuild.settle?.();
@@ -3038,41 +2794,33 @@ describe("project workspace", () => {
     expect(canvasPanel.querySelector(".editor-tabs")).not.toBeInTheDocument();
     expect(canvasPanel.querySelector(".canvas-toolbar")).not.toBeInTheDocument();
     await switchSidebarMode("Agent");
-    expect(document.querySelector('iframe[title="Agent"]')).toHaveAttribute(
-      "src",
-      expect.stringContaining("127.0.0.1:4173"),
-    );
+    expect(document.querySelector('iframe[title="Agent"]')).toHaveAttribute("src", expect.stringContaining("127.0.0.1:4173"));
     expect(screen.queryByPlaceholderText(/ask the agent/i)).not.toBeInTheDocument();
   });
 
-  it("moves the navigator control to the left edge in fullscreen", async () => {
-    windowApi.isFullscreen.mockResolvedValue(true);
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp(projectCommands(snapshot));
+  it.each(["fullscreen", "a browser tab"])("moves the navigator control to the left edge in %s", async (host) => {
+    if (host === "fullscreen") windowApi.isFullscreen.mockResolvedValue(true);
+    else browserRuntime.hosted = true;
+    renderApp(projectCommands(projectSnapshot({ files: [] })));
     await screen.findByRole("button", { name: "Hide sidebar" });
-    await waitFor(() => expect(document.querySelector(".app-shell")).toHaveClass("fullscreen"));
-  });
-
-  it("moves the navigator control to the left edge in a browser tab", async () => {
-    browserRuntime.hosted = true;
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp(projectCommands(snapshot));
-    await screen.findByRole("button", { name: "Hide sidebar" });
-    expect(document.querySelector(".app-shell")).toHaveClass("browser-hosted");
-    expect(invoke).not.toHaveBeenCalledWith("align_traffic_lights", expect.anything());
+    const shell = () => expect(document.querySelector(".app-shell"));
+    if (host === "fullscreen") {
+      await waitFor(() => shell().toHaveClass("fullscreen"));
+    } else {
+      shell().toHaveClass("browser-hosted");
+      expect(invoke).not.toHaveBeenCalledWith("align_traffic_lights", expect.anything());
+    }
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp(projectCommands(snapshot));
+    renderApp(projectCommands(projectSnapshot({ files: [] })));
     await screen.findByRole("button", { name: "Switch project" });
     fireEvent.doubleClick(document.querySelector(".titlebar-drag-area")!);
     await waitFor(() => expect(windowApi.setFullscreen).toHaveBeenCalledWith(true));
   });
 
   it("resizes panels with the accessible divider controls", async () => {
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp(projectCommands(snapshot));
+    renderApp(projectCommands(projectSnapshot({ files: [] })));
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
     expect(divider).toHaveAttribute("aria-valuenow", "320");
     expect(document.querySelector<HTMLElement>(".workspace")?.style.gridTemplateAreas)
@@ -3137,8 +2885,7 @@ describe("project workspace", () => {
   });
 
   it("resizes the loaded Agent below the bootstrap sidebar minimum", async () => {
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp(projectCommands(snapshot));
+    renderApp(projectCommands(projectSnapshot({ files: [] })));
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
     const { frame: agentFrame } = await openAgentFrame();
     const reportMinimum = (minimumSidebarWidth: number) => postWindowMessage(
@@ -3188,10 +2935,7 @@ describe("project workspace", () => {
 
   it("uses Pierre's default density, flattened folders, and Git decorations", async () => {
     localStorage.setItem("lattice:show-hidden-files", "true");
-    localStorage.setItem(
-      "lattice:expanded-directories:/tmp/lattice-paper",
-      JSON.stringify(["chapters", "chapters/method"]),
-    );
+    localStorage.setItem("lattice:expanded-directories:/tmp/lattice-paper", JSON.stringify(["chapters", "chapters/method"]));
     const snapshot = projectSnapshot({
       rootDocuments: [{ path: "chapters/method/main.tex", name: "Main paper", isDefault: true }],
       files: [
@@ -3209,9 +2953,7 @@ describe("project workspace", () => {
       refresh_project: snapshot,
       list_project_tree_with_hidden: () => snapshot.files,
       git_status: () => ({
-        available: true,
-        repository: true,
-        branch: "main",
+        available: true, repository: true, branch: "main",
         files: [{ path: "chapters/method/main.tex", status: "modified", staged: false, unstaged: true }],
       }),
     });
@@ -3221,20 +2963,12 @@ describe("project workspace", () => {
     const host = document.querySelector<HTMLElement>("file-tree-container.lattice-file-tree");
     expect(host?.style.getPropertyValue("--trees-item-height")).toBe("32px");
     expect(host).toHaveAttribute("data-file-tree-virtualized", "true");
-    expect((await findProjectTreeItem("component.tsx")).querySelector("[data-icon-token='react']"))
-      .not.toBeNull();
-    expect((await findProjectTreeItem("chapters/method/main.tex")).querySelector("use"))
-      .toHaveAttribute("href", "#lattice-material-tex");
-    expect((await findProjectTreeItem("references.bib")).querySelector("use"))
-      .toHaveAttribute("href", "#lattice-material-bibliography");
-    expect((await findProjectTreeItem("paper.pdf")).querySelector("use"))
-      .toHaveAttribute("href", "#lattice-material-pdf");
-    expect((await findProjectTreeItem("conference.sty")).querySelector("use"))
-      .toHaveAttribute("href", "#lattice-material-tex-style");
-    expect((await findProjectTreeItem("plain.bst")).querySelector("use"))
-      .toHaveAttribute("href", "#lattice-material-bibtex-style");
-    expect((await findProjectTreeItem("figure.eps")).querySelector("use"))
-      .toHaveAttribute("href", "#file-tree-builtin-image");
+    expect((await findProjectTreeItem("component.tsx")).querySelector("[data-icon-token='react']")).not.toBeNull();
+    for (const [path, icon] of [
+      ["chapters/method/main.tex", "lattice-material-tex"], ["references.bib", "lattice-material-bibliography"],
+      ["paper.pdf", "lattice-material-pdf"], ["conference.sty", "lattice-material-tex-style"],
+      ["plain.bst", "lattice-material-bibtex-style"], ["figure.eps", "file-tree-builtin-image"],
+    ]) expect((await findProjectTreeItem(path)).querySelector("use")).toHaveAttribute("href", `#${icon}`);
     const folderRows = projectTreeRoot()?.querySelectorAll("[data-item-type='folder']");
     expect(new Set(Array.from(folderRows ?? [], (row) => (row as HTMLElement).dataset.itemPath)))
       .toEqual(new Set(["chapters/method/"]));
@@ -3244,11 +2978,9 @@ describe("project workspace", () => {
   });
 
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
-    persistLayout(snapshot.root, {
-      openTabs: ["notes.md"], activeFile: "notes.md", secondaryFile: "", canvasMode: "split",
-    });
+    persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", secondaryFile: "", canvasMode: "split" });
     await loadVisualMarkdownEditorModule();
     renderApp({
       ...projectCommands(snapshot, "Original paragraph.\n"),
@@ -3265,10 +2997,7 @@ describe("project workspace", () => {
       vi.mocked(invoke).mockClear();
       act(() => {
         editor.commands.insertContentAt(1, "Latest edit. ");
-        const target = destination === "source pane"
-          ? document.querySelector<HTMLElement>(".cm-content")!
-          : outsideInput;
-        target.focus();
+        (destination === "source pane" ? document.querySelector<HTMLElement>(".cm-content")! : outsideInput).focus();
       });
       // Focus loss must persist the latest transaction, without waiting for
       // either the visual publisher's debounce or the app's idle autosave.
@@ -3286,20 +3015,17 @@ describe("project workspace", () => {
     ["source blur", "manual"], ["preview blur", "manual"], ["idle", "manual"],
     ["source blur", "automatic"], ["preview blur", "automatic"], ["idle", "automatic"],
   ])("saves non-collaborative secondary Markdown on %s in %s mode", async (trigger, autoBuildMode) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode }));
+    setAutoBuildMode(autoBuildMode as "manual" | "automatic");
     const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
     persistLayout(snapshot.root, {
-      openTabs: ["left.md", "right.md"],
-      activeFile: "left.md",
-      secondaryFile: "right.md",
-      focusedPane: "secondary",
+      openTabs: ["left.md", "right.md"], activeFile: "left.md", secondaryFile: "right.md", focusedPane: "secondary",
       canvasMode: "dual",
     });
     await loadVisualMarkdownEditorModule();
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === "left.md" ? "Left unchanged.\n" : "Right original.\n",
+      read_project_file: readFiles({ "left.md": "Left unchanged.\n" }, "Right original.\n"),
       write_project_file: undefined,
       harper_lint: () => [],
     });
@@ -3332,22 +3058,15 @@ describe("project workspace", () => {
     else expectSaved();
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path: "left.md" }));
     if (autoBuildMode === "automatic") {
-      await expectInvoked("build_project", expect.objectContaining({
-        projectRoot: snapshot.root, force: false,
-      }));
+      await expectInvoked("build_project", expect.objectContaining({ projectRoot: snapshot.root, force: false }));
     } else {
       expect(invoke).not.toHaveBeenCalledWith("build_project", expect.anything());
     }
   });
 
   it.each(["editor leave", "PDF pointer down", "PDF focus"])("saves and builds changed source on %s", async (trigger) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp({
-      ...projectCommands(snapshot),
-      write_project_file: undefined,
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
-    });
+    setAutoBuildMode("automatic");
+    renderApp({ ...projectCommands(projectSnapshot({ files: [] })), write_project_file: undefined, build_project: buildResult() });
     const view = await findEditorView();
     await expectInvoked("build_project", expect.anything());
     vi.mocked(invoke).mockClear();
@@ -3358,20 +3077,15 @@ describe("project workspace", () => {
     else fireEvent.focus(document.querySelector(".pdf-column")!);
 
     expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "main.tex",
-      content: "\\documentclass{article}\nNew result.",
-      baseContent: "\\documentclass{article}",
-      projectRoot: ROOT,
+      path: "main.tex", content: "\\documentclass{article}\nNew result.", baseContent: "\\documentclass{article}", projectRoot: ROOT,
     });
     // The open file rides along so the backend can re-target the build on it
     // when it is a compilable root (Overleaf's rule).
-    await expectInvoked("build_project", expect.objectContaining({
-      force: false, projectRoot: ROOT, documentPath: "main.tex",
-    }));
+    await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT, documentPath: "main.tex" }));
   });
 
   it.each(["build", "save"])("saves and queues the latest edit while an automatic %s is in flight", async (heldOperation) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    setAutoBuildMode("automatic");
     const snapshot = projectSnapshot({ files: [] });
     let releaseBuild: (() => void) | undefined;
     let holdBuild = false;
@@ -3397,7 +3111,7 @@ describe("project workspace", () => {
           holdBuild = false;
           await new Promise<void>((resolve) => { releaseBuild = resolve; });
         }
-        return { success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] };
+        return buildResult()();
       },
     });
     const view = await findEditorView();
@@ -3423,37 +3137,28 @@ describe("project workspace", () => {
   });
 
   it("automatically builds after 1.2 seconds without editing", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
-    const snapshot = projectSnapshot({ files: [] });
-    renderApp({
-      ...projectCommands(snapshot),
-      write_project_file: undefined,
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
-    });
+    setAutoBuildMode("automatic");
+    renderApp({ ...projectCommands(projectSnapshot({ files: [] })), write_project_file: undefined, build_project: buildResult() });
     const view = await findEditorView();
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT }));
     vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nIdle build." } });
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "main.tex",
-      content: "\\documentclass{article}\nIdle build.",
-      baseContent: "\\documentclass{article}",
-      projectRoot: ROOT,
+      path: "main.tex", content: "\\documentclass{article}\nIdle build.", baseContent: "\\documentclass{article}", projectRoot: ROOT,
     }), { timeout: 2_500 });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT }));
     expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
   it.each(["completion selection", "PDF pointer down", "PDF wheel"])("resumes autosave after citation completion on %s", async (trigger) => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    setAutoBuildMode("automatic");
     const snapshot = projectSnapshot();
     renderApp({
       ...projectCommands(snapshot),
       list_citation_keys: () => ["dosovitskiy2021image", "vaswani2017attention"],
-      list_citations: () => [],
       write_project_file: undefined,
-      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     const view = await waitFor(() => editorViewAt(), { timeout: 60_000 });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT }));
@@ -3487,9 +3192,7 @@ describe("project workspace", () => {
       if (trigger === "PDF pointer down") fireEvent.pointerDown(pdf);
       else fireEvent.wheel(pdf, { deltaY: 120 });
       await expectInvoked("write_project_file", {
-        path: "main.tex",
-        content: "\\documentclass{article}\nSee \\cite{}",
-        baseContent: "\\documentclass{article}",
+        path: "main.tex", content: "\\documentclass{article}\nSee \\cite{}", baseContent: "\\documentclass{article}",
         projectRoot: snapshot.root,
       });
       expect(completionStatus(view.state)).toBeNull();
@@ -3501,19 +3204,15 @@ describe("project workspace", () => {
     expect(selectedCompletionIndex(view.state)).toBe(1);
     fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
     expect(view.state.doc.toString()).toContain("\\cite{vaswani2017attention}");
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
-      force: false, projectRoot: ROOT,
-    })), { timeout: 2_500 });
+    await waitFor(() => expect(invoke)
+      .toHaveBeenCalledWith("build_project", expect.objectContaining({ force: false, projectRoot: ROOT })), { timeout: 2_500 });
   }, 90_000);
 
   it("syncs an agent's unopened chapter without requiring an automatic build or remote change", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-agent-sync",
-      projectId: "agent-sync",
-      name: "Agent sync",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      root: "/tmp/lattice-agent-sync", projectId: "agent-sync", name: "Agent sync", rootDocuments: MAIN_DOCUMENT,
     });
     const source = "\\documentclass{article}";
     renderApp({
@@ -3526,33 +3225,26 @@ describe("project workspace", () => {
       overleaf_rt_connect: () => overleafSession({
         publicId: "me", rootFolderId: undefined, docs: [{ id: "main", path: "main.tex" }], userId: "me",
       }),
-      overleaf_rt_join_doc: () => ({
-        text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
-      }),
+      overleaf_rt_join_doc: () => ({ text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false }),
       overleaf_sync: () => overleafSyncResult({ pushed: ["sections/results.tex"] }),
       ...OVERLEAF_EMPTY_FEEDS,
     });
     await screen.findByRole("button", { name: "Switch project" });
     const { frame } = await openAgentFrame();
-    const postSnapshot = (entries: unknown[]) => postWindowMessage(frame.contentWindow, {
-      type: "lattice:project-history", activeThreadId: "agent-sync", entries,
-    });
-    postSnapshot([]);
+    postProjectHistory(frame, "agent-sync", []);
     const syncCalls = () => invokeCalls("overleaf_sync");
     expect(syncCalls()).toHaveLength(0);
-    postSnapshot([{
-      id: "cp-sync", label: "Edited chapter", timestamp: "2026-09-24T01:00:00.000Z",
-      threadId: "agent-sync", threadTitle: "Edit", turnId: "turn-sync", turnCount: 1,
+    postProjectHistory(frame, "agent-sync", [agentCheckpoint("sync", { path: "sections/results.tex", additions: 3, deletions: 1 }, {
+      label: "Edited chapter", timestamp: "2026-09-24T01:00:00.000Z", threadId: "agent-sync", threadTitle: "Edit",
       checkpointRef: "refs/lattice/checkpoints/test",
-      files: [{ path: "sections/results.tex", kind: "modified", additions: 3, deletions: 1 }],
-    }]);
+    })]);
     await waitFor(() => expect(syncCalls()).toHaveLength(1), { timeout: 6_000 });
     expect(syncCalls()[0][1]).toMatchObject({ projectRoot: snapshot.root });
     expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("sections/results.tex");
   });
 
   it("automatically rebuilds after the active source changes on disk", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    setAutoBuildMode("automatic");
     const snapshot = projectSnapshot({ files: [] });
     let source = "\\documentclass{article}";
     let mtimeMs = 1;
@@ -3560,21 +3252,20 @@ describe("project workspace", () => {
       ...projectCommands(snapshot),
       read_project_file: () => source,
       stat_project_file: () => ({ exists: true, mtimeMs }),
-      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT }));
     vi.mocked(invoke).mockClear();
     source = "\\documentclass{article}\nExternal edit.";
     mtimeMs = 2;
 
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
-      force: false, projectRoot: ROOT,
-    })), { timeout: 3_500 });
+    await waitFor(() => expect(invoke)
+      .toHaveBeenCalledWith("build_project", expect.objectContaining({ force: false, projectRoot: ROOT })), { timeout: 3_500 });
     expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 
   it("does not mistake a disk read started before autosave for a new external edit", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    setAutoBuildMode("automatic");
     const snapshot = projectSnapshot({ files: [] });
     const original = "\\documentclass{article}";
     let disk = original;
@@ -3598,14 +3289,10 @@ describe("project workspace", () => {
         return { content: disk, hadConflicts: false };
       },
       harper_lint: () => [],
-      build_project: () => ({ success: true, hasPdf: false, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     await expectInvoked("build_project", expect.anything());
-    const view = await waitFor(() => {
-      const editor = editorViewAt();
-      expect(editor?.state.doc.toString()).toBe(original);
-      return editor!;
-    });
+    const view = await expectEditorText(original);
     holdRead = true;
     mtimeMs += 1;
     await waitFor(() => expect(finishRead).toBeTypeOf("function"), { timeout: 3_500 });
@@ -3626,29 +3313,22 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "methods.md", name: "Methods", isDefault: true }],
       files: [fileNode("methods.md"), fileNode("notes.md")],
     });
-    persistLayout(snapshot.root, {
-      openTabs: ["methods.md", "notes.md"], activeFile: "methods.md", secondaryFile: "", canvasMode: "pdf",
-    });
-    const sources: Record<string, string> = {
-      "methods.md": "## Scope\n- **Measures**: Initial result\n", "notes.md": "# Notes",
-    };
+    persistLayout(snapshot.root, { openTabs: ["methods.md", "notes.md"], activeFile: "methods.md", secondaryFile: "", canvasMode: "pdf" });
+    const sources: Record<string, string> = { "methods.md": "## Scope\n- **Measures**: Initial result\n", "notes.md": "# Notes" };
     let mtimeMs = 1;
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => sources[argPath(args)] ?? "",
+      read_project_file: readFiles(sources, ""),
       stat_project_file: () => ({ exists: true, mtimeMs }),
       write_project_file: undefined,
     });
-    await waitFor(() => expect(screen.getByRole("textbox", {
-      name: "Markdown document editor",
-    })).toHaveTextContent("Initial result"));
+    const visualEditor = () => screen.getByRole("textbox", { name: "Markdown document editor" });
+    await waitFor(() => expect(visualEditor()).toHaveTextContent("Initial result"));
     sources["methods.md"] = "## Scope\n- **Measures**: Agent revision\n";
     mtimeMs = 2;
 
-    await waitFor(() => expect(screen.getByRole("textbox", {
-      name: "Markdown document editor",
-    })).toHaveTextContent("Agent revision"), { timeout: 4_000 });
+    await waitFor(() => expect(visualEditor()).toHaveTextContent("Agent revision"), { timeout: 4_000 });
     expect(screen.queryByText("This document changed in the same place")).not.toBeInTheDocument();
 
     await openTreeFile("notes.md");
@@ -3677,16 +3357,8 @@ describe("project workspace", () => {
     });
     const documentView = await screen.findByRole("tablist", { name: "Document view" });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Split" }));
-    const view = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-      expect(element).not.toBeNull();
-      const editor = EditorView.findFromDOM(element!)!;
-      expect(editor.state.doc.toString()).toBe(source);
-      return editor;
-    }, { timeout: 10_000 });
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("stat_project_file", {
-      path: "notes.md",
-    }), { timeout: 3_500 });
+    const view = await expectEditorText(source, ".source-editor .cm-editor", { timeout: 10_000 });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("stat_project_file", { path: "notes.md" }), { timeout: 3_500 });
 
     const externalSource = "# Notes\n\nParagraph\n";
     source = externalSource;
@@ -3712,8 +3384,7 @@ describe("project workspace", () => {
     const pendingFetch = new Promise((resolve) => { finishFetch = resolve; });
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [
         attentionPaper(),
         // Added through bibcite: in the bibliography, never fetched.
@@ -3721,7 +3392,6 @@ describe("project workspace", () => {
         // A book: cited, but there is no preprint to fetch.
         { arxivId: "", title: "The TeXbook", citationKey: "knuth1984texbook", hasFullText: false },
       ],
-      list_history: () => [],
       fetch_paper: pendingFetch,
       // Importing refreshes the project afterwards.
       refresh_project: snapshot,
@@ -3737,8 +3407,7 @@ describe("project workspace", () => {
     expect(citedOnly).toHaveTextContent("arXiv 1412.6980");
 
     // A work with no preprint has nothing to fetch, so it stays inert.
-    const noPreprint = papers.getByTitle(/The TeXbook.*no local reading available/);
-    expect(noPreprint).toBeDisabled();
+    expect(papers.getByTitle(/The TeXbook.*no local reading available/)).toBeDisabled();
 
     // The fetched one still opens in the reader.
     expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
@@ -3758,100 +3427,67 @@ describe("project workspace", () => {
 
   it("warns about DOI-exact citation updates and opens the Crossref notice", async () => {
     const snapshot = projectSnapshot();
+    const work = { arxivId: "", hasFullText: false, hasBlog: false };
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [{
-        arxivId: "",
-        doi: "10.1234/example",
-        title: "A historically important result",
-        citationKey: "example2020",
-        hasFullText: false,
-        hasBlog: false,
+        ...work, doi: "10.1234/example", title: "A historically important result", citationKey: "example2020",
         citationHealth: {
-          kind: "retracted",
-          updateType: "retraction",
-          source: "retraction-watch",
-          date: "2023-09-17",
-          link: "https://doi.org/10.5555/retraction-notice",
-          checkedAt: "2026-08-13T12:00:00Z",
+          kind: "retracted", updateType: "retraction", source: "retraction-watch", date: "2023-09-17",
+          link: "https://doi.org/10.5555/retraction-notice", checkedAt: "2026-08-13T12:00:00Z",
         },
       }, {
-        arxivId: "",
-        doi: "10.1234/no-updates",
-        title: "No registered update",
-        citationKey: "current2024",
-        hasFullText: false,
-        hasBlog: false,
+        ...work, doi: "10.1234/no-updates", title: "No registered update", citationKey: "current2024",
         citationHealth: { kind: "unknown", source: "crossref", checkedAt: "2026-08-13T12:00:00Z" },
       }],
-      list_history: () => [],
     });
     await switchSidebarMode("Papers");
     const warning = await screen.findByRole("status");
     expect(warning).toHaveTextContent("Retracted · Retraction Watch · 2023-09-17");
     expect(screen.queryByText(/No Crossref update metadata found/, { selector: ".paper-citation-health" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {
-      name: "Retracted · Retraction Watch · 2023-09-17. Open notice",
-    }));
+    fireEvent.click(screen.getByRole("button", { name: "Retracted · Retraction Watch · 2023-09-17. Open notice" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://doi.org/10.5555/retraction-notice"));
   });
 
   it("filters the current Papers library by metadata without starting an import", async () => {
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [
         attentionPaper({ authors: "Ashish Vaswani and Noam Shazeer", citationKey: "vaswani2017attention", hasBlog: false }),
         {
-          arxivId: "1412.6980",
-          title: "Adam: A Method for Stochastic Optimization",
-          authors: "Diederik P. Kingma and Jimmy Ba",
-          citationKey: "kingma2015adam",
-          hasFullText: true,
-          hasBlog: false,
+          arxivId: "1412.6980", title: "Adam: A Method for Stochastic Optimization", authors: "Diederik P. Kingma and Jimmy Ba",
+          citationKey: "kingma2015adam", hasFullText: true, hasBlog: false,
         },
       ],
-      search_paper_library: (args) => {
-        const query = String((args as { query?: string } | undefined)?.query ?? "");
-        return query === "scaled dot-product"
-          ? [{
-              kind: "paper",
-              path: ".research/papers/1706.03762/paper.md",
-              title: "Attention Is All You Need",
-              snippet: "The scaled dot-product attention mechanism.",
-              line: 42,
-              arxivId: "1706.03762",
-            }]
-          : [];
-      },
-      list_history: () => [],
+      search_paper_library: (args) => (args as { query?: string } | undefined)?.query === "scaled dot-product" ? [{
+        kind: "paper", path: ".research/papers/1706.03762/paper.md", title: "Attention Is All You Need",
+        snippet: "The scaled dot-product attention mechanism.", line: 42, arxivId: "1706.03762",
+      }] : [],
     });
     await switchSidebarMode("Papers");
     const search = await screen.findByRole("searchbox", { name: "Search or import papers" });
     const list = within(await screen.findByRole("list", { name: "Papers" }));
+    const [attention, adam] = ["Attention Is All You Need", "Adam: A Method for Stochastic Optimization"];
 
     fireEvent.change(search, { target: { value: "diederik 1412" } });
-    expect(list.getByTitle("Adam: A Method for Stochastic Optimization")).toBeInTheDocument();
-    expect(list.queryByTitle("Attention Is All You Need")).not.toBeInTheDocument();
+    expect(list.getByTitle(adam)).toBeInTheDocument();
+    expect(list.queryByTitle(attention)).not.toBeInTheDocument();
     expect(list.getByText("1 of 2 papers")).toBeInTheDocument();
 
-    fireEvent.change(search, { target: { value: "https://arxiv.org/pdf/1706.03762" } });
-    expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
-    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
-
-    fireEvent.change(search, { target: { value: "vaswani attention" } });
-    expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
-    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
+    for (const query of ["https://arxiv.org/pdf/1706.03762", "vaswani attention"]) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(list.getByTitle(attention)).toBeInTheDocument();
+      expect(list.queryByTitle(adam)).not.toBeInTheDocument();
+    }
 
     fireEvent.change(search, { target: { value: "scaled dot-product" } });
     await waitFor(() => {
-      expect(list.getByTitle("Attention Is All You Need")).toBeInTheDocument();
+      expect(list.getByTitle(attention)).toBeInTheDocument();
       expect(list.getByText("The scaled dot-product attention mechanism.")).toBeInTheDocument();
     });
-    expect(list.queryByTitle("Adam: A Method for Stochastic Optimization")).not.toBeInTheDocument();
+    expect(list.queryByTitle(adam)).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "missing paper" } });
     expect(list.getByText("No matching papers")).toBeInTheDocument();
@@ -3863,19 +3499,12 @@ describe("project workspace", () => {
     const bibtex = "@misc{report2026, title={An Unambiguous Research Report}, author={Ada Smith}, year={2026}, eprint={2601.01234}, archivePrefix={arXiv}}";
     const draft = { key: "report2026", title, author: "Ada Smith", year: "2026", journal: "", booktitle: "", publisher: "", url: "https://arxiv.org/abs/2601.01234", doi: "", entryType: "misc", bibtex, extraFields: { eprint: "2601.01234", archivePrefix: "arXiv" } };
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-title-import",
-      projectId: "title-import",
-      name: "Title import",
-      rootDocuments: [],
-      trusted: true,
-      files: [],
+      root: "/tmp/lattice-title-import", projectId: "title-import", name: "Title import", rootDocuments: [], trusted: true, files: [],
     });
     let imported = false;
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, ""),
       refresh_project: snapshot,
-      list_history: () => [],
-      read_project_file: "",
       list_papers: () => imported
         ? [{ arxivId: "2601.01234", title, hasFullText: true, hasBlog: true, citationKey: draft.key }] : [],
       resolve_citation_query: () => ambiguous
@@ -3908,12 +3537,7 @@ describe("project workspace", () => {
     const title = "Visual object processing in optic aphasia: A case of semantic access agnosia";
     const doi = "10.1093/neucas/3.3.209-w";
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-title-review",
-      projectId: "title-review",
-      name: "Title review",
-      rootDocuments: [],
-      trusted: true,
-      files: [],
+      root: "/tmp/lattice-title-review", projectId: "title-review", name: "Title review", rootDocuments: [], trusted: true, files: [],
     });
     const draft = { key: "riddoch1997visual", title, author: "Riddoch, M. J.", year: "1997", journal: "Neurocase", booktitle: "", publisher: "", url: `https://doi.org/${doi}`, doi, entryType: "article" };
     let finishResolve!: (value: unknown) => void;
@@ -3947,33 +3571,19 @@ describe("project workspace", () => {
   });
 
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
-    const snapshot = projectSnapshot({
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-      trusted: true,
-      files: [fileNode("main.tex", "file")],
-    });
+    const snapshot = projectSnapshot({ rootDocuments: MAIN_DOCUMENT, trusted: true, files: [fileNode("main.tex", "file")] });
+    const title = "Deep Residual Learning for Image Recognition";
     let imported = false;
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{article}",
-      list_papers: () => imported ? [{
-        arxivId: "", title: "Deep Residual Learning for Image Recognition", citationKey: "he2016deep",
-        doi: "10.1109/CVPR.2016.90", hasFullText: false, hasBlog: false,
-      }] : [],
-      list_history: () => [],
+      ...projectCommands(snapshot),
+      list_papers: () => imported
+        ? [{ arxivId: "", title, citationKey: "he2016deep", doi: "10.1109/CVPR.2016.90", hasFullText: false, hasBlog: false }] : [],
       bibliography_audit_scan: () => ({ entries: [], issues: [] }),
       // No arXiv id anywhere in the answer: bibcite resolved a DOI and wrote
       // the entry, and there is no text on disk to point at.
       import_reference: () => {
         imported = true;
-        return {
-          paperPath: "",
-          arxivId: "",
-          title: "Deep Residual Learning for Image Recognition",
-          citationKey: "he2016deep",
-          citationOutput: "",
-          alreadyImported: false,
-        };
+        return { paperPath: "", arxivId: "", title, citationKey: "he2016deep", citationOutput: "", alreadyImported: false };
       },
       refresh_project: snapshot,
     });
@@ -3987,7 +3597,7 @@ describe("project workspace", () => {
     // admit there is nothing to open rather than imply a paper was fetched.
     await expectNotification(/Added .Deep Residual Learning.*cite it with \\cite\{he2016deep\}.*No full text to open/);
     expect(box).toHaveValue("10.1109/CVPR.2016.90");
-    expect(await screen.findByText("Deep Residual Learning for Image Recognition", { selector: ".paper-open strong" })).toBeInTheDocument();
+    expect(await screen.findByText(title, { selector: ".paper-open strong" })).toBeInTheDocument();
     const checkReferences = screen.getByRole("button", { name: "Check references" });
     expect(checkReferences.closest(".sidebar-mode-actions")).toBeInTheDocument();
     expect(checkReferences.textContent).toBe("");
@@ -4000,11 +3610,8 @@ describe("project workspace", () => {
     [false, false, "zh-CN"], [true, false, "zh-CN"],
     [false, true, "zh-CN"], [true, true, "zh-CN"],
   ] as const)("cancels the active import with its request id (bibliography: %s, full text: %s, locale: %s)", async (committed, fullText, locale) => {
-    await activateAppLocale(locale);
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: locale }));
-    const snapshot = projectSnapshot({
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }], trusted: true, files: [],
-    });
+    await setInterfaceLanguage(locale);
+    const snapshot = projectSnapshot({ rootDocuments: MAIN_DOCUMENT, trusted: true, files: [] });
     let finishImport: (value: unknown) => void = () => {};
     let requestId: string | undefined;
     renderApp({
@@ -4050,10 +3657,8 @@ describe("project workspace", () => {
   it.each(["click", "drop"])("shows imported papers by title while keeping the arXiv id via %s", async (interaction) => {
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [attentionPaper({ authors: "Ashish Vaswani and Noam Shazeer", hasBlog: true })],
-      list_history: () => [],
       read_paper: "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n"
         + "## Abstract\n\n- [ ] Review paper",
       read_paper_blog_local: "# Attention overview\n\nA concise explanation.",
@@ -4094,16 +3699,10 @@ describe("project workspace", () => {
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
     const blogEditor = editorViewAt(".source-editor .cm-editor");
-    blogEditor.dispatch({
-      changes: {
-        from: 0, to: blogEditor.state.doc.length, insert: "# Edited overview\n\nSaved from Papers.",
-      },
-    });
+    blogEditor.dispatch({ changes: { from: 0, to: blogEditor.state.doc.length, insert: "# Edited overview\n\nSaved from Papers." } });
     fireEvent.keyDown(window, { key: "s", metaKey: true });
     await expectInvoked("write_project_file", {
-      path: ".research/papers/1706.03762/blog.md",
-      content: "# Edited overview\n\nSaved from Papers.",
-      projectRoot: ROOT,
+      path: ".research/papers/1706.03762/blog.md", content: "# Edited overview\n\nSaved from Papers.", projectRoot: ROOT,
     });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     expect(await screen.findByRole("heading", { name: "Edited overview" })).toBeInTheDocument();
@@ -4112,11 +3711,9 @@ describe("project workspace", () => {
     const abstractHeading = await screen.findByRole("heading", { name: "Abstract" });
     const paperHeader = document.querySelector<HTMLElement>(".paper-visual-header");
     expect(paperHeader).not.toBeNull();
-    expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" }))
-      .toBeInTheDocument();
+    expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
     expect(within(paperHeader!).getByText("Ashish Vaswani · Noam Shazeer")).toBeInTheDocument();
-    expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .toBeTruthy();
+    expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox"));
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
@@ -4124,14 +3721,10 @@ describe("project workspace", () => {
     const paperEditor = await waitFor(() => editorViewAt(".source-editor .cm-editor"));
     expect(paperEditor.state.doc.toString()).toContain("- [ ] Hidden metadata task");
     expect(paperEditor.state.doc.toString()).toContain("- [x] Review paper");
-    paperEditor.dispatch({
-      changes: { from: 0, to: paperEditor.state.doc.length, insert: "# Edited paper\n\nLocal notes." },
-    });
+    paperEditor.dispatch({ changes: { from: 0, to: paperEditor.state.doc.length, insert: "# Edited paper\n\nLocal notes." } });
     fireEvent.keyDown(window, { key: "s", metaKey: true });
     await expectInvoked("write_project_file", {
-      path: ".research/papers/1706.03762/paper.md",
-      content: "# Edited paper\n\nLocal notes.",
-      projectRoot: ROOT,
+      path: ".research/papers/1706.03762/paper.md", content: "# Edited paper\n\nLocal notes.", projectRoot: ROOT,
     });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     expect(await screen.findByRole("heading", { name: "Edited paper" })).toBeInTheDocument();
@@ -4146,26 +3739,16 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot();
     const paperPath = ".research/papers/1706.03762/paper.md";
     persistLayout(snapshot.root, {
-      openTabs: ["main.tex", paperPath],
-      activeFile: "main.tex",
-      canvasMode: "source",
-      documentMode: "split",
-      paperView: "fulltext",
+      openTabs: ["main.tex", paperPath], activeFile: "main.tex", canvasMode: "source", documentMode: "split", paperView: "fulltext",
     });
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{article}",
+      ...projectCommands(snapshot),
       list_papers: () => [attentionPaper({ authors: "Ashish Vaswani and Noam Shazeer", hasBlog: false })],
       read_paper: "## Abstract\n\nPaper content.",
       read_paper_blog_local: null,
-      list_history: () => [],
       harper_lint: () => [],
     });
-    const paperTabButton = await screen.findByRole(
-      "tab",
-      { name: /Attention Is All You Need/ },
-      { timeout: 20_000 },
-    );
+    const paperTabButton = await screen.findByRole("tab", { name: /Attention Is All You Need/ }, { timeout: 20_000 });
     await waitFor(() => expect(document.querySelector(".source-editor .cm-content"))
       .toHaveTextContent("\\documentclass{article}"), { timeout: 20_000 });
     fireEvent.click(paperTabButton);
@@ -4178,28 +3761,21 @@ describe("project workspace", () => {
       expect(document.querySelector(".editor-tab-split-drop-preview")).toHaveTextContent("Open on right");
     });
 
-    await waitFor(() => expect(document.querySelector(".paper-pane"))
-      .toHaveAttribute("data-paper-side", "left"));
+    await waitFor(() => expect(document.querySelector(".paper-pane")).toHaveAttribute("data-paper-side", "left"));
     expect(paneContent("secondary")).toHaveTextContent("\\documentclass{article}");
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
 
     dragTabToRightEdge(/Attention Is All You Need/);
 
-    await waitFor(() => expect(document.querySelector(".paper-pane"))
-      .toHaveAttribute("data-paper-side", "right"));
-    const dual = document.querySelector(".dual-canvas")!;
-    const paperPane = document.querySelector(".paper-pane")!;
-    expect(dual.lastElementChild).toBe(paperPane);
-    expect(screen.getByRole("tab", { name: /Attention Is All You Need/ }))
-      .toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(document.querySelector(".paper-pane")).toHaveAttribute("data-paper-side", "right"));
+    expect(document.querySelector(".dual-canvas")!.lastElementChild).toBe(document.querySelector(".paper-pane"));
+    expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true");
   });
 
   it("does not start a full sync when an opened Overleaf project is unchanged", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot({
-      root: "/tmp/unchanged-overleaf-paper",
-      projectId: "unchanged-overleaf-paper-id",
-      name: "Unchanged Overleaf paper",
+      root: "/tmp/unchanged-overleaf-paper", projectId: "unchanged-overleaf-paper-id", name: "Unchanged Overleaf paper",
     });
     let syncCount = 0;
     renderApp({
@@ -4219,9 +3795,7 @@ describe("project workspace", () => {
       overleaf_rt_disconnect: undefined,
       ...OVERLEAF_EMPTY_FEEDS,
     });
-    await expectInvoked("overleaf_probe", {
-      projectRoot: "/tmp/unchanged-overleaf-paper", checkLocal: true, live: [],
-    });
+    await expectInvoked("overleaf_probe", { projectRoot: "/tmp/unchanged-overleaf-paper", checkLocal: true, live: [] });
     await act(async () => { await Promise.resolve(); });
 
     expect(syncCount).toBe(0);
@@ -4230,15 +3804,11 @@ describe("project workspace", () => {
   });
 
   it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {
-    const snapshot = projectSnapshot({
-      root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
-    });
+    const snapshot = overleafPaperSnapshot();
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: "\\documentclass{article}",
       list_papers: () => [attentionPaper({ hasBlog: false })],
-      list_history: () => [],
       read_paper: "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.",
       read_paper_blog: null,
       overleaf_link: () => overleafLink({ projectId: "ol-read-only" }),
@@ -4246,8 +3816,8 @@ describe("project workspace", () => {
       overleaf_probe: () => overleafProbe(),
       overleaf_rt_connect: () => overleafSession({ permission: "readOnly" }),
       overleaf_status: () => overleafStatus({ email: "reader@example.com", name: "Reader" }),
-      overleaf_rt_disconnect: (_args, command) => command === "git_auto_commit" ? null : undefined,
-      git_auto_commit: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      overleaf_rt_disconnect: undefined,
+      git_auto_commit: null,
       ...OVERLEAF_EMPTY_FEEDS,
     });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
@@ -4260,13 +3830,10 @@ describe("project workspace", () => {
   });
 
   it("routes toolbar and status comments to one Overleaf drawer while preserving local history", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
     const snapshot = projectSnapshot({
-      root: "/tmp/unified-comments",
-      projectId: "unified-comments",
-      name: "Review paper",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      root: "/tmp/unified-comments", projectId: "unified-comments", name: "Review paper", rootDocuments: MAIN_DOCUMENT,
     });
     const comments = [false, true].map((resolved, index) => ({
       id: `local-${index}`, path: index ? "unsynced.tex" : "main.tex", from: 0, to: 5,
@@ -4320,23 +3887,15 @@ describe("project workspace", () => {
   });
 
   it("opens the linked project on its Overleaf host and keeps the project picker available", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
-    const snapshot = projectSnapshot({
-      root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
-    });
+    const snapshot = overleafPaperSnapshot();
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      overleaf_link: () => ({
-        projectId: "ol/project id",
-        projectName: "Overleaf paper",
-        // Legacy links did not persist the host, so the active account is the
-        // source of truth for where their web project lives.
-        host: "",
-        lastSync: null,
-        paused: false,
-      }),
+      // Legacy links did not persist the host, so the active account is the
+      // source of truth for where their web project lives.
+      overleaf_link: () => overleafLink({ projectId: "ol/project id", host: "" }),
       overleaf_status: () => overleafStatus({ host: "https://overleaf.example.edu/" }),
       overleaf_sync: () => overleafSyncResult(),
       overleaf_probe: () => overleafProbe(),
@@ -4349,9 +3908,7 @@ describe("project workspace", () => {
     const actions = await screen.findByRole("button", { name: "Overleaf project actions" });
     fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Open in Overleaf" }));
-    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(
-      "https://overleaf.example.edu/project/ol%2Fproject%20id",
-    ));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://overleaf.example.edu/project/ol%2Fproject%20id"));
 
     fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Open another Overleaf project" }));
@@ -4362,11 +3919,9 @@ describe("project workspace", () => {
   });
 
   it("silently retries a transient automatic Overleaf outage but reports it for manual sync", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = projectSnapshot({
-      root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
-    });
+    const snapshot = overleafPaperSnapshot();
     const transportFailure = new Error("error decoding response body");
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(1_000_000);
@@ -4396,9 +3951,7 @@ describe("project workspace", () => {
     });
     await waitFor(() => expect(syncCount).toBe(1), { timeout: 30_000 });
     await waitFor(() => expect(formatAppLogs()).toMatch(/error decoding response body/));
-    expect(getVisibleAppToastIds().map((id) => getAppLogEntry(id))
-      .filter((entry) => entry?.source === "Overleaf"))
-      .toHaveLength(0);
+    expect(visibleToasts("Overleaf")).toHaveLength(0);
 
     failSync = false;
     vi.setSystemTime(1_030_000);
@@ -4408,24 +3961,15 @@ describe("project workspace", () => {
     act(() => { (poll as () => void)(); });
     await waitFor(() => expect(syncCount).toBe(2));
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "git_auto_commit")).toBe(false);
-    expect(getVisibleAppToastIds().map((id) => getAppLogEntry(id))
-      .filter((entry) => entry?.source === "Overleaf"))
-      .toHaveLength(0);
+    expect(visibleToasts("Overleaf")).toHaveLength(0);
 
-    const syncButton = await waitFor(() => {
-      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
-      expect(button).not.toBeNull();
-      expect(button).not.toBeDisabled();
-      return button!;
-    });
+    const syncButton = await findOverleafSyncButton();
     probeChanged = true;
     vi.setSystemTime(1_060_000);
     act(() => { window.dispatchEvent(new Event("focus")); });
     await waitFor(() => expect(syncCount).toBe(3));
     expect(invoke).toHaveBeenCalledWith("overleaf_sync", {
-      projectRoot: "/tmp/lattice-overleaf-paper",
-      live: [],
-      observedRemoteVersion: 77,
+      projectRoot: "/tmp/lattice-overleaf-paper", live: [], observedRemoteVersion: 77,
       diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
     });
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "git_auto_commit")).toBe(false);
@@ -4441,43 +3985,28 @@ describe("project workspace", () => {
   });
 
   it("localizes confirmation and completion when removing a locally deleted Overleaf file", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    await setInterfaceLanguage("zh-CN");
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = projectSnapshot({
-      root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
-    });
-    mockCommands({
+    const snapshot = overleafPaperSnapshot();
+    renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
       overleaf_link: () => overleafLink(),
       overleaf_status: () => overleafStatus(),
       overleaf_sync: () => overleafSyncResult({ skippedRemoteDeletes: ["results.lattice-sheet.bak"] }),
       overleaf_probe: () => overleafProbe(),
-      overleaf_rt_connect: () => overleafSession({
-        entities: [{ id: "backup-file", path: "results.lattice-sheet.bak", kind: "file" }],
-      }),
+      overleaf_rt_connect: () => overleafSession({ entities: [{ id: "backup-file", path: "results.lattice-sheet.bak", kind: "file" }] }),
       overleaf_rt_disconnect: undefined,
       overleaf_delete_entity: undefined,
       git_auto_commit: null,
       harper_lint: () => [],
       ...OVERLEAF_EMPTY_FEEDS,
-    });
-
-    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    }, { confirmations: true });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
-    const syncButton = await waitFor(() => {
-      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
-      expect(button).not.toBeNull();
-      expect(button).not.toBeDisabled();
-      return button!;
-    });
-    fireEvent.click(syncButton);
+    fireEvent.click(await findOverleafSyncButton());
 
-    const dialog = await screen.findByRole("dialog", {
-      name: "从 Overleaf 项目中删除 1 个文件？",
-    }, { timeout: 15_000 });
+    const dialog = await screen.findByRole("dialog", { name: "从 Overleaf 项目中删除 1 个文件？" }, { timeout: 15_000 });
     expect(dialog).toHaveAccessibleDescription(
       "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它",
     );
@@ -4490,10 +4019,8 @@ describe("project workspace", () => {
   });
 
   it("silently removes legacy app-owned intermediates from Overleaf", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = projectSnapshot({
-      root: "/tmp/lattice-overleaf-paper", projectId: "overleaf-paper-id", name: "Overleaf paper",
-    });
+    setAutoBuildMode("manual");
+    const snapshot = overleafPaperSnapshot();
     let syncCount = 0;
     renderApp({
       ...projectCommands(snapshot),
@@ -4510,10 +4037,9 @@ describe("project workspace", () => {
         localChanged: Boolean((args as { checkLocal?: boolean } | undefined)?.checkLocal),
       }),
       overleaf_rt_connect: () => overleafSession({ entities: [
-          { id: "tmp-folder", path: "tmp", kind: "folder" },
-          { id: "pdfs-folder", path: "tmp/pdfs", kind: "folder" },
-          { id: "save-error-file", path: "lambda_gpu_proposal.bbl-SAVE-ERROR", kind: "file" },
-        ] }),
+        { id: "tmp-folder", path: "tmp", kind: "folder" }, { id: "pdfs-folder", path: "tmp/pdfs", kind: "folder" },
+        { id: "save-error-file", path: "lambda_gpu_proposal.bbl-SAVE-ERROR", kind: "file" },
+      ] }),
       overleaf_rt_disconnect: undefined,
       overleaf_delete_entity: undefined,
       git_auto_commit: null,
@@ -4521,20 +4047,11 @@ describe("project workspace", () => {
     });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
     await waitFor(() => expect(syncCount).toBe(1));
-    const syncButton = await waitFor(() => {
-      const button = document.querySelector<HTMLButtonElement>("button[data-tour='overleaf']");
-      expect(button).not.toBeNull();
-      expect(button).not.toBeDisabled();
-      return button!;
-    });
-    fireEvent.click(syncButton);
+    fireEvent.click(await findOverleafSyncButton());
 
-    await expectInvoked("overleaf_delete_entity", {
-      projectRoot: "/tmp/lattice-overleaf-paper", kind: "folder", entityId: "pdfs-folder",
-    });
-    expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", {
-      projectRoot: "/tmp/lattice-overleaf-paper", kind: "file", entityId: "save-error-file",
-    });
+    const deleted = (kind: string, entityId: string) => ({ projectRoot: "/tmp/lattice-overleaf-paper", kind, entityId });
+    await expectInvoked("overleaf_delete_entity", deleted("folder", "pdfs-folder"));
+    expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", deleted("file", "save-error-file"));
     expect(confirm).not.toHaveBeenCalled();
   });
 
@@ -4548,11 +4065,9 @@ describe("project workspace", () => {
     const citationUrl = `${url}.pdf#page=8`;
     const paper = { arxivId: "web-0123456789abcdef", url, title: "MiMo-V2.6", hasFullText: fallback, hasBlog: cached };
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: "\\documentclass{article}",
       list_papers: () => [{ ...paper }],
-      list_history: () => [],
       harper_lint: () => [],
       fetch_web_reference: () => {
         paper.hasBlog = true;
@@ -4599,16 +4114,11 @@ describe("project workspace", () => {
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [{
-        arxivId: "web-0123456789abcdef",
-        url: "https://example.com/research/article",
-        title: "A captured research article",
-        hasFullText: true,
-        hasBlog: false,
+        arxivId: "web-0123456789abcdef", url: "https://example.com/research/article", title: "A captured research article",
+        hasFullText: true, hasBlog: false,
       }],
-      list_history: () => [],
       read_paper: "# A captured research article\n\nArticle content.",
       read_paper_blog: null,
     });
@@ -4616,8 +4126,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByTitle("A captured research article"));
 
     const paperHeader = await findElement(".paper-visual-header");
-    expect(within(paperHeader).getByRole("heading", { name: "A captured research article" }))
-      .toBeInTheDocument();
+    expect(within(paperHeader).getByRole("heading", { name: "A captured research article" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open article in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
@@ -4634,13 +4143,11 @@ describe("project workspace", () => {
     const pendingFirst = new Promise<string>((resolve) => { resolveFirst = resolve; });
     let secondAttempts = 0;
     mockCommands({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [
         { arxivId: "web-first", url: firstUrl, title: "First PDF", hasFullText: true, hasBlog: false },
         { arxivId: "web-second", url: secondUrl, title: "Second PDF", hasFullText: true, hasBlog: false },
       ],
-      list_history: () => [],
       read_paper: (args) => `# ${(args as { arxivId: string }).arxivId}`,
       read_paper_blog: null,
       paper_pdf_preview_url: (args) => {
@@ -4652,19 +4159,9 @@ describe("project workspace", () => {
       },
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
-    vi.mocked(getDocument).mockImplementation(() => {
-      return {
-        promise: Promise.resolve({
-          numPages: 2,
-          getPage: vi.fn(async () => pdfPageStub({ render: () => renderTask })),
-          getData: vi.fn(async () => new Uint8Array(secondBytes)),
-          getDestination: vi.fn(),
-          getPageIndex: vi.fn(),
-          cleanup: vi.fn(),
-        }),
-        destroy: vi.fn(),
-      } as never;
-    });
+    mockPdfDocument(() => pdfDocumentStub(2, { render: () => renderTask }, {
+      getData: vi.fn(async () => new Uint8Array(secondBytes)), cleanup: vi.fn(),
+    }));
 
     renderApp();
     await switchSidebarMode("Papers");
@@ -4694,10 +4191,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
     await waitFor(() => expect(getDocument).toHaveBeenCalledTimes(2));
     expect(secondAttempts).toBe(2);
-    const loadedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
-      data?: ArrayBuffer;
-      url?: string;
-    } | undefined;
+    const loadedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as { data?: ArrayBuffer; url?: string } | undefined;
     expect(loadedSource?.url).toBeUndefined();
     expect(new Uint8Array(loadedSource?.data ?? new ArrayBuffer(0))).toEqual(expectedSecondBytes);
     expect(screen.getByRole("textbox", { name: "PDF page number" })).toHaveValue("1");
@@ -4706,29 +4200,17 @@ describe("project workspace", () => {
   it("streams an arXiv PDF and reopens its complete in-memory bytes", async () => {
     const snapshot = projectSnapshot();
     const pdfBytes = new TextEncoder().encode("%PDF-1.7 streamed arXiv paper").buffer;
-    mockCommands({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
-      list_papers: () => [{
-        arxivId: "1706.03762v7", title: "Attention Is All You Need", hasFullText: true, hasBlog: false,
-      }],
-      list_history: () => [],
+    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+    const pdf = pdfDocumentStub(1, { render: () => renderTask }, {
+      getData: vi.fn(async () => new Uint8Array(pdfBytes)), cleanup: vi.fn(),
+    });
+    mockPdfDocument(() => pdf);
+    renderApp({
+      ...projectCommands(snapshot, "\\documentclass{main}"),
+      list_papers: () => [{ arxivId: "1706.03762v7", title: "Attention Is All You Need", hasFullText: true, hasBlog: false }],
       read_paper: "## Abstract\n\nPaper content.",
       read_paper_blog: null,
     });
-    const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
-    const pdf = {
-      numPages: 1,
-      getPage: vi.fn(async () => pdfPageStub({ render: () => renderTask })),
-      getData: vi.fn(async () => new Uint8Array(pdfBytes)),
-      getDestination: vi.fn(),
-      getPageIndex: vi.fn(),
-      cleanup: vi.fn(),
-    };
-    vi.mocked(getDocument).mockImplementation(() => ({
-      promise: Promise.resolve(pdf), destroy: vi.fn(),
-    }) as never);
-    renderApp();
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
     const viewOriginalPdf = await screen.findByRole("button", { name: "View original PDF" });
@@ -4755,14 +4237,10 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
 
     await waitFor(() => {
-      const remoteLoads = vi.mocked(getDocument).mock.calls.filter(([source]) => (
-        source as { url?: string }
-      ).url === "https://arxiv.org/pdf/1706.03762v7");
+      const remoteLoads = vi.mocked(getDocument).mock.calls
+        .filter(([source]) => (source as { url?: string }).url === "https://arxiv.org/pdf/1706.03762v7");
       expect(remoteLoads).toHaveLength(1);
-      const reopenedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as {
-        data?: Uint8Array;
-        url?: string;
-      } | undefined;
+      const reopenedSource = vi.mocked(getDocument).mock.calls.at(-1)?.[0] as { data?: Uint8Array; url?: string } | undefined;
       expect(reopenedSource?.url).toBeUndefined();
       expect(new Uint8Array(reopenedSource?.data ?? new ArrayBuffer(0))).toEqual(new Uint8Array(pdfBytes));
     });
@@ -4791,10 +4269,9 @@ describe("project workspace", () => {
       editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
     });
 
-    await waitFor(() => expect(postMessage.mock.calls.some(([message]) => {
-      const context = message as { type?: string; editor?: { selection?: string } };
-      return context.type === "lattice:host-context" && context.editor?.selection === "## Selected context";
-    })).toBe(true));
+    type HostContext = { editor?: { selection?: string } };
+    const hostContexts = () => postedOfType<HostContext>(postMessage, "lattice:host-context");
+    await waitFor(() => expect(hostContexts().some((context) => context.editor?.selection === "## Selected context")).toBe(true));
 
     const grip = document.querySelector<HTMLElement>(".ok-drag-grip");
     expect(grip).not.toBeNull();
@@ -4807,18 +4284,10 @@ describe("project workspace", () => {
     // block. That focus must not clear the context it just published.
     fireEvent.focus(surface);
 
-    const contextCount = postMessage.mock.calls.filter(([message]) => (
-      (message as { type?: string }).type === "lattice:host-context"
-    )).length;
+    const contextCount = hostContexts().length;
     postWindowMessage(frame.contentWindow, { type: "lattice:request-host-context" });
-    await waitFor(() => expect(postMessage.mock.calls.filter(([message]) => (
-      (message as { type?: string }).type === "lattice:host-context"
-    ))).toHaveLength(contextCount + 1));
-    const latestContext = postMessage.mock.calls
-      .map(([message]) => message as { type?: string; editor?: { selection?: string } })
-      .filter((message) => message.type === "lattice:host-context")
-      .at(-1);
-    expect(latestContext?.editor?.selection).toBe("## Selected context");
+    await waitFor(() => expect(hostContexts()).toHaveLength(contextCount + 1));
+    expect(hostContexts().at(-1)?.editor?.selection).toBe("## Selected context");
     postWindowMessage(frame.contentWindow, {
       type: "lattice:request-host-context", requestId: "fresh-comments", workspaceRoot: snapshot.root, refreshComments: true,
     });
@@ -4849,34 +4318,29 @@ describe("project workspace", () => {
     persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "pdf" });
     renderApp({
       ...projectCommands(snapshot, "![Figure](figures/figure.webp)"),
-      read_project_asset: () => ({
-        path: "figures/figure.webp", mimeType: "image/webp", base64: btoa("webp-bytes"),
-      }),
+      read_project_asset: () => ({ path: "figures/figure.webp", mimeType: "image/webp", base64: btoa("webp-bytes") }),
       prepare_latex_figure: "figures/figure-converted.png",
     });
     const { postMessage } = await openAgentFrame({ ready: true });
-    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = visualEditorOf(surface);
+    const editor = visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
     act(() => {
       editor.view.focus();
       editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
     });
 
     await expectInvoked("prepare_latex_figure", { path: "figures/figure.webp", projectRoot: ROOT });
-    await waitFor(() => expect(postMessage.mock.calls.some(([message]) => {
-      const context = message as {
-        type?: string;
-        editor?: {
-          selection?: string;
-          selectionImage?: { sourcePath?: string; agentReadablePath?: string; mimeType?: string };
-        };
-      };
-      return context.type === "lattice:host-context"
-        && context.editor?.selection === "![Figure](figures/figure.webp)"
-        && context.editor.selectionImage?.sourcePath === "figures/figure.webp"
-        && context.editor.selectionImage.agentReadablePath === "figures/figure-converted.png"
-        && context.editor.selectionImage.mimeType === "image/png";
-    })).toBe(true));
+    type ImageContext = {
+      editor?: { selection?: string; selectionImage?: { sourcePath?: string; agentReadablePath?: string; mimeType?: string } };
+    };
+    await waitFor(() => expect(postedOfType<ImageContext>(postMessage, "lattice:host-context").some(({ editor }) => (
+      editor?.selection === "![Figure](figures/figure.webp)" && editor.selectionImage?.sourcePath === "figures/figure.webp"
+      && editor.selectionImage.agentReadablePath === "figures/figure-converted.png" && editor.selectionImage.mimeType === "image/png"
+    ))).toBe(true));
+  });
+
+  // The outgoing notes must never be saved over the Paper being opened.
+  const NOTES_INTO_PAPER = expect.objectContaining({
+    path: ".research/papers/2407.06438/paper.md", content: expect.stringContaining("Original notes"),
   });
 
   it("publishes the current visual document before opening a Paper", async () => {
@@ -4885,17 +4349,14 @@ describe("project workspace", () => {
     });
     let resolveWrite: (() => void) | null = null;
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, "Original notes"),
       refresh_project: snapshot,
-      read_project_file: "Original notes",
       list_papers: () => [{ arxivId: "2407.06438", title: "Paper target", hasFullText: true }],
-      list_history: () => [],
       read_paper: "# Paper body",
       read_paper_blog: null,
       write_project_file: () => new Promise<void>((resolve) => { resolveWrite = resolve; }),
     });
-    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = visualEditorOf(surface);
+    const editor = visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
     act(() => editor.commands.insertContentAt(editor.state.doc.content.size, " updated"));
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByRole("button", { name: /Paper target.*2407\.06438/i }));
@@ -4906,20 +4367,12 @@ describe("project workspace", () => {
     expect(resolveWrite).not.toBeNull();
     act(() => resolveWrite?.());
 
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls).toContainEqual([
-      "write_project_file",
-      expect.objectContaining({
-        path: "notes.md", content: expect.stringMatching(/Original notes[\s\S]*updated/), projectRoot: ROOT,
-      }),
-    ]));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls).toContainEqual(["write_project_file", expect.objectContaining({
+      path: "notes.md", content: expect.stringMatching(/Original notes[\s\S]*updated/), projectRoot: ROOT,
+    })]));
     expect(await screen.findByRole("heading", { name: "Paper body" })).toBeInTheDocument();
     expect(screen.queryByText("Original notes updated")).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith(
-      "write_project_file",
-      expect.objectContaining({
-        path: ".research/papers/2407.06438/paper.md", content: expect.stringContaining("Original notes"),
-      }),
-    );
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", NOTES_INTO_PAPER);
   });
 
   it("keeps the current document when it is edited during a delayed Paper read", async () => {
@@ -4928,17 +4381,14 @@ describe("project workspace", () => {
     });
     let resolvePaper: ((value: string) => void) | null = null;
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, "Original notes"),
       refresh_project: snapshot,
-      read_project_file: "Original notes",
       list_papers: () => [{ arxivId: "2407.06438", title: "Delayed paper", hasFullText: true }],
-      list_history: () => [],
       read_paper: () => new Promise<string>((resolve) => { resolvePaper = resolve; }),
       read_paper_blog: null,
       write_project_file: undefined,
     });
-    const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = visualEditorOf(surface);
+    const editor = visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByRole("button", { name: /Delayed paper.*2407\.06438/i }));
     await waitFor(() => expect(resolvePaper).not.toBeNull());
@@ -4949,26 +4399,19 @@ describe("project workspace", () => {
 
     expect(editor.getText()).toMatch(/Original notes[\s\S]*late edit/);
     expect(screen.queryByRole("heading", { name: "Paper must not replace the edit" })).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith(
-      "write_project_file",
-      expect.objectContaining({
-        path: ".research/papers/2407.06438/paper.md", content: expect.stringContaining("Original notes"),
-      }),
-    );
+    expect(invoke).not.toHaveBeenCalledWith("write_project_file", NOTES_INTO_PAPER);
   });
 
   it("keeps only the latest Paper when overlapping reads finish out of order", async () => {
     const snapshot = projectSnapshot();
     const paperResolvers = new Map<string, (value: string) => void>();
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       refresh_project: snapshot,
-      read_project_file: "\\documentclass{main}",
       list_papers: () => [
         { arxivId: "2407.06438", title: "First paper", hasFullText: true },
         { arxivId: "2103.00020", title: "Second paper", hasFullText: true },
       ],
-      list_history: () => [],
       read_paper: (args) => new Promise<string>((resolve) => {
         paperResolvers.set((args as { arxivId: string }).arxivId, resolve);
       }),
@@ -4993,20 +4436,14 @@ describe("project workspace", () => {
   it("cancels a pending Paper when the user opens a local file in the secondary pane", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("right.tex"), fileNode("notes.md")] });
     persistLayout(snapshot.root, {
-      openTabs: ["main.tex", "right.tex"],
-      activeFile: "main.tex",
-      activeTab: "right.tex",
-      secondaryFile: "right.tex",
-      focusedPane: "secondary",
-      canvasMode: "dual",
-      tabRecency: ["right.tex", "main.tex"],
+      openTabs: ["main.tex", "right.tex"], activeFile: "main.tex", activeTab: "right.tex", secondaryFile: "right.tex",
+      focusedPane: "secondary", canvasMode: "dual", tabRecency: ["right.tex", "main.tex"],
     });
     let resolvePaper!: (value: string) => void;
     renderApp({
-      initial_project: snapshot,
-      read_project_file: (args) => `content:${argPath(args)}`,
+      ...projectCommands(snapshot),
+      read_project_file: readPathContent,
       list_papers: () => [{ arxivId: "2407.06438", title: "Delayed paper", hasFullText: true }],
-      list_history: () => [],
       read_paper: () => new Promise<string>((resolve) => { resolvePaper = resolve; }),
       read_paper_blog_local: null,
     });
@@ -5032,10 +4469,8 @@ describe("project workspace", () => {
   it("remembers the selected paper content when reopening an article", async () => {
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{main}",
+      ...projectCommands(snapshot, "\\documentclass{main}"),
       list_papers: () => [attentionPaper({ hasBlog: true })],
-      list_history: () => [],
       read_paper: "## Abstract\n\nPaper content.",
       read_paper_blog_local: "# Attention overview\n\nBlog content.",
     });
@@ -5043,8 +4478,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByTitle("Attention Is All You Need"));
     const paperContent = await screen.findByRole("tablist", { name: "Paper content" });
     fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
-    await waitFor(() => expect(within(paperContent).getByRole("tab", { name: "Paper" }))
-      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(within(paperContent).getByRole("tab", { name: "Paper" })).toHaveAttribute("aria-selected", "true"));
 
     await switchSidebarMode("Project");
     fireEvent.click(await findProjectTreeItem("main.tex"));
@@ -5055,60 +4489,42 @@ describe("project workspace", () => {
     await waitFor(() => expect(invokeCalls("read_paper")).toHaveLength(2));
 
     const reopenedPaperContent = await screen.findByRole("tablist", { name: "Paper content" });
-    await waitFor(() => expect(within(reopenedPaperContent).getByRole("tab", { name: "Paper" }))
-      .toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(within(reopenedPaperContent).getByRole("tab", { name: "Paper" })).toHaveAttribute("aria-selected", "true"));
+  });
+
+  /** A full-text search hit in a project file. */
+  const fileHit = (path: string, line: number, snippet: string, fileKind = "tex") => ({
+    kind: "file", path, title: path, snippet, line, fileKind,
   });
 
   it("opens indexed full-text search from the Project sidebar and opens file and Blog hits", async () => {
-    const paper = {
-      arxivId: "2407.06438",
-      title: "A Single Transformer",
-      citationKey: "chen2024single",
-      hasFullText: true,
-      hasBlog: true,
-    };
+    const paper = { ...SINGLE_TRANSFORMER, hasBlog: true };
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === "references.bib"
-        ? "Bibliography\n@article{chen2024single, title={A Single Transformer}}\n"
-        : "Main document\n",
+      read_project_file: readFiles({
+        "references.bib": "Bibliography\n@article{chen2024single, title={A Single Transformer}}\n",
+      }, "Main document\n"),
       list_papers: () => [paper],
-      list_history: () => [],
       read_paper: "# Full paper\n\nTransformer details.",
       read_paper_blog_local: "# Chen overview\n\nA residual stream explanation.",
       search_project: () => [
+        fileHit("references.bib", 2, "@article{chen2024single, title={A Single Transformer}}", "bib"),
         {
-          kind: "file",
-          path: "references.bib",
-          title: "references.bib",
-          snippet: "@article{chen2024single, title={A Single Transformer}}",
-          line: 2,
-          fileKind: "bib",
-        },
-        {
-          kind: "paper",
-          path: ".research/papers/2407.06438/blog.md",
-          title: paper.title,
-          snippet: "A residual stream explanation.",
-          line: 3,
-          arxivId: paper.arxivId,
+          kind: "paper", path: ".research/papers/2407.06438/blog.md", title: paper.title,
+          snippet: "A residual stream explanation.", line: 3, arxivId: paper.arxivId,
         },
       ],
     });
     fireEvent.click(await screen.findByRole("button", { name: "Find in project" }));
-    fireEvent.change(await screen.findByRole("searchbox", { name: "Find in project" }), {
-      target: { value: "chen" },
-    });
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Find in project" }), { target: { value: "chen" } });
     await expectInvoked("search_project", { query: "chen" });
-    expect(await screen.findByText(/@article\{chen2024single/, {
-      selector: ".project-replace-hit-preview",
-    })).toBeInTheDocument();
+    expect(await screen.findByText(/@article\{chen2024single/, { selector: ".project-replace-hit-preview" })).toBeInTheDocument();
     fireEvent.click(screen.getByText("references.bib:2"));
     await waitFor(() => {
       const view = editorViewAt();
-      expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
+      expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Open paper result: A Single Transformer" }));
@@ -5120,12 +4536,8 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot();
     let resolveOlder!: (hits: Array<Record<string, unknown>>) => void;
     let resolveNewer!: (hits: Array<Record<string, unknown>>) => void;
-    const older = new Promise<Array<Record<string, unknown>>>((resolve) => {
-      resolveOlder = resolve;
-    });
-    const newer = new Promise<Array<Record<string, unknown>>>((resolve) => {
-      resolveNewer = resolve;
-    });
+    const older = new Promise<Array<Record<string, unknown>>>((resolve) => { resolveOlder = resolve; });
+    const newer = new Promise<Array<Record<string, unknown>>>((resolve) => { resolveNewer = resolve; });
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
@@ -5139,27 +4551,13 @@ describe("project workspace", () => {
     await expectInvoked("search_project", { query: "newer" });
 
     await act(async () => {
-      resolveNewer([{
-        kind: "file",
-        path: "newer.tex",
-        title: "newer.tex",
-        snippet: "The current result.",
-        line: 2,
-        fileKind: "tex",
-      }]);
+      resolveNewer([fileHit("newer.tex", 2, "The current result.")]);
       await newer;
     });
     expect(await screen.findByText("newer.tex:2")).toBeInTheDocument();
 
     await act(async () => {
-      resolveOlder([{
-        kind: "file",
-        path: "older.tex",
-        title: "older.tex",
-        snippet: "A stale result.",
-        line: 7,
-        fileKind: "tex",
-      }]);
+      resolveOlder([fileHit("older.tex", 7, "A stale result.")]);
       await older;
     });
     expect(screen.queryByText("older.tex:7")).not.toBeInTheDocument();
@@ -5172,14 +4570,7 @@ describe("project workspace", () => {
     }));
     const snapshot = projectSnapshot();
     const paper = attentionPaper({ citationKey: "vaswani2017attention" });
-    renderApp({
-      initial_project: snapshot,
-      refresh_project: snapshot,
-      read_project_file: "\\documentclass{article}",
-      list_papers: () => [paper],
-      list_history: () => [],
-      rename_project_entry: "paper.tex",
-    });
+    renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, list_papers: () => [paper], rename_project_entry: "paper.tex" });
 
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     const fileMenu = await screen.findByRole("menu");
@@ -5194,11 +4585,8 @@ describe("project workspace", () => {
     expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
     expect(await findProjectTreeItem("paper.tex")).toBeInTheDocument();
     await waitFor(() => {
-      const states = JSON.parse(
-        localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
-      ) as Record<string, Record<string, unknown>>;
-      expect(states[ROOT]?.["main.tex"]).toBeUndefined();
-      expect(states[ROOT]?.["paper.tex"]).toBeDefined();
+      expect(storedFileViews()[ROOT]?.["main.tex"]).toBeUndefined();
+      expect(storedFileViews()[ROOT]?.["paper.tex"]).toBeDefined();
     });
 
     await switchSidebarMode("Papers");
@@ -5213,21 +4601,12 @@ describe("project workspace", () => {
     });
     const afterMove = {
       ...beforeMove,
-      manifest: {
-        ...beforeMove.manifest, rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }],
-      },
-      files: [
-        fileNode("main.tex"),
-        dirNode("figures"),
-        dirNode("notes"),
-        dirNode("sections", [fileNode("sections/draft.tex")]),
-      ],
+      manifest: { ...beforeMove.manifest, rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }] },
+      files: [fileNode("main.tex"), dirNode("figures"), dirNode("notes"), dirNode("sections", [fileNode("sections/draft.tex")])],
     };
     let moved = false;
     let resolveMove!: (path: string) => void;
-    const moveFinished = new Promise<string>((resolve) => {
-      resolveMove = resolve;
-    });
+    const moveFinished = new Promise<string>((resolve) => { resolveMove = resolve; });
     renderApp({
       ...projectCommands(beforeMove),
       refresh_project: () => moved ? afterMove : beforeMove,
@@ -5237,22 +4616,16 @@ describe("project workspace", () => {
     const figures = await findProjectTreeItem("figures/");
     const notes = await findProjectTreeItem("notes/");
     const target = await findProjectTreeItem("sections/");
-    const backgroundCallsBeforeMove = vi.mocked(invoke).mock.calls.filter(
-      ([command]) => command === "refresh_project"
-        || command === "list_papers"
-        || command === "list_citation_keys"
-        || command === "list_citations"
-        || command === "list_references"
-        || command === "list_unused_symbols"
-        || command === "list_history",
-    ).length;
+    const backgroundScans = () => vi.mocked(invoke).mock.calls.filter(([command]) => [
+      "refresh_project", "list_papers", "list_citation_keys", "list_citations", "list_references", "list_unused_symbols",
+      "list_history",
+    ].includes(command));
+    const backgroundCallsBeforeMove = backgroundScans().length;
     fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
     fireEvent.pointerMove(figures, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
     await waitFor(() => {
       expect(projectTreeRoot()?.host).toHaveAttribute("data-lattice-pointer-drag-active", "true");
-      const preview = projectTreeRoot()?.querySelector<HTMLElement>(
-        '[data-lattice-pointer-drag-preview="true"]',
-      );
+      const preview = projectTreeRoot()?.querySelector<HTMLElement>('[data-lattice-pointer-drag-preview="true"]');
       expect(preview).not.toBeNull();
       expect(preview).toHaveAttribute("aria-hidden", "true");
       expect(preview?.style.transform).toContain("translate3d");
@@ -5260,20 +4633,14 @@ describe("project workspace", () => {
       expect(queryProjectTreeItem("figures/")).toHaveAttribute("data-lattice-pointer-drop-target", "true");
     });
     fireEvent.pointerMove(notes, { clientX: 20, clientY: 35, pointerId: 1, pointerType: "mouse" });
-    await waitFor(() => {
-      expect(queryProjectTreeItem("notes/")).toHaveAttribute("data-lattice-pointer-drop-target", "true");
-    });
+    await waitFor(() => expect(queryProjectTreeItem("notes/")).toHaveAttribute("data-lattice-pointer-drop-target", "true"));
     fireEvent.pointerMove(target, { clientX: 20, clientY: 50, pointerId: 1, pointerType: "mouse" });
-    await waitFor(() => {
-      expect(queryProjectTreeItem("sections/")).toHaveAttribute("data-lattice-pointer-drop-target", "true");
-    });
+    await waitFor(() => expect(queryProjectTreeItem("sections/")).toHaveAttribute("data-lattice-pointer-drop-target", "true"));
     expect(queryProjectTreeItem("figures/")).not.toHaveAttribute("data-lattice-pointer-drop-target");
     expect(queryProjectTreeItem("notes/")).not.toHaveAttribute("data-lattice-pointer-drop-target");
     fireEvent.pointerUp(target, { clientX: 20, clientY: 50, pointerId: 1, pointerType: "mouse" });
 
-    await expectInvoked("move_project_entry", {
-      path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT,
-    });
+    await expectInvoked("move_project_entry", { path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT });
     // Pierre's local model must move immediately, before filesystem
     // persistence finishes.
     expect(await findProjectTreeItem("sections/draft.tex")).toBeInTheDocument();
@@ -5283,15 +4650,7 @@ describe("project workspace", () => {
       expect(projectTreeRoot()?.host).not.toHaveAttribute("data-lattice-pointer-drag-active");
       expect(projectTreeRoot()?.querySelector('[data-lattice-pointer-drag-preview="true"]')).toBeNull();
     });
-    expect(vi.mocked(invoke).mock.calls.filter(
-      ([command]) => command === "refresh_project"
-        || command === "list_papers"
-        || command === "list_citation_keys"
-        || command === "list_citations"
-        || command === "list_references"
-        || command === "list_unused_symbols"
-        || command === "list_history",
-    )).toHaveLength(backgroundCallsBeforeMove);
+    expect(backgroundScans()).toHaveLength(backgroundCallsBeforeMove);
   });
 
   it("rebases image paths when an open Markdown file is moved into a folder", async () => {
@@ -5307,19 +4666,11 @@ describe("project workspace", () => {
       move_project_entry: "figures/notes.md",
     });
     await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const source = await findProjectTreeItem("notes.md");
-    const target = await findProjectTreeItem("figures/plot.png");
-    fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerMove(target, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerUp(target, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
+    dragTreeItem(await findProjectTreeItem("notes.md"), await findProjectTreeItem("figures/plot.png"));
 
-    await expectInvoked("move_project_entry", {
-      path: "notes.md", targetDirectory: "figures", projectRoot: ROOT,
-    });
+    await expectInvoked("move_project_entry", { path: "notes.md", targetDirectory: "figures", projectRoot: ROOT });
     await expectInvoked("write_project_file", {
-      path: "figures/notes.md",
-      content: '# Notes\n\n<img src="plot.png" alt="Plot" width={223} />\n',
-      projectRoot: ROOT,
+      path: "figures/notes.md", content: '# Notes\n\n<img src="plot.png" alt="Plot" width={223} />\n', projectRoot: ROOT,
     });
   });
 
@@ -5328,14 +4679,11 @@ describe("project workspace", () => {
     renderApp({ ...projectCommands(snapshot), refresh_project: snapshot });
     const source = await findProjectTreeItem("main.tex");
     const target = await findProjectTreeItem("references.bib");
-    fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerMove(target, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
+    const pointer = { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" };
+    fireEvent.pointerDown(source, { ...pointer, button: 0, clientX: 1, clientY: 1 });
+    fireEvent.pointerMove(target, pointer);
     expect(queryProjectTreeItem("references.bib")).not.toHaveAttribute("data-lattice-pointer-drop-target");
-    await act(async () => {
-      fireEvent.pointerUp(queryProjectTreeItem("references.bib")!, {
-        clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse",
-      });
-    });
+    await act(async () => { fireEvent.pointerUp(queryProjectTreeItem("references.bib")!, pointer); });
     expect(invoke).not.toHaveBeenCalledWith("move_project_entry", expect.anything());
   });
 
@@ -5343,20 +4691,12 @@ describe("project workspace", () => {
     localStorage.setItem("lattice:expanded-directories:/tmp/lattice-paper", JSON.stringify(["sections"]));
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("draft.tex"), dirNode("sections")] });
     let rejectMove!: (reason: Error) => void;
-    const moveFinished = new Promise<string>((_resolve, reject) => {
-      rejectMove = reject;
-    });
+    const moveFinished = new Promise<string>((_resolve, reject) => { rejectMove = reject; });
     renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: moveFinished });
-    const source = await findProjectTreeItem("draft.tex");
-    const target = await findProjectTreeItem("sections/");
-    fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerMove(target, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerUp(target, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
+    dragTreeItem(await findProjectTreeItem("draft.tex"), await findProjectTreeItem("sections/"));
 
     expect(await findProjectTreeItem("sections/draft.tex")).toBeInTheDocument();
-    await expectInvoked("move_project_entry", {
-      path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT,
-    });
+    await expectInvoked("move_project_entry", { path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT });
     rejectMove(new Error("Move failed"));
     expect(await findProjectTreeItem("draft.tex")).toBeInTheDocument();
     await waitFor(() => expect(queryProjectTreeItem("sections/draft.tex")).toBeNull());
@@ -5364,55 +4704,34 @@ describe("project workspace", () => {
 
   it("moves a nested file to the root when it is dropped on a root file", async () => {
     localStorage.setItem("lattice:expanded-directories:/tmp/lattice-paper", JSON.stringify(["sections"]));
-    const snapshot = projectSnapshot({
-      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/draft.tex")])],
-    });
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/draft.tex")])] });
     renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: "draft.tex" });
     const source = await findProjectTreeItem("sections/draft.tex");
-    const rootFile = await findProjectTreeItem("main.tex");
-    fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerMove(rootFile, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerUp(queryProjectTreeItem("main.tex")!, {
-      clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse",
-    });
+    await findProjectTreeItem("main.tex");
+    dragTreeItem(source, () => queryProjectTreeItem("main.tex")!);
 
-    await expectInvoked("move_project_entry", {
-      path: "sections/draft.tex", targetDirectory: "", projectRoot: ROOT,
-    });
+    await expectInvoked("move_project_entry", { path: "sections/draft.tex", targetDirectory: "", projectRoot: ROOT });
   });
 
   it("drops onto the exact segment of a flattened directory", async () => {
     const snapshot = projectSnapshot({
       files: [fileNode("main.tex"), fileNode("draft.tex"), dirNode("sections", [dirNode("sections/drafts")])],
     });
-    renderApp({
-      ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: "sections/draft.tex",
-    });
+    renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, move_project_entry: "sections/draft.tex" });
     const source = await findProjectTreeItem("draft.tex");
     const flattenedSegment = await waitFor(() => {
-      const element = projectTreeRoot()?.querySelector<HTMLElement>(
-        '[data-item-flattened-subitem="sections/"]',
-      );
+      const element = projectTreeRoot()?.querySelector<HTMLElement>('[data-item-flattened-subitem="sections/"]');
       expect(element).not.toBeNull();
       return element!;
     });
-    fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerMove(flattenedSegment, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
-    fireEvent.pointerUp(flattenedSegment, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" });
+    dragTreeItem(source, flattenedSegment);
 
-    await expectInvoked("move_project_entry", {
-      path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT,
-    });
+    await expectInvoked("move_project_entry", { path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT });
   });
 
   it("reveals project files and imported papers in Finder from the context menu", async () => {
     const snapshot = projectSnapshot();
-    renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{article}",
-      list_papers: () => [attentionPaper()],
-      list_history: () => [],
-    });
+    renderApp({ ...projectCommands(snapshot), list_papers: () => [attentionPaper()] });
     fireEvent.contextMenu(await findProjectTreeItem("main.tex"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Show in Finder" }));
     await waitFor(() => expect(revealItemInDir).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
@@ -5433,43 +4752,31 @@ describe("project workspace", () => {
     });
     fireEvent.contextMenu(await findProjectTreeItem("figures/"));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Import images here" }));
-    await expectInvoked("import_project_assets", {
-      paths: ["/tmp/result.png"], targetDirectory: "figures", projectRoot: ROOT,
-    });
+    await expectInvoked("import_project_assets", { paths: ["/tmp/result.png"], targetDirectory: "figures", projectRoot: ROOT });
   });
 
   it("opens a project source file when it is dropped onto the editor", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("references.bib")] });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => argPath(args) === "references.bib"
-        ? "@article{lattice, title={Lattice}}"
-        : "\\documentclass{article}",
-    });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readFiles({ "references.bib": "@article{lattice, title={Lattice}}" }) });
     const editorContent = await findElement(".source-editor .cm-content");
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 200, 40, 800, 600);
+    stubCanvasRect(200, 40, 800, 600);
     stubElementFromPoint(editorContent);
     const bibliography = await findProjectTreeItem("references.bib");
-    fireEvent.pointerDown(bibliography, {
-      button: 0, clientX: 10, clientY: 10, pointerId: 41, pointerType: "mouse",
-    });
-    fireEvent.pointerMove(window, { clientX: 250, clientY: 300, pointerId: 41, pointerType: "mouse" });
+    const pointer = { clientY: 300, pointerId: 41, pointerType: "mouse" };
+    const dropZone = () => document.querySelector(".editor-tab-split-drop-preview");
+    fireEvent.pointerDown(bibliography, { ...pointer, button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { ...pointer, clientX: 250 });
     expect(projectTreeRoot()?.querySelector('[data-lattice-pointer-drag-preview="true"]')).not.toBeNull();
     expect(document.querySelector(".source-editor")).toHaveClass("file-drop-active");
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "left");
-    fireEvent.pointerMove(window, { clientX: 600, clientY: 300, pointerId: 41, pointerType: "mouse" });
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "center");
-    fireEvent.pointerMove(window, { clientX: 850, clientY: 300, pointerId: 41, pointerType: "mouse" });
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "right");
+    expect(dropZone()).toHaveAttribute("data-drop-zone", "left");
+    fireEvent.pointerMove(window, { ...pointer, clientX: 600 });
+    expect(dropZone()).toHaveAttribute("data-drop-zone", "center");
+    fireEvent.pointerMove(window, { ...pointer, clientX: 850 });
+    expect(dropZone()).toHaveAttribute("data-drop-zone", "right");
 
-    fireEvent.pointerUp(window, { clientX: 850, clientY: 300, pointerId: 41, pointerType: "mouse" });
+    fireEvent.pointerUp(window, { ...pointer, clientX: 850 });
     await expectInvoked("read_project_file", { path: "references.bib", projectRoot: ROOT });
-    expect(await screen.findByRole("tab", { name: /references\.bib/ }))
-      .toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("tab", { name: /references\.bib/ })).toHaveAttribute("aria-selected", "true");
     const bibliographyEditor = editorViewAt(".source-editor[data-editor-pane='secondary'] .cm-editor");
     expect(syntaxTree(bibliographyEditor.state).toString()).toContain("Entry(EntryType");
     expect(document.querySelector(".source-editor")).not.toHaveClass("file-drop-active");
@@ -5482,75 +4789,46 @@ describe("project workspace", () => {
     });
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        const path = argPath(args);
-        if (path === "draft.tex") return "\\section{Draft}";
-        if (path === "references.bib") return "@article{lattice, title={Lattice}}";
-        return "\\documentclass{article}";
-      },
+      read_project_file: readFiles({ "draft.tex": "\\section{Draft}", "references.bib": "@article{lattice, title={Lattice}}" }),
     });
     await openTreeFile("draft.tex");
     fireEvent.click(await findProjectTreeItem("main.tex"));
-    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" }))
-      .getByRole("tab", { name: "Edit" }));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" })).getByRole("tab", { name: "Edit" }));
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
     fireEvent.click(await screen.findByRole("option", { name: /Dual source view/ }));
     const secondaryEditor = await findElement(".source-editor[data-editor-pane='secondary']");
     const secondaryContent = secondaryEditor.querySelector<HTMLElement>(".cm-content")!;
-    const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
-    stubRect(dualCanvas, 0, 0, 1000, 700);
-    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }), {
-      clientX: 460,
-    });
+    stubRect(document.querySelector<HTMLElement>(".dual-canvas")!, 0, 0, 1000, 700);
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }), { clientX: 460 });
     fireEvent.pointerMove(window, { clientX: 700 });
     fireEvent.pointerUp(window, { clientX: 700 });
-    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
-    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns).toContain("0.7fr");
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 0, 0, 1000, 700);
+    const expectSeventyThirty = () => {
+      expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
+      expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns).toContain("0.7fr");
+    };
+    expectSeventyThirty();
+    stubCanvasRect(0, 0, 1000, 700);
     stubElementFromPoint(secondaryContent);
 
-    const bibliography = await findProjectTreeItem("references.bib");
-    fireEvent.pointerDown(bibliography, {
-      button: 0, clientX: 10, clientY: 10, pointerId: 42, pointerType: "mouse",
+    dragToPoint(await findProjectTreeItem("references.bib"), [850, 100], {
+      pointerId: 42, whileOver: () => expect(secondaryEditor).toHaveClass("file-drop-active"),
     });
-    fireEvent.pointerMove(window, { clientX: 850, clientY: 100, pointerId: 42, pointerType: "mouse" });
-    expect(secondaryEditor).toHaveClass("file-drop-active");
-    fireEvent.pointerUp(window, { clientX: 850, clientY: 100, pointerId: 42, pointerType: "mouse" });
 
     await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("@article{lattice"));
-    expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
-    expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns).toContain("0.7fr");
+    expectSeventyThirty();
     expect(document.querySelector(".dual-pane-label")).toBeNull();
-    const primaryEditorDom = document.querySelector<HTMLElement>(
-      ".source-editor[data-editor-pane='primary'] .cm-editor",
-    );
-    expect(primaryEditorDom && EditorView.findFromDOM(primaryEditorDom)?.state.doc.toString())
-      .toContain("\\documentclass{article}");
+    const paneText = (pane: "primary" | "secondary") => editorViewAt(`.source-editor[data-editor-pane='${pane}'] .cm-editor`)
+      .state.doc.toString();
+    expect(paneText("primary")).toContain("\\documentclass{article}");
 
-    fireEvent.pointerDown(await findProjectTreeItem("draft.tex"), {
-      button: 0, clientX: 10, clientY: 10, pointerId: 43, pointerType: "mouse",
-    });
-    fireEvent.pointerMove(window, { clientX: 100, clientY: 100, pointerId: 43, pointerType: "mouse" });
-    fireEvent.pointerUp(window, { clientX: 100, clientY: 100, pointerId: 43, pointerType: "mouse" });
+    dragToPoint(await findProjectTreeItem("draft.tex"), [100, 100], { pointerId: 43 });
     await waitFor(() => {
-      const primary = document.querySelector<HTMLElement>(
-        ".source-editor[data-editor-pane='primary'] .cm-editor",
-      );
-      expect(primary && EditorView.findFromDOM(primary)?.state.doc.toString()).toContain("\\section{Draft}");
-      const secondary = document.querySelector<HTMLElement>(
-        ".source-editor[data-editor-pane='secondary'] .cm-editor",
-      );
-      expect(secondary && EditorView.findFromDOM(secondary)?.state.doc.toString())
-        .toContain("@article{lattice");
+      expect(paneText("primary")).toContain("\\section{Draft}");
+      expect(paneText("secondary")).toContain("@article{lattice");
       expect(document.querySelectorAll(".dual-canvas .source-editor[data-editor-pane]")).toHaveLength(2);
     });
 
-    fireEvent.pointerDown(await findProjectTreeItem("main.tex"), {
-      button: 0, clientX: 10, clientY: 10, pointerId: 44, pointerType: "mouse",
-    });
-    fireEvent.pointerMove(window, { clientX: 500, clientY: 100, pointerId: 44, pointerType: "mouse" });
-    fireEvent.pointerUp(window, { clientX: 500, clientY: 100, pointerId: 44, pointerType: "mouse" });
+    dragToPoint(await findProjectTreeItem("main.tex"), [500, 100], { pointerId: 44 });
     await waitFor(() => {
       expect(document.querySelector(".dual-canvas")).toBeNull();
       expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
@@ -5568,17 +4846,12 @@ describe("project workspace", () => {
         imported = true;
         return ["method.tex"];
       },
-      read_project_file: (args) => argPath(args) === "method.tex"
-        ? "\\section{Method}"
-        : "\\documentclass{article}",
+      read_project_file: readFiles({ "method.tex": "\\section{Method}" }),
     });
-    const editorContent = await findElement(".source-editor .cm-content");
-    stubElementFromPoint(editorContent);
+    stubElementFromPoint(await findElement(".source-editor .cm-content"));
     await dropFinderPaths(["/tmp/method.tex"]);
 
-    await expectInvoked("import_project_sources", {
-      paths: ["/tmp/method.tex"], targetDirectory: "", projectRoot: ROOT,
-    });
+    await expectInvoked("import_project_sources", { paths: ["/tmp/method.tex"], targetDirectory: "", projectRoot: ROOT });
     expect(await screen.findByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
     expect(await findProjectTreeItem("method.tex")).toBeInTheDocument();
   });
@@ -5592,14 +4865,11 @@ describe("project workspace", () => {
       refresh_project: snapshot,
       read_project_asset: (args) => {
         const path = argPath(args);
-        return {
-          path,
-          mimeType: path.endsWith(".png") ? "image/png" : "image/svg+xml",
-          base64: path.endsWith(".png") ? "iVBORw0KGgo=" : "PHN2Zy8+",
-        };
+        const png = path.endsWith(".png");
+        return { path, mimeType: png ? "image/png" : "image/svg+xml", base64: png ? "iVBORw0KGgo=" : "PHN2Zy8+" };
       },
       import_project_assets: () => ["figures/new.png"],
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     fireEvent.click(await findProjectTreeItem("figures/"));
     fireEvent.click(await findProjectTreeItem("figures/existing.svg"));
@@ -5616,14 +4886,11 @@ describe("project workspace", () => {
     stubElementFromPoint(preview);
     await dropFinderPaths(["/tmp/new.png"]);
 
-    await expectInvoked("import_project_assets", {
-      paths: ["/tmp/new.png"], targetDirectory: "figures", projectRoot: ROOT,
-    });
+    await expectInvoked("import_project_assets", { paths: ["/tmp/new.png"], targetDirectory: "figures", projectRoot: ROOT });
     expect(await screen.findByRole("tab", { name: /new\.png/ })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByAltText("Preview of figures/new.png")).toHaveStyle({ zoom: "1" });
     expect(screen.getByLabelText("Image zoom percentage")).toHaveValue("100");
     expect(invoke).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
-    Reflect.deleteProperty(document, "elementFromPoint");
   });
 
   it("relays image and PDF drops on the agent panel into the composer", async () => {
@@ -5644,43 +4911,31 @@ describe("project workspace", () => {
     await dropFinderPaths(["/tmp/plot.png", "/tmp/notes.md"]);
 
     await expectInvoked("read_agent_composer_files", { paths: ["/tmp/plot.png", "/tmp/notes.md"] });
+    type ComposerFiles = { version?: number; files?: { name: string; mimeType: string; bytes: ArrayBuffer }[] };
     const message = await waitFor(() => {
-      const posted = postMessage.mock.calls
-        .map(([data]) => data as {
-          type?: string;
-          version?: number;
-          files?: { name: string; mimeType: string; bytes: ArrayBuffer }[];
-        })
-        .find((data) => data?.type === "lattice:composer-files");
+      const [posted] = postedOfType<ComposerFiles>(postMessage, "lattice:composer-files");
       expect(posted).toBeDefined();
-      return posted!;
+      return posted;
     });
     expect(message.version).toBe(1);
-    expect(message.files).toHaveLength(2);
-    expect(message.files?.[0]?.name).toBe("plot.png");
-    expect(message.files?.[0]?.mimeType).toBe("image/png");
-    expect(new TextDecoder().decode(message.files![0]!.bytes)).toBe("png-bytes");
-    expect(message.files?.[1]?.name).toBe("notes.md");
-    expect(message.files?.[1]?.mimeType).toBe("text/markdown");
-    expect(new TextDecoder().decode(message.files![1]!.bytes)).toBe("# Notes");
+    expect(message.files?.map(({ name, mimeType, bytes }) => [name, mimeType, new TextDecoder().decode(bytes)])).toEqual([
+      ["plot.png", "image/png", "png-bytes"], ["notes.md", "text/markdown", "# Notes"],
+    ]);
     expect(invoke).not.toHaveBeenCalledWith("import_project_assets", expect.anything());
     expect(invoke).not.toHaveBeenCalledWith("import_project_sources", expect.anything());
-    Reflect.deleteProperty(document, "elementFromPoint");
   });
 
   it("duplicates a project file with Command-C/V and shows the new tree entry", async () => {
     const snapshot = projectSnapshot();
     vi.mocked(readText).mockResolvedValue("/tmp/lattice-paper/main.tex");
     renderApp({
+      ...projectCommands(null),
       initial_project: () => structuredClone(snapshot),
       refresh_project: () => structuredClone(snapshot),
-      read_project_file: "\\documentclass{article}",
       import_project_files: () => {
         snapshot.files.push(fileNode("main-2.tex"));
         return [{ path: "main-2.tex", kind: "text" }];
       },
-      list_papers: () => [],
-      list_history: () => [],
     });
     fireEvent.click(await findProjectTreeItem("main.tex"));
     fireEvent.keyDown(await findProjectTreeItem("main.tex"), { key: "c", metaKey: true });
@@ -5693,40 +4948,51 @@ describe("project workspace", () => {
     expect(queryProjectTreeItem("main.tex")).not.toBeNull();
   });
 
-  it("imports a Finder image into the folder of the file it is dropped on", async () => {
-    const snapshot = projectSnapshot({
-      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])],
-    });
-    renderApp({
-      ...projectCommands(snapshot),
-      refresh_project: snapshot,
-      import_project_files: () => [{ path: "sections/plot.png", kind: "binary" }],
-    });
-    fireEvent.click(await findProjectTreeItem("sections/"));
-    const row = await findProjectTreeItem("sections/intro.tex");
-    stubElementFromPoint(row);
-    await dropFinderPaths(["/tmp/plot.png"]);
+  it.each<[string, string, string[], Array<{ path: string; kind: string }>]>([
+    [
+      "imports a Finder image into the folder of the file it is dropped on", "sections",
+      ["/tmp/plot.png"], [{ path: "sections/plot.png", kind: "binary" }],
+    ],
+    [
+      // Markdown + a data file the old classifier rejected + an image + a
+      // folder, all in one drop: the tree takes any mix.
+      "imports a mixed Finder file and folder drop where it lands without opening files", "sections",
+      ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
+      [
+        { path: "sections/notes.md", kind: "text" }, { path: "sections/data.csv", kind: "text" },
+        { path: "sections/plot.png", kind: "binary" }, { path: "sections/tables/results.csv", kind: "text" },
+      ],
+    ],
+    [
+      "imports a Finder image dropped on the Project pane background into the project root", "",
+      ["/tmp/plot.png"], [{ path: "plot.png", kind: "binary" }],
+    ],
+  ])("%s", async (_name, targetDirectory, paths, imported) => {
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])] });
+    renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, import_project_files: () => imported });
+    if (targetDirectory) {
+      fireEvent.click(await findProjectTreeItem("sections/"));
+      stubElementFromPoint(await findProjectTreeItem("sections/intro.tex"));
+    } else {
+      await findProjectTreeItem("main.tex");
+      stubElementFromPoint(await findElement(".project-section"));
+    }
+    await dropFinderPaths(paths);
 
-    await expectInvoked("import_project_files", {
-      paths: ["/tmp/plot.png"], targetDirectory: "sections", projectRoot: ROOT,
-    });
-    Reflect.deleteProperty(document, "elementFromPoint");
+    await expectInvoked("import_project_files", { paths, targetDirectory, projectRoot: ROOT });
+    // Filing into the tree does not open the file; editor drops do that.
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "sections/notes.md" }));
   });
 
   it.each([false, true])("uploads external file bytes only in an ordinary browser (bundled: %s)", async (bundled) => {
     browserRuntime.hosted = true;
     browserRuntime.bundled = bundled;
+    const snapshot = () => projectSnapshot({
+      name: "Paper", rootDocuments: MAIN_DOCUMENT, files: [fileNode("main.tex"), dirNode("sections")],
+    });
     renderApp({
-      initial_project: () => projectSnapshot({
-        name: "Paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        files: [fileNode("main.tex"), dirNode("sections")],
-      }),
-      refresh_project: () => projectSnapshot({
-        name: "Paper",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        files: [fileNode("main.tex"), dirNode("sections")],
-      }),
+      initial_project: snapshot,
+      refresh_project: snapshot,
       import_project_files: () => [{ path: "sections/notes.md", kind: "text" }],
     });
     const row = await findProjectTreeItem("sections/");
@@ -5735,98 +5001,32 @@ describe("project workspace", () => {
     Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode("hello").buffer });
     const drop = new MouseEvent("drop", { bubbles: true, composed: true, cancelable: true, clientX: 90, clientY: 120 });
     Object.defineProperty(drop, "dataTransfer", { value: { types: ["Files"], files: [file], items: [], getData: () => "" } });
-    try {
-      fireEvent(row, drop);
-      if (bundled) {
-        expect(drop.defaultPrevented).toBe(false);
-        expect(invoke).not.toHaveBeenCalledWith("import_project_files", expect.anything());
-        return;
-      }
-      await expectInvoked("import_project_files", {
-        paths: [], targetDirectory: "sections", projectRoot: ROOT,
-        uploads: [{ name: "notes.md", base64: "aGVsbG8=" }],
-      });
-      expect(drop.defaultPrevented).toBe(true);
-    } finally {
-      Reflect.deleteProperty(document, "elementFromPoint");
+    fireEvent(row, drop);
+    if (bundled) {
+      expect(drop.defaultPrevented).toBe(false);
+      expect(invoke).not.toHaveBeenCalledWith("import_project_files", expect.anything());
+      return;
     }
-  });
-
-  it("imports a mixed Finder file and folder drop where it lands without opening files", async () => {
-    const snapshot = projectSnapshot({
-      files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])],
-    });
-    renderApp({
-      ...projectCommands(snapshot),
-      refresh_project: snapshot,
-      import_project_files: () => [
-        { path: "sections/notes.md", kind: "text" },
-        { path: "sections/data.csv", kind: "text" },
-        { path: "sections/plot.png", kind: "binary" },
-        { path: "sections/tables/results.csv", kind: "text" },
-      ],
-    });
-    fireEvent.click(await findProjectTreeItem("sections/"));
-    const row = await findProjectTreeItem("sections/intro.tex");
-    stubElementFromPoint(row);
-    // Markdown + a data file the old classifier rejected + an image +
-    // a folder, all in one drop: the tree takes any mix.
-    await dropFinderPaths(["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"]);
-
     await expectInvoked("import_project_files", {
-      paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
-      targetDirectory: "sections",
-      projectRoot: ROOT,
+      paths: [], targetDirectory: "sections", projectRoot: ROOT, uploads: [{ name: "notes.md", base64: "aGVsbG8=" }],
     });
-    // Filing into the tree does not open the file; editor drops do that.
-    expect(invoke).not.toHaveBeenCalledWith(
-      "read_project_file",
-      expect.objectContaining({ path: "sections/notes.md" }),
-    );
-    Reflect.deleteProperty(document, "elementFromPoint");
+    expect(drop.defaultPrevented).toBe(true);
   });
 
-  it("imports a Finder image dropped on the Project pane background into the project root", async () => {
-    const snapshot = projectSnapshot();
-    renderApp({
-      ...projectCommands(snapshot),
-      refresh_project: snapshot,
-      import_project_files: () => [{ path: "plot.png", kind: "binary" }],
-    });
-    await findProjectTreeItem("main.tex");
-    const pane = document.querySelector(".project-section");
-    expect(pane).not.toBeNull();
-    stubElementFromPoint(pane);
-    await dropFinderPaths(["/tmp/plot.png"]);
-
-    await expectInvoked("import_project_files", {
-      paths: ["/tmp/plot.png"], targetDirectory: "", projectRoot: ROOT,
-    });
-    Reflect.deleteProperty(document, "elementFromPoint");
-  });
 
   it.each([false, true])("keeps text-classified SVG tabs as images after switching files (bottom assistant: %s)", async (bottomAssistant) => {
     const snapshot = projectSnapshot({
       files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        {
-          name: "figures",
-          path: "figures",
-          kind: "directory",
-          children: [
-            // Some scanners classify SVG as text. Opening is extension-based,
-            // so Quick Open must still route it to the image preview.
-            { name: "diagram.svg", path: "figures/diagram.svg", kind: "text", contentKind: "text", children: [] },
-          ],
-        },
-        { name: "empty", path: "empty", kind: "directory", contentKind: "directory", children: [] },
+        fileNode("main.tex"),
+        // Some scanners classify SVG as text. Opening is extension-based,
+        // so Quick Open must still route it to the image preview.
+        dirNode("figures", [fileNode("figures/diagram.svg", "text", { contentKind: "text" })]),
+        { ...dirNode("empty"), contentKind: "directory" },
       ],
     });
-
     if (bottomAssistant) {
       await import("./app/app-agent-panel");
-      localStorage.setItem("lattice.sidebar-open.v1", "1");
-      localStorage.setItem("lattice.sidebar-mode.v1", "agent");
+      showAgentSidebar();
     }
     renderApp({
       ...projectCommands(snapshot),
@@ -5874,13 +5074,10 @@ describe("project workspace", () => {
       }),
       destroy: vi.fn(),
     } as never);
-
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => argPath(args) === "method.md"
-        ? "# Method"
-        : "\\documentclass{article}\n\\begin{document}\n\\end{document}",
+      read_project_file: readFiles({ "method.md": "# Method" }, "\\documentclass{article}\n\\begin{document}\n\\end{document}"),
       read_project_asset: (args) => {
         const path = argPath(args);
         return path.endsWith(".pdf")
@@ -5889,7 +5086,7 @@ describe("project workspace", () => {
       },
       prepare_latex_figure: "figures/native-umm-converted.pdf",
       write_project_file: undefined,
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 50, diagnostics: [] }),
+      build_project: buildResult(),
     });
     expect(queryProjectTreeItem("figures/native-umm.svg")).toBeNull();
     fireEvent.click(await findProjectTreeItem("figures/"));
@@ -5897,10 +5094,9 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
     const svgRow = await findProjectTreeItem("figures/native-umm.svg");
-    expect(fireEvent.pointerDown(svgRow, {
-      button: 0, pointerId: 1, pointerType: "mouse", clientX: 10, clientY: 10,
-    })).toBe(true);
-    fireEvent.pointerUp(window, { pointerId: 1, pointerType: "mouse", clientX: 10, clientY: 10 });
+    const at10 = { pointerType: "mouse", clientX: 10, clientY: 10 };
+    expect(fireEvent.pointerDown(svgRow, { ...at10, button: 0, pointerId: 1 })).toBe(true);
+    fireEvent.pointerUp(window, { ...at10, pointerId: 1 });
     fireEvent.click(svgRow);
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toHaveAttribute("src", "data:image/svg+xml;base64,PHN2Zy8+");
     const assetTab = screen.getByRole("tab", { name: /native-umm\.svg/ });
@@ -5915,21 +5111,16 @@ describe("project workspace", () => {
     expect(await screen.findByAltText("Preview of figures/native-umm.svg")).toBeInTheDocument();
 
     const pdfRow = await findProjectTreeItem("figures/result.pdf");
-    const svgPreview = screen.getByAltText("Preview of figures/native-umm.svg");
-    const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    stubRect(canvas, 0, 0, 1000, 700);
-    stubElementFromPoint(svgPreview);
-    expect(fireEvent.pointerDown(pdfRow, {
-      button: 0, pointerId: 2, pointerType: "mouse", clientX: 10, clientY: 10,
-    })).toBe(true);
-    fireEvent.pointerMove(window, { pointerId: 2, pointerType: "mouse", clientX: 100, clientY: 100 });
+    stubCanvasRect(0, 0, 1000, 700);
+    stubElementFromPoint(screen.getByAltText("Preview of figures/native-umm.svg"));
+    const at100 = { pointerType: "mouse", clientX: 100, clientY: 100 };
+    expect(fireEvent.pointerDown(pdfRow, { ...at10, button: 0, pointerId: 2 })).toBe(true);
+    fireEvent.pointerMove(window, { ...at100, pointerId: 2 });
     expect(document.querySelector(".figure-drag-ghost")).toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 2, pointerType: "mouse", clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(window, { ...at100, pointerId: 2 });
     expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByLabelText("PDF page 1")).toBeInTheDocument();
-    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
-      disableFontFace: true, useSystemFonts: false,
-    }));
+    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({ disableFontFace: true, useSystemFonts: false }));
     expect(screen.queryByLabelText("Show document outline")).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Split editor right" })).toBeNull();
@@ -5937,21 +5128,16 @@ describe("project workspace", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /main\.tex/ }));
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
-    const content = document.querySelector<HTMLElement>(".cm-content")!;
-    stubElementFromPoint(content);
-    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
-      button: 0, pointerType: "mouse", clientX: 10, clientY: 10,
-    });
-    fireEvent.pointerMove(window, { pointerType: "mouse", clientX: 100, clientY: 100 });
+    stubElementFromPoint(document.querySelector<HTMLElement>(".cm-content")!);
+    fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), { ...at10, button: 0 });
+    fireEvent.pointerMove(window, at100);
     expect(document.querySelector(".figure-drag-ghost")).toHaveTextContent("native-umm.svg");
-    expect(document.querySelector(".editor-tab-split-drop-preview"))
-      .toHaveAttribute("data-drop-zone", "left");
-    fireEvent.pointerUp(window, { pointerType: "mouse", clientX: 100, clientY: 100 });
+    expect(document.querySelector(".editor-tab-split-drop-preview")).toHaveAttribute("data-drop-zone", "left");
+    fireEvent.pointerUp(window, at100);
     await waitFor(() => expect(assetTab).toHaveAttribute("aria-selected", "true"));
     expect(paneContent("secondary")).toHaveTextContent("\\documentclass{article}");
     expect(document.querySelector(".dual-pane-label")).toBeNull();
     expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
-    Reflect.deleteProperty(document, "elementFromPoint");
   });
 
   it("renders every PDF page in one continuous themed reader", async () => {
@@ -5959,17 +5145,12 @@ describe("project workspace", () => {
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
     const renderPdfPage = vi.fn(() => renderTask);
     const getPdfPageText = vi.fn(async () => ({ items: [{ str: "Attention is all you need" }] }));
-    const pdf = {
-      numPages: 2,
-      getPage: vi.fn(async () => pdfPageStub({
-        render: renderPdfPage,
-        getTextContent: getPdfPageText,
-        getAnnotations: async () => [{ id: "link-1", subtype: "Link", rect: [10, 20, 80, 40], url: "https://example.com/paper" }],
-      })),
-      getDestination: vi.fn(),
-      getPageIndex: vi.fn(),
-    };
-    vi.mocked(getDocument).mockReturnValue({ promise: Promise.resolve(pdf), destroy: vi.fn() } as never);
+    const pdf = pdfDocumentStub(2, {
+      render: renderPdfPage,
+      getTextContent: getPdfPageText,
+      getAnnotations: async () => [{ id: "link-1", subtype: "Link", rect: [10, 20, 80, 40], url: "https://example.com/paper" }],
+    });
+    mockPdfDocument(() => pdf);
     let pdfUrlSequence = 0;
     stubObjectUrls(() => `blob:lattice-pdf-${++pdfUrlSequence}`);
     vi.mocked(save).mockResolvedValue("/tmp/exported-paper.pdf");
@@ -5979,7 +5160,7 @@ describe("project workspace", () => {
     let resolveForwardSync!: (target: { page: number; x: number; y: number; width: number; height: number }) => void;
     renderApp({
       ...projectCommands(snapshot),
-      build_project: () => ({ success: true, hasPdf: true, log: "", durationMs: 100, diagnostics: [] }),
+      build_project: buildResult({ hasPdf: true, durationMs: 100 }),
       read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
       save_compiled_pdf: "/tmp/exported-paper.pdf",
       synctex_edit: () => reverseSyncTarget,
@@ -5987,15 +5168,9 @@ describe("project workspace", () => {
         const syncArgs = args as Record<string, unknown> | undefined;
         if (delayForwardSync && syncArgs?.path === "main.tex") {
           delayForwardSync = false;
-          return new Promise((resolve) => {
-            resolveForwardSync = resolve;
-          });
+          return new Promise((resolve) => { resolveForwardSync = resolve; });
         }
-        if (
-          forwardSyncFailure && syncArgs?.path === "main.tex" && syncArgs?.line === 1
-        ) {
-          throw new Error(forwardSyncFailure);
-        }
+        if (forwardSyncFailure && syncArgs?.path === "main.tex" && syncArgs?.line === 1) throw new Error(forwardSyncFailure);
         return { page: 1, x: 72, y: 96, width: 120, height: 14 };
       },
     });
@@ -6004,12 +5179,9 @@ describe("project workspace", () => {
     // The production PDF viewer is a heavy lazy chunk. Let Vitest transform it
     // before asserting on PDFSlick's document source.
     await waitFor(() => expect(document.querySelector(".pdf-preview")).not.toBeNull(), { timeout: 30_000 });
-    await waitFor(() => {
-      const sources = pdfSlickTestApi.sources.map((source) => (
-        typeof source === "string" ? source : `${source.constructor.name}:${source.byteLength}`
-      ));
-      expect(sources).toContain("ArrayBuffer:8");
-    }, { timeout: 5_000 });
+    await waitFor(() => expect(pdfSlickTestApi.sources.map((source) => (
+      typeof source === "string" ? source : `${source.constructor.name}:${source.byteLength}`
+    ))).toContain("ArrayBuffer:8"), { timeout: 5_000 });
     const savePdf = await screen.findByRole("button", { name: "Save PDF as…" });
     const pdfScrollArea = document.querySelector(".pdf-scroll-area")!;
     const pdfViewport = pdfScrollArea.querySelector("[data-slot='scroll-area-viewport']");
@@ -6022,13 +5194,9 @@ describe("project workspace", () => {
     // directly at its output scale rather than replacing a blurry preview.
     await waitFor(() => expect(renderPdfPage).toHaveBeenCalledTimes(2));
     expect(renderTask.cancel).not.toHaveBeenCalled();
-    await waitFor(() => {
-      expect(document.querySelector(".pdf-text-layer span")).toHaveTextContent("Attention is all you need");
-    });
+    await waitFor(() => expect(document.querySelector(".pdf-text-layer span")).toHaveTextContent("Attention is all you need"));
     expect(getPdfPageText).not.toHaveBeenCalled();
-    await waitFor(() => {
-      expect(screen.getAllByTitle("https://example.com/paper").length).toBeGreaterThan(0);
-    });
+    await waitFor(() => expect(screen.getAllByTitle("https://example.com/paper").length).toBeGreaterThan(0));
     expect(pdf.getPage).toHaveBeenCalledWith(1);
     await waitFor(() => expect(pdf.getPage).toHaveBeenCalledWith(2));
     expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
@@ -6039,8 +5207,7 @@ describe("project workspace", () => {
     fireEvent.click(fitHeight);
     expect(fitWidth).toHaveAttribute("aria-pressed", "false");
     expect(fitHeight).toHaveAttribute("aria-pressed", "true");
-    await waitFor(() => expect(localStorage.getItem("lattice.pdf-view-preference.v1"))
-      .toContain('"fitMode":"height"'));
+    await waitFor(() => expect(localStorage.getItem("lattice.pdf-view-preference.v1")).toContain('"fitMode":"height"'));
     fireEvent.click(fitHeight);
     expect(fitHeight).toHaveAttribute("aria-pressed", "false");
     const pageInput = screen.getByLabelText("PDF page number");
@@ -6059,8 +5226,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next search result" }));
     expect(await screen.findByText("2 / 2")).toBeInTheDocument();
     await waitFor(() => {
-      const exactHighlights = document.querySelectorAll(".pdf-text-layer .highlight");
-      expect(exactHighlights.length).toBe(2);
+      expect(document.querySelectorAll(".pdf-text-layer .highlight").length).toBe(2);
       expect(document.querySelectorAll(".pdf-text-layer .highlight.selected").length).toBe(1);
     });
     fireEvent.click(screen.getByRole("button", { name: "Clear PDF search" }));
@@ -6072,19 +5238,13 @@ describe("project workspace", () => {
     expect(pdfZoomControls?.querySelectorAll(".pdf-fit-divider")).toHaveLength(2);
     const pdfButtons = Array.from(pdfZoomControls!.querySelectorAll<HTMLElement>("button"));
     expect(pdfButtons.indexOf(revealCursor)).toBeLessThan(pdfButtons.indexOf(fitWidth));
-    const editorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    expect(editorDom).not.toBeNull();
-    const editorView = EditorView.findFromDOM(editorDom!);
-    if (!editorView) throw new Error("CodeMirror editor view was not created.");
+    const editorView = editorViewAt(".source-editor .cm-editor");
     let revealReconfigurations = 0;
     editorView.dispatch({
       effects: StateEffect.appendConfig.of(EditorView.updateListener.of((update) => {
-        revealReconfigurations += update.transactions.reduce(
-          (count, transaction) => count + transaction.effects.filter(
-            (effect) => effect.is(StateEffect.reconfigure),
-          ).length,
-          0,
-        );
+        for (const transaction of update.transactions) {
+          revealReconfigurations += transaction.effects.filter((effect) => effect.is(StateEffect.reconfigure)).length;
+        }
       })),
     });
     expect(fireEvent.mouseDown(revealCursor)).toBe(false);
@@ -6129,9 +5289,9 @@ describe("project workspace", () => {
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
     fireEvent.click(savePdf);
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "paper.pdf" })));
-    await expectInvoked("save_compiled_pdf",
-      expect.objectContaining({ byteLength: 8 }),
-      { headers: { "x-pdf-destination": "L3RtcC9leHBvcnRlZC1wYXBlci5wZGY=" } });
+    await expectInvoked("save_compiled_pdf", expect.objectContaining({ byteLength: 8 }), {
+      headers: { "x-pdf-destination": "L3RtcC9leHBvcnRlZC1wYXBlci5wZGY=" },
+    });
     await expectNotification(/Saved to \/tmp\/exported-paper\.pdf/);
     const pdfPage = screen.getByLabelText("PDF page 1");
     // Double-click (not single click) jumps from the PDF back to the source.
@@ -6163,29 +5323,17 @@ describe("project workspace", () => {
   it("jumps out of a dual-pane preview into the pane that still holds an editor", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("chapter.tex")] });
     persistLayout(snapshot.root, {
-      openTabs: ["main.tex", "chapter.tex"],
-      activeFile: "main.tex",
-      secondaryFile: "chapter.tex",
-      canvasMode: "source",
+      openTabs: ["main.tex", "chapter.tex"], activeFile: "main.tex", secondaryFile: "chapter.tex", canvasMode: "source",
       tabRecency: ["chapter.tex", "main.tex"],
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
-    const pdf = {
-      numPages: 1,
-      getPage: vi.fn(async () => pdfPageStub({
-        render: vi.fn(() => renderTask), getTextContent: async () => ({ items: [] }),
-      })),
-      getDestination: vi.fn(),
-      getPageIndex: vi.fn(),
-    };
-    vi.mocked(getDocument).mockReturnValue({ promise: Promise.resolve(pdf), destroy: vi.fn() } as never);
+    const pdf = pdfDocumentStub(1, { render: vi.fn(() => renderTask), getTextContent: async () => ({ items: [] }) });
+    mockPdfDocument(() => pdf);
     stubObjectUrls(() => "blob:lattice-dual-pdf");
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => `content:${argPath(args)}`,
-      build_project: () => ({
-        success: true, hasPdf: true, log: "", durationMs: 1, diagnostics: [], rootDocument: "main.tex",
-      }),
+      read_project_file: readPathContent,
+      build_project: buildResult({ hasPdf: true, durationMs: 1, rootDocument: "main.tex" }),
       read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
       synctex_edit: () => ({ path: "chapter.tex", line: 2 }),
       synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
@@ -6193,8 +5341,7 @@ describe("project workspace", () => {
     // Two editors side by side, then turn one of them into the PDF preview.
     fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
     await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:chapter.tex"));
-    fireEvent.click(within(await screen.findByRole("tablist", { name: "Document view" }))
-      .getByRole("tab", { name: "Preview" }));
+    fireEvent.click(within(await screen.findByRole("tablist", { name: "Document view" })).getByRole("tab", { name: "Preview" }));
     const pdfPage = await screen.findByLabelText("PDF page 1");
     expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
 
@@ -6212,16 +5359,9 @@ describe("project workspace", () => {
     { docked: true, sidebarOpen: true },
     { docked: false, sidebarOpen: false },
   ])("opens a compile repair in the existing Agent placement ($docked, sidebar $sidebarOpen)", async ({ docked, sidebarOpen }) => {
-    await Promise.all([
-      import("./build/compile-diagnostics-panel"),
-      import("./canvas/document-canvas"),
-      import("./app/app-agent-panel"),
-    ]);
+    await Promise.all([import("./build/compile-diagnostics-panel"), import("./canvas/document-canvas"), import("./app/app-agent-panel")]);
     const snapshot = projectSnapshot({
-      root: "/tmp/repair-placement",
-      projectId: "repair-placement",
-      name: "Repair placement",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      root: "/tmp/repair-placement", projectId: "repair-placement", name: "Repair placement", rootDocuments: MAIN_DOCUMENT,
     });
     localStorage.setItem("lattice.agent-docked.v1", docked ? "1" : "0");
     localStorage.setItem("lattice.sidebar-open.v1", sidebarOpen ? "1" : "0");
@@ -6229,13 +5369,12 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       harper_lint: () => [],
-      build_project: () => ({
-        success: true, hasPdf: false, durationMs: 1, rootDocument: "main.tex", log: "",
+      build_project: buildResult({
+        durationMs: 1, rootDocument: "main.tex",
         diagnostics: [{ file: "main.tex", line: 1, level: "warning", message: "Undefined reference." }],
       }),
       compile_repair: (args) => (args as { action: string }).action === "start"
-        ? { threadId: "repair-placement-task" }
-        : { status: "running" },
+        ? { threadId: "repair-placement-task" } : { status: "running" },
     });
     fireEvent.click(await screen.findByRole("button", { name: /1 warning/i }));
     const originalFrame = document.querySelector('iframe[title="Agent"]');
@@ -6249,8 +5388,7 @@ describe("project workspace", () => {
       if (docked) expect(frame).toBe(originalFrame);
     });
     expect(Boolean(document.querySelector(".agent-dock-header"))).toBe(docked);
-    expect(document.querySelector(".workspace")?.classList.contains("sidebar-hidden"))
-      .toBe(docked && !sidebarOpen);
+    expect(document.querySelector(".workspace")?.classList.contains("sidebar-hidden")).toBe(docked && !sidebarOpen);
     expect(localStorage.getItem("lattice.sidebar-mode.v1")).toBe(docked ? "project" : "agent");
   });
 
@@ -6258,10 +5396,7 @@ describe("project workspace", () => {
     await import("./build/compile-diagnostics-panel");
     await import("./canvas/document-canvas");
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-repair",
-      projectId: "repair-paper",
-      name: "Repair paper",
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+      root: "/tmp/lattice-repair", projectId: "repair-paper", name: "Repair paper", rootDocuments: MAIN_DOCUMENT,
     });
     let repaired = false;
     const warning = { file: "main.tex", line: 3, level: "warning", message: "Reference `old-label' undefined." };
@@ -6270,10 +5405,9 @@ describe("project workspace", () => {
       ...projectCommands(snapshot),
       refresh_project: snapshot,
       read_project_file: () => `\\documentclass{article}\n\\begin{document}\n${repaired ? "Fixed reference" : "\\ref{old-label}"}\n\\end{document}`,
-      build_project: () => ({
-        success: true, hasPdf: false, durationMs: 10, rootDocument: "main.tex",
-        log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning, error],
-      }),
+      build_project: () => buildResult({
+        durationMs: 10, rootDocument: "main.tex", log: repaired ? "" : warning.message, diagnostics: repaired ? [] : [warning, error],
+      })(),
       compile_repair: (args) => {
         if ((args as { action: string }).action === "start") return { threadId: "repair-task" };
         repaired = true;
@@ -6305,34 +5439,21 @@ describe("project workspace", () => {
     };
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        return files[path] ?? "";
-      },
-      build_project: () => ({
-        success: true,
-        pdfBase64: null,
-        log: "chapters/intro.tex:4: Overfull hbox.\n",
-        durationMs: 80,
-        diagnostics: [{
-          file: "/tmp/lattice-paper/./chapters/intro.tex",
-          line: 4,
-          level: "warning",
-          message: "Overfull hbox.",
-        }],
+      read_project_file: readFiles(files, ""),
+      build_project: buildResult({
+        log: "chapters/intro.tex:4: Overfull hbox.\n", durationMs: 80,
+        diagnostics: [{ file: "/tmp/lattice-paper/./chapters/intro.tex", line: 4, level: "warning", message: "Overfull hbox." }],
       }),
     });
     const diagnosticsPanel = await screen.findByLabelText("Compile diagnostics");
-    const visibleBuildToasts = () => getVisibleAppToastIds().map((id) => getAppLogEntry(id))
-      .filter((entry) => entry?.source === "Build");
-    expect(visibleBuildToasts()).toEqual([]);
+    expect(visibleToasts("Build")).toEqual([]);
     // Initial and autosave builds are intentionally silent.
     expect(interfaceSounds.play).not.toHaveBeenCalled();
     const buildsBeforeManualRequest = invokeCalls("build_project").length;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
     await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
-    expect(visibleBuildToasts()).toEqual([]);
+    expect(visibleToasts("Build")).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
     expect(screen.getByText("1 warning")).toBeInTheDocument();
@@ -6346,13 +5467,13 @@ describe("project workspace", () => {
     await expectInvoked("read_project_file", { path: "chapters/intro.tex", projectRoot: ROOT });
     await waitFor(() => {
       const view = editorViewAt();
-      expect(view?.state.doc.toString()).toContain("\\section{Intro}");
-      expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
+      expect(view.state.doc.toString()).toContain("\\section{Intro}");
+      expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
     });
   });
 
   it("keeps the caret during repeated failed autosave builds but still navigates on manual Build", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "automatic" }));
+    setAutoBuildMode("automatic");
     const snapshot = projectSnapshot();
     let diskSource = "\\documentclass{article}\n\\begin{document}\n\\label{intro\nNext line\n\\end{document}\n";
     let buildCount = 0;
@@ -6366,13 +5487,10 @@ describe("project workspace", () => {
       },
       build_project: () => {
         buildCount += 1;
-        return {
-          success: false,
-          hasPdf: false,
-          log: "Runaway argument!",
-          durationMs: 80,
+        return buildResult({
+          success: false, log: "Runaway argument!", durationMs: 80,
           diagnostics: [{ file: "main.tex", line: 4, level: "error", message: "Runaway argument!" }],
-        };
+        })();
       },
     });
     await screen.findByLabelText("Compile diagnostics");
@@ -6407,26 +5525,18 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot();
     renderApp({
       ...projectCommands(snapshot),
-      build_project: () => ({
-        success: false,
-        pdfBase64: null,
-        log: "LaTeX Error: File `iclr2026_conference.sty' not found.\n",
-        durationMs: 80,
-        diagnostics: [
-          {
-            level: "error",
-            message:
-              "Missing style file `iclr2026_conference.sty`. "
-              + "It is part of the ICLR template and belongs next to main.tex — TeX Live cannot install it. "
-              + "Sync or copy it back from another copy of the project.",
-          },
-        ],
+      build_project: buildResult({
+        success: false, log: "LaTeX Error: File `iclr2026_conference.sty' not found.\n", durationMs: 80,
+        diagnostics: [{
+          level: "error",
+          message: "Missing style file `iclr2026_conference.sty`. "
+            + "It is part of the ICLR template and belongs next to main.tex — TeX Live cannot install it. "
+            + "Sync or copy it back from another copy of the project.",
+        }],
       }),
     });
     await waitFor(() => {
-      const toasts = getVisibleAppToastIds().map((id) => getAppLogEntry(id))
-        .filter((entry) => entry?.source === "Build");
-      expect(toasts).toHaveLength(0);
+      expect(visibleToasts("Build")).toHaveLength(0);
       expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
     });
     const diagnostics = await screen.findByLabelText("Compile diagnostics", {}, { timeout: 40_000 });
@@ -6437,33 +5547,20 @@ describe("project workspace", () => {
 
     const buildsBeforeManualRequest = invokeCalls("build_project").length;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => {
-      expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1);
-    });
-    await waitFor(() => {
-      const toasts = getVisibleAppToastIds().map((id) => getAppLogEntry(id))
-        .filter((entry) => entry?.source === "Build");
-      expect(toasts).toHaveLength(0);
-    });
+    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
+    await waitFor(() => expect(visibleToasts("Build")).toHaveLength(0));
     expect(await screen.findByLabelText("Compile diagnostics")).toBeInTheDocument();
     expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
   }, 40_000);
 
   it("installs a missing LaTeX package in-app and rebuilds", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    await setInterfaceLanguage("zh-CN");
     let finishInstall!: () => void;
-    const snapshot = projectSnapshot();
     renderApp({
-      ...projectCommands(snapshot),
-      start_tex_dependency_install: () => new Promise<void>((resolve) => {
-        finishInstall = resolve;
-      }),
-      build_project: () => ({
-        success: false,
-        pdfBase64: null,
-        log: "LaTeX Error: File `newtxmath.sty' not found.\n",
-        durationMs: 80,
+      ...projectCommands(projectSnapshot()),
+      start_tex_dependency_install: () => new Promise<void>((resolve) => { finishInstall = resolve; }),
+      build_project: buildResult({
+        success: false, log: "LaTeX Error: File `newtxmath.sty' not found.\n", durationMs: 80,
         diagnostics: [{
           level: "error",
           message: "Missing LaTeX dependency `newtxmath.sty`. BasicTeX does not include every package available on Overleaf.",
@@ -6482,10 +5579,7 @@ describe("project workspace", () => {
 
     const buildCallsBeforeInstall = invokeCalls("build_project").length;
     await act(async () => finishInstall());
-    await waitFor(() => {
-      const buildCalls = invokeCalls("build_project").length;
-      expect(buildCalls).toBeGreaterThan(buildCallsBeforeInstall);
-    });
+    await waitFor(() => expect(invokeCalls("build_project").length).toBeGreaterThan(buildCallsBeforeInstall));
     expect(screen.queryByRole("dialog", { name: "安装缺失的软件包" })).not.toBeInTheDocument();
     expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 配置] LaTeX 软件包已安装");
   });
@@ -6494,11 +5588,9 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({ name: "CVPR paper" });
     renderApp({
       ...projectCommands(snapshot, "\\usepackage[review]{cvpr}"),
-      build_project: () => ({
-        success: false,
-        pdfBase64: null,
+      build_project: buildResult({
+        success: false, durationMs: 80,
         log: "Latexmk: Missing input file 'cvpr.sty' message in .log file:\nLaTeX Error: File `cvpr.sty' not found.\n",
-        durationMs: 80,
         diagnostics: [{
           level: "error",
           message: "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it.",
@@ -6509,45 +5601,41 @@ describe("project workspace", () => {
     expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
   });
 
-  it("saves dirty buffers before switching project files", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+  it.each([
+    ["saves dirty buffers before switching project files", false],
+    ["does not make file switching wait for post-save project scans", true],
+  ] as const)("%s", async (_name, holdScans) => {
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
-    const files: Record<string, string> = {
-      "main.tex": "\\documentclass{article}", "intro.tex": "\\section{Intro}",
-    };
+    const files: Record<string, string> = { "main.tex": "\\documentclass{article}", "intro.tex": "\\section{Intro}" };
+    let saved = false;
+    let resolveHistory!: (items: never[]) => void;
+    const delayedHistory = new Promise<never[]>((resolve) => { resolveHistory = resolve; });
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        return files[path] ?? "";
-      },
+      read_project_file: readFiles(files, ""),
       write_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        const content = String((args as { content?: string } | undefined)?.content ?? "");
+        const { path, content } = args as { path: string; content: string };
         files[path] = content;
+        saved = true;
         return undefined;
       },
+      list_history: () => (holdScans && saved ? delayedHistory : []),
     });
-    const view = await findEditorView();
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
+    await appendToEditor("\nDraft change.");
     await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
     fireEvent.click(await findProjectTreeItem("intro.tex"));
     await expectInvoked("write_project_file", {
-      path: "main.tex",
-      content: "\\documentclass{article}\nDraft change.",
-      baseContent: "\\documentclass{article}",
-      projectRoot: ROOT,
+      path: "main.tex", content: "\\documentclass{article}\nDraft change.", baseContent: "\\documentclass{article}", projectRoot: ROOT,
     });
     await expectInvoked("read_project_file", { path: "intro.tex", projectRoot: ROOT });
-    await waitFor(() => {
-      const nextView = editorViewAt();
-      expect(nextView?.state.doc.toString()).toBe("\\section{Intro}");
-    });
+    await expectEditorText("\\section{Intro}");
+    resolveHistory([]);
   });
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex"), fileNode("notes.tex")] });
     let resolveIntro!: (content: string) => void;
     let resolveNotes!: (content: string) => void;
@@ -6556,12 +5644,7 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        if (path === "intro.tex") return intro;
-        if (path === "notes.tex") return notes;
-        return "main";
-      },
+      read_project_file: readFiles({ "intro.tex": intro, "notes.tex": notes }, "main"),
     });
     await waitForSelectedTab("main.tex");
     fireEvent.click(await findProjectTreeItem("intro.tex"));
@@ -6572,93 +5655,68 @@ describe("project workspace", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: /notes\.tex/ })).toHaveAttribute("aria-selected", "true");
-      const editor = document.querySelector<HTMLElement>(".cm-editor");
-      expect(editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : null).toBe("latest notes");
+      expect(editorViewAt().state.doc.toString()).toBe("latest notes");
     });
   });
 
-  it("opens a recent project in its own window and leaves this one alone", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
-      { name: "Notes", path: "/tmp/notes" },
-      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
-    ]));
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
+  it.each([
+    ["opens a recent project in its own window and leaves this one alone", "Overleaf paper", null, "/tmp/overleaf-paper"],
+    ["gives a newly created project its own window when one is already open", "New project", "/tmp", "/tmp/new-paper"],
+    ["opens a folder chosen from the picker in its own window too", "Open another folder", "/tmp/other", "/tmp/other"],
+  ] as const)("%s", async (_name, menuItem, chosenFolder, path) => {
+    setAutoBuildMode("manual");
+    if (menuItem === "Overleaf paper") {
+      localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+        { name: "Notes", path: "/tmp/notes" }, { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
+      ]));
+    }
+    const notes = notesSnapshot();
     renderApp({
-      ...projectCommands(notesSnapshot, "# Private draft"),
+      ...projectCommands(notes, "# Private draft"),
+      create_project: { ...notes, root: "/tmp/new-paper" },
       open_project_window: () => ({ label: "project-1", focusedExisting: false }),
     });
-    await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
-      expect(view?.state.doc.toString()).toBe("# Private draft");
-    });
+    await expectEditorText("# Private draft");
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Overleaf paper" }));
+    vi.mocked(open).mockResolvedValue(chosenFolder);
+    await chooseProjectMenuItem(menuItem);
+    if (menuItem === "New project") {
+      fireEvent.change(await screen.findByLabelText("Project name"), { target: { value: "New paper" } });
+      fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
+    }
 
-    await expectInvoked("open_project_window", { path: "/tmp/overleaf-paper" });
+    await expectInvoked("open_project_window", { path });
     // The point of the feature: this window keeps the project and the buffer it
     // already had, rather than being taken over by the one just opened.
-    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/overleaf-paper" });
-    const view = editorViewAt();
-    expect(view?.state.doc.toString()).toBe("# Private draft");
+    expect(invoke).not.toHaveBeenCalledWith("open_project", { path });
+    expect(editorViewAt().state.doc.toString()).toBe("# Private draft");
   });
 
   it("joins a live collaboration in the current window", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.collab.name", "Ada");
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
+    const notes = notesSnapshot();
     const sharedSnapshot = {
-      ...notesSnapshot,
-      root: "/tmp/Lattice Shares/Shared room",
-      manifest: { ...notesSnapshot.manifest, projectId: "shared-id", name: "Shared room" },
-      files: [],
+      ...notes, root: "/tmp/Lattice Shares/Shared room", files: [],
+      manifest: { ...notes.manifest, projectId: "shared-id", name: "Shared room" },
     };
     const projectInstanceId = "project_1234567890abcdef1234567890abcdef";
     const invitation = formatCollabInvitationV2({
-      version: 2,
-      deployment: "https://collab.example",
-      projectInstanceId,
-      guestSecret: "A".repeat(43),
-      permission: "write",
+      version: 2, deployment: "https://collab.example", projectInstanceId, guestSecret: "A".repeat(43), permission: "write",
       projectName: "Shared room",
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      protocol: 2,
-      projectInstanceId,
-      name: "Shared room",
-      lifecycle: "live",
-      catalogRevision: 1,
-      snapshotGeneration: 0,
-      workspaceLeaseGeneration: 0,
-      authorityEpoch: 1,
-      files: [],
+      protocol: 2, projectInstanceId, name: "Shared room", lifecycle: "live", catalogRevision: 1, snapshotGeneration: 0,
+      workspaceLeaseGeneration: 0, authorityEpoch: 1, files: [],
     }), { headers: { "content-type": "application/json" } })));
     renderApp({
-      ...projectCommands(notesSnapshot, "# Private draft"),
+      ...projectCommands(notes, "# Private draft"),
       put_collab_credential: undefined,
       create_collab_join_workspace: sharedSnapshot,
-      open_project: () => {
-        throw new Error("stop after binding the current window");
-      },
+      open_project: () => { throw new Error("stop after binding the current window"); },
     });
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
-    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    await openCollaboration();
     fireEvent.click(await screen.findByRole("tab", { name: "Join" }));
     fireEvent.change(screen.getByLabelText("Collab invite"), { target: { value: invitation } });
     fireEvent.click(screen.getByRole("button", { name: "Join share" }));
@@ -6677,20 +5735,12 @@ describe("project workspace", () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
     renderApp({
-      initial_project: () => hasProject ? projectSnapshot({
-        root: "/tmp/notes",
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        files: [fileNode("draft.md")],
-      }) : null,
+      ...projectCommands(null, "# Local draft"),
+      initial_project: () => (hasProject ? notesSnapshot() : null),
       take_pending_window_action: () => JSON.stringify({
         kind: "join-collab-v2", host: "https://collab.example", projectInstanceId: "project_saved_room",
       }),
-      read_project_file: "# Local draft",
       harper_lint: () => [],
-      list_papers: () => [],
-      list_history: () => [],
     });
     if (hasProject) {
       await expectInvoked("take_pending_window_action");
@@ -6709,27 +5759,12 @@ describe("project workspace", () => {
   });
 
   it("shows share-start progress in the selected interface language", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    await setInterfaceLanguage("zh-CN");
     localStorage.setItem("lattice.collab.name", "Ada");
-    const snapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
     const inventoryFailure: { reject: ((reason: Error) => void) | null } = { reject: null };
-    const inventory = new Promise<never>((_resolve, reject) => {
-      inventoryFailure.reject = reject;
-    });
-    renderApp({
-      ...projectCommands(snapshot, "# Private draft"),
-      harper_lint: () => [],
-      collab_project_inventory_v2: inventory,
-    });
-    await waitFor(() => expect(document.querySelector('[data-tour="collaboration"]')).not.toBeNull());
-    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    const inventory = new Promise<never>((_resolve, reject) => { inventoryFailure.reject = reject; });
+    renderApp({ ...projectCommands(notesSnapshot(), "# Private draft"), harper_lint: () => [], collab_project_inventory_v2: inventory });
+    await openCollaboration();
     // The first sharing test also loads the lazy dialog and its dependencies.
     fireEvent.click(await screen.findByRole("button", { name: "开始共享" }, { timeout: 20_000 }));
 
@@ -6740,151 +5775,54 @@ describe("project workspace", () => {
   }, 40_000);
 
   it("translates share exclusions before asking for confirmation", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    await setInterfaceLanguage("zh-CN");
     localStorage.setItem("lattice.collab.name", "Ada");
-    mockCommands({
-      initial_project: () => projectSnapshot({
-        root: "/tmp/notes",
-        projectId: "notes-id",
-        name: "Notes",
-        rootDocuments: [],
-        files: [fileNode("draft.md")],
-      }),
-      read_project_file: "# Private draft",
+    renderApp({
+      ...projectCommands(null, "# Private draft"),
+      initial_project: () => notesSnapshot(),
       harper_lint: () => [],
-      list_papers: () => [],
-      list_history: () => [],
       collab_project_inventory_v2: () => ({
         files: [],
         excluded: [
-          { pathOrPattern: ".git/**", reason: "git-internals" },
-          { pathOrPattern: ".research/**", reason: "app-private-state" },
+          { pathOrPattern: ".git/**", reason: "git-internals" }, { pathOrPattern: ".research/**", reason: "app-private-state" },
           { pathOrPattern: "node_modules/**", reason: "generated-directory" },
           { pathOrPattern: "linked.tex", reason: "symlink-not-followed" },
         ],
       }),
-    });
-    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
-    await waitFor(() => expect(document.querySelector('[data-tour="collaboration"]')).not.toBeNull());
-    fireEvent.click(document.querySelector<HTMLElement>('[data-tour="collaboration"]')!);
+    }, { confirmations: true });
+    await openCollaboration();
     fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
     const dialog = await screen.findByRole("dialog", { name: "要继续吗？" });
-    expect(dialog).toHaveTextContent("以下项目内容不会包含在此次共享中");
-    expect(dialog).toHaveTextContent(".git/** — Git 内部数据");
-    expect(dialog).toHaveTextContent(".research/** — 应用私有数据");
-    expect(dialog).toHaveTextContent("node_modules/** — 自动生成的目录");
-    expect(dialog).toHaveTextContent("linked.tex — 不跟随符号链接");
+    for (const text of [
+      "以下项目内容不会包含在此次共享中", ".git/** — Git 内部数据", ".research/** — 应用私有数据",
+      "node_modules/** — 自动生成的目录", "linked.tex — 不跟随符号链接",
+    ]) expect(dialog).toHaveTextContent(text);
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
   });
 
-  it("gives a newly created project its own window when one is already open", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
-    const created = { ...notesSnapshot, root: "/tmp/new-paper" };
-    renderApp({
-      ...projectCommands(notesSnapshot, "# Private draft"),
-      create_project: created,
-      open_project_window: () => ({ label: "project-1", focusedExisting: false }),
-    });
-    await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
-      expect(view?.state.doc.toString()).toBe("# Private draft");
-    });
-
-    vi.mocked(open).mockResolvedValue("/tmp");
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "New project" }));
-    fireEvent.change(await screen.findByLabelText("Project name"), { target: { value: "New paper" } });
-    fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
-
-    await expectInvoked("open_project_window", { path: "/tmp/new-paper" });
-    // The window that was in use keeps its project and its buffer.
-    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/new-paper" });
-    const view = editorViewAt();
-    expect(view?.state.doc.toString()).toBe("# Private draft");
-  });
-
-  it("opens a folder chosen from the picker in its own window too", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
-    renderApp({
-      ...projectCommands(notesSnapshot, "# Private draft"),
-      open_project_window: () => ({ label: "project-1", focusedExisting: false }),
-    });
-    await waitFor(() => {
-      const view = editorViewAt();
-      expect(view?.state.doc.toString()).toBe("# Private draft");
-    });
-
-    vi.mocked(open).mockResolvedValue("/tmp/other");
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Open another folder" }));
-
-    await expectInvoked("open_project_window", { path: "/tmp/other" });
-    expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/other" });
-  });
 
   it("does not carry an open Markdown buffer into the next project", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
-      { name: "Notes", path: "/tmp/notes" },
-      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
+      { name: "Notes", path: "/tmp/notes" }, { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
     ]));
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
-    const overleafSnapshot = projectSnapshot({
-      root: "/tmp/overleaf-paper", projectId: "overleaf-id", name: "Overleaf paper",
-    });
-    let currentRoot = notesSnapshot.root;
+    const notes = notesSnapshot();
+    const overleafSnapshot = projectSnapshot({ root: "/tmp/overleaf-paper", projectId: "overleaf-id", name: "Overleaf paper" });
+    let currentRoot = notes.root;
     let releaseIncomingPapers!: (papers: never[]) => void;
-    const incomingPapers = new Promise<never[]>((resolve) => {
-      releaseIncomingPapers = resolve;
-    });
+    const incomingPapers = new Promise<never[]>((resolve) => { releaseIncomingPapers = resolve; });
     renderApp({
-      initial_project: notesSnapshot,
+      ...projectCommands(notes),
       open_tutorial_project: () => {
         currentRoot = overleafSnapshot.root;
         return overleafSnapshot;
       },
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        if (currentRoot === notesSnapshot.root && path === "draft.md") return "# Private draft";
-        if (currentRoot === overleafSnapshot.root && path === "main.tex") return "\\documentclass{article}";
-        return "";
-      },
+      read_project_file: (args) => readFiles(currentRoot === notes.root
+        ? { "draft.md": "# Private draft" } : { "main.tex": "\\documentclass{article}" }, "")(args),
       list_papers: () => currentRoot === overleafSnapshot.root ? incomingPapers : [],
-      list_history: () => [],
       write_project_file: undefined,
     });
-    const initialEditor = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
-      expect(view?.state.doc.toString()).toBe("# Private draft");
-      return view!;
-    });
+    const initialEditor = await expectEditorText("# Private draft");
     const insertedText = "\nLocal only.";
     const savedCursor = initialEditor.state.doc.length + insertedText.length;
     initialEditor.dispatch({
@@ -6896,38 +5834,20 @@ describe("project workspace", () => {
     // replaces the project in this window. Choosing a project — from the
     // recent list or a folder — now opens a window of its own instead, but
     // every in-place switch still runs this same save/transition/enter path.
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await chooseProjectMenuItem("Guided tutorial");
     await expectInvoked("open_tutorial_project");
-    await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
-      expect(view?.state.doc.toString()).toBe("");
-    });
+    await expectEditorText("");
     fireEvent.keyDown(window, { key: "s", metaKey: true });
     await pause(0);
-    const writes = invokeCalls("write_project_file");
-    expect(writes).toEqual([
-      ["write_project_file", {
-        path: "draft.md",
-        content: "# Private draft\nLocal only.",
-        baseContent: "# Private draft",
-        projectRoot: "/tmp/notes",
-      }],
-    ]);
-    const storedViews = JSON.parse(
-      localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
-    ) as Record<string, Record<string, { text?: { cursor: number; scrollTop: number } }>>;
+    expect(invokeCalls("write_project_file")).toEqual([["write_project_file", {
+      path: "draft.md", content: "# Private draft\nLocal only.", baseContent: "# Private draft", projectRoot: "/tmp/notes",
+    }]]);
+    const storedViews = storedFileViews();
     expect(storedViews["/tmp/notes"]?.["draft.md"]?.text).toEqual({ cursor: savedCursor, scrollTop: 0 });
     expect(storedViews["/tmp/overleaf-paper"]?.["draft.md"]).toBeUndefined();
 
     releaseIncomingPapers([]);
-    await waitFor(() => {
-      const view = editorViewAt();
-      expect(view?.state.doc.toString()).toBe("\\documentclass{article}");
-    });
+    await expectEditorText("\\documentclass{article}");
   });
 
   it("does not auto-sync the next project against Overleaf when it is not linked", async () => {
@@ -6935,56 +5855,34 @@ describe("project workspace", () => {
     // is in but the old link state is not yet cleared; auto-sync firing in
     // that window raised "Sync failed: This project is not linked to an
     // Overleaf project." at the local project.
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
-      { name: "Overleaf paper", path: "/tmp/overleaf-paper" },
-      { name: "Notes", path: "/tmp/notes" },
+      { name: "Overleaf paper", path: "/tmp/overleaf-paper" }, { name: "Notes", path: "/tmp/notes" },
     ]));
-    const overleafSnapshot = projectSnapshot({
-      root: "/tmp/overleaf-paper", projectId: "overleaf-id", name: "Overleaf paper",
-    });
-    const notesSnapshot = projectSnapshot({
-      root: "/tmp/notes",
-      projectId: "notes-id",
-      name: "Notes",
-      rootDocuments: [],
-      files: [fileNode("draft.md")],
-    });
+    const overleafSnapshot = projectSnapshot({ root: "/tmp/overleaf-paper", projectId: "overleaf-id", name: "Overleaf paper" });
+    const notes = notesSnapshot();
     let currentRoot = overleafSnapshot.root;
     renderApp({
       ...projectCommands(overleafSnapshot),
       open_tutorial_project: () => {
-        currentRoot = notesSnapshot.root;
-        return notesSnapshot;
+        currentRoot = notes.root;
+        return notes;
       },
-      refresh_project: () => currentRoot === overleafSnapshot.root ? overleafSnapshot : notesSnapshot,
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        if (path === "main.tex") return "\\documentclass{article}";
-        if (path === "draft.md") return "# Local notes";
-        return "";
-      },
+      refresh_project: () => currentRoot === overleafSnapshot.root ? overleafSnapshot : notes,
+      read_project_file: readFiles({ "main.tex": "\\documentclass{article}", "draft.md": "# Local notes" }, ""),
       overleaf_link: () => {
         // The backend reads the link off the currently open project; a local
         // project simply has no state file.
-        if (currentRoot !== overleafSnapshot.root) {
-          throw new Error("This project is not linked to an Overleaf project.");
-        }
-        return {
-          projectId: "ol-123",
-          projectName: "Overleaf paper",
-          host: "https://www.overleaf.com",
-          lastSync: null,
-          paused: false,
-        };
+        if (currentRoot !== overleafSnapshot.root) throw new Error("This project is not linked to an Overleaf project.");
+        return overleafLink({ projectId: "ol-123" });
       },
       overleaf_sync: () => overleafSyncResult(),
       overleaf_probe: () => overleafProbe(),
       overleaf_rt_connect: () => overleafSession({ docs: [] }),
       overleaf_status: () => overleafStatus({ email: "me@example.com", name: "Me" }),
-      overleaf_rt_disconnect: (_args, command) => command === "git_auto_commit" ? null : undefined,
-      write_project_file: (_args, command) => command === "git_auto_commit" ? null : undefined,
-      git_auto_commit: (_args, command) => command === "git_auto_commit" ? null : undefined,
+      overleaf_rt_disconnect: undefined,
+      write_project_file: undefined,
+      git_auto_commit: null,
       ...OVERLEAF_EMPTY_FEEDS,
     });
     // The linked project gets its one-time local/remote check, but neither side
@@ -6993,73 +5891,25 @@ describe("project workspace", () => {
 
     // The tutorial is one of the flows that still replaces the project in this
     // window; choosing a project now opens a window of its own instead.
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
+    await chooseProjectMenuItem("Guided tutorial");
     await expectInvoked("open_tutorial_project");
-    await waitFor(() => {
-      const view = editorViewAt();
-      expect(view?.state.doc.toString()).toBe("# Local notes");
-    });
+    await expectEditorText("# Local notes");
     // The stale-link window has passed by the time the new project renders;
     // give pending promises a beat and confirm nothing aimed at it.
     await act(async () => { await pause(0); });
-    const syncRoots = invokeCalls("overleaf_sync")
-      .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
-    expect(syncRoots).toEqual([]);
-    const probeRoots = invokeCalls("overleaf_probe")
-      .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
-    expect(probeRoots).not.toContain("/tmp/notes");
+    const roots = (command: string) => invokeCalls(command).map(([, args]) => (args as { projectRoot?: string } | undefined)?.projectRoot);
+    expect(roots("overleaf_sync")).toEqual([]);
+    expect(roots("overleaf_probe")).not.toContain("/tmp/notes");
   });
 
-  it("does not make file switching wait for post-save project scans", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex")] });
-    const files: Record<string, string> = {
-      "main.tex": "\\documentclass{article}", "intro.tex": "\\section{Intro}",
-    };
-    let blockHistory = false;
-    let resolveHistory!: (items: never[]) => void;
-    const delayedHistory = new Promise<never[]>((resolve) => {
-      resolveHistory = resolve;
-    });
-    renderApp({
-      initial_project: snapshot,
-      refresh_project: snapshot,
-      read_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        return files[path] ?? "";
-      },
-      write_project_file: (args) => {
-        const path = String((args as { path?: string } | undefined)?.path ?? "");
-        const content = String((args as { content?: string } | undefined)?.content ?? "");
-        files[path] = content;
-        blockHistory = true;
-        return undefined;
-      },
-      list_history: () => blockHistory ? delayedHistory : [],
-      list_papers: () => [],
-    });
-    const view = await findEditorView();
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
-    await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
-    fireEvent.click(await findProjectTreeItem("intro.tex"));
-
-    await expectInvoked("read_project_file", { path: "intro.tex", projectRoot: ROOT });
-    resolveHistory([]);
-  });
 
   it("shows only edit and delete actions on a Papers row", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const paper = attentionPaper({ citationKey: "vaswani2017attention" });
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot();
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, "See "),
       refresh_project: snapshot,
-      read_project_file: "See ",
-      list_papers: () => [paper],
-      list_history: () => [],
+      list_papers: () => [attentionPaper({ citationKey: "vaswani2017attention" })],
     });
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
     await switchSidebarMode("Papers");
@@ -7069,13 +5919,13 @@ describe("project workspace", () => {
   });
 
   it("saves the visible source before checking whether a paper is still cited", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
+    setAutoBuildMode("manual");
+    const paper = SINGLE_TRANSFORMER;
     const snapshot = projectSnapshot();
     let diskSource = "See \\cite{chen2024single}.\n";
     let sourceAtPreview = "";
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
       read_project_file: (args) => argPath(args) === "main.tex" ? diskSource : "",
       write_project_file: (args) => {
@@ -7084,7 +5934,6 @@ describe("project workspace", () => {
         return undefined;
       },
       list_papers: () => [paper],
-      list_history: () => [],
       remove_reference: (args) => {
         const citationMode = (args as { citationMode?: string }).citationMode;
         if (citationMode === "preview") {
@@ -7096,7 +5945,6 @@ describe("project workspace", () => {
     });
     const view = await findEditorView();
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "The citation was removed.\n" } });
-
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Remove A Single Transformer"));
     await waitFor(() => expect(sourceAtPreview).toBe("The citation was removed.\n"));
@@ -7104,74 +5952,53 @@ describe("project workspace", () => {
   });
 
   it("offers cited-paper removal with and without its citation commands", async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    const paper = { arxivId: "2407.06438", title: "A Single Transformer", citationKey: "chen2024single", hasFullText: true };
+    setAutoBuildMode("manual");
+    const paper = SINGLE_TRANSFORMER;
     const snapshot = projectSnapshot();
     let diskSource = "See \\cite{chen2024single}.\n";
-    mockCommands({
-      initial_project: snapshot,
+    renderApp({
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
       read_project_file: (args) => argPath(args) === "main.tex" ? diskSource : "",
       list_papers: () => [paper],
-      list_history: () => [],
       remove_reference: (args) => {
         const citationMode = (args as { citationMode?: string }).citationMode;
         if (citationMode === "preview") {
           return {
-            key: paper.citationKey,
-            removed: false,
+            key: paper.citationKey, removed: false, changedFiles: [], removedCitations: 0,
             blockers: [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 1, snippet: diskSource }],
-            changedFiles: [],
-            removedCitations: 0,
           };
         }
         const before = diskSource;
-        if (citationMode === "remove") diskSource = "See .\n";
+        const removeCitations = citationMode === "remove";
+        if (removeCitations) diskSource = "See .\n";
+        const bibliography = { path: "references.bib", before: "@article{chen2024single}\n", after: "" };
         return {
-          key: paper.citationKey,
-          removed: true,
-          blockers: [],
-          changedFiles: citationMode === "remove" ? ["main.tex", "references.bib"] : ["references.bib"],
-          removedCitations: citationMode === "remove" ? 1 : 0,
-          transactionId: "remove-chen",
-          changes: citationMode === "remove"
-            ? [
-                { path: "main.tex", before, after: diskSource },
-                { path: "references.bib", before: "@article{chen2024single}\n", after: "" },
-              ]
-            : [{ path: "references.bib", before: "@article{chen2024single}\n", after: "" }],
+          key: paper.citationKey, removed: true, blockers: [], transactionId: "remove-chen",
+          changedFiles: removeCitations ? ["main.tex", "references.bib"] : ["references.bib"],
+          removedCitations: removeCitations ? 1 : 0,
+          changes: removeCitations ? [{ path: "main.tex", before, after: diskSource }, bibliography] : [bibliography],
         };
       },
-    });
-
-    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    }, { confirmations: true });
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("Remove A Single Transformer"));
     const dialog = await screen.findByRole("dialog", { name: "Remove “A Single Transformer” from the bibliography?" });
     expect(dialog).toHaveAccessibleDescription(/cited in 1 place.*main\.tex:1.*leave them unresolved/i);
     fireEvent.click(screen.getByRole("button", { name: "Remove citations too" }));
 
-    await expectInvoked("remove_reference", {
-      key: "chen2024single", citationMode: "remove", projectRoot: ROOT,
-    });
-    await waitFor(() => {
-      const editor = document.querySelector<HTMLElement>(".cm-editor");
-      expect(editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : null).toBe("See .\n");
-    });
+    await expectInvoked("remove_reference", { key: "chen2024single", citationMode: "remove", projectRoot: ROOT });
+    await expectEditorText("See .\n");
   });
 
   it("deletes a history entry without creating another one", async () => {
     const snapshot = projectSnapshot({ files: [] });
     let entries = [{ id: "change-1", label: "Edit main.tex", timestamp: "2026-07-16T00:00:00Z", files: ["main.tex"] }];
     renderApp({
-      initial_project: snapshot,
-      read_project_file: "\\documentclass{article}",
-      list_papers: () => [],
+      ...projectCommands(snapshot),
       list_history: () => entries,
       get_history_entry: () => ({
-        id: "change-1",
-        label: "Edit main.tex",
-        timestamp: "2026-07-16T00:00:00Z",
+        id: "change-1", label: "Edit main.tex", timestamp: "2026-07-16T00:00:00Z",
         changes: [{ path: "main.tex", before: "old line\n", after: "new line\n" }],
       }),
       delete_history_entry: () => {
@@ -7192,23 +6019,16 @@ describe("project workspace", () => {
 
   it("shows the document outline and jumps to a section", async () => {
     const snapshot = projectSnapshot({
-      files: [{
-        name: "sections",
-        path: "sections",
-        kind: "folder",
-        children: [{ name: "introduction.tex", path: "sections/introduction.tex", kind: "tex", children: [] }],
-      }],
+      files: [fileNode("sections", "folder", { children: [fileNode("sections/introduction.tex")] })],
     });
     const syncResolvers: Array<(target: { page: number; x: number; y: number; width: number; height: number }) => void> = [];
     renderApp({
       ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        if ((args as { path?: string } | undefined)?.path === "sections/introduction.tex") {
-          return "\\subsection{Background}\ntext\n";
-        }
-        return "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\n\\input{sections/introduction}\n\\section{Results}\n\\end{document}\n";
-      },
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] }),
+      read_project_file: readFiles(
+        { "sections/introduction.tex": "\\subsection{Background}\ntext\n" },
+        "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\n\\input{sections/introduction}\n\\section{Results}\n\\end{document}\n",
+      ),
+      build_project: buildResult({ durationMs: 1 }),
       synctex_view: () => new Promise((resolve) => syncResolvers.push(resolve)),
     });
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
@@ -7218,11 +6038,12 @@ describe("project workspace", () => {
     expect(screen.queryByText("sections/introduction.tex")).not.toBeInTheDocument();
     expect(screen.queryByText("\\input{sections/introduction.tex}")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Results/i }));
-    const editorView = await waitFor(() => {
+    const caretLine = () => {
       const view = editorViewAt();
-      expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(5);
-      return view!;
-    });
+      return view.state.doc.lineAt(view.state.selection.main.head).number;
+    };
+    await waitFor(() => expect(caretLine()).toBe(5));
+    const editorView = editorViewAt();
     await waitFor(() => expect(syncResolvers).toHaveLength(1));
 
     // Moving the caret invalidates the outstanding outline-driven SyncTeX
@@ -7237,10 +6058,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByTitle("Show outline"));
     fireEvent.click(await screen.findByRole("button", { name: /Results/i }));
     await waitFor(() => expect(syncResolvers).toHaveLength(2));
-    await waitFor(() => {
-      const currentView = editorViewAt();
-      expect(currentView?.state.doc.lineAt(currentView.state.selection.main.head).number).toBe(5);
-    });
+    await waitFor(() => expect(caretLine()).toBe(5));
     const idsBeforeLatestResponse = randomUUID.mock.calls.length;
     syncResolvers[1]({ page: 2, x: 72, y: 96, width: 120, height: 14 });
     await waitFor(() => expect(randomUUID).toHaveBeenCalledTimes(idsBeforeLatestResponse + 1));
@@ -7248,10 +6066,7 @@ describe("project workspace", () => {
 
   it("opens a rich insert palette with previews", { timeout: 20000 }, async () => {
     const snapshot = projectSnapshot({ files: [] });
-    renderApp({
-      ...projectCommands(snapshot, "\\begin{document}\n\n\\end{document}\n"),
-      build_project: () => ({ success: true, pdfBase64: null, log: "", durationMs: 1, diagnostics: [] }),
-    });
+    renderApp({ ...projectCommands(snapshot, "\\begin{document}\n\n\\end{document}\n"), build_project: buildResult({ durationMs: 1 }) });
     // The action is eager titlebar UI, but its palette lives in the lazy
     // document canvas. Wait for the insertion host before exercising it.
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull(), { timeout: 15_000 });
@@ -7272,8 +6087,7 @@ describe("project workspace", () => {
     const documentView = screen.getByRole("tablist", { name: "Document view" });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" }))
-        .not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Insert LaTeX snippets")).not.toBeInTheDocument();
     });
 
@@ -7283,15 +6097,10 @@ describe("project workspace", () => {
   });
 
   it("localizes the project-file deletion confirmation", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    const snapshot = projectSnapshot({
-      files: [fileNode("main.tex"), fileNode("notes.tex", "text", { contentKind: "text" })],
-    });
-    mockCommands({ ...projectCommands(snapshot), refresh_project: snapshot, harper_lint: () => [] });
-
+    await setInterfaceLanguage("zh-CN");
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("notes.tex", "text", { contentKind: "text" })] });
     await import("./project/navigator");
-    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    renderApp({ ...projectCommands(snapshot), refresh_project: snapshot, harper_lint: () => [] }, { confirmations: true });
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex", 5_000));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
 
@@ -7302,35 +6111,26 @@ describe("project workspace", () => {
   });
 
   it("localizes the imported-paper removal confirmation", async () => {
-    await activateAppLocale("zh-CN");
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    await setInterfaceLanguage("zh-CN");
+    setAutoBuildMode("manual");
     const snapshot = projectSnapshot();
     const paper = attentionPaper({ citationKey: "vaswani2017attention" });
     let cited = false;
-    mockCommands({
-      initial_project: snapshot,
+    renderApp({
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: "\\documentclass{article}",
       list_papers: () => [paper],
-      list_history: () => [],
       harper_lint: () => [],
       remove_reference: () => ({
-        key: paper.citationKey,
-        removed: false,
-        blockers: cited
-          ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }]
-          : [],
-        changedFiles: [],
-        removedCitations: 0,
+        key: paper.citationKey, removed: false, changedFiles: [], removedCitations: 0,
+        blockers: cited ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }] : [],
       }),
-    });
-
-    render(<ConfirmActionProvider><App /></ConfirmActionProvider>);
+    }, { confirmations: true });
     fireEvent.click(await screen.findByRole("tab", { name: "论文" }));
     fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
 
-    const dialog = await screen.findByRole("dialog", { name: "要从参考文献中移除“Attention Is All You Need”吗？" });
+    const dialogName = "要从参考文献中移除“Attention Is All You Need”吗？";
+    const dialog = await screen.findByRole("dialog", { name: dialogName });
     expect(dialog).toHaveAccessibleDescription("已下载的论文文件将会保留");
     expect(screen.getByRole("button", { name: "移除条目" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
@@ -7339,7 +6139,7 @@ describe("project workspace", () => {
 
     cited = true;
     fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
-    const citedDialog = await screen.findByRole("dialog", { name: "要从参考文献中移除“Attention Is All You Need”吗？" });
+    const citedDialog = await screen.findByRole("dialog", { name: dialogName });
     expect(citedDialog).toHaveAccessibleDescription(
       "此条目在 1 处被引用。 第一处位于 main.tex:7。 保留引用命令会使这些引用无法解析。 已下载的论文文件将会保留",
     );
@@ -7363,14 +6163,9 @@ describe("project workspace", () => {
 
     await import("./project/navigator");
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot, "\\section{Notes}"),
       refresh_project: snapshot,
-      read_project_file: "\\section{Notes}",
       list_papers: () => [paper],
-      list_history: () => [],
-      list_citation_keys: () => [],
-      list_citations: () => [],
-      list_references: () => [],
       create_project_entry: (args) => {
         const entry = args as { path: string; kind: "file" | "folder" };
         return entry.kind === "file" && !entry.path.includes(".") ? `${entry.path}.tex` : entry.path;
@@ -7425,38 +6220,26 @@ describe("project workspace", () => {
       expect(screen.queryByRole("tab", { name: /notes\.tex/ })).not.toBeInTheDocument();
       expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
     });
-    await waitFor(() => {
-      const states = JSON.parse(
-        localStorage.getItem("lattice.file-view-states.v1") ?? "{}",
-      ) as Record<string, Record<string, unknown>>;
-      expect(states[ROOT]?.["notes.tex"]).toBeUndefined();
-    });
+    await waitFor(() => expect(storedFileViews()[ROOT]?.["notes.tex"]).toBeUndefined());
     await switchSidebarMode("Papers");
     fireEvent.click(screen.getByTitle("Remove Attention Is All You Need"));
     await expectInvoked("remove_reference", { key: "vaswani2017attention", projectRoot: ROOT });
   });
 
-  it("creates a board from the header button with an inline name", async () => {
+  it.each([
+    ["board", "sketch", "sketch.tldr", "board-editor-mock"],
+    ["spreadsheet", "results", "results.lattice-sheet", "spreadsheet-editor-mock"],
+  ])("creates a %s from the header button with an inline name", async (kind, name, path, editor) => {
     const snapshot = projectSnapshot({ files: [fileNode("notes.tex")] });
-    renderApp({
-      ...projectCommands(snapshot, ""),
-      refresh_project: snapshot,
-      list_citation_keys: () => [],
-      list_citations: () => [],
-      list_references: () => [],
-      create_project_entry: (args) => argPath(args),
-    });
+    renderApp({ ...projectCommands(snapshot, ""), refresh_project: snapshot, create_project_entry: (args) => argPath(args) });
     await screen.findByLabelText("Project files");
-    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "New board" }));
+    await chooseNewDocument(`New ${kind}`);
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput).toHaveValue("untitled");
-    fireEvent.input(nameInput, { target: { value: "sketch" } });
+    fireEvent.input(nameInput, { target: { value: name } });
     fireEvent.keyDown(nameInput, { key: "Enter" });
-    await expectInvoked("create_project_entry", { path: "sketch.tldr", kind: "file", projectRoot: ROOT });
-    expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
+    await expectInvoked("create_project_entry", { path, kind: "file", projectRoot: ROOT });
+    expect(await screen.findByTestId(editor)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
   });
 
@@ -7467,16 +6250,10 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot, "export default [];\n"),
       refresh_project: snapshot,
-      list_citation_keys: () => [],
-      list_citations: () => [],
-      list_references: () => [],
       create_open_slide_deck: (args) => `slides/${(args as { deckId: string }).deckId}/index.tsx`,
     });
     await waitFor(() => expect(projectTreeRoot()).not.toBeNull(), { timeout: 15000 });
-    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "New presentation" }));
+    await chooseNewDocument("New presentation");
     const nameInput = await findProjectTreeRenameInput();
     expect(nameInput.closest("[data-item-path]")).toHaveAttribute("data-item-path", "slides/untitled/");
     fireEvent.input(nameInput, { target: { value: "quarterly-review" } });
@@ -7488,30 +6265,21 @@ describe("project workspace", () => {
   });
 
   it("defers an active Open Slide Overleaf sync until the document is left", { timeout: 120_000 }, async () => {
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    setAutoBuildMode("manual");
     localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    localStorage.setItem("lattice.last-file.v1", JSON.stringify({
-      "/tmp/lattice-slide-overleaf": "slides/native/index.tsx",
-    }));
+    localStorage.setItem("lattice.last-file.v1", JSON.stringify({ "/tmp/lattice-slide-overleaf": "slides/native/index.tsx" }));
     const deckSource = "export default [{ id: 'title' }];\n";
     const editedDeckSource = "export default [{ id: 'title', title: 'Edited' }];\n";
     let probeChanged = true;
     const snapshot = projectSnapshot({
-      root: "/tmp/lattice-slide-overleaf",
-      projectId: "slide-overleaf-id",
-      name: "Slide Overleaf",
+      root: "/tmp/lattice-slide-overleaf", projectId: "slide-overleaf-id", name: "Slide Overleaf",
       files: [fileNode("main.tex"), fileNode("slides/native/index.tsx")],
     });
     renderApp({
-      initial_project: snapshot,
+      ...projectCommands(snapshot),
       refresh_project: snapshot,
-      read_project_file: (args) => (args as { path?: string } | undefined)?.path === "main.tex"
-        ? "\\documentclass{article}\n" : deckSource,
-      write_project_file: (args) => ({
-        content: String((args as { content?: string } | undefined)?.content ?? ""), hadConflicts: false,
-      }),
-      list_papers: () => [],
-      list_history: () => [],
+      read_project_file: readFiles({ "main.tex": "\\documentclass{article}\n" }, deckSource),
+      write_project_file: (args) => ({ content: String((args as { content?: string } | undefined)?.content ?? ""), hadConflicts: false }),
       harper_lint: () => [],
       overleaf_link: () => overleafLink({ projectId: "ol-slide", projectName: "Slide Overleaf" }),
       overleaf_status: () => overleafStatus(),
@@ -7523,44 +6291,28 @@ describe("project workspace", () => {
     });
     expect(await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 60_000 }))
       .toHaveAttribute("data-path", "slides/native/index.tsx");
-    await expectInvoked("overleaf_probe", {
-      projectRoot: "/tmp/lattice-slide-overleaf", checkLocal: true, live: ["slides/native/index.tsx"],
-    });
+    const diagnosticContext = { operation_id: expect.any(String), request_id: expect.any(String) };
+    await expectInvoked("overleaf_probe", { projectRoot: "/tmp/lattice-slide-overleaf", checkLocal: true, live: ["slides/native/index.tsx"] });
     await expectInvoked("overleaf_sync", {
-      projectRoot: "/tmp/lattice-slide-overleaf",
-      live: ["slides/native/index.tsx"],
-      observedRemoteVersion: 12,
-      diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
+      projectRoot: "/tmp/lattice-slide-overleaf", live: ["slides/native/index.tsx"], observedRemoteVersion: 12, diagnosticContext,
     });
     probeChanged = false;
     const syncCountBeforeMutation = invokeCalls("overleaf_sync").length;
 
     await act(async () => {
       await openSlideWorkspaceApi.onMutation!({
-        id: 17,
-        path: "slides/native/index.tsx",
-        kind: "write",
-        text: editedDeckSource,
-        previousText: deckSource,
+        id: 17, path: "slides/native/index.tsx", kind: "write", text: editedDeckSource, previousText: deckSource,
       });
     });
     expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "slides/native/index.tsx",
-      content: editedDeckSource,
-      baseContent: deckSource,
-      projectRoot: "/tmp/lattice-slide-overleaf",
+      path: "slides/native/index.tsx", content: editedDeckSource, baseContent: deckSource, projectRoot: "/tmp/lattice-slide-overleaf",
     });
-    await act(async () => {
-      await pause(1_200);
-    });
+    await act(async () => { await pause(1_200); });
     expect(invokeCalls("overleaf_sync")).toHaveLength(syncCountBeforeMutation);
 
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_sync", {
-      projectRoot: "/tmp/lattice-slide-overleaf",
-      live: [],
-      observedRemoteVersion: null,
-      diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
+      projectRoot: "/tmp/lattice-slide-overleaf", live: [], observedRemoteVersion: null, diagnosticContext,
     }), { timeout: 5000 });
   });
 
@@ -7569,56 +6321,22 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(snapshot, "export default [];\n"),
       refresh_project: snapshot,
-      delete_project_entry: () => {
-        throw new Error("That file or folder no longer exists.");
-      },
+      delete_project_entry: () => { throw new Error("That file or folder no longer exists."); },
       stat_project_file: () => ({ exists: false, mtimeMs: 0 }),
-      list_citation_keys: () => [],
-      list_citations: () => [],
-      list_references: () => [],
     });
     await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 15000 });
 
     let operations: OpenSlideSyncOperation[] = [];
     await act(async () => {
-      operations = await openSlideWorkspaceApi.onMutation!({
-        id: 9, path: "assets/unused.png", kind: "delete",
-      });
+      operations = await openSlideWorkspaceApi.onMutation!({ id: 9, path: "assets/unused.png", kind: "delete" });
     });
 
-    expect(invoke).toHaveBeenCalledWith("delete_project_entry", {
-      path: "assets/unused.png", projectRoot: ROOT,
-    });
+    expect(invoke).toHaveBeenCalledWith("delete_project_entry", { path: "assets/unused.png", projectRoot: ROOT });
     expect(invoke).toHaveBeenCalledWith("stat_project_file", { path: "assets/unused.png" });
     expect(operations).toEqual([{ path: "assets/unused.png", kind: "delete" }]);
     expect(formatAppLogs()).not.toContain("That file or folder no longer exists.");
   });
 
-  it("creates a spreadsheet from the header button with an inline name", async () => {
-    const snapshot = projectSnapshot({ files: [fileNode("notes.tex")] });
-    renderApp({
-      ...projectCommands(snapshot, ""),
-      refresh_project: snapshot,
-      list_citation_keys: () => [],
-      list_citations: () => [],
-      list_references: () => [],
-      create_project_entry: (args) => argPath(args),
-    });
-    await screen.findByLabelText("Project files");
-    fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), {
-      button: 0, pointerType: "mouse",
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "New spreadsheet" }));
-    const nameInput = await findProjectTreeRenameInput();
-    expect(nameInput).toHaveValue("untitled");
-    fireEvent.input(nameInput, { target: { value: "results" } });
-    fireEvent.keyDown(nameInput, { key: "Enter" });
-    await expectInvoked("create_project_entry", {
-      path: "results.lattice-sheet", kind: "file", projectRoot: ROOT,
-    });
-    expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
-  });
 
   it("lets the Agent create and open a board or spreadsheet through the host bridge", async () => {
     const snapshot = projectSnapshot();
@@ -7628,51 +6346,24 @@ describe("project workspace", () => {
       create_project_entry: (args) => argPath(args),
     });
     const { frame, postMessage } = await openAgentFrame();
+    const createThroughAgent = async (id: string, path: string, documentType: string) => {
+      postWindowMessage(frame.contentWindow, {
+        type: "synara:project-document-tool-request", version: 1, id, args: { path, documentType }, expiresAt: Date.now() + 10_000,
+      });
+      await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        type: "lattice:project-document-tool-result", id, ok: true, result: { path, documentType, opened: true },
+      }), synaraHook.runtime.origin));
+    };
 
     const unregisterBoard = registerAgentCanvasAdapter("agent-board.tldr", { execute: () => ({}) });
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:project-document-tool-request",
-      version: 1,
-      id: "create-board",
-      args: { path: "agent-board.tldr", documentType: "board" },
-      expiresAt: Date.now() + 10_000,
-    });
-    await expectInvoked("create_project_entry", {
-      path: "agent-board.tldr", kind: "file", projectRoot: ROOT,
-    });
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "lattice:project-document-tool-result",
-        id: "create-board",
-        ok: true,
-        result: { path: "agent-board.tldr", documentType: "board", opened: true },
-      }),
-      synaraHook.runtime.origin,
-    ));
+    await createThroughAgent("create-board", "agent-board.tldr", "board");
+    expect(invoke).toHaveBeenCalledWith("create_project_entry", { path: "agent-board.tldr", kind: "file", projectRoot: ROOT });
     expect(await screen.findByTestId("board-editor-mock")).toBeInTheDocument();
     unregisterBoard();
 
     const spreadsheetDoc = new Y.Doc();
-    const unregisterSpreadsheet = registerAgentSpreadsheetDocument(
-      "agent-data.lattice-sheet",
-      { doc: spreadsheetDoc, canWrite: true },
-    );
-    postWindowMessage(frame.contentWindow, {
-      type: "synara:project-document-tool-request",
-      version: 1,
-      id: "create-spreadsheet",
-      args: { path: "agent-data.lattice-sheet", documentType: "spreadsheet" },
-      expiresAt: Date.now() + 10_000,
-    });
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "lattice:project-document-tool-result",
-        id: "create-spreadsheet",
-        ok: true,
-        result: { path: "agent-data.lattice-sheet", documentType: "spreadsheet", opened: true },
-      }),
-      synaraHook.runtime.origin,
-    ));
+    const unregisterSpreadsheet = registerAgentSpreadsheetDocument("agent-data.lattice-sheet", { doc: spreadsheetDoc, canWrite: true });
+    await createThroughAgent("create-spreadsheet", "agent-data.lattice-sheet", "spreadsheet");
     expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     unregisterSpreadsheet();
     spreadsheetDoc.destroy();
