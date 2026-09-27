@@ -330,10 +330,26 @@ async function destroyViewerRecord(record: ViewerRecord): Promise<void> {
       ? record.slick.url
       : null;
     const loadingTask = record.slick.document?.loadingTask;
+    // Release canvas backing stores now instead of whenever the detached
+    // pages are collected; with enableHWA each one can hold GPU memory.
+    // (Before setDocument(null), which empties the viewer element.)
+    for (const canvas of record.root.querySelectorAll("canvas")) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+    // PDFViewer.setDocument(null) is PDF.js's only viewer teardown: it cancels
+    // each page's text layer (dropping it from TextLayerBuilder's static map,
+    // which otherwise keeps every replaced viewer's pages reachable from the
+    // window), aborts the viewer's document listeners and destroys the
+    // annotation editor manager's window/document listeners. Destroying only
+    // the loading task left all of that alive, so every rebuild leaked the
+    // previous viewer with its pages and canvases.
+    // (The typings omit null, which is PDF.js's documented detach value.)
+    (record.slick.viewer as unknown as { setDocument(document: null): void }).setDocument(null);
+    record.slick.linkService.setDocument(null);
     if (loadingTask) {
       await Promise.resolve(loadingTask.destroy()).catch(() => undefined);
     }
-    record.slick.viewer.cleanup();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     record.root.remove();
   })();
