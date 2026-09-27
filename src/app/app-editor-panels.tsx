@@ -17,7 +17,7 @@ import { confirmAction, toMessage } from "../app-utils";
 import { setError } from "./notify";
 import type {
   BuildResult,
-  EditorPaneId,
+  OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
   UnusedSymbols,
@@ -41,7 +41,7 @@ export type AppEditorPanelsProps = {
   editorComments: EditorComment[];
   editorCommentsOpen: boolean;
   mainBodyPages: number | null;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
+  openProjectFile: OpenProjectFile;
   onCloseComments: () => void;
   pdfPageCount: number | null;
   persistEditorComments: (next: EditorComment[]) => Promise<void>;
@@ -63,33 +63,17 @@ export type AppEditorPanelsProps = {
 export function AppEditorPanels(props: AppEditorPanelsProps) {
   const { t } = useLingui();
   const {
-    activeFile,
-    activeFileRef,
-    renderCommentsSurface,
-    build,
-    checklistOpen,
     commentOpenGenerationRef,
-    commentPanelFocusId,
-    editorCommentAuthorId,
     editorComments,
-    editorCommentsOpen,
-    mainBodyPages,
-    openProjectFile,
     onCloseComments,
-    pdfPageCount,
+    openProjectFile,
     persistEditorComments,
     project,
-    projectWordCount,
-    refreshTodos,
-    replyToEditorComment,
+    renderCommentsSurface,
     setActiveEditorCommentId,
     setChecklistOpen,
-    setCommentFocusRequest,
-    setProject,
     setTodosOpen,
     todoHits,
-    todosOpen,
-    toggleEditorCommentResolved,
     unusedSymbols,
   } = props;
   const commentsPanel = (
@@ -97,9 +81,9 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
       key={props.commentPanelFocusNonce}
       embedded={!!renderCommentsSurface}
       comments={editorComments}
-      activePath={activeFile}
-      currentAuthorId={editorCommentAuthorId}
-      focusCommentId={commentPanelFocusId}
+      activePath={props.activeFile}
+      currentAuthorId={props.editorCommentAuthorId}
+      focusCommentId={props.commentPanelFocusId}
       onClose={onCloseComments}
       onOpen={(comment) => {
         const generation = commentOpenGenerationRef.current + 1;
@@ -109,9 +93,9 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
         void openProjectFile(comment.path).then(() => {
           if (
             commentOpenGenerationRef.current !== generation
-            || activeFileRef.current !== comment.path
+            || props.activeFileRef.current !== comment.path
           ) return;
-          setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+          props.setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
         });
       }}
       onDelete={(id) => {
@@ -125,7 +109,7 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
           setActiveEditorCommentId((current) => (current === id ? null : current));
         })();
       }}
-      onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
+      onToggleResolved={(comment) => props.toggleEditorCommentResolved(comment.id)}
       onUpdateBody={(comment, body) => {
         const trimmed = body.trim();
         if (!trimmed) return;
@@ -135,15 +119,15 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
             : item
         )));
       }}
-      onReply={(comment, body) => replyToEditorComment(comment.id, body)}
+      onReply={(comment, body) => props.replyToEditorComment(comment.id, body)}
     />
   );
   return (
     <>
       <Suspense fallback={null}>
-        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : editorCommentsOpen && commentsPanel}
+        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : props.editorCommentsOpen && commentsPanel}
       </Suspense>
-      {todosOpen && (
+      {props.todosOpen && (
         <TodoScavengerPanel
           hits={todoHits}
           onClose={() => setTodosOpen(false)}
@@ -153,41 +137,37 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
           }}
         />
       )}
-      {checklistOpen && project && (
+      {props.checklistOpen && project && (
         <ManuscriptChecklistPanel
           data={{
-            words: projectWordCount?.total ?? 0,
-            wordSource: projectWordCount?.source ?? "estimate",
+            words: props.projectWordCount?.total ?? 0,
+            wordSource: props.projectWordCount?.source ?? "estimate",
             wordBudget: project.manifest.wordBudget ?? null,
-            pages: pdfPageCount,
-            mainPages: mainBodyPages,
+            pages: props.pdfPageCount,
+            mainPages: props.mainBodyPages,
             pageBudget: project.manifest.pageBudget ?? null,
             todos: todoHits.length,
             unusedLabels: unusedSymbols.labels.length,
             unusedCitations: unusedSymbols.citations.length,
-            buildOk: build ? build.success : null,
-            buildMessage: build?.log?.split("\n").slice(-1)[0] ?? "",
+            buildOk: props.build ? props.build.success : null,
+            buildMessage: props.build?.log?.split("\n").slice(-1)[0] ?? "",
           }}
           onClose={() => setChecklistOpen(false)}
           onOpenTodos={() => {
             setChecklistOpen(false);
-            void refreshTodos();
+            void props.refreshTodos();
             setTodosOpen(true);
           }}
           onSaveBudgets={(wordBudget, pageBudget) => {
-            void (async () => {
-              try {
-                const manifest = await invoke<ProjectManifest>("update_project_manifest", {
-                  wordBudget: wordBudget ?? undefined,
-                  pageBudget: pageBudget ?? undefined,
-                  clearWordBudget: wordBudget == null,
-                  clearPageBudget: pageBudget == null,
-                });
-                setProject((current) => current ? { ...current, manifest } : current);
-              } catch (reason) {
-                setError(toMessage(reason));
-              }
-            })();
+            void invoke<ProjectManifest>("update_project_manifest", {
+              wordBudget: wordBudget ?? undefined,
+              pageBudget: pageBudget ?? undefined,
+              clearWordBudget: wordBudget == null,
+              clearPageBudget: pageBudget == null,
+            }).then(
+              (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
+              (reason) => setError(toMessage(reason)),
+            );
           }}
         />
       )}

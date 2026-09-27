@@ -50,98 +50,67 @@ export type AppProjectDialogsProps = {
 };
 
 export function AppProjectDialogs(props: AppProjectDialogsProps) {
-  const {
-    bibEntryBusy,
-    bibEntryError,
-    bibEntryInitial,
-    bibEntryKey,
-    bibEntryMode,
-    bibEntryOpen,
-    bibEntryResolving,
-    bibResolveSeed,
-    createError,
-    createOpen,
-    createProject,
-    importedArxivIds,
-    importReferenceInput,
-    literatureOpen,
-    openBibEntryDialog,
-    projectName,
-    projectVenue,
-    renameError,
-    renameTarget,
-    resolveBibQuery,
-    saveBibEntry,
-    setBibEntryOpen,
-    setCreateError,
-    setCreateOpen,
-    setLiteratureOpen,
-    setProjectName,
-    setProjectVenue,
-    setRenameError,
-    setRenameTarget,
-    submitRename,
-  } = props;
+  const { bibEntryBusy, bibEntryResolving, setCreateError, setLiteratureOpen } = props;
   return (
     <>
       <Suspense fallback={null}>
         <BibEntryDialog
-          key={bibEntryKey}
-          open={bibEntryOpen}
+          key={props.bibEntryKey}
+          open={props.bibEntryOpen}
           busy={bibEntryBusy}
           resolving={bibEntryResolving}
-          error={bibEntryError}
-          mode={bibEntryMode}
-          initialResolveQuery={bibResolveSeed}
-          initialDraft={bibEntryInitial}
+          error={props.bibEntryError}
+          mode={props.bibEntryMode}
+          initialResolveQuery={props.bibResolveSeed}
+          initialDraft={props.bibEntryInitial}
           onClose={() => {
-            if (!bibEntryBusy && !bibEntryResolving) setBibEntryOpen(false);
+            if (!bibEntryBusy && !bibEntryResolving) props.setBibEntryOpen(false);
           }}
-          onResolve={resolveBibQuery}
-          onSave={(draft, insertCite) => { void saveBibEntry(draft, insertCite); }}
+          onResolve={props.resolveBibQuery}
+          onSave={(draft, insertCite) => { void props.saveBibEntry(draft, insertCite); }}
         />
       </Suspense>
-      {literatureOpen && (
+      {props.literatureOpen && (
         <Suspense fallback={null}>
           <LiteratureDiscoveryPanel
             onClose={() => setLiteratureOpen(false)}
-            importedIds={importedArxivIds}
-            onImportArxiv={(arxivId) => importReferenceInput(arxivId)}
+            importedIds={props.importedArxivIds}
+            onImportArxiv={(arxivId) => props.importReferenceInput(arxivId)}
             onAddBib={(query) => {
               setLiteratureOpen(false);
-              openBibEntryDialog(query);
+              props.openBibEntryDialog(query);
             }}
           />
         </Suspense>
       )}
-      {createOpen && (
+      {props.createOpen && (
         <CreateProjectDialog
-          projectName={projectName}
+          projectName={props.projectName}
           setProjectName={(value) => {
-            setProjectName(value);
+            props.setProjectName(value);
             setCreateError(null);
           }}
-          projectVenue={projectVenue}
+          projectVenue={props.projectVenue}
           setProjectVenue={(value) => {
-            setProjectVenue(value);
+            props.setProjectVenue(value);
             setCreateError(null);
           }}
-          error={createError}
-          onCreate={createProject}
+          error={props.createError}
+          onCreate={props.createProject}
           onClose={() => {
             setCreateError(null);
-            setCreateOpen(false);
+            props.setCreateOpen(false);
           }}
         />
       )}
-      {renameTarget && (
+      {props.renameTarget && (
         <RenameDialog
-          target={renameTarget}
-          error={renameError}
-          onRename={submitRename}
+          target={props.renameTarget}
+          error={props.renameError}
+          onRename={props.submitRename}
           onClose={() => {
-            setRenameError(null);
-            setRenameTarget(null);
+            props.setRenameError(null);
+            props.setRenameTarget(null);
           }}
         />
       )}

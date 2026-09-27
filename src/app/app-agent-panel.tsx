@@ -26,7 +26,7 @@ export default function AppAgentPanel(props: Props) {
   } = props;
   // Recording navigation must not change src and reload an in-progress turn.
   const agentFrameUrl = useMemo(() => synaraOrigin
-    ? synaraEmbedUrl(synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale)
+    ? synaraEmbedUrl({ origin: synaraOrigin, authToken: synaraRuntime.authToken, projectRoot: project.root, theme, locale: appLocale })
     : undefined,
   [synaraOrigin, synaraRuntime.authToken, project.root, theme, appLocale]);
   const docked = props.agentDocked ?? false;

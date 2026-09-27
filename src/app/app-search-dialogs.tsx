@@ -26,14 +26,14 @@ import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/proj
 import { type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
 import { setError, setNotice } from "./notify";
-import type { CollabProjectControllerV2 } from "../collab/collab-project-v2";
 import type {
   CanvasMode,
   EditorNavigation,
-  EditorPaneId,
   EditorPosition,
   InsertSymbolCommand,
+  OpenProjectFile,
   ProjectSnapshot,
+  RefreshProject,
   ReplaceResult,
 } from "../app-types";
 
@@ -46,7 +46,7 @@ export type AppSearchDialogsProps = {
   goToSymbolOpen: boolean;
   liveReferences: ReferenceInfo[];
   openProjectAsset: (path: string) => Promise<boolean>;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
+  openProjectFile: OpenProjectFile;
   outlineNodes: OutlineNode[];
   prewarmLikelyProjectFile: (path: string) => void;
   quickOpenOpen: boolean;
@@ -65,95 +65,64 @@ export type AppSearchDialogsProps = {
 
 export function AppSearchDialogs(props: AppSearchDialogsProps) {
   const { t } = useLingui();
-  const {
-    activeFile,
-    citePickerItems,
-    editorPosition,
-    gotoLineOpen,
-    goToSymbolItems,
-    goToSymbolOpen,
-    liveReferences,
-    openProjectAsset,
-    openProjectFile,
-    outlineNodes,
-    prewarmLikelyProjectFile,
-    quickOpenOpen,
-    quickOpenPaths,
-    refCitePicker,
-    refPickerItems,
-    setCanvasMode,
-    setCiteInsertRequest,
-    setEditorNavigation,
-    setGotoLineOpen,
-    setGoToSymbolOpen,
-    setQuickOpenOpen,
-    setRefCitePicker,
-    source,
-  } = props;
+  const { activeFile, openProjectFile, setRefCitePicker } = props;
+  const insertPickers = [
+    { command: "cite", title: t`Insert citation`, placeholder: t({ message: "Insert \\cite{…}" }), items: props.citePickerItems },
+    { command: "ref", title: t`Insert reference`, placeholder: t({ message: "Insert \\ref{…}" }), items: props.refPickerItems },
+  ] as const;
   return (
     <>
       <QuickOpenDialog
-        open={quickOpenOpen}
-        paths={quickOpenPaths}
-        onClose={() => setQuickOpenOpen(false)}
-        onIntent={prewarmLikelyProjectFile}
+        open={props.quickOpenOpen}
+        paths={props.quickOpenPaths}
+        onClose={() => props.setQuickOpenOpen(false)}
+        onIntent={props.prewarmLikelyProjectFile}
         onOpen={(path) => {
-          setQuickOpenOpen(false);
-          if (isProjectAssetFilePath(path)) void openProjectAsset(path);
+          props.setQuickOpenOpen(false);
+          if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
           else void openProjectFile(path);
         }}
       />
       <SearchPickerDialog
-        open={goToSymbolOpen}
+        open={props.goToSymbolOpen}
         title={t`Go to symbol`}
         placeholder={t`Go to section or label…`}
-        items={goToSymbolItems}
-        onClose={() => setGoToSymbolOpen(false)}
+        items={props.goToSymbolItems}
+        onClose={() => props.setGoToSymbolOpen(false)}
         onSelect={(item) => {
-          setGoToSymbolOpen(false);
+          props.setGoToSymbolOpen(false);
           if (item.id.startsWith("section:")) {
-            const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
+            const node = flattenOutline(props.outlineNodes).find((entry) => `section:${entry.id}` === item.id);
             if (node) void openProjectFile(node.path || activeFile, node.line);
             return;
           }
-          const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
+          const reference = props.liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
           if (reference) void openProjectFile(reference.path, reference.line);
         }}
       />
-      <SearchPickerDialog
-        open={refCitePicker === "cite"}
-        title={t`Insert citation`}
-        placeholder={t({ message: "Insert \\cite{…}" })}
-        items={citePickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "cite", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
-      />
-      <SearchPickerDialog
-        open={refCitePicker === "ref"}
-        title={t`Insert reference`}
-        placeholder={t({ message: "Insert \\ref{…}" })}
-        items={refPickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "ref", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
-      />
+      {insertPickers.map((picker) => (
+        <SearchPickerDialog
+          key={picker.command}
+          open={props.refCitePicker === picker.command}
+          title={picker.title}
+          placeholder={picker.placeholder}
+          items={picker.items}
+          onClose={() => setRefCitePicker(null)}
+          onSelect={(item) => {
+            setRefCitePicker(null);
+            props.setCiteInsertRequest({ key: item.label, command: picker.command, id: crypto.randomUUID() });
+            props.setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+          }}
+        />
+      ))}
       <GotoLineDialog
-        open={gotoLineOpen}
-        line={editorPosition?.line ?? 1}
-        maxLine={Math.max(1, source.split("\n").length)}
-        onClose={() => setGotoLineOpen(false)}
+        open={props.gotoLineOpen}
+        line={props.editorPosition?.line ?? 1}
+        maxLine={Math.max(1, props.source.split("\n").length)}
+        onClose={() => props.setGotoLineOpen(false)}
         onGoto={(line) => {
-          setGotoLineOpen(false);
-          if (activeFile) {
-            setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
-          }
+          props.setGotoLineOpen(false);
+          if (activeFile) props.setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
         }}
       />
     </>
@@ -162,11 +131,11 @@ export function AppSearchDialogs(props: AppSearchDialogsProps) {
 
 export type AppProjectSearchDialogsProps = {
   activeFile: string;
-  loadFile: (path: string, options?: { restoreView?: boolean; revealSource?: boolean; expectedProjectRoot?: string; projectGeneration?: number; collabController?: CollabProjectControllerV2; gate?: Promise<boolean>; loadGeneration?: number; canCommit?: () => boolean; navigateToLine?: number; }) => Promise<boolean>;
+  loadFile: (path: string) => Promise<boolean>;
   localSemanticSearchEnabled: boolean;
   localSemanticSearchStatus: LocalSemanticSearchStatus;
   openMarkdownProjectPath: (path: string) => void;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
+  openProjectFile: OpenProjectFile;
   projectFindBusy: boolean;
   projectFindError: string | null;
   projectFindHits: ProjectFindHit[];
@@ -179,7 +148,7 @@ export type AppProjectSearchDialogsProps = {
   projectReplaceOpen: boolean;
   projectReplacePreview: ReplacePreviewResult | null;
   refreshHistory: () => Promise<void>;
-  refreshProject: (scope?: { expectedRoot: string; generation: number; }) => Promise<ProjectSnapshot>;
+  refreshProject: RefreshProject;
   save: () => Promise<boolean>;
   savedSource: string;
   setLocalSemanticSearchStatus: Dispatch<SetStateAction<LocalSemanticSearchStatus>>;
@@ -196,56 +165,50 @@ export type AppProjectSearchDialogsProps = {
 
 export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
   const {
-    activeFile,
-    loadFile,
-    localSemanticSearchEnabled,
-    localSemanticSearchStatus,
-    openMarkdownProjectPath,
-    openProjectFile,
-    projectFindBusy,
-    projectFindError,
-    projectFindHits,
-    projectFindOpen,
-    projectFindSearchGenerationRef,
+    projectFindSearchGenerationRef: searchGenerationRef,
     projectOperationGenerationRef,
     projectRef,
-    projectReplaceBusy,
-    projectReplaceError,
-    projectReplaceOpen,
-    projectReplacePreview,
-    refreshHistory,
-    refreshProject,
-    save,
-    savedSource,
-    setLocalSemanticSearchStatus,
     setProjectFindBusy,
     setProjectFindError,
     setProjectFindHits,
-    setProjectFindOpen,
     setProjectReplaceBusy,
     setProjectReplaceError,
-    setProjectReplaceOpen,
     setProjectReplacePreview,
-    source,
   } = props;
+  /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
+  const runReplaceStep = (step: () => Promise<void>, onError?: () => void) => {
+    void (async () => {
+      setProjectReplaceBusy(true);
+      setProjectReplaceError(null);
+      try {
+        if (props.source !== props.savedSource && !(await props.save())) return;
+        await step();
+      } catch (reason) {
+        onError?.();
+        setProjectReplaceError(toMessage(reason));
+      } finally {
+        setProjectReplaceBusy(false);
+      }
+    })();
+  };
   return (
     <>
       <ProjectFindDialog
-        open={projectFindOpen}
-        busy={projectFindBusy}
-        error={projectFindError}
-        hits={projectFindHits}
-        semanticEnabled={localSemanticSearchEnabled}
-        semanticStatus={localSemanticSearchStatus}
+        open={props.projectFindOpen}
+        busy={props.projectFindBusy}
+        error={props.projectFindError}
+        hits={props.projectFindHits}
+        semanticEnabled={props.localSemanticSearchEnabled}
+        semanticStatus={props.localSemanticSearchStatus}
         onClose={() => {
-          projectFindSearchGenerationRef.current += 1;
-          setProjectFindOpen(false);
+          searchGenerationRef.current += 1;
+          props.setProjectFindOpen(false);
           setProjectFindBusy(false);
           setProjectFindError(null);
           setProjectFindHits([]);
         }}
         onSearch={(query) => {
-          const generation = ++projectFindSearchGenerationRef.current;
+          const generation = ++searchGenerationRef.current;
           void (async () => {
             if (!query.trim()) {
               setProjectFindHits([]);
@@ -262,116 +225,72 @@ export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
               setProjectFindBusy(false);
               return;
             }
+            const superseded = () => generation !== searchGenerationRef.current
+              || projectGeneration !== projectOperationGenerationRef.current
+              || projectRef.current?.root !== projectRoot;
             try {
-              const semanticPromise = localSemanticSearchEnabled
-                && semanticQueryEligible(query)
-                ? invoke<LocalSemanticSearchResponse>("semantic_search_project", {
-                    projectRoot,
-                    query,
-                  }).catch(() => null)
+              const semanticPromise = props.localSemanticSearchEnabled && semanticQueryEligible(query)
+                ? invoke<LocalSemanticSearchResponse>("semantic_search_project", { projectRoot, query }).catch(() => null)
                 : Promise.resolve(null);
               const [results, semantic] = await Promise.all([
                 invoke<ProjectFindHit[]>("search_project", { query }),
                 semanticPromise,
               ]);
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
-              if (semantic) setLocalSemanticSearchStatus(semantic.status);
+              if (superseded()) return;
+              if (semantic) props.setLocalSemanticSearchStatus(semantic.status);
               setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
             } catch (reason) {
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
+              if (superseded()) return;
               setProjectFindHits([]);
               setProjectFindError(toMessage(reason));
             } finally {
-              if (generation === projectFindSearchGenerationRef.current) {
-                setProjectFindBusy(false);
-              }
+              if (generation === searchGenerationRef.current) setProjectFindBusy(false);
             }
           })();
         }}
         onOpenHit={(path, line) => {
-          if (parsePaperLinkPath(path)) {
-            openMarkdownProjectPath(path);
-            return;
-          }
-          void openProjectFile(path, line);
+          if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
+          else void props.openProjectFile(path, line);
         }}
       />
       <ProjectReplaceDialog
-        open={projectReplaceOpen}
-        busy={projectReplaceBusy}
-        error={projectReplaceError}
-        preview={projectReplacePreview}
+        open={props.projectReplaceOpen}
+        busy={props.projectReplaceBusy}
+        error={props.projectReplaceError}
+        preview={props.projectReplacePreview}
         onClose={() => {
-          setProjectReplaceOpen(false);
+          props.setProjectReplaceOpen(false);
           setProjectReplacePreview(null);
         }}
         onOpenMatch={(path, line) => {
-          void openProjectFile(path, line);
+          void props.openProjectFile(path, line);
         }}
-        onPreview={(query, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const preview = await invoke<ReplacePreviewResult>("preview_replace_in_project", {
-                query,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              setProjectReplacePreview(preview);
-            } catch (reason) {
-              setProjectReplacePreview(null);
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
-        onReplace={(query, replacement, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const result = await invoke<ReplaceResult>("replace_in_project", {
-                query,
-                replacement,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              if (activeFile) await loadFile(activeFile);
-              await refreshProject();
-              await refreshHistory();
-              setProjectReplaceOpen(false);
-              setProjectReplacePreview(null);
-              setError(null);
-              setNotice(result.replacements
-                ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
-                : "No matches found.");
-            } catch (reason) {
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
+        onPreview={(query, options) => runReplaceStep(async () => {
+          setProjectReplacePreview(await invoke<ReplacePreviewResult>("preview_replace_in_project", {
+            query,
+            paths: null,
+            matchCase: options.matchCase,
+            useRegex: options.useRegex,
+          }));
+        }, () => setProjectReplacePreview(null))}
+        onReplace={(query, replacement, options) => runReplaceStep(async () => {
+          const result = await invoke<ReplaceResult>("replace_in_project", {
+            query,
+            replacement,
+            paths: null,
+            matchCase: options.matchCase,
+            useRegex: options.useRegex,
+          });
+          if (props.activeFile) await props.loadFile(props.activeFile);
+          await props.refreshProject();
+          await props.refreshHistory();
+          props.setProjectReplaceOpen(false);
+          setProjectReplacePreview(null);
+          setError(null);
+          setNotice(result.replacements
+            ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
+            : "No matches found.");
+        })}
       />
     </>
   );

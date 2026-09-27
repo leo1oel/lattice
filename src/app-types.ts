@@ -1,10 +1,6 @@
 /**
- * Shared domain type declarations extracted from `App.tsx`.
- *
- * These are the compile-time types that describe the app's core data (projects,
- * editor state, papers, build results, and so on). They live
- * here so `App.tsx` and future modules can import them without pulling in the
- * whole component. Types are erased at runtime, so this file has no runtime cost.
+ * The app's shared domain model: projects, editor and view state, papers,
+ * builds, and the Overleaf and Git wire shapes the Rust side serializes.
  */
 import type { ReferenceAssetPreview } from "./project/reference-preview";
 import type { PdfSyncTarget } from "./pdf/pdf-viewer";
@@ -95,9 +91,7 @@ export type ImageFileViewState = ScrollFileViewState & {
   scale: number;
 };
 
-export type HtmlFileViewState = ScrollFileViewState & {
-  scale: number;
-};
+export type HtmlFileViewState = ImageFileViewState;
 
 /**
  * Per-user view state only. These values are stored in Lattice's local app
@@ -244,6 +238,19 @@ type DoctorCheck = { name: string; detail: string; ok: boolean };
 export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 export type EditorKeymap = "default" | "vim" | "emacs";
 
+// ---- Callbacks App hands to the modules split out of it -------------------
+
+export type OpenProjectFile = (
+  path: string,
+  line?: number,
+  targetPane?: EditorPaneId,
+  options?: { revealSource?: boolean },
+) => Promise<void>;
+export type RefreshProject = (scope?: { expectedRoot: string; generation: number }) => Promise<ProjectSnapshot>;
+export type CompileProject = (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean }) => Promise<void>;
+/** Put the caret (a character offset) and scroll position back in a file. */
+export type ViewRestoreRequest = { path: string; cursor: number; scrollTop: number; id: string };
+
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.
 
@@ -342,15 +349,8 @@ export type OverleafMessage = {
   mine: boolean;
 };
 
-/** One message in an Overleaf comment thread. */
-export type OverleafComment = {
-  id: string;
-  content: string;
-  authorName: string;
-  authorEmail: string | null;
-  timestamp: number;
-  mine: boolean;
-};
+/** One message in an Overleaf comment thread; the same shape as a chat message. */
+export type OverleafComment = OverleafMessage;
 
 /** A comment thread: everything said about one spot in the project. */
 export type OverleafThread = {

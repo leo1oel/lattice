@@ -26,75 +26,50 @@ export function persistSynaraThread(projectRoot: string, threadId: string): void
   }
 }
 
-export function synaraEmbedUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-): string {
+/** Where an embedded Synara frame points: the sidecar plus the host project, theme and locale. */
+export type SynaraFrameContext = {
+  origin: string;
+  authToken: string | null;
+  projectRoot: string;
+  theme: "light" | "dark";
+  locale: AppLocale;
+};
+
+function frameUrl(frame: SynaraFrameContext, surface: "chrome" | "drawer", path: string): string {
+  return synaraFrameUrl({
+    origin: frame.origin,
+    path,
+    workspaceRoot: frame.projectRoot,
+    theme: frame.theme,
+    locale: frame.locale,
+    surface,
+    hostOrigin: window.location.origin,
+    authToken: frame.authToken,
+  });
+}
+
+export function synaraEmbedUrl(frame: SynaraFrameContext): string {
   let path = "/";
   try {
-    const threadId = localStorage.getItem(THREAD_KEY_PREFIX + projectRoot);
+    const threadId = localStorage.getItem(THREAD_KEY_PREFIX + frame.projectRoot);
     if (threadId && /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,511}$/.test(threadId)) {
       path = `/${encodeURIComponent(threadId)}`;
     }
   } catch {
     // Let Synara choose its normal landing page when storage is unavailable.
   }
-  return synaraFrameUrl({
-    origin,
-    path,
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "chrome",
-    hostOrigin: window.location.origin,
-    authToken,
-  });
+  return frameUrl(frame, "chrome", path);
 }
 
-export function synaraSourceControlUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-  view: AgentGitWorkspaceView,
-): string {
-  return synaraFrameUrl({
-    origin,
-    path: agentGitWorkspacePath(view),
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "drawer",
-    hostOrigin: window.location.origin,
-    authToken,
-  });
+export function synaraSourceControlUrl(frame: SynaraFrameContext, view: AgentGitWorkspaceView): string {
+  return frameUrl(frame, "drawer", agentGitWorkspacePath(view));
 }
 
 /** A turn's checkpoint diff, reviewable even after the working tree moved on. */
 export type AgentTurnReview = { threadId: string; turnId: string; filePath: string | null };
 
-export function synaraTurnReviewUrl(
-  origin: string,
-  authToken: string | null,
-  projectRoot: string,
-  theme: "light" | "dark",
-  locale: AppLocale,
-  review: AgentTurnReview,
-): string {
-  const url = new URL(synaraFrameUrl({
-    origin,
-    path: "/review",
-    workspaceRoot: projectRoot,
-    theme,
-    locale,
-    surface: "drawer",
-    hostOrigin: window.location.origin,
-    authToken,
-  }));
+export function synaraTurnReviewUrl(frame: SynaraFrameContext, review: AgentTurnReview): string {
+  const url = new URL(frameUrl(frame, "drawer", "/review"));
   url.searchParams.set("threadId", review.threadId);
   url.searchParams.set("turnId", review.turnId);
   if (review.filePath) url.searchParams.set("filePath", review.filePath);

@@ -1,7 +1,5 @@
 import {
-  type Dispatch,
   type PointerEvent as ReactPointerEvent,
-  type SetStateAction,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,21 +7,6 @@ import {
   useState,
 } from "react";
 import { clamp, loadSidebarOpen, loadSidebarWidth, persistSidebarOpen, persistSidebarWidth } from "../settings/app-settings";
-
-export type PanelLayout = {
-  sidebarOpen: boolean;
-  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
-  sidebarWidth: number;
-  sidebarDragWidth: number | null;
-  sidebarResizing: boolean;
-  sidebarCollapsePreview: boolean;
-  sidebarRestoring: boolean;
-  sidebarRebounding: boolean;
-  finishSidebarRestore: () => void;
-  beginSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  nudgeSidebar: (delta: number) => void;
-  fitSidebarToContent: () => void;
-};
 
 const MIN_TAB_STRIP_WIDTH = 220;
 const FALLBACK_MIN_EDITOR_WIDTH = 600;
@@ -70,7 +53,7 @@ const resizedWidth = (start: number, delta: number, minimumSidebarWidth: number)
   );
 
 /** Owns the single workspace sidebar's visibility and width. */
-export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
+export function usePanelLayout(minimumSidebarWidth = 180) {
   const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
   const [initialSidebarWidth] = useState(loadSidebarWidth);
   const preferredSidebarWidthRef = useRef(initialSidebarWidth);
@@ -192,11 +175,7 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       setSidebarRestoring(false);
       if (commit && (collapse || !moved)) setSidebarOpen(false);
       document.body.classList.remove("resizing-panels");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", finish);
-      window.removeEventListener("blur", finish);
-      target.removeEventListener("lostpointercapture", finish);
+      for (const [source, type, listener] of listeners) source.removeEventListener(type, listener);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
       if (moved && !collapse) {
         preferredSidebarWidthRef.current = latest;
@@ -204,13 +183,16 @@ export function usePanelLayout(minimumSidebarWidth = 180): PanelLayout {
       }
       if (finishResizeRef.current === finish) finishResizeRef.current = null;
     };
+    const listeners: Array<[EventTarget, string, (event: Event) => void]> = [
+      [window, "pointermove", move as (event: Event) => void],
+      [window, "pointerup", finish],
+      [window, "pointercancel", finish],
+      [window, "blur", finish],
+      [target, "lostpointercapture", finish],
+    ];
     finishResizeRef.current = finish;
     target.setPointerCapture(pointerId);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", finish);
-    window.addEventListener("blur", finish);
-    target.addEventListener("lostpointercapture", finish);
+    for (const [source, type, listener] of listeners) source.addEventListener(type, listener);
   }, [sidebarWidth]);
 
   const nudgeSidebar = useCallback((delta: number) => {

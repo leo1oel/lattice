@@ -88,42 +88,22 @@ export type AppWorkspaceSidebarProps = {
 
 export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
   const { t } = useLingui();
-  const {
-    beginSidebarResize,
-    changeSynaraPermissionMode,
-    chooseSidebarMode,
-    navigator,
-    nudgeSidebar,
-    openBibEntryDialog,
-    onCheckReferences,
-    setBoardCreateRequest,
-    setLiteratureOpen,
-    setProjectFindError,
-    setProjectFindHits,
-    setProjectFindOpen,
-    setProjectSearchOpen,
-    setPresentationCreateRequest,
-    setSpreadsheetCreateRequest,
-    sidebarMode,
-    sidebarModeActionsRef,
-    sidebarModeHeaderRef,
-    sidebarModeTier,
-    sidebarWidth,
-    synaraAutoModeAvailable,
-    synaraFrameMounted,
-    synaraOrigin,
-    synaraPermissionMode,
-  } = props;
+  const { sidebarMode, sidebarModeActionsRef, sidebarModeHeaderRef, synaraOrigin } = props;
   const docked = props.agentDocked ?? false;
   const slotRef = useRef<HTMLDivElement>(null);
+  const newDocumentItems = [
+    { icon: <Table2 />, label: t`New spreadsheet`, request: props.setSpreadsheetCreateRequest },
+    { icon: <Shapes />, label: t`New board`, request: props.setBoardCreateRequest },
+    { icon: <Presentation />, label: t`New presentation`, request: props.setPresentationCreateRequest },
+  ];
   return (
     <>
       <section className="shared-sidebar" data-tour="sidebar" inert={!props.sidebarOpen} aria-hidden={!props.sidebarOpen}>
-        <div className="workspace-sidebar-content" style={{ width: sidebarWidth }}>
-        <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={sidebarModeTier}>
+        <div className="workspace-sidebar-content" style={{ width: props.sidebarWidth }}>
+        <div ref={sidebarModeHeaderRef} className="sidebar-mode-header" data-mode-tier={props.sidebarModeTier}>
           <SlidingTabs
             value={sidebarMode}
-            onChange={(value) => chooseSidebarMode(value as "project" | "papers" | "agent")}
+            onChange={(value) => props.chooseSidebarMode(value as "project" | "papers" | "agent")}
             ariaLabel={t`Sidebar mode`}
             className="sidebar-mode-tabs"
             items={[
@@ -146,28 +126,22 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
                     sideOffset={6}
                     onCloseAutoFocus={(event) => event.preventDefault()}
                   >
-                    <DropdownMenuItem onSelect={() => setSpreadsheetCreateRequest((request) => request + 1)}>
-                      <Table2 />
-                      {t`New spreadsheet`}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setBoardCreateRequest((request) => request + 1)}>
-                      <Shapes />
-                      {t`New board`}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setPresentationCreateRequest((request) => request + 1)}>
-                      <Presentation />
-                      {t`New presentation`}
-                    </DropdownMenuItem>
+                    {newDocumentItems.map((item) => (
+                      <DropdownMenuItem key={item.label} onSelect={() => item.request((request) => request + 1)}>
+                        {item.icon}
+                        {item.label}
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Tip label={t`Find in project`}>
                   <button
                     aria-label={t`Find in project`}
                     onClick={() => {
-                      setProjectSearchOpen(false);
-                      setProjectFindError(null);
-                      setProjectFindHits([]);
-                      setProjectFindOpen(true);
+                      props.setProjectSearchOpen(false);
+                      props.setProjectFindError(null);
+                      props.setProjectFindHits([]);
+                      props.setProjectFindOpen(true);
                     }}
                   >
                     <Search size={13} />
@@ -178,15 +152,15 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
             {sidebarMode === "papers" && (
               <>
                 <Tip label={t`Discover literature`}>
-                  <button aria-label={t`Discover literature`} onClick={() => setLiteratureOpen(true)}>
+                  <button aria-label={t`Discover literature`} onClick={() => props.setLiteratureOpen(true)}>
                     <BookOpen size={14} />
                   </button>
                 </Tip>
                 <Tip label={t`Add bibliography entry`}>
-                  <button onClick={() => openBibEntryDialog()}><BookMarked size={14} /></button>
+                  <button onClick={() => props.openBibEntryDialog()}><BookMarked size={14} /></button>
                 </Tip>
                 <Tip label={t`Check references`}>
-                  <button type="button" aria-label={t`Check references`} onClick={onCheckReferences}>
+                  <button type="button" aria-label={t`Check references`} onClick={props.onCheckReferences}>
                     <ClipboardCheck size={14} aria-hidden="true" />
                   </button>
                 </Tip>
@@ -196,9 +170,9 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
               <>
                 {synaraOrigin && <Suspense fallback={null}>
                   <SynaraPermissionPicker
-                    value={synaraPermissionMode}
-                    autoModeAvailable={synaraAutoModeAvailable}
-                    onChange={changeSynaraPermissionMode}
+                    value={props.synaraPermissionMode}
+                    autoModeAvailable={props.synaraAutoModeAvailable}
+                    onChange={props.changeSynaraPermissionMode}
                   />
                 </Suspense>}
                 <Tip label={t`Move assistant below editor`}>
@@ -209,7 +183,7 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
           </div>
         </div>
         <div className="sidebar-pane" data-tour="project-panel" hidden={sidebarMode === "agent"}>
-          {navigator}
+          {props.navigator}
         </div>
         <div
           ref={slotRef}
@@ -218,17 +192,17 @@ export function AppWorkspaceSidebar(props: AppWorkspaceSidebarProps) {
         />
         </div>
       </section>
-      {(synaraFrameMounted || docked || (props.sidebarOpen && sidebarMode === "agent")) && <Suspense fallback={null}>
+      {(props.synaraFrameMounted || docked || (props.sidebarOpen && sidebarMode === "agent")) && <Suspense fallback={null}>
         <AppAgentPanel {...props} slotRef={slotRef} />
       </Suspense>}
       <PanelResizer
         label={t`Resize workspace sidebar`}
-        value={sidebarWidth}
+        value={props.sidebarWidth}
         open={props.sidebarOpen}
         resizing={props.sidebarResizing}
         onCollapse={props.onCollapseSidebar}
-        onPointerDown={beginSidebarResize}
-        onNudge={nudgeSidebar}
+        onPointerDown={props.beginSidebarResize}
+        onNudge={props.nudgeSidebar}
       />
     </>
   );
@@ -246,6 +220,16 @@ function PanelResizer(props: {
   const { t } = useLingui();
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [pointerOffset, setPointerOffset] = useState<number | null>(null);
+  const collapse = () => {
+    props.onCollapse();
+    document.querySelector<HTMLButtonElement>(".titlebar-sidebar-toggle button")?.focus();
+  };
+  const keyActions = new Map<string, () => void>([
+    ["Enter", collapse],
+    [" ", collapse],
+    ["ArrowLeft", () => props.onNudge(-16)],
+    ["ArrowRight", () => props.onNudge(16)],
+  ]);
   return (
     <TooltipProvider delayDuration={280}>
     <Tooltip open={tooltipOpen && !props.resizing && props.open} onOpenChange={setTooltipOpen}>
@@ -266,17 +250,10 @@ function PanelResizer(props: {
         if (event.currentTarget.matches(":focus-visible")) setPointerOffset(null);
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          props.onCollapse();
-          document.querySelector<HTMLButtonElement>(".titlebar-sidebar-toggle button")?.focus();
-        } else if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          props.onNudge(-16);
-        } else if (event.key === "ArrowRight") {
-          event.preventDefault();
-          props.onNudge(16);
-        }
+        const action = keyActions.get(event.key);
+        if (!action) return;
+        event.preventDefault();
+        action();
       }}
     />
     </TooltipTrigger>
