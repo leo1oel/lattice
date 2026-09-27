@@ -4,7 +4,11 @@ import type { Position } from 'unist';
 import { visit } from 'unist-util-visit';
 import type { VFile } from 'vfile';
 import { findFencedRegions, isInsideFence } from './fence-regions.ts';
-import { deriveFragmentPosition, escapedValueOffsets } from './promoter-position.ts';
+import {
+  deriveFragmentPosition,
+  escapedValueOffsets,
+  sliceTextWithProvenance,
+} from './promoter-position.ts';
 
 /*
  * LaTeX-delimited math: `\[ … \]` display blocks and `\( … \)` inline spans.
@@ -158,7 +162,7 @@ function findNestedClose(
   source: string,
 ): NestedClose | null | 'unsearchable' {
   if (node.type === 'text') {
-    const offset = findEscapedDelimiter(node, source, ')', 0);
+    const offset = findEscapedDelimiter(node, ')', 0);
     return offset === null ? null : { ancestors: [], node, offset };
   }
   if (isMarkContainer(node)) {
@@ -183,7 +187,7 @@ function promoteInlineSpans(children: PhrasingContent[], source: string): void {
       scanFrom = 0;
       continue;
     }
-    const open = findEscapedDelimiter(child, source, '(', scanFrom);
+    const open = findEscapedDelimiter(child, '(', scanFrom);
     if (open === null) {
       index += 1;
       scanFrom = 0;
@@ -202,12 +206,11 @@ function promoteInlineSpans(children: PhrasingContent[], source: string): void {
 /** The first offset at or after `from` where `char` was decoded from `\char`. */
 function findEscapedDelimiter(
   node: Text,
-  source: string,
   char: '(' | ')',
   from: number,
 ): number | null {
   if (!node.value.includes(char)) return null;
-  const escaped = escapedValueOffsets(source, node);
+  const escaped = escapedValueOffsets(node);
   if (escaped === null || escaped.size === 0) return null;
   for (let at = node.value.indexOf(char, from); at !== -1; at = node.value.indexOf(char, at + 1)) {
     if (escaped.has(at)) return at;
@@ -225,7 +228,7 @@ function matchSpan(
   let closeIndex = openIndex;
   let closeAncestors: MarkContainer[] = [];
   let closeNode: Text | null = null;
-  let closeOffset = findEscapedDelimiter(openNode, source, ')', openOffset + 1);
+  let closeOffset = findEscapedDelimiter(openNode, ')', openOffset + 1);
   if (closeOffset !== null) {
     closeNode = openNode;
   } else {
@@ -301,10 +304,9 @@ function applySpan(
   const replacements: PhrasingContent[] = [];
   const lead = openNode.value.slice(0, openOffset);
   if (lead) {
-    const node: Text = { type: 'text', value: lead };
-    const position = deriveFragmentPosition(source, openNode, 0, openOffset);
-    if (position) node.position = position;
-    replacements.push(node);
+    // Split fragments keep the parser's escape provenance so the promoters
+    // after this one still see which delimiters were escaped.
+    replacements.push(sliceTextWithProvenance(source, openNode, 0, openOffset));
   }
   const mathNode: InlineMath = {
     type: 'inlineMath',
@@ -333,15 +335,14 @@ function closeTail(span: InlineSpan, source: string): PhrasingContent[] {
   const tail: PhrasingContent[] = [];
   const remainder = span.closeNode.value.slice(span.closeOffset + 1);
   if (remainder) {
-    const node: Text = { type: 'text', value: remainder };
-    const position = deriveFragmentPosition(
-      source,
-      span.closeNode,
-      span.closeOffset + 1,
-      span.closeNode.value.length,
+    tail.push(
+      sliceTextWithProvenance(
+        source,
+        span.closeNode,
+        span.closeOffset + 1,
+        span.closeNode.value.length,
+      ),
     );
-    if (position) node.position = position;
-    tail.push(node);
   }
   let inner: PhrasingContent = span.closeNode;
   for (let level = span.closeAncestors.length - 1; level >= 0; level -= 1) {

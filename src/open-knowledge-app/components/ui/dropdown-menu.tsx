@@ -41,6 +41,7 @@ function DropdownMenuContent({
           popupMotionClassName,
           className,
         )}
+        collisionPadding={8}
         {...props}
       >
         <FluidHoverSurface />
@@ -240,6 +241,7 @@ function DropdownMenuSubContent({
         popupMotionClassName,
         className,
       )}
+      collisionPadding={8}
       {...props}
     >
       <FluidHoverSurface />

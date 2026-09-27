@@ -166,7 +166,7 @@
     },
     "extensions/hard-break-fidelity.ts": {
       "upstream": "10369a715ef1affc4939e1c93c5a41d4291762c6",
-      "vendored": "10369a715ef1affc4939e1c93c5a41d4291762c6"
+      "vendored": "d4df4be1d6fe0fa9b999d3090bd71748eb29dde3"
     },
     "extensions/heading-fidelity.ts": {
       "upstream": "d10f1d01c820712fef3cc1184e041ab274ae28ab",
@@ -210,7 +210,7 @@
     },
     "extensions/link-fidelity.ts": {
       "upstream": "b93cd344fcb0db7919ad97a1a6643d7178f356b4",
-      "vendored": "d30ad431c5e849a00988cb331040c68e9be561fd"
+      "vendored": "7d5070f7557b67aac18aac1c7895cf4640f0a06a"
     },
     "extensions/link-ref-def-fidelity.ts": {
       "upstream": "0a99698c3e0398d6d543bc41ae809b0ccad454b6",
@@ -236,6 +236,10 @@
       "upstream": "26b1944b3f3f8d56282aaf543e30e9d4f1e82d7e",
       "vendored": "ad95c287e603bd9bb8092d7ccba1faf9602e45c0"
     },
+    "extensions/paper-citation.ts": {
+      "upstream": null,
+      "vendored": "3e0a929f90a7b31f13cdb1fe861349476a3e3cab"
+    },
     "extensions/plain-text-clipboard.ts": {
       "upstream": "0a7f3db38e8f4b016424f39c848ff44c7c5eb007",
       "vendored": "0a7f3db38e8f4b016424f39c848ff44c7c5eb007"
@@ -250,7 +254,7 @@
     },
     "extensions/shared.ts": {
       "upstream": "43895f0a4866ded9f9240d96e2873f286cd434fb",
-      "vendored": "9be1c23db70daeb1075f1945c49248d99a5bb5f0"
+      "vendored": "a4685c2da6df832d29194a1db03b879ca95354ae"
     },
     "extensions/source-literal-mark.test.ts": {
       "upstream": "9833a7ae50aa4961706eb3a03780b7780b3af7ac",
@@ -290,11 +294,11 @@
     },
     "extensions/wiki-link.test.ts": {
       "upstream": "ea403b110e8c0839d34d395c2e2b00b1ddabab67",
-      "vendored": "ea403b110e8c0839d34d395c2e2b00b1ddabab67"
+      "vendored": "b4b0167fe2472d44af61b4d75fa8c9034674b024"
     },
     "extensions/wiki-link.ts": {
       "upstream": "ffed47524d1ea6e06f7ddc849d72e93e7e28784d",
-      "vendored": "ffed47524d1ea6e06f7ddc849d72e93e7e28784d"
+      "vendored": "318896649729127cbab67067a5fe1b8b0848657f"
     },
     "handoff/claude-url.ts": {
       "upstream": "fba8410286929fb32ddca2543a11f20c48e2e985",
@@ -330,7 +334,7 @@
     },
     "markdown/autolink-promotion.ts": {
       "upstream": "7745bb11c93e7003711a5a1459ee2de3387cd4af",
-      "vendored": "7745bb11c93e7003711a5a1459ee2de3387cd4af"
+      "vendored": "355154b642b73b55a2d89fd20113b92239988544"
     },
     "markdown/autolink-void-html-guard.ts": {
       "upstream": "6c1fe5fcea188c48b6dbe9166474b75b500197d3",
@@ -338,7 +342,7 @@
     },
     "markdown/backslash-escape-guard.ts": {
       "upstream": "69f415f4b501368ccf15bd1045ef335a877833ec",
-      "vendored": "69f415f4b501368ccf15bd1045ef335a877833ec"
+      "vendored": "67489854a446432b88eae7c4072c079bd2c94916"
     },
     "markdown/callout-transformer.ts": {
       "upstream": "a363dfd54f884b15d51fe8ebf0a4cc029b2d74d9",
@@ -350,7 +354,7 @@
     },
     "markdown/comment-promoter.ts": {
       "upstream": "6e3c6d0883acf5911f12f6761464ced1b570e21b",
-      "vendored": "24f20f51a39d7e9b86369378b92d78fd6c076270"
+      "vendored": "969d320d70102011d7124d36739d1b1c18f94aea"
     },
     "markdown/dedent-block-jsx-close.ts": {
       "upstream": "b6299a94862af1ad78804601de306bb8fbfd80e9",
@@ -375,6 +379,14 @@
     "markdown/entity-ref-guard.ts": {
       "upstream": "5a3996fbff439b3e04729f8cb6e300a789570505",
       "vendored": "5a3996fbff439b3e04729f8cb6e300a789570505"
+    },
+    "markdown/escape-provenance.test.ts": {
+      "upstream": null,
+      "vendored": "a5b9934ae38ff84b9d4d58f978ed986faaf487e3"
+    },
+    "markdown/escape-provenance.ts": {
+      "upstream": null,
+      "vendored": "3ccb52b14543ed52d32c30bbb2e1107e9f9a09a4"
     },
     "markdown/fence-regions.ts": {
       "upstream": "4513da9bb4453161a52b48f40514ba11a9b4c8a3",
@@ -442,7 +454,7 @@
     },
     "markdown/highlight-promoter.ts": {
       "upstream": "e56707b48c85e7a13a01e946c436f18297275ede",
-      "vendored": "ee6d25fda5a131e2059c5ebcf65efefd67304a9b"
+      "vendored": "69f7a9dd4014887266af696b6b0f488e2c068fcf"
     },
     "markdown/image-promoter.ts": {
       "upstream": "994eb691728421f21457c173596c9c83b4c875c3",
@@ -454,7 +466,7 @@
     },
     "markdown/index.ts": {
       "upstream": "ec1ac1b7eb3028c1dd803fa0a0d1e4a491199e34",
-      "vendored": "ec643dfd36d7f421d549c6b330c66ce672fbbde6"
+      "vendored": "f7ca5b9c280e22f94d0ca341842afc406494a8ff"
     },
     "markdown/interior-blank-runs.ts": {
       "upstream": "f6d95ac98e375f7dd1777e5c47aee0a7f7fce43c",
@@ -462,7 +474,7 @@
     },
     "markdown/latex-math-promoter.ts": {
       "upstream": null,
-      "vendored": "503c83d2dda57cfa2a1cd4643ba04b88adfead6b"
+      "vendored": "3004ca1687cec59f5f7a81448699b08dcc3f291c"
     },
     "markdown/math-promoter.ts": {
       "upstream": "bd79424c7a2789e08a69bb0a77b6586c9cd4aa45",
@@ -470,7 +482,7 @@
     },
     "markdown/mdast-augmentation.ts": {
       "upstream": "721c1c7f1f3ab625ff6e380bd29c82149fbb6e0f",
-      "vendored": "902f6079c6f4615978c22a34c75151affc6dbb88"
+      "vendored": "8695024607c334a69e7edfbb7b4ffb70eb10eff7"
     },
     "markdown/mdast-to-hast-handlers.ts": {
       "upstream": "00fbc00351fd02c2e28ea509b80ccc98d110c6c2",
@@ -488,9 +500,13 @@
       "upstream": "4aa0490c43399456c2daae6077a9372752f73581",
       "vendored": "3afa1ccf06ad5993e909be5682675bb5f8405978"
     },
+    "markdown/parser-reservations.ts": {
+      "upstream": null,
+      "vendored": "e8960a126beae57ddf15128dd7c713421620cb52"
+    },
     "markdown/pipeline.ts": {
       "upstream": "55736041c0f0eb2f66280a26a17bca1c97abd3db",
-      "vendored": "cd9381943181ac19136174389e3e18cc191476ca"
+      "vendored": "79cde162ffc5569315e23f034626f308d0b93610"
     },
     "markdown/position-aware-join.ts": {
       "upstream": "ccf06e94d33834d25e4d144a26c6290be3c42303",
@@ -498,11 +514,11 @@
     },
     "markdown/position-slice.ts": {
       "upstream": "e5b4c9eba1fd9c8aeac40f600770ea84e27e24af",
-      "vendored": "fc3ea4fb991441829b911ac5ec23898aa7c4da9b"
+      "vendored": "76c4123cb6f45f11a3444e292f8930c3a0c3faa3"
     },
     "markdown/promoter-position.ts": {
       "upstream": "f0a36038521ab902ed7f7a73464e1acb8edf1de3",
-      "vendored": "f0a36038521ab902ed7f7a73464e1acb8edf1de3"
+      "vendored": "cb070fe7c9ede91de37572448332445d3ea8aad1"
     },
     "markdown/ref-def-hoist.ts": {
       "upstream": "519a12a14c8c7d694adde1b34855410139e8be0d",
@@ -526,7 +542,7 @@
     },
     "markdown/single-dollar-math-promoter.ts": {
       "upstream": "8c08b7a04b649333aee59c99d56d6c95311c90d0",
-      "vendored": "94c7d0b254a80a8ee01b7b96745b4debcea3d3d2"
+      "vendored": "54349db7e614c92889d852df8514287bfa2d8358"
     },
     "markdown/strip-trailing-edge.ts": {
       "upstream": "2cd5a08ab68155add84ff729ac9dc7a9a91deaf3",
@@ -534,11 +550,11 @@
     },
     "markdown/table-cell-flatten.ts": {
       "upstream": "48a434f4e7bb4fd3bc95e0f899da87cf622be832",
-      "vendored": "48a434f4e7bb4fd3bc95e0f899da87cf622be832"
+      "vendored": "e009d4471e3f17304108412b2aaf631204e78804"
     },
     "markdown/to-markdown-handlers.ts": {
       "upstream": "83d4af672089e45604549ef271e131cdb0bb199e",
-      "vendored": "9fb3469670a8f6cbc7407668bfaa467cfa4274a9"
+      "vendored": "5aaefadcefd139e535b3990faaf48cbbbeeedb3b"
     },
     "markdown/underline-promoter.ts": {
       "upstream": "6e6d734006919f5ad7cac4e5034fa89e425ab0a8",
@@ -550,15 +566,19 @@
     },
     "markdown/void-br-promoter.ts": {
       "upstream": "a0aecd43047f93a4ebc11f4beadce68853d2627b",
-      "vendored": "a0aecd43047f93a4ebc11f4beadce68853d2627b"
+      "vendored": "1a76d6a3884025e3eb369f8a2b855934370df063"
     },
     "markdown/whitespace-char-ref.ts": {
       "upstream": "ac9f5239b17069859926256fec69528916abe395",
       "vendored": "d578476a787c2860596131a882e00726299c8b83"
     },
+    "markdown/wiki-escape.ts": {
+      "upstream": null,
+      "vendored": "39a23d144c6c12a5332d8e278b531b43c9c6f006"
+    },
     "markdown/wiki-link-micromark.ts": {
       "upstream": "afd9936fe233aea57db68504fdd160c3928bce5d",
-      "vendored": "6dad262004ed921818c9dc4a7f348dc07e829511"
+      "vendored": "fa156c3aa66a5d343acfd08467c55e908f1060c0"
     },
     "markdown/zero-emission-blocks.ts": {
       "upstream": "78fc0100cf238d4913f9cc86f8fa134d0ac77c9e",
@@ -566,11 +586,11 @@
     },
     "metrics/parse-health.ts": {
       "upstream": "551116251d29ad27db53801f219fb9b93066bc03",
-      "vendored": "551116251d29ad27db53801f219fb9b93066bc03"
+      "vendored": "de8604406be739f79d90c284b1719eff8ecc262c"
     },
     "registry/built-ins.ts": {
       "upstream": "bf96e81b42795218d0a116565a76c2dba22c3989",
-      "vendored": "2138f0f9882ac4bedf6c2e4a5aa8a5068c40be83"
+      "vendored": "9a42598d91c60a25fc32c2711c70c8e9027ed89c"
     },
     "registry/canonical-compat.test.ts": {
       "upstream": "4cccee1effedd513562049dc9138e991e516ec6e",
