@@ -16,7 +16,7 @@ import App from "./App";
 import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
-import { APPEARANCE_KEY, loadWorkspaceLayout, persistWorkspaceLayout } from "./settings/app-settings";
+import { APPEARANCE_KEY, loadWorkspaceLayout, persistWorkspaceLayout, type WorkspaceLayout } from "./settings/app-settings";
 import { mapCollabProjectStatusV2 } from "./collab/collab-status";
 import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
 import { loadTextLanguageExtensions } from "./editor/editor-languages";
@@ -611,6 +611,106 @@ function emitTauriEvent(event: string, payload: unknown) {
   });
 }
 
+/** Waits for `selector` to match and returns the element. */
+function findElement<T extends Element = HTMLElement>(selector: string, options?: Parameters<typeof waitFor>[1]) {
+  return waitFor(() => {
+    const element = document.querySelector<T>(selector);
+    expect(element).not.toBeNull();
+    return element!;
+  }, options);
+}
+
+function findFrame(title = "Agent") {
+  return findElement<HTMLIFrameElement>(`iframe[title="${title}"]`);
+}
+
+/** The CodeMirror view mounted at `selector` right now. */
+function editorViewAt(selector = ".cm-editor") {
+  const element = document.querySelector<HTMLElement>(selector);
+  const view = element && EditorView.findFromDOM(element);
+  if (!view) throw new Error(`No CodeMirror view at ${selector}`);
+  return view;
+}
+
+/** Waits for the CodeMirror view mounted at `selector`. */
+async function findEditorView(selector = ".cm-editor", options?: Parameters<typeof waitFor>[1]) {
+  const view = EditorView.findFromDOM(await findElement(selector, options));
+  if (!view) throw new Error(`No CodeMirror view at ${selector}`);
+  return view;
+}
+
+/** Delivers a window message from `source`, by default as the Synara origin. */
+function postWindowMessage(source: MessageEventSource | null, data: unknown, origin = synaraHook.runtime.origin!) {
+  act(() => {
+    window.dispatchEvent(new MessageEvent("message", { source, origin, data }));
+  });
+}
+
+function invokeCalls(command: string, matches: (args: InvokeArgs | undefined) => boolean = () => true) {
+  return vi.mocked(invoke).mock.calls.filter(([called, args]) => called === command && matches(args));
+}
+
+function pause(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Resolves after `count` nested animation frames. */
+function nextFrames(count: number): Promise<void> {
+  return new Promise((resolve) => {
+    const step = (remaining: number) => {
+      if (remaining) window.requestAnimationFrame(() => step(remaining - 1));
+      else resolve();
+    };
+    step(count);
+  });
+}
+
+/** jsdom has no layout; give `element` a fixed box. */
+function stubRect(element: Element, left: number, top: number, width: number, height: number) {
+  return vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+    x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({}),
+  } as DOMRect);
+}
+
+function stubElementFromPoint(element: Element | null) {
+  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => element) });
+}
+
+/** Delivers a Finder drop through the native webview drag-and-drop handler. */
+async function dropFinderPaths(paths: string[]) {
+  await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
+  act(() => {
+    webviewApi.dragDropHandler?.({ payload: { type: "drop", paths, position: { x: 100, y: 100 } } });
+  });
+}
+
+/** Persists the layout a test restores; omitted fields take a single-pane default. */
+function persistLayout(root: string, layout: Pick<WorkspaceLayout, "openTabs" | "activeFile" | "canvasMode">
+  & Partial<WorkspaceLayout>) {
+  persistWorkspaceLayout(root, {
+    activeTab: layout.activeFile,
+    secondaryFile: null,
+    focusedPane: "primary",
+    documentMode: layout.canvasMode as WorkspaceLayout["documentMode"],
+    paperView: "blog",
+    tabRecency: layout.openTabs,
+    ...layout,
+  });
+}
+
+function paneContent(pane: "primary" | "secondary") {
+  return document.querySelector<HTMLElement>(`.source-editor[data-editor-pane='${pane}'] .cm-content`);
+}
+
+function visualEditorOf(surface: HTMLElement) {
+  return (surface as HTMLElement & { editor: TiptapEditor }).editor;
+}
+
+async function chooseProjectMenuItem(name: string) {
+  fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+}
+
 describe("panel layout", () => {
   it("applies a newly measured sidebar minimum during an active drag", () => {
     const { result, rerender } = renderHook(
@@ -815,10 +915,8 @@ describe("welcome screen", () => {
     expect(buildCalls).toBe(1);
     resolveOrdinaryBuild(success);
 
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project")).toHaveLength(2));
-    expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project")[1]?.[1])
+    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(2));
+    expect(invokeCalls("build_project")[1]?.[1])
       .toEqual(expect.objectContaining({ force: true }));
     // The queued build can finish before the lazy editor imports do. Let the
     // real canvas mount before teardown so those imports keep a live test host.
@@ -904,10 +1002,7 @@ describe("welcome screen", () => {
     });
 
     renderApp();
-    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
-      button: 0,
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await chooseProjectMenuItem("Settings");
 
     expect(await screen.findByRole(
       "heading",
@@ -951,11 +1046,7 @@ describe("welcome screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: "TeX doctor" }));
     fireEvent.click(screen.getByRole("button", { name: "Run TeX doctor" }));
 
-    const checklist = await waitFor(() => {
-      const list = document.querySelector<HTMLElement>(".doctor-checklist");
-      expect(list).not.toBeNull();
-      return list!;
-    });
+    const checklist = await findElement(".doctor-checklist");
     const latexmk = within(checklist).getByText("latexmk").closest("li");
     const texlab = within(checklist).getByText("texlab").closest("li");
     expect(latexmk).toHaveClass("ok");
@@ -1027,18 +1118,9 @@ describe("welcome screen", () => {
     mockCommands({ ...projectCommands(snapshot), harper_lint: () => [] });
 
     renderApp();
-    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
-      button: 0,
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Providers" }, { timeout: 10_000 }));
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>(
-        'iframe[title="Synara Providers settings"]',
-      );
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame("Synara Providers settings");
     const settingsViewport = document.querySelector<HTMLDivElement>(
       ".settings-content [data-slot='scroll-area-viewport']",
     )!;
@@ -1049,39 +1131,23 @@ describe("welcome screen", () => {
         get: () => Number.parseInt(frame.style.height, 10) + 730,
       },
     });
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
+    await act(() => nextFrames(2));
 
     settingsViewport.scrollTop = 500;
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:settings-content-height",
-          height: 1_200,
-          section: "providers",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:settings-content-height",
+      height: 1_200,
+      section: "providers",
     });
     await waitFor(() => expect(frame.style.height).toBe("1200px"));
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
+    await act(() => nextFrames(2));
     expect(settingsViewport.scrollTop).toBe(500);
 
     settingsViewport.scrollTop = 1_445;
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:settings-content-height",
-          height: 1_400,
-          section: "providers",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:settings-content-height",
+      height: 1_400,
+      section: "providers",
     });
     await waitFor(() => expect(settingsViewport.scrollTop).toBe(2_130));
 
@@ -1089,11 +1155,7 @@ describe("welcome screen", () => {
     // The iframe does not own the scroll in embed mode: navigation must reset
     // this host viewport, including when detail content arrives asynchronously.
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
-    const skillsFrame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Synara Skills settings"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const skillsFrame = await findFrame("Synara Skills settings");
     let scrollTop = 0;
     Object.defineProperties(settingsViewport, {
       scrollHeight: { configurable: true, get: () => Number.parseInt(skillsFrame.style.height, 10) },
@@ -1103,16 +1165,8 @@ describe("welcome screen", () => {
         set: (value: number) => { scrollTop = Math.max(0, Math.min(value, settingsViewport.scrollHeight - 470)); },
       },
     });
-    const message = (data: object) => act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: skillsFrame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { section: "skills", ...data },
-      }));
-    });
-    const settle = () => act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
+    const message = (data: object) => postWindowMessage(skillsFrame.contentWindow, { section: "skills", ...data });
+    const settle = () => act(() => nextFrames(2));
     message({ type: "synara:settings-content-height", height: 2_400 });
     await settle();
     settingsViewport.scrollTop = 615;
@@ -1219,10 +1273,7 @@ describe("welcome screen", () => {
 
     renderApp();
     await screen.findByRole("tab", { name: "main.tex" });
-    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), {
-      button: 0,
-    });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Open desktop app" }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("return_to_desktop"));
@@ -1354,12 +1405,12 @@ describe("project workspace", () => {
       })),
     });
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ maxOpenTabs: 2 }));
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["old.tex", "main.tex", "pinned.tex", "missing.tex"],
       pinnedTabs: ["pinned.tex", "missing.tex"],
-      activeFile: "main.tex", activeTab: "main.tex", secondaryFile: null,
-      focusedPane: "primary", canvasMode: "source", documentMode: "source",
-      paperView: "blog", tabRecency: ["main.tex", "old.tex", "pinned.tex"],
+      activeFile: "main.tex",
+      canvasMode: "source",
+      tabRecency: ["main.tex", "old.tex", "pinned.tex"],
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -1387,15 +1438,11 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "old.tex", name: "Old paper", isDefault: true }],
       files: [fileNode("old.tex"), fileNode("recent.md"), fileNode("current.bib")],
     });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["old.tex", "recent.md", "current.bib"],
       activeFile: "current.bib",
-      activeTab: "current.bib",
       secondaryFile: "old.tex",
-      focusedPane: "primary",
       canvasMode: "source",
-      documentMode: "source",
-      paperView: "blog",
       tabRecency: ["current.bib", "recent.md", "old.tex"],
     });
     mockCommands({
@@ -1406,9 +1453,7 @@ describe("project workspace", () => {
     renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
 
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:recent.md"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:recent.md"));
   });
 
   it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
@@ -1441,17 +1486,7 @@ describe("project workspace", () => {
       .toHaveAttribute("aria-selected", "true"));
 
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
     const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
     fireEvent.pointerDown(mainTab, {
       button: 0,
@@ -1464,9 +1499,7 @@ describe("project workspace", () => {
       .toHaveTextContent("Open on right");
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
 
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:main.tex"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:main.tex"));
     expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
       .toBe("minmax(220px, 0.5fr) 1px minmax(220px, 0.5fr)");
     expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.5");
@@ -1482,9 +1515,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());
 
     fireEvent.click(documentView().getByRole("tab", { name: "Edit" }));
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:main.tex"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:main.tex"));
     expect(documentView().getByRole("tab", { name: "Edit" }))
       .toHaveAttribute("aria-selected", "true");
   });
@@ -1510,17 +1541,7 @@ describe("project workspace", () => {
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
 
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
     const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
     fireEvent.pointerDown(mainTab, {
       button: 0,
@@ -1532,23 +1553,13 @@ describe("project workspace", () => {
     fireEvent.pointerUp(window, { clientX: 850, clientY: 300 });
 
     await waitFor(() => {
-      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      expect(paneContent("primary"))
         .toHaveTextContent("@article{lattice");
-      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      expect(paneContent("secondary"))
         .toHaveTextContent("\\documentclass{article}");
     });
     const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
-    vi.spyOn(dualCanvas, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 1000,
-      width: 1000,
-      top: 0,
-      bottom: 700,
-      height: 700,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(dualCanvas, 0, 0, 1000, 700);
     fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }));
     fireEvent.pointerMove(window, { clientX: 650 });
     fireEvent.pointerUp(window, { clientX: 650 });
@@ -1562,7 +1573,7 @@ describe("project workspace", () => {
     expect(within(document.querySelector(
       ".dual-pane-preview[data-editor-pane='secondary']",
     ) as HTMLElement).getByLabelText("Show document outline")).toBeInTheDocument();
-    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+    expect(paneContent("primary"))
       .toHaveTextContent("@article{lattice");
     expect(document.querySelector(".source-editor[data-editor-pane='secondary']"))
       .toBeNull();
@@ -1574,9 +1585,9 @@ describe("project workspace", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     await waitFor(() => {
-      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      expect(paneContent("primary"))
         .toHaveTextContent("@article{lattice");
-      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      expect(paneContent("secondary"))
         .toHaveTextContent("\\documentclass{article}");
       expect(screen.getByRole("tab", { name: /main\.tex/ }))
         .toHaveAttribute("aria-selected", "true");
@@ -1587,14 +1598,14 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Split" }));
     expect(await screen.findByRole("separator", { name: "Resize editor and PDF preview" }))
       .toBeInTheDocument();
-    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+    expect(paneContent("primary"))
       .toHaveTextContent("\\documentclass{article}");
 
     fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     await waitFor(() => {
-      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      expect(paneContent("primary"))
         .toHaveTextContent("@article{lattice");
-      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      expect(paneContent("secondary"))
         .toHaveTextContent("\\documentclass{article}");
     });
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
@@ -1620,9 +1631,7 @@ describe("project workspace", () => {
 
     await waitFor(() => expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .pdf-column"))
       .toBeInTheDocument());
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:notes.md"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:notes.md"));
 
     fireEvent.click(screen.getByRole("button", { name: "Close split" }));
     await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeNull());
@@ -1673,11 +1682,10 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("spreadsheet-editor-mock")).toBeInTheDocument();
     const revealCursor = await screen.findByRole("button", { name: /Reveal cursor in PDF/i });
     await waitFor(() => expect(revealCursor).toBeDisabled());
-    const syncCallsBeforeClick = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "synctex_view").length;
+    const syncCallsBeforeClick = invokeCalls("synctex_view").length;
     fireEvent.click(revealCursor);
 
-    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "synctex_view"))
+    expect(invokeCalls("synctex_view"))
       .toHaveLength(syncCallsBeforeClick);
     expect(document.querySelector(".dual-canvas")).toBeInTheDocument();
     expect(document.querySelector(".dual-pane-preview .pdf-column")).toBeInTheDocument();
@@ -1686,16 +1694,11 @@ describe("project workspace", () => {
 
   it("previews each Markdown pane independently and allows both previews", { timeout: 60_000 }, async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("left.md"), fileNode("right.md")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
-      activeTab: "left.md",
       secondaryFile: "right.md",
-      focusedPane: "primary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
-      tabRecency: ["left.md", "right.md"],
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -1716,9 +1719,7 @@ describe("project workspace", () => {
       .toHaveLength(1), { timeout: 30_000 });
     expect(Array.from(document.querySelectorAll<HTMLElement>(".visual-markdown-editor"))
       .map((editor) => editor.dataset.activePath)).toEqual(["left.md"]);
-    const rightSource = document.querySelector<HTMLElement>(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    );
+    const rightSource = paneContent("secondary");
     expect(rightSource).toHaveTextContent("# Right notes");
 
     fireEvent.focus(rightSource!);
@@ -1734,7 +1735,7 @@ describe("project workspace", () => {
     expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(0);
 
     const rightPreview = screen.getAllByRole("textbox", { name: "Markdown document editor" })[1];
-    const rightVisualEditor = (rightPreview as HTMLElement & { editor: TiptapEditor }).editor;
+    const rightVisualEditor = visualEditorOf(rightPreview);
     act(() => {
       rightVisualEditor.commands.setContent(parseVisualMarkdown("# Right preview edit"));
     });
@@ -1742,9 +1743,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(Array.from(
       document.querySelectorAll<HTMLElement>(".visual-markdown-editor"),
     ).map((editor) => editor.dataset.activePath)).toEqual(["left.md"]));
-    expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("# Right preview edit");
+    expect(paneContent("secondary")).toHaveTextContent("# Right preview edit");
   });
 
   it.each(["left.md", "right.md"])("restores both split files when returning through %s", { timeout: 30_000 }, async (returnPath) => {
@@ -1754,11 +1753,11 @@ describe("project workspace", () => {
         name: path, path, kind: path.endsWith(".md") ? "markdown" : "bib", children: [],
       })),
     });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["left.md", "right.md", "references.bib"],
-      activeFile: "left.md", activeTab: "left.md", secondaryFile: "right.md",
-      focusedPane: "primary", canvasMode: "dual", documentMode: "dual",
-      paperView: "blog", tabRecency: ["left.md", "right.md", "references.bib"],
+      activeFile: "left.md",
+      secondaryFile: "right.md",
+      canvasMode: "dual",
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -1775,9 +1774,9 @@ describe("project workspace", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: new RegExp(returnPath.replace(".", "\\.")) }));
     await waitFor(() => {
-      expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+      expect(paneContent("primary"))
         .toHaveTextContent("# left.md");
-      expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+      expect(paneContent("secondary"))
         .toHaveTextContent("# right.md");
     });
     expect(screen.queryByRole("textbox", { name: "Markdown document editor" })).toBeNull();
@@ -1787,15 +1786,13 @@ describe("project workspace", () => {
 
   it("closes a two-file split while keeping the focused file open", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
       activeTab: "right.md",
       secondaryFile: "right.md",
       focusedPane: "secondary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
       tabRecency: ["right.md", "left.md"],
     });
     mockCommands({
@@ -1823,15 +1820,13 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "left.md", name: "Left", isDefault: true }],
       files: [fileNode("left.md"), fileNode("right.md")],
     });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["left.md", "right.md"],
       activeFile: "left.md",
       activeTab: "right.md",
       secondaryFile: "right.md",
       focusedPane: "secondary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
       tabRecency: ["right.md", "left.md"],
     });
     mockCommands({
@@ -1855,16 +1850,13 @@ describe("project workspace", () => {
 
   it("renders a board canvas rather than its JSON in the secondary split pane", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("sketch.tldr"), fileNode("notes.md")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["sketch.tldr", "notes.md"],
       activeFile: "notes.md",
       activeTab: "sketch.tldr",
       secondaryFile: "sketch.tldr",
       focusedPane: "secondary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
-      tabRecency: ["sketch.tldr", "notes.md"],
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -1877,7 +1869,7 @@ describe("project workspace", () => {
     const secondaryBoard = await screen.findByTestId("board-editor-mock");
     expect(secondaryBoard.closest("[data-editor-pane='secondary']")).not.toBeNull();
     expect(document.querySelector(".dual-canvas")).not.toBeNull();
-    expect(document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content"))
+    expect(paneContent("primary"))
       .toHaveTextContent("# Notes");
   });
 
@@ -1886,17 +1878,7 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
       files: [fileNode("notes.md"), fileNode("sketch.tldr")],
     });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["notes.md"],
-      activeFile: "notes.md",
-      activeTab: "notes.md",
-      secondaryFile: null,
-      focusedPane: "primary",
-      canvasMode: "split",
-      documentMode: "split",
-      paperView: "blog",
-      tabRecency: ["notes.md"],
-    });
+    persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "split" });
     mockCommands({
       ...projectCommands(snapshot),
       read_project_file: (args) => (args as { path: string }).path === "sketch.tldr"
@@ -1908,17 +1890,7 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByRole("separator", { name: "Resize editor and Markdown preview" });
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
 
     const board = await findProjectTreeItem("sketch.tldr");
     fireEvent.pointerDown(board, {
@@ -1972,17 +1944,7 @@ describe("project workspace", () => {
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
 
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
     fireEvent.pointerDown(introTab, {
       button: 0,
       pointerId: 9,
@@ -1994,11 +1956,7 @@ describe("project workspace", () => {
     fireEvent.pointerUp(window, { pointerId: 9, clientX: 850, clientY: 300 });
     await waitFor(() => expect(resolveSplitRead).not.toBeNull());
 
-    const editorElement = document.querySelector<HTMLElement>(
-      ".source-editor[data-editor-pane='primary'] .cm-editor",
-    );
-    const editor = editorElement ? EditorView.findFromDOM(editorElement) : null;
-    if (!editor) throw new Error("Primary CodeMirror view was not available");
+    const editor = editorViewAt(".source-editor[data-editor-pane='primary'] .cm-editor");
     act(() => editor.dispatch({
       changes: { from: editor.state.doc.length, insert: "\nEdited while splitting." },
     }));
@@ -2013,15 +1971,13 @@ describe("project workspace", () => {
 
   it("restores tab order and active pane while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("intro.tex"), fileNode("method.tex")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["intro.tex", "main.tex", "method.tex"],
       activeFile: "main.tex",
       activeTab: "method.tex",
       secondaryFile: "method.tex",
       focusedPane: "secondary",
       canvasMode: "columns",
-      documentMode: "columns",
-      paperView: "blog",
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
     mockCommands({
@@ -2036,7 +1992,7 @@ describe("project workspace", () => {
     expect(Array.from(document.querySelectorAll<HTMLElement>(".editor-tab"))
       .map((tab) => tab.dataset.tabPath)).toEqual(["intro.tex", "main.tex", "method.tex"]);
     expect(screen.getByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
-    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+    expect(paneContent("secondary"))
       .toHaveTextContent("content:method.tex");
     expect(document.querySelector(".dual-pane-label")).toBeNull();
     expect(invoke).toHaveBeenCalledWith("read_project_file", {
@@ -2119,10 +2075,16 @@ describe("project workspace", () => {
         return { content: (args as { content: string }).content, hadConflicts: false };
       },
     });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["main.tex", path], activeFile: pane === "primary" ? path : "main.tex", activeTab: path,
-      secondaryFile: pane === "secondary" ? path : null, focusedPane: pane,
-      canvasMode: pane === "secondary" ? "dual" : "source", documentMode: "source", paperView: "fulltext", tabRecency: [path, "main.tex"],
+    persistLayout(snapshot.root, {
+      openTabs: ["main.tex", path],
+      activeFile: pane === "primary" ? path : "main.tex",
+      activeTab: path,
+      secondaryFile: pane === "secondary" ? path : null,
+      focusedPane: pane,
+      canvasMode: pane === "secondary" ? "dual" : "source",
+      documentMode: "source",
+      paperView: "fulltext",
+      tabRecency: [path, "main.tex"],
     });
     renderApp();
     const view = await waitFor(() => {
@@ -2138,12 +2100,12 @@ describe("project workspace", () => {
     await waitFor(() => expect(finishWrite).toBeDefined(), { timeout: 3000 });
     expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path, content: formatted, baseContent: original }));
     await waitFor(() => expect(view.state.doc.toString()).toBe(formatted));
-    const paperCalls = vi.mocked(invoke).mock.calls.filter(([command]) => command === "list_papers").length;
+    const paperCalls = invokeCalls("list_papers").length;
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% later edit" } });
     finishWrite!();
     await waitFor(() => {
       expect(saved).toBe(true);
-      expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "list_papers").length).toBeGreaterThan(paperCalls);
+      expect(invokeCalls("list_papers").length).toBeGreaterThan(paperCalls);
     });
     expect(view.state.doc.toString()).toBe(`${formatted}\n% later edit`);
     await switchSidebarMode("Papers");
@@ -2164,13 +2126,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
 
     fireEvent.click(await findProjectTreeItem("intro.tex"));
@@ -2199,13 +2155,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
 
     fireEvent.click(await findProjectTreeItem("intro.tex"));
@@ -2216,16 +2166,11 @@ describe("project workspace", () => {
 
   it("serializes the switch when the target is the dirty secondary file", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("method.tex")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["main.tex", "method.tex"],
       activeFile: "main.tex",
-      activeTab: "main.tex",
       secondaryFile: "method.tex",
-      focusedPane: "primary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
-      tabRecency: ["main.tex", "method.tex"],
     });
     const writeResolvers: Array<() => void> = [];
     mockCommands({
@@ -2238,15 +2183,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const secondaryEditor = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(
-        ".source-editor[data-editor-pane='secondary'] .cm-editor",
-      );
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(secondaryEditor);
-    if (!view) throw new Error("Secondary CodeMirror view was not available");
+    const view = await findEditorView(".source-editor[data-editor-pane='secondary'] .cm-editor");
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nEdited." } });
     vi.mocked(invoke).mockClear();
 
@@ -2269,16 +2206,11 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({
       files: [fileNode("main.tex"), dirNode("notes", [fileNode("notes/index.md"), fileNode("notes/native-unified-view.md")])],
     });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["notes/index.md"],
       activeFile: "notes/index.md",
-      activeTab: "notes/index.md",
       secondaryFile: "",
-      focusedPane: "primary",
       canvasMode: "split",
-      documentMode: "split",
-      paperView: "blog",
-      tabRecency: ["notes/index.md"],
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -2306,7 +2238,7 @@ describe("project workspace", () => {
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(await screen.findByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
     const visualSurface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const visualEditor = (visualSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    const visualEditor = visualEditorOf(visualSurface);
     act(() => {
       visualEditor.commands.setContent(
         parseVisualMarkdown("[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"),
@@ -2324,7 +2256,7 @@ describe("project workspace", () => {
     // An edit the preview published is handed back to it immediately rather
     // than settled, so the preview's accepted document never trails the source
     // it just wrote. Outlast the idle budget: both surfaces still agree.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    await act(() => pause(400));
     expect(editor.state.doc.toString()).toContain("- [x] Review preview");
     expect(screen.getByRole("checkbox")).toBeChecked();
     expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument();
@@ -2336,7 +2268,7 @@ describe("project workspace", () => {
     // elapsed. Outlast the budget and confirm both surfaces still agree.
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByRole("checkbox")).toBeChecked();
-    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    await act(() => pause(400));
     expect(editor.state.doc.toString()).toContain("- [x] Review preview");
     expect(screen.getByRole("checkbox")).toBeChecked();
     expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument();
@@ -2387,9 +2319,7 @@ describe("project workspace", () => {
     // Preview and Split mount separate visual-editor roots. Ordinary toolbar
     // switches must hand the viewport to the replacement just like the
     // explicit View in Source action below does.
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
+    await act(() => nextFrames(2));
     const ordinaryPreviewViewport = screen.getByTestId("editor-scroll-container");
     let ordinaryPreviewScrollTop = 560;
     Object.defineProperty(ordinaryPreviewViewport, "scrollTop", {
@@ -2405,7 +2335,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByTestId("editor-scroll-container").scrollTop).toBe(570));
 
     const previewSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const previewEditor = (previewSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    const previewEditor = visualEditorOf(previewSurface);
     act(() => {
       previewEditor.commands.setTextSelection({ from: 1, to: 8 });
     });
@@ -2417,9 +2347,7 @@ describe("project workspace", () => {
       .toBeInTheDocument();
     const splitPreviewViewport = screen.getByTestId("editor-scroll-container");
     expect(splitPreviewViewport).not.toBe(explicitPreviewViewport);
-    const revealedEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    const revealedEditor = revealedEditorDom ? EditorView.findFromDOM(revealedEditorDom) : null;
-    if (!revealedEditor) throw new Error("View in source did not mount CodeMirror.");
+    const revealedEditor = editorViewAt(".source-editor .cm-editor");
     // The visual selection starts on the link's first visible character. Its
     // exact Markdown position is after the opening `[`, rather than the old
     // block-level fallback at offset zero.
@@ -2428,11 +2356,7 @@ describe("project workspace", () => {
     // Exercise the settled Split geometry directly: the selected source-backed
     // block has content center 920, while its source range has center 610.
     // View in Source must put both at the center of their 400px viewports.
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => (
-        window.requestAnimationFrame(() => resolve())
-      )));
-    }));
+    await act(() => nextFrames(3));
     Object.defineProperties(splitPreviewViewport, {
       clientHeight: { configurable: true, value: 400 },
       scrollHeight: { configurable: true, value: 2_000 },
@@ -2442,17 +2366,7 @@ describe("project workspace", () => {
       scrollHeight: { configurable: true, value: 3_000 },
     });
     splitPreviewViewport.scrollTop = 300;
-    const previewRectSpy = vi.spyOn(splitPreviewViewport, "getBoundingClientRect").mockReturnValue({
-      x: 0,
-      y: 100,
-      top: 100,
-      bottom: 500,
-      left: 0,
-      right: 500,
-      width: 500,
-      height: 400,
-      toJSON: () => ({}),
-    });
+    const previewRectSpy = stubRect(splitPreviewViewport, 0, 100, 500, 400);
     const sourceBackedBlock = splitPreviewViewport.querySelector<HTMLElement>("[data-source-offset='0']");
     if (!sourceBackedBlock) throw new Error("Split Preview did not publish a source-backed block.");
     const sourceBackedBlockRectSpy = vi.spyOn(sourceBackedBlock, "getBoundingClientRect").mockImplementation(() => ({
@@ -2471,22 +2385,16 @@ describe("project workspace", () => {
       bottom: 620,
     } as never);
     const splitVisualSurface = screen.getByRole("textbox", { name: "Markdown document editor" });
-    const splitVisualEditor = (splitVisualSurface as HTMLElement & { editor: TiptapEditor }).editor;
+    const splitVisualEditor = visualEditorOf(splitVisualSurface);
     act(() => splitVisualEditor.commands.setTextSelection({ from: 1, to: 8 }));
     fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
     await waitFor(() => expect(revealedEditor.scrollDOM.scrollTop).toBe(410));
     await waitFor(() => expect(splitPreviewViewport.scrollTop).toBe(720));
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => (
-        window.requestAnimationFrame(() => resolve())
-      )));
-    }));
+    await act(() => nextFrames(3));
 
     // The first tiny source scroll must not perform a deferred correction.
     fireEvent.scroll(revealedEditor.scrollDOM);
-    await act(() => new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
-    }));
+    await act(() => nextFrames(2));
     expect(splitPreviewViewport.scrollTop).toBe(720);
     lineBlockSpy.mockRestore();
     previewRectSpy.mockRestore();
@@ -2500,9 +2408,7 @@ describe("project workspace", () => {
 
     restoredPreviewViewport.scrollTop = 640;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    const restoredEditEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    const restoredEditEditor = restoredEditEditorDom ? EditorView.findFromDOM(restoredEditEditorDom) : null;
-    if (!restoredEditEditor) throw new Error("Markdown edit-only editor was not restored.");
+    const restoredEditEditor = editorViewAt(".source-editor .cm-editor");
     await waitFor(() => expect(restoredEditEditor.scrollDOM.scrollTop).toBe(640));
 
     Object.defineProperties(restoredEditEditor.scrollDOM, {
@@ -2553,16 +2459,11 @@ describe("project workspace", () => {
       "results.lattice-sheet": "{}",
       "sketch.tldr": "{\"tldrawFileFormatVersion\":1,\"records\":[]}",
     };
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["notes/index.md"],
       activeFile: "notes/index.md",
-      activeTab: "notes/index.md",
       secondaryFile: "",
-      focusedPane: "primary",
       canvasMode: "split",
-      documentMode: "split",
-      paperView: "blog",
-      tabRecency: ["notes/index.md"],
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -2681,8 +2582,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     });
 
-    const assetReadsBeforePaperFetch = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "read_project_asset").length;
+    const assetReadsBeforePaperFetch = invokeCalls("read_project_asset").length;
     imageBase64 = "bmV3LWltYWdl";
     await switchSidebarMode("Agent");
     await waitFor(() => expect(screen.getByRole("tab", { name: "Agent" }))
@@ -2692,9 +2592,8 @@ describe("project workspace", () => {
       root: "/tmp/lattice-paper",
       paths: [".research/papers/1706.03762/paper.md"],
     });
-    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
-    expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "read_project_asset")).toHaveLength(assetReadsBeforePaperFetch);
+    await act(async () => { await pause(0); });
+    expect(invokeCalls("read_project_asset")).toHaveLength(assetReadsBeforePaperFetch);
     expect(preview.getAttribute("srcdoc")).toContain('src="data:image/png;base64,iVBORw0KGgo="');
 
     emitTauriEvent("project-fs-changed", {
@@ -2714,15 +2613,10 @@ describe("project workspace", () => {
     );
 
     await waitFor(() => expect(preview.contentDocument?.readyState).toBe("complete"));
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: preview.contentWindow,
-        data: {
-          type: "lattice:html-preview-open-external",
-          href: "https://arxiv.org/abs/2110.04366",
-        },
-      }));
-    });
+    postWindowMessage(preview.contentWindow, {
+      type: "lattice:html-preview-open-external",
+      href: "https://arxiv.org/abs/2110.04366",
+    }, "");
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(new URL("https://arxiv.org/abs/2110.04366")));
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
@@ -2735,9 +2629,7 @@ describe("project workspace", () => {
     expect(screen.getByLabelText("HTML zoom percentage")).toHaveValue("110");
     expect(screen.getByRole("separator", { name: "Resize editor and HTML preview" })).toBeInTheDocument();
 
-    const editorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    const editor = editorDom ? EditorView.findFromDOM(editorDom) : null;
-    if (!editor) throw new Error("HTML editor was not created.");
+    const editor = editorViewAt(".source-editor .cm-editor");
     editor.dispatch({
       changes: {
         from: 0,
@@ -2752,17 +2644,12 @@ describe("project workspace", () => {
     // carried across it — otherwise every pause in typing threw the author back
     // to the top of their own document.
     const reloaded = screen.getByTitle<HTMLIFrameElement>("HTML preview for report.html");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: reloaded.contentWindow,
-        data: {
-          type: "lattice:html-preview-scroll",
-          clientHeight: 600,
-          scrollHeight: 4000,
-          scrollTop: 420,
-        },
-      }));
-    });
+    postWindowMessage(reloaded.contentWindow, {
+      type: "lattice:html-preview-scroll",
+      clientHeight: 600,
+      scrollHeight: 4000,
+      scrollTop: 420,
+    }, "");
     const postMessage = vi.spyOn(reloaded.contentWindow!, "postMessage");
     fireEvent.load(reloaded);
     expect(postMessage).toHaveBeenCalledWith(
@@ -2784,17 +2671,7 @@ describe("project workspace", () => {
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
     fireEvent.pointerDown(await findProjectTreeItem("notes.md"), {
       button: 0,
       pointerId: 73,
@@ -2818,9 +2695,7 @@ describe("project workspace", () => {
       clientY: 300,
     });
 
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("# Notes"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("# Notes"));
     expect(document.querySelector(".dual-pane-preview[data-editor-pane='primary'] .html-preview-frame"))
       .toBeInTheDocument();
     expect(document.body).not.toHaveClass("dragging-project-item");
@@ -2837,8 +2712,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Settings" }));
+    await chooseProjectMenuItem("Settings");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
 
     expect(screen.getByRole("list", { name: "Project dictionary terms" })).toHaveTextContent("VLM");
@@ -2869,14 +2743,10 @@ describe("project workspace", () => {
       version: null,
       revision: null,
     };
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
-    const sidebar = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".shared-sidebar");
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const sidebar = await findElement(".shared-sidebar");
     // The fixed Agent surface stays hidden until its sidebar has measurable
     // geometry. jsdom has no layout, so give this visibility test a real slot.
     vi.spyOn(sidebar, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 40, 320, 700));
@@ -2922,11 +2792,7 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByRole("button", { name: "Move assistant below editor" });
     expect(screen.queryByRole("button", { name: "Toggle assistant" })).toBeNull();
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const context = frame.contentWindow;
     fireEvent.click(screen.getByRole("button", { name: "Move assistant below editor" }));
     expect(document.querySelector(".workspace")).toHaveClass("sidebar-hidden");
@@ -2941,12 +2807,7 @@ describe("project workspace", () => {
     expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "false");
     expect(document.querySelector('iframe[title="Agent"]')).toBe(frame);
     expect(frame.contentWindow).toBe(context);
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: context, origin: synaraHook.runtime.origin!,
-        data: { type: "synara:open-file", filePath: "/tmp/agent-dock/.research/papers/1706.03762/paper.md" },
-      }));
-    });
+    postWindowMessage(context, { type: "synara:open-file", filePath: "/tmp/agent-dock/.research/papers/1706.03762/paper.md" });
     await screen.findByRole("heading", { name: "Attention Is All You Need" });
     expect(frame.closest(".agent-panel-surface")).toHaveAttribute("aria-hidden", "true");
     fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
@@ -2978,7 +2839,7 @@ describe("project workspace", () => {
       name: "Dock test",
       rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
     });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
     localStorage.setItem("lattice.sidebar-open.v1", "1");
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
     const view = renderApp();
@@ -3007,7 +2868,7 @@ describe("project workspace", () => {
     // Finish cold compilation before DOM waits and unmount/remount assertions.
     await Promise.all([import("./settings/settings-dialog"), import("./canvas/document-canvas")]);
     const snapshot = projectSnapshot();
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
     localStorage.setItem("lattice.sidebar-mode.v1", "agent");
     localStorage.setItem("lattice.sidebar-open.v1", open ? "1" : "0");
     localStorage.setItem("lattice.agent-thread.v1:/tmp/lattice-paper", "saved-thread");
@@ -3022,11 +2883,7 @@ describe("project workspace", () => {
     }
     expect(screen.getByRole("tab", { name: "Agent" })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     expect(new URL(frame.src).pathname).toBe("/saved-thread");
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
 
@@ -3034,13 +2891,7 @@ describe("project workspace", () => {
     expect(postMessage).not.toHaveBeenCalled();
     expect(frame.closest(".synara-frame-shell")).not.toHaveAttribute("data-ready");
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:embed-ready" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
 
     await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
     expect(postMessage).toHaveBeenCalledWith(
@@ -3048,41 +2899,17 @@ describe("project workspace", () => {
       synaraHook.runtime.origin,
     );
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: "https://untrusted.example",
-        data: { type: "lattice:project-history", activeThreadId: "wrong-thread", entries: [] },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: "wrong-thread", entries: [] }, "https://untrusted.example");
     expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("saved-thread");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "lattice:project-history", activeThreadId: "selected-thread", entries: [] },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: "selected-thread", entries: [] });
     expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("selected-thread");
     // Recording navigation must not reload the live iframe or interrupt a turn.
     expect(new URL(frame.src).pathname).toBe("/saved-thread");
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: "https://untrusted.example",
-        data: { type: "synara:open-settings", section: "providers" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:open-settings", section: "providers" }, "https://untrusted.example");
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:open-settings", section: "providers" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:open-settings", section: "providers" });
     const settings = await screen.findByRole("dialog", { name: "Settings" });
     expect(within(settings).getByRole("button", { name: "Providers" }))
       .toHaveAttribute("aria-current", "page");
@@ -3173,85 +3000,45 @@ describe("project workspace", () => {
     await switchSidebarMode("Papers");
     await screen.findByTitle("Attention Is All You Need");
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:open-file",
-          filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:open-file",
+      filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md",
     });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith(
       "read_project_file",
       expect.objectContaining({ path: "notes/detailed distillation.md" }),
     ));
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:open-external",
-          url: "https://example.com/paper",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:open-external",
+      url: "https://example.com/paper",
     });
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/paper"));
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:open-external", url: "javascript:alert(1)" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:open-external", url: "javascript:alert(1)" });
     expect(openUrl).toHaveBeenCalledTimes(1);
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:open-file",
-          filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:open-file",
+      filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md",
     });
     expect(await screen.findByRole("heading", { name: "Attention Is All You Need" }))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:open-review", filePath: "sections/intro.tex" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:open-review", filePath: "sections/intro.tex" });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith(
       "read_project_file",
       expect.objectContaining({ path: "sections/intro.tex" }),
     ));
     expect(screen.queryByRole("tab", { name: "Changes" })).not.toBeInTheDocument();
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:open-review",
-          filePath: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:open-review",
+      filePath: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
     });
     expect(await screen.findByAltText(
       "Preview of figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
@@ -3260,13 +3047,7 @@ describe("project workspace", () => {
       path: "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png",
     });
 
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" });
     expect(await screen.findByRole("tab", { name: "Agent turn" })).toBeInTheDocument();
     const gitWorkspaceTabs = screen.getByRole("tablist", { name: "Git workspace" });
     expect(gitWorkspaceTabs).toHaveClass("drawer-view-tabs");
@@ -3303,25 +3084,16 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const entry = {
       id: "cp-undo", label: "Edited files", timestamp: "2026-08-07T10:00:00.000Z",
       threadId: "thread-undo", threadTitle: "Agent task", turnId: "turn-undo",
       turnCount: 1, checkpointRef: "ref-undo",
       files: [{ path: "sections/intro.tex", kind: "modified", additions: 2, deletions: 2 }],
     };
-    const post = (entries: unknown[]) => act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
-        data: { type: "lattice:project-history", activeThreadId: entry.threadId, entries },
-      }));
-    });
+    const post = (entries: unknown[]) => postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: entry.threadId, entries });
     post([entry]);
-    const builds = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    const builds = () => invokeCalls("build_project").length;
     const baseline = builds();
     post(change.startsWith("undo") ? [] : [{ ...entry, timestamp: "2026-08-07T10:01:00.000Z" }]);
     await waitFor(() => expect(builds()).toBe(baseline + 1), { timeout: 4_000 });
@@ -3380,7 +3152,7 @@ describe("project workspace", () => {
       },
     });
     const buildCalls = () =>
-      vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+      invokeCalls("build_project").length;
     const checkpoint = (files: { path: string; additions: number; deletions: number }[]) => ({
       id: "cp-1",
       label: "Edited files",
@@ -3393,30 +3165,20 @@ describe("project workspace", () => {
       files: files.map((file) => ({ ...file, kind: "modified" })),
     });
     const postSnapshot = (frame: HTMLIFrameElement, entries: unknown[]) => {
-      act(() => {
-        window.dispatchEvent(new MessageEvent("message", {
-          source: frame.contentWindow,
-          origin: synaraHook.runtime.origin!,
-          data: { type: "lattice:project-history", activeThreadId: "thread-1", entries },
-        }));
-      });
+      postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: "thread-1", entries });
     };
 
     const view = renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
 
     // The first snapshot for a thread replays its existing history; it must
     // prime the fingerprints without scheduling a rebuild.
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 1, deletions: 0 }])]);
     const baseline = buildCalls();
-    await new Promise((resolvePause) => setTimeout(resolvePause, 2_200));
+    await pause(2_200);
     expect(buildCalls()).toBe(baseline);
 
     // The same checkpoint growing new file work is fresh agent editing.
@@ -3457,7 +3219,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 4));
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 13, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    await pause(1_800);
     expect(buildCalls()).toBe(baseline + 4);
     expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 1);
     deferredBuild.settle?.();
@@ -3470,7 +3232,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 6));
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 15, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    await pause(1_800);
     deferredBuild.settle?.(new Error("build rejected"));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 7));
     await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 3));
@@ -3482,7 +3244,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(deferredPdfRead.settle).not.toBeNull());
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 16, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    await pause(1_800);
     deferredPdfRead.settle?.(new Error("PDF read rejected"));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 9));
     await waitFor(() => expect(agentCompileRelays()).toBe(relaysAfterFirstCheckpoint + 4));
@@ -3494,7 +3256,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => expect(buildCalls()).toBe(baseline + 10));
     postSnapshot(frame, [checkpoint([{ path: "sections/intro.tex", additions: 17, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    await pause(1_800);
     fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), {
       button: 0,
       pointerType: "mouse",
@@ -3502,50 +3264,36 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
     deferredBuild.settle?.();
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
-      command === "build_project"
-      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+    await waitFor(() => expect(invokeCalls("build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(1));
-    await new Promise((resolvePause) => setTimeout(resolvePause, 2_000));
-    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
-      command === "build_project"
-      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+    await pause(2_000);
+    expect(invokeCalls("build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(1);
 
-    const tutorialFrame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const tutorialFrame = await findFrame();
     postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 10, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 2_000));
-    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
-      command === "build_project"
-      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+    await pause(2_000);
+    expect(invokeCalls("build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(1);
 
     // Unmount is another ownership boundary: resolving an old build afterward
     // must not launch its queued checkpoint pass against a dead window.
     deferNextBuild = true;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
-      command === "build_project"
-      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+    await waitFor(() => expect(invokeCalls("build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(2));
     postSnapshot(tutorialFrame, [checkpoint([{ path: "sections/intro.tex", additions: 14, deletions: 2 }])]);
-    await new Promise((resolvePause) => setTimeout(resolvePause, 1_800));
+    await pause(1_800);
     view.unmount();
     deferredBuild.settle?.();
-    await new Promise((resolvePause) => setTimeout(resolvePause, 100));
-    expect(vi.mocked(invoke).mock.calls.filter(([command, args]) =>
-      command === "build_project"
-      && (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
+    await pause(100);
+    expect(invokeCalls("build_project", (args) => (args as { projectRoot?: string } | undefined)?.projectRoot === tutorialSnapshot.root))
       .toHaveLength(2);
   }, 90_000);
 
   it("opens a project switcher with recent and folder actions", async () => {
     const snapshot = projectSnapshot();
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
@@ -3595,7 +3343,7 @@ describe("project workspace", () => {
   it("moves the navigator control to the left edge in fullscreen", async () => {
     windowApi.isFullscreen.mockResolvedValue(true);
     const snapshot = projectSnapshot({ files: [] });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
@@ -3605,7 +3353,7 @@ describe("project workspace", () => {
   it("moves the navigator control to the left edge in a browser tab", async () => {
     browserRuntime.hosted = true;
     const snapshot = projectSnapshot({ files: [] });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
     await screen.findByRole("button", { name: "Hide sidebar" });
@@ -3615,7 +3363,7 @@ describe("project workspace", () => {
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
     const snapshot = projectSnapshot({ files: [] });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
@@ -3625,7 +3373,7 @@ describe("project workspace", () => {
 
   it("resizes panels with the accessible divider controls", async () => {
     const snapshot = projectSnapshot({ files: [] });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
 
     renderApp();
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
@@ -3683,17 +3431,7 @@ describe("project workspace", () => {
     expect(splitDivider).toHaveAttribute("aria-valuenow", "49");
 
     const splitCanvas = splitDivider.closest<HTMLElement>(".split-canvas")!;
-    vi.spyOn(splitCanvas, "getBoundingClientRect").mockReturnValue({
-      x: 0,
-      y: 0,
-      top: 0,
-      right: 1201,
-      bottom: 800,
-      left: 0,
-      width: 1201,
-      height: 800,
-      toJSON: () => ({}),
-    });
+    stubRect(splitCanvas, 0, 0, 1201, 800);
     fireEvent.pointerDown(splitDivider, { clientX: 588 });
     fireEvent.pointerMove(window, { clientX: 600.4 });
     expect(splitCanvas.style.gridTemplateColumns)
@@ -3707,22 +3445,12 @@ describe("project workspace", () => {
 
   it("resizes the loaded Agent below the bootstrap sidebar minimum", async () => {
     const snapshot = projectSnapshot({ files: [] });
-    mockCommands({ ...projectCommands(snapshot) });
+    mockCommands(projectCommands(snapshot));
     renderApp();
     const divider = await screen.findByRole("separator", { name: "Resize workspace sidebar" });
     await switchSidebarMode("Agent");
-    const agentFrame = await waitFor(() => {
-      const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(frame).not.toBeNull();
-      return frame!;
-    });
-    const reportMinimum = (minimumSidebarWidth: number) => act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: agentFrame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:layout-metrics", minimumSidebarWidth },
-      }));
-    });
+    const agentFrame = await findFrame();
+    const reportMinimum = (minimumSidebarWidth: number) => postWindowMessage(agentFrame.contentWindow, { type: "synara:layout-metrics", minimumSidebarWidth });
     // Once the real controls load, their measured width replaces the bootstrap
     // limit, including updates that arrive while the pointer is still down.
     reportMinimum(280);
@@ -3837,10 +3565,11 @@ describe("project workspace", () => {
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
     const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["notes.md"], activeFile: "notes.md", activeTab: "notes.md",
-      secondaryFile: "", focusedPane: "primary", canvasMode: "split",
-      documentMode: "split", paperView: "blog", tabRecency: ["notes.md"],
+    persistLayout(snapshot.root, {
+      openTabs: ["notes.md"],
+      activeFile: "notes.md",
+      secondaryFile: "",
+      canvasMode: "split",
     });
     mockCommands({
       ...projectCommands(snapshot, "Original paragraph.\n"),
@@ -3851,7 +3580,7 @@ describe("project workspace", () => {
     await loadVisualMarkdownEditorModule();
     renderApp();
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
-    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const editor = visualEditorOf(surface);
     const outsideInput = document.createElement("input");
     document.body.append(outsideInput);
     try {
@@ -3882,10 +3611,12 @@ describe("project workspace", () => {
   ])("saves non-collaborative secondary Markdown on %s in %s mode", async (trigger, autoBuildMode) => {
     localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode }));
     const snapshot = projectSnapshot({ files: [fileNode("left.md"), fileNode("right.md")] });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["left.md", "right.md"], activeFile: "left.md", activeTab: "left.md",
-      secondaryFile: "right.md", focusedPane: "secondary", canvasMode: "dual",
-      documentMode: "dual", paperView: "blog", tabRecency: ["left.md", "right.md"],
+    persistLayout(snapshot.root, {
+      openTabs: ["left.md", "right.md"],
+      activeFile: "left.md",
+      secondaryFile: "right.md",
+      focusedPane: "secondary",
+      canvasMode: "dual",
     });
     mockCommands({
       ...projectCommands(snapshot),
@@ -3898,7 +3629,7 @@ describe("project workspace", () => {
     await loadVisualMarkdownEditorModule();
     renderApp();
     const source = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".source-editor[data-editor-pane='secondary'] .cm-content");
+      const element = paneContent("secondary");
       expect(element).toHaveTextContent("Right original.");
       return element!;
     });
@@ -3912,11 +3643,11 @@ describe("project workspace", () => {
     vi.mocked(invoke).mockClear();
     act(() => {
       if (trigger === "preview blur") {
-        (surface as HTMLElement & { editor: TiptapEditor }).editor.commands.insertContentAt(1, "New right. ");
+        visualEditorOf(surface).commands.insertContentAt(1, "New right. ");
       } else {
         EditorView.findFromDOM(source)!.dispatch({ changes: { from: 0, insert: "New right. " } });
       }
-      if (trigger !== "idle") document.querySelector<HTMLElement>(".source-editor[data-editor-pane='primary'] .cm-content")!.focus();
+      if (trigger !== "idle") paneContent("primary")!.focus();
     });
     const expectSaved = () => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "right.md", content: "New right. Right original.\n",
@@ -3944,13 +3675,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.anything()));
     vi.mocked(invoke).mockClear();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nNew result." } });
@@ -4005,13 +3730,8 @@ describe("project workspace", () => {
       },
     });
     renderApp();
-    const element = await waitFor(() => {
-      const editor = document.querySelector<HTMLElement>(".cm-editor");
-      expect(editor).not.toBeNull();
-      return editor!;
-    });
+    const view = await findEditorView();
     await waitFor(() => expect(builtSources).toHaveLength(1));
-    const view = EditorView.findFromDOM(element)!;
     holdBuild = heldOperation === "build";
     holdSave = heldOperation === "save";
     act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: "\nFirst edit." } }); });
@@ -4042,13 +3762,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
@@ -4081,12 +3795,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const view = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const editor = element ? EditorView.findFromDOM(element) : null;
-      expect(editor).not.toBeNull();
-      return editor!;
-    }, { timeout: 60_000 });
+    const view = await waitFor(() => editorViewAt(), { timeout: 60_000 });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.objectContaining({
       force: false,
       projectRoot: "/tmp/lattice-paper",
@@ -4117,7 +3826,7 @@ describe("project workspace", () => {
     expect(view.state.doc.toString()).toContain("\\cite{}");
     await waitFor(() => expect(completionStatus(view.state)).toBe("active"));
     fireEvent.pointerLeave(document.querySelector(".source-editor")!);
-    await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_400)));
+    await act(() => pause(1_400));
     expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "build_project")).toBe(false);
 
     if (trigger !== "completion selection") {
@@ -4182,19 +3891,10 @@ describe("project workspace", () => {
     renderApp();
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const postSnapshot = (entries: unknown[]) => act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
-        data: { type: "lattice:project-history", activeThreadId: "agent-sync", entries },
-      }));
-    });
+    const frame = await findFrame();
+    const postSnapshot = (entries: unknown[]) => postWindowMessage(frame.contentWindow, { type: "lattice:project-history", activeThreadId: "agent-sync", entries });
     postSnapshot([]);
-    const syncCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync");
+    const syncCalls = () => invokeCalls("overleaf_sync");
     expect(syncCalls()).toHaveLength(0);
     postSnapshot([{
       id: "cp-sync", label: "Edited chapter", timestamp: "2026-09-24T01:00:00.000Z",
@@ -4265,8 +3965,7 @@ describe("project workspace", () => {
     renderApp();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("build_project", expect.anything()));
     const view = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const editor = element ? EditorView.findFromDOM(element) : null;
+      const editor = editorViewAt();
       expect(editor?.state.doc.toString()).toBe(original);
       return editor!;
     });
@@ -4279,7 +3978,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
     await act(async () => {
       finishRead!();
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await pause(300);
     });
     expect(view.state.doc.toString()).toBe(expected);
     expect(disk).toBe(expected);
@@ -4290,16 +3989,11 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "methods.md", name: "Methods", isDefault: true }],
       files: [fileNode("methods.md"), fileNode("notes.md")],
     });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["methods.md", "notes.md"],
       activeFile: "methods.md",
-      activeTab: "methods.md",
       secondaryFile: "",
-      focusedPane: "primary",
       canvasMode: "pdf",
-      documentMode: "pdf",
-      paperView: "blog",
-      tabRecency: ["methods.md", "notes.md"],
     });
     const sources: Record<string, string> = {
       "methods.md": "## Scope\n- **Measures**: Initial result\n",
@@ -4336,17 +4030,7 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
       files: [fileNode("notes.md")],
     });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["notes.md"],
-      activeFile: "notes.md",
-      activeTab: "notes.md",
-      secondaryFile: null,
-      focusedPane: "primary",
-      canvasMode: "split",
-      documentMode: "split",
-      paperView: "blog",
-      tabRecency: ["notes.md"],
-    });
+    persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "split" });
     let source = "# Notes\nParagraph\n";
     let mtimeMs = 1;
     mockCommands({
@@ -4385,10 +4069,8 @@ describe("project workspace", () => {
     mtimeMs = 2;
     await waitFor(() => expect(view.state.doc.toString()).toBe(externalSource), { timeout: 3_500 });
     fireEvent.pointerLeave(document.querySelector(".source-editor")!);
-    const statCallsAfterExternalEdit = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "stat_project_file").length;
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "stat_project_file").length)
+    const statCallsAfterExternalEdit = invokeCalls("stat_project_file").length;
+    await waitFor(() => expect(invokeCalls("stat_project_file").length)
       .toBeGreaterThan(statCallsAfterExternalEdit), { timeout: 3_500 });
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
     expect(source).toBe(externalSource);
@@ -4612,7 +4294,7 @@ describe("project workspace", () => {
       requestId: expect.any(String),
     }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument());
-    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "resolve_citation_query")).toHaveLength(1);
+    expect(invokeCalls("resolve_citation_query")).toHaveLength(1);
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
   });
 
@@ -4818,9 +4500,7 @@ describe("project workspace", () => {
     expect(within(paperContent).getByRole("tab", { name: "Paper" })).toBeInTheDocument();
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    const blogEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-    const blogEditor = blogEditorDom ? EditorView.findFromDOM(blogEditorDom) : null;
-    if (!blogEditor) throw new Error("Paper Markdown editor was not created.");
+    const blogEditor = editorViewAt(".source-editor .cm-editor");
     blogEditor.dispatch({
       changes: {
         from: 0,
@@ -4851,13 +4531,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("checkbox"));
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
-    const paperEditor = await waitFor(() => {
-      const paperEditorDom = document.querySelector<HTMLElement>(".source-editor .cm-editor");
-      const view = paperEditorDom ? EditorView.findFromDOM(paperEditorDom) : null;
-      expect(view).not.toBeNull();
-      return view;
-    });
-    if (!paperEditor) throw new Error("Full paper Markdown editor was not created.");
+    const paperEditor = await waitFor(() => editorViewAt(".source-editor .cm-editor"));
     expect(paperEditor.state.doc.toString()).toContain("- [ ] Hidden metadata task");
     expect(paperEditor.state.doc.toString()).toContain("- [x] Review paper");
     paperEditor.dispatch({
@@ -4885,16 +4559,12 @@ describe("project workspace", () => {
   it("splits a Paper with an editor and lets the Paper move between sides", { timeout: 60_000 }, async () => {
     const snapshot = projectSnapshot();
     const paperPath = ".research/papers/1706.03762/paper.md";
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["main.tex", paperPath],
       activeFile: "main.tex",
-      activeTab: "main.tex",
-      secondaryFile: null,
-      focusedPane: "primary",
       canvasMode: "source",
       documentMode: "split",
       paperView: "fulltext",
-      tabRecency: ["main.tex", paperPath],
     });
     mockCommands({
       initial_project: snapshot,
@@ -4927,17 +4597,7 @@ describe("project workspace", () => {
     }, { timeout: 20_000 });
 
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(canvas, 200, 40, 800, 600);
     const mainTab = screen.getByRole("tab", { name: /main\.tex/ }).closest(".editor-tab") as HTMLElement;
     fireEvent.pointerDown(mainTab, {
       button: 0,
@@ -4952,7 +4612,7 @@ describe("project workspace", () => {
 
     await waitFor(() => expect(document.querySelector(".paper-pane"))
       .toHaveAttribute("data-paper-side", "left"));
-    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+    expect(paneContent("secondary"))
       .toHaveTextContent("\\documentclass{article}");
     expect(screen.getByRole("tab", { name: /main\.tex/ })).toHaveAttribute("aria-selected", "true");
 
@@ -5652,11 +5312,7 @@ describe("project workspace", () => {
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByTitle("A captured research article"));
 
-    const paperHeader = await waitFor(() => {
-      const header = document.querySelector<HTMLElement>(".paper-visual-header");
-      expect(header).not.toBeNull();
-      return header!;
-    });
+    const paperHeader = await findElement(".paper-visual-header");
     expect(within(paperHeader).getByRole("heading", { name: "A captured research article" }))
       .toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
@@ -5838,17 +5494,7 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
       files: [fileNode("notes.md")],
     });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["notes.md"],
-      activeFile: "notes.md",
-      activeTab: "notes.md",
-      secondaryFile: null,
-      focusedPane: "primary",
-      canvasMode: "pdf",
-      documentMode: "pdf",
-      paperView: "blog",
-      tabRecency: ["notes.md"],
-    });
+    persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "pdf" });
     mockCommands({
       ...projectCommands(snapshot, "## Selected context\n\nUnselected paragraph"),
       list_editor_comments: () => ["notes.md", "other.tex"].map((path) => ({
@@ -5861,21 +5507,11 @@ describe("project workspace", () => {
     await loadVisualMarkdownEditorModule();
     renderApp();
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:embed-ready" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
-    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const editor = visualEditorOf(surface);
     act(() => {
       editor.view.focus();
       editor.view.dispatch(
@@ -5903,13 +5539,7 @@ describe("project workspace", () => {
     const contextCount = postMessage.mock.calls.filter(([message]) => (
       (message as { type?: string }).type === "lattice:host-context"
     )).length;
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "lattice:request-host-context" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "lattice:request-host-context" });
     await waitFor(() => expect(postMessage.mock.calls.filter(([message]) => (
       (message as { type?: string }).type === "lattice:host-context"
     ))).toHaveLength(contextCount + 1));
@@ -5918,12 +5548,7 @@ describe("project workspace", () => {
       .filter((message) => message.type === "lattice:host-context")
       .at(-1);
     expect(latestContext?.editor?.selection).toBe("## Selected context");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
-        data: { type: "lattice:request-host-context", requestId: "fresh-comments", workspaceRoot: snapshot.root, refreshComments: true },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "lattice:request-host-context", requestId: "fresh-comments", workspaceRoot: snapshot.root, refreshComments: true });
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
       requestId: "fresh-comments",
       editorComments: expect.objectContaining({
@@ -5931,12 +5556,7 @@ describe("project workspace", () => {
         overleaf: { status: "not-linked" },
       }),
     }), synaraHook.runtime.origin));
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow, origin: synaraHook.runtime.origin!,
-        data: { type: "synara:editor-comments-tool-request", version: 1, id: "all-comments", workspaceRoot: snapshot.root, args: {}, expiresAt: Date.now() + 10_000 },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:editor-comments-tool-request", version: 1, id: "all-comments", workspaceRoot: snapshot.root, args: {}, expiresAt: Date.now() + 10_000 });
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: "lattice:editor-comments-tool-result", id: "all-comments", ok: true,
       result: expect.objectContaining({ totalCount: 2, comments: expect.arrayContaining([
@@ -5950,17 +5570,7 @@ describe("project workspace", () => {
       rootDocuments: [{ path: "notes.md", name: "Notes", isDefault: true }],
       files: [fileNode("notes.md"), dirNode("figures", [fileNode("figures/figure.webp")])],
     });
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["notes.md"],
-      activeFile: "notes.md",
-      activeTab: "notes.md",
-      secondaryFile: null,
-      focusedPane: "primary",
-      canvasMode: "pdf",
-      documentMode: "pdf",
-      paperView: "blog",
-      tabRecency: ["notes.md"],
-    });
+    persistLayout(snapshot.root, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "pdf" });
     mockCommands({
       ...projectCommands(snapshot, "![Figure](figures/figure.webp)"),
       read_project_asset: () => ({
@@ -5973,21 +5583,11 @@ describe("project workspace", () => {
 
     renderApp();
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:embed-ready" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const editor = visualEditorOf(surface);
     act(() => {
       editor.view.focus();
       editor.view.dispatch(
@@ -6042,7 +5642,7 @@ describe("project workspace", () => {
 
     renderApp();
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const editor = visualEditorOf(surface);
     act(() => editor.commands.insertContentAt(editor.state.doc.content.size, " updated"));
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByRole("button", { name: /Paper target.*2407\.06438/i }));
@@ -6095,7 +5695,7 @@ describe("project workspace", () => {
 
     renderApp();
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" });
-    const editor = (surface as HTMLElement & { editor: TiptapEditor }).editor;
+    const editor = visualEditorOf(surface);
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByRole("button", { name: /Delayed paper.*2407\.06438/i }));
     await waitFor(() => expect(resolvePaper).not.toBeNull());
@@ -6152,15 +5752,13 @@ describe("project workspace", () => {
 
   it("cancels a pending Paper when the user opens a local file in the secondary pane", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("right.tex"), fileNode("notes.md")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["main.tex", "right.tex"],
       activeFile: "main.tex",
       activeTab: "right.tex",
       secondaryFile: "right.tex",
       focusedPane: "secondary",
       canvasMode: "dual",
-      documentMode: "dual",
-      paperView: "blog",
       tabRecency: ["right.tex", "main.tex"],
     });
     let resolvePaper!: (value: string) => void;
@@ -6187,9 +5785,7 @@ describe("project workspace", () => {
 
     await switchSidebarMode("Project");
     fireEvent.click(await findProjectTreeItem("notes.md"));
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:notes.md"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:notes.md"));
     expect(screen.queryByText("Opening Delayed paper…")).toBeNull();
 
     act(() => resolvePaper("# Paper must stay closed"));
@@ -6230,8 +5826,7 @@ describe("project workspace", () => {
     const paper = await screen.findByTitle("Attention Is All You Need");
     await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
     fireEvent.click(paper);
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "read_paper")).toHaveLength(2));
+    await waitFor(() => expect(invokeCalls("read_paper")).toHaveLength(2));
 
     const reopenedPaperContent = await screen.findByRole("tablist", { name: "Paper content" });
     await waitFor(() => expect(within(reopenedPaperContent).getByRole("tab", { name: "Paper" }))
@@ -6288,8 +5883,7 @@ describe("project workspace", () => {
     })).toBeInTheDocument();
     fireEvent.click(screen.getByText("references.bib:2"));
     await waitFor(() => {
-      const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-      const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
     });
 
@@ -6811,27 +6405,10 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorContent = await waitFor(() => {
-      const content = document.querySelector<HTMLElement>(".source-editor .cm-content");
-      expect(content).not.toBeNull();
-      return content!;
-    });
+    const editorContent = await findElement(".source-editor .cm-content");
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 200,
-      right: 1000,
-      width: 800,
-      top: 40,
-      bottom: 640,
-      height: 600,
-      x: 200,
-      y: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => editorContent),
-    });
+    stubRect(canvas, 200, 40, 800, 600);
+    stubElementFromPoint(editorContent);
     const bibliography = await findProjectTreeItem("references.bib");
     fireEvent.pointerDown(bibliography, {
       button: 0,
@@ -6880,11 +6457,8 @@ describe("project workspace", () => {
     }));
     expect(await screen.findByRole("tab", { name: /references\.bib/ }))
       .toHaveAttribute("aria-selected", "true");
-    const bibliographyEditorDom = document.querySelector<HTMLElement>(
-      ".source-editor[data-editor-pane='secondary'] .cm-editor",
-    );
-    const bibliographyEditor = bibliographyEditorDom ? EditorView.findFromDOM(bibliographyEditorDom) : null;
-    expect(bibliographyEditor && syntaxTree(bibliographyEditor.state).toString())
+    const bibliographyEditor = editorViewAt(".source-editor[data-editor-pane='secondary'] .cm-editor");
+    expect(syntaxTree(bibliographyEditor.state).toString())
       .toContain("Entry(EntryType");
     expect(document.querySelector(".source-editor")).not.toHaveClass("file-drop-active");
     expect(document.querySelector(".editor-tab-split-drop-preview")).toBeNull();
@@ -6913,24 +6487,10 @@ describe("project workspace", () => {
       .getByRole("tab", { name: "Edit" }));
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
     fireEvent.click(await screen.findByRole("option", { name: /Dual source view/ }));
-    const secondaryEditor = await waitFor(() => {
-      const editor = document.querySelector<HTMLElement>(".source-editor[data-editor-pane='secondary']");
-      expect(editor).not.toBeNull();
-      return editor!;
-    });
+    const secondaryEditor = await findElement(".source-editor[data-editor-pane='secondary']");
     const secondaryContent = secondaryEditor.querySelector<HTMLElement>(".cm-content")!;
     const dualCanvas = document.querySelector<HTMLElement>(".dual-canvas")!;
-    vi.spyOn(dualCanvas, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 1000,
-      width: 1000,
-      top: 0,
-      bottom: 700,
-      height: 700,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    stubRect(dualCanvas, 0, 0, 1000, 700);
     fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize dual source panes" }), {
       clientX: 460,
     });
@@ -6940,21 +6500,8 @@ describe("project workspace", () => {
     expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
       .toContain("0.7fr");
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 1000,
-      width: 1000,
-      top: 0,
-      bottom: 700,
-      height: 700,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => secondaryContent),
-    });
+    stubRect(canvas, 0, 0, 1000, 700);
+    stubElementFromPoint(secondaryContent);
 
     const bibliography = await findProjectTreeItem("references.bib");
     fireEvent.pointerDown(bibliography, {
@@ -6978,9 +6525,7 @@ describe("project workspace", () => {
       pointerType: "mouse",
     });
 
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("@article{lattice"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("@article{lattice"));
     expect(localStorage.getItem("lattice.split-ratio.v1")).toBe("0.7");
     expect(document.querySelector<HTMLElement>(".dual-canvas")?.style.gridTemplateColumns)
       .toContain("0.7fr");
@@ -7072,25 +6617,9 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorContent = await waitFor(() => {
-      const content = document.querySelector<HTMLElement>(".source-editor .cm-content");
-      expect(content).not.toBeNull();
-      return content!;
-    });
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => editorContent),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          paths: ["/tmp/method.tex"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    const editorContent = await findElement(".source-editor .cm-content");
+    stubElementFromPoint(editorContent);
+    await dropFinderPaths(["/tmp/method.tex"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_sources", {
       paths: ["/tmp/method.tex"],
@@ -7134,20 +6663,8 @@ describe("project workspace", () => {
     fireEvent.blur(zoomPercentage);
     expect(zoomPercentage).toHaveValue("500");
     expect(preview).toHaveStyle({ zoom: "5" });
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => preview),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          paths: ["/tmp/new.png"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    stubElementFromPoint(preview);
+    await dropFinderPaths(["/tmp/new.png"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_assets", {
       paths: ["/tmp/new.png"],
@@ -7174,37 +6691,15 @@ describe("project workspace", () => {
 
     renderApp();
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: { type: "synara:embed-ready" },
-      }));
-    });
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
     await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
 
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => frame),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          // A mixed figure + text-source drop: both are agent-readable, so the
-          // panel takes precedence over the project source/mixed branches.
-          paths: ["/tmp/plot.png", "/tmp/notes.md"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    stubElementFromPoint(frame);
+    // A mixed figure + text-source drop: both are agent-readable, so the
+    // panel takes precedence over the project source/mixed branches.
+    await dropFinderPaths(["/tmp/plot.png", "/tmp/notes.md"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_agent_composer_files", {
       paths: ["/tmp/plot.png", "/tmp/notes.md"],
@@ -7275,20 +6770,8 @@ describe("project workspace", () => {
     renderApp();
     fireEvent.click(await findProjectTreeItem("sections/"));
     const row = await findProjectTreeItem("sections/intro.tex");
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => row),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          paths: ["/tmp/plot.png"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    stubElementFromPoint(row);
+    await dropFinderPaths(["/tmp/plot.png"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
       paths: ["/tmp/plot.png"],
@@ -7356,22 +6839,10 @@ describe("project workspace", () => {
     renderApp();
     fireEvent.click(await findProjectTreeItem("sections/"));
     const row = await findProjectTreeItem("sections/intro.tex");
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => row),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          // Markdown + a data file the old classifier rejected + an image +
-          // a folder, all in one drop: the tree takes any mix.
-          paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    stubElementFromPoint(row);
+    // Markdown + a data file the old classifier rejected + an image +
+    // a folder, all in one drop: the tree takes any mix.
+    await dropFinderPaths(["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
       paths: ["/tmp/notes.md", "/tmp/data.csv", "/tmp/plot.png", "/tmp/tables"],
@@ -7398,20 +6869,8 @@ describe("project workspace", () => {
     await findProjectTreeItem("main.tex");
     const pane = document.querySelector(".project-section");
     expect(pane).not.toBeNull();
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => pane),
-    });
-    await waitFor(() => expect(webviewApi.dragDropHandler).not.toBeNull());
-    act(() => {
-      webviewApi.dragDropHandler?.({
-        payload: {
-          type: "drop",
-          paths: ["/tmp/plot.png"],
-          position: { x: 100, y: 100 },
-        },
-      });
-    });
+    stubElementFromPoint(pane);
+    await dropFinderPaths(["/tmp/plot.png"]);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("import_project_files", {
       paths: ["/tmp/plot.png"],
@@ -7556,21 +7015,8 @@ describe("project workspace", () => {
     const pdfRow = await findProjectTreeItem("figures/result.pdf");
     const svgPreview = screen.getByAltText("Preview of figures/native-umm.svg");
     const canvas = document.querySelector<HTMLElement>(".canvas-body")!;
-    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 1000,
-      width: 1000,
-      top: 0,
-      bottom: 700,
-      height: 700,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => svgPreview),
-    });
+    stubRect(canvas, 0, 0, 1000, 700);
+    stubElementFromPoint(svgPreview);
     expect(fireEvent.pointerDown(pdfRow, {
       button: 0,
       pointerId: 2,
@@ -7606,7 +7052,7 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: /main\.tex/ }));
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
     const content = document.querySelector<HTMLElement>(".cm-content")!;
-    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => content) });
+    stubElementFromPoint(content);
     fireEvent.pointerDown(await findProjectTreeItem("figures/native-umm.svg"), {
       button: 0,
       pointerType: "mouse",
@@ -7627,7 +7073,7 @@ describe("project workspace", () => {
       clientY: 100,
     });
     await waitFor(() => expect(assetTab).toHaveAttribute("aria-selected", "true"));
-    expect(document.querySelector(".source-editor[data-editor-pane='secondary'] .cm-content"))
+    expect(paneContent("secondary"))
       .toHaveTextContent("\\documentclass{article}");
     expect(document.querySelector(".dual-pane-label")).toBeNull();
     expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
@@ -7844,12 +7290,10 @@ describe("project workspace", () => {
     const zoomBefore = Number(zoomInput.value);
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
-    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project").length;
+    const buildsBeforeManualRequest = invokeCalls("build_project").length;
     interfaceSounds.play.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project")).toHaveLength(buildsBeforeManualRequest + 1));
+    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
     await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
@@ -7899,15 +7343,11 @@ describe("project workspace", () => {
 
   it("jumps out of a dual-pane preview into the pane that still holds an editor", async () => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("chapter.tex")] });
-    persistWorkspaceLayout(snapshot.root, {
+    persistLayout(snapshot.root, {
       openTabs: ["main.tex", "chapter.tex"],
       activeFile: "main.tex",
-      activeTab: "main.tex",
       secondaryFile: "chapter.tex",
-      focusedPane: "primary",
       canvasMode: "source",
-      documentMode: "source",
-      paperView: "blog",
       tabRecency: ["chapter.tex", "main.tex"],
     });
     const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
@@ -7957,9 +7397,7 @@ describe("project workspace", () => {
     renderApp();
     // Two editors side by side, then turn one of them into the PDF preview.
     fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
-    await waitFor(() => expect(document.querySelector(
-      ".source-editor[data-editor-pane='secondary'] .cm-content",
-    )).toHaveTextContent("content:chapter.tex"));
+    await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:chapter.tex"));
     fireEvent.click(within(await screen.findByRole("tablist", { name: "Document view" }))
       .getByRole("tab", { name: "Preview" }));
     const pdfPage = await screen.findByLabelText("PDF page 1");
@@ -8056,12 +7494,12 @@ describe("project workspace", () => {
     fireEvent.click(toggle);
     const fix = await screen.findByRole("button", { name: "Fix all" });
     await waitFor(() => expect(fix).toBeEnabled());
-    const previousBuilds = vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    const previousBuilds = invokeCalls("build_project").length;
     fireEvent.click(fix);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("compile_repair", {
       action: "start", projectRoot: snapshot.root, rootDocument: "main.tex", diagnostics: [warning, error], runtimeMode: "full-access",
     }));
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project")).toHaveLength(previousBuilds + 1));
+    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(previousBuilds + 1));
     await waitFor(() => expect(screen.getByText("Repair finished")).toBeInTheDocument());
     await waitFor(() => expect(document.querySelector(".cm-content")).toHaveTextContent("Fixed reference"));
     expect(screen.queryByText(warning.message)).not.toBeInTheDocument();
@@ -8103,11 +7541,9 @@ describe("project workspace", () => {
     expect(visibleBuildToasts()).toEqual([]);
     // Initial and autosave builds are intentionally silent.
     expect(interfaceSounds.play).not.toHaveBeenCalled();
-    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project").length;
+    const buildsBeforeManualRequest = invokeCalls("build_project").length;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
-    await waitFor(() => expect(vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project")).toHaveLength(buildsBeforeManualRequest + 1));
+    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
     await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
     expect(visibleBuildToasts()).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
@@ -8125,8 +7561,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => {
-      const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-      const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.toString()).toContain("\\section{Intro}");
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
     });
@@ -8159,9 +7594,7 @@ describe("project workspace", () => {
 
     renderApp();
     await screen.findByLabelText("Compile diagnostics");
-    const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-    const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = editorViewAt();
 
     for (const insert of ["中文", "修改"]) {
       const previousBuilds = buildCount;
@@ -8178,7 +7611,7 @@ describe("project workspace", () => {
       await waitFor(() => expect(buildCount).toBe(previousBuilds + 1), { timeout: 3_000 });
       await waitFor(() => expect(screen.getByRole("button", { name: "Build" })).toBeEnabled());
       // Navigation runs on an animation frame after the build result renders.
-      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); });
+      await act(async () => { await pause(100); });
       expect(view.state.doc.toString()).toBe(expectedText);
       expect(view.state.selection.main.head).toBe(from + insert.length);
       expect(view.hasFocus).toBe(true);
@@ -8228,11 +7661,10 @@ describe("project workspace", () => {
     fireEvent.click(within(diagnostics).getByRole("button", { name: "Dismiss diagnostics" }));
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();
 
-    const buildsBeforeManualRequest = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project").length;
+    const buildsBeforeManualRequest = invokeCalls("build_project").length;
     fireEvent.click(screen.getByRole("button", { name: "Build" }));
     await waitFor(() => {
-      expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project"))
+      expect(invokeCalls("build_project"))
         .toHaveLength(buildsBeforeManualRequest + 1);
     });
     await waitFor(() => {
@@ -8284,12 +7716,10 @@ describe("project workspace", () => {
     expect(screen.getByRole("progressbar", { name: "LaTeX 软件包安装进度" }))
       .toHaveAttribute("aria-valuenow", "64");
 
-    const buildCallsBeforeInstall = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "build_project").length;
+    const buildCallsBeforeInstall = invokeCalls("build_project").length;
     await act(async () => finishInstall());
     await waitFor(() => {
-      const buildCalls = vi.mocked(invoke).mock.calls
-        .filter(([command]) => command === "build_project").length;
+      const buildCalls = invokeCalls("build_project").length;
       expect(buildCalls).toBeGreaterThan(buildCallsBeforeInstall);
     });
     expect(screen.queryByRole("dialog", { name: "安装缺失的软件包" })).not.toBeInTheDocument();
@@ -8341,13 +7771,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
     await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
     fireEvent.click(await findProjectTreeItem("intro.tex"));
@@ -8362,8 +7786,7 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-paper",
     }));
     await waitFor(() => {
-      const next = document.querySelector<HTMLElement>(".cm-editor");
-      const nextView = next ? EditorView.findFromDOM(next) : null;
+      const nextView = editorViewAt();
       expect(nextView?.state.doc.toString()).toBe("\\section{Intro}");
     });
   });
@@ -8438,8 +7861,7 @@ describe("project workspace", () => {
     // The point of the feature: this window keeps the project and the buffer it
     // already had, rather than being taken over by the one just opened.
     expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/overleaf-paper" });
-    const element = document.querySelector<HTMLElement>(".cm-editor");
-    const view = element ? EditorView.findFromDOM(element) : null;
+    const view = editorViewAt();
     expect(view?.state.doc.toString()).toBe("# Private draft");
   });
 
@@ -8650,8 +8072,7 @@ describe("project workspace", () => {
     }));
     // The window that was in use keeps its project and its buffer.
     expect(invoke).not.toHaveBeenCalledWith("open_project", { path: "/tmp/new-paper" });
-    const element = document.querySelector<HTMLElement>(".cm-editor");
-    const view = element ? EditorView.findFromDOM(element) : null;
+    const view = editorViewAt();
     expect(view?.state.doc.toString()).toBe("# Private draft");
   });
 
@@ -8671,8 +8092,7 @@ describe("project workspace", () => {
 
     renderApp();
     await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.toString()).toBe("# Private draft");
     });
 
@@ -8759,8 +8179,8 @@ describe("project workspace", () => {
       expect(view?.state.doc.toString()).toBe("");
     });
     fireEvent.keyDown(window, { key: "s", metaKey: true });
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    const writes = vi.mocked(invoke).mock.calls.filter(([command]) => command === "write_project_file");
+    await pause(0);
+    const writes = invokeCalls("write_project_file");
     expect(writes).toEqual([
       ["write_project_file", {
         path: "draft.md",
@@ -8780,8 +8200,7 @@ describe("project workspace", () => {
 
     releaseIncomingPapers([]);
     await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.toString()).toBe("\\documentclass{article}");
     });
   });
@@ -8889,19 +8308,16 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Guided tutorial" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_tutorial_project"));
     await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      const view = element ? EditorView.findFromDOM(element) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.toString()).toBe("# Local notes");
     });
     // The stale-link window has passed by the time the new project renders;
     // give pending promises a beat and confirm nothing aimed at it.
-    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
-    const syncRoots = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "overleaf_sync")
+    await act(async () => { await pause(0); });
+    const syncRoots = invokeCalls("overleaf_sync")
       .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
     expect(syncRoots).toEqual([]);
-    const probeRoots = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "overleaf_probe")
+    const probeRoots = invokeCalls("overleaf_probe")
       .map(([, callArgs]) => (callArgs as { projectRoot?: string } | undefined)?.projectRoot);
     expect(probeRoots).not.toContain("/tmp/notes");
   });
@@ -8937,13 +8353,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     view.dispatch({ changes: { from: view.state.doc.length, insert: "\nDraft change." } });
     await waitFor(() => expect(document.querySelector(".active-document i")).not.toBeNull());
     fireEvent.click(await findProjectTreeItem("intro.tex"));
@@ -9003,13 +8413,7 @@ describe("project workspace", () => {
     });
 
     renderApp();
-    const editorElement = await waitFor(() => {
-      const element = document.querySelector<HTMLElement>(".cm-editor");
-      expect(element).not.toBeNull();
-      return element!;
-    });
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not available");
+    const view = await findEditorView();
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "The citation was removed.\n" } });
 
     await switchSidebarMode("Papers");
@@ -9140,8 +8544,7 @@ describe("project workspace", () => {
     expect(screen.queryByText("\\input{sections/introduction.tex}")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Results/i }));
     const editorView = await waitFor(() => {
-      const editorElement = document.querySelector<HTMLElement>(".cm-editor");
-      const view = editorElement ? EditorView.findFromDOM(editorElement) : null;
+      const view = editorViewAt();
       expect(view?.state.doc.lineAt(view.state.selection.main.head).number).toBe(5);
       return view!;
     });
@@ -9160,8 +8563,7 @@ describe("project workspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Results/i }));
     await waitFor(() => expect(syncResolvers).toHaveLength(2));
     await waitFor(() => {
-      const currentEditor = document.querySelector<HTMLElement>(".cm-editor");
-      const currentView = currentEditor ? EditorView.findFromDOM(currentEditor) : null;
+      const currentView = editorViewAt();
       expect(currentView?.state.doc.lineAt(currentView.state.selection.main.head).number).toBe(5);
     });
     const idsBeforeLatestResponse = randomUUID.mock.calls.length;
@@ -9558,8 +8960,7 @@ describe("project workspace", () => {
       diagnosticContext: { operation_id: expect.any(String), request_id: expect.any(String) },
     }));
     probeChanged = false;
-    const syncCountBeforeMutation = vi.mocked(invoke).mock.calls
-      .filter(([command]) => command === "overleaf_sync").length;
+    const syncCountBeforeMutation = invokeCalls("overleaf_sync").length;
 
     await act(async () => {
       await openSlideWorkspaceApi.onMutation!({
@@ -9577,9 +8978,9 @@ describe("project workspace", () => {
       projectRoot: "/tmp/lattice-slide-overleaf",
     });
     await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+      await pause(1_200);
     });
-    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync"))
+    expect(invokeCalls("overleaf_sync"))
       .toHaveLength(syncCountBeforeMutation);
 
     fireEvent.click(await findProjectTreeItem("main.tex"));
@@ -9668,26 +9069,16 @@ describe("project workspace", () => {
 
     renderApp();
     await switchSidebarMode("Agent");
-    const frame = await waitFor(() => {
-      const element = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    const frame = await findFrame();
     const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
 
     const unregisterBoard = registerAgentCanvasAdapter("agent-board.tldr", { execute: () => ({}) });
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:project-document-tool-request",
-          version: 1,
-          id: "create-board",
-          args: { path: "agent-board.tldr", documentType: "board" },
-          expiresAt: Date.now() + 10_000,
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:project-document-tool-request",
+      version: 1,
+      id: "create-board",
+      args: { path: "agent-board.tldr", documentType: "board" },
+      expiresAt: Date.now() + 10_000,
     });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_project_entry", {
       path: "agent-board.tldr",
@@ -9711,18 +9102,12 @@ describe("project workspace", () => {
       "agent-data.lattice-sheet",
       { doc: spreadsheetDoc, canWrite: true },
     );
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", {
-        source: frame.contentWindow,
-        origin: synaraHook.runtime.origin!,
-        data: {
-          type: "synara:project-document-tool-request",
-          version: 1,
-          id: "create-spreadsheet",
-          args: { path: "agent-data.lattice-sheet", documentType: "spreadsheet" },
-          expiresAt: Date.now() + 10_000,
-        },
-      }));
+    postWindowMessage(frame.contentWindow, {
+      type: "synara:project-document-tool-request",
+      version: 1,
+      id: "create-spreadsheet",
+      args: { path: "agent-data.lattice-sheet", documentType: "spreadsheet" },
+      expiresAt: Date.now() + 10_000,
     });
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
