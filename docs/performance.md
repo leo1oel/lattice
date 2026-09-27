@@ -95,9 +95,64 @@ experiment behind a flag, measured before adoption.
 4. `__latticePerf.report()` dumps everything. Record numbers in the table
    below per stage.
 
+## Long-session degradation (September 2026)
+
+The report: after using the app for a while, scrolling lags and sometimes
+sticks. The causes below were each found in heap snapshots and CPU metrics
+from the real app, and each fix has a regression test beside it.
+
+**How it was measured.** WKWebView has no automation protocol, so the
+measurements used the app's own browser mode: the debug Rust backend, a
+production frontend build, and headless Chromium at
+`http://localhost:1420/?latticeBrowser=1`. A CDP script sent real mouse,
+wheel and keyboard input and ran on the perf fixture from a fresh project.
+One cycle was: edit a chapter, rebuild the 386-page book and scroll the PDF;
+scroll the chapter source; open `large.md` and scroll the split preview, the
+source and the full preview; open three notes; return to `main.tex` and
+scroll the PDF. After each cycle it forced GC and read the JS heap, DOM nodes
+and listeners. For every wheel burst it recorded rAF cadence and
+renderer main-thread CPU time (`Performance.getMetrics` `ThreadTime`, which
+other load on the machine barely affects). WebKit-only behaviour was checked
+in Playwright's WebKit 26.6 against the same backend.
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| Replaced PDF.js viewers were never detached | 3,860 detached PDF pages (ten viewers) after five cycles, retained by each viewer's document `copy` listener and PDF.js's static `TextLayerBuilder` map; PDF scroll CPU per burst grew 438 → 1,752 ms | `destroyViewerRecord` calls `PDFViewer.setDocument(null)` and zeroes canvases (`pdf/pdf-viewer.tsx`) |
+| Frozen table-header scroll animations outlived their cells | Scroll-driven `Animation`s stay in effect while the scroller is connected. Each file switch kept the replaced document alive through its header cells: +6.6k DOM nodes and +3.2 MB heap per `large.md` ⇄ note switch, with split-preview fps falling as stale animations piled up | the plugin view tracks animated cells and releases dropped ones (`open-knowledge-app/editor/extensions/frozen-table-headers.ts`) |
+| DocumentCanvas render scopes chained replaced editors | DocumentCanvas is not compiled, so every closure captures its render scope. CodeMirror keeps extension closures for the view's life, and the scope held the previous `EditorView` and preview element in state, so each switch retained the previous editor and its whole document | that state holds `WeakRef`s (`canvas/document-canvas.tsx`) |
+| Base UI ScrollArea restyled the whole document on every scroll event in WebKit | Base UI writes four `--scroll-area-overflow-*` properties on the viewport per scroll event and registers them as non-inherited everywhere except WebKit. Same page, split preview of `large.md`: 2.1–2.2 fps (p95 frame ≈ 1.09 s) as shipped; 14.8–15.5 fps (p95 ≈ 0.13 s) with the properties registered | registered in `components/ui/scroll-area.tsx` |
+
+Five-cycle long session, fresh app each run. Heap, nodes and listeners are
+read after GC on `main.tex`; the other rows show cycle 0 → cycle 4:
+
+| | Before | After |
+| --- | --- | --- |
+| JS heap after cycle 4 | 88.1 MB (+9.2 MB/cycle) | 62.9 MB (+1.4 MB in the last cycle) |
+| DOM nodes after cycle 4 | 102,556 | 3,856 |
+| JS event listeners after cycle 4 | 2,806 | 931 |
+| Heap snapshot (self size / detached nodes) | 207 MB / 84,232 | 50 MB / 919 |
+| PDF scroll, main-thread CPU per burst | 438 → 1,752 ms | 453 → 413 ms |
+| Chapter source scroll, CPU per burst | 234 → 682 ms | 209 → 203 ms |
+| Markdown preview scroll, fps | 54.7 → 42.7 | 55.2 → 57.5 |
+| Markdown source scroll, fps | 56.1 → 50.1 | 57.0 → 58.5 |
+
+Ruled out: Rust-side growth (no backend collection grows with opening,
+editing, compiling or scrolling; the app process RSS varied without a trend
+between runs), Tauri `listen()` and observer cleanup (all paired), and the
+file tree. Not reproduced: Overleaf sync (it needs an account) and the agent
+panel (it needs the Synara sidecar, which these builds stubbed out).
+
+Still open, and bounded rather than growing:
+- Leaving `large.md` still keeps one copy of its visual-editor DOM, about 25k
+  nodes. React's previous fiber state holds it until the editor next renders.
+- Every TipTap React node view is a portal container, and React attaches
+  about 139 listeners to each. `large.md` therefore carries around 75k
+  listeners while it is open.
+
 ## Results log
 
-**Nothing has been recorded here yet.** The table below is an empty template,
+The long-session measurements above are recorded in their own section. For
+the keystroke and switch playbook, **nothing has been recorded yet.** The table below is an empty template,
 kept so there is an agreed shape to fill in — it is not a record of any
 measurement, and the fixes described in this document shipped without one. If
 you run the playbook, add a row; do not infer anything from the current
