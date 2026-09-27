@@ -164,6 +164,7 @@ import {
   EditorDropPreviewPortal,
   type EditorDropPreview,
   type EditorDropZone,
+  type EditorTab,
 } from "./canvas/editor-tabs";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
@@ -317,11 +318,7 @@ function recordNavigationTiming(
   const endedAt = performance.now();
   const detail = { kind, path, totalMs: endedAt - startedAt, ...phases };
   try {
-    performance.measure("lattice:document-switch", {
-      start: startedAt,
-      end: endedAt,
-      detail,
-    });
+    performance.measure("lattice:document-switch", { start: startedAt, end: endedAt, detail });
   } catch {
     // Older WebKit builds do not support PerformanceMeasureOptions.detail.
   }
@@ -433,11 +430,7 @@ function App() {
     cancelPreviewPrewarm,
     prewarmLikelyProjectFile,
     prewarmLikelyPaper,
-  } = usePreviewPrewarm(project, projectRef, {
-    activeFile,
-    activePaperId: activePaper?.arxivId,
-    paperView,
-  });
+  } = usePreviewPrewarm(project, projectRef, { activeFile, activePaperId: activePaper?.arxivId, paperView });
   const fileLoadGenerationRef = useRef(0);
   // Set as soon as a Paper intent reserves the primary surface, including the
   // network-fetch phase before openPaper starts. A later local-file intent in
@@ -762,11 +755,7 @@ function App() {
       canWrite: true,
       path,
       commit: async () => {
-        await invoke<void>("write_project_file", {
-          path,
-          content: spreadsheetDocContent(doc),
-          projectRoot,
-        });
+        await invoke<void>("write_project_file", { path, content: spreadsheetDocContent(doc), projectRoot });
         recordSavedPaths([path]);
       },
       dispose: () => doc.destroy(),
@@ -1030,10 +1019,7 @@ function App() {
   const shellRef = useRef<HTMLDivElement | null>(null);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
-    setRecentProjects(rememberRecentProject({
-      name: snapshot.manifest.name,
-      path: snapshot.root,
-    }));
+    setRecentProjects(rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }));
   }, []);
 
   const projectHistory = useMemo(() => [...history, ...agentCheckpoints.historyItems].sort((left, right) => (
@@ -1472,9 +1458,7 @@ function App() {
       // Autosave runs constantly, so this path gets a plain notification rather
       // than a `logAction` trace — a start line per keystroke pause would bury
       // everything else in the log.
-      notifyError("Save", `Could not save ${activeFile || "the project"}`, {
-        detail: toMessage(reason),
-      });
+      notifyError("Save", `Could not save ${activeFile || "the project"}`, { detail: toMessage(reason) });
       return false;
     }
   }, [
@@ -1752,10 +1736,7 @@ function App() {
         if (sourceRef.current !== savedSourceRef.current) {
           if (!(await save())) return;
         } else {
-          const content = await invoke<string>("read_project_file", {
-            path,
-            projectRoot: project?.root,
-          });
+          const content = await invoke<string>("read_project_file", { path, projectRoot: project?.root });
           if (
             fileLoadGenerationRef.current === loadGeneration
             && activeFileRef.current === path
@@ -2285,11 +2266,7 @@ function App() {
     await openProjectFile(path, line);
     if (!isCurrentRequest(false)) return;
     try {
-      const target = await invoke<PdfSyncResponse | null>("synctex_view", {
-        path,
-        line,
-        column: 0,
-      });
+      const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column: 0 });
       if (!isCurrentRequest()) return;
       if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
       setCanvasMode((mode) => (
@@ -3355,17 +3332,8 @@ function App() {
       sourcePath: string,
       content: string,
       savedContent = content,
-    ): DropPaneContent => ({
-      kind: "source",
-      path: sourcePath,
-      source: content,
-      savedSource: savedContent,
-    });
-    const assetContent = (asset: AssetPreview): DropPaneContent => ({
-      kind: "asset",
-      path: asset.path,
-      asset,
-    });
+    ): DropPaneContent => ({ kind: "source", path: sourcePath, source: content, savedSource: savedContent });
+    const assetContent = (asset: AssetPreview): DropPaneContent => ({ kind: "asset", path: asset.path, asset });
     const paperContent = (
       paper: PaperSummary,
       markdown: string,
@@ -3698,9 +3666,7 @@ function App() {
         ? paperTabKey(activePaper.arxivId)
         : activeAsset?.path ?? activeFile;
     if (focusedPath) {
-      void dropProjectPath(focusedPath, "center", {
-        preservePreview: focusedPanePreview,
-      });
+      void dropProjectPath(focusedPath, "center", { preservePreview: focusedPanePreview });
     }
   }, [
     activeAsset?.path, activeFile, activePaper, canvasMode, dropProjectPath, focusedPane, focusedPanePreview,
@@ -3994,9 +3960,7 @@ function App() {
           && primaryPanePath() === promotedSplit.splitPath
           && secondaryPanePath() === promotedSplit.primaryPath;
         if (canRestore) {
-          const restoring = dropProjectPath(promotedSplit.primaryPath, "left", {
-            preserveSplitRatio: true,
-          });
+          const restoring = dropProjectPath(promotedSplit.primaryPath, "left", { preserveSplitRatio: true });
           const restoreGeneration = documentViewGenerationRef.current;
           await restoring;
           if (
@@ -4415,9 +4379,7 @@ function App() {
             // bridge into the composer, same as its "+" attachment menu.
             // Checked ahead of the source/mixed branches: any file the agent
             // can read (figures and text sources alike) becomes an attachment.
-            void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", {
-              paths: event.payload.paths,
-            })
+            void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", { paths: event.payload.paths })
               .then((files) => synara.postMessage(buildAgentComposerFilesMessage(files)))
               .catch((error) => setError(toMessage(error)));
           } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
@@ -4477,10 +4439,7 @@ function App() {
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
-      const prepared = await invoke<string>("prepare_latex_figure", {
-        path,
-        projectRoot: project?.root,
-      });
+      const prepared = await invoke<string>("prepare_latex_figure", { path, projectRoot: project?.root });
       if (prepared !== path) await refreshProject();
       setError(null);
       return prepared;
@@ -4732,11 +4691,7 @@ function App() {
           rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("rename_project_entry", { path: oldPath, newName: name, projectRoot })),
           delete: async () => { throw new Error("Unexpected delete during rename"); },
         })
-        : await invoke<string>("rename_project_entry", {
-          path,
-          newName: name,
-          projectRoot: project?.root,
-        });
+        : await invoke<string>("rename_project_entry", { path, newName: name, projectRoot: project?.root });
       const changes = [{ previousPath: path, nextPath: renamedPath }];
       applyProjectEntryPathChanges(changes);
       if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
@@ -4856,10 +4811,7 @@ function App() {
           ? plannedChanges
             .filter((change) => !completedPaths.has(change.previousPath))
             .reverse()
-            .map((change) => ({
-              previousPath: change.nextPath,
-              nextPath: change.previousPath,
-            }))
+            .map((change) => ({ previousPath: change.nextPath, nextPath: change.previousPath }))
           : [];
         applyProjectEntryPathChanges(rollbackChanges);
         setError(toMessage(reason));
@@ -4877,14 +4829,8 @@ function App() {
     try {
       if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
         const result = renameTarget.kind === "label"
-          ? await invoke<RenameSymbolResult>("rename_label", {
-            oldLabel: renameTarget.label,
-            newLabel: name,
-          })
-          : await invoke<RenameSymbolResult>("rename_citation_key", {
-            oldKey: renameTarget.key,
-            newKey: name,
-          });
+          ? await invoke<RenameSymbolResult>("rename_label", { oldLabel: renameTarget.label, newLabel: name })
+          : await invoke<RenameSymbolResult>("rename_citation_key", { oldKey: renameTarget.key, newKey: name });
         const [nextCitationKeys, nextCitations, nextReferences] = await Promise.all([
           invoke<string[]>("list_citation_keys"),
           invoke<CitationInfo[]>("list_citations"),
@@ -5154,10 +5100,7 @@ function App() {
         let reverted = false;
         if (result.transactionId) {
           try {
-            await invoke("revert_transaction", {
-              transactionId: result.transactionId,
-              projectRoot,
-            });
+            await invoke("revert_transaction", { transactionId: result.transactionId, projectRoot });
             reverted = true;
           } catch {
             // Revert itself is compare-and-swap guarded. If disk also changed,
@@ -5462,23 +5405,11 @@ function App() {
       const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
       if (paper) void openPaper(paper);
       else void closeEditorTab(path);
+    } else if (isTwoPane(canvasMode) && (secondaryAsset?.path === path || secondaryFile === path)) {
+      setFocusedPane("secondary");
     } else if (projectAssetPaths.has(path)) {
-      if (
-        isTwoPane(canvasMode)
-        && secondaryAsset?.path === path
-      ) {
-        setFocusedPane("secondary");
-        return;
-      }
       void openProjectAsset(path);
     } else {
-      if (
-        isTwoPane(canvasMode)
-        && secondaryFile === path
-      ) {
-        setFocusedPane("secondary");
-        return;
-      }
       void openProjectFile(path);
     }
   }, [
@@ -5499,68 +5430,36 @@ function App() {
       return without;
     });
   }, []);
-  const editorTabItems = useMemo(
-    () => openTabs.map((path) => {
-      if (isPaperTabKey(path)) {
-        const id = arxivIdFromTabKey(path);
-        return {
-          path,
-          pinned: pinnedTabs.includes(path),
-          kind: "paper" as const,
-          label: papers.find((paper) => paper.arxivId === id)?.title ?? "Paper",
-          dirty: activePaper?.arxivId === id && activePaperDirty,
-          beside: activePaper?.arxivId === id
-            && isTwoPane(canvasMode),
-        };
-      }
-      if (projectAssetPaths.has(path)) {
-        return {
-          path,
-          pinned: pinnedTabs.includes(path),
-          kind: "asset" as const,
-          beside: path === secondaryAsset?.path
-            && isTwoPane(canvasMode),
-        };
-      }
-      return {
-        path,
-        pinned: pinnedTabs.includes(path),
-        kind: "file" as const,
-        dirty: (path === activeFile && primarySourceDirty)
-          || (path === secondaryFile && secondarySourceDirty),
-        beside: (path === secondaryFile || path === secondaryAsset?.path)
-          && isTwoPane(canvasMode),
-      };
-    }),
-    [
-      activeFile,
-      activePaper?.arxivId,
-      activePaperDirty,
-      canvasMode,
-      openTabs,
-      papers,
-      pinnedTabs,
-      primarySourceDirty,
-      projectAssetPaths,
-      secondaryFile,
-      secondaryAsset?.path,
-      secondarySourceDirty,
-    ],
-  );
+  const editorTabItems = useMemo(() => openTabs.map((path): EditorTab => {
+    const pinned = pinnedTabs.includes(path);
+    const twoPane = isTwoPane(canvasMode);
+    if (isPaperTabKey(path)) {
+      const id = arxivIdFromTabKey(path);
+      const open = activePaper?.arxivId === id;
+      const label = papers.find((paper) => paper.arxivId === id)?.title ?? "Paper";
+      return { path, pinned, kind: "paper", label, dirty: open && activePaperDirty, beside: open && twoPane };
+    }
+    if (projectAssetPaths.has(path)) return { path, pinned, kind: "asset", beside: path === secondaryAsset?.path && twoPane };
+    return {
+      path,
+      pinned,
+      kind: "file",
+      dirty: (path === activeFile && primarySourceDirty) || (path === secondaryFile && secondarySourceDirty),
+      beside: (path === secondaryFile || path === secondaryAsset?.path) && twoPane,
+    };
+  }), [
+    activeFile, activePaper?.arxivId, activePaperDirty, canvasMode, openTabs, papers, pinnedTabs, primarySourceDirty,
+    projectAssetPaths, secondaryFile, secondaryAsset?.path, secondarySourceDirty,
+  ]);
   useLayoutEffect(() => {
     fitSidebarToContent();
   }, [canvasMode, editorTabItems.length, fitSidebarToContent]);
   // The tab that reads as active: the open paper in paper mode, else the focused
   // editor pane. Also the key eviction must never close.
-  const activeTabKey = activePaper
-    ? isTwoPane(canvasMode) && focusedPane === "secondary"
-      ? secondaryAsset?.path ?? secondaryFile ?? paperTabKey(activePaper.arxivId)
-      : paperTabKey(activePaper.arxivId)
-    : isTwoPane(canvasMode)
-      ? focusedPane === "secondary"
-        ? secondaryAsset?.path ?? secondaryFile ?? activeAsset?.path ?? activeFile
-        : activeAsset?.path ?? activeFile
-      : activeAsset?.path ?? activeFile;
+  const primaryTabKey = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
+  const activeTabKey = isTwoPane(canvasMode) && focusedPane === "secondary"
+    ? secondaryAsset?.path ?? secondaryFile ?? primaryTabKey
+    : primaryTabKey;
   // Whatever is on screen is the most-recently-used tab; the split's other pane
   // counts too. Tracking recency here covers every path that opens a tab.
   useEffect(() => {
