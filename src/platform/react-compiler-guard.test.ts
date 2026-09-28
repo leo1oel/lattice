@@ -23,22 +23,24 @@ import { describe, expect, it } from "vitest";
  * case-by-case audit. See docs/performance.md.
  */
 const CEILINGS: Record<string, number> = {
-  // 36, not 35: the command palette's `import("./build/texlab-language")` moved
-  // back into App with the palette itself, so the bailout the compiler already
-  // reported for that expression is now counted here instead of in an overlay
-  // file. No new pattern was introduced.
-  "src/App.tsx": 36,
+  // 22 after the build pipeline, reference import, editor comments and TeX
+  // setup moved into src/app hooks, which carry the rest below.
+  "src/App.tsx": 22,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
   "src/app/use-overleaf-workspace.ts": 1,
   "src/app/use-collab-v2-session.ts": 8,
+  "src/app/use-build-pipeline.ts": 7,
+  "src/app/use-reference-import.ts": 3,
+  "src/app/use-editor-comments.ts": 1,
+  "src/app/use-tex-setup.ts": 1,
   "src/app/app-collab-surfaces.tsx": 0,
-  "src/app/app-editor-panels.tsx": 1,
-  "src/app/app-history-drawers.tsx": 1,
+  "src/app/app-editor-panels.tsx": 0,
+  "src/app/app-history-drawers.tsx": 0,
   "src/app/app-onboarding-tour.tsx": 0,
   "src/app/app-project-dialogs.tsx": 0,
-  "src/app/app-search-dialogs.tsx": 3,
+  "src/app/app-search-dialogs.tsx": 2,
   "src/app/app-titlebar.tsx": 0,
   "src/app/app-workspace-sidebar.tsx": 0,
   "src/canvas/document-canvas.tsx": 3,
