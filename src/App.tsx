@@ -4367,29 +4367,21 @@ function App() {
         setError(null);
         return;
       }
-      if (target.kind === "include") {
+      if (target.kind === "include" || target.kind === "asset") {
+        // A relative \input or \includegraphics path may name a file below a
+        // search directory rather than the project root.
         const paths = flattenProjectPaths(project.files);
         const resolved = paths.includes(target.path)
           ? target.path
-          : paths.find((path) => path === target.path || path.endsWith(`/${target.path}`));
+          : paths.find((path) => path.endsWith(`/${target.path}`));
         if (!resolved) {
-          setError(`Could not find included file “${target.path}”.`);
+          setError(target.kind === "include"
+            ? `Could not find included file “${target.path}”.`
+            : `Could not find figure “${target.path}”.`);
           return;
         }
-        await openProjectFile(resolved, 1);
-        setError(null);
-        return;
-      }
-      if (target.kind === "asset") {
-        const paths = flattenProjectPaths(project.files);
-        const resolved = paths.includes(target.path)
-          ? target.path
-          : paths.find((path) => path === target.path || path.endsWith(`/${target.path}`));
-        if (!resolved) {
-          setError(`Could not find figure “${target.path}”.`);
-          return;
-        }
-        await openProjectAsset(resolved);
+        if (target.kind === "include") await openProjectFile(resolved, 1);
+        else await openProjectAsset(resolved);
         setError(null);
         return;
       }
@@ -4704,6 +4696,14 @@ function App() {
     publishTextToCollabV2, reconcileProjectTree, save, setPrimarySource, setSecondarySourceLive, t,
   ]);
 
+  /** List every occurrence of a label or citation key in the references panel. */
+  const showSymbolReferences = useCallback(async (kind: "label" | "citation", symbol: string) => {
+    const occurrences = kind === "label"
+      ? await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: symbol })
+      : await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: symbol });
+    setReferenceHits({ kind, symbol, occurrences });
+  }, []);
+
   const submitRename = useCallback(async (name: string) => {
     if (!renameTarget) return;
     try {
@@ -4723,18 +4723,8 @@ function App() {
         await refreshHistory();
         if (result.changedFiles.includes(activeFile)) await loadFile(activeFile);
         setOutlineSources({});
-        setReferenceHits((current) => current && {
-          kind: renameTarget.kind,
-          symbol: name,
-          occurrences: [],
-        });
-        if (renameTarget.kind === "label") {
-          const occurrences = await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: name });
-          setReferenceHits({ kind: "label", symbol: name, occurrences });
-        } else {
-          const occurrences = await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: name });
-          setReferenceHits({ kind: "citation", symbol: name, occurrences });
-        }
+        setReferenceHits((current) => current && { kind: renameTarget.kind, symbol: name, occurrences: [] });
+        await showSymbolReferences(renameTarget.kind, name);
       } else if (renameTarget.kind === "environment") {
         setEnvRenameRequest({ newName: name, id: crypto.randomUUID() });
       } else if (renameTarget.kind === "wrap-environment") {
@@ -4745,22 +4735,16 @@ function App() {
     } catch (reason) {
       setRenameError(toMessage(reason));
     }
-  }, [activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget]);
+  }, [activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences]);
 
   const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
     try {
-      if (target.kind === "label") {
-        const occurrences = await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: target.label });
-        setReferenceHits({ kind: "label", symbol: target.label, occurrences });
-      } else {
-        const occurrences = await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: target.key });
-        setReferenceHits({ kind: "citation", symbol: target.key, occurrences });
-      }
+      await showSymbolReferences(target.kind, target.kind === "label" ? target.label : target.key);
       setError(null);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, []);
+  }, [showSymbolReferences]);
 
   const beginSymbolRename = useCallback((target: SymbolTarget) => {
     setRenameError(null);
