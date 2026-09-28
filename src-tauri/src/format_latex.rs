@@ -27,18 +27,17 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("Could not start latexindent: {error}"))?;
-    {
-        let stdin =
-            child.stdin.as_mut().ok_or_else(|| "Could not open latexindent stdin.".to_string())?;
-        stdin
-            .write_all(text.as_bytes())
-            .map_err(|error| format!("Could not write to latexindent: {error}"))?;
-    }
+    // Taken, so the pipe closes and latexindent sees the end of its input.
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| "Could not open latexindent stdin.".to_string())?
+        .write_all(text.as_bytes())
+        .map_err(|error| format!("Could not write to latexindent: {error}"))?;
     let output =
         child.wait_with_output().map_err(|error| format!("latexindent failed: {error}"))?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() { "latexindent failed.".to_string() } else { stderr });
+        return Err(commands::stderr_or(&output, "latexindent failed."));
     }
     String::from_utf8(output.stdout).map_err(|error| format!("Invalid latexindent output: {error}"))
 }
@@ -46,14 +45,11 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn rejects_non_tex_paths() {
-        let root = std::env::temp_dir().join(format!("lattice-format-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
+        let root = crate::test_support::TempDir::new("format");
         let error = format_document(&root, "notes.md", "hello").unwrap_err();
         assert!(error.contains("supports"));
-        let _ = fs::remove_dir_all(root);
     }
 }

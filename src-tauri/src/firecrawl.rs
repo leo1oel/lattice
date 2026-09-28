@@ -77,28 +77,21 @@ pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
             .send()
             .map_err(|error| format!("Firecrawl request failed: {error}"))?;
         let status = response.status().as_u16();
-        match status {
+        let refusal = match status {
             401 | 403 => {
-                return Err("Firecrawl rejected the API key. Check it in Settings → Literature services.".into());
+                Some("Firecrawl rejected the API key. Check it in Settings → Literature services.")
             }
-            402 => {
-                return Err(
-                    "The active Firecrawl key has insufficient credits. Check its quota or change the key in Settings → Literature services."
-                        .to_string(),
-                )
-            }
+            402 => Some("The active Firecrawl key has insufficient credits. Check its quota or change the key in Settings → Literature services."),
             429 if attempt < RETRY_DELAYS_S.len() => {
                 std::thread::sleep(std::time::Duration::from_secs(RETRY_DELAYS_S[attempt]));
                 attempt += 1;
                 continue;
             }
-            429 => {
-                return Err(
-                    "Firecrawl is rate-limiting the active key. Wait a moment and retry."
-                        .to_string(),
-                )
-            }
-            _ => {}
+            429 => Some("Firecrawl is rate-limiting the active key. Wait a moment and retry."),
+            _ => None,
+        };
+        if let Some(refusal) = refusal {
+            return Err(refusal.to_string());
         }
         let parsed: ScrapeResponse = response
             .json()

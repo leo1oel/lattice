@@ -47,20 +47,20 @@ A running Lattice is three OS-level participants, not one:
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The webview calls Rust with `invoke("command_name", args)` — about 258 call
-sites in `src/` against **166 registered commands** (see §2). Data flows the
-other way over Tauri events, of which there are only **three** emitted from
-Rust:
+The webview calls Rust with `invoke("command_name", args)` against **176
+registered commands** (see §2). Data flows the other way over Tauri events, of
+which there are only **four** emitted from the project and editor layers:
 
-| Event | Emitted at | Meaning |
+| Event | Emitted in | Meaning |
 | --- | --- | --- |
-| `project-fs-changed` | `src-tauri/src/fs_watch.rs:147` | something under the project root changed on disk |
-| `paper-import-progress` | `src-tauri/src/lib.rs:3289` | streaming progress while importing a paper |
-| `overleaf-realtime` | `src-tauri/src/lib.rs:2282` | multiplexed Overleaf socket.io traffic (ops, presence, chat, comments, tracked changes) |
+| `project-fs-changed` | `src-tauri/src/fs_watch.rs` | something under the project root changed on disk |
+| `paper-import-progress` | `src-tauri/src/ipc/papers.rs` | streaming progress while importing a paper |
+| `overleaf-realtime` | `src-tauri/src/ipc/overleaf_realtime.rs` | multiplexed Overleaf socket.io traffic (ops, presence, chat, comments, tracked changes) |
+| `texlab-diagnostics` | `src-tauri/src/ipc/build.rs` | TexLab diagnostics published for the open `.tex` file, including updates long after the last edit |
 
 `overleaf-realtime` is a single channel carrying **14** distinct
-`RealtimeEvent::*` payload variants — the whole enum is
-`src-tauri/src/overleaf_rt.rs:114-211` (`Connected`, `ProjectJoined`,
+`RealtimeEvent::*` payload variants — the whole enum is in
+`src-tauri/src/overleaf_rt/events.rs` (`Connected`, `ProjectJoined`,
 `DocUpdate`, `OtError`, `DocAck`, `CommentAnchored`, `TreeChanged`,
 `PresenceUpdated`, `PresenceLeft`, `ChangesAccepted`, `TrackChangesToggled`,
 `ThreadsChanged`, `ChatMessage`, `Disconnected`). Four
@@ -143,42 +143,42 @@ Two properties of this boundary are worth internalising before you touch it:
 ### 1.3 Rust ↔ sidecar: spawn + loopback HTTP
 
 `src-tauri/src/synara.rs` supervises the sidecar. It is a pull-based supervisor;
-it emits **no** Tauri events, only three commands
-(`synara_runtime_status`, `synara_ensure_ready`, `synara_open_skills_folder`,
-`synara.rs:352-365`).
+it emits **no** Tauri events, only two commands (`synara_ensure_ready`,
+`synara_open_skills_folder`).
 
-- Launch: `SynaraRuntime::spawn` (`synara.rs:254`) runs the **bundled** Node
-  binary (`synara-runtime/bin/node`, `synara.rs:139`) against
-  `synara-runtime/server/dist/index.mjs` (`synara.rs:140`) with
-  `--dynamic-port` and `SYNARA_HOST=127.0.0.1` (`synara.rs:291,295`).
+- Launch: `SynaraRuntime::spawn` runs the sidecar's Node — the standalone
+  `synara-runtime/bin/node` in development, the bundled Chromium's Electron
+  binary as Node in release builds (`chromium::NodeRuntime`) — against
+  `synara-runtime/server/dist/index.mjs`, on the previous port when it is still
+  free and otherwise with `--dynamic-port`, and `SYNARA_HOST=127.0.0.1`. On
+  macOS the whole process tree runs inside `BIBLIOGRAPHY_SANDBOX_PROFILE`.
 - Port discovery is out-of-band: Node writes
   `<SYNARA_HOME>/userdata/server-runtime.json` containing `{pid, origin}`
-  (`synara.rs:16,70`). `wait_until_ready` (`synara.rs:397`) polls that file every
+  (`RUNTIME_STATE_RELATIVE_PATH`). `wait_until_ready` polls that file every
   50 ms for up to 20 s, requires `pid` to match the child it spawned, then
-  `GET {origin}/health` and checks `startupReady` (`health_is_ready`,
-  `synara.rs:506-518`). The health
-  client is built `.no_proxy()` on purpose — a system `ALL_PROXY` otherwise
-  makes a healthy loopback sidecar look dead until the timeout.
+  `GET {origin}/health` and checks `startupReady` (`health_is_ready`). The
+  health client is built `.no_proxy()` on purpose — a system `ALL_PROXY`
+  otherwise makes a healthy loopback sidecar look dead until the timeout.
 - Credentials: `SYNARA_AUTH_TOKEN` and `SYNARA_DESKTOP_SHUTDOWN_TOKEN` are each
-  two concatenated UUIDv4s minted per spawn (`synara.rs:285-286`).
-- Shutdown: on Unix the child leads its own process group
-  (`command.process_group(0)`, `synara.rs:322`) so `kill(-pgid, SIGTERM)` takes
-  the whole tree (`terminate_process_tree`, `synara.rs:529`), with a 2 s grace
-  period. Two independent
-  paths call it — `impl Drop` (`synara.rs:346`) and the `RunEvent::Exit` hook at
-  `lib.rs:3962`.
+  two concatenated UUIDv4s minted per spawn.
+- Shutdown: the child leads its own process group, so
+  `chromium::terminate_process_group` takes the whole tree with SIGTERM, a 2 s
+  grace period, then SIGKILL. Two independent paths call it — `impl Drop for
+  SynaraRuntime` and the `RunEvent::Exit` hook in `lib.rs`
+  (`shutdown_child_runtimes`).
 - Dev bypass: in debug builds only, `VITE_SYNARA_EMBED_URL` short-circuits the
   whole thing to an externally-run dev server with no child process and no auth
-  token (`synara.rs:109-116`).
+  token.
 
 Ordinary writing sessions never start the sidecar. The first agent /
 source-control / review / agent-settings surface calls `synara_ensure_ready`.
 
 ### 1.4 The fourth path: the app as its own subprocess
 
-`lib.rs::run()`'s **first statement** is `if run_cli() { return; }`
-(`lib.rs:3726-3727`). `run_cli()` (`lib.rs:3662`) is a headless entry point that
-runs before any Tauri or AppKit initialisation.
+`lib.rs::run()` returns early when `agent_literature::run_cli()` handled the
+invocation (only the macOS process-inspector hook runs before it). `run_cli()`
+(`src-tauri/src/agent_literature.rs`) is a headless entry point that runs before
+any Tauri or AppKit initialisation.
 
 It handles exactly one argv subcommand — `literature` — and takes its real
 input as a single JSON blob:
@@ -188,24 +188,23 @@ $LATTICE_BIN literature '{"tool":"search_literature","params":{"query":"…"}}'
 # with LATTICE_PROJECT_ROOT=<project dir> in the environment
 ```
 
-The dispatcher is `enum LiteratureRequest` (`lib.rs:3631`,
+The dispatcher is `enum LiteratureRequest` (`agent_literature.rs`,
 `#[serde(tag = "tool", content = "params")]`) with **8** variants:
 `search_literature`, `fetch_paper`, `list_papers`, `search_library`,
 `fetch_web_reference`, `cite`, `upgrade_bibliography`, `remove_reference`.
 Success prints JSON to stdout and exits 0; an error prints to stderr and exits
-1; a bad payload or missing `LATTICE_PROJECT_ROOT` exits 2
-(`lib.rs:3667-3678, 3711-3723`).
+1; a bad payload or missing `LATTICE_PROJECT_ROOT` exits 2.
 
-The caller is the sidecar. `synara.rs:307-311` passes
+The caller is the sidecar. `SynaraRuntime::spawn` passes
 `std::env::current_exe()` to the Node process as **`LATTICE_BIN`** — that single
 line is the only occurrence of the name in the Rust tree; the consumer lives in
 the packaged sidecar JavaScript, which is not in this repository.
 
-Why it exists, per the doc comment at `lib.rs:3619-3628`: the agent runs in a
+Why it exists, per the module doc of `agent_literature.rs`: the agent runs in a
 sidecar and cannot call Tauri commands, and reimplementing search/fetch/cite in
 TypeScript would immediately drift from the UI's behaviour. Mutating tools use
-`HistoryMode::Defer` (`lib.rs:3699,3703,3707`) so agent edits fold into the
-app's own transaction history instead of committing independently.
+`HistoryMode::Defer` so agent edits fold into the app's own transaction history
+instead of committing independently.
 
 [`synara-runtime.md`](synara-runtime.md) covers the other side of this call —
 which tools reach the model, and under what names.
@@ -214,102 +213,108 @@ which tools reach the model, and under what names.
 
 ## 2. The Rust backend
 
-`src-tauri/src/` is 31 files and ~38.4k lines. `main.rs` is a 6-line shim; all
-the work starts in `lib.rs::run()` (`lib.rs:3726`).
+`src-tauri/src/` is 123 Rust files and ~45k lines (tests included). `main.rs` is
+a 6-line shim; all the work starts in `lib.rs::run()`. Large areas follow the
+2018 module layout: a short `x.rs` that maps the area (module docs, the `mod`
+list, the few re-exports other code uses) beside an `x/` directory holding the
+parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
+`latex/`, `tex_setup/`, `browser_host/`, `semantic_search/`, `synara/`,
+`commands/`, `git/`, `ipc/`.
 
-### 2.1 `lib.rs` is an IPC facade, not a domain layer
+### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
-`lib.rs` declares all 29 modules and registers **166** commands in
-`tauri::generate_handler!` (`lib.rs:3792-3959`). There are also exactly 166
-`#[tauri::command]` attributes in the tree, so **no command is defined but
-unregistered**.
+`lib.rs` (~500 lines) declares the modules, sets up plugins, the window
+lifecycle and the child runtimes, and registers **176** commands in
+`tauri::generate_handler!`. Every `#[tauri::command]` in the tree is
+registered, and every registered command has a caller in `src/`.
 
-159 of those 166 are defined *in `lib.rs` itself*, as thin wrappers that
-validate arguments and delegate into a domain module. Only three modules export
-commands directly: `synara.rs` (3), `collab_credentials.rs` (3),
-`link_preview.rs` (1). `project.rs`, `overleaf.rs`, `papers.rs`, `git.rs`,
-`latex.rs` and the rest contain **zero** `#[tauri::command]` attributes.
+The command handlers live in `src-tauri/src/ipc/`, one module per area of the
+app (`workspace`, `files`, `history`, `search`, `build`, `git`, `bibliography`,
+`papers`, `overleaf`, `overleaf_realtime`, `windows`). A handler is a thin
+shell: resolve the calling window's project (`ipc::current_root`, or
+`pinned_root` / `scoped_root` when the request names the project it was made
+for), take the project lease the operation needs (`AppState::lease`), and run
+the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
+Behaviour belongs in the domain modules. A few self-contained services keep
+their commands beside their state: `synara.rs`, `presentation.rs`,
+`browser_host.rs`, `collab_credentials.rs`, `literature_credentials.rs`,
+`link_preview.rs`, `diagnostic_logs.rs`, `macos_window.rs`.
+
+Which project each window shows, and the per-project resources that must not be
+shared between windows (the active build, the TexLab pool, the Overleaf
+channel, the semantic index, the file watcher), live in `app_state.rs`.
 
 Practical consequence: to find what a button does, grep the command name in
-`lib.rs`, then follow the one call it makes.
+`src-tauri/src/ipc/` (or the service module), then follow the one call it makes.
 
-### 2.2 Commands by domain
+### 2.2 Commands by area
 
-Grouped rather than enumerated (166 is too many to read):
-
-| Domain | ≈count | Examples |
+| `ipc` module | Commands | Examples |
 | --- | --- | --- |
-| Overleaf (incl. 10 realtime `overleaf_rt_*`) | 48 | `overleaf_status`, `overleaf_clone_project`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_history_diff` |
-| Project file I/O and tree ops | 16 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry`, `watch_project` |
-| Git versioning | 15 | `git_status`, `git_commit`, `git_push`, `git_show_diff`, `git_restore_project` |
-| Papers / OpenAlex / literature | 14 | `search_openalex`, `search_literature`, `fetch_paper`, `import_reference`, `upgrade_bibliography` |
-| Search and refactor (FTS + semantic) | 11 | `search_project`, `semantic_search_project`, `replace_in_project`, `rename_label`, `rename_citation_key` |
-| Project lifecycle and windows | 9 | `create_project`, `open_project`, `open_project_window`, `import_project_zip`, `refresh_project` |
-| LaTeX build and PDF | 8 | `build_project`, `abort_build`, `clean_project`, `synctex_edit`, `read_compiled_pdf` |
-| Bibliography (`.bib` editing) | 6 | `list_citation_keys`, `read_bib_entry`, `save_bib_entry`, `resolve_citation_query` |
-| TexLab / LSP and linting | 6 | `texlab_diagnostics`, `texlab_completion`, `texlab_hover`, `format_latex`, `harper_lint` |
-| Collaboration and sharing | 5 | `put_collab_credential`, `create_collab_join_workspace`, `collab_project_inventory_v2` |
-| Lattice transaction history | 5 | `list_history`, `get_history_entry`, `revert_transaction`, `revert_history_file` |
-| Project manifest / settings | 4 | `update_project_manifest`, `add_root_document`, `set_project_spelling_words` |
-| Annotations and editor comments | 4 | `list_pdf_annotations`, `save_pdf_annotations`, `list_editor_comments` |
-| Misc (logs, link preview, xlsx) | 4 | `link_preview`, `get_app_log_dir`, `save_xlsx` |
-| Synara sidecar | 3 | `synara_runtime_status`, `synara_ensure_ready`, `synara_open_skills_folder` |
-| Document analysis | 3 | `list_unused_symbols`, `list_todos`, `count_project_words` |
-| macOS window chrome | 3 | `set_window_background`, `align_traffic_lights`, `sample_screen_color` |
-| TeX toolchain install | 2 | `start_tex_install`, `start_tex_dependency_install` |
+| `overleaf` + `overleaf_realtime` | 45 | `overleaf_status`, `overleaf_clone_project`, `overleaf_prepare_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
+| `files` | 21 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
+| `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `search` | 15 | `search_project`, `replace_in_project`, `rename_label`, `semantic_search_project` |
+| `windows` | 14 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_background` |
+| `bibliography` | 13 | `list_citation_keys`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
+| `workspace` | 12 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
+| `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
+| `git` | 7 | `git_status`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
+| `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
+| service modules | 17 | `synara_ensure_ready`, `presentation_ensure_ready`, `put_collab_credential`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
-Overleaf alone is 29% of the IPC surface; Overleaf plus git is 38%. That ratio
-is the single most surprising fact about this backend.
+Overleaf alone is a quarter of the IPC surface — still the single most
+surprising fact about this backend.
 
-### 2.3 Hubs, leaves, and the two real cycles
+### 2.3 Hubs, leaves, and cycles
 
-Sizes: `project.rs` 8,093 · `overleaf.rs` 4,955 · `overleaf_rt.rs` 4,389 ·
-`lib.rs` 3,993 · `papers.rs` 3,474 · `semantic_search.rs` 1,690 · `git.rs`
-1,477 · `latex.rs` 1,320 · `tex_setup.rs` 1,291 · `fts.rs` 1,005 · everything
-else under 1,000.
+Sizes by area (lines, tests included): `project` ~6.4k · `overleaf` ~5.0k ·
+`papers` ~4.8k · `citation_audit` ~3.4k · `overleaf_rt` ~3.1k · `ipc` ~2.8k ·
+`browser_host` ~1.7k · `latex` ~1.5k · `semantic_search` ~1.4k ·
+`tex_setup` ~1.0k · everything else under 1,000.
 
 **Hubs** (by number of modules that depend on them):
 
-- `project.rs` — 10 dependents. Project validation, the transaction/history
-  model, file classification, the tree, path safety. Also the largest file.
-- `commands.rs` — 9 dependents, **0 dependencies**. The base utility layer
-  (process spawning, environment/PATH resolution). Safe to read first.
-- `models.rs` — 10 dependents. Shared serde types crossing the IPC boundary.
-- `openalex.rs` — 4 dependents (`alphaxiv`, `citation_health`, `literature`,
-  `papers`).
+- `project` — project validation, the transaction/history model, file
+  classification, the tree, path safety, bibliography sources.
+- `commands` — the base process layer (resolving and spawning external tools
+  the way a GUI-launched app has to, plus the pinned Python CLIs). No intra-crate
+  dependencies beyond credentials for those CLIs. Safe to read first.
+- `models` — shared serde types crossing the IPC boundary.
+- `util` / `test_support` — shared text/hash helpers and the unit tests' temp
+  directory fixture.
 
-**Leaves** (no intra-crate dependencies): `collab_credentials.rs`,
-`commands.rs`, `firecrawl.rs`, `harper.rs`, `link_preview.rs`, `pdf_fonts.rs`,
-`semantic_search.rs`, `synara.rs`, `xlsx.rs`, `macos_window.rs`.
-`semantic_search.rs` is an outlier: 1,690 lines with neither in- nor out-edges,
-reachable only through its four commands in `lib.rs`.
+**Leaves** include `collab_credentials`, `firecrawl`, `harper`, `link_preview`,
+`pdf_fonts`, `xlsx`, `macos_window` and `semantic_search`, which is reachable
+only through its four commands.
 
-**Mutual dependencies.** Two of the three pairs commonly cited are real; one is
-not:
+**Mutual dependencies:**
 
 | Pair | Verdict |
 | --- | --- |
-| `project.rs` ↔ `project_fs.rs` | **Real cycle in production code.** `project.rs:9` imports `ProjectDir`; `project_fs.rs:282,286,287,291,299` call back into `crate::project::{creation_path, safe_path, prune_history}`. `project_fs.rs` has no `#[cfg(test)]` module at all. |
-| `fts.rs` ↔ `project.rs` | **Real cycle in production code.** `fts.rs:2` `use crate::project;` (used at `:58,210,219,310,…`, all before the test module at `:633`); `project.rs:2715,4500` call `crate::fts::{search, update_paths}`, both before the test module at `:4641`. |
-| `overleaf.rs` ↔ `overleaf_rt.rs` | **Not a runtime cycle.** `overleaf.rs → overleaf_rt.rs` is a clean layered dependency (6 references at `overleaf.rs:1672,1673,1695,1696,1710,2033`). Every reverse reference sits inside `overleaf_rt.rs`'s `#[cfg(test)] mod tests`, which starts at `overleaf_rt.rs:2267` — the lowest `crate::overleaf::` reference is at `:3010`. The cycle exists only in the `cargo test` graph. |
+| `project` ↔ `project_fs` | **Real cycle in production code.** `project` uses `ProjectDir` for checked writes; `project_fs` calls back into `crate::project` for path safety and history pruning. |
+| `fts` ↔ `project` | **Real cycle in production code.** The index reads project files through `project`; `project/search.rs` and `project/history.rs` call `crate::fts::{search, update_paths}`. |
+| `overleaf` ↔ `overleaf_rt` | **Not a runtime cycle.** `overleaf/` depends on `overleaf_rt` (comment ranges, URL encoding, permissions); the only reverse references are in `overleaf_rt/tests.rs`, which the ignored live tests under `overleaf/` share. |
 
 ### 2.4 Overleaf, specifically
 
-`overleaf_rt.rs` is a hand-written **Socket.IO 0.9** client, because Overleaf
+`overleaf_rt` is a hand-written **Socket.IO 0.9** client, because Overleaf
 ships `socket.io-client 0.9.17-overleaf-5` and the wire protocol is the legacy
-`{type}:{id}:{endpoint}:{data}` framing, not Engine.IO v4. The module header
-(`overleaf_rt.rs:1-40`) documents the handshake, upgrade, framing and the exact
-frames Lattice emits, pinned against the Overleaf-Workshop VS Code extension.
-Read that header before changing anything in the file.
+`{type}:{id}:{endpoint}:{data}` framing, not Engine.IO v4. The module header of
+`overleaf_rt.rs` documents the handshake, upgrade, framing and the exact frames
+Lattice emits, pinned against the Overleaf-Workshop VS Code extension. Read
+that header before changing anything under `overleaf_rt/`.
 
-`overleaf.rs` handles the non-realtime side: login/session
-(`overleaf-session.json` in app data), clone, and a real three-way merge. The
-merge keeps a pristine copy of every text file as of the last sync under
-`.research/overleaf-base/` (`overleaf.rs:738`) — that is the common ancestor
-without which only "both sides changed" could be detected, never how to
-combine. Files with conflict markers are refused for upload
-(`CONFLICT_MARKER`, `overleaf.rs:743`). Files above 45 MB are reported rather
-than synced (`MAX_SYNC_FILE_BYTES`, `overleaf.rs:58`).
+`overleaf` handles the non-realtime side: login/session (`overleaf/account.rs`,
+`overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
+the REST API (`overleaf/api.rs`), history and review (`overleaf/review.rs`),
+and a real three-way merge (`overleaf/sync.rs`, staged plans in
+`overleaf/staged.rs`). The merge keeps a pristine copy of every text file as of
+the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
+the common ancestor without which only "both sides changed" could be detected,
+never how to combine. Files with conflict markers are refused for upload
+(`CONFLICT_MARKER`). Files above 45 MB are reported rather than synced
+(`MAX_SYNC_FILE_BYTES`).
 
 ---
 
@@ -568,43 +573,43 @@ been done.
 ## 4. On-disk data model
 
 A Lattice project is an ordinary folder. Everything Lattice adds lives under
-`.research/`. `prepare_project_skeleton` (`src-tauri/src/project.rs:326`)
+`.research/`. `prepare_project_skeleton` (`src-tauri/src/project/create.rs`)
 creates it.
 
 | Path | Owner | Contents |
 | --- | --- | --- |
-| `.research/project.json` | `project.rs:23` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words |
-| `.research/brief.md` | `project.rs:358` | the project brief shown in the sidebar |
-| `.research/papers/<arxivId>/` | `papers.rs` | imported papers: `paper.md`, `blog.md`, `metadata.json`, `paper_assets/` |
-| `.research/history/<id>.json` | `project.rs:5445` | transaction history records (schema v2, `project.rs:35`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
-| `.research/sessions/` | `project.rs:332` | agent session records |
-| `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project.rs:32-33`) |
+| `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words |
+| `.research/brief.md` | `project/create.rs` | the project brief shown in the sidebar |
+| `.research/papers/<arxivId>/` | `papers/` | imported papers: `paper.md`, `blog.md`, `metadata.json`, `paper_assets/` |
+| `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
+| `.research/sessions/` | `project/create.rs` | agent session records |
+| `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project/history.rs`) |
 | `.research/cache/` | various | `fts.sqlite` (full-text index), `citation-health-v1.json`, `materialization-index-v1.json` |
-| `.research/licenses/` | `project.rs:333` | license texts for imported material |
-| `.research/overleaf.json` | `overleaf.rs:47` | Overleaf link state: project id, file hashes, sync mode |
-| `.research/overleaf-base/` | `overleaf.rs:738` | pristine copies of every synced text file — the merge base for three-way sync |
-| `.research/editor-comments.json` | `project.rs:25` | editor comment threads (also a collab catalog file) |
+| `.research/licenses/` | `project/create.rs` | license texts for imported material |
+| `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
+| `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
+| `.research/editor-comments.json` | `project/manifest.rs` (`EDITOR_COMMENTS_PATH`) | editor comment threads (also a collab catalog file) |
 | `.research/collab-chat.json` | `src/collab/collab-session.ts:402` | project-wide chat (collab catalog file) |
-| `.research/pdf-annotations.json` | `project.rs:24` | PDF annotations |
-| `.research/tutorial.json` | `project.rs:372` | tutorial-project state |
+| `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
+| `.research/tutorial.json` | `project/create.rs` | tutorial-project state |
 | `.research/omp-*` | agent runtime | agent runtime scratch; excluded from export and from agent reads |
 
 The Overleaf session cookie is **not** in the project — it lives in app data
-(`overleaf-session.json`, `overleaf.rs:45`).
+(`overleaf-session.json`, `overleaf/account.rs`).
 
-Two gitignore files are written at project creation (`project.rs:335-347`):
+Two gitignore files are written at project creation (`project/create.rs`):
 `.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/`
-(`RESEARCH_GITIGNORE`, `project.rs:30`), and the project's root `.gitignore`
+(`RESEARCH_GITIGNORE`), and the project's root `.gitignore`
 gets the same four paths plus `/main.pdf` and the LaTeX build-artifact list.
 `ensure_ignore_line` re-applies these when Lattice adopts a folder it did not
-create (`project.rs:549-557`) — otherwise the first commit would adopt every
+create (`project/manifest.rs`) — otherwise the first commit would adopt every
 `.log` and `.fls` in the directory.
 
 Export (`export_project_zip`) excludes `.git/`, `.research/history`,
 `sessions`, `omp-*`, `checkpoints`, `cache`, and the usual TeX artifacts
-(`project.rs:967-990`). Agent file access is gated by an allowlist that permits
-`.research/papers/**` and normal project files but blocks history, sessions and
-`omp-*` (`project.rs:3857-3866`).
+(`EXPORT_EXCLUDES` in `project/archive.rs`). Collab sync writes
+(`write_project_bytes`) refuse history, sessions, `omp-*`, checkpoints, cache and
+paper bundles (`UNSYNCED_RESEARCH_PREFIXES` in `project/imports.rs`).
 
 ---
 
@@ -708,8 +713,8 @@ appears only in the prose comment at `Cargo.toml:24`:
 > `panic="abort"` would save ~3 MB more but turns any panic into a hard crash
 > with unsaved editor state on screen, so it stays off.
 
-This pairs with the panic hook installed by `std::panic::set_hook` at
-`lib.rs:3732`, which logs to `lattice::panic` — and only works because panics
+This pairs with the panic hook installed by `std::panic::set_hook` in
+`lib.rs::run()`, which logs to `lattice::panic` — and only works because panics
 unwind.
 
 Two notes on the rest of the profile:
@@ -799,7 +804,7 @@ creation")` block, and the file exports nothing at all. Copy the harness into
 your own suite rather than reaching for an import that does not exist.
 `App.test.tsx` renders
 the real `App` with a mocked `invoke`, and startup ordering matters: the
-backend's `initial_project` (`lib.rs:744`; see `initialProjectProbe` in
+backend's `initial_project` (`ipc/workspace.rs`; see `initialProjectProbe` in
 `src/App.tsx`) must beat the recent-project auto-reopen.
 
 CI runners are slow. Avoid tests that assume nothing re-renders between two

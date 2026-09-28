@@ -40,43 +40,40 @@ pub fn save_xlsx(path: &Path, bytes: &[u8]) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::TempDir;
     use std::io::Write;
     use zip::{write::SimpleFileOptions, ZipWriter};
 
     fn test_workbook() -> Vec<u8> {
         let mut bytes = Vec::new();
         let mut archive = ZipWriter::new(Cursor::new(&mut bytes));
-        archive.start_file("[Content_Types].xml", SimpleFileOptions::default()).unwrap();
-        archive.write_all(b"<Types/>").unwrap();
-        archive.start_file("xl/workbook.xml", SimpleFileOptions::default()).unwrap();
-        archive.write_all(b"<workbook/>").unwrap();
+        for (name, contents) in
+            [("[Content_Types].xml", "<Types/>"), ("xl/workbook.xml", "<workbook/>")]
+        {
+            archive.start_file(name, SimpleFileOptions::default()).unwrap();
+            archive.write_all(contents.as_bytes()).unwrap();
+        }
         archive.finish().unwrap();
         bytes
     }
 
     #[test]
     fn saves_a_valid_workbook_and_adds_the_extension() {
-        let directory =
-            std::env::temp_dir().join(format!("lattice-xlsx-export-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&directory).unwrap();
+        let directory = TempDir::new("xlsx-export");
         let bytes = test_workbook();
 
         let destination = save_xlsx(&directory.join("results"), &bytes).unwrap();
 
         assert_eq!(Path::new(&destination).extension().unwrap(), "xlsx");
         assert_eq!(fs::read(&destination).unwrap(), bytes);
-        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
     fn rejects_wrong_extensions_and_non_excel_archives() {
-        let directory = std::env::temp_dir()
-            .join(format!("lattice-xlsx-export-invalid-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&directory).unwrap();
+        let directory = TempDir::new("xlsx-export-invalid");
 
         assert!(save_xlsx(&directory.join("results.csv"), &test_workbook()).is_err());
         assert!(save_xlsx(&directory.join("results.xlsx"), b"PK not a workbook").is_err());
         assert!(!directory.join("results.xlsx").exists());
-        fs::remove_dir_all(directory).unwrap();
     }
 }

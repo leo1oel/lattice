@@ -43,7 +43,9 @@
 # collab vault owns the macOS Keychain item; capabilities and the CSP are the
 # WebView's entire authority.
 /src-tauri/src/overleaf.rs          @leo1oel
+/src-tauri/src/overleaf/            @leo1oel
 /src-tauri/src/overleaf_rt.rs       @leo1oel
+/src-tauri/src/overleaf_rt/         @leo1oel
 /src-tauri/src/collab_credentials.rs @leo1oel
 /src-tauri/capabilities/            @leo1oel
 /src-tauri/tauri.conf.json          @leo1oel

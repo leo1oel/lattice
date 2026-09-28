@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { mkdtemp, mkdir, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { checkAppSizeBudgets, createAppSizeReport } from "./app-size-report.mjs";
@@ -21,7 +21,7 @@ await writeFile(path.join(workspace, "dist/index.html"), `<!doctype html><html><
 let report = await createAppSizeReport(workspace);
 assert.equal(report.eagerJsBytes, 5);
 assert.equal(report.eagerCssBytes, 3);
-assert.equal(report.distBytes, 8 + 7 + Buffer.byteLength(await (await import("node:fs/promises")).readFile(path.join(workspace, "dist/index.html"))));
+assert.equal(report.distBytes, 8 + 7 + Buffer.byteLength(await readFile(path.join(workspace, "dist/index.html"))));
 assert.equal(report.synaraRuntimeBytes, null);
 assert.equal(report.bundledNodeBytes, null);
 assert.equal(report.synaraTarget, null);
@@ -109,52 +109,18 @@ await assert.rejects(
   checkAppSizeBudgets(workspace, report),
   /Bundled Claude executable.*PATH launcher budget/,
 );
-await assert.doesNotReject(
-  checkAppSizeBudgets(workspace, {
-    ...report,
-    synaraRuntimeBytes: 250 * 1024 * 1024 + 1,
-    claudeAgentSdkExecutables: [],
-  }),
-);
-await assert.rejects(
-  checkAppSizeBudgets(workspace, {
-    ...report,
-    synaraNodeRuntime: "electron",
-    claudeAgentSdkExecutables: [],
-  }),
-  /must not bundle a standalone Node binary/,
-);
-await checkAppSizeBudgets(workspace, {
-  ...report,
-  synaraNodeRuntime: "electron",
-  bundledNodeBytes: null,
-  synaraRuntimeBytes: 200 * 1024 * 1024,
-  claudeAgentSdkExecutables: [],
-});
-await assert.doesNotReject(
-  checkAppSizeBudgets(workspace, {
-    ...report,
-    synaraNodeRuntime: "electron",
-    bundledNodeBytes: null,
-    synaraRuntimeBytes: 500 * 1024 * 1024,
-    claudeAgentSdkExecutables: [],
-  }),
-);
-await assert.rejects(
-  checkAppSizeBudgets(workspace, {
-    ...report,
-    presentationRuntimeBytes: 125 * 1024 * 1024 + 1,
-    claudeAgentSdkExecutables: [],
-  }),
-  /Presentation runtime.*budget/,
-);
-await assert.rejects(
-  checkAppSizeBudgets(workspace, {
-    ...report,
-    chromiumRuntimeBytes: 275 * 1024 * 1024 + 1,
-    claudeAgentSdkExecutables: [],
-  }),
-  /Chromium runtime.*budget/,
-);
+// Budgets over a measured report: which overrides pass and which fail how.
+const MiB = 1024 * 1024;
+for (const [overrides, error] of [
+  [{ synaraRuntimeBytes: 250 * MiB + 1 }, null],
+  [{ synaraNodeRuntime: "electron" }, /must not bundle a standalone Node binary/],
+  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null, synaraRuntimeBytes: 200 * MiB }, null],
+  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null, synaraRuntimeBytes: 500 * MiB }, null],
+  [{ presentationRuntimeBytes: 125 * MiB + 1 }, /Presentation runtime.*budget/],
+  [{ chromiumRuntimeBytes: 275 * MiB + 1 }, /Chromium runtime.*budget/],
+]) {
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides });
+  await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
+}
 
 console.log("app-size-report self-test passed");

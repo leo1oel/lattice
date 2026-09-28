@@ -217,38 +217,42 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_secs(120)).await;
     }
 
-    async fn origin(app: Router) -> String {
+    /// An upstream server answering `/paper.pdf` with `route`.
+    async fn origin(route: axum::routing::MethodRouter) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
+        let app = Router::new().route("/paper.pdf", route);
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         format!("http://{address}/paper.pdf")
+    }
+
+    /// A plain GET of `url` through the proxy.
+    async fn fetch(url: &str) -> reqwest::Response {
+        reqwest::get(preview_url(url).await.unwrap()).await.unwrap()
     }
 
     async fn streams_first_chunk_before_upstream_finishes() {
         let (release_tx, release_rx) = oneshot::channel::<()>();
         let release = Arc::new(tokio::sync::Mutex::new(Some(release_rx)));
-        let url = origin(Router::new().route(
-            "/paper.pdf",
-            get(move || {
-                let release = release.clone();
-                async move {
-                    let stream = futures_util::stream::unfold(0, move |step| {
-                        let release = release.clone();
-                        async move {
-                            match step {
-                                0 => Some((Ok::<_, io::Error>("first"), 1)),
-                                1 => {
-                                    release.lock().await.take().unwrap().await.ok();
-                                    Some((Ok("second"), 2))
-                                }
-                                _ => None,
+        let url = origin(get(move || {
+            let release = release.clone();
+            async move {
+                let stream = futures_util::stream::unfold(0, move |step| {
+                    let release = release.clone();
+                    async move {
+                        match step {
+                            0 => Some((Ok::<_, io::Error>("first"), 1)),
+                            1 => {
+                                release.lock().await.take().unwrap().await.ok();
+                                Some((Ok("second"), 2))
                             }
+                            _ => None,
                         }
-                    });
-                    Body::from_stream(stream)
-                }
-            }),
-        ))
+                    }
+                });
+                Body::from_stream(stream)
+            }
+        }))
         .await;
 
         let response = tokio::time::timeout(
@@ -276,22 +280,19 @@ mod tests {
     }
 
     async fn forwards_range_and_preserves_206_or_200() {
-        let url = origin(Router::new().route(
-            "/paper.pdf",
-            get(|headers: HeaderMap| async move {
-                if let Some(range) = headers.get(RANGE) {
-                    assert_eq!(range, "bytes=1-2");
-                    Response::builder()
-                        .status(StatusCode::PARTIAL_CONTENT)
-                        .header(CONTENT_RANGE, "bytes 1-2/4")
-                        .header(ACCEPT_RANGES, "bytes")
-                        .body(Body::from("bc"))
-                        .unwrap()
-                } else {
-                    response(StatusCode::OK, Body::from("abcd"))
-                }
-            }),
-        ))
+        let url = origin(get(|headers: HeaderMap| async move {
+            if let Some(range) = headers.get(RANGE) {
+                assert_eq!(range, "bytes=1-2");
+                Response::builder()
+                    .status(StatusCode::PARTIAL_CONTENT)
+                    .header(CONTENT_RANGE, "bytes 1-2/4")
+                    .header(ACCEPT_RANGES, "bytes")
+                    .body(Body::from("bc"))
+                    .unwrap()
+            } else {
+                response(StatusCode::OK, Body::from("abcd"))
+            }
+        }))
         .await;
         let proxy = preview_url(&url).await.unwrap();
         let client = reqwest::Client::new();
@@ -311,9 +312,7 @@ mod tests {
     }
 
     async fn ignores_range_when_the_origin_does() {
-        let url =
-            origin(Router::new().route("/paper.pdf", get(|| async { Body::from("full PDF") })))
-                .await;
+        let url = origin(get(|| async { Body::from("full PDF") })).await;
         let local = preview_url(&url).await.unwrap();
         assert_eq!(local, preview_url(&format!("{url}#page=2")).await.unwrap());
         let client = reqwest::Client::new();
@@ -326,16 +325,13 @@ mod tests {
     }
 
     async fn rejects_undeclared_oversized_streams() {
-        let url = origin(Router::new().route(
-            "/paper.pdf",
-            get(|| async {
-                Body::from_stream(futures_util::stream::iter(
-                    (0..101).map(|_| Ok::<_, io::Error>(vec![0_u8; 1024 * 1024])),
-                ))
-            }),
-        ))
+        let url = origin(get(|| async {
+            Body::from_stream(futures_util::stream::iter(
+                (0..101).map(|_| Ok::<_, io::Error>(vec![0_u8; 1024 * 1024])),
+            ))
+        }))
         .await;
-        let mut response = reqwest::get(preview_url(&url).await.unwrap()).await.unwrap();
+        let mut response = fetch(&url).await;
         let mut bytes = 0;
         loop {
             match response.chunk().await {
@@ -348,56 +344,39 @@ mod tests {
     }
 
     async fn preserves_416_and_upstream_error_statuses() {
-        let range_url = origin(Router::new().route(
-            "/paper.pdf",
-            get(|| async {
-                Response::builder()
-                    .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                    .header(CONTENT_RANGE, "bytes */4")
-                    .body(Body::empty())
-                    .unwrap()
-            }),
-        ))
+        let range_url = origin(get(|| async {
+            Response::builder()
+                .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                .header(CONTENT_RANGE, "bytes */4")
+                .body(Body::empty())
+                .unwrap()
+        }))
         .await;
-        assert_eq!(
-            reqwest::get(preview_url(&range_url).await.unwrap()).await.unwrap().status(),
-            StatusCode::RANGE_NOT_SATISFIABLE
-        );
+        assert_eq!(fetch(&range_url).await.status(), StatusCode::RANGE_NOT_SATISFIABLE);
 
-        let error_url = origin(Router::new().route(
-            "/paper.pdf",
-            get(|| async { response(StatusCode::SERVICE_UNAVAILABLE, Body::from("later")) }),
-        ))
+        let error_url = origin(get(|| async {
+            response(StatusCode::SERVICE_UNAVAILABLE, Body::from("later"))
+        }))
         .await;
-        assert_eq!(
-            reqwest::get(preview_url(&error_url).await.unwrap()).await.unwrap().status(),
-            StatusCode::SERVICE_UNAVAILABLE
-        );
+        assert_eq!(fetch(&error_url).await.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
 
     async fn rejects_an_invalid_capability() {
-        let url =
-            origin(Router::new().route("/paper.pdf", get(|| async { Body::from("pdf") }))).await;
+        let url = origin(get(|| async { Body::from("pdf") })).await;
         let proxy = preview_url(&url).await.unwrap().replace("token=", "token=wrong");
         assert_eq!(reqwest::get(proxy).await.unwrap().status(), StatusCode::UNAUTHORIZED);
     }
 
     async fn rejects_declared_oversized_responses() {
-        let url = origin(Router::new().route(
-            "/paper.pdf",
-            get(|| async {
-                Response::builder()
-                    .header(CONTENT_LENGTH, MAX_PDF_BYTES + 1)
-                    .body(Body::from_stream(futures_util::stream::pending::<
-                        Result<&'static str, io::Error>,
-                    >()))
-                    .unwrap()
-            }),
-        ))
+        let url = origin(get(|| async {
+            Response::builder()
+                .header(CONTENT_LENGTH, MAX_PDF_BYTES + 1)
+                .body(Body::from_stream(futures_util::stream::pending::<
+                    Result<&'static str, io::Error>,
+                >()))
+                .unwrap()
+        }))
         .await;
-        assert_eq!(
-            reqwest::get(preview_url(&url).await.unwrap()).await.unwrap().status(),
-            StatusCode::PAYLOAD_TOO_LARGE
-        );
+        assert_eq!(fetch(&url).await.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 }

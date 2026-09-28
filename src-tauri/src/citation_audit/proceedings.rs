@@ -4,9 +4,27 @@ use super::*;
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use std::io::Read;
+use std::time::Duration;
 
-const ICLR: &str = "https://proceedings.iclr.cc";
-const NEURIPS: &str = "https://papers.nips.cc";
+/// An official proceedings site with title search and BibTeX exports.
+struct Site {
+    base: &'static str,
+    /// The source row reported to the user.
+    source: &'static str,
+    /// The app's canonical venue; official exports omit its acronym.
+    venue: &'static str,
+}
+
+const ICLR: Site = Site {
+    base: "https://proceedings.iclr.cc",
+    source: "ICLR Proceedings",
+    venue: "International Conference on Learning Representations (ICLR)",
+};
+const NEURIPS: Site = Site {
+    base: "https://papers.nips.cc",
+    source: "NeurIPS Proceedings",
+    venue: "Advances in Neural Information Processing Systems (NeurIPS)",
+};
 
 pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
     let basis = checked.after.as_deref().unwrap_or(before);
@@ -28,8 +46,7 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
     let Some(title) = values.get("title") else {
         return checked;
     };
-    let source = if site == ICLR { "ICLR Proceedings" } else { "NeurIPS Proceedings" };
-    match lookup(site, title) {
+    match lookup(&site, title) {
         Ok(Some(remote)) if metadata_identity_matches(basis, &remote) => {
             // When the index already confirmed a preprint-to-publication match,
             // independently verify its title/authors against the official export.
@@ -41,29 +58,48 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
                     row.outcome = "matched".into();
                 }
             }
-            official
-                .sources
-                .push(SourceCheck { source: source.into(), outcome: "selected".into() });
+            official.sources.push(SourceCheck::new(site.source, "selected"));
             official
         }
         outcome => {
-            checked.sources.push(SourceCheck {
-                source: source.into(),
-                outcome: match outcome {
-                    Ok(Some(_)) => "candidate",
-                    Ok(None) => "no_match",
-                    Err(_) => "unavailable",
-                }
-                .into(),
-            });
-            // A failed official request is not proof that publication is absent.
-            if checked.after.is_none() && checked.sources.last().unwrap().outcome == "unavailable" {
-                checked.status = "unavailable".into();
-                checked.publication_reason = Some("sources_unavailable".into());
+            let outcome = match outcome {
+                Ok(Some(_)) => "candidate",
+                Ok(None) => "no_match",
+                Err(_) => "unavailable",
+            };
+            checked.sources.push(SourceCheck::new(site.source, outcome));
+            if outcome == "unavailable" {
+                checked.official_source_unavailable();
             }
             checked
         }
     }
+}
+
+/// Only official hosts are contacted: HTTPS, at most three redirects, all on
+/// the first host, so links cannot steer a request into an arbitrary domain
+/// or the local network. An off-host redirect fails the request, or with
+/// `stop_off_host` is returned as the response itself.
+pub(super) fn official_client(user_agent: &str, stop_off_host: bool) -> Result<Client, String> {
+    let policy = reqwest::redirect::Policy::custom(move |attempt| {
+        let same_host = attempt
+            .previous()
+            .first()
+            .is_some_and(|first| first.host_str() == attempt.url().host_str());
+        if attempt.previous().len() <= 3 && attempt.url().scheme() == "https" && same_host {
+            attempt.follow()
+        } else if stop_off_host {
+            attempt.stop()
+        } else {
+            attempt.error("Proceedings redirect left the official host or exceeded its limit")
+        }
+    });
+    Client::builder()
+        .timeout(Duration::from_secs(12))
+        .redirect(policy)
+        .user_agent(user_agent)
+        .build()
+        .map_err(|e| e.to_string())
 }
 
 pub(super) fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String> {
@@ -100,28 +136,9 @@ fn paper_path(html: &str, title: &str) -> Option<String> {
     matches.next().is_none().then_some(first)
 }
 
-fn lookup(site: &str, title: &str) -> Result<Option<String>, String> {
-    // Only fixed official hosts are contacted; links cannot redirect requests
-    // into an arbitrary domain or local network.
-    let client = Client::builder()
-        .timeout(Duration::from_secs(12))
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() <= 3
-                && attempt.url().scheme() == "https"
-                && attempt
-                    .previous()
-                    .first()
-                    .is_some_and(|first| first.host_str() == attempt.url().host_str())
-            {
-                attempt.follow()
-            } else {
-                attempt.error("Proceedings redirect left the official host or exceeded its limit")
-            }
-        }))
-        .user_agent("Lattice bibliography audit")
-        .build()
-        .map_err(|e| e.to_string())?;
-    let base = reqwest::Url::parse(site).unwrap();
+fn lookup(site: &Site, title: &str) -> Result<Option<String>, String> {
+    let client = official_client("Lattice bibliography audit", false)?;
+    let base = reqwest::Url::parse(site.base).unwrap();
     let mut search = base.join("/papers/search").unwrap();
     search.query_pairs_mut().append_pair("q", &clean(title).replace(['{', '}'], ""));
     let results = fetch(&client, search)?;
@@ -145,14 +162,8 @@ fn lookup(site: &str, title: &str) -> Result<Option<String>, String> {
     {
         return Err("Proceedings export did not match search result".into());
     }
-    // Official exports omit the acronym used by the app's canonical venue.
-    let canonical = if site == ICLR {
-        "International Conference on Learning Representations (ICLR)"
-    } else {
-        "Advances in Neural Information Processing Systems (NeurIPS)"
-    };
     if let Some(venue) = values.get("booktitle") {
-        bibtex = bibtex.replace(&format!("{{{venue}}}"), &format!("{{{canonical}}}"));
+        bibtex = bibtex.replace(&format!("{{{venue}}}"), &format!("{{{}}}", site.venue));
     }
     Ok(Some(bibtex))
 }

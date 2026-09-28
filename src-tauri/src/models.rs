@@ -265,36 +265,6 @@ pub struct PdfSyncTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PdfMarkRect {
-    pub x1: f64,
-    pub y1: f64,
-    pub x2: f64,
-    pub y2: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PdfMark {
-    pub id: String,
-    pub kind: String,
-    pub page: u32,
-    pub rects: Vec<PdfMarkRect>,
-    pub color: String,
-    pub text: String,
-    #[serde(default)]
-    pub note: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PdfMarksFile {
-    pub schema_version: u32,
-    pub annotations: Vec<PdfMark>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct EditorCommentReply {
     pub id: String,
     pub author_id: String,
@@ -515,22 +485,6 @@ pub struct GitStatus {
     pub ahead: u32,
     pub behind: u32,
     pub files: Vec<GitFileStatus>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitRemoteResult {
-    pub summary: String,
-    pub status: GitStatus,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitDiff {
-    pub path: String,
-    pub staged: bool,
-    pub before: Option<String>,
-    pub after: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

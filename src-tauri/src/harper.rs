@@ -1,12 +1,9 @@
 //! Harper grammar/spell linting on the Rust side.
 //!
-//! The frontend used to run harper.js (the WASM build of this same engine)
-//! on the WebView main thread, because Harper's Worker never reaches its
-//! ready event under WKWebView. Every lint pass was a whole-window WASM walk
-//! that competed with typing. Here the identical `harper-core` engine (the
-//! crate harper.js wraps, pinned to the same 2.7 line) runs in a
-//! `spawn_blocking` command instead: the webview thread never pays for
-//! linting, and the WKWebView Worker limitation stops mattering.
+//! Harper's WASM Worker never reaches its ready event under WKWebView, so in
+//! the webview every lint pass would run on the main thread and compete with
+//! typing. The identical `harper-core` engine (the crate harper.js wraps,
+//! pinned to the same 2.7 line) runs in a blocking-pool command instead.
 //!
 //! Contract with `src/editor/harper-spellcheck.ts`:
 //! - input text is the already-masked prose (masking stays in the frontend
@@ -68,13 +65,10 @@ fn session_dictionary(project_words: &[String]) -> Arc<MergedDictionary> {
 pub fn lint(text: &str, project_words: &[String]) -> Vec<HarperLintOut> {
     let mut guard = SESSION.lock().unwrap();
     let words_key = project_words.join("\n");
-    if guard.as_ref().map(|session| session.words_key != words_key).unwrap_or(true) {
+    if guard.as_ref().is_none_or(|session| session.words_key != words_key) {
         let dictionary = session_dictionary(project_words);
-        *guard = Some(HarperSession {
-            words_key,
-            dictionary: dictionary.clone(),
-            linter: LintGroup::new_curated(dictionary, Dialect::American),
-        });
+        let linter = LintGroup::new_curated(dictionary.clone(), Dialect::American);
+        *guard = Some(HarperSession { words_key, dictionary, linter });
     }
     let session = guard.as_mut().unwrap();
     let document = Document::new_plain_english(text, session.dictionary.as_ref());
@@ -90,8 +84,7 @@ pub fn lint(text: &str, project_words: &[String]) -> Vec<HarperLintOut> {
         utf16 += ch.len_utf16() as u32;
         utf16_at_char.push(utf16);
     }
-    let clamp =
-        |char_index: usize| -> u32 { utf16_at_char[char_index.min(utf16_at_char.len() - 1)] };
+    let clamp = |char_index: usize| utf16_at_char[char_index.min(utf16_at_char.len() - 1)];
 
     lints
         .into_iter()
@@ -103,19 +96,13 @@ pub fn lint(text: &str, project_words: &[String]) -> Vec<HarperLintOut> {
             suggestions: lint
                 .suggestions
                 .iter()
-                .map(|suggestion| match suggestion {
-                    Suggestion::ReplaceWith(chars) => HarperSuggestionOut {
-                        kind: "replace".to_string(),
-                        replacement: chars.iter().collect(),
-                    },
-                    Suggestion::InsertAfter(chars) => HarperSuggestionOut {
-                        kind: "insert-after".to_string(),
-                        replacement: chars.iter().collect(),
-                    },
-                    Suggestion::Remove => HarperSuggestionOut {
-                        kind: "remove".to_string(),
-                        replacement: String::new(),
-                    },
+                .map(|suggestion| {
+                    let (kind, replacement) = match suggestion {
+                        Suggestion::ReplaceWith(chars) => ("replace", chars.iter().collect()),
+                        Suggestion::InsertAfter(chars) => ("insert-after", chars.iter().collect()),
+                        Suggestion::Remove => ("remove", String::new()),
+                    };
+                    HarperSuggestionOut { kind: kind.to_string(), replacement }
                 })
                 .collect(),
         })
@@ -127,48 +114,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn flags_misspellings_with_replacement_suggestions() {
-        let lints = lint("This is a mispelling of a word.", &[]);
-        let spelling = lints
-            .iter()
-            .find(|entry| entry.kind == "Spelling" || entry.kind == "Typo")
-            .expect("expected a spelling lint");
-        assert_eq!(
-            &"This is a mispelling of a word."[spelling.start as usize..spelling.end as usize],
-            "mispelling"
-        );
-        assert!(spelling.suggestions.iter().any(|s| s.kind == "replace"));
+    fn flags_misspellings_at_utf16_offsets_with_replacement_suggestions() {
+        // "𝒜" is a surrogate pair (2 UTF-16 units, 1 char); the misspelling
+        // after it must land on JS-string offsets.
+        for text in ["This is a mispelling of a word.", "𝒜 mispelling here."] {
+            let spelling = lint(text, &[])
+                .into_iter()
+                .find(|entry| entry.kind == "Spelling" || entry.kind == "Typo")
+                .expect("expected a spelling lint");
+            let units: Vec<u16> = text.encode_utf16().collect();
+            let problem =
+                String::from_utf16_lossy(&units[spelling.start as usize..spelling.end as usize]);
+            assert_eq!(problem, "mispelling", "{text}");
+            assert!(spelling.suggestions.iter().any(|s| s.kind == "replace"), "{text}");
+        }
     }
 
     #[test]
     fn project_words_suppress_spelling_lints_and_cache_rebuilds() {
         let text = "The lattice frobnicator is ready.";
+        let flags_frobnicator = |lints: &[HarperLintOut]| {
+            lints
+                .iter()
+                .any(|entry| &text[entry.start as usize..entry.end as usize] == "frobnicator")
+        };
         let before = lint(text, &[]);
-        assert!(before
-            .iter()
-            .any(|entry| { &text[entry.start as usize..entry.end as usize] == "frobnicator" }));
-        let after = lint(text, &["frobnicator".to_string()]);
-        assert!(!after
-            .iter()
-            .any(|entry| { &text[entry.start as usize..entry.end as usize] == "frobnicator" }));
+        assert!(flags_frobnicator(&before));
+        assert!(!flags_frobnicator(&lint(text, &["frobnicator".to_string()])));
         // Back to the empty dictionary: the session must rebuild again.
         let reverted = lint(text, &[]);
         assert_eq!(before.len(), reverted.len());
-    }
-
-    #[test]
-    fn spans_are_utf16_code_units() {
-        // "𝒜" is a surrogate pair (2 UTF-16 units, 1 char); the misspelling
-        // after it must land on JS-string offsets.
-        let text = "𝒜 mispelling here.";
-        let lints = lint(text, &[]);
-        let spelling = lints
-            .iter()
-            .find(|entry| entry.kind == "Spelling" || entry.kind == "Typo")
-            .expect("expected a spelling lint");
-        let units: Vec<u16> = text.encode_utf16().collect();
-        let problem =
-            String::from_utf16_lossy(&units[spelling.start as usize..spelling.end as usize]);
-        assert_eq!(problem, "mispelling");
     }
 }

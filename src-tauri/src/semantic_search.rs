@@ -1,29 +1,34 @@
 //! Opt-in, fully local semantic indexing for project prose.
 //!
 //! The production provider is macOS NaturalLanguage's built-in English
-//! sentence embedding. There is no network client in this module, no model
-//! download, and no model file in the application bundle. Source text is read
-//! in the background, split into stable prose blocks, embedded on-device, and
-//! discarded. The persistent cache contains only a model version, normalized
-//! text SHA-256, quantized vector, and a last-used stamp used for eviction.
+//! sentence embedding (`embedding`). There is no network client in this
+//! module, no model download, and no model file in the application bundle.
+//! Source text is read in the background, split into stable prose blocks
+//! (`chunks`), embedded on-device, and discarded. The persistent cache
+//! (`cache`) contains only a model version, normalized text SHA-256, quantized
+//! vector, and a last-used stamp used for eviction.
 //!
-//! Vectors are stored as int8 (the provider's vectors are unit-normalized, so
-//! `round(component * 127)` loses far less than the ranking needs) in both the
-//! in-memory index and the cache. The cache is bounded: every successful build
-//! drops rows from other model versions and evicts least-recently-used rows
-//! beyond `MAX_CACHE_ROWS`, so no manual cleanup is ever required.
+//! The cache is bounded: every successful build drops rows from other model
+//! versions and evicts least-recently-used rows beyond `MAX_CACHE_ROWS`, so no
+//! manual cleanup is ever required.
 
-use rusqlite::{params, Connection};
+mod cache;
+mod chunks;
+mod embedding;
+
+use crate::util::collapse_whitespace;
+use cache::EmbeddingCache;
+use chunks::read_source_documents;
+use embedding::{
+    normalize_vector, quantize_vector, quantized_score, LocalEmbeddingProvider, ProviderFailure,
+    SystemEmbeddingProvider,
+};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use walkdir::{DirEntry, WalkDir};
 
-const CACHE_SCHEMA_VERSION: u32 = 2;
 const MAX_SOURCE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_BLOCK_CHARS: usize = 1_200;
 const MAX_SNIPPET_CHARS: usize = 220;
@@ -33,10 +38,8 @@ const MAX_EMBEDDING_DIMENSION: usize = 16_384;
 /// model's vector size this is roughly 70 MB of quantized rows; rewriting prose
 /// can only recycle this budget, never grow it without bound.
 const MAX_CACHE_ROWS: usize = 100_000;
-/// int8 range used to quantize unit-normalized components.
-const QUANTIZATION_SCALE: f32 = 127.0;
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SemanticSearchStatus {
     /// disabled | indexing | ready | unavailable | error
@@ -51,29 +54,23 @@ pub struct SemanticSearchStatus {
 }
 
 impl SemanticSearchStatus {
-    fn disabled(generation: u64) -> Self {
-        Self {
-            state: "disabled".to_string(),
-            detail: None,
-            model_version: None,
-            indexed_files: 0,
-            indexed_chunks: 0,
-            cached_chunks: 0,
-            total_chunks: 0,
-            generation,
-        }
+    fn new(state: &str, detail: Option<String>, generation: u64) -> Self {
+        Self { state: state.to_string(), detail, generation, ..Self::default() }
     }
 
-    fn indexing(generation: u64, previous: Option<&SemanticIndex>) -> Self {
+    fn disabled(generation: u64) -> Self {
+        Self::new("disabled", None, generation)
+    }
+
+    /// A `state` that reports the model and size of `index`, when there is one.
+    fn describing(
+        state: &str, detail: &str, generation: u64, index: Option<&SemanticIndex>,
+    ) -> Self {
         Self {
-            state: "indexing".to_string(),
-            detail: Some("Building an on-device index in the background.".to_string()),
-            model_version: previous.map(|index| index.model_version.clone()),
-            indexed_files: previous.map_or(0, |index| index.indexed_files),
-            indexed_chunks: previous.map_or(0, |index| index.chunks.len()),
-            cached_chunks: 0,
-            total_chunks: 0,
-            generation,
+            model_version: index.map(|index| index.model_version.clone()),
+            indexed_files: index.map_or(0, |index| index.indexed_files),
+            indexed_chunks: index.map_or(0, |index| index.chunks.len()),
+            ..Self::new(state, Some(detail.to_string()), generation)
         }
     }
 }
@@ -117,21 +114,35 @@ impl Default for SearchState {
 }
 
 impl SemanticSearch {
-    fn begin(&self) -> (u64, Arc<AtomicBool>) {
-        let mut state = lock_unpoisoned(&self.inner);
+    fn lock(&self) -> std::sync::MutexGuard<'_, SearchState> {
+        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Cancel the running build, if any, and start a new generation.
+    fn next_generation(state: &mut SearchState) -> u64 {
         if let Some(cancel) = state.cancel.take() {
             cancel.store(true, Ordering::Release);
         }
         state.generation = state.generation.wrapping_add(1);
-        let generation = state.generation;
+        state.generation
+    }
+
+    fn begin(&self) -> (u64, Arc<AtomicBool>) {
+        let mut state = self.lock();
+        let generation = Self::next_generation(&mut state);
         let cancel = Arc::new(AtomicBool::new(false));
         state.cancel = Some(Arc::clone(&cancel));
-        state.status = SemanticSearchStatus::indexing(generation, state.index.as_deref());
+        state.status = SemanticSearchStatus::describing(
+            "indexing",
+            "Building an on-device index in the background.",
+            generation,
+            state.index.as_deref(),
+        );
         (generation, cancel)
     }
 
     fn note_progress(&self, generation: u64, indexed_files: usize, total_chunks: usize) {
-        let mut state = lock_unpoisoned(&self.inner);
+        let mut state = self.lock();
         if state.generation != generation || state.status.state != "indexing" {
             return;
         }
@@ -140,91 +151,61 @@ impl SemanticSearch {
     }
 
     fn finish(&self, generation: u64, result: Result<BuildOutput, BuildFailure>) {
-        let mut state = lock_unpoisoned(&self.inner);
+        let mut state = self.lock();
         if state.generation != generation {
             return;
         }
         state.cancel = None;
-        match result {
+        state.index = None;
+        state.status = match result {
             Ok(output) => {
-                let index = Arc::new(output.index);
-                state.status = SemanticSearchStatus {
-                    state: "ready".to_string(),
-                    detail: Some(
-                        "Apple Natural Language · English · source text stays on this Mac."
-                            .to_string(),
-                    ),
-                    model_version: Some(index.model_version.clone()),
-                    indexed_files: index.indexed_files,
-                    indexed_chunks: index.chunks.len(),
+                let status = SemanticSearchStatus {
                     cached_chunks: output.cached_chunks,
                     total_chunks: output.total_chunks,
-                    generation,
+                    ..SemanticSearchStatus::describing(
+                        "ready",
+                        "Apple Natural Language · English · source text stays on this Mac.",
+                        generation,
+                        Some(&output.index),
+                    )
                 };
-                state.index = Some(index);
+                state.index = Some(Arc::new(output.index));
+                status
             }
-            Err(BuildFailure::Cancelled) => {
-                state.status = SemanticSearchStatus::disabled(generation);
-                state.index = None;
-            }
+            Err(BuildFailure::Cancelled) => SemanticSearchStatus::disabled(generation),
             Err(BuildFailure::Unavailable(detail)) => {
-                state.status = SemanticSearchStatus {
-                    state: "unavailable".to_string(),
-                    detail: Some(detail),
-                    model_version: None,
-                    indexed_files: 0,
-                    indexed_chunks: 0,
-                    cached_chunks: 0,
-                    total_chunks: 0,
-                    generation,
-                };
-                state.index = None;
+                SemanticSearchStatus::new("unavailable", Some(detail), generation)
             }
             Err(BuildFailure::Failed(detail)) => {
-                state.status = SemanticSearchStatus {
-                    state: "error".to_string(),
-                    detail: Some(detail),
-                    model_version: None,
-                    indexed_files: 0,
-                    indexed_chunks: 0,
-                    cached_chunks: 0,
-                    total_chunks: 0,
-                    generation,
-                };
-                state.index = None;
+                SemanticSearchStatus::new("error", Some(detail), generation)
             }
-        }
+        };
     }
 
     pub fn cancel(&self) -> SemanticSearchStatus {
-        let mut state = lock_unpoisoned(&self.inner);
-        if let Some(cancel) = state.cancel.take() {
-            cancel.store(true, Ordering::Release);
-        }
-        state.generation = state.generation.wrapping_add(1);
+        let mut state = self.lock();
+        let generation = Self::next_generation(&mut state);
         state.index = None;
-        state.status = SemanticSearchStatus::disabled(state.generation);
+        state.status = SemanticSearchStatus::disabled(generation);
         state.status.clone()
     }
 
     pub fn status(&self) -> SemanticSearchStatus {
-        lock_unpoisoned(&self.inner).status.clone()
+        self.lock().status.clone()
     }
 
     fn snapshot(&self) -> (SemanticSearchStatus, Option<Arc<SemanticIndex>>) {
-        let state = lock_unpoisoned(&self.inner);
+        let state = self.lock();
         (state.status.clone(), state.index.clone())
     }
 
+    /// `status` if the snapshot it came from is still current, else the
+    /// current status and `false`.
     fn status_for_snapshot(
         &self, status: SemanticSearchStatus, index: Option<&Arc<SemanticIndex>>,
     ) -> (SemanticSearchStatus, bool) {
-        let state = lock_unpoisoned(&self.inner);
-        let index_matches = match (index, state.index.as_ref()) {
-            (Some(index), Some(current)) => Arc::ptr_eq(index, current),
-            (None, None) => true,
-            _ => false,
-        };
+        let state = self.lock();
+        let index_matches = index.map(Arc::as_ptr) == state.index.as_ref().map(Arc::as_ptr);
         if state.generation == status.generation && index_matches {
             (status, true)
         } else {
@@ -233,18 +214,18 @@ impl SemanticSearch {
     }
 }
 
-fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
 /// Starts a new generation and returns immediately. A previous generation is
 /// cooperatively cancelled; only the newest worker can publish its index.
 pub fn start_index(search: Arc<SemanticSearch>, root: PathBuf, cache_path: PathBuf) {
     let (generation, cancel) = search.begin();
     tauri::async_runtime::spawn_blocking(move || {
-        let result = build_with_system_provider(&root, &cache_path, &cancel, |files, chunks| {
-            search.note_progress(generation, files, chunks);
-        });
+        let result = SystemEmbeddingProvider::load()
+            .map_err(|error| BuildFailure::Unavailable(error.detail().to_string()))
+            .and_then(|provider| {
+                build_index(&root, &cache_path, &cancel, &provider, |files, chunks| {
+                    search.note_progress(generation, files, chunks);
+                })
+            });
         search.finish(generation, result);
     });
 }
@@ -254,48 +235,41 @@ pub fn start_index(search: Arc<SemanticSearch>, root: PathBuf, cache_path: PathB
 /// the provider/index is unavailable, `applied` is false and callers retain the
 /// lexical result unchanged.
 pub fn search(search: &SemanticSearch, query: &str) -> SemanticSearchResponse {
-    let (mut status, index) = search.snapshot();
+    let (status, index) = search.snapshot();
     let Some(index) = index else {
         return fallback_response(search, status, None);
     };
-    if index.chunks.is_empty() {
+    let normalized = collapse_whitespace(query);
+    if index.chunks.is_empty() || normalized.is_empty() {
         return fallback_response(search, status, Some(&index));
     }
-    let normalized = normalize_embedding_text(query);
-    if normalized.is_empty() {
-        return fallback_response(search, status, Some(&index));
-    }
+    let unavailable = |detail: String| {
+        let status = SemanticSearchStatus {
+            state: "unavailable".to_string(),
+            detail: Some(detail),
+            ..status.clone()
+        };
+        fallback_response(search, status, Some(&index))
+    };
 
     let provider = match SystemEmbeddingProvider::load() {
         Ok(provider) => provider,
-        Err(error) => {
-            status.state = "unavailable".to_string();
-            status.detail = Some(error.detail().to_string());
-            return fallback_response(search, status, Some(&index));
-        }
+        Err(error) => return unavailable(error.detail().to_string()),
     };
     if provider.model_version() != index.model_version {
-        status.state = "unavailable".to_string();
-        status.detail = Some(
+        return unavailable(
             "The system embedding model changed; showing lexical results until the local index is rebuilt."
                 .to_string(),
         );
-        return fallback_response(search, status, Some(&index));
     }
     let query_vector = match provider.embed(&normalized).and_then(normalize_vector) {
         Ok(vector) if vector.len() == index.dimension => vector,
         Ok(_) => {
-            status.state = "unavailable".to_string();
-            status.detail = Some(
+            return unavailable(
                 "The system embedding dimension changed; showing lexical results.".to_string(),
-            );
-            return fallback_response(search, status, Some(&index));
+            )
         }
-        Err(error) => {
-            status.state = "unavailable".to_string();
-            status.detail = Some(format!("{} Showing lexical results.", error.detail()));
-            return fallback_response(search, status, Some(&index));
-        }
+        Err(error) => return unavailable(format!("{} Showing lexical results.", error.detail())),
     };
 
     let mut best_by_path: HashMap<&str, (f32, &IndexedChunk)> = HashMap::new();
@@ -377,154 +351,27 @@ enum BuildFailure {
     Failed(String),
 }
 
-#[derive(Debug)]
-enum ProviderFailure {
-    Unavailable(String),
-    Text(String),
-}
-
-impl ProviderFailure {
-    fn detail(&self) -> &str {
-        match self {
-            Self::Unavailable(detail) | Self::Text(detail) => detail,
-        }
-    }
-}
-
-trait LocalEmbeddingProvider {
-    fn model_version(&self) -> &str;
-    fn embed(&self, text: &str) -> Result<Vec<f32>, ProviderFailure>;
-}
-
-#[cfg(target_os = "macos")]
-struct SystemEmbeddingProvider {
-    embedding: objc2::rc::Retained<objc2_natural_language::NLEmbedding>,
-    model_version: String,
-    dimension: usize,
-}
-
-#[cfg(target_os = "macos")]
-impl SystemEmbeddingProvider {
-    fn load() -> Result<Self, ProviderFailure> {
-        use objc2::rc::autoreleasepool;
-        use objc2_natural_language::{NLEmbedding, NLLanguageEnglish};
-        autoreleasepool(|_| {
-            let language = unsafe { NLLanguageEnglish }.ok_or_else(|| {
-                ProviderFailure::Unavailable(
-                    "Apple's English sentence embedding is not available on this Mac.".to_string(),
-                )
-            })?;
-            let embedding = unsafe { NLEmbedding::sentenceEmbeddingForLanguage(language) }
-                .ok_or_else(|| {
-                    ProviderFailure::Unavailable(
-                        "Apple's English sentence embedding is not available on this Mac."
-                            .to_string(),
-                    )
-                })?;
-            let dimension = unsafe { embedding.dimension() };
-            let revision = unsafe { embedding.revision() };
-            if dimension == 0 || dimension > MAX_EMBEDDING_DIMENSION {
-                return Err(ProviderFailure::Unavailable(
-                    "Apple's sentence embedding reported an invalid vector size.".to_string(),
-                ));
-            }
-            Ok(Self {
-                embedding,
-                model_version: format!("apple-nl-sentence-en-r{revision}"),
-                dimension,
-            })
-        })
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl LocalEmbeddingProvider for SystemEmbeddingProvider {
-    fn model_version(&self) -> &str {
-        &self.model_version
-    }
-
-    fn embed(&self, text: &str) -> Result<Vec<f32>, ProviderFailure> {
-        use objc2::rc::autoreleasepool;
-        use objc2_foundation::NSString;
-        use std::ptr::NonNull;
-
-        autoreleasepool(|_| {
-            let input = NSString::from_str(text);
-            let mut vector = vec![0.0_f32; self.dimension];
-            let output = NonNull::new(vector.as_mut_ptr()).ok_or_else(|| {
-                ProviderFailure::Unavailable("Could not allocate an embedding vector.".to_string())
-            })?;
-            // SAFETY: `output` points to exactly `self.dimension` writable f32s,
-            // which is the size reported by this immutable NLEmbedding instance.
-            // `input` and the allocation remain alive for the duration of the call.
-            if unsafe { self.embedding.getVector_forString(output, &input) } {
-                Ok(vector)
-            } else {
-                Err(ProviderFailure::Text(
-                    "Apple's sentence model could not embed this text.".to_string(),
-                ))
-            }
-        })
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-struct SystemEmbeddingProvider;
-
-#[cfg(not(target_os = "macos"))]
-impl SystemEmbeddingProvider {
-    fn load() -> Result<Self, ProviderFailure> {
-        Err(ProviderFailure::Unavailable(
-            "Local semantic search currently requires macOS Natural Language.".to_string(),
-        ))
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-impl LocalEmbeddingProvider for SystemEmbeddingProvider {
-    fn model_version(&self) -> &str {
-        "unavailable"
-    }
-
-    fn embed(&self, _text: &str) -> Result<Vec<f32>, ProviderFailure> {
-        Err(ProviderFailure::Unavailable(
-            "Local semantic search currently requires macOS Natural Language.".to_string(),
-        ))
-    }
-}
-
-fn build_with_system_provider(
-    root: &Path, cache_path: &Path, cancel: &AtomicBool, progress: impl FnMut(usize, usize),
-) -> Result<BuildOutput, BuildFailure> {
-    let provider = SystemEmbeddingProvider::load().map_err(|error| match error {
-        ProviderFailure::Unavailable(detail) | ProviderFailure::Text(detail) => {
-            BuildFailure::Unavailable(detail)
-        }
-    })?;
-    build_index(root, cache_path, cancel, &provider, progress)
-}
-
 fn build_index(
     root: &Path, cache_path: &Path, cancel: &AtomicBool, provider: &impl LocalEmbeddingProvider,
     mut progress: impl FnMut(usize, usize),
 ) -> Result<BuildOutput, BuildFailure> {
-    if cancel.load(Ordering::Acquire) {
+    let cancelled = || cancel.load(Ordering::Acquire);
+    if cancelled() {
         return Err(BuildFailure::Cancelled);
     }
+    let model_version = provider.model_version();
     let documents = read_source_documents(root, cancel)?;
     let total_chunks = documents.iter().map(|document| document.chunks.len()).sum();
     progress(documents.len(), total_chunks);
+    let make_index = |dimension, indexed_files, chunks| SemanticIndex {
+        model_version: model_version.to_string(),
+        dimension,
+        indexed_files,
+        chunks,
+    };
     if total_chunks == 0 {
-        return Ok(BuildOutput {
-            index: SemanticIndex {
-                model_version: provider.model_version().to_string(),
-                dimension: 0,
-                indexed_files: documents.len(),
-                chunks: Vec::new(),
-            },
-            total_chunks,
-            cached_chunks: 0,
-        });
+        let index = make_index(0, documents.len(), Vec::new());
+        return Ok(BuildOutput { index, total_chunks, cached_chunks: 0 });
     }
 
     let mut cache = EmbeddingCache::open(cache_path)?;
@@ -533,59 +380,57 @@ fn build_index(
     let mut cached_chunks = 0;
     let mut dimension = None;
     for document in documents {
-        let path: Arc<str> = Arc::from(document.path.as_str());
-        let title: Arc<str> = Arc::from(document.title.as_str());
-        let kind: Arc<str> = Arc::from(document.kind.as_str());
-        let file_kind: Arc<str> = Arc::from(document.file_kind.as_str());
+        let path: Arc<str> = Arc::from(document.path);
+        let title: Arc<str> = Arc::from(document.title);
+        let kind: Arc<str> = Arc::from(document.kind);
+        let file_kind: Arc<str> = Arc::from(document.file_kind);
         for chunk in document.chunks {
-            if cancel.load(Ordering::Acquire) {
+            if cancelled() {
                 return Err(BuildFailure::Cancelled);
             }
-            let normalized = normalize_embedding_text(&chunk.text);
+            let normalized = collapse_whitespace(&chunk.text);
             if normalized.is_empty() {
                 continue;
             }
-            let hash = normalized_text_hash(&normalized);
+            let hash = crate::util::sha256_hex(&normalized);
             let vector = if let Some(vector) = vectors_by_hash.get(&hash) {
                 cached_chunks += 1;
                 Arc::clone(vector)
-            } else if let Some(vector) = cache.get(provider.model_version(), &hash)? {
-                cached_chunks += 1;
-                let vector: Arc<[i8]> = Arc::from(vector);
-                vectors_by_hash.insert(hash.clone(), Arc::clone(&vector));
-                vector
             } else {
-                let vector = match provider.embed(&normalized).and_then(normalize_vector) {
-                    Ok(vector) => quantize_vector(&vector),
-                    // A prose block with no usable language signal should not
-                    // make the entire project unavailable. Query failures are
-                    // handled separately and always fall back to lexical.
-                    Err(ProviderFailure::Text(_)) => continue,
-                    Err(ProviderFailure::Unavailable(detail)) => {
-                        return Err(BuildFailure::Unavailable(detail));
-                    }
+                let vector = if let Some(vector) = cache.get(model_version, &hash)? {
+                    cached_chunks += 1;
+                    vector
+                } else {
+                    let vector = match provider.embed(&normalized).and_then(normalize_vector) {
+                        Ok(vector) => quantize_vector(&vector),
+                        // A prose block with no usable language signal should
+                        // not make the entire project unavailable. Query
+                        // failures are handled separately and always fall back
+                        // to lexical.
+                        Err(ProviderFailure::Text(_)) => continue,
+                        Err(ProviderFailure::Unavailable(detail)) => {
+                            return Err(BuildFailure::Unavailable(detail));
+                        }
+                    };
+                    cache.put(model_version, &hash, &vector)?;
+                    vector
                 };
-                cache.put(provider.model_version(), &hash, &vector)?;
                 let vector: Arc<[i8]> = Arc::from(vector);
-                vectors_by_hash.insert(hash.clone(), Arc::clone(&vector));
+                vectors_by_hash.insert(hash, Arc::clone(&vector));
                 vector
             };
             if vector.is_empty() {
                 continue;
             }
-            if let Some(expected) = dimension {
-                if vector.len() != expected {
-                    return Err(BuildFailure::Failed(
-                        "Cached embeddings have inconsistent dimensions.".to_string(),
-                    ));
-                }
-            } else {
-                dimension = Some(vector.len());
+            if *dimension.get_or_insert(vector.len()) != vector.len() {
+                return Err(BuildFailure::Failed(
+                    "Cached embeddings have inconsistent dimensions.".to_string(),
+                ));
             }
             indexed.push(IndexedChunk {
                 path: Arc::clone(&path),
                 title: Arc::clone(&title),
-                snippet: snippet(&normalized),
+                snippet: crate::util::truncate_chars(&normalized, MAX_SNIPPET_CHARS),
                 line: chunk.line,
                 kind: Arc::clone(&kind),
                 file_kind: Arc::clone(&file_kind),
@@ -593,612 +438,69 @@ fn build_index(
             });
         }
     }
-    if indexed.is_empty() && total_chunks > 0 {
+    if indexed.is_empty() {
         return Err(BuildFailure::Unavailable(
             "Apple's English sentence model could not embed this project's prose.".to_string(),
         ));
     }
     // Cache maintenance keeps the shared on-disk cache bounded, but it is not
     // part of the answer: a failed prune must never discard a usable index.
-    if !cancel.load(Ordering::Acquire) {
-        let live = vectors_by_hash.keys().cloned().collect::<Vec<_>>();
-        let _ = cache.touch(provider.model_version(), &live);
-        let _ = cache.prune(provider.model_version(), live.len().max(MAX_CACHE_ROWS));
+    if !cancelled() {
+        let live = vectors_by_hash.into_keys().collect::<Vec<_>>();
+        let _ = cache.touch(model_version, &live);
+        let _ = cache.prune(model_version, live.len().max(MAX_CACHE_ROWS));
     }
-    Ok(BuildOutput {
-        index: SemanticIndex {
-            model_version: provider.model_version().to_string(),
-            dimension: dimension.unwrap_or(0),
-            indexed_files: indexed
-                .iter()
-                .map(|chunk| &*chunk.path)
-                .collect::<std::collections::HashSet<_>>()
-                .len(),
-            chunks: indexed,
-        },
-        total_chunks,
-        cached_chunks,
-    })
-}
-
-struct EmbeddingCache {
-    connection: Connection,
-}
-
-impl EmbeddingCache {
-    fn open(path: &Path) -> Result<Self, BuildFailure> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                BuildFailure::Failed(format!("Could not create semantic cache folder: {error}"))
-            })?;
-        }
-        let connection = Connection::open(path).map_err(cache_error)?;
-        connection.busy_timeout(std::time::Duration::from_secs(5)).map_err(cache_error)?;
-        connection.execute_batch("PRAGMA journal_mode = WAL;").map_err(cache_error)?;
-        // Eviction only returns pages to the freelist. Incremental auto-vacuum
-        // is what hands them back to the filesystem, and switching an existing
-        // database into that mode requires one full VACUUM.
-        let auto_vacuum = connection
-            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
-            .map_err(cache_error)?;
-        if auto_vacuum != 2 {
-            connection
-                .execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")
-                .map_err(cache_error)?;
-        }
-        connection
-            .execute_batch(&format!(
-                "DROP TABLE IF EXISTS embeddings_v1;
-                 CREATE TABLE IF NOT EXISTS embeddings_v{CACHE_SCHEMA_VERSION} (
-                   model_version TEXT NOT NULL,
-                   normalized_text_hash TEXT NOT NULL,
-                   dimension INTEGER NOT NULL,
-                   vector BLOB NOT NULL,
-                   last_used_ts INTEGER NOT NULL,
-                   PRIMARY KEY (model_version, normalized_text_hash)
-                 );
-                 CREATE INDEX IF NOT EXISTS embeddings_v{CACHE_SCHEMA_VERSION}_last_used
-                   ON embeddings_v{CACHE_SCHEMA_VERSION} (last_used_ts);"
-            ))
-            .map_err(cache_error)?;
-        Ok(Self { connection })
-    }
-
-    fn get(&self, model_version: &str, hash: &str) -> Result<Option<Vec<i8>>, BuildFailure> {
-        let mut statement = self
-            .connection
-            .prepare(&format!(
-                "SELECT dimension, vector FROM embeddings_v{CACHE_SCHEMA_VERSION}
-                 WHERE model_version = ?1 AND normalized_text_hash = ?2"
-            ))
-            .map_err(cache_error)?;
-        let mut rows = statement.query(params![model_version, hash]).map_err(cache_error)?;
-        let Some(row) = rows.next().map_err(cache_error)? else {
-            return Ok(None);
-        };
-        let dimension = row.get::<_, i64>(0).map_err(cache_error)?;
-        let bytes = row.get::<_, Vec<u8>>(1).map_err(cache_error)?;
-        let Ok(dimension) = usize::try_from(dimension) else {
-            return Ok(None);
-        };
-        let expected_bytes = dimension.checked_mul(std::mem::size_of::<i8>());
-        if dimension == 0
-            || dimension > MAX_EMBEDDING_DIMENSION
-            || expected_bytes != Some(bytes.len())
-        {
-            return Ok(None);
-        }
-        Ok(Some(bytes.into_iter().map(|byte| byte as i8).collect::<Vec<_>>()))
-    }
-
-    fn put(&mut self, model_version: &str, hash: &str, vector: &[i8]) -> Result<(), BuildFailure> {
-        let bytes = vector.iter().map(|value| *value as u8).collect::<Vec<u8>>();
-        self.connection
-            .execute(
-                &format!(
-                    "INSERT OR REPLACE INTO embeddings_v{CACHE_SCHEMA_VERSION}
-                     (model_version, normalized_text_hash, dimension, vector, last_used_ts)
-                     VALUES (?1, ?2, ?3, ?4, ?5)"
-                ),
-                params![model_version, hash, vector.len() as i64, bytes, now_seconds()],
-            )
-            .map_err(cache_error)?;
-        Ok(())
-    }
-
-    /// Marks this build's live set as most recently used in one transaction, so
-    /// eviction never reclaims vectors the current project still needs.
-    fn touch(&mut self, model_version: &str, hashes: &[String]) -> Result<(), BuildFailure> {
-        if hashes.is_empty() {
-            return Ok(());
-        }
-        let stamp = now_seconds();
-        let transaction = self.connection.transaction().map_err(cache_error)?;
-        {
-            let mut statement = transaction
-                .prepare(&format!(
-                    "UPDATE embeddings_v{CACHE_SCHEMA_VERSION} SET last_used_ts = ?1
-                     WHERE model_version = ?2 AND normalized_text_hash = ?3"
-                ))
-                .map_err(cache_error)?;
-            for hash in hashes {
-                statement.execute(params![stamp, model_version, hash]).map_err(cache_error)?;
-            }
-        }
-        transaction.commit().map_err(cache_error)
-    }
-
-    /// Bounds the cache without a time policy: rows belonging to any other model
-    /// version are dead weight (a system model revision invalidates them all),
-    /// and anything past `keep_rows` is evicted least-recently-used first.
-    fn prune(&mut self, model_version: &str, keep_rows: usize) -> Result<(), BuildFailure> {
-        let stale = self
-            .connection
-            .execute(
-                &format!(
-                    "DELETE FROM embeddings_v{CACHE_SCHEMA_VERSION} WHERE model_version <> ?1"
-                ),
-                params![model_version],
-            )
-            .map_err(cache_error)?;
-        let rows = self
-            .connection
-            .query_row(
-                &format!("SELECT COUNT(*) FROM embeddings_v{CACHE_SCHEMA_VERSION}"),
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(cache_error)?;
-        let excess = usize::try_from(rows).unwrap_or(usize::MAX).saturating_sub(keep_rows);
-        let evicted = if excess > 0 {
-            self.connection
-                .execute(
-                    &format!(
-                        "DELETE FROM embeddings_v{CACHE_SCHEMA_VERSION} WHERE rowid IN (
-                           SELECT rowid FROM embeddings_v{CACHE_SCHEMA_VERSION}
-                           ORDER BY last_used_ts ASC, rowid ASC LIMIT ?1
-                         )"
-                    ),
-                    params![excess as i64],
-                )
-                .map_err(cache_error)?
-        } else {
-            0
-        };
-        if stale + evicted > 0 {
-            self.connection.execute_batch("PRAGMA incremental_vacuum;").map_err(cache_error)?;
-        }
-        Ok(())
-    }
-}
-
-fn now_seconds() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs() as i64)
-}
-
-fn cache_error(error: rusqlite::Error) -> BuildFailure {
-    BuildFailure::Failed(format!("Could not use the local semantic cache: {error}"))
-}
-
-#[derive(Debug)]
-struct SourceDocument {
-    path: String,
-    title: String,
-    kind: String,
-    file_kind: String,
-    chunks: Vec<SourceChunk>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct SourceChunk {
-    line: u32,
-    text: String,
-}
-
-fn read_source_documents(
-    root: &Path, cancel: &AtomicBool,
-) -> Result<Vec<SourceDocument>, BuildFailure> {
-    let mut documents = Vec::new();
-    let walker = WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| semantic_walk_entry(root, entry));
-    for entry in walker.filter_map(Result::ok) {
-        if cancel.load(Ordering::Acquire) {
-            return Err(BuildFailure::Cancelled);
-        }
-        if !entry.file_type().is_file() || !semantic_source_path(root, entry.path()) {
-            continue;
-        }
-        let Ok(metadata) = entry.metadata() else {
-            continue;
-        };
-        if metadata.len() > MAX_SOURCE_BYTES {
-            continue;
-        }
-        let Ok(content) = fs::read_to_string(entry.path()) else {
-            continue;
-        };
-        let relative = entry
-            .path()
-            .strip_prefix(root)
-            .unwrap_or(entry.path())
-            .to_string_lossy()
-            .replace('\\', "/");
-        let extension = entry
-            .path()
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        let (title, chunks) = if extension == "tex" {
-            (file_title(&relative), latex_chunks(&content))
-        } else {
-            markdown_chunks(&content, &file_title(&relative))
-        };
-        if chunks.is_empty() {
-            continue;
-        }
-        let kind = if is_paper_markdown(&relative) { "paper" } else { "file" };
-        documents.push(SourceDocument {
-            path: relative,
-            title,
-            kind: kind.to_string(),
-            file_kind: extension,
-            chunks,
-        });
-    }
-    documents.sort_by(|left, right| left.path.cmp(&right.path));
-    Ok(documents)
-}
-
-fn semantic_walk_entry(root: &Path, entry: &DirEntry) -> bool {
-    if entry.depth() == 0 {
-        return true;
-    }
-    let relative = entry.path().strip_prefix(root).unwrap_or(entry.path());
-    let normalized = relative.to_string_lossy().replace('\\', "/");
-    let first = relative.components().find_map(|component| match component {
-        Component::Normal(value) => value.to_str(),
-        _ => None,
-    });
-    if matches!(first, Some(".git" | "node_modules" | "target" | "dist")) {
-        return false;
-    }
-    if first.is_some_and(|part| part.starts_with('.')) {
-        return normalized == ".research"
-            || normalized == ".research/papers"
-            || normalized.starts_with(".research/papers/");
-    }
-    true
-}
-
-fn semantic_source_path(root: &Path, path: &Path) -> bool {
-    let extension =
-        path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
-    if !matches!(extension.as_str(), "tex" | "md" | "mdx") {
-        return false;
-    }
-    let relative = path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/");
-    let hidden = relative.split('/').any(|part| part.starts_with('.'));
-    !hidden || is_paper_markdown(&relative)
-}
-
-fn is_paper_markdown(path: &str) -> bool {
-    path.starts_with(".research/papers/")
-        && (path.ends_with("/paper.md") || path.ends_with("/blog.md"))
-}
-
-fn file_title(path: &str) -> String {
-    Path::new(path).file_name().and_then(|value| value.to_str()).unwrap_or(path).to_string()
-}
-
-fn markdown_chunks(content: &str, fallback_title: &str) -> (String, Vec<SourceChunk>) {
-    let lines = content.lines().collect::<Vec<_>>();
-    let mut start = 0;
-    if lines.first().is_some_and(|line| line.trim_end_matches('\r') == "---") {
-        start = lines
-            .iter()
-            .enumerate()
-            .skip(1)
-            .find(|(_, line)| line.trim_end_matches('\r') == "---")
-            .map_or(lines.len(), |(index, _)| index + 1);
-    }
-    let mut title = fallback_title.to_string();
-    let mut headings: Vec<String> = Vec::new();
-    let mut paragraph = Vec::new();
-    let mut paragraph_line = 1;
-    let mut chunks = Vec::new();
-    let mut fence: Option<char> = None;
-
-    for (index, raw_line) in lines.iter().enumerate().skip(start) {
-        let line_number = index as u32 + 1;
-        let trimmed = raw_line.trim();
-        let fence_marker = trimmed
-            .strip_prefix("```")
-            .map(|_| '`')
-            .or_else(|| trimmed.strip_prefix("~~~").map(|_| '~'));
-        if let Some(marker) = fence_marker {
-            flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-            if fence == Some(marker) {
-                fence = None;
-            } else if fence.is_none() {
-                fence = Some(marker);
-            }
-            continue;
-        }
-        if fence.is_some() {
-            continue;
-        }
-        if let Some((level, heading)) = markdown_heading(raw_line) {
-            flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-            headings.truncate(level.saturating_sub(1));
-            headings.push(heading.clone());
-            if level == 1 && title == fallback_title {
-                title = heading.clone();
-            }
-            push_block(&mut chunks, line_number, "", &headings.join(" › "));
-            continue;
-        }
-        if trimmed.is_empty() {
-            flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-        } else {
-            if paragraph.is_empty() {
-                paragraph_line = line_number;
-            }
-            paragraph.push((*raw_line).to_string());
-        }
-    }
-    flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-    (title, chunks)
-}
-
-fn markdown_heading(line: &str) -> Option<(usize, String)> {
-    let trimmed = line.trim_start();
-    let level = trimmed.chars().take_while(|character| *character == '#').count();
-    if !(1..=6).contains(&level) || !trimmed[level..].starts_with(char::is_whitespace) {
-        return None;
-    }
-    let heading = trimmed[level..].trim().trim_end_matches('#').trim().to_string();
-    (!heading.is_empty()).then_some((level, heading))
-}
-
-fn latex_chunks(content: &str) -> Vec<SourceChunk> {
-    let mut headings: Vec<String> = Vec::new();
-    let mut paragraph = Vec::new();
-    let mut paragraph_line = 1;
-    let mut chunks = Vec::new();
-    for (index, raw_line) in content.lines().enumerate() {
-        let line_number = index as u32 + 1;
-        let line = strip_latex_comment(raw_line);
-        if let Some((level, heading)) = latex_heading(line) {
-            flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-            headings.truncate(level.saturating_sub(1));
-            headings.push(heading);
-            push_block(&mut chunks, line_number, "", &headings.join(" › "));
-            continue;
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-        } else if is_latex_structure_only(trimmed) {
-            continue;
-        } else {
-            if paragraph.is_empty() {
-                paragraph_line = line_number;
-            }
-            paragraph.push(trimmed.to_string());
-        }
-    }
-    flush_paragraph(&mut chunks, &mut paragraph, paragraph_line, &headings);
-    chunks
-}
-
-fn strip_latex_comment(line: &str) -> &str {
-    for (index, character) in line.char_indices() {
-        if character != '%' {
-            continue;
-        }
-        let slash_count = line[..index].chars().rev().take_while(|value| *value == '\\').count();
-        if slash_count % 2 == 0 {
-            return &line[..index];
-        }
-    }
-    line
-}
-
-fn latex_heading(line: &str) -> Option<(usize, String)> {
-    const COMMANDS: [(&str, usize); 7] = [
-        ("part", 1),
-        ("chapter", 1),
-        ("section", 2),
-        ("subsection", 3),
-        ("subsubsection", 4),
-        ("paragraph", 5),
-        ("subparagraph", 6),
-    ];
-    for (command, level) in COMMANDS {
-        let needle = format!("\\{command}");
-        let Some(start) = line.find(&needle) else {
-            continue;
-        };
-        let mut rest = line[start + needle.len()..].trim_start();
-        if let Some(after_star) = rest.strip_prefix('*') {
-            rest = after_star.trim_start();
-        }
-        let rest = rest.strip_prefix('{')?;
-        let mut depth = 1usize;
-        let mut end = None;
-        for (index, character) in rest.char_indices() {
-            match character {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        end = Some(index);
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        let heading = normalize_embedding_text(&rest[..end?]);
-        if !heading.is_empty() {
-            return Some((level, heading));
-        }
-    }
-    None
-}
-
-fn is_latex_structure_only(line: &str) -> bool {
-    [
-        "\\documentclass",
-        "\\usepackage",
-        "\\begin{",
-        "\\end{",
-        "\\label{",
-        "\\bibliography{",
-        "\\bibliographystyle{",
-        "\\includegraphics",
-    ]
-    .iter()
-    .any(|prefix| line.starts_with(prefix))
-}
-
-fn flush_paragraph(
-    chunks: &mut Vec<SourceChunk>, paragraph: &mut Vec<String>, line: u32, headings: &[String],
-) {
-    if paragraph.is_empty() {
-        return;
-    }
-    let body = paragraph.join(" ");
-    paragraph.clear();
-    push_block(chunks, line, &headings.join(" › "), &body);
-}
-
-fn push_block(chunks: &mut Vec<SourceChunk>, line: u32, context: &str, body: &str) {
-    let body = normalize_embedding_text(body);
-    if body.is_empty() {
-        return;
-    }
-    let pieces = split_block(&body, MAX_BLOCK_CHARS.saturating_sub(context.chars().count() + 1));
-    for piece in pieces {
-        let text = if context.is_empty() || piece == context {
-            piece
-        } else {
-            format!("{context}\n{piece}")
-        };
-        chunks.push(SourceChunk { line, text });
-    }
-}
-
-fn split_block(text: &str, maximum: usize) -> Vec<String> {
-    let maximum = maximum.max(200);
-    if text.chars().count() <= maximum {
-        return vec![text.to_string()];
-    }
-    let mut pieces = Vec::new();
-    let mut current = String::new();
-    for word in text.split_whitespace() {
-        let needed = word.chars().count() + usize::from(!current.is_empty());
-        if !current.is_empty() && current.chars().count() + needed > maximum {
-            pieces.push(std::mem::take(&mut current));
-        }
-        if word.chars().count() > maximum {
-            let chars = word.chars().collect::<Vec<_>>();
-            for slice in chars.chunks(maximum) {
-                if !current.is_empty() {
-                    pieces.push(std::mem::take(&mut current));
-                }
-                pieces.push(slice.iter().collect());
-            }
-            continue;
-        }
-        if !current.is_empty() {
-            current.push(' ');
-        }
-        current.push_str(word);
-    }
-    if !current.is_empty() {
-        pieces.push(current);
-    }
-    pieces
-}
-
-fn normalize_embedding_text(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn normalized_text_hash(normalized: &str) -> String {
-    Sha256::digest(normalized.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn normalize_vector(mut vector: Vec<f32>) -> Result<Vec<f32>, ProviderFailure> {
-    if vector.is_empty() || vector.iter().any(|value| !value.is_finite()) {
-        return Err(ProviderFailure::Text(
-            "The sentence model returned an invalid vector.".to_string(),
-        ));
-    }
-    let magnitude =
-        vector.iter().map(|value| f64::from(*value) * f64::from(*value)).sum::<f64>().sqrt();
-    if !magnitude.is_finite() || magnitude <= f64::EPSILON {
-        return Err(ProviderFailure::Text(
-            "The sentence model returned an empty vector.".to_string(),
-        ));
-    }
-    for value in &mut vector {
-        *value = (f64::from(*value) / magnitude) as f32;
-    }
-    Ok(vector)
-}
-
-/// Unit-normalized components live in [-1, 1], so a symmetric int8 scale keeps
-/// the full dynamic range at a quarter of the memory and disk of f32.
-fn quantize_vector(vector: &[f32]) -> Vec<i8> {
-    vector
-        .iter()
-        .map(|value| {
-            let scaled = (value * QUANTIZATION_SCALE).round();
-            scaled.clamp(-QUANTIZATION_SCALE, QUANTIZATION_SCALE) as i8
-        })
-        .collect()
-}
-
-/// The query stays in f32: only the stored side is quantized, which halves the
-/// quantization error compared with comparing two quantized vectors.
-fn quantized_score(query: &[f32], stored: &[i8]) -> f32 {
-    query.iter().zip(stored).map(|(query, stored)| query * f32::from(*stored)).sum::<f32>()
-        / QUANTIZATION_SCALE
-}
-
-fn snippet(text: &str) -> String {
-    let mut value = text.chars().take(MAX_SNIPPET_CHARS).collect::<String>();
-    if text.chars().count() > MAX_SNIPPET_CHARS {
-        value.push('…');
-    }
-    value
+    let indexed_files = indexed.iter().map(|chunk| &*chunk.path).collect::<HashSet<_>>().len();
+    let index = make_index(dimension.unwrap_or(0), indexed_files, indexed);
+    Ok(BuildOutput { index, total_chunks, cached_chunks })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::TempDir;
     use std::sync::atomic::AtomicUsize;
 
+    fn cache_path(project: &Path) -> PathBuf {
+        project.join("cache/index.sqlite3")
+    }
+
+    fn build(project: &Path, provider: &FakeProvider) -> Result<BuildOutput, BuildFailure> {
+        build_index(project, &cache_path(project), &AtomicBool::new(false), provider, |_, _| {})
+    }
+
+    pub(super) fn column<T: rusqlite::types::FromSql>(
+        connection: &rusqlite::Connection, sql: &str,
+    ) -> Vec<T> {
+        let mut statement = connection.prepare(sql).unwrap();
+        let rows = statement.query_map([], |row| row.get::<_, T>(0)).unwrap();
+        rows.collect::<rusqlite::Result<Vec<_>>>().unwrap()
+    }
+
+    /// Deterministic 4-dimensional vectors derived from the text's SHA-256.
     struct FakeProvider {
-        version: String,
+        version: &'static str,
         calls: Arc<AtomicUsize>,
+    }
+
+    impl FakeProvider {
+        fn new(version: &'static str) -> Self {
+            Self { version, calls: Arc::default() }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::Relaxed)
+        }
     }
 
     impl LocalEmbeddingProvider for FakeProvider {
         fn model_version(&self) -> &str {
-            &self.version
+            self.version
         }
 
         fn embed(&self, text: &str) -> Result<Vec<f32>, ProviderFailure> {
             self.calls.fetch_add(1, Ordering::Relaxed);
-            let bytes = Sha256::digest(text.as_bytes());
+            let bytes = <sha2::Sha256 as sha2::Digest>::digest(text.as_bytes());
             Ok(bytes[..8]
                 .as_chunks::<2>()
                 .0
@@ -1208,127 +510,86 @@ mod tests {
         }
     }
 
-    fn temp_dir(label: &str) -> PathBuf {
-        let path =
-            std::env::temp_dir().join(format!("lattice-semantic-{label}-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&path).unwrap();
-        path
-    }
-
-    fn write(path: &Path, content: &str) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-        fs::write(path, content).unwrap();
-    }
-
-    #[test]
-    fn markdown_and_latex_chunk_on_stable_prose_boundaries() {
-        let (_, markdown) = markdown_chunks(
-            "---\ntags: [private]\n---\n# Methods\n\nFirst paragraph.\ncontinued here.\n\n## Results\n\nSecond paragraph.\n\n```rs\nsecret_code();\n```\n",
-            "paper.md",
-        );
-        assert_eq!(markdown[0].text, "Methods");
-        assert_eq!(markdown[1].text, "Methods\nFirst paragraph. continued here.");
-        assert_eq!(markdown[2].text, "Methods › Results");
-        assert_eq!(markdown[3].text, "Methods › Results\nSecond paragraph.");
-        assert!(markdown.iter().all(|chunk| !chunk.text.contains("tags:")));
-        assert!(markdown.iter().all(|chunk| !chunk.text.contains("secret_code")));
-
-        let latex = latex_chunks(
-            "\\documentclass{article}\n\\section{Method}\n\nA local approach. % hidden note\n\n\\subsection{Evaluation}\n\nA measured result.\n",
-        );
-        assert_eq!(latex[0].text, "Method");
-        assert_eq!(latex[1].text, "Method\nA local approach.");
-        assert_eq!(latex[2].text, "Method › Evaluation");
-        assert_eq!(latex[3].text, "Method › Evaluation\nA measured result.");
-    }
-
+    /// Each rebuild also runs cache maintenance, so a cached rebuild proves
+    /// eviction never reclaims the vectors the previous build just used.
     #[test]
     fn editing_one_paragraph_only_embeds_that_new_normalized_hash() {
-        let root = temp_dir("incremental");
-        let cache = root.join("cache/index.sqlite3");
-        let source = root.join("main.tex");
-        write(&source, "\\section{One}\n\nAlpha paragraph.\n\n\\section{Two}\n\nBeta paragraph.\n");
-        let calls = Arc::new(AtomicUsize::new(0));
-        let provider = FakeProvider { version: "test-v1".to_string(), calls: Arc::clone(&calls) };
-        let cancel = AtomicBool::new(false);
-        let first = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
-        let first_calls = calls.load(Ordering::Relaxed);
-        assert_eq!(first.index.chunks.len(), 4);
-
-        write(
-            &source,
-            "\\section{One}\n\nAlpha paragraph changed.\n\n\\section{Two}\n\nBeta paragraph.\n",
-        );
-        let second = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
-        assert_eq!(calls.load(Ordering::Relaxed) - first_calls, 1);
-        assert_eq!(second.cached_chunks, 3);
-
-        let second_calls = calls.load(Ordering::Relaxed);
-        write(
-            &source,
-            "\\section{One}\n\nAlpha   paragraph changed.\n\n\\section{Two}\n\nBeta paragraph.\n",
-        );
-        let normalized_only = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
-        assert_eq!(calls.load(Ordering::Relaxed), second_calls);
-        assert_eq!(normalized_only.cached_chunks, 4);
-
-        fs::remove_dir_all(root).unwrap();
+        let project = TempDir::new("incremental");
+        let provider = FakeProvider::new("test-v1");
+        let mut expected_calls = 0;
+        for (paragraph, new_embeddings, cached_chunks) in [
+            ("Alpha paragraph.", 4, 0),
+            ("Alpha paragraph changed.", 1, 3),
+            // Whitespace-only edits keep the normalized hash.
+            ("Alpha   paragraph changed.", 0, 4),
+        ] {
+            project.write(
+                "main.tex",
+                format!("\\section{{One}}\n\n{paragraph}\n\n\\section{{Two}}\n\nBeta paragraph.\n"),
+            );
+            let output = build(&project, &provider).unwrap();
+            expected_calls += new_embeddings;
+            assert_eq!(provider.calls(), expected_calls, "{paragraph}");
+            assert_eq!(output.cached_chunks, cached_chunks, "{paragraph}");
+            assert_eq!(output.index.chunks.len(), 4);
+        }
     }
 
     #[test]
     fn model_version_is_part_of_the_cache_key() {
-        let root = temp_dir("model-version");
-        let cache = root.join("cache.sqlite3");
-        write(&root.join("notes.md"), "# Topic\n\nOne reusable paragraph.\n");
+        let project = TempDir::new("model-version");
+        project.write("notes.md", "# Topic\n\nOne reusable paragraph.\n");
         let calls = Arc::new(AtomicUsize::new(0));
-        let cancel = AtomicBool::new(false);
         for version in ["model-a", "model-a", "model-b"] {
-            let provider = FakeProvider { version: version.to_string(), calls: Arc::clone(&calls) };
-            build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
+            build(&project, &FakeProvider { version, calls: Arc::clone(&calls) }).unwrap();
         }
         // Two stable blocks × two distinct model versions. The second model-a
         // build is fully cached; model-b must not reuse model-a vectors.
         assert_eq!(calls.load(Ordering::Relaxed), 4);
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn persistent_cache_contains_no_source_text_or_project_path() {
-        let root = temp_dir("privacy");
-        let cache = root.join("cache.sqlite3");
+        let project = TempDir::new("privacy");
         let secret = "Confidential theorem about private patient outcomes";
-        write(&root.join("private/manuscript.md"), &format!("# Study\n\n{secret}\n"));
-        let provider = FakeProvider {
-            version: "privacy-test".to_string(),
-            calls: Arc::new(AtomicUsize::new(0)),
-        };
-        build_index(&root, &cache, &AtomicBool::new(false), &provider, |_, _| {}).unwrap();
-        let connection = Connection::open(&cache).unwrap();
-        let columns = connection
-            .prepare("PRAGMA table_info(embeddings_v2)")
-            .unwrap()
-            .query_map([], |row| row.get::<_, String>(1))
-            .unwrap()
-            .collect::<rusqlite::Result<Vec<_>>>()
-            .unwrap();
+        project.write("private/manuscript.md", format!("# Study\n\n{secret}\n"));
+        build(&project, &FakeProvider::new("privacy-test")).unwrap();
+        let cache = cache_path(&project);
+        let columns: Vec<String> = column(
+            &rusqlite::Connection::open(&cache).unwrap(),
+            "SELECT name FROM pragma_table_info('embeddings_v2')",
+        );
         assert_eq!(
             columns,
             ["model_version", "normalized_text_hash", "dimension", "vector", "last_used_ts"]
         );
-        drop(connection);
+        let root = project.to_string_lossy();
         for suffix in ["", "-wal", "-shm"] {
             let path = PathBuf::from(format!("{}{suffix}", cache.to_string_lossy()));
-            let Ok(cache_bytes) = fs::read(path) else {
+            let Ok(cache_bytes) = std::fs::read(path) else {
                 continue;
             };
             let cache_text = String::from_utf8_lossy(&cache_bytes);
-            assert!(!cache_text.contains(secret));
-            assert!(!cache_text.contains("private/manuscript.md"));
-            assert!(!cache_text.contains(root.to_string_lossy().as_ref()));
+            for private in [secret, "private/manuscript.md", &root] {
+                assert!(!cache_text.contains(private), "{private}");
+            }
         }
-        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_pre_cancelled_build_never_reads_or_embeds_the_project() {
+        let project = TempDir::new("cancelled");
+        project.write("paper.md", "# Secret\n\nNever process this.\n");
+        let provider = FakeProvider::new("cancel-test");
+        let result = build_index(
+            &project,
+            &cache_path(&project),
+            &AtomicBool::new(true),
+            &provider,
+            |_, _| {},
+        );
+        assert_eq!(result.unwrap_err(), BuildFailure::Cancelled);
+        assert_eq!(provider.calls(), 0);
     }
 
     #[test]
@@ -1357,7 +618,7 @@ mod tests {
             chunks: Vec::new(),
         });
         {
-            let mut state = lock_unpoisoned(&search.inner);
+            let mut state = search.lock();
             state.generation = 7;
             state.status.generation = 7;
             state.index = Some(Arc::clone(&index));
@@ -1369,179 +630,5 @@ mod tests {
         let response = fallback_response(&search, stale_status, Some(&index));
         assert_eq!(response.status.state, "disabled");
         assert_eq!(response.status.generation, search.status().generation);
-    }
-
-    #[test]
-    fn malformed_cache_dimensions_are_ignored_without_overflow() {
-        let root = temp_dir("cache-dimension");
-        let cache_path = root.join("cache.sqlite3");
-        let cache = EmbeddingCache::open(&cache_path).unwrap();
-        cache
-            .connection
-            .execute(
-                "INSERT INTO embeddings_v2
-                 (model_version, normalized_text_hash, dimension, vector, last_used_ts)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params!["test-v1", "hash", i64::MAX, vec![0_u8; 4], 0_i64],
-            )
-            .unwrap();
-
-        assert!(cache.get("test-v1", "hash").unwrap().is_none());
-        drop(cache);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn quantized_scores_track_float_cosine_closely() {
-        let left = normalize_vector((0..64).map(|index| (index as f32).sin()).collect()).unwrap();
-        let right =
-            normalize_vector((0..64).map(|index| (index as f32 * 0.7).cos()).collect()).unwrap();
-        let exact = left.iter().zip(&right).map(|(left, right)| left * right).sum::<f32>();
-        let approximate = quantized_score(&left, &quantize_vector(&right));
-        assert!(
-            (exact - approximate).abs() < 0.01,
-            "quantized {approximate} drifted from exact {exact}"
-        );
-        // A vector still scores highest against itself, which is what ranking needs.
-        assert!(quantized_score(&left, &quantize_vector(&left)) > approximate);
-    }
-
-    #[test]
-    fn eviction_keeps_the_cache_bounded_and_drops_stale_model_versions() {
-        let root = temp_dir("prune");
-        let cache_path = root.join("cache.sqlite3");
-        let mut cache = EmbeddingCache::open(&cache_path).unwrap();
-        for (index, hash) in ["oldest", "middle", "newest"].iter().enumerate() {
-            cache.put("model-a", hash, &[1, 2, 3, 4]).unwrap();
-            cache
-                .connection
-                .execute(
-                    "UPDATE embeddings_v2 SET last_used_ts = ?1 WHERE normalized_text_hash = ?2",
-                    params![index as i64, hash],
-                )
-                .unwrap();
-        }
-        cache.put("model-b", "other-model", &[1, 2, 3, 4]).unwrap();
-
-        cache.prune("model-a", 2).unwrap();
-
-        let remaining = cache
-            .connection
-            .prepare("SELECT normalized_text_hash FROM embeddings_v2 ORDER BY last_used_ts")
-            .unwrap()
-            .query_map([], |row| row.get::<_, String>(0))
-            .unwrap()
-            .collect::<rusqlite::Result<Vec<_>>>()
-            .unwrap();
-        assert_eq!(remaining, ["middle", "newest"]);
-        drop(cache);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn a_build_never_evicts_the_vectors_it_just_used() {
-        let root = temp_dir("prune-live");
-        let cache = root.join("cache.sqlite3");
-        write(
-            &root.join("notes.md"),
-            "# Topic\n\nOne paragraph.\n\n## Next\n\nAnother paragraph.\n",
-        );
-        let calls = Arc::new(AtomicUsize::new(0));
-        let provider =
-            FakeProvider { version: "prune-live".to_string(), calls: Arc::clone(&calls) };
-        let cancel = AtomicBool::new(false);
-        let first = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
-        let embedded = calls.load(Ordering::Relaxed);
-        assert_eq!(first.index.chunks.len(), 4);
-
-        // The live set is far below MAX_CACHE_ROWS, so a rebuild must stay fully
-        // cached rather than re-embedding evicted prose.
-        let second = build_index(&root, &cache, &cancel, &provider, |_, _| {}).unwrap();
-        assert_eq!(calls.load(Ordering::Relaxed), embedded);
-        assert_eq!(second.cached_chunks, 4);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn the_unbounded_v1_cache_is_discarded_on_upgrade() {
-        let root = temp_dir("legacy");
-        let cache_path = root.join("cache.sqlite3");
-        let legacy = Connection::open(&cache_path).unwrap();
-        legacy
-            .execute_batch(
-                "CREATE TABLE embeddings_v1 (
-                   model_version TEXT NOT NULL,
-                   normalized_text_hash TEXT NOT NULL,
-                   dimension INTEGER NOT NULL,
-                   vector BLOB NOT NULL,
-                   PRIMARY KEY (model_version, normalized_text_hash)
-                 );
-                 INSERT INTO embeddings_v1 VALUES ('old', 'hash', 1, x'00');",
-            )
-            .unwrap();
-        drop(legacy);
-
-        let cache = EmbeddingCache::open(&cache_path).unwrap();
-        let legacy_tables = cache
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'embeddings_v1'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .unwrap();
-        assert_eq!(legacy_tables, 0);
-        let auto_vacuum = cache
-            .connection
-            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
-            .unwrap();
-        assert_eq!(auto_vacuum, 2);
-        drop(cache);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn a_pre_cancelled_build_never_reads_or_embeds_the_project() {
-        let root = temp_dir("cancelled");
-        write(&root.join("paper.md"), "# Secret\n\nNever process this.\n");
-        let calls = Arc::new(AtomicUsize::new(0));
-        let provider =
-            FakeProvider { version: "cancel-test".to_string(), calls: Arc::clone(&calls) };
-        let cancel = AtomicBool::new(true);
-        let result = build_index(&root, &root.join("cache.sqlite3"), &cancel, &provider, |_, _| {});
-        assert_eq!(result.unwrap_err(), BuildFailure::Cancelled);
-        assert_eq!(calls.load(Ordering::Relaxed), 0);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    /// Manual, model-real benchmark. Run on either supported Mac architecture:
-    /// `cargo test --release semantic_search::tests::apple_sentence_embedding_benchmark -- --ignored --nocapture`
-    #[test]
-    #[ignore = "requires Apple's on-device English sentence model"]
-    fn apple_sentence_embedding_benchmark() {
-        #[cfg(target_os = "macos")]
-        {
-            let provider = SystemEmbeddingProvider::load().expect("Apple sentence embedding");
-            let passages = (0..200)
-                .map(|index| {
-                    format!(
-                        "Section {index}. We evaluate a local retrieval method on scientific manuscripts and report reproducible measurements."
-                    )
-                })
-                .collect::<Vec<_>>();
-            let started = std::time::Instant::now();
-            for passage in &passages {
-                provider.embed(passage).expect("embed passage");
-            }
-            let elapsed = started.elapsed();
-            eprintln!(
-                "Apple NLEmbedding: {} chunks in {:.3}s ({:.1} chunks/s)",
-                passages.len(),
-                elapsed.as_secs_f64(),
-                passages.len() as f64 / elapsed.as_secs_f64()
-            );
-        }
-        #[cfg(not(target_os = "macos"))]
-        eprintln!("Skipped: Apple NaturalLanguage is available only on macOS.");
     }
 }

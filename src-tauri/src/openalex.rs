@@ -1,5 +1,7 @@
+use crate::literature_service;
 use crate::models::OpenAlexWork;
 use serde::Deserialize;
+use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 struct WorksResponse {
@@ -41,33 +43,25 @@ struct PrimaryLocation {
 
 /// OpenAlex results per page; `page` is 1-indexed.
 pub const PER_PAGE: u32 = 25;
+const SELECT: &str =
+    "id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location";
+const USER_AGENT: &str = "Lattice/0.1 (research writing)";
 
 pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAlexWork>, String> {
-    let trimmed = query.trim();
-    if trimmed.is_empty() {
+    let query = query.trim();
+    if query.is_empty() {
         return Ok(Vec::new());
     }
-    let page = page.max(1);
-    let select = "id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location";
-    let url = if precise {
-        format!(
-            "https://api.openalex.org/works?filter=title_and_abstract.search:{}&per_page={PER_PAGE}&page={page}&select={select}",
-            urlencoding(trimmed)
-        )
-    } else {
-        format!(
-            "https://api.openalex.org/works?search={}&per_page={PER_PAGE}&page={page}&select={select}",
-            urlencoding(trimmed)
-        )
-    };
+    let search = if precise { "filter=title_and_abstract.search:" } else { "search=" };
+    let url = format!(
+        "https://api.openalex.org/works?{search}{}&per_page={PER_PAGE}&page={}&select={SELECT}",
+        urlencoding(query),
+        page.max(1)
+    );
     let key = crate::literature_credentials::openalex_key()?;
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("Lattice/0.1 (research writing)")
-        .timeout(std::time::Duration::from_secs(20))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
+    let client = literature_service::client(Duration::from_secs(20), Some(USER_AGENT))
         .map_err(|_| "Could not create OpenAlex client.".to_string())?;
-    let mut request = crate::literature_service::request(&client, &url, None, key.is_none())?;
+    let mut request = literature_service::request(&client, &url, None, key.is_none())?;
     if let Some(key) = key {
         request = request.bearer_auth(key);
     }
@@ -117,30 +111,14 @@ fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
 }
 
 fn arxiv_id_from_doi(doi: &str) -> Option<String> {
-    let lower = doi.to_ascii_lowercase();
-    let marker = "arxiv.";
-    let index = lower.find(marker)?;
-    let rest = &doi[index + marker.len()..];
-    let id = rest.split(['?', '#', '/']).next()?.trim();
-    if id.is_empty() {
-        None
-    } else {
-        Some(id.to_string())
-    }
+    let start = doi.to_ascii_lowercase().find("arxiv.")? + "arxiv.".len();
+    let id = doi[start..].split(['?', '#', '/']).next()?.trim();
+    (!id.is_empty()).then(|| id.to_string())
 }
 
+/// Form encoding: `util::url_encode`, with `+` for a space.
 pub(crate) fn urlencoding(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                encoded.push(byte as char);
-            }
-            b' ' => encoded.push('+'),
-            _ => encoded.push_str(&format!("%{byte:02X}")),
-        }
-    }
-    encoded
+    crate::util::url_encode(value).replace("%20", "+")
 }
 
 #[cfg(test)]
@@ -148,33 +126,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extracts_arxiv_id_from_doi() {
-        assert_eq!(arxiv_id_from_doi("10.48550/arXiv.1706.03762"), Some("1706.03762".to_string()));
-        assert_eq!(arxiv_id_from_doi("10.1145/123"), None);
-    }
-
-    #[test]
     fn maps_work_payload() {
-        let payload = WorkPayload {
-            id: Some("https://openalex.org/W123".into()),
-            title: Some("Attention Is All You Need".into()),
-            publication_year: Some(2017),
-            cited_by_count: Some(100),
-            doi: Some("https://doi.org/10.48550/arXiv.1706.03762".into()),
-            ids: Some(WorkIds {
-                openalex: Some("https://openalex.org/W123".into()),
-                doi: Some("https://doi.org/10.48550/arXiv.1706.03762".into()),
-            }),
-            authorships: Some(vec![Authorship {
-                author: Some(Author { display_name: Some("Ashish Vaswani".into()) }),
-            }]),
-            primary_location: Some(PrimaryLocation {
-                landing_page_url: Some("https://arxiv.org/abs/1706.03762".into()),
-            }),
-        };
+        let payload = serde_json::from_value(serde_json::json!({
+            "id": "https://openalex.org/W123",
+            "title": "Attention Is All You Need",
+            "publication_year": 2017,
+            "cited_by_count": 100,
+            "doi": "https://doi.org/10.48550/arXiv.1706.03762",
+            "ids": {"openalex": "https://openalex.org/W123", "doi": "https://doi.org/10.48550/arXiv.1706.03762"},
+            "authorships": [{"author": {"display_name": "Ashish Vaswani"}}],
+            "primary_location": {"landing_page_url": "https://arxiv.org/abs/1706.03762"},
+        }))
+        .unwrap();
         let work = map_work(payload).unwrap();
         assert_eq!(work.arxiv_id.as_deref(), Some("1706.03762"));
         assert_eq!(work.authors, vec!["Ashish Vaswani".to_string()]);
         assert_eq!(work.doi.as_deref(), Some("10.48550/arxiv.1706.03762"));
+        assert_eq!(arxiv_id_from_doi("10.1145/123"), None);
+        // Form encoding, as every provider query in the crate sends it.
+        assert_eq!(urlencoding("a b+c/é~"), "a+b%2Bc%2F%C3%A9~");
     }
 }

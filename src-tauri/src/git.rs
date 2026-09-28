@@ -1,14 +1,22 @@
+//! Git for the project folder: its status and the version timeline (history,
+//! per-file diffs, restore, and the automatic commits that record versions).
+//!
+//! Everything runs the user's own git with terminal prompts disabled, so
+//! their SSH agent or credential helper applies and nothing can block.
+
 use crate::commands;
-use crate::models::{
-    GitDiff, GitFileDiff, GitFileStatus, GitLogEntry, GitLogFile, GitRemoteResult, GitStatus,
-};
+use crate::models::{GitFileDiff, GitLogEntry, GitStatus};
 use crate::project;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
+
+mod parse;
+
+use parse::{parse_log, parse_porcelain_v2};
 
 /// File extensions the version timeline always treats as binary, so we never
 /// try to render their blobs as text diffs.
@@ -52,13 +60,12 @@ fn ensure_internal_ignored(root: &Path) {
             .lines()
             .map(str::trim)
             .any(|line| line == *dir || line == format!("{dir}/") || line == format!("/{dir}/"));
-        if covered {
-            continue;
+        if !covered {
+            if !next.is_empty() && !next.ends_with('\n') {
+                next.push('\n');
+            }
+            next.push_str(&format!("{dir}/\n"));
         }
-        if !next.is_empty() && !next.ends_with('\n') {
-            next.push('\n');
-        }
-        next.push_str(&format!("{dir}/\n"));
     }
     if next != existing {
         let _ = fs::write(&ignore_path, next);
@@ -67,57 +74,40 @@ fn ensure_internal_ignored(root: &Path) {
     // files are dropped from the index; .gitignore alone does not untrack.
     for dir in &present {
         let tracked = git_output(root, &["ls-files", "-z", "--", dir]).unwrap_or_default();
-        if !tracked.trim_matches('\0').is_empty() {
+        if nul_separated(&tracked).next().is_some() {
             let _ = git_run(root, &["rm", "-r", "--cached", "--quiet", "--", dir]);
         }
     }
 }
 
 pub fn status(root: &Path) -> Result<GitStatus, String> {
-    if !commands::available("git") {
-        return Ok(empty_status(false, false));
-    }
-    if !is_repository(root)? {
-        return Ok(empty_status(true, false));
+    let available = commands::available("git");
+    if !available || !is_repository(root) {
+        return Ok(GitStatus { available, repository: false, ..parse_porcelain_v2("") });
     }
     // The frontend polls this every couple of seconds, so subprocess count
-    // matters. One porcelain-v2 spawn carries branch, upstream, ahead/behind,
-    // and file status — it used to take four separate git invocations. `-z`
+    // matters: one porcelain-v2 spawn carries every file's status. `-z`
     // sidesteps C-style path quoting entirely.
-    let porcelain = git_output(root, &["status", "--porcelain=v2", "--branch", "-z", "-uall"])?;
-    let parsed = parse_porcelain_v2(&porcelain);
-    let (remote, remote_url) = cached_remote(root);
-    Ok(GitStatus {
-        available: true,
-        repository: true,
-        branch: parsed.branch,
-        remote,
-        remote_url,
-        upstream: parsed.upstream,
-        ahead: parsed.ahead,
-        behind: parsed.behind,
-        files: parsed.files,
-    })
+    let porcelain = git_output(root, &["status", "--porcelain=v2", "-z", "-uall"])?;
+    let mut status = parse_porcelain_v2(&porcelain);
+    (status.remote, status.remote_url) = cached_remote(root);
+    Ok(status)
 }
 
+/// A remote's name and URL.
+type Remote = (Option<String>, Option<String>);
+
 /// Remote name/URL memo with a short TTL. Remotes essentially never change
-/// mid-session (only `set_remote` edits them, and it invalidates), so the
-/// 2-second status poll does not need to re-spawn `git remote` +
-/// `git remote get-url` every tick.
-static REMOTE_CACHE: LazyLock<Mutex<HashMap<PathBuf, RemoteCacheEntry>>> =
+/// mid-session (Lattice never edits them), so the 2-second status poll does not
+/// need to re-spawn `git remote` + `git remote get-url` every tick.
+static REMOTE_CACHE: LazyLock<Mutex<HashMap<PathBuf, (Instant, Remote)>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 const REMOTE_CACHE_TTL: Duration = Duration::from_secs(30);
 
-struct RemoteCacheEntry {
-    resolved_at: Instant,
-    remote: Option<String>,
-    remote_url: Option<String>,
-}
-
-fn cached_remote(root: &Path) -> (Option<String>, Option<String>) {
-    if let Some(entry) = REMOTE_CACHE.lock().unwrap().get(root) {
-        if entry.resolved_at.elapsed() < REMOTE_CACHE_TTL {
-            return (entry.remote.clone(), entry.remote_url.clone());
+fn cached_remote(root: &Path) -> Remote {
+    if let Some((resolved_at, remote)) = REMOTE_CACHE.lock().unwrap().get(root) {
+        if resolved_at.elapsed() < REMOTE_CACHE_TTL {
+            return remote.clone();
         }
     }
     let remote = primary_remote(root);
@@ -126,84 +116,14 @@ fn cached_remote(root: &Path) -> (Option<String>, Option<String>) {
         .and_then(|name| git_output(root, &["remote", "get-url", name]).ok())
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    REMOTE_CACHE.lock().unwrap().insert(
-        root.to_path_buf(),
-        RemoteCacheEntry {
-            resolved_at: Instant::now(),
-            remote: remote.clone(),
-            remote_url: remote_url.clone(),
-        },
-    );
-    (remote, remote_url)
-}
-
-fn forget_cached_remote(root: &Path) {
-    REMOTE_CACHE.lock().unwrap().remove(root);
-}
-
-pub fn diff(root: &Path, path: &str, staged: bool) -> Result<GitDiff, String> {
-    ensure_repository(root)?;
-    let relative = normalize_relative(path)?;
-    let _ = project::safe_path(root, &relative)?;
-    let before = if staged {
-        show_blob(root, &format!("HEAD:{relative}"))
-    } else if has_head(root) {
-        // Prefer index version when present so unstaged diffs match `git diff`.
-        show_blob(root, &format!(":{relative}"))
-            .or_else(|| show_blob(root, &format!("HEAD:{relative}")))
-    } else {
-        None
-    };
-    let after = if staged {
-        show_blob(root, &format!(":{relative}"))
-    } else if project::safe_path(root, &relative)?.is_file() {
-        Some(project::read_file(root, &relative)?)
-    } else {
-        None
-    };
-    Ok(GitDiff { path: relative, staged, before, after })
-}
-
-pub fn stage(root: &Path, paths: &[String]) -> Result<(), String> {
-    ensure_repository(root)?;
-    let relative_paths = validated_paths(root, paths)?;
-    let mut args = vec!["add".to_string(), "--".to_string()];
-    args.extend(relative_paths);
-    git_run(root, &args.iter().map(String::as_str).collect::<Vec<_>>())?;
-    Ok(())
-}
-
-pub fn unstage(root: &Path, paths: &[String]) -> Result<(), String> {
-    ensure_repository(root)?;
-    let relative_paths = validated_paths(root, paths)?;
-    let mut args = vec!["restore".to_string(), "--staged".to_string(), "--".to_string()];
-    args.extend(relative_paths);
-    match git_run(root, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
-        Ok(()) => Ok(()),
-        Err(_) => {
-            // Older git / first commit: fall back to `git reset HEAD -- paths`.
-            let mut fallback = vec!["reset".to_string(), "HEAD".to_string(), "--".to_string()];
-            fallback.extend(validated_paths(root, paths)?);
-            git_run(root, &fallback.iter().map(String::as_str).collect::<Vec<_>>())
-        }
-    }
-}
-
-pub fn commit(root: &Path, message: &str) -> Result<String, String> {
-    ensure_repository(root)?;
-    let trimmed = message.trim();
-    if trimmed.is_empty() {
-        return Err("Commit message cannot be empty.".to_string());
-    }
-    git_run(root, &["commit", "-m", trimmed])?;
-    git_output(root, &["rev-parse", "--short", "HEAD"]).map(|value| value.trim().to_string())
+    let resolved = (remote, remote_url);
+    REMOTE_CACHE.lock().unwrap().insert(root.to_path_buf(), (Instant::now(), resolved.clone()));
+    resolved
 }
 
 pub fn init(root: &Path) -> Result<GitStatus, String> {
-    if !commands::available("git") {
-        return Err("git is not installed or not on PATH.".to_string());
-    }
-    if !is_repository(root)? {
+    require_git()?;
+    if !is_repository(root) {
         git_run(root, &["init"])?;
     }
     ensure_internal_ignored(root);
@@ -215,133 +135,45 @@ pub fn init(root: &Path) -> Result<GitStatus, String> {
     status(root)
 }
 
-pub fn set_remote(root: &Path, name: &str, url: &str) -> Result<GitStatus, String> {
-    ensure_repository(root)?;
-    let remote_name = normalize_remote_name(name)?;
-    let remote_url = normalize_remote_url(url)?;
-    if remote_exists(root, &remote_name) {
-        git_run(root, &["remote", "set-url", &remote_name, &remote_url])?;
-    } else {
-        git_run(root, &["remote", "add", &remote_name, &remote_url])?;
-    }
-    forget_cached_remote(root);
-    status(root)
-}
-
-pub fn push(root: &Path) -> Result<GitRemoteResult, String> {
-    ensure_repository(root)?;
-    let remote =
-        primary_remote(root).ok_or_else(|| "Add a remote URL before pushing.".to_string())?;
-    let branch = current_branch(root)?
-        .ok_or_else(|| "Checkout a named branch before pushing.".to_string())?;
-    let has_upstream =
-        git_run(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
-            .is_ok();
-    let output = if has_upstream {
-        git_run_capture(root, &["push"])?
-    } else {
-        git_run_capture(root, &["push", "-u", &remote, &branch])?
-    };
-    Ok(GitRemoteResult { summary: summarize_remote_output("Push", &output), status: status(root)? })
-}
-
-pub fn pull(root: &Path) -> Result<GitRemoteResult, String> {
-    ensure_repository(root)?;
-    if primary_remote(root).is_none() {
-        return Err("Add a remote URL before pulling.".to_string());
-    }
-    let has_upstream =
-        git_run(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
-            .is_ok();
-    let output = if has_upstream {
-        git_run_capture(root, &["pull", "--ff-only"])?
-    } else {
-        let remote = primary_remote(root).unwrap();
-        let branch = current_branch(root)?
-            .ok_or_else(|| "Checkout a named branch before pulling.".to_string())?;
-        git_run_capture(root, &["pull", "--ff-only", &remote, &branch])?
-    };
-    Ok(GitRemoteResult { summary: summarize_remote_output("Pull", &output), status: status(root)? })
-}
-
-pub fn fetch(root: &Path) -> Result<GitRemoteResult, String> {
-    ensure_repository(root)?;
-    let remote =
-        primary_remote(root).ok_or_else(|| "Add a remote URL before fetching.".to_string())?;
-    let output = git_run_capture(root, &["fetch", &remote])?;
-    Ok(GitRemoteResult {
-        summary: summarize_remote_output("Fetch", &output),
-        status: status(root)?,
-    })
-}
-
 pub fn log(root: &Path, limit: usize) -> Result<Vec<GitLogEntry>, String> {
-    if !commands::available("git") || !is_repository(root)? || !has_head(root) {
+    if !commands::available("git") || !is_repository(root) || !has_head(root) {
         return Ok(Vec::new());
     }
     let limit_arg = format!("--max-count={limit}");
-    let output = git_output(
-        root,
-        &[
-            "log",
-            "--name-status",
-            "-M",
-            &limit_arg,
-            "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s",
-        ],
-    )?;
-    Ok(parse_log(&output))
+    let format = "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s";
+    Ok(parse_log(&git_output(root, &["log", "--name-status", "-M", &limit_arg, format])?))
 }
 
 pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
     let relative = normalize_relative(path)?;
-    let _ = project::safe_path(root, &relative)?;
+    project::safe_path(root, &relative)?;
+    let binary = GitFileDiff { before: None, after: None, binary: true };
     if is_binary_path(&relative) {
-        return Ok(GitFileDiff { before: None, after: None, binary: true });
+        return Ok(binary);
     }
     // `rev^:path` fails both when rev has no parent and when the file was
     // added in rev; either way there is no "before" side.
     let before = show_blob_bytes(root, &format!("{rev}^:{relative}"));
     let after = show_blob_bytes(root, &format!("{rev}:{relative}"));
-    let has_nul = |bytes: &Option<Vec<u8>>| bytes.as_ref().is_some_and(|blob| blob.contains(&0));
-    if has_nul(&before) || has_nul(&after) {
-        return Ok(GitFileDiff { before: None, after: None, binary: true });
+    if [&before, &after].iter().any(|blob| blob.as_ref().is_some_and(|bytes| bytes.contains(&0))) {
+        return Ok(binary);
     }
-    Ok(GitFileDiff {
-        before: before.map(|blob| String::from_utf8_lossy(&blob).into_owned()),
-        after: after.map(|blob| String::from_utf8_lossy(&blob).into_owned()),
-        binary: false,
-    })
+    let text =
+        |blob: Option<Vec<u8>>| blob.map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+    Ok(GitFileDiff { before: text(before), after: text(after), binary: false })
 }
 
 pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
     let relative = normalize_relative(path)?;
-    let absolute = project::safe_path(root, &relative)?;
-    let spec = format!("{rev}:{relative}");
-    if git_run(root, &["cat-file", "-e", &spec]).is_err() {
+    project::safe_path(root, &relative)?;
+    if git_run(root, &["cat-file", "-e", &format!("{rev}:{relative}")]).is_err() {
         return Err(format!("{relative} did not exist at revision {rev}."));
     }
-    if git_run(root, &["restore", "--source", &rev, "--worktree", "--", &relative]).is_ok() {
-        return Ok(());
-    }
-    // Older git without `restore`: write the blob contents directly.
-    let output = git_command(root)
-        .args(["show", &spec])
-        .output()
-        .map_err(|error| format!("Could not run git: {error}"))?;
-    if !output.status.success() {
-        return Err(format!("Could not read {relative} at revision {rev}."));
-    }
-    if let Some(parent) = absolute.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("Could not restore {relative}: {error}"))?;
-    }
-    fs::write(&absolute, &output.stdout)
-        .map_err(|error| format!("Could not restore {relative}: {error}"))
+    git_run(root, &["restore", "--source", &rev, "--worktree", "--", &relative])
 }
 
 /// Forward-only restore: make the worktree match `rev`, then commit that as a
@@ -354,21 +186,17 @@ pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", "."])?;
     // `git restore` never deletes, so drop tracked files that did not exist
     // at rev. Untracked files are absent from `ls-files` and stay intact.
-    let at_rev = git_output(root, &["ls-tree", "-r", "--name-only", "-z", &rev])?
-        .split('\0')
-        .filter(|name| !name.is_empty())
-        .map(str::to_string)
-        .collect::<HashSet<_>>();
-    let tracked = git_output(root, &["ls-files", "-z"])?;
-    for name in tracked.split('\0').filter(|name| !name.is_empty()) {
+    let at_rev = git_output(root, &["ls-tree", "-r", "--name-only", "-z", &rev])?;
+    let at_rev = nul_separated(&at_rev).collect::<HashSet<_>>();
+    for name in nul_separated(&git_output(root, &["ls-files", "-z"])?) {
         if !at_rev.contains(name) {
             let _ = fs::remove_file(root.join(name));
         }
     }
-    let short = git_output(root, &["rev-parse", "--short", &rev])?.trim().to_string();
+    let short = rev_parse(root, &["--short", &rev])?;
     match auto_commit(root, &format!("Restore project to {short}"), None)? {
         Some(hash) => Ok(hash),
-        None => git_output(root, &["rev-parse", "HEAD"]).map(|value| value.trim().to_string()),
+        None => rev_parse(root, &["HEAD"]),
     }
 }
 
@@ -379,161 +207,69 @@ pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
 pub fn auto_commit(
     root: &Path, message: &str, author_name: Option<&str>,
 ) -> Result<Option<String>, String> {
-    if !commands::available("git") || !is_repository(root)? {
+    if !commands::available("git") || !is_repository(root) {
         return Ok(None);
     }
-    let trimmed = message.trim();
-    if trimmed.is_empty() {
+    let message = message.trim();
+    if message.is_empty() {
         return Err("Commit message cannot be empty.".to_string());
     }
     ensure_internal_ignored(root);
     git_run(root, &["add", "-A"])?;
-    let porcelain = git_output(root, &["status", "--porcelain"])?;
-    if porcelain.trim().is_empty() {
+    if git_output(root, &["status", "--porcelain"])?.trim().is_empty() {
         return Ok(None);
     }
     let identity = author_name
         .map(sanitize_author_name)
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "Lattice".to_string());
-    let mut args = vec![
-        "-c".to_string(),
-        format!("user.name={identity}"),
-        "-c".to_string(),
-        "user.email=lattice@local".to_string(),
-        "commit".to_string(),
-        "-m".to_string(),
-        trimmed.to_string(),
-    ];
+    let user_name = format!("user.name={identity}");
     let mut command = git_command(root);
+    command.args(["-c", &user_name, "-c", "user.email=lattice@local", "commit", "-m", message]);
     if author_name.is_some() {
         let email = format!("{}@lattice.local", author_email_slug(&identity));
-        args.push("--author".to_string());
-        args.push(format!("{identity} <{email}>"));
-        command.env("GIT_COMMITTER_NAME", &identity);
-        command.env("GIT_COMMITTER_EMAIL", &email);
+        command
+            .arg("--author")
+            .arg(format!("{identity} <{email}>"))
+            .env("GIT_COMMITTER_NAME", &identity)
+            .env("GIT_COMMITTER_EMAIL", &email);
     }
-    let output =
-        command.args(&args).output().map_err(|error| format!("Could not run git: {error}"))?;
+    let output = command.output().map_err(|error| format!("Could not run git: {error}"))?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() { "git commit failed.".to_string() } else { stderr });
+        return Err(commands::stderr_or(&output, "git commit failed."));
     }
-    let hash = git_output(root, &["rev-parse", "HEAD"])?.trim().to_string();
-    Ok(Some(hash))
+    rev_parse(root, &["HEAD"]).map(Some)
 }
 
-fn empty_status(available: bool, repository: bool) -> GitStatus {
-    GitStatus {
-        available,
-        repository,
-        branch: None,
-        remote: None,
-        remote_url: None,
-        upstream: None,
-        ahead: 0,
-        behind: 0,
-        files: Vec::new(),
+fn require_git() -> Result<(), String> {
+    if commands::available("git") {
+        Ok(())
+    } else {
+        Err("git is not installed or not on PATH.".to_string())
     }
 }
 
 fn ensure_repository(root: &Path) -> Result<(), String> {
-    if !commands::available("git") {
-        return Err("git is not installed or not on PATH.".to_string());
-    }
-    if !is_repository(root)? {
+    require_git()?;
+    if !is_repository(root) {
         return Err("This project is not inside a Git repository.".to_string());
     }
     Ok(())
 }
 
-fn is_repository(root: &Path) -> Result<bool, String> {
-    match git_output(root, &["rev-parse", "--is-inside-work-tree"]) {
-        Ok(value) => Ok(value.trim() == "true"),
-        Err(_) => Ok(false),
-    }
+fn is_repository(root: &Path) -> bool {
+    rev_parse(root, &["--is-inside-work-tree"]).is_ok_and(|value| value == "true")
 }
 
 fn has_head(root: &Path) -> bool {
     git_run(root, &["rev-parse", "--verify", "HEAD"]).is_ok()
 }
 
-fn current_branch(root: &Path) -> Result<Option<String>, String> {
-    let value = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
-    let branch = value.trim();
-    if branch.is_empty() || branch == "HEAD" {
-        Ok(None)
-    } else {
-        Ok(Some(branch.to_string()))
-    }
-}
-
+/// `origin` when it exists, else the first remote git lists.
 fn primary_remote(root: &Path) -> Option<String> {
     let remotes = git_output(root, &["remote"]).ok()?;
-    let mut names = remotes
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    if names.is_empty() {
-        return None;
-    }
-    if let Some(index) = names.iter().position(|name| name == "origin") {
-        return Some(names.swap_remove(index));
-    }
-    Some(names.remove(0))
-}
-
-fn remote_exists(root: &Path, name: &str) -> bool {
-    git_output(root, &["remote"])
-        .ok()
-        .map(|value| value.lines().any(|line| line.trim() == name))
-        .unwrap_or(false)
-}
-
-fn normalize_remote_name(name: &str) -> Result<String, String> {
-    let trimmed = name.trim();
-    if trimmed.is_empty()
-        || !trimmed.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
-    {
-        return Err("Remote name must be a simple identifier like origin.".to_string());
-    }
-    Ok(trimmed.to_string())
-}
-
-fn normalize_remote_url(url: &str) -> Result<String, String> {
-    let trimmed = url.trim();
-    if trimmed.is_empty() {
-        return Err("Remote URL cannot be empty.".to_string());
-    }
-    if trimmed.contains('\n') || trimmed.contains('\r') || trimmed.contains(' ') {
-        return Err("Remote URL looks invalid.".to_string());
-    }
-    let lower = trimmed.to_ascii_lowercase();
-    if !(lower.starts_with("https://")
-        || lower.starts_with("http://")
-        || lower.starts_with("git@")
-        || lower.starts_with("ssh://")
-        || lower.starts_with("git://"))
-    {
-        return Err("Remote URL must be https, ssh, or git.".to_string());
-    }
-    Ok(trimmed.to_string())
-}
-
-fn validated_paths(root: &Path, paths: &[String]) -> Result<Vec<String>, String> {
-    if paths.is_empty() {
-        return Err("Select at least one file.".to_string());
-    }
-    paths
-        .iter()
-        .map(|path| {
-            let relative = normalize_relative(path)?;
-            let _ = project::safe_path(root, &relative)?;
-            Ok(relative)
-        })
-        .collect()
+    let names = remotes.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>();
+    names.iter().find(|name| **name == "origin").or(names.first()).map(|name| name.to_string())
 }
 
 fn normalize_relative(path: &str) -> Result<String, String> {
@@ -544,25 +280,9 @@ fn normalize_relative(path: &str) -> Result<String, String> {
     Ok(relative)
 }
 
-fn show_blob(root: &Path, spec: &str) -> Option<String> {
-    git_output(root, &["show", spec]).ok()
-}
-
-fn show_blob_bytes(root: &Path, spec: &str) -> Option<Vec<u8>> {
-    let output = git_command(root).args(["show", spec]).output().ok()?;
-    if output.status.success() {
-        Some(output.stdout)
-    } else {
-        None
-    }
-}
-
 fn validate_rev(rev: &str) -> Result<String, String> {
     let trimmed = rev.trim();
-    let hex = trimmed.len() >= 4
-        && trimmed.len() <= 40
-        && trimmed.chars().all(|ch| ch.is_ascii_hexdigit());
-    if !hex {
+    if !(4..=40).contains(&trimmed.len()) || !trimmed.chars().all(|ch| ch.is_ascii_hexdigit()) {
         return Err("Invalid revision: expected a commit hash.".to_string());
     }
     Ok(trimmed.to_string())
@@ -570,10 +290,7 @@ fn validate_rev(rev: &str) -> Result<String, String> {
 
 fn is_binary_path(relative: &str) -> bool {
     Path::new(relative).extension().and_then(|extension| extension.to_str()).is_some_and(
-        |extension| {
-            let lower = extension.to_ascii_lowercase();
-            BINARY_EXTENSIONS.contains(&lower.as_str())
-        },
+        |extension| BINARY_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str()),
     )
 }
 
@@ -586,298 +303,82 @@ fn author_email_slug(name: &str) -> String {
         .to_ascii_lowercase()
         .chars()
         .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
-        .collect::<String>()
-        .trim_matches('-')
-        .to_string();
-    if slug.is_empty() {
-        "author".to_string()
-    } else {
-        slug
-    }
+        .collect::<String>();
+    let slug = slug.trim_matches('-');
+    if slug.is_empty() { "author" } else { slug }.to_string()
 }
 
-fn parse_log(raw: &str) -> Vec<GitLogEntry> {
-    let mut entries = Vec::new();
-    for record in raw.split('\u{1e}') {
-        let record = record.trim_matches('\n');
-        if record.is_empty() {
-            continue;
-        }
-        let mut lines = record.lines();
-        let header = lines.next().unwrap_or("");
-        let mut fields = header.splitn(5, '\u{1f}');
-        let hash = fields.next().unwrap_or("").to_string();
-        if hash.is_empty() {
-            continue;
-        }
-        let short_hash = fields.next().unwrap_or("").to_string();
-        let author_name = fields.next().unwrap_or("").to_string();
-        let timestamp = fields.next().unwrap_or("").to_string();
-        let message = fields.next().unwrap_or("").to_string();
-        let listed = lines.filter_map(parse_name_status_line).collect::<Vec<GitLogFile>>();
-        let had_files = !listed.is_empty();
-        let files = listed
-            .into_iter()
-            .filter(|file| !is_internal_path(&file.path))
-            .collect::<Vec<GitLogFile>>();
-        // A version whose every change was Lattice's own state is not a
-        // version of the user's work. Projects from before `.research/` was
-        // ignored have a long run of these, one per Overleaf sync.
-        if had_files && files.is_empty() {
-            continue;
-        }
-        entries.push(GitLogEntry { hash, short_hash, author_name, timestamp, message, files });
-    }
-    entries
+fn nul_separated(text: &str) -> impl Iterator<Item = &str> {
+    text.split('\0').filter(|name| !name.is_empty())
 }
 
-fn parse_name_status_line(line: &str) -> Option<GitLogFile> {
-    let line = line.trim_end();
-    if line.is_empty() {
-        return None;
-    }
-    let mut parts = line.split('\t');
-    let code = parts.next()?;
-    let first = code.chars().next()?;
-    // Renames and copies list old then new; report the new path so the
-    // timeline points at the file that exists in that commit.
-    let path = if matches!(first, 'R' | 'C') {
-        let _old = parts.next()?;
-        parts.next()?
-    } else {
-        parts.next()?
-    };
-    let kind = match first {
-        'A' | 'C' => "added",
-        'D' => "deleted",
-        'R' => "renamed",
-        _ => "modified",
-    };
-    Some(GitLogFile { path: path.replace('\\', "/"), kind: kind.to_string() })
+fn show_blob_bytes(root: &Path, spec: &str) -> Option<Vec<u8>> {
+    run_git(root, &["show", spec])
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| output.stdout)
 }
 
 fn git_command(root: &Path) -> Command {
     let mut command = commands::command("git");
-    command.current_dir(root);
-    command.env("GIT_TERMINAL_PROMPT", "0");
-    command.env("GIT_OPTIONAL_LOCKS", "0");
+    command.current_dir(root).env("GIT_TERMINAL_PROMPT", "0").env("GIT_OPTIONAL_LOCKS", "0");
     command
 }
 
-fn git_run(root: &Path, args: &[&str]) -> Result<(), String> {
-    git_run_capture(root, args).map(|_| ())
+fn run_git(root: &Path, args: &[&str]) -> Result<Output, String> {
+    git_command(root).args(args).output().map_err(|error| format!("Could not run git: {error}"))
 }
 
-fn git_run_capture(root: &Path, args: &[&str]) -> Result<String, String> {
-    let output = git_command(root)
-        .args(args)
-        .output()
-        .map_err(|error| format!("Could not run git: {error}"))?;
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if output.status.success() {
-        return Ok(if !stdout.is_empty() { stdout } else { stderr });
-    }
-    Err(rewrite_auth_error(if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        format!("git {} failed.", args.join(" "))
-    }))
-}
-
+/// Stdout of a successful run, exactly as printed.
 fn git_output(root: &Path, args: &[&str]) -> Result<String, String> {
-    let output = git_command(root)
-        .args(args)
-        .output()
-        .map_err(|error| format!("Could not run git: {error}"))?;
+    let output = run_git(root, args)?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() {
-            format!("git {} failed.", args.join(" "))
-        } else {
-            stderr
-        });
+        return Err(commands::stderr_or(&output, &format!("git {} failed.", args.join(" "))));
     }
     String::from_utf8(output.stdout).map_err(|error| format!("Invalid git output: {error}"))
 }
 
-fn rewrite_auth_error(error: String) -> String {
-    let lower = error.to_ascii_lowercase();
-    if lower.contains("authentication failed")
-        || lower.contains("could not read username")
-        || lower.contains("permission denied (publickey)")
-        || lower.contains("terminal prompts disabled")
-        || lower.contains("could not read password")
-    {
-        format!(
-            "{error}\n\nLattice uses your system Git credentials (SSH agent or credential helper). Authenticate once in Terminal, then retry."
-        )
-    } else {
-        error
-    }
+fn rev_parse(root: &Path, args: &[&str]) -> Result<String, String> {
+    let args = [&["rev-parse"], args].concat();
+    git_output(root, &args).map(|value| value.trim().to_string())
 }
 
-fn summarize_remote_output(action: &str, output: &str) -> String {
-    let trimmed = output.trim();
-    if trimmed.is_empty() {
-        format!("{action} complete.")
-    } else {
-        let first = trimmed.lines().next().unwrap_or(trimmed);
-        format!("{action}: {first}")
+fn git_run(root: &Path, args: &[&str]) -> Result<(), String> {
+    let output = run_git(root, args)?;
+    if output.status.success() {
+        return Ok(());
     }
-}
-
-#[derive(Debug, Default)]
-struct PorcelainV2 {
-    branch: Option<String>,
-    upstream: Option<String>,
-    ahead: u32,
-    behind: u32,
-    files: Vec<GitFileStatus>,
-}
-
-/// Parse `git status --porcelain=v2 --branch -z` output. Records are
-/// NUL-terminated; a rename/copy (`2`) record's *original* path follows as
-/// its own NUL-terminated token, and paths are never quoted in `-z` mode.
-fn parse_porcelain_v2(raw: &str) -> PorcelainV2 {
-    let mut result = PorcelainV2::default();
-    let mut unborn = false;
-    let mut tokens = raw.split('\0');
-    while let Some(token) = tokens.next() {
-        if token.is_empty() {
-            continue;
-        }
-        if let Some(header) = token.strip_prefix("# ") {
-            if let Some(value) = header.strip_prefix("branch.oid ") {
-                unborn = value == "(initial)";
-            } else if let Some(value) = header.strip_prefix("branch.head ") {
-                if !value.is_empty() && value != "(detached)" {
-                    result.branch = Some(value.to_string());
-                }
-            } else if let Some(value) = header.strip_prefix("branch.upstream ") {
-                if !value.is_empty() {
-                    result.upstream = Some(value.to_string());
-                }
-            } else if let Some(value) = header.strip_prefix("branch.ab ") {
-                for part in value.split_whitespace() {
-                    if let Some(ahead) = part.strip_prefix('+') {
-                        result.ahead = ahead.parse().unwrap_or(0);
-                    } else if let Some(behind) = part.strip_prefix('-') {
-                        result.behind = behind.parse().unwrap_or(0);
-                    }
-                }
-            }
-            continue;
-        }
-        let Some((kind, rest)) = token.split_once(' ') else {
-            continue;
-        };
-        match kind {
-            // 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
-            "1" => {
-                let mut fields = rest.splitn(8, ' ');
-                let xy = fields.next().unwrap_or("");
-                let path = fields.nth(6).unwrap_or("");
-                push_v2_entry(&mut result.files, xy, path);
-            }
-            // 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path> NUL <origPath>
-            "2" => {
-                let mut fields = rest.splitn(9, ' ');
-                let xy = fields.next().unwrap_or("");
-                let path = fields.nth(7).unwrap_or("");
-                let _original = tokens.next();
-                push_v2_entry(&mut result.files, xy, path);
-            }
-            // u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
-            "u" => {
-                let mut fields = rest.splitn(10, ' ');
-                let xy = fields.next().unwrap_or("");
-                let path = fields.nth(8).unwrap_or("");
-                push_v2_entry(&mut result.files, xy, path);
-            }
-            "?" => push_v2_entry(&mut result.files, "??", rest),
-            _ => {}
-        }
-    }
-    // Match the previous behavior (`rev-parse --abbrev-ref HEAD` fails on an
-    // unborn branch): a repository with no commits reports no branch.
-    if unborn {
-        result.branch = None;
-    }
-    result
-}
-
-fn push_v2_entry(files: &mut Vec<GitFileStatus>, xy: &str, path: &str) {
-    if path.is_empty() {
-        return;
-    }
-    let mut states = xy.chars();
-    // v2 marks "unchanged" with '.'; classify_status and the staged/unstaged
-    // flags below speak the v1 dialect where that position is a space.
-    let normalize = |state: Option<char>| match state {
-        Some('.') | None => ' ',
-        Some(state) => state,
-    };
-    let index = normalize(states.next());
-    let worktree = normalize(states.next());
-    let staged = index != ' ' && index != '?';
-    let unstaged = worktree != ' ' || index == '?';
-    files.push(GitFileStatus {
-        path: path.replace('\\', "/"),
-        status: classify_status(index, worktree),
-        staged,
-        unstaged,
-    });
-}
-
-fn classify_status(index: char, worktree: char) -> String {
-    let code = if worktree == 'U' || index == 'U' || (index == 'A' && worktree == 'A') {
-        'U'
-    } else if worktree == '?' {
-        '?'
-    } else if worktree != ' ' {
-        worktree
-    } else {
-        index
-    };
-    match code {
-        'A' => "added".to_string(),
-        'D' => "deleted".to_string(),
-        'R' => "renamed".to_string(),
-        'C' => "copied".to_string(),
-        'U' => "conflict".to_string(),
-        '?' => "untracked".to_string(),
-        'M' | 'T' => "modified".to_string(),
-        _ => "modified".to_string(),
-    }
+    // Some commands explain a failure on stdout only.
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let fallback =
+        if stdout.is_empty() { format!("git {} failed.", args.join(" ")) } else { stdout };
+    Err(commands::stderr_or(&output, &fallback))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::process::Command;
+    use crate::test_support::TempDir;
 
-    fn temp_root(label: &str) -> std::path::PathBuf {
-        let root =
-            std::env::temp_dir().join(format!("lattice-git-{label}-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        root
+    fn scratch(label: &str) -> TempDir {
+        TempDir::new(&format!("git-{label}"))
     }
 
-    fn run(root: &Path, args: &[&str]) {
-        let status = Command::new("git")
-            .current_dir(root)
-            .args(args)
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .status()
-            .unwrap();
-        assert!(status.success(), "git {} failed", args.join(" "));
+    /// A repository with a local identity, or `None` when git is not
+    /// installed and these tests have nothing to exercise.
+    fn repo(label: &str) -> Option<TempDir> {
+        if !commands::available("git") {
+            return None;
+        }
+        let root = scratch(label);
+        git(&root, &["init"]);
+        git(&root, &["config", "user.email", "lattice@example.com"]);
+        git(&root, &["config", "user.name", "Lattice"]);
+        Some(root)
     }
 
-    fn capture(root: &Path, args: &[&str]) -> String {
+    /// Run git in `root`, which must succeed, and return its trimmed stdout.
+    fn git(root: &Path, args: &[&str]) -> String {
         let output = Command::new("git")
             .current_dir(root)
             .args(args)
@@ -888,188 +389,63 @@ mod tests {
         String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
 
-    fn repo(label: &str) -> std::path::PathBuf {
-        let root = temp_root(label);
-        run(&root, &["init"]);
-        run(&root, &["config", "user.email", "lattice@example.com"]);
-        run(&root, &["config", "user.name", "Lattice"]);
-        root
+    /// Write `files`, commit everything as `message`, and return the new HEAD.
+    fn commit(root: &TempDir, files: &[(&str, &str)], message: &str) -> String {
+        for (path, contents) in files {
+            root.write(path, contents);
+        }
+        git(root, &["add", "-A"]);
+        git(root, &["commit", "-m", message]);
+        git(root, &["rev-parse", "HEAD"])
     }
 
-    fn commit_all(root: &Path, message: &str) {
-        run(root, &["add", "-A"]);
-        run(root, &["commit", "-m", message]);
+    fn last_commit(root: &Path, format: &str) -> String {
+        git(root, &["log", "-1", &format!("--format={format}")])
     }
 
-    fn head(root: &Path) -> String {
-        capture(root, &["rev-parse", "HEAD"])
-    }
-
-    fn kind_of<'a>(entry: &'a crate::models::GitLogEntry, path: &str) -> Option<&'a str> {
+    fn kind_of<'a>(entry: &'a GitLogEntry, path: &str) -> Option<&'a str> {
         entry.files.iter().find(|file| file.path == path).map(|file| file.kind.as_str())
     }
 
     #[test]
-    fn parses_porcelain_v2_status() {
-        let raw = [
-            "# branch.oid deadbeef",
-            "# branch.head main",
-            "# branch.upstream origin/main",
-            "# branch.ab +2 -1",
-            "1 .M N... 100644 100644 100644 abc def main.tex",
-            "1 A. N... 000000 100644 100644 000 def sections/intro.tex",
-            "? notes.md",
-            "2 R. N... 100644 100644 100644 abc def R100 new.tex",
-            "old.tex",
-            "u UU N... 100644 100644 100644 100644 a1 b2 c3 conflicted.tex",
-            "1 .M N... 100644 100644 100644 abc def path with spaces.tex",
-        ]
-        .join("\0");
-        let parsed = parse_porcelain_v2(&raw);
-        assert_eq!(parsed.branch.as_deref(), Some("main"));
-        assert_eq!(parsed.upstream.as_deref(), Some("origin/main"));
-        assert_eq!(parsed.ahead, 2);
-        assert_eq!(parsed.behind, 1);
-        assert_eq!(parsed.files.len(), 6);
-        assert_eq!(parsed.files[0].path, "main.tex");
-        assert!(parsed.files[0].unstaged);
-        assert!(!parsed.files[0].staged);
-        assert_eq!(parsed.files[0].status, "modified");
-        assert_eq!(parsed.files[1].path, "sections/intro.tex");
-        assert!(parsed.files[1].staged);
-        assert!(!parsed.files[1].unstaged);
-        assert_eq!(parsed.files[1].status, "added");
-        assert_eq!(parsed.files[2].path, "notes.md");
-        assert_eq!(parsed.files[2].status, "untracked");
-        assert!(!parsed.files[2].staged);
-        assert!(parsed.files[2].unstaged);
-        // Renames report the new path; the original follows as its own token
-        // and must not surface as a file of its own.
-        assert_eq!(parsed.files[3].path, "new.tex");
-        assert_eq!(parsed.files[3].status, "renamed");
-        assert!(parsed.files[3].staged);
-        assert_eq!(parsed.files[4].path, "conflicted.tex");
-        assert_eq!(parsed.files[4].status, "conflict");
-        assert_eq!(parsed.files[5].path, "path with spaces.tex");
-        assert_eq!(parsed.files[5].status, "modified");
-    }
-
-    #[test]
-    fn porcelain_v2_branch_edge_cases() {
-        let detached = ["# branch.oid deadbeef", "# branch.head (detached)"].join("\0");
-        assert_eq!(parse_porcelain_v2(&detached).branch, None);
-        // An unborn branch previously surfaced as no branch (rev-parse failed).
-        let unborn = ["# branch.oid (initial)", "# branch.head main"].join("\0");
-        assert_eq!(parse_porcelain_v2(&unborn).branch, None);
-        let empty = parse_porcelain_v2("");
-        assert_eq!(empty.branch, None);
-        assert_eq!(empty.ahead, 0);
-        assert!(empty.files.is_empty());
-    }
-
-    #[test]
-    fn status_reports_non_repository_quietly() {
-        let root = temp_root("none");
-        let report = status(&root).unwrap();
+    fn status_and_init_on_a_folder_that_is_not_yet_a_repository_then_track_edits() {
+        let report = status(&scratch("none")).unwrap();
         assert!(report.available);
         assert!(!report.repository);
         assert!(report.files.is_empty());
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn init_creates_a_repository() {
         if !commands::available("git") {
             return;
         }
-        let root = temp_root("init");
-        let before = status(&root).unwrap();
-        assert!(!before.repository);
-        let after = init(&root).unwrap();
-        assert!(after.repository);
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn stages_commits_and_diffs_a_repository() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = temp_root("repo");
-        run(&root, &["init"]);
-        run(&root, &["config", "user.email", "lattice@example.com"]);
-        run(&root, &["config", "user.name", "Lattice"]);
-        fs::write(root.join("main.tex"), "one\n").unwrap();
-        stage(&root, &["main.tex".to_string()]).unwrap();
-        let hash = commit(&root, "initial").unwrap();
-        assert!(!hash.is_empty());
-
-        fs::write(root.join("main.tex"), "one\ntwo\n").unwrap();
-        let report = status(&root).unwrap();
+        // An empty folder becomes a repository; one with files also gets a
+        // first version so the timeline has a starting point.
+        assert!(init(&scratch("init")).unwrap().repository);
+        let root = scratch("init-commit");
+        root.write("main.tex", "hello\n");
+        let report = init(&root).unwrap();
         assert!(report.repository);
-        assert_eq!(report.files.len(), 1);
-        assert_eq!(report.files[0].path, "main.tex");
-        assert!(report.files[0].unstaged);
+        assert!(report.files.is_empty(), "everything should be committed");
+        assert_eq!(last_commit(&root, "%s"), "Initialize version tracking");
 
-        let unstaged = diff(&root, "main.tex", false).unwrap();
-        assert_eq!(unstaged.before.as_deref(), Some("one\n"));
-        assert_eq!(unstaged.after.as_deref(), Some("one\ntwo\n"));
-
-        stage(&root, &["main.tex".to_string()]).unwrap();
-        let staged_diff = diff(&root, "main.tex", true).unwrap();
-        assert_eq!(staged_diff.after.as_deref(), Some("one\ntwo\n"));
-        let _ = commit(&root, "update");
-        let clean = status(&root).unwrap();
-        assert!(clean.files.is_empty());
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn set_remote_adds_and_updates_origin() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = temp_root("remote");
-        run(&root, &["init"]);
-        let first = set_remote(&root, "origin", "https://example.com/lattice/paper.git").unwrap();
-        assert_eq!(first.remote.as_deref(), Some("origin"));
-        assert!(
-            first.remote_url.as_deref().is_some_and(|url| url.contains("lattice/paper.git")),
-            "unexpected remote url: {:?}",
-            first.remote_url
-        );
-        let second =
-            set_remote(&root, "origin", "ssh://git@example.com/lattice/paper2.git").unwrap();
-        assert!(
-            second.remote_url.as_deref().is_some_and(|url| url.contains("paper2.git")),
-            "unexpected remote url: {:?}",
-            second.remote_url
-        );
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn rejects_invalid_remote_urls() {
-        assert!(normalize_remote_url("not a url").is_err());
-        assert!(normalize_remote_name("bad name").is_err());
-        assert!(normalize_remote_url("https://github.com/example/paper.git").is_ok());
+        // An edit is an unstaged change until a version records it.
+        root.write("main.tex", "hello\nagain\n");
+        let files = status(&root).unwrap().files;
+        assert_eq!(files.len(), 1);
+        assert_eq!((files[0].path.as_str(), files[0].unstaged), ("main.tex", true));
+        auto_commit(&root, "update", None).unwrap();
+        assert!(status(&root).unwrap().files.is_empty());
     }
 
     #[test]
     fn log_parses_history_with_file_kinds() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("log");
-        fs::write(root.join("a.tex"), "alpha\n").unwrap();
-        fs::write(root.join("b.tex"), "beta\n").unwrap();
-        commit_all(&root, "first");
-        fs::write(root.join("a.tex"), "alpha\nmore\n").unwrap();
+        let Some(root) = repo("log") else { return };
+        // Neither a plain folder nor a repository without commits has history.
+        assert!(log(&scratch("log-none"), 10).unwrap().is_empty());
+        assert!(log(&root, 10).unwrap().is_empty());
+        commit(&root, &[("a.tex", "alpha\n"), ("b.tex", "beta\n")], "first");
         fs::remove_file(root.join("b.tex")).unwrap();
-        fs::write(root.join("c.tex"), "gamma\n").unwrap();
-        commit_all(&root, "second");
-        run(&root, &["mv", "c.tex", "d.tex"]);
-        commit_all(&root, "third");
+        commit(&root, &[("a.tex", "alpha\nmore\n"), ("c.tex", "gamma\n")], "second");
+        git(&root, &["mv", "c.tex", "d.tex"]);
+        commit(&root, &[], "third");
 
         let entries = log(&root, 10).unwrap();
         assert_eq!(entries.len(), 3);
@@ -1078,181 +454,124 @@ mod tests {
         assert!(entries[0].hash.starts_with(&entries[0].short_hash));
         assert_eq!(entries[0].author_name, "Lattice");
         assert!(entries[0].timestamp.contains('T'), "expected ISO timestamp");
-        assert_eq!(kind_of(&entries[0], "d.tex"), Some("renamed"));
-        assert_eq!(kind_of(&entries[1], "a.tex"), Some("modified"));
-        assert_eq!(kind_of(&entries[1], "b.tex"), Some("deleted"));
-        assert_eq!(kind_of(&entries[1], "c.tex"), Some("added"));
         assert_eq!(entries[2].message, "first");
-        assert_eq!(kind_of(&entries[2], "a.tex"), Some("added"));
-        assert_eq!(kind_of(&entries[2], "b.tex"), Some("added"));
-        assert_eq!(log(&root, 1).unwrap().len(), 1);
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn log_is_empty_without_history() {
-        if !commands::available("git") {
-            return;
+        for (entry, path, kind) in [
+            (0, "d.tex", "renamed"),
+            (1, "a.tex", "modified"),
+            (1, "b.tex", "deleted"),
+            (1, "c.tex", "added"),
+            (2, "a.tex", "added"),
+            (2, "b.tex", "added"),
+        ] {
+            assert_eq!(kind_of(&entries[entry], path), Some(kind), "{path} in entry {entry}");
         }
-        let plain = temp_root("log-none");
-        assert!(log(&plain, 10).unwrap().is_empty());
-        let empty = repo("log-empty");
-        assert!(log(&empty, 10).unwrap().is_empty());
-        let _ = fs::remove_dir_all(plain);
-        let _ = fs::remove_dir_all(empty);
+        assert_eq!(log(&root, 1).unwrap().len(), 1);
     }
 
     #[test]
     fn show_diff_reports_added_modified_deleted_and_binary() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("show-diff");
-        fs::write(root.join("a.tex"), "one\n").unwrap();
-        fs::write(root.join("gone.tex"), "bye\n").unwrap();
-        commit_all(&root, "first");
-        let first = head(&root);
-        fs::write(root.join("a.tex"), "one\ntwo\n").unwrap();
-        fs::write(root.join("new.tex"), "hi\n").unwrap();
+        let Some(root) = repo("show-diff") else { return };
+        let first = commit(&root, &[("a.tex", "one\n"), ("gone.tex", "bye\n")], "first");
         fs::remove_file(root.join("gone.tex")).unwrap();
-        fs::write(root.join("doc.pdf"), b"%PDF-1.4 fake").unwrap();
-        fs::write(root.join("blob.bin"), b"a\0b").unwrap();
-        commit_all(&root, "second");
-        let second = head(&root);
+        root.write("blob.bin", b"a\0b");
+        let files = [("a.tex", "one\ntwo\n"), ("new.tex", "hi\n"), ("doc.pdf", "%PDF-1.4 fake")];
+        let second = commit(&root, &files, "second");
 
-        let modified = show_diff(&root, &second, "a.tex").unwrap();
-        assert_eq!(modified.before.as_deref(), Some("one\n"));
-        assert_eq!(modified.after.as_deref(), Some("one\ntwo\n"));
-        assert!(!modified.binary);
-
-        let added = show_diff(&root, &second, "new.tex").unwrap();
-        assert_eq!(added.before, None);
-        assert_eq!(added.after.as_deref(), Some("hi\n"));
-
-        let deleted = show_diff(&root, &second, "gone.tex").unwrap();
-        assert_eq!(deleted.before.as_deref(), Some("bye\n"));
-        assert_eq!(deleted.after, None);
+        let text = |rev: &str, path: &str| {
+            let diff = show_diff(&root, rev, path).unwrap();
+            assert!(!diff.binary, "{path} is text");
+            (diff.before, diff.after)
+        };
+        let owned = |text: &str| Some(text.to_string());
+        assert_eq!(text(&second, "a.tex"), (owned("one\n"), owned("one\ntwo\n")));
+        assert_eq!(text(&second, "new.tex"), (None, owned("hi\n")));
+        assert_eq!(text(&second, "gone.tex"), (owned("bye\n"), None));
+        // The first commit has no parent.
+        assert_eq!(text(&first, "a.tex"), (None, owned("one\n")));
 
         let pdf = show_diff(&root, &second, "doc.pdf").unwrap();
         assert!(pdf.binary);
-        assert_eq!(pdf.before, None);
-        assert_eq!(pdf.after, None);
-
-        let nul = show_diff(&root, &second, "blob.bin").unwrap();
-        assert!(nul.binary);
-
-        let rootless = show_diff(&root, &first, "a.tex").unwrap();
-        assert_eq!(rootless.before, None, "first commit has no parent");
-        assert_eq!(rootless.after.as_deref(), Some("one\n"));
-        let _ = fs::remove_dir_all(root);
+        assert_eq!((pdf.before, pdf.after), (None, None));
+        assert!(show_diff(&root, &second, "blob.bin").unwrap().binary);
     }
 
     #[test]
-    fn rev_validation_rejects_unsafe_input() {
-        if !commands::available("git") {
-            return;
+    fn restore_file_round_trips_content_and_rejects_unsafe_revisions() {
+        let Some(root) = repo("restore-file") else { return };
+        let first = commit(&root, &[("a.tex", "one\n")], "first");
+        commit(&root, &[("a.tex", "two\n")], "second");
+        for rev in ["HEAD; rm -rf", "HEAD", "abc"] {
+            assert!(show_diff(&root, rev, "a.tex").is_err(), "{rev}");
         }
-        let root = repo("rev");
-        fs::write(root.join("a.tex"), "one\n").unwrap();
-        commit_all(&root, "first");
-        assert!(show_diff(&root, "HEAD; rm -rf", "a.tex").is_err());
-        assert!(show_diff(&root, "HEAD", "a.tex").is_err());
-        assert!(show_diff(&root, "abc", "a.tex").is_err());
         assert!(restore_file(&root, "HEAD; rm -rf", "a.tex").is_err());
         assert!(restore_project(&root, "--force").is_err());
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn restore_file_round_trips_content() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("restore-file");
-        fs::write(root.join("a.tex"), "one\n").unwrap();
-        commit_all(&root, "first");
-        let first = head(&root);
-        fs::write(root.join("a.tex"), "two\n").unwrap();
-        commit_all(&root, "second");
 
         restore_file(&root, &first, "a.tex").unwrap();
         assert_eq!(fs::read_to_string(root.join("a.tex")).unwrap(), "one\n");
         assert!(restore_file(&root, &first, "missing.tex").is_err());
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn restore_project_rewinds_worktree_and_commits() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("restore-project");
-        fs::write(root.join(".gitignore"), ".research/\n").unwrap();
-        fs::write(root.join("keep.tex"), "k1\n").unwrap();
-        commit_all(&root, "first");
-        let first = head(&root);
-        fs::write(root.join("keep.tex"), "k2\n").unwrap();
-        fs::write(root.join("extra.tex"), "x\n").unwrap();
-        commit_all(&root, "second");
-        fs::create_dir_all(root.join(".research")).unwrap();
-        fs::write(root.join(".research/notes.md"), "notes\n").unwrap();
+        let Some(root) = repo("restore-project") else { return };
+        let first = commit(&root, &[(".gitignore", ".research/\n"), ("keep.tex", "k1\n")], "first");
+        commit(&root, &[("keep.tex", "k2\n"), ("extra.tex", "x\n")], "second");
+        root.write(".research/notes.md", "notes\n");
 
         let restored = restore_project(&root, &first).unwrap();
-        assert_eq!(restored, head(&root));
+        assert_eq!(restored, git(&root, &["rev-parse", "HEAD"]));
         assert_eq!(fs::read_to_string(root.join("keep.tex")).unwrap(), "k1\n");
         assert!(!root.join("extra.tex").exists());
         assert_eq!(fs::read_to_string(root.join(".research/notes.md")).unwrap(), "notes\n");
-        let short = capture(&root, &["rev-parse", "--short", &first]);
-        assert_eq!(
-            capture(&root, &["log", "-1", "--format=%s"]),
-            format!("Restore project to {short}")
-        );
-        assert_eq!(capture(&root, &["rev-list", "--count", "HEAD"]), "3");
+        let short = git(&root, &["rev-parse", "--short", &first]);
+        assert_eq!(last_commit(&root, "%s"), format!("Restore project to {short}"));
+        assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
 
         // A second identical restore finds a clean tree and returns HEAD.
-        let unchanged = restore_project(&root, &first).unwrap();
-        assert_eq!(unchanged, restored);
-        assert_eq!(capture(&root, &["rev-list", "--count", "HEAD"]), "3");
-        let _ = fs::remove_dir_all(root);
+        assert_eq!(restore_project(&root, &first).unwrap(), restored);
+        assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
     }
 
+    /// Lattice's own state, and a legacy `.omp/mcp.json` (whose `env` is where
+    /// an MCP server's API key goes), stay on disk but out of history, and a
+    /// change to only them is not a version.
     #[test]
-    fn auto_commit_keeps_lattices_own_state_out_of_history() {
-        if !commands::available("git") {
-            return;
+    fn auto_commit_keeps_internal_state_out_of_history() {
+        for (dir, file, first, second) in [
+            (".research", "overleaf.json", "{\"v\":1}\n", "{\"v\":2}\n"),
+            (
+                ".omp",
+                "mcp.json",
+                "{\"mcpServers\":{\"x\":{\"env\":{\"API_KEY\":\"secret\"}}}}\n",
+                "{\"mcpServers\":{}}\n",
+            ),
+        ] {
+            let Some(root) = repo("internal-ignored") else { return };
+            let internal = root.write(&format!("{dir}/{file}"), first);
+            root.write("paper.tex", "one\n");
+
+            auto_commit(&root, "first", None).unwrap().unwrap();
+            assert!(fs::read_to_string(root.join(".gitignore"))
+                .unwrap()
+                .contains(&format!("{dir}/")));
+            assert_eq!(git(&root, &["ls-files", "--", dir]), "");
+            assert!(internal.exists(), "ignoring {dir} must not delete it");
+
+            fs::write(&internal, second).unwrap();
+            assert!(auto_commit(&root, "internal only", None).unwrap().is_none());
         }
-        let root = repo("internal-ignored");
-        fs::create_dir_all(root.join(".research")).unwrap();
-        fs::write(root.join(".research/overleaf.json"), "{\"v\":1}\n").unwrap();
-        fs::write(root.join("paper.tex"), "one\n").unwrap();
-
-        auto_commit(&root, "first", None).unwrap().unwrap();
-        assert!(fs::read_to_string(root.join(".gitignore")).unwrap().contains(".research/"));
-        assert_eq!(capture(&root, &["ls-files", "--", ".research"]), "");
-        // Still on disk: ignoring it must not throw the sync state away.
-        assert!(root.join(".research/overleaf.json").exists());
-
-        // A sync that only rewrites Lattice's own state is not a version.
-        fs::write(root.join(".research/overleaf.json"), "{\"v\":2}\n").unwrap();
-        assert!(auto_commit(&root, "sync", None).unwrap().is_none());
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn auto_commit_untracks_internal_state_committed_before_it_was_ignored() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("internal-untrack");
-        fs::create_dir_all(root.join(".research")).unwrap();
-        fs::write(root.join(".research/overleaf.json"), "{\"v\":1}\n").unwrap();
-        fs::write(root.join("paper.tex"), "one\n").unwrap();
-        commit_all(&root, "first");
-        assert!(!capture(&root, &["ls-files", "--", ".research"]).is_empty());
+        let Some(root) = repo("internal-untrack") else { return };
+        let files = [(".research/overleaf.json", "{\"v\":1}\n"), ("paper.tex", "one\n")];
+        commit(&root, &files, "first");
+        assert!(!git(&root, &["ls-files", "--", ".research"]).is_empty());
 
-        fs::write(root.join("paper.tex"), "two\n").unwrap();
+        root.write("paper.tex", "two\n");
         auto_commit(&root, "second", None).unwrap().unwrap();
-        assert_eq!(capture(&root, &["ls-files", "--", ".research"]), "");
+        assert_eq!(git(&root, &["ls-files", "--", ".research"]), "");
         assert!(root.join(".research/overleaf.json").exists());
 
         // The commit that only dropped internal files is not shown as a
@@ -1263,59 +582,22 @@ mod tests {
         assert!(entries
             .iter()
             .all(|entry| entry.files.iter().all(|file| !file.path.starts_with(".research"))));
-        let _ = fs::remove_dir_all(root);
-    }
-
-    /// A legacy `.omp/mcp.json` may carry whatever `env` an MCP server needs,
-    /// which is where an API key goes. Committing it writes that key into the
-    /// repository and into anything the repository is pushed to.
-    #[test]
-    fn auto_commit_keeps_mcp_config_out_of_history() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = repo("internal-omp");
-        fs::create_dir_all(root.join(".omp")).unwrap();
-        fs::write(
-            root.join(".omp/mcp.json"),
-            "{\"mcpServers\":{\"x\":{\"env\":{\"API_KEY\":\"secret\"}}}}\n",
-        )
-        .unwrap();
-        fs::write(root.join("paper.tex"), "one\n").unwrap();
-
-        auto_commit(&root, "first", None).unwrap().unwrap();
-        assert!(fs::read_to_string(root.join(".gitignore")).unwrap().contains(".omp/"));
-        assert_eq!(capture(&root, &["ls-files", "--", ".omp"]), "");
-        assert!(root.join(".omp/mcp.json").exists());
-
-        // Changing only the MCP config is not a version of anyone's writing.
-        fs::write(root.join(".omp/mcp.json"), "{\"mcpServers\":{}}\n").unwrap();
-        assert!(auto_commit(&root, "mcp", None).unwrap().is_none());
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn auto_commit_skips_clean_tree_and_records_author() {
-        if !commands::available("git") {
-            return;
-        }
-        let plain = temp_root("auto-none");
-        assert_eq!(auto_commit(&plain, "noop", None).unwrap(), None);
-
-        let root = repo("auto");
-        fs::write(root.join("a.tex"), "one\n").unwrap();
-        commit_all(&root, "first");
+        let Some(root) = repo("auto") else { return };
+        assert_eq!(auto_commit(&scratch("auto-none"), "noop", None).unwrap(), None);
+        commit(&root, &[("a.tex", "one\n")], "first");
         assert_eq!(auto_commit(&root, "noop", None).unwrap(), None);
 
-        fs::write(root.join("b.tex"), "two\n").unwrap();
+        root.write("b.tex", "two\n");
         let hash = auto_commit(&root, "checkpoint", Some("Ada Lovelace"))
             .unwrap()
             .expect("expected a commit");
-        assert_eq!(hash, head(&root));
-        assert_eq!(capture(&root, &["log", "-1", "--format=%an"]), "Ada Lovelace");
-        assert_eq!(capture(&root, &["log", "-1", "--format=%ae"]), "ada-lovelace@lattice.local");
-        let _ = fs::remove_dir_all(plain);
-        let _ = fs::remove_dir_all(root);
+        assert_eq!(hash, git(&root, &["rev-parse", "HEAD"]));
+        assert_eq!(last_commit(&root, "%an"), "Ada Lovelace");
+        assert_eq!(last_commit(&root, "%ae"), "ada-lovelace@lattice.local");
     }
 
     #[test]
@@ -1325,33 +607,20 @@ mod tests {
         }
         // Mask any global/system git identity for the whole process; every
         // other test either sets repo-local config or relies on the same
-        // fallback this test exercises.
-        let config = temp_root("gitconfig").join("empty");
+        // fallback this test exercises. The config outlives this test on
+        // purpose: the variable keeps pointing at it.
+        let config =
+            std::env::temp_dir().join(format!("lattice-gitconfig-{}", uuid::Uuid::new_v4()));
         fs::write(&config, "").unwrap();
         std::env::set_var("GIT_CONFIG_GLOBAL", &config);
         std::env::set_var("GIT_CONFIG_NOSYSTEM", "1");
 
-        let root = temp_root("auto-bare");
-        run(&root, &["init"]);
-        fs::write(root.join("a.tex"), "one\n").unwrap();
+        let root = scratch("auto-bare");
+        git(&root, &["init"]);
+        root.write("a.tex", "one\n");
         let hash = auto_commit(&root, "auto", None).unwrap().expect("expected a commit");
-        assert_eq!(hash, head(&root));
-        assert_eq!(capture(&root, &["log", "-1", "--format=%an"]), "Lattice");
-        assert_eq!(capture(&root, &["log", "-1", "--format=%ae"]), "lattice@local");
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn init_creates_initial_commit_when_files_exist() {
-        if !commands::available("git") {
-            return;
-        }
-        let root = temp_root("init-commit");
-        fs::write(root.join("main.tex"), "hello\n").unwrap();
-        let report = init(&root).unwrap();
-        assert!(report.repository);
-        assert!(report.files.is_empty(), "everything should be committed");
-        assert_eq!(capture(&root, &["log", "-1", "--format=%s"]), "Initialize version tracking");
-        let _ = fs::remove_dir_all(root);
+        assert_eq!(hash, git(&root, &["rev-parse", "HEAD"]));
+        assert_eq!(last_commit(&root, "%an"), "Lattice");
+        assert_eq!(last_commit(&root, "%ae"), "lattice@local");
     }
 }

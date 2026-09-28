@@ -1,13 +1,11 @@
 //! Deterministic webpage citation metadata. Values come from the publisher;
 //! missing names and dates stay missing rather than being inferred from a URL.
-use scraper::{Html, Selector};
+use crate::papers::collapse_whitespace as text;
+use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-fn text(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
+/// BibTeX-escape free text.
 pub(crate) fn bib_text(value: &str) -> String {
     value
         .chars()
@@ -21,6 +19,41 @@ pub(crate) fn bib_text(value: &str) -> String {
             _ => ch.to_string(),
         })
         .collect()
+}
+
+/// A URL as a BibTeX field value: the characters BibTeX would parse are
+/// percent-encoded instead.
+pub(crate) fn bib_url(url: &str) -> String {
+    url.replace('{', "%7B").replace('}', "%7D").replace('\\', "%5C")
+}
+
+/// Every non-empty `<meta>` content, whitespace-collapsed and keyed by the
+/// lowercased value of the first attribute in `keys` the tag carries.
+pub(crate) fn meta_values(document: &Html, keys: &[&str]) -> BTreeMap<String, Vec<String>> {
+    let mut meta: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for element in document.select(&Selector::parse("meta").unwrap()) {
+        let name = keys.iter().find_map(|key| element.value().attr(key));
+        if let (Some(name), Some(content)) = (name, element.value().attr("content")) {
+            let content = text(content);
+            if !content.is_empty() {
+                meta.entry(name.to_lowercase()).or_default().push(content);
+            }
+        }
+    }
+    meta
+}
+
+fn element_text(element: ElementRef) -> String {
+    text(&element.text().collect::<String>())
+}
+
+fn first_text(document: &Html, selector: &str) -> Option<String> {
+    document.select(&Selector::parse(selector).unwrap()).next().map(element_text)
+}
+
+/// The first `<h1>` that reads exactly `title`.
+fn headline<'a>(document: &'a Html, title: &str) -> Option<ElementRef<'a>> {
+    document.select(&Selector::parse("h1").unwrap()).find(|heading| element_text(*heading) == title)
 }
 
 fn year(value: &str) -> Option<String> {
@@ -57,83 +90,34 @@ fn article_nodes<'a>(value: &'a Value, nodes: &mut Vec<&'a Value>) {
     }
 }
 
-/// None means that a scholarly resolver owns the page (DOI), or that there
-/// is no usable title and the caller must try browser-rendered extraction.
-pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
-    let document = Html::parse_document(html);
-    let mut meta: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for element in document.select(&Selector::parse("meta").unwrap()) {
-        if let (Some(name), Some(content)) = (
-            element.value().attr("name").or_else(|| element.value().attr("property")),
-            element.value().attr("content"),
-        ) {
-            let content = text(content);
-            if !content.is_empty() {
-                meta.entry(name.to_lowercase()).or_default().push(content);
-            }
-        }
+/// A JavaScript application can expose only its generic site title before
+/// rendering (for example "Tencent Hy"). That is not the article title.
+fn is_unrendered_app(document: &Html) -> bool {
+    if document.select(&Selector::parse("script[src]").unwrap()).next().is_none() {
+        return false;
     }
-    // Do not downgrade a journal publication into an unverified blog citation.
-    if meta.contains_key("citation_doi") {
-        return None;
-    }
-    // A JavaScript application can expose only its generic site title before
-    // rendering (for example "Tencent Hy"). That is not the article title.
-    if document.select(&Selector::parse("script[src]").unwrap()).next().is_some() {
-        let body_chars = document
-            .select(&Selector::parse("body").unwrap())
-            .flat_map(|body| body.descendants())
-            .filter(|node| {
-                !node.ancestors().filter_map(scraper::ElementRef::wrap).any(|ancestor| {
-                    matches!(
-                        ancestor.value().name(),
-                        "script" | "style" | "noscript" | "nav" | "footer"
-                    )
-                })
-            })
-            .filter_map(|node| node.value().as_text())
-            .flat_map(|value| value.chars())
-            .filter(|ch| !ch.is_whitespace())
-            .take(200)
-            .count();
-        if body_chars < 200 {
-            return None;
-        }
-    }
-    let first = |names: &[&str]| {
-        names.iter().find_map(|name| meta.get(*name).and_then(|values| values.first()).cloned())
-    };
-    let mut title = first(&["citation_title", "og:title", "twitter:title"])
-        .or_else(|| {
-            // Tencent's rendered article cover is a div; its h1 elements are
-            // section headings, and the browser title is only the site name.
-            document
-                .select(
-                    &Selector::parse("[itemprop='headline'], .hy-md-cover-card__title").unwrap(),
+    let body_chars = document
+        .select(&Selector::parse("body").unwrap())
+        .flat_map(|body| body.descendants())
+        .filter(|node| {
+            !node.ancestors().filter_map(ElementRef::wrap).any(|ancestor| {
+                matches!(
+                    ancestor.value().name(),
+                    "script" | "style" | "noscript" | "nav" | "footer"
                 )
-                .next()
-                .map(|element| text(&element.text().collect::<String>()))
+            })
         })
-        .or_else(|| {
-            document
-                .select(&Selector::parse("h1").unwrap())
-                .next()
-                .map(|element| text(&element.text().collect::<String>()))
-        })
-        .or_else(|| {
-            document
-                .select(&Selector::parse("title").unwrap())
-                .next()
-                .map(|element| text(&element.text().collect::<String>()))
-        })
-        .filter(|value| !value.is_empty())?;
-    if matches!(
-        title.to_lowercase().as_str(),
-        "access denied" | "just a moment..." | "robot check" | "403 forbidden" | "page not found"
-    ) {
-        return None;
-    }
+        .filter_map(|node| node.value().as_text())
+        .flat_map(|value| value.chars())
+        .filter(|ch| !ch.is_whitespace())
+        .take(200)
+        .count();
+    body_chars < 200
+}
 
+/// The JSON-LD article this page is about: the one whose URL is the page's,
+/// or, without a URL, whose headline is the page title.
+fn page_article(document: &Html, url: &str, title: &str) -> Option<Value> {
     let schemas: Vec<Value> = document
         .select(&Selector::parse("script[type='application/ld+json']").unwrap())
         // Serializing inner_html escapes ampersands in JSON string values.
@@ -164,7 +148,52 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
                 .is_some_and(|headline| text(headline) == title),
         }
     });
-    if let Some(headline) = article.and_then(|a| a.get("headline")).and_then(Value::as_str) {
+    article.cloned()
+}
+
+/// JSON-LD `author` names; an organization is braced so BibTeX keeps it whole.
+fn json_ld_authors(value: &Value) -> Vec<String> {
+    let values: Vec<&Value> =
+        value.as_array().map(|items| items.iter().collect()).unwrap_or_else(|| vec![value]);
+    values
+        .into_iter()
+        .filter_map(|value| {
+            let name = value.as_str().or_else(|| value.get("name").and_then(Value::as_str))?;
+            let name = bib_text(&text(name));
+            let organization = value.get("@type").and_then(Value::as_str) == Some("Organization");
+            Some(if organization { format!("{{{name}}}") } else { name })
+        })
+        .collect()
+}
+
+/// None means that a scholarly resolver owns the page (DOI), or that there
+/// is no usable title and the caller must try browser-rendered extraction.
+pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
+    let document = Html::parse_document(html);
+    let meta = meta_values(&document, &["name", "property"]);
+    // Do not downgrade a journal publication into an unverified blog citation.
+    if meta.contains_key("citation_doi") || is_unrendered_app(&document) {
+        return None;
+    }
+    let first = |names: &[&str]| {
+        names.iter().find_map(|name| meta.get(*name).and_then(|values| values.first()).cloned())
+    };
+    let mut title = first(&["citation_title", "og:title", "twitter:title"])
+        // Tencent's rendered article cover is a div; its h1 elements are
+        // section headings, and the browser title is only the site name.
+        .or_else(|| first_text(&document, "[itemprop='headline'], .hy-md-cover-card__title"))
+        .or_else(|| first_text(&document, "h1"))
+        .or_else(|| first_text(&document, "title"))
+        .filter(|value| !value.is_empty())?;
+    if matches!(
+        title.to_lowercase().as_str(),
+        "access denied" | "just a moment..." | "robot check" | "403 forbidden" | "page not found"
+    ) {
+        return None;
+    }
+    let article = page_article(&document, url, &title);
+    if let Some(headline) = article.as_ref().and_then(|a| a.get("headline")).and_then(Value::as_str)
+    {
         if !headline.trim().is_empty() {
             title = text(headline);
         }
@@ -172,75 +201,49 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
 
     // A rendered article may expose only a visual byline, not meta tags.
     // Keep it within the matching headline's container to avoid related posts.
-    let byline = document
-        .select(&Selector::parse("h1").unwrap())
-        .find(|heading| text(&heading.text().collect::<String>()) == title)
+    let byline = headline(&document, &title)
         .and_then(|heading| heading.parent())
-        .and_then(scraper::ElementRef::wrap)
+        .and_then(ElementRef::wrap)
         .and_then(|header| header.select(&Selector::parse(".byline").unwrap()).next());
-    let mut authors = Vec::new();
-    if let Some(values) = meta.get("citation_author") {
-        authors.extend(values.iter().map(|name| bib_text(name)));
+    let listed: Option<Vec<String>> = if let Some(values) = meta.get("citation_author") {
+        Some(values.iter().map(|name| bib_text(name)).collect())
     } else if let Some(value) = first(&["authors", "article-author"]) {
         // Some publishers list every byline author here but only the first
         // author in JSON-LD. Preserve the explicit complete list.
-        authors.extend(
-            value.split(',').map(text).filter(|name| !name.is_empty()).map(|name| bib_text(&name)),
-        );
-    } else if let Some(value) = article.and_then(|article| article.get("author")) {
-        let values: Vec<&Value> =
-            value.as_array().map(|items| items.iter().collect()).unwrap_or_else(|| vec![value]);
-        for value in values {
-            if let Some(name) = value.as_str().or_else(|| value.get("name").and_then(Value::as_str))
-            {
-                let name = bib_text(&text(name));
-                authors.push(
-                    if value.get("@type").and_then(Value::as_str) == Some("Organization") {
-                        format!("{{{name}}}")
-                    } else {
-                        name
-                    },
-                );
-            }
-        }
-    }
-    if authors.is_empty() {
-        if let Some(value) = first(&["author"]) {
-            authors.push(bib_text(&value));
-        }
-    }
-    if authors.is_empty() {
-        if let Some(byline) = byline {
-            authors.extend(
-                byline
-                    .select(&Selector::parse("b, strong, [rel='author']").unwrap())
-                    .map(|name| text(&name.text().collect::<String>()))
-                    .filter(|name| !name.is_empty())
-                    .map(|name| bib_text(&name)),
-            );
-        }
-    }
-    if authors.is_empty() {
-        if let Some(publisher) = first(&["og:site_name"])
-            .or_else(|| {
-                article.and_then(|a| a.pointer("/publisher/name")).and_then(Value::as_str).map(text)
-            })
-            .or_else(|| {
-                // A site suffix is publisher evidence only when the rest of the
-                // HTML title exactly matches the independently extracted headline.
-                let browser_title = document.select(&Selector::parse("title").unwrap()).next()?;
-                let browser_title = text(&browser_title.text().collect::<String>());
-                let suffix = browser_title.strip_prefix(&title)?;
-                [" | ", " \\ ", " — ", " – ", " - "]
-                    .iter()
-                    .find_map(|separator| suffix.strip_prefix(separator))
-                    .map(text)
-                    .filter(|name| !name.is_empty() && name.len() <= 80)
-            })
-        {
-            authors.push(format!("{{{}}}", bib_text(&publisher)));
-        }
-    }
+        let names = value.split(',').map(text).filter(|name| !name.is_empty());
+        Some(names.map(|name| bib_text(&name)).collect())
+    } else {
+        article.as_ref().and_then(|article| article.get("author")).map(json_ld_authors)
+    };
+    let non_empty = |names: &Vec<String>| !names.is_empty();
+    let authors = listed
+        .filter(non_empty)
+        .or_else(|| Some(vec![bib_text(&first(&["author"])?)]))
+        .or_else(|| {
+            let names = Selector::parse("b, strong, [rel='author']").unwrap();
+            let names = byline?.select(&names).map(element_text).filter(|name| !name.is_empty());
+            Some(names.map(|name| bib_text(&name)).collect()).filter(non_empty)
+        })
+        .or_else(|| {
+            let publisher = first(&["og:site_name"])
+                .or_else(|| {
+                    let name = article.as_ref()?.pointer("/publisher/name")?.as_str()?;
+                    Some(text(name))
+                })
+                .or_else(|| {
+                    // A site suffix is publisher evidence only when the rest of the
+                    // HTML title exactly matches the independently extracted headline.
+                    let browser_title = first_text(&document, "title")?;
+                    let suffix = browser_title.strip_prefix(&title)?;
+                    [" | ", " \\ ", " — ", " – ", " - "]
+                        .iter()
+                        .find_map(|separator| suffix.strip_prefix(separator))
+                        .map(text)
+                        .filter(|name| !name.is_empty() && name.len() <= 80)
+                })?;
+            Some(vec![format!("{{{}}}", bib_text(&publisher))])
+        })
+        .unwrap_or_default();
     let published = [
         "citation_publication_date",
         "article:published_time",
@@ -252,14 +255,16 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     .filter_map(|name| meta.get(*name))
     .flatten()
     .find_map(|value| year(value))
-    .or_else(|| article.and_then(|a| a.get("datePublished")).and_then(Value::as_str).and_then(year))
+    .or_else(|| {
+        article.as_ref().and_then(|a| a.get("datePublished")).and_then(Value::as_str).and_then(year)
+    })
     .or_else(|| {
         document
             .select(&Selector::parse("time, [class*='date'], [class*='Date']").unwrap())
             .find_map(|element| {
                 if element
                     .ancestors()
-                    .filter_map(scraper::ElementRef::wrap)
+                    .filter_map(ElementRef::wrap)
                     .chain(std::iter::once(element))
                     .any(|ancestor| {
                         matches!(ancestor.value().name(), "footer" | "nav")
@@ -272,22 +277,19 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
                     return None;
                 }
                 year(element.value().attr("datetime").unwrap_or_default())
-                    .or_else(|| year(&text(&element.text().collect::<String>())))
+                    .or_else(|| year(&element_text(element)))
             })
     })
     .or_else(|| {
-        let label = text(&byline?.text().collect::<String>());
+        let label = element_text(byline?);
         year(label.rsplit('·').next()?.trim())
     })
     .or_else(|| {
         // Some article headers put an unlabeled date immediately before the
         // headline. Require the matching headline and a date-only prefix,
         // rather than scanning arbitrary body text or copyright notices.
-        let heading = document
-            .select(&Selector::parse("h1").unwrap())
-            .find(|element| text(&element.text().collect::<String>()) == title)?;
-        let previous = heading.prev_siblings().filter_map(scraper::ElementRef::wrap).next()?;
-        let label = text(&previous.text().collect::<String>());
+        let heading = headline(&document, &title)?;
+        let label = element_text(heading.prev_siblings().find_map(ElementRef::wrap)?);
         year(label.split('·').next()?.trim())
     });
     let key: String = title
@@ -303,8 +305,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     if let Some(ref year) = published {
         fields.push(format!("  year = {{{year}}}"));
     }
-    let url = url.replace('{', "%7B").replace('}', "%7D").replace('\\', "%5C");
-    fields.push(format!("  url = {{{url}}}"));
+    fields.push(format!("  url = {{{}}}", bib_url(url)));
     Some(format!(
         "@misc{{{}{},\n{}\n}}",
         if key.is_empty() { "webpage" } else { &key },

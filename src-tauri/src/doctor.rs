@@ -1,96 +1,83 @@
+//! The TeX doctor: which tools a build needs are present and runnable, and
+//! whether the open project's own requirements (root document, bibliography,
+//! conference packages and fonts) are met.
+
 use crate::commands;
-use crate::models::{DoctorCheck, DoctorReport};
-use crate::pdf_fonts;
-use crate::project;
-use std::path::Path;
+use crate::models::{DoctorCheck, DoctorReport, ProjectManifest};
+use crate::{latex, pdf_fonts, project};
+use std::path::{Path, PathBuf};
+
+/// Times and Helvetica metrics and Type1 outlines. NeurIPS / ICML templates set
+/// `\rmdefault` to Times (`ptm`); without these, bare BasicTeX compiles without
+/// error but falls back to other fonts. The metrics (tfm/fd) can exist while
+/// the outlines are missing, so both are required.
+pub(crate) const CONFERENCE_FONT_FILES: [&str; 6] =
+    ["t1ptm.fd", "ptmr8t.tfm", "t1phv.fd", "utmr8a.pfb", "utmb8a.pfb", "uhvr8a.pfb"];
+
+/// Tools a build runs, with the argument that proves each one works.
+const RUNNABLE_TOOLS: [(&str, &str, &str); 6] = [
+    ("latexmk", "-version", "LaTeX build driver"),
+    ("pdflatex", "--version", "pdfLaTeX engine"),
+    ("xelatex", "--version", "XeLaTeX engine"),
+    ("lualatex", "--version", "LuaLaTeX engine"),
+    ("synctex", "help", "SyncTeX bidirectional search"),
+    ("bibtex", "--version", "BibTeX bibliography processor"),
+];
+
+/// Tools that only need to be found.
+const PRESENT_TOOLS: [(&str, &str); 4] = [
+    ("biber", "Biber bibliography processor"),
+    ("texlab", "TexLab language server (optional editor diagnostics)"),
+    ("git", "Git (optional project status / commit panel)"),
+    ("texcount", "TeXcount body word counts (optional status bar)"),
+];
 
 pub fn run(root: Option<&Path>) -> DoctorReport {
-    let mut checks = Vec::new();
-    push_runnable_tool(&mut checks, "latexmk", "-version", "LaTeX build driver");
-    push_runnable_tool(&mut checks, "pdflatex", "--version", "pdfLaTeX engine");
-    push_runnable_tool(&mut checks, "xelatex", "--version", "XeLaTeX engine");
-    push_runnable_tool(&mut checks, "lualatex", "--version", "LuaLaTeX engine");
-    push_runnable_tool(&mut checks, "synctex", "help", "SyncTeX bidirectional search");
-    push_runnable_tool(&mut checks, "bibtex", "--version", "BibTeX bibliography processor");
-    push_tool(&mut checks, "biber", "Biber bibliography processor");
-    push_tool(&mut checks, "texlab", "TexLab language server (optional editor diagnostics)");
-    push_tool(&mut checks, "git", "Git (optional project status / commit panel)");
-    push_tool(&mut checks, "texcount", "TeXcount body word counts (optional status bar)");
-    push_managed_uv_tool(
-        &mut checks,
-        "uv",
-        "Python tooling used for literature and bibliography tools",
-    );
-    push_managed_uv_tool(&mut checks, "uvx", "Runner used for Lattice's pinned literature tools");
+    let mut checks: Vec<DoctorCheck> =
+        RUNNABLE_TOOLS.iter().map(|(name, arg, detail)| runnable_tool(name, arg, detail)).collect();
+    for (name, detail) in PRESENT_TOOLS {
+        let ok = commands::available(name);
+        let found = if ok {
+            commands::resolve(name).display().to_string()
+        } else {
+            "not found on PATH".into()
+        };
+        checks.push(check(name, format!("{detail}: {found}"), ok));
+    }
+    for (name, detail) in [
+        ("uv", "Python tooling used for literature and bibliography tools"),
+        ("uvx", "Runner used for Lattice's pinned literature tools"),
+    ] {
+        checks.push(match commands::managed_uv_tool_status(name) {
+            Ok(path) => check(name, format!("{detail}: {}", path.display()), true),
+            Err(error) => check(name, format!("{detail}: {error}"), false),
+        });
+    }
 
-    if let Some(root) = root {
-        match project::read_manifest(root) {
-            Ok(manifest) => {
-                let root_document = manifest
-                    .root_documents
-                    .iter()
-                    .find(|document| document.is_default)
-                    .or_else(|| manifest.root_documents.first());
-                let root_path =
-                    root_document.map(|document| document.path.as_str()).unwrap_or("(none)");
-                let root_exists = root_document
-                    .map(|document| {
-                        project::safe_path(root, &document.path)
-                            .map(|path| path.exists())
-                            .unwrap_or(false)
-                    })
-                    .unwrap_or(false);
-                checks.push(check(
-                    "project-root",
-                    format!(
-                        "Project {} · engine {} · root {}{}",
-                        root.display(),
-                        manifest.engine,
-                        root_path,
-                        if root_exists { "" } else { " (missing)" }
-                    ),
-                    root_exists,
-                ));
-                let bib = project::safe_path(root, &manifest.primary_bibliography)
-                    .map(|path| path.exists())
-                    .unwrap_or(false);
-                checks.push(check(
-                    "bibliography",
-                    format!(
-                        "Primary bibliography {}{}",
-                        manifest.primary_bibliography,
-                        if bib { "" } else { " (missing)" }
-                    ),
-                    bib,
-                ));
-                if manifest.venue.eq_ignore_ascii_case("icml") {
-                    push_icml_packages(&mut checks);
-                } else if manifest.venue.eq_ignore_ascii_case("neurips") {
-                    push_neurips_packages(&mut checks);
-                }
-            }
-            Err(error) => checks.push(check("project-root", error, false)),
-        }
-    } else {
-        checks.push(check(
+    match root.map(|root| (root, project::read_manifest(root))) {
+        Some((root, Ok(manifest))) => checks.extend(project_checks(root, &manifest)),
+        Some((_, Err(error))) => checks.push(check("project-root", error, false)),
+        None => checks.push(check(
             "project-root",
             "No project open — open a folder to validate manuscript paths.".to_string(),
             true,
-        ));
+        )),
     }
 
     if let Ok(output) = commands::command("latexmk").arg("-v").output() {
-        let text = format!(
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
+        let text = commands::combined_output(&output);
         let line = text.lines().next().unwrap_or("latexmk available").trim();
         checks.push(check("latexmk-version", line.to_string(), output.status.success()));
     }
 
-    push_conference_fonts(&mut checks);
-    push_project_pdf_fonts(&mut checks, root);
+    checks.push(kpsewhich_check(
+        "conference-fonts",
+        "fonts",
+        &CONFERENCE_FONT_FILES,
+        |found| format!("Times/Helvetica Type1 outlines found on disk. {}", found.join("; ")),
+        "PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build.",
+    ));
+    checks.extend(root.and_then(project_pdf_fonts));
 
     let required_ok = ["latexmk", "synctex", "bibtex", "uv", "uvx", "conference-fonts"]
         .into_iter()
@@ -102,224 +89,129 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     DoctorReport { ok: required_ok, summary: format_summary(&checks, required_ok), checks }
 }
 
-fn push_tool(checks: &mut Vec<DoctorCheck>, name: &str, detail: &str) {
-    let path = commands::resolve(name);
-    let ok = commands::available(name);
-    checks.push(check(
-        name,
-        if ok {
-            format!("{detail}: {}", path.display())
-        } else {
-            format!("{detail}: not found on PATH")
-        },
-        ok,
-    ));
+/// The root document and bibliography exist, and the venue's packages are installed.
+fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
+    let exists = |relative: &str| {
+        project::safe_path(root, relative).map(|path| path.exists()).unwrap_or(false)
+    };
+    let missing = |exists: bool| if exists { "" } else { " (missing)" };
+    let document = latex::default_root(manifest);
+    let root_exists = document.is_some_and(|document| exists(&document.path));
+    let root_path = document.map_or("(none)", |document| document.path.as_str());
+    let engine = &manifest.engine;
+    let detail = format!(
+        "Project {} · engine {engine} · root {root_path}{}",
+        root.display(),
+        missing(root_exists)
+    );
+    let bibliography = &manifest.primary_bibliography;
+    let bib_exists = exists(bibliography);
+    let mut checks = vec![
+        check("project-root", detail, root_exists),
+        check(
+            "bibliography",
+            format!("Primary bibliography {bibliography}{}", missing(bib_exists)),
+            bib_exists,
+        ),
+    ];
+    if manifest.venue.eq_ignore_ascii_case("icml") {
+        // The ICML style needs `algorithms`, which bare BasicTeX lacks until
+        // it or collection-latexextra is installed.
+        checks.push(kpsewhich_check(
+            "icml-packages",
+            "ICML packages",
+            &["algorithm.sty", "algorithmic.sty"],
+            |_| "ICML algorithm packages found (algorithm.sty, algorithmic.sty).".into(),
+            "ICML Build will Emergency stop. In Terminal: sudo tlmgr install algorithms   (or click Install BasicTeX in Lattice).",
+        ));
+    } else if manifest.venue.eq_ignore_ascii_case("neurips") {
+        // The NeurIPS style pulls in `lineno` and `natbib`, and the template's
+        // main.tex a handful more. None ship with bare BasicTeX, and a
+        // toolchain that is otherwise fine still dies on the first one missing.
+        checks.push(kpsewhich_check(
+            "neurips-packages",
+            "NeurIPS packages",
+            &["natbib.sty", "lineno.sty", "environ.sty", "nicefrac.sty", "microtype.sty", "booktabs.sty"],
+            |_| "NeurIPS template packages found (natbib, lineno, environ, nicefrac, microtype, booktabs).".into(),
+            "NeurIPS Build will Emergency stop. In Terminal: sudo tlmgr install collection-latexextra   (or click Install BasicTeX in Lattice).",
+        ));
+    }
+    checks
 }
 
-fn push_runnable_tool(checks: &mut Vec<DoctorCheck>, name: &str, version_arg: &str, detail: &str) {
-    let path = commands::resolve(name);
-    let result = commands::command(name).arg(version_arg).output();
-    let (ok, suffix) = match result {
-        Ok(output) if output.status.success() => (true, path.display().to_string()),
+fn runnable_tool(name: &str, version_arg: &str, detail: &str) -> DoctorCheck {
+    let path = commands::resolve(name).display().to_string();
+    let (ok, suffix) = match commands::command(name).arg(version_arg).output() {
+        Ok(output) if output.status.success() => (true, path),
         Ok(output) => (
             false,
-            format!(
-                "{} could not run: {}",
-                path.display(),
-                String::from_utf8_lossy(&output.stderr).trim()
-            ),
+            format!("{path} could not run: {}", String::from_utf8_lossy(&output.stderr).trim()),
         ),
-        Err(error) => (false, format!("{} could not run: {error}", path.display())),
+        Err(error) => (false, format!("{path} could not run: {error}")),
     };
-    checks.push(check(name, format!("{detail}: {suffix}"), ok));
+    check(name, format!("{detail}: {suffix}"), ok)
 }
 
-fn push_managed_uv_tool(checks: &mut Vec<DoctorCheck>, name: &str, detail: &str) {
-    match commands::managed_uv_tool_status(name) {
-        Ok(path) => checks.push(check(name, format!("{detail}: {}", path.display()), true)),
-        Err(error) => checks.push(check(name, format!("{detail}: {error}"), false)),
-    }
-}
-
-/// ICML style requires `algorithms` (algorithm.sty + algorithmic.sty). Bare BasicTeX
-/// often lacks it until `collection-latexextra` / `algorithms` is installed.
-fn push_icml_packages(checks: &mut Vec<DoctorCheck>) {
+/// Whether kpsewhich finds every one of `files`. `found` describes success
+/// from the `name → path` pairs; a failure lists what is missing, then `hint`.
+fn kpsewhich_check(
+    name: &str, subject: &str, files: &[&str], found: impl FnOnce(&[String]) -> String, hint: &str,
+) -> DoctorCheck {
     if !commands::available("kpsewhich") {
-        checks.push(check(
-            "icml-packages",
-            "Cannot verify ICML packages (kpsewhich missing). Install BasicTeX from Lattice."
-                .to_string(),
-            false,
-        ));
-        return;
+        let detail =
+            format!("Cannot verify {subject} (kpsewhich missing). Install BasicTeX from Lattice.");
+        return check(name, detail, false);
     }
-    let required = ["algorithm.sty", "algorithmic.sty"];
+    let mut located = Vec::new();
     let mut missing = Vec::new();
-    for name in required {
-        if kpsewhich(name).is_none() {
-            missing.push(name);
+    for file in files {
+        match kpsewhich(file) {
+            Some(path) => located.push(format!("{file} → {}", path.display())),
+            None => missing.push(*file),
         }
     }
     if missing.is_empty() {
-        checks.push(check(
-            "icml-packages",
-            "ICML algorithm packages found (algorithm.sty, algorithmic.sty).".to_string(),
-            true,
-        ));
+        check(name, found(&located), true)
     } else {
-        checks.push(check(
-            "icml-packages",
-            format!(
-                "Missing {} — ICML Build will Emergency stop. In Terminal: sudo tlmgr install algorithms   (or click Install BasicTeX in Lattice).",
-                missing.join(", ")
-            ),
-            false,
-        ));
-    }
-}
-
-/// The NeurIPS style pulls in `lineno` and `natbib`, and the template's main.tex
-/// adds a handful more. None of them ship with bare BasicTeX, and the toolchain
-/// banner cannot speak for them: it reports that latexmk and an engine exist,
-/// which stays true while a Build dies on the first missing package.
-fn push_neurips_packages(checks: &mut Vec<DoctorCheck>) {
-    if !commands::available("kpsewhich") {
-        checks.push(check(
-            "neurips-packages",
-            "Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice."
-                .to_string(),
-            false,
-        ));
-        return;
-    }
-    let required = [
-        "natbib.sty",
-        "lineno.sty",
-        "environ.sty",
-        "nicefrac.sty",
-        "microtype.sty",
-        "booktabs.sty",
-    ];
-    let missing: Vec<&str> =
-        required.into_iter().filter(|name| kpsewhich(name).is_none()).collect();
-    if missing.is_empty() {
-        checks.push(check(
-            "neurips-packages",
-            "NeurIPS template packages found (natbib, lineno, environ, nicefrac, microtype, booktabs)."
-                .to_string(),
-            true,
-        ));
-    } else {
-        checks.push(check(
-            "neurips-packages",
-            format!(
-                "Missing {} — NeurIPS Build will Emergency stop. In Terminal: sudo tlmgr install collection-latexextra   (or click Install BasicTeX in Lattice).",
-                missing.join(", ")
-            ),
-            false,
-        ));
-    }
-}
-
-/// NeurIPS / ICML templates set `\rmdefault` to Times (`ptm`). Bare BasicTeX often
-/// compiles without error but falls back to ugly fonts when these files are missing.
-fn push_conference_fonts(checks: &mut Vec<DoctorCheck>) {
-    if !commands::available("kpsewhich") {
-        checks.push(check(
-            "conference-fonts",
-            "Cannot verify fonts (kpsewhich missing). Install BasicTeX from Lattice.".to_string(),
-            false,
-        ));
-        return;
-    }
-    // Metrics (tfm/fd) can exist while Type1 outlines are missing — then pdfTeX
-    // falls back to ugly bitmaps / CM and the PDF looks nothing like NeurIPS.
-    let required = ["t1ptm.fd", "ptmr8t.tfm", "t1phv.fd", "utmr8a.pfb", "utmb8a.pfb", "uhvr8a.pfb"];
-    let mut missing = Vec::new();
-    let mut found = Vec::new();
-    for name in required {
-        match kpsewhich(name) {
-            Some(path) => found.push(format!("{name} → {}", path.display())),
-            None => missing.push(name.to_string()),
-        }
-    }
-    if missing.is_empty() {
-        checks.push(check(
-            "conference-fonts",
-            format!("Times/Helvetica Type1 outlines found on disk. {}", found.join("; ")),
-            true,
-        ));
-    } else {
-        checks.push(check(
-            "conference-fonts",
-            format!(
-                "Missing {} — PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build.",
-                missing.join(", ")
-            ),
-            false,
-        ));
+        check(name, format!("Missing {} — {hint}", missing.join(", ")), false)
     }
 }
 
 /// Inspect the project's compiled PDF (if present) — no poppler/`pdffonts` needed.
-fn push_project_pdf_fonts(checks: &mut Vec<DoctorCheck>, root: Option<&Path>) {
-    let Some(root) = root else {
-        return;
-    };
-    let Ok(manifest) = project::read_manifest(root) else {
-        return;
-    };
-    let Some(document) = manifest
-        .root_documents
-        .iter()
-        .find(|document| document.is_default)
-        .or_else(|| manifest.root_documents.first())
-    else {
-        return;
-    };
-    let Ok(tex_path) = project::safe_path(root, &document.path) else {
-        return;
-    };
-    let pdf_path = tex_path.with_extension("pdf");
+fn project_pdf_fonts(root: &Path) -> Option<DoctorCheck> {
+    let manifest = project::read_manifest(root).ok()?;
+    let document = latex::default_root(&manifest)?;
+    let pdf_path = project::safe_path(root, &document.path).ok()?.with_extension("pdf");
     if !pdf_path.exists() {
-        checks.push(check(
-            "pdf-embedded-fonts",
-            format!(
-                "No {} yet — Build once and Recheck; Lattice will verify NeurIPS Times without pdffonts.",
-                pdf_path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("main.pdf")
-            ),
-            true,
-        ));
-        return;
+        let file_name = pdf_path.file_name().and_then(|name| name.to_str()).unwrap_or("main.pdf");
+        let detail = format!(
+            "No {file_name} yet — Build once and Recheck; Lattice will verify NeurIPS Times without pdffonts."
+        );
+        return Some(check("pdf-embedded-fonts", detail, true));
     }
-    match pdf_fonts::inspect_pdf_path(&pdf_path) {
-        Ok(report) => checks.push(check(
+    Some(match pdf_fonts::inspect_pdf_path(&pdf_path) {
+        // Inconclusive scans (compressed streams we cannot name) are not failures.
+        Ok(report) => check(
             "pdf-embedded-fonts",
             report.detail,
-            // Inconclusive scans (compressed streams we cannot name) are not failures.
             !report.conclusive || report.ok_for_conference,
-        )),
-        Err(error) => checks.push(check(
+        ),
+        Err(error) => check(
             "pdf-embedded-fonts",
             format!("Could not read {}: {error}", pdf_path.display()),
             false,
-        )),
-    }
+        ),
+    })
 }
 
-fn kpsewhich(name: &str) -> Option<std::path::PathBuf> {
+/// Where kpsewhich finds `name`, if that file can also be opened.
+fn kpsewhich(name: &str) -> Option<PathBuf> {
     let output = commands::command("kpsewhich").arg(name).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
     let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if path.is_empty() {
+    if !output.status.success() || path.is_empty() {
         return None;
     }
-    let path = std::path::PathBuf::from(path);
+    let path = PathBuf::from(path);
     std::fs::File::open(&path).ok().map(|_| path)
 }
 
@@ -328,22 +220,12 @@ fn check(name: &str, detail: String, ok: bool) -> DoctorCheck {
 }
 
 fn format_summary(checks: &[DoctorCheck], required_ok: bool) -> String {
-    let mut lines = vec![
-        "Lattice TeX doctor".to_string(),
-        if required_ok {
-            "Status: ready".to_string()
-        } else {
-            "Status: missing required tools".to_string()
-        },
-        String::new(),
-    ];
+    let status = if required_ok { "ready" } else { "missing required tools" };
+    let mut lines =
+        vec!["Lattice TeX doctor".to_string(), format!("Status: {status}"), String::new()];
     for item in checks {
-        lines.push(format!(
-            "{} {} — {}",
-            if item.ok { "OK" } else { "MISSING" },
-            item.name,
-            item.detail
-        ));
+        let state = if item.ok { "OK" } else { "MISSING" };
+        lines.push(format!("{state} {} — {}", item.name, item.detail));
     }
     lines.join("\n")
 }
