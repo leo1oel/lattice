@@ -59,16 +59,6 @@ describe("useOverleafPresence roster", () => {
     expect(result.current.peers).toHaveLength(0);
   });
 
-  it("filters our own presenceUpdated echo", async () => {
-    connectedUsers = [];
-    const { result } = mountPresence();
-    await flush();
-    inProject({ type: "presenceUpdated", user: peer({ id: "self-1", name: "Robin" }) });
-    expect(result.current.peers).toHaveLength(0);
-    inProject({ type: "presenceUpdated", user: peer({ id: "conn-3", name: "Grace Hopper" }) });
-    expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-3"]);
-  });
-
   it.each(["presenceUpdated", "presenceLeft", "disconnected"])(
     "ignores a previous project's %s after switching between linked projects",
     async (type) => {
@@ -108,14 +98,18 @@ describe("useOverleafPresence roster", () => {
     view.unmount();
   });
 
-  it("clears collaborators and ignores stale events after leaving a linked project", async () => {
+  it("filters our own echo, then clears collaborators and ignores stale events after leaving a linked project", async () => {
     const { result, rerender } = mountPresence({ projectRoot: "/tmp/overleaf-project" });
     await flush();
-    expect(result.current.peers).toHaveLength(1);
+    const update = (user: PresenceUser) => inProject({ type: "presenceUpdated", user }, "/tmp/overleaf-project");
+    update(peer({ id: "self-1", name: "Robin" }));
+    expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-2"]);
+    update(peer({ id: "conn-3", name: "Grace Hopper" }));
+    expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-2", "conn-3"]);
 
     rerender({ projectRoot: null, docId: null, selfId: null });
     expect(result.current.peers).toHaveLength(0);
-    inProject({ type: "presenceUpdated", user: peer({ id: "late-peer" }) }, "/tmp/overleaf-project");
+    update(peer({ id: "late-peer" }));
     expect(result.current.peers).toHaveLength(0);
   });
 });

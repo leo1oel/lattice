@@ -24,19 +24,14 @@ afterEach(() => {
 });
 
 describe("LaTeX selection toolbar", () => {
-  it("exposes formatting actions and the comment action for the primary editor", () => {
+  it("exposes formatting, heading-level, and comment actions for the primary editor", async () => {
     const { onAction } = renderToolbar();
     fireEvent.click(button("Bold"));
     fireEvent.click(button("Comment"));
     expect(onAction).toHaveBeenNthCalledWith(1, "bold");
     expect(onAction).toHaveBeenNthCalledWith(2, "comment");
     expect(button("Comment").closest(".latex-selection-tool")).toHaveClass("separated");
-    expect(button("Heading level")).toBeInTheDocument();
     expect(button("Highlight color")).toBeInTheDocument();
-  });
-
-  it("offers heading levels", async () => {
-    const { onAction } = renderToolbar();
     fireEvent.click(button("Heading level"));
     fireEvent.click(await screen.findByRole("button", { name: /Subsection/ }));
     expect(onAction).toHaveBeenCalledWith("heading", "subsection");
@@ -89,15 +84,12 @@ describe("LaTeX selection toolbar", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  it("keeps pointer focus in CodeMirror while a tool is pressed", () => {
-    renderToolbar();
+  it("keeps pointer focus in CodeMirror while a tool is pressed, and dismisses when another part of the app is", () => {
+    const { onDismiss } = renderToolbar();
     const event = new MouseEvent("pointerdown", { bubbles: true, cancelable: true });
     screen.getByRole("toolbar").dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
-  });
-
-  it("dismisses when another part of the app is pressed", () => {
-    const { onDismiss } = renderToolbar();
+    expect(onDismiss).not.toHaveBeenCalled();
     fireEvent.pointerDown(document.body);
     expect(onDismiss).toHaveBeenCalledOnce();
   });

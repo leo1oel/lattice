@@ -30,10 +30,12 @@ function mount(overrides: Partial<Options> = {}, commands: CommandTable = {}) {
 }
 
 describe("accepting tracked changes", () => {
-  it("refuses to accept while an OT operation is still pending, without reserving the wire", async () => {
-    const settledVersion = vi.fn(() => null);
+  it("refuses to accept while an op is pending, without reserving the wire, then accepts and reloads once settled", async () => {
+    let settled: number | null = null;
+    const settledVersion = vi.fn(() => settled);
     const reserveOperation = vi.fn(() => ({ docId: "doc-1", version: 12 }));
-    const { result } = mount({ settledVersion, reserveOperation });
+    const reload = vi.fn();
+    const { result } = mount({ settledVersion, reserveOperation, reload });
     await act(async () => {
       await expect(result.current.accept([CHANGE.id])).rejects.toThrow(/edit is still on its way/i);
     });
@@ -41,11 +43,8 @@ describe("accepting tracked changes", () => {
     // Accept is a REST mutation: an empty OT reservation could never be acknowledged.
     expect(reserveOperation).not.toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_accept_changes", expect.anything());
-  });
 
-  it("accepts once the document is settled, and reloads it", async () => {
-    const reload = vi.fn();
-    const { result } = mount({ reload });
+    settled = 12;
     await act(() => result.current.accept([CHANGE.id]));
     expect(invoke).toHaveBeenCalledWith("overleaf_accept_changes", { projectRoot: "/tmp/project", docId: "doc-1", changeIds: [CHANGE.id] });
     expect(reload).toHaveBeenCalledOnce();
@@ -69,24 +68,23 @@ describe("accepting tracked changes", () => {
 });
 
 describe("rejecting tracked changes", () => {
-  it("reserves the OT wire at the current version, sends the full changes, and reloads", async () => {
-    const reserveOperation = vi.fn(() => ({ docId: "doc-1", version: 19 }));
+  it("refuses while our own edit is unacknowledged, then reserves the wire, sends the full changes, and reloads", async () => {
+    let reservation: { docId: string; version: number } | null = null;
+    const reserveOperation = vi.fn(() => reservation);
     const reload = vi.fn();
     const { result } = mount({ reserveOperation, reload });
-    await act(() => result.current.reject([CHANGE]));
-    expect(reserveOperation).toHaveBeenCalledOnce();
-    expect(invoke).toHaveBeenCalledWith("overleaf_reject_changes", { projectRoot: "/tmp/project", docId: "doc-1", version: 19, changes: [CHANGE] });
-    expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it("refuses to reject while one of our own edits is still unacknowledged", async () => {
     // A second operation built on a version the server has not confirmed
     // would apply against the wrong history.
-    const { result } = mount({ reserveOperation: () => null });
     await act(async () => {
       await expect(result.current.reject([CHANGE])).rejects.toThrow(/still on its way/);
     });
     expect(invoke).not.toHaveBeenCalledWith("overleaf_reject_changes", expect.anything());
+
+    reservation = { docId: "doc-1", version: 19 };
+    await act(() => result.current.reject([CHANGE]));
+    expect(reserveOperation).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledWith("overleaf_reject_changes", { projectRoot: "/tmp/project", docId: "doc-1", version: 19, changes: [CHANGE] });
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("marks a failed reserved reject as outcome unknown, keyed on the reservation", async () => {

@@ -21,21 +21,16 @@ describe("useSynaraRuntime", () => {
     vi.mocked(invoke).mockReset();
   });
 
-  it("does not start before a Synara surface is requested", async () => {
-    const { result } = renderHook(() => useSynaraRuntime(false));
-
-    expect(result.current.runtime.state).toBe("starting");
-    await act(async () => Promise.resolve());
-    expect(invoke).not.toHaveBeenCalled();
-  });
-
-  it("starts on enable and adopts the supervisor status", async () => {
+  it("does not start before a Synara surface is requested, then starts and adopts the supervisor status", async () => {
     vi.mocked(invoke).mockResolvedValue(READY_RUNTIME);
     const { result, rerender } = renderHook(
       ({ enabled }) => useSynaraRuntime(enabled),
       { initialProps: { enabled: false } },
     );
 
+    expect(result.current.runtime.state).toBe("starting");
+    await act(async () => Promise.resolve());
+    expect(invoke).not.toHaveBeenCalled();
     rerender({ enabled: true });
     await waitFor(() => expect(result.current.runtime).toEqual(READY_RUNTIME));
     expect(invoke).toHaveBeenCalledTimes(1);

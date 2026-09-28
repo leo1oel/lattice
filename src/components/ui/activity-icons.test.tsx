@@ -11,7 +11,7 @@ describe("activity icons", () => {
     expect(loader.querySelector("img")?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
   });
 
-  it("turns once when a reload button is clicked and spins while busy", () => {
+  it("turns reload buttons, icon-only ones included, once when clicked and spins while busy", () => {
     const { rerender } = render(<ReloadButton>Refresh</ReloadButton>);
     const button = screen.getByRole("button", { name: "Refresh" });
     fireEvent.click(button);
@@ -21,6 +21,11 @@ describe("activity icons", () => {
     expect(button.querySelector(".ui-reload-icon")).toHaveClass("spin");
     expect(button).toHaveClass("ui-reload-button");
     expect(button).toHaveAttribute("aria-busy", "true");
+
+    render(<ReloadIconButton label="Refresh versions" />);
+    const iconButton = screen.getByRole("button", { name: "Refresh versions" });
+    fireEvent.click(iconButton);
+    expect(iconButton.querySelector(".ui-reload-icon")).toHaveClass("ui-reload-icon--once");
   });
 
   it("keeps busy reload buttons on one uniform custom surface", () => {
@@ -31,12 +36,5 @@ describe("activity icons", () => {
     expect(activity).toMatch(
       /\.ui-reload-button\[aria-busy="true"\]:disabled \{\s*opacity: 1;\s*color: var\(--text-secondary\);/,
     );
-  });
-
-  it("gives icon-only reload actions the same behavior", () => {
-    render(<ReloadIconButton label="Refresh versions" />);
-    const button = screen.getByRole("button", { name: "Refresh versions" });
-    fireEvent.click(button);
-    expect(button.querySelector(".ui-reload-icon")).toHaveClass("ui-reload-icon--once");
   });
 });

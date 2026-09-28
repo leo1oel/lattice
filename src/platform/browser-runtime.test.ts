@@ -72,7 +72,7 @@ describe("Chromium file drops", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
-  it("tracks protected file drags without consuming internal tree moves", () => {
+  it("tracks protected file drags without consuming internal tree moves or taking ordinary subscriptions", () => {
     const callback = vi.fn();
     const registry = new BrowserEventRegistry(callback);
     Object.assign(window, { latticeDesktop: { getPathForFile: vi.fn() } });
@@ -92,11 +92,9 @@ describe("Chromium file drops", () => {
       expect(callback).not.toHaveBeenCalled();
       registry.unregister(event, id, vi.fn());
     }
-  });
-
-  it("leaves ordinary browser subscriptions on the existing relay", () => {
-    const registry = new BrowserEventRegistry(vi.fn());
-    expect(registry.listen("tauri://drag-drop", 1)).toBeNull();
+    // Without the desktop file bridge, subscriptions stay on the existing relay.
+    Reflect.deleteProperty(window, "latticeDesktop");
+    expect(new BrowserEventRegistry(vi.fn()).listen("tauri://drag-drop", 1)).toBeNull();
   });
 });
 
@@ -195,26 +193,21 @@ describe("browser bridge recovery", () => {
     expect(runtimeError()).toHaveTextContent("The local Lattice app disconnected.");
   });
 
-  it.each(["browser-replaced", "desktop-suspended"])(
-    "tells embedded editors to stop accepting edits after %s",
-    async (type) => {
-      // Detachment is page-lifetime state, so each case needs a fresh module.
-      vi.resetModules();
-      const runtime = await import("./browser-runtime");
-      const detached = vi.fn();
-      runtime.subscribeBrowserRuntimeDetached(detached);
-      new runtime.BrowserRelay(config, new Map(), vi.fn(), type === "desktop-suspended" ? "desktop" : "browser");
-      const socket = sockets.at(-1)!;
-      socket.message({ type: "ready", label: "browser-test" });
-      socket.message({ type: "storage", entries: [] });
-      expect(runtime.browserRuntimeDetached()).toBe(false);
-
-      socket.message({ type });
-
-      expect(runtime.browserRuntimeDetached()).toBe(true);
-      expect(detached).toHaveBeenCalledOnce();
-    },
-  );
+  it.each(["browser-replaced", "desktop-suspended"])("tells embedded editors to stop accepting edits after %s", async (type) => {
+    // Detachment is page-lifetime state, so each case needs a fresh module.
+    vi.resetModules();
+    const runtime = await import("./browser-runtime");
+    const detached = vi.fn();
+    runtime.subscribeBrowserRuntimeDetached(detached);
+    new runtime.BrowserRelay(config, new Map(), vi.fn(), type === "desktop-suspended" ? "desktop" : "browser");
+    const socket = sockets.at(-1)!;
+    socket.message({ type: "ready", label: "browser-test" });
+    socket.message({ type: "storage", entries: [] });
+    expect(runtime.browserRuntimeDetached()).toBe(false);
+    socket.message({ type });
+    expect(runtime.browserRuntimeDetached()).toBe(true);
+    expect(detached).toHaveBeenCalledOnce();
+  });
 
   it("parks bundled Chromium while a browser tab is active and reloads it on return", () => {
     const { socket, reload } = connectedRelay(vi.fn(), "desktop");
@@ -241,9 +234,7 @@ describe("browser bridge recovery", () => {
     lastSocket().message({ type: "desktop-suspended" });
 
     expect(reload).not.toHaveBeenCalled();
-    expect(runtimeError()).toHaveTextContent(
-      "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
-    );
+    expect(runtimeError()).toHaveTextContent("此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。");
   });
 
   it("reconnects a parked desktop if its standby socket is discarded", () => {

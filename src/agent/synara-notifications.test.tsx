@@ -31,34 +31,30 @@ function mountBridge() {
 }
 
 describe("Synara notification messages", () => {
-  beforeEach(() => {
-    clearAppLogs();
-  });
-
+  beforeEach(clearAppLogs);
   afterEach(() => {
     cleanup();
     document.body.replaceChildren();
   });
 
-  it("accepts the bounded provider update failure payload", () => {
+  it("accepts bounded updates and dismissals, rejecting malformed levels, identifiers, and timeouts", () => {
     expect(parseSynaraNotificationMessage(piUpdateFailure)).toEqual(piUpdateFailure);
-  });
-
-  it("rejects malformed levels, identifiers, and timeouts", () => {
     const base = { ...piUpdateFailure, id: "notification", level: "info", title: "Notice", detail: "" };
     expect(parseSynaraNotificationMessage({ ...base, id: "" })).toBeNull();
     expect(parseSynaraNotificationMessage({ ...base, level: "critical" })).toBeNull();
     expect(parseSynaraNotificationMessage({ ...base, timeoutMs: Infinity })).toBeNull();
-  });
-
-  it("accepts dismissals without trusting unrelated fields", () => {
+    // Dismissals are accepted without trusting unrelated fields.
     const dismissal = { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id: "pi-update" };
     expect(parseSynaraNotificationMessage({ ...dismissal, title: "<script>" })).toEqual(dismissal);
   });
 
-  it("shows trusted iframe messages in the app toast stack and returns dismissals", async () => {
-    const { frameWindow, toasts, unmount } = mountBridge();
+  it("shows only trusted iframe messages in the app toast stack and returns dismissals", async () => {
+    const frames = mountBridge();
+    const { frameWindow, toasts, unmount } = frames;
     const postMessage = vi.spyOn(frameWindow, "postMessage");
+    // The same payload from the wrong source or origin is ignored.
+    postUntrusted(frames, { ...piUpdateFailure, id: "untrusted", title: "Should not render", detail: "", timeoutMs: 0 });
+    expect(screen.queryByText("Should not render")).toBeNull();
 
     postFromFrame(frameWindow, piUpdateFailure);
     expect(toasts.querySelector(".app-toast-stack")).toHaveTextContent("Could not update Pi");
@@ -77,12 +73,5 @@ describe("Synara notification messages", () => {
     expect(toast).toHaveAttribute("inert");
     await waitFor(() => expect(screen.queryByText("Could not update Pi")).toBeNull());
     unmount();
-  });
-
-  it("ignores the same payload from the wrong source or origin", () => {
-    const frames = mountBridge();
-    postUntrusted(frames, { ...piUpdateFailure, id: "untrusted", title: "Should not render", detail: "", timeoutMs: 0 });
-    expect(screen.queryByText("Should not render")).toBeNull();
-    frames.unmount();
   });
 });

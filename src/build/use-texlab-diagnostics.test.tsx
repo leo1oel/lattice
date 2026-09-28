@@ -94,18 +94,7 @@ it("rejects obsolete updates across edits, files, projects and non-TeX views", a
   expect(disposers.every((dispose) => dispose.mock.calls.length === 1)).toBe(true);
 });
 
-it("does not revive cached warnings when returning to a previous file", async () => {
-  const view = render(<Surface {...initial} />);
-  await act(() => vi.advanceTimersByTimeAsync(700));
-  const id = requestId();
-  publish(id, [warning]);
-  view.rerender(<Surface {...initial} path="other.tex" />);
-  view.rerender(<Surface {...initial} />);
-  publish(id, [warning]);
-  expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
-});
-
-it("resyncs after each build even with unchanged source and success", async () => {
+it("resyncs after each build even with unchanged source and success, and never revives cached warnings", async () => {
   const view = render(<Surface {...initial} />);
   await act(() => vi.advanceTimersByTimeAsync(700));
   const id = requestId();
@@ -113,11 +102,19 @@ it("resyncs after each build even with unchanged source and success", async () =
   view.rerender(<Surface {...initial} build={{ success: true }} />);
   await act(() => vi.advanceTimersByTimeAsync(700));
   expect(invoke).toHaveBeenCalledTimes(2);
-  expect(requestId()).not.toBe(id);
+  const rebuiltId = requestId();
+  expect(rebuiltId).not.toBe(id);
   expect(invoke).toHaveBeenLastCalledWith("texlab_diagnostics", {
     projectRoot: "/paper", path: "main.tex", text: "original", requestId: expect.any(String),
   });
   publish(id, [warning]);
+  expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+  // Returning to a previous file does not revive its cached warnings.
+  publish(rebuiltId, [warning]);
+  expect(screen.getByText(warning.message)).toBeInTheDocument();
+  view.rerender(<Surface {...initial} path="other.tex" />);
+  view.rerender(<Surface {...initial} />);
+  publish(rebuiltId, [warning]);
   expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
 });
 

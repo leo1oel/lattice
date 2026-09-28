@@ -31,10 +31,15 @@ describe("Synara confirmation bridge", () => {
     expect(parseSynaraConfirmationRequest({ ...request, message: "" })).toBeNull();
   });
 
-  it("uses Lattice confirmation UI and returns the result to the trusted frame", async () => {
+  it("uses Lattice confirmation UI for the trusted frame only and returns the result to it", async () => {
     vi.mocked(confirmAction).mockResolvedValue(true);
-    const { frameWindow, unmount } = mountBridge();
+    const frames = mountBridge();
+    const { frameWindow, unmount } = frames;
     const postMessage = vi.spyOn(frameWindow, "postMessage");
+    // The wrong source or origin is ignored.
+    postUntrusted(frames, { type: SYNARA_CONFIRMATION_REQUEST, id: "untrusted", message: "Delete everything?" });
+    expect(confirmAction).not.toHaveBeenCalled();
+    expect(postMessage).not.toHaveBeenCalled();
 
     postFromFrame(frameWindow, {
       type: SYNARA_CONFIRMATION_REQUEST,
@@ -43,18 +48,11 @@ describe("Synara confirmation bridge", () => {
     });
 
     expect(postMessage).toHaveBeenCalledWith({ type: LATTICE_CONFIRMATION_ACK, id: "delete-thread-1" }, SYNARA_TEST_ORIGIN);
-    expect(confirmAction).toHaveBeenCalledWith("Delete thread “Draft”?\nThis cannot be undone.");
+    expect(confirmAction).toHaveBeenCalledExactlyOnceWith("Delete thread “Draft”?\nThis cannot be undone.");
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith(
       { type: LATTICE_CONFIRMATION_RESPONSE, id: "delete-thread-1", confirmed: true },
       SYNARA_TEST_ORIGIN,
     ));
     unmount();
-  });
-
-  it("ignores confirmation requests from the wrong source or origin", () => {
-    const frames = mountBridge();
-    postUntrusted(frames, { type: SYNARA_CONFIRMATION_REQUEST, id: "untrusted", message: "Delete everything?" });
-    expect(confirmAction).not.toHaveBeenCalled();
-    frames.unmount();
   });
 });

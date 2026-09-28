@@ -152,11 +152,14 @@ describe("Navigator / papers", () => {
     expect(props.onImport).toHaveBeenCalledTimes(opens ? 0 : 1);
   });
 
-  it("lists the whole library until something is typed", () => {
-    renderNavigator();
-
+  it("lists the whole library until something is typed, and says when the library is empty", () => {
+    const { rerenderWith } = renderNavigator();
     expect(paperTitles()).toEqual(["Attention Is All You Need", "An Image Is Worth 16x16 Words"]);
     expect(screen.getByText("2 papers")).toBeInTheDocument();
+
+    rerenderWith({ papers: [] });
+    expect(screen.getByText("Add your first paper")).toBeInTheDocument();
+    expect(screen.queryByText("No matching papers")).toBeNull();
   });
 
   // Each token has to match somewhere in the entry, so a second word can only
@@ -364,18 +367,21 @@ describe("Navigator / papers", () => {
     expect(props.onImport).toHaveBeenCalledOnce();
   });
 
-  it("adds papers whose text matched even when their metadata did not", async () => {
+  it("waits for a pause in typing, then adds papers whose text matched even when their metadata did not", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockResolvedValue([
       { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "  scaled dot-product  " },
     ]);
     const { search } = renderNavigator();
 
+    search("dot");
+    search("dot-");
     search("dot-product");
     expect(paperTitles()).toEqual([]);
 
     await settleTextSearch();
 
+    expect(invoke).toHaveBeenCalledOnce();
     expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "dot-product" });
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     // The matching line replaces the usual subtitle, so the hit is visible.
@@ -393,25 +399,6 @@ describe("Navigator / papers", () => {
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
   });
 
-  it("waits for a pause in typing before asking the backend", async () => {
-    vi.useFakeTimers();
-    const { search } = renderNavigator();
-
-    search("a");
-    search("at");
-    search("att");
-    await settleTextSearch();
-
-    expect(invoke).toHaveBeenCalledOnce();
-    expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "att" });
-  });
-
-  it("says the library is empty rather than showing nothing at all", () => {
-    renderNavigator({ papers: [] });
-
-    expect(screen.getByText("Add your first paper")).toBeInTheDocument();
-    expect(screen.queryByText("No matching papers")).toBeNull();
-  });
 });
 
 describe("Navigator / project tree", () => {
@@ -442,26 +429,14 @@ describe("Navigator / project tree", () => {
     return toggle;
   }
 
-  it("reopens the folders the last session left open", async () => {
-    // Stored without Pierre's trailing slash, which is the form the tree wants
-    // back — a mismatch here silently collapses everyone's tree on restart.
-    expandSections();
-    renderNavigator({ mode: "project" });
-
-    await waitFor(() => expect(treeItem("sections/intro.tex")).not.toBeNull());
-  });
-
-  it("hides template files by default without hiding similarly named sources", async () => {
-    renderNavigator({ mode: "project", files: [...files, ...["journal.sty", "refs.BST", "journal.sty.tex"].map(textFile)] });
+  it("hides template files by default, then toggles hidden files from both menus and remembers the choice", async () => {
+    const hidden = ["journal.sty", "refs.bst", "main.fls", ".env.example"].map(textFile);
+    vi.mocked(invoke).mockResolvedValue([...files, ...hidden]);
+    // By default only template files hide — not sources whose name merely starts like one.
+    const view = renderNavigator({ mode: "project", files: [...files, ...["journal.sty", "refs.BST", "journal.sty.tex"].map(textFile)] });
     await waitFor(() => expect(treeItem("journal.sty.tex")).not.toBeNull());
     expect(treeItem("journal.sty")).toBeNull();
     expect(treeItem("refs.BST")).toBeNull();
-  });
-
-  it("toggles hidden files from both menus and remembers the choice", async () => {
-    const hidden = ["journal.sty", "refs.bst", "main.fls", ".env.example"].map(textFile);
-    vi.mocked(invoke).mockResolvedValue([...files, ...hidden]);
-    const view = renderNavigator({ mode: "project" });
     fireEvent.contextMenu(screen.getByLabelText("Project files"));
     fireEvent.click(await hiddenFilesToggle(false));
     await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
@@ -493,7 +468,9 @@ describe("Navigator / project tree", () => {
     expect(treeItem("other.tex")).not.toBeNull();
   });
 
-  it("keeps each project's folders to itself", async () => {
+  it("reopens the folders the last session left open, keeping each project's folders to itself", async () => {
+    // Stored without Pierre's trailing slash, which is the form the tree wants
+    // back — a mismatch here silently collapses everyone's tree on restart.
     expandSections();
     const { rerenderWith } = renderNavigator({ mode: "project" });
     await waitFor(() => expect(treeItem("sections/intro.tex")).not.toBeNull());

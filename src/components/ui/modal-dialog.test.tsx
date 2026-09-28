@@ -20,10 +20,7 @@ function Harness(props: {
           label="Example dialog"
           closeDisabled={props.closeDisabled}
           focusDialogOnOpen={props.focusDialogOnOpen}
-          windowDragTop={props.onWindowDrag ? {
-            onMouseDown: props.onWindowDrag,
-            onDoubleClick: vi.fn(),
-          } : undefined}
+          windowDragTop={props.onWindowDrag ? { onMouseDown: props.onWindowDrag, onDoubleClick: vi.fn() } : undefined}
           onClose={() => {
             props.onClose?.();
             setOpen(false);

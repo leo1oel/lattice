@@ -54,15 +54,23 @@ describe("useNearViewport", () => {
     FakeIntersectionObserver.instances = [];
   });
 
-  it("shares one observer and briefly retains content outside the buffer", () => {
+  it("shares one observer, stages intersecting content together, and briefly retains content outside the buffer", () => {
     render(<Scroll>{probes("first", "second")}</Scroll>);
 
     expect(FakeIntersectionObserver.instances).toHaveLength(2);
     expect(preload().root).toBe(byId("first").parentElement);
     expect(preload().elements.size).toBe(2);
     emit("first", true);
+    emit("second", true);
     expect(byId("first")).toHaveTextContent("false");
     advance(32);
+    expect(byId("first")).toHaveTextContent("true");
+    expect(byId("second")).toHaveTextContent("true");
+    // Re-entering the buffer cancels a delayed release.
+    emit("first", false);
+    advance(2_000);
+    emit("first", true);
+    advance(2_000);
     expect(byId("first")).toHaveTextContent("true");
     emit("first", false);
     expect(byId("first")).toHaveTextContent("true");
@@ -72,49 +80,26 @@ describe("useNearViewport", () => {
     expect(byId("first")).toHaveTextContent("false");
   });
 
-  it("preloads all media inside a contained list item from the item boundary", () => {
-    render(<Scroll><li data-testid="item">{probes("first", "second")}</li></Scroll>);
+  it("preloads all media inside a contained list item from the item boundary, not a nearer JSX wrapper", () => {
+    const item = (...names: string[]) => (
+      <Scroll>
+        <li data-testid="item">
+          {probes(...names)}
+          <div className="jsx-component-wrapper"><Probe name="media" /></div>
+        </li>
+      </Scroll>
+    );
+    const view = render(item("first", "second"));
 
     expect(preload().elements).toEqual(new Set([byId("item")]));
     emit("item", true);
-    advance(32);
-    expect(byId("first")).toHaveTextContent("true");
-    expect(byId("second")).toHaveTextContent("true");
-  });
-
-  it("prefers the list item over a nearer JSX wrapper", () => {
-    render(<Scroll><li data-testid="item"><div className="jsx-component-wrapper"><Probe name="media" /></div></li></Scroll>);
-    expect(preload().elements).toEqual(new Set([byId("item")]));
-  });
-
-  it("keeps a shared target observed when one queued listener unmounts", () => {
-    const view = render(<Scroll><li data-testid="item">{probes("first", "second")}</li></Scroll>);
-    emit("item", true);
-    view.rerender(<Scroll><li data-testid="item">{probes("first")}</li></Scroll>);
+    // The shared target stays observed when one queued listener unmounts.
+    view.rerender(item("first"));
     advance(32);
 
     expect(preload().elements).toEqual(new Set([byId("item")]));
     expect(byId("first")).toHaveTextContent("true");
-  });
-
-  it("cancels delayed release when content re-enters the buffer", () => {
-    render(<Scroll>{probes("first")}</Scroll>);
-    emit("first", true);
-    advance(32);
-    emit("first", false);
-    advance(2_000);
-    emit("first", true);
-    advance(2_000);
-    expect(byId("first")).toHaveTextContent("true");
-  });
-
-  it("stages a bounded batch of intersecting content per idle slice", () => {
-    render(<Scroll>{probes("first", "second")}</Scroll>);
-    emit("first", true);
-    emit("second", true);
-    advance(32);
-    expect(byId("first")).toHaveTextContent("true");
-    expect(byId("second")).toHaveTextContent("true");
+    expect(byId("media")).toHaveTextContent("true");
   });
 
   it("materializes visible content immediately even when buffered work is queued", () => {

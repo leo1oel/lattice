@@ -1,20 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  latexFigureInsertion,
-  markdownAssetInsertion,
-  rewriteMovedDocumentAssetPaths,
-} from "./figure-insertion";
+import { latexFigureInsertion, markdownAssetInsertion, rewriteMovedDocumentAssetPaths } from "./figure-insertion";
 
 describe("figure insertion", () => {
-  it("creates editable LaTeX figure blocks with stable labels", () => {
+  it("creates editable LaTeX figure blocks with stable labels, or a custom width, caption, placement, and label", () => {
     const edit = latexFigureInsertion("before\nafter", 7, ["figures/Native UMM-converted.pdf"]);
     expect(edit.text).toBe(
       "\n\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=\\linewidth]{\\detokenize{figures/Native UMM-converted.pdf}}\n  \\caption{Describe the figure.}\n  \\label{fig:native-umm}\n\\end{figure}\n\n",
     );
     expect(edit.text.slice(0, edit.cursorOffset).endsWith("Describe the figure.")).toBe(true);
-  });
 
-  it("applies custom width caption placement and label", () => {
     const { text } = latexFigureInsertion("body", 0, ["figures/plot.pdf"], {
       width: "0.5\\linewidth",
       placement: "ht",
@@ -43,6 +37,11 @@ describe("moved document image paths", () => {
     "chapters/local.png",
   ]);
   const lines = (...parts: string[]) => parts.join("\n");
+  // Plain links, fenced examples, and commented images are never rebased.
+  const untouched = [
+    "[Download](figures/plot.png)", "```md", "![Example](figures/plot.png)", "```",
+    "<!-- ![Commented](figures/plot.png) -->",
+  ];
 
   it.each([
     [
@@ -55,11 +54,7 @@ describe("moved document image paths", () => {
         "![Remote](https://example.com/plot.png)",
         "![Encoded](figures/My%20Plot.png)",
         '<img src="figures/scaled-dot-product-attention.png" alt="Attention" width={223} />',
-        "[Download](figures/plot.png)",
-        "```md",
-        "![Example](figures/plot.png)",
-        "```",
-        "<!-- ![Commented](figures/plot.png) -->",
+        ...untouched,
       ),
       lines(
         "![Plot](../figures/plot.png)",
@@ -67,11 +62,7 @@ describe("moved document image paths", () => {
         "![Remote](https://example.com/plot.png)",
         "![Encoded](../figures/My%20Plot.png)",
         '<img src="../figures/scaled-dot-product-attention.png" alt="Attention" width={223} />',
-        "[Download](figures/plot.png)",
-        "```md",
-        "![Example](figures/plot.png)",
-        "```",
-        "<!-- ![Commented](figures/plot.png) -->",
+        ...untouched,
       ),
     ],
     ["rebases Markdown images when moving back to the project root", "chapters/notes.md", "notes.md", "![Plot](../figures/plot.png)", "![Plot](figures/plot.png)"],

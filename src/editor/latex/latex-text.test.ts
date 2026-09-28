@@ -40,13 +40,8 @@ describe("LaTeX source parsing", () => {
     expect(mergeReferences([other], "main.tex", parseLocalLabels("main.tex", "\\label{fig:new}"))
       .map((item) => item.label).sort()).toEqual(["fig:new", "fig:old"]);
     const figure: ReferenceInfo = {
-      label: "fig:native-umm",
-      kind: "figure",
-      title: "Native UMM",
-      snippet: "\\includegraphics{figures/native-umm.pdf}",
-      path: "main.tex",
-      line: 12,
-      imagePath: "figures/native-umm.pdf",
+      label: "fig:native-umm", kind: "figure", title: "Native UMM", path: "main.tex", line: 12,
+      snippet: "\\includegraphics{figures/native-umm.pdf}", imagePath: "figures/native-umm.pdf",
     };
     const merged = mergeReferences([figure], "main.tex", parseLocalLabels("main.tex", "\\label{fig:native-umm}"));
     expect(merged).toHaveLength(1);

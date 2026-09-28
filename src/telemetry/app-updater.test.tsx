@@ -171,20 +171,23 @@ describe("useUpdater / check", () => {
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({ level: "error", source: "App updater", toast: false, detail }));
   });
 
-  it("does not ask again while an update is already waiting", async () => {
-    offerUpdate();
-    const result = await renderChecked();
+  it.each([
+    ["waiting", async () => { offerUpdate(); return renderChecked(); }, "available"],
+    ["downloading", async () => (await startPausedInstall()).result, "downloading"],
+  ] as const)("does not ask again while an update is %s", async (_, arrange, phase) => {
+    const result = await arrange();
     await run(() => result.current.check(false));
 
     expect(plugins.check).toHaveBeenCalledOnce();
     // The explicit second call must not have downgraded the banner either.
-    expect(result.current.phase).toBe("available");
+    expect(result.current.phase).toBe(phase);
   });
 
   it("keeps looking for releases after an install failed", async () => {
     // `check` returns early while an update is held, and a failed install
     // leaves it held. The banner it leaves behind only offers ×, so the check
-    // must be released without anyone dismissing it.
+    // must be released without anyone dismissing it. The guard is only relaxed
+    // for a *failed* install: a healthy download still holds it (above).
     offerUpdate(failingInstall());
     const result = await renderChecked();
     await run(() => result.current.install());
@@ -201,16 +204,6 @@ describe("useUpdater / check", () => {
     // The new release replaces the failed one, so installing installs it.
     await run(() => result.current.install());
     expect(next.downloadAndInstall).toHaveBeenCalledOnce();
-  });
-
-  it("still holds off a check while a healthy update is in flight", async () => {
-    // The guard the test above relaxes is only relaxed for a *failed* install.
-    const { result } = await startPausedInstall();
-
-    await run(() => result.current.check(false));
-
-    expect(plugins.check).toHaveBeenCalledOnce();
-    expect(result.current.phase).toBe("downloading");
   });
 
   it("installs the next release automatically after one failed to install", async () => {
@@ -307,11 +300,13 @@ describe("useUpdater / install", () => {
     expect(result.current.phase).toBe("ready");
   });
 
-  it("ignores a second install while one is in flight", async () => {
+  it("ignores a second install, and a switch to automatic, while one is in flight", async () => {
     const { result, update } = await startPausedInstall();
 
     await run(() => result.current.install());
+    act(() => result.current.setMode("auto"));
 
+    await waitFor(() => expect(result.current.mode).toBe("auto"));
     expect(update.downloadAndInstall).toHaveBeenCalledOnce();
   });
 
@@ -326,18 +321,15 @@ describe("useUpdater / install", () => {
 });
 
 describe("useUpdater / mode", () => {
-  it.each([["auto", "auto"], ["yes-please", "manual"]])("starts from the persisted preference %s", (stored, mode) => {
+  it.each([["auto", "auto"], ["yes-please", "manual"]])("starts from stored preference %s, then persists each choice", (stored, mode) => {
     localStorage.setItem(MODE_KEY, stored);
-    expect(renderUpdater().current.mode).toBe(mode);
-  });
-
-  it("persists the choice", () => {
     const result = renderUpdater();
+    expect(result.current.mode).toBe(mode);
 
-    for (const mode of ["auto", "manual"] as const) {
-      act(() => result.current.setMode(mode));
-      expect(localStorage.getItem(MODE_KEY)).toBe(mode);
-      expect(result.current.mode).toBe(mode);
+    for (const next of ["auto", "manual"] as const) {
+      act(() => result.current.setMode(next));
+      expect(localStorage.getItem(MODE_KEY)).toBe(next);
+      expect(result.current.mode).toBe(next);
     }
   });
 
@@ -394,15 +386,6 @@ describe("useUpdater / mode", () => {
     await waitFor(() => expect(update.downloadAndInstall).toHaveBeenCalledOnce());
     await waitFor(() => expect(result.current.phase).toBe("ready"));
   });
-
-  it("does not start a second install when switched to automatic mid-download", async () => {
-    const { result, update } = await startPausedInstall();
-
-    act(() => result.current.setMode("auto"));
-
-    await waitFor(() => expect(result.current.mode).toBe("auto"));
-    expect(update.downloadAndInstall).toHaveBeenCalledOnce();
-  });
 });
 
 describe("useUpdater / dismiss", () => {
@@ -421,18 +404,6 @@ describe("useUpdater / dismiss", () => {
     expect(plugins.check).toHaveBeenCalledTimes(2);
     expect(result.current.phase).toBe("available");
     expect(result.current.version).toBe("0.1.230");
-  });
-
-  it("clears a failure banner", async () => {
-    offerUpdate(failingInstall());
-    const result = await renderChecked();
-    await run(() => result.current.install());
-    expect(result.current.phase).toBe("error");
-
-    act(() => result.current.dismiss());
-
-    expect(result.current.phase).toBe("idle");
-    expect(result.current.error).toBeNull();
   });
 });
 
@@ -485,5 +456,7 @@ describe("UpdateBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
     expect(screen.queryByRole("status")).toBeNull();
+    expect(api.current.phase).toBe("idle");
+    expect(api.current.error).toBeNull();
   });
 });

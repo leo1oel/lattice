@@ -25,22 +25,16 @@ describe("LaTeX diagnostics", () => {
     for (const message of expected) expect(found.some((item) => item.includes(message))).toBe(true);
   });
 
-  it("warns about unknown citation keys and labels", () => {
+  it("warns about unknown, unused, and cross-file duplicate labels and citation keys", () => {
     expect(messages(indexDiagnostics(
       "See \\citep{missing} and \\ref{fig:gone}.",
       { citationKeys: ["known"], references: [{ ...figure("fig:model"), title: "Model" }] },
     ))).toEqual(["Unknown citation key “missing”.", "Unknown label “fig:gone”."]);
-  });
-
-  it("warns about unused labels and bibliography keys", () => {
     expect(messages(indexDiagnostics(
       "\\label{fig:dead} @article{dead, title={X},}",
       { citationKeys: ["dead"], references: [figure("fig:dead")], unusedLabels: ["fig:dead"], unusedCitations: ["dead"] },
       "main.tex",
     ))).toEqual(["Unused label “fig:dead”.", "Unused citation key “dead”."]);
-  });
-
-  it("warns when a label is also defined in another file", () => {
     const diagnostics = indexDiagnostics(
       "\\label{fig:shared}",
       { citationKeys: [], references: [figure("fig:shared"), { ...figure("fig:shared", "sections/a.tex"), line: 3 }] },

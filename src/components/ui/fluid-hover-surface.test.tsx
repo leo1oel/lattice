@@ -68,28 +68,12 @@ describe("FluidHoverSurface", () => {
     expect(second).not.toHaveAttribute("data-fluid-hover-active");
   });
 
-  it("starts a new fill across a separator instead of sliding through another section", async () => {
+  it("starts a new fill across a separator, ignores touch, disabled and destructive rows, clears on scroll", async () => {
     const { container } = render(<div className="fluid-hover-surface">
       <FluidHoverSurface />
       <button role="menuitem">First</button>
       <div role="separator" />
       <button role="menuitem">Second</button>
-    </div>);
-    move(screen.getByRole("menuitem", { name: "First" }));
-    await waitFor(() => expect(container.querySelector('[data-slot="fluid-hover-highlight"]')).not.toBeNull());
-    const original = container.querySelector('[data-slot="fluid-hover-highlight"]');
-    move(screen.getByRole("menuitem", { name: "Second" }));
-    await waitFor(() => {
-      const fills = container.querySelectorAll('[data-slot="fluid-hover-highlight"]');
-      expect(fills).toHaveLength(1);
-      expect(fills[0]).not.toBe(original);
-    });
-  });
-
-  it("ignores touch, disabled and destructive rows, and clears on scroll", async () => {
-    const { container } = render(<div className="fluid-hover-surface">
-      <FluidHoverSurface />
-      <button role="menuitem">First</button>
       <button role="menuitem" disabled>Unavailable</button>
       <button role="menuitem" data-variant="destructive">Delete</button>
     </div>);
@@ -98,6 +82,15 @@ describe("FluidHoverSurface", () => {
     expect(first).not.toHaveAttribute("data-fluid-hover-active");
     move(first);
     await waitFor(() => expect(first).toHaveAttribute("data-fluid-hover-active"));
+    const original = container.querySelector('[data-slot="fluid-hover-highlight"]');
+    expect(original).not.toBeNull();
+    // Crossing the separator starts a new fill instead of sliding through another section.
+    move(screen.getByRole("menuitem", { name: "Second" }));
+    await waitFor(() => {
+      const fills = container.querySelectorAll('[data-slot="fluid-hover-highlight"]');
+      expect(fills).toHaveLength(1);
+      expect(fills[0]).not.toBe(original);
+    });
     move(screen.getByRole("menuitem", { name: "Unavailable" }));
     expect(container.querySelector("[data-fluid-hover-active]")).toBeNull();
     move(screen.getByRole("menuitem", { name: "Delete" }));

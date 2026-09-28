@@ -104,32 +104,24 @@ describe("LaTeX editor extensions", () => {
     expect(marked()).toBe(false);
   });
 
-  it("keeps package linting off while enabling hover documentation", () => {
+  it("keeps package linting off, enables hover documentation, and bounds citation tooltips to the editor", () => {
     expect(latexLanguageOptions).toMatchObject({ enableLinting: false, enableTooltips: true });
-  });
-
-  it("keeps citation tooltips inside the editor boundary", () => {
     expect(citationTooltipSpace({ left: 320, right: 720, top: 80, bottom: 680 }))
       .toEqual({ left: 328, right: 712, top: 88, bottom: 672 });
   });
 
   it.each([
-    ["\\cit", ["vaswani2017attention"], "\\cite"],
-    ["\\cit{}", [], "\\cite{}"],
-  ])("waits for a typed citation's opening brace and keeps an existing pair (%s)", (source, citationKeys, expected) => {
-    const view = latexView(source, 4, { citationKeys });
-    typeText(view, "e");
-    expect(doc(view)).toBe(expected);
-  });
-
-  it("adds braces when a citation command is accepted from completion", () => {
-    const view = latexView("\\ci");
+    ["waits for a typed citation's opening brace", "\\cit", ["vaswani2017attention"], 4, 4, "e", "input.type", "\\cite"],
+    ["keeps an existing brace pair while typing", "\\cit{}", [], 4, 4, "e", "input.type", "\\cite{}"],
+    ["adds braces when a citation command is accepted from completion", "\\ci", [], 0, 3, "\\cite", "input.complete", "\\cite{}"],
+  ])("%s", (_name, source, citationKeys, from, to, insert, userEvent, expected) => {
+    const view = latexView(source, to, { citationKeys });
     view.dispatch({
-      changes: { from: 0, to: 3, insert: "\\cite" },
-      selection: { anchor: 5 },
-      annotations: Transaction.userEvent.of("input.complete"),
+      changes: { from, to, insert },
+      selection: { anchor: from + insert.length },
+      annotations: Transaction.userEvent.of(userEvent),
     });
-    expect(doc(view)).toBe("\\cite{}");
+    expect(doc(view)).toBe(expected);
   });
 
   it("shows citation keys immediately for an empty slot and after a comma", async () => {

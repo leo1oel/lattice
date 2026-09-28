@@ -55,10 +55,9 @@ describe("agent canvas tools", () => {
       id: "shape:box", type: "geo", x: 10, y: 20,
       props: { geo: "rectangle", w: 200, h: 80 },
     });
-
-    const updated = adapter.execute("update", {
-      shapes: [{ id: "shape:box", x: 40, color: "blue" }],
-    }) as { shapes: TLShape[] };
+    const updated = adapter.execute("update", { shapes: [{ id: "shape:box", x: 40, color: "blue" }] }) as {
+      shapes: TLShape[];
+    };
     expect(updated.shapes[0]).toMatchObject({ x: 40, props: { color: "blue", geo: "rectangle" } });
     expect(adapter.execute("list", {})).toMatchObject({ shapes: [{ id: "shape:box" }] });
     expect(adapter.execute("delete", { ids: ["shape:box"] })).toEqual({ deletedIds: ["shape:box"] });
@@ -75,7 +74,7 @@ describe("agent canvas tools", () => {
     expect((Object.prototype as { polluted?: boolean }).polluted).toBeUndefined();
   });
 
-  it("keeps a newer board registered when an older board unmounts", async () => {
+  it("keeps a newer board registered when an older board unmounts, and reports when no canvas is open", async () => {
     const unregisterOld = registerAgentCanvasAdapter("old.tldr", { execute: () => ({ board: "old" }) });
     const unregisterCurrent = registerAgentCanvasAdapter("current.tldr", { execute: () => ({ board: "current" }) });
     unregisterOld();
@@ -84,13 +83,9 @@ describe("agent canvas tools", () => {
       result: { board: "current" },
     });
     unregisterCurrent();
-  });
-
-  it("parses the correlated protocol and reports when no canvas is open", async () => {
+    // The correlated protocol parses, and its id comes back on the failure.
     const request = listRequest("request-1");
     expect(request).not.toBeNull();
-    const unregister = registerAgentCanvasAdapter("shapes.tldr", { execute: () => ({ shapes: [] }) });
-    unregister();
     await expect(executeAgentCanvasToolRequest(request!)).resolves.toMatchObject({
       id: "request-1",
       ok: false,

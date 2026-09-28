@@ -3,14 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResizableDrawer } from "./resizable-drawer";
 
 const windowApi = vi.hoisted(() => ({
-  startDragging: vi.fn(),
-  isFullscreen: vi.fn(async () => false),
-  setFullscreen: vi.fn(async () => undefined),
+  startDragging: vi.fn(), isFullscreen: vi.fn(async () => false), setFullscreen: vi.fn(async () => undefined),
 }));
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => windowApi,
-}));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 
 function renderDrawer(onClose = () => undefined) {
   const view = render(<ResizableDrawer onClose={onClose}>content</ResizableDrawer>);
@@ -47,8 +42,9 @@ describe("ResizableDrawer", () => {
     expect(renderDrawer().drawer.style.width).toBe("400px");
   });
 
-  it("supports keyboard resizing and clamps to the available workspace", () => {
-    const { drawer, separator } = renderDrawer();
+  it("supports keyboard resizing clamped to the workspace, and closes on Escape unless closing is disabled", () => {
+    const onClose = vi.fn();
+    const { drawer, separator, rerender } = renderDrawer(onClose);
 
     expect(drawer.style.width).toBe("400px");
     fireEvent.keyDown(separator, { key: "ArrowLeft" });
@@ -61,11 +57,6 @@ describe("ResizableDrawer", () => {
     expect(drawer.style.width).toBe("320px");
     fireEvent.keyDown(separator, { key: "ArrowLeft" });
     expect(drawer.style.width).toBe("320px");
-  });
-
-  it("closes on Escape unless the current operation disables closing", () => {
-    const onClose = vi.fn();
-    const { rerender } = renderDrawer(onClose);
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);

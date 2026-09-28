@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendBibEntry, formatBibEntry, slugifyCitationKey } from "./bib-entry";
+import { appendBibEntry, formatBibEntry, slugifyCitationKey, type BibEntryDraft } from "./bib-entry";
 
 describe("bibliography entry drafting", () => {
   it("slugifies a citation key from author, year, and title", () => {
@@ -7,38 +7,37 @@ describe("bibliography entry drafting", () => {
       .toBe("vaswani2017attention");
   });
 
-  it("formats a BibTeX article with required fields", () => {
-    expect(formatBibEntry({
+  it.each<[string, BibEntryDraft, string]>([
+    ["formats a BibTeX article with required fields", {
       type: "article",
       key: "vaswani2017attention",
       title: "Attention Is All You Need",
       author: "Vaswani, Ashish",
       year: "2017",
       journal: "NeurIPS",
-    })).toBe(`@article{vaswani2017attention,
+    }, `@article{vaswani2017attention,
   title = {Attention Is All You Need},
   author = {Vaswani, Ashish},
   year = {2017},
   journal = {NeurIPS}
 }
-`);
-  });
-
-  it("preserves balanced and TeX-escaped braces in modeled fields", () => {
-    expect(formatBibEntry({
+`],
+    ["preserves balanced and TeX-escaped braces in modeled fields", {
       type: "misc",
       key: "protected",
       title: "The {{NASA}} Set \\{x\\} {Study}",
       author: "{{World Health Organization}} and Doe, Jane",
       year: "2026",
       note: "Drops unmatched } closing and { opening safely",
-    })).toBe(`@misc{protected,
+    }, `@misc{protected,
   title = {The {{NASA}} Set \\{x\\} {Study}},
   author = {{{World Health Organization}} and Doe, Jane},
   year = {2026},
   note = {Drops unmatched  closing and  opening safely}
 }
-`);
+`],
+  ])("%s", (_name, draft, expected) => {
+    expect(formatBibEntry(draft)).toBe(expected);
   });
 
   it("preserves extra fields without allowing modeled fields to reappear", () => {

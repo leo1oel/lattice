@@ -17,23 +17,16 @@ function mockHeightLimits(minHeight: string, maxHeight: string) {
 }
 
 describe("resizeTextareaToContent", () => {
-  it("uses the CSS minimum for a one-line composer", () => {
-    const textarea = textareaWithHeight(18);
+  it.each([
+    ["uses the CSS minimum for a one-line composer", 18, "30px", "hidden"],
+    ["caps long content at the CSS maximum and enables scrolling", 220, "160px", "auto"],
+  ])("%s", (_name, scrollHeight, height, overflowY) => {
+    const textarea = textareaWithHeight(scrollHeight);
     mockHeightLimits("30px", "160px");
 
     resizeTextareaToContent(textarea);
 
-    expect(textarea.style.height).toBe("30px");
-    expect(textarea.style.overflowY).toBe("hidden");
-  });
-
-  it("caps long content at the CSS maximum and enables scrolling", () => {
-    const textarea = textareaWithHeight(220);
-    mockHeightLimits("30px", "160px");
-
-    resizeTextareaToContent(textarea);
-
-    expect(textarea.style.height).toBe("160px");
-    expect(textarea.style.overflowY).toBe("auto");
+    expect(textarea.style.height).toBe(height);
+    expect(textarea.style.overflowY).toBe(overflowY);
   });
 });

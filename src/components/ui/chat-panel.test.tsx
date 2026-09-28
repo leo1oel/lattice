@@ -38,19 +38,19 @@ const reply = (id: string) => message({ id, body: `reply ${id}` });
 afterEach(cleanup);
 
 describe("ChatPanel", () => {
-  it("shows the conversation, siding and labelling the viewer's own messages", () => {
-    renderPanel([message(), message({ id: "m2", body: "thanks!", authorKey: "me", authorName: "Robin", mine: true })]);
+  it("shows the conversation, siding the viewer's own messages and grouping a quick run from one author", () => {
+    renderPanel([
+      message(),
+      message({ id: "m2", at: 1_700_000_010_000, body: "second line" }),
+      message({ id: "m3", body: "thanks!", authorKey: "me", authorName: "Robin", mine: true }),
+    ]);
     expect(screen.getByText("About this chat")).toBeInTheDocument();
     expect(screen.getByText("Section 3 reads well now")).toBeInTheDocument();
-    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.getByText("thanks!").closest("article")).toHaveClass("mine");
-  });
-
-  it("does not repeat the speaker's name for a quick run of messages from the same author", () => {
-    renderPanel([message(), message({ id: "m2", at: 1_700_000_010_000, body: "second line" })]);
+    // The speaker's name is not repeated for the second message of the run.
     expect(screen.getAllByText("Ada Lovelace")).toHaveLength(1);
     expect(screen.getByText("second line").closest("article")).toHaveClass("grouped");
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("thanks!").closest("article")).toHaveClass("mine");
   });
 
   it("anchors the initial conversation history to the latest message", () => {
@@ -60,41 +60,36 @@ describe("ChatPanel", () => {
     expect(list.scrollTop).toBe(600);
   });
 
-  it("does not interrupt someone reading history, and offers a jump to the latest", () => {
-    const { list, grow, scrollTo } = renderPanel([message()]);
-    scrollTo(120);
-    grow([message(), reply("m2")], 700);
-    expect(list.scrollTop).toBe(120);
-
-    const jump = screen.getByRole("button", { name: "New messages · Jump to latest" });
-    fireEvent.click(jump);
-    expect(list.scrollTop).toBe(700);
-    expect(list).toHaveFocus();
-    expect(jump).not.toBeInTheDocument();
-
-    grow([message(), reply("m2"), reply("m3")], 800);
-    expect(list.scrollTop).toBe(800);
-  });
-
-  it("clears the unread-history state when the conversation is reset", () => {
-    const { grow, scrollTo } = renderPanel([message()]);
-    scrollTo(120);
-    grow([message(), reply("m2")], 700);
-    expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
-    grow([], 700);
-    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
-    expect(screen.getByText("No messages yet")).toBeInTheDocument();
-  });
-
-  it("continues following messages while the reader is near the bottom", () => {
+  it("follows near the bottom, does not interrupt someone reading history, and offers a jump to the latest", () => {
     const { list, grow, scrollTo } = renderPanel([message()]);
     scrollTo(375);
     grow([message(), reply("m2")], 700);
     expect(list.scrollTop).toBe(700);
     expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+
+    scrollTo(120);
+    grow([message(), reply("m2"), reply("m3")], 800);
+    expect(list.scrollTop).toBe(120);
+
+    const jump = screen.getByRole("button", { name: "New messages · Jump to latest" });
+    fireEvent.click(jump);
+    expect(list.scrollTop).toBe(800);
+    expect(list).toHaveFocus();
+    expect(jump).not.toBeInTheDocument();
+
+    grow([message(), reply("m2"), reply("m3"), reply("m4")], 900);
+    expect(list.scrollTop).toBe(900);
+
+    // Resetting the conversation clears the unread-history state.
+    scrollTo(120);
+    grow([message(), reply("m2"), reply("m3"), reply("m4"), reply("m5")], 1_000);
+    expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+    grow([], 1_000);
+    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
   });
 
-  it("sends on Enter, clears the draft, and never sends on Shift+Enter or mid-composition", async () => {
+  it("sends on Enter and clears the draft, never on Shift+Enter or mid-composition, and keeps a failed draft", async () => {
     const onSend = vi.fn();
     const { box } = renderPanel([], onSend);
     fireEvent.change(box, { target: { value: "on it" } });
@@ -110,14 +105,12 @@ describe("ChatPanel", () => {
     expect(onSend).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSend).toHaveBeenLastCalledWith("你好");
-  });
+    await waitFor(() => expect(box.value).toBe(""));
 
-  it("keeps the draft when sending fails", async () => {
-    const onSend = vi.fn().mockRejectedValue(new Error("offline"));
-    const { box } = renderPanel([], onSend);
+    onSend.mockRejectedValueOnce(new Error("offline"));
     fireEvent.change(box, { target: { value: "still here" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(onSend).toHaveBeenCalled());
+    await waitFor(() => expect(onSend).toHaveBeenLastCalledWith("still here"));
     expect(box.value).toBe("still here");
   });
 });

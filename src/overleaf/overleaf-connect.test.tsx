@@ -79,7 +79,7 @@ describe("Overleaf settings section", () => {
     fireEvent.click(await screen.findByRole("option", { name: option }));
   };
 
-  it("presents sync mode and deletion behavior as dropdowns", async () => {
+  it("presents sync mode and deletion behavior as dropdowns, with concise live-editing status", async () => {
     mockInvoke({ overleaf_status: connected });
     const onSyncModeChange = vi.fn();
     const onRemoteDeleteChange = vi.fn();
@@ -99,6 +99,13 @@ describe("Overleaf settings section", () => {
     expect(screen.queryByText("Open a linked project to start editing live.")).not.toBeInTheDocument();
     expect(screen.queryByText("Advanced connection settings")).not.toBeInTheDocument();
     expect(await screen.findByText(/Connected as researcher@example\.edu/)).toBeInTheDocument();
+
+    // Live-editing status stays concise instead of expanding the settings row.
+    rerender(settings({ channel: "error", channelDetail: "the websocket was refused" }));
+    const unavailable = await screen.findByText("Live editing is unavailable; regular syncing continues");
+    expect(unavailable).toHaveAttribute("title", "the websocket was refused");
+    rerender(settings({ channel: "live" }));
+    expect(screen.getByText("Live editing is connected")).toBeInTheDocument();
   });
 
   it("renders disconnected guidance, cancels a pending sign-in cleanly, and connects through begin_login + polling", async () => {
@@ -121,16 +128,19 @@ describe("Overleaf settings section", () => {
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
   });
 
-  it("pauses and resumes syncing, telling the app each time so the toolbar follows", async () => {
+  it("pauses and resumes a (legacy, host-less) link, telling the app each time so the toolbar follows", async () => {
     const onLinkChanged = vi.fn();
     let paused = false;
     mockInvoke({
       overleaf_status: connected,
-      overleaf_link: () => ({ ...linkedProject, lastSync: null, paused }),
+      // A legacy link without a stored host stays active on the current session.
+      overleaf_link: () => ({ ...linkedProject, host: "", lastSync: null, paused }),
       overleaf_set_paused: (args: { paused: boolean }) => { paused = args.paused; },
     });
     vi.mocked(confirm).mockResolvedValue(true);
     render(settings({ onLinkChanged }));
+    expect(await screen.findByText(/This project syncs with “Attention Paper”/)).toBeInTheDocument();
+    expect(screen.queryByText(/This project uses \./)).not.toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("button", { name: "Pause syncing" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_paused", { projectRoot: "/tmp/project", paused: true }));
@@ -146,15 +156,6 @@ describe("Overleaf settings section", () => {
     fireEvent.click(resume);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_set_paused", { projectRoot: "/tmp/project", paused: false }));
     expect(await screen.findByRole("button", { name: "Pause syncing" })).toBeInTheDocument();
-  });
-
-  it("shows concise live-editing status without expanding the settings row", async () => {
-    mockInvoke({ overleaf_status: connected });
-    const { rerender } = render(settings({ channel: "error", channelDetail: "the websocket was refused" }));
-    const unavailable = await screen.findByText("Live editing is unavailable; regular syncing continues");
-    expect(unavailable).toHaveAttribute("title", "the websocket was refused");
-    rerender(settings({ channel: "live" }));
-    expect(screen.getByText("Live editing is connected")).toBeInTheDocument();
   });
 
   it("signs out only once the warning is accepted, then lets the user reconnect", async () => {
@@ -205,15 +206,6 @@ describe("Overleaf settings section", () => {
     expect(await screen.findByText(/“Attention Paper” stays linked/)).toBeInTheDocument();
     for (const notice of notices) expect(await screen.findByText(notice)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pause syncing|Resume syncing/ })).not.toBeInTheDocument();
-  });
-
-  it("keeps legacy links without a stored host active on the current session", async () => {
-    mockInvoke({ overleaf_status: connected, overleaf_link: { ...linkedProject, host: "" } });
-    render(settings());
-
-    expect(await screen.findByText(/This project syncs with “Attention Paper”/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pause syncing" })).toBeInTheDocument();
-    expect(screen.queryByText(/This project uses \./)).not.toBeInTheDocument();
   });
 });
 

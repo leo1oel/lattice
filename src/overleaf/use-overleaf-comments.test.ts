@@ -83,6 +83,9 @@ describe("useOverleafComments", () => {
     mockProject();
     const { result } = mount();
     await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    // It carries every anchor in the project, not only the open document's.
+    await waitFor(() => expect(result.current.anchors.get("t-elsewhere"))
+      .toEqual({ threadId: "t-elsewhere", docId: ELSEWHERE, position: 40, quote: "elsewhere" }));
     await act(() => action(result.current));
     expect(invoke).toHaveBeenCalledWith(command, { projectRoot: "/tmp/project", ...expected });
   });
@@ -104,12 +107,5 @@ describe("useOverleafComments", () => {
     expect(String(raised)).toMatch(/no longer attached/);
     expect(invoke).not.toHaveBeenCalledWith("overleaf_resolve_thread", expect.anything());
     expect(result.current.error).toMatch(/no longer attached/);
-  });
-
-  it("carries every anchor in the project, not only the open document's", async () => {
-    mockProject();
-    const { result } = mount();
-    await waitFor(() => expect(result.current.anchors.size).toBe(2));
-    expect(result.current.anchors.get("t-elsewhere")).toEqual({ threadId: "t-elsewhere", docId: ELSEWHERE, position: 40, quote: "elsewhere" });
   });
 });
