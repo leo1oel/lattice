@@ -1,5 +1,24 @@
 # Open Knowledge selective updates
 
+## 2026-09-28
+
+Reviewed [v0.78.0..v0.79.0](https://github.com/inkeep/open-knowledge/compare/v0.78.0...v0.79.0), from [90ef743c](https://github.com/inkeep/open-knowledge/commit/90ef743c07f438b1440f9fcbe4a8878a1d055682) through [1f7787f9](https://github.com/inkeep/open-knowledge/commit/1f7787f99374d516961cf5b377ce7b5612361b60).
+Checked all 29 commits against the app vendor manifest and both lockfiles; five touch files Lattice vendors, all in core.
+Per the September 28 decision to rebuild the visual Markdown editor as Lattice-owned code and relicense Lattice to Apache-2.0, this review permits only bug or security fixes affecting current Lattice users, with no new upstream features.
+
+### Adopted
+
+None: no qualifying bug or security fix reaches Lattice's current vendored code.
+The vendored files, local overrides, and c234a9c6 app/core pins remain unchanged; this review changes only this log and does not implement the rebuild or relicensing.
+
+### Reviewed and declined
+
+- [PR #4938](https://github.com/inkeep/open-knowledge/pull/4938): the process-cleanup fix is in upstream test infrastructure Lattice does not ship; its only changes to vendored files add leading blank lines to `doc-boundary-space.ts`, `comment-promoter.ts`, `merged-walker.ts`, and `safe-url.ts`.
+- [PR #4995](https://github.com/inkeep/open-knowledge/pull/4995): upstream consumer-tier test selection is outside Lattice's vendored code, and the four vendored-file edits only remove those leading blank lines.
+- [PR #5004](https://github.com/inkeep/open-knowledge/pull/5004): GitHub and ticket reference previews are a new upstream agent-chat feature; the core barrel exports are replaced by Lattice's local seam, and the other four vendored-file edits only restore the blank lines.
+- [PR #5005](https://github.com/inkeep/open-knowledge/pull/5005): the remembered `xhigh` effort fix belongs to upstream agent-chat persistence that Lattice does not ship; its four vendored-file edits only remove the blank lines again.
+- [PR #5007](https://github.com/inkeep/open-knowledge/pull/5007): agent-chat bug reporting adds exports to the upstream core barrel that Lattice replaces, with no change to Lattice's editor behavior.
+
 ## 2026-09-27
 
 Reviewed upstream from [83e6aa94](https://github.com/inkeep/open-knowledge/commit/83e6aa94455d47f8d68baf380cb1dcbd8e4c439f) through [v0.78.0](https://github.com/inkeep/open-knowledge/releases/tag/v0.78.0) ([90ef743c](https://github.com/inkeep/open-knowledge/commit/90ef743c)), limited to the commits that touch vendored app/core files.
