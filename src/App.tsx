@@ -4762,14 +4762,16 @@ function App() {
     }
   }, [openProjectFile]);
 
-  const importClipboardImageFile = useCallback(async (file: File): Promise<string | null> => {
+  /** Save pasted image bytes into the project (and a live share); resolves the new path. */
+  const importImageBytes = useCallback(async (
+    readPng: () => Promise<{ base64: string; type: string }>,
+    targetDirectory: string,
+    emptyMessage = "",
+  ): Promise<string | null> => {
     try {
-      const base64 = await fileToBase64(file);
+      const { base64, type } = await readPng();
       const path = await invoke<string>("import_clipboard_image", {
-        targetDirectory: "figures",
-        fileName: clipboardImageFileName(file.type || "image/png"),
-        base64Data: base64,
-        projectRoot: project?.root,
+        targetDirectory, fileName: clipboardImageFileName(type), base64Data: base64, projectRoot: project?.root,
       });
       await refreshProject();
       setError(null);
@@ -4777,51 +4779,28 @@ function App() {
       await shareCreatedFileWithCollabV2(path, "binary");
       return path;
     } catch (reason) {
-      setError(toMessage(reason));
+      setError(toMessage(reason) || emptyMessage);
       return null;
     }
   }, [project?.root, refreshProject, shareCreatedFileWithCollabV2]);
-
+  const importClipboardImageFile = useCallback((file: File) => importImageBytes(
+    async () => ({ base64: await fileToBase64(file), type: file.type || "image/png" }),
+    "figures",
+  ), [importImageBytes]);
+  const importSystemClipboardImage = useCallback(async (targetDirectory: string) => project ? importImageBytes(async () => {
+    const { readImage } = await import("@tauri-apps/plugin-clipboard-manager");
+    const image = await readImage();
+    const size = await image.size();
+    return { base64: await rgbaImageToPngBase64(await image.rgba(), size.width, size.height), type: "image/png" };
+  }, targetDirectory, "No image found on the clipboard.") : null, [importImageBytes, project]);
+  /** Insert an imported figure at the editor caret. */
+  const insertFigureAtCaret = useCallback((path: string | null) => {
+    if (path) setFigureDropRequest({ id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
+  }, []);
   const handlePasteImageFile = useCallback((file: File) => {
-    void importClipboardImageFile(file).then((path) => {
-      if (!path) return;
-      setFigureDropRequest({
-        id: crypto.randomUUID(),
-        paths: [path],
-        clientX: -1,
-        clientY: -1,
-      });
-    });
+    void importClipboardImageFile(file).then(insertFigureAtCaret);
     return true;
-  }, [importClipboardImageFile]);
-
-  const importSystemClipboardImage = useCallback(async (
-    targetDirectory: string,
-  ): Promise<string | null> => {
-    if (!project) return null;
-    try {
-      const { readImage } = await import("@tauri-apps/plugin-clipboard-manager");
-      const image = await readImage();
-      const size = await image.size();
-      const rgba = await image.rgba();
-      const base64 = await rgbaImageToPngBase64(rgba, size.width, size.height);
-      const path = await invoke<string>("import_clipboard_image", {
-        targetDirectory,
-        fileName: clipboardImageFileName("image/png"),
-        base64Data: base64,
-        projectRoot: project.root,
-      });
-      await refreshProject();
-      // After setError(null): a share failure must remain visible.
-      setError(null);
-      await shareCreatedFileWithCollabV2(path, "binary");
-      return path;
-    } catch (reason) {
-      setError(toMessage(reason) || "No image found on the clipboard.");
-      return null;
-    }
-  }, [project, refreshProject, shareCreatedFileWithCollabV2]);
-
+  }, [importClipboardImageFile, insertFigureAtCaret]);
   const pasteClipboardImage = useCallback(async () => {
     if (!project || !activeFile?.endsWith(".tex")) {
       setError("Open a .tex file before pasting a figure.");
@@ -4830,13 +4809,8 @@ function App() {
     const path = await importSystemClipboardImage("figures");
     if (!path) return;
     setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-    setFigureDropRequest({
-      id: crypto.randomUUID(),
-      paths: [path],
-      clientX: -1,
-      clientY: -1,
-    });
-  }, [activeFile, importSystemClipboardImage, project]);
+    insertFigureAtCaret(path);
+  }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project]);
 
 
 
