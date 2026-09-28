@@ -22,7 +22,6 @@ const SEARCH_WORDS: Record<string, MessageDescriptor> = {
   "replace all": msg`All`,
   Find: msg`Find`,
   Replace: msg`Replace`,
-  close: msg`Close search`,
   "current match": msg`current match`,
   "on line": msg`on line`,
   // CodeMirror substitutes the number for `$`.
@@ -50,7 +49,7 @@ function describeSearchControls(view: EditorView): void {
       const description = title && i18n._(title);
       if (!description || control.title === description) continue;
       control.title = description;
-      if (!control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
+      if (control instanceof HTMLButtonElement || !control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
     }
 
     let count = panel.querySelector<HTMLElement>(".cm-search-count");

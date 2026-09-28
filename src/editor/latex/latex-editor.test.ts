@@ -83,6 +83,7 @@ describe("LaTeX editor extensions", () => {
     openSearchPanel(view);
     view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "alpha" })), selection: { anchor: 6, head: 11 } });
     expect(view.dom.querySelector(".cm-search-count")).toHaveTextContent("2/3");
+    expect(view.dom.querySelector('.cm-search button[name="close"]')).toHaveAttribute("aria-label", "Close search");
   });
 
   it("soft-wraps lines and keeps native spellcheck off whether or not Harper is enabled", () => {

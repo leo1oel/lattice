@@ -1813,7 +1813,7 @@ msgid "Citation key"
 msgstr "引用键"
 
 #: src/papers/bib-entry.ts
-msgid "Citation key '{key}' already exists. Choose a different key or edit the existing reference."
+msgid "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 msgstr "引用键“{key}”已存在。请换一个引用键，或编辑现有的参考文献条目。"
 
 #: src/project/paper-library.tsx

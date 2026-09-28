@@ -1813,8 +1813,8 @@ msgid "Citation key"
 msgstr "Citation key"
 
 #: src/papers/bib-entry.ts
-msgid "Citation key '{key}' already exists. Choose a different key or edit the existing reference."
-msgstr "Citation key '{key}' already exists. Choose a different key or edit the existing reference."
+msgid "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
+msgstr "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 
 #: src/project/paper-library.tsx
 msgid "Citation only — no downloadable full text found"

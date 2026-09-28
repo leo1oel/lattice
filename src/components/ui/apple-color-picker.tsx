@@ -376,7 +376,8 @@ export function AppleColorPicker(props: {
   const [tabDirection, setTabDirection] = useState(1);
   const [recentColors, setRecentColors] = useState(DEFAULT_RECENT_COLORS);
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
-  const gridSelectionId = useId() + "grid-selection";
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- DOM id, not user-visible
+  const gridSelectionId = `${useId()}-grid-selection`;
   const reduceMotion = useReducedMotion();
   const rgb = hexToRgb(draftValue);
   const hsv = rgbToHsv(rgb);
@@ -456,7 +457,6 @@ export function AppleColorPicker(props: {
           }))}
         />
         <div className="highlight-picker-main">
-          { }
           <AnimatePresence initial={false} mode="popLayout">
             <motion.div
               key={activeTab}
