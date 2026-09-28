@@ -22,15 +22,6 @@ export interface AgentComposerFilesMessage {
   files: AgentComposerFileEntry[];
 }
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes.buffer;
-}
-
 export function buildAgentComposerFilesMessage(
   payloads: readonly AgentComposerFilePayload[],
 ): AgentComposerFilesMessage {
@@ -40,7 +31,7 @@ export function buildAgentComposerFilesMessage(
     files: payloads.slice(0, MAX_AGENT_COMPOSER_FILES).map((payload) => ({
       name: payload.name,
       mimeType: payload.mimeType,
-      bytes: base64ToArrayBuffer(payload.bytesBase64),
+      bytes: Uint8Array.from(atob(payload.bytesBase64), (character) => character.charCodeAt(0)).buffer,
     })),
   };
 }

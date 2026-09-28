@@ -638,7 +638,7 @@ export function decodeBridgeValue(value: BridgeValue): unknown {
   if (Array.isArray(value)) return value.map(decodeBridgeValue);
   if (value && typeof value === "object") {
     if (BINARY_MARKER in value && typeof value[BINARY_MARKER] === "string") {
-      return base64ToBytes(value[BINARY_MARKER]).buffer;
+      return Uint8Array.from(atob(value[BINARY_MARKER]), (character) => character.charCodeAt(0)).buffer;
     }
     return Object.fromEntries(
       Object.entries(value).map(([key, child]) => [key, decodeBridgeValue(child)]),
@@ -657,13 +657,6 @@ function bytesToBase64(bytes: Uint8Array): string {
     encoded += btoa(binary);
   }
   return encoded;
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
 }
 
 function isLoopbackPage(): boolean {
