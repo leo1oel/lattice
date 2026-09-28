@@ -333,42 +333,6 @@ describe("Overleaf picker dialog", () => {
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
   });
 
-  it("keeps polling a started sign-in after the dialog closes and picks up the connected session", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      let status = disconnected;
-      let poll: unknown = { status: "pending", session: null };
-      mockInvoke({
-        overleaf_status: () => status,
-        overleaf_list_projects: projects,
-        overleaf_begin_login: undefined,
-        overleaf_poll_login: () => poll,
-      });
-      const callbacks = { onClose: vi.fn(), onCloned: vi.fn(), onConnectionChanged: vi.fn() };
-      const { rerender } = render(<OverleafPickerDialog open {...callbacks} />);
-      fireEvent.click(await screen.findByRole("button", { name: "Connect to Overleaf" }));
-      await waitFor(() => expect(invokeCalls("overleaf_poll_login")).toHaveLength(1));
-
-      rerender(<OverleafPickerDialog open={false} {...callbacks} />);
-      expect(screen.queryByRole("button", { name: "Connect to Overleaf" })).not.toBeInTheDocument();
-      await vi.advanceTimersByTimeAsync(1500);
-      await vi.advanceTimersByTimeAsync(1500);
-      expect(invokeCalls("overleaf_poll_login")).toHaveLength(3);
-
-      status = connected;
-      poll = { status: "connected", session: connected };
-      await vi.advanceTimersByTimeAsync(1500);
-      expect(callbacks.onConnectionChanged).toHaveBeenCalledOnce();
-      await vi.advanceTimersByTimeAsync(3000);
-      expect(invokeCalls("overleaf_poll_login")).toHaveLength(4);
-
-      rerender(<OverleafPickerDialog open {...callbacks} />);
-      expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("turns an expired project-list session into a guided reconnect state", async () => {
     let listAttempts = 0;
     mockConnectedPicker({

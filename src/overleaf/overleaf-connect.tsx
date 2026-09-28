@@ -65,7 +65,7 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
     timer.current = null;
     setPending(false);
   }, []);
-  // Stop polling when the component unmounts.
+  // Stop polling when the component unmounts (e.g. the dialog closes).
   useEffect(() => stop, [stop]);
 
   const cancel = useCallback(() => {
@@ -436,28 +436,12 @@ type PickerProps = {
  * Overleaf projects, and download one as a local Lattice project.
  */
 export function OverleafPickerDialog(props: PickerProps) {
-  // Sign-in outlives the picker: the backend only stores the session and
-  // closes the sign-in window while it is being polled, so closing the
-  // dialog mid-sign-in must not stop the poll.
-  const onSignedIn = useRef<((session: OverleafStatus) => void) | null>(null);
-  const login = useOverleafLogin((session) => {
-    onSignedIn.current?.(session);
-    props.onConnectionChanged?.();
-  });
-  const watchSignIn = useCallback((handler: ((session: OverleafStatus) => void) | null) => {
-    onSignedIn.current = handler;
-  }, []);
   // Mounted afresh on every open, and for another current project, so no
   // search, selection or failed load from an earlier visit carries over.
-  return props.open
-    ? <OverleafPicker key={props.currentProject?.name} {...props} login={login} watchSignIn={watchSignIn} />
-    : null;
+  return props.open ? <OverleafPicker key={props.currentProject?.name} {...props} /> : null;
 }
 
-function OverleafPicker({ login, watchSignIn, ...props }: PickerProps & {
-  login: OverleafLogin;
-  watchSignIn: (handler: ((session: OverleafStatus) => void) | null) => void;
-}) {
+function OverleafPicker(props: PickerProps) {
   const { t } = useLingui();
   const [status, setStatus] = useState<OverleafStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -472,13 +456,11 @@ function OverleafPicker({ login, watchSignIn, ...props }: PickerProps & {
   const [publishing, setPublishing] = useState(false);
   const [publishName, setPublishName] = useState(props.currentProject?.name ?? "");
   const [reconnectRequired, setReconnectRequired] = useState(false);
-  useEffect(() => {
-    watchSignIn((session) => {
-      setReconnectRequired(false);
-      setStatus(session);
-    });
-    return () => watchSignIn(null);
-  }, [watchSignIn]);
+  const login = useOverleafLogin((session) => {
+    setReconnectRequired(false);
+    setStatus(session);
+    props.onConnectionChanged?.();
+  });
   const { onClose, onConnectionChanged } = props;
 
   /** A failed Overleaf request: an expired session becomes the reconnect state, anything else is reported. */
