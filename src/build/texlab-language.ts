@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import type { EditorState } from "@codemirror/state";
-import { hoverTooltip } from "@codemirror/view";
+import { hoverTooltip, type Tooltip } from "@codemirror/view";
 
 const OPEN_CITATION = /\\(?:cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite)\*?(?:\[[^\]]*\]){0,2}\{([^}]*)$/;
 const OPEN_REFERENCE = /\\(?:ref|eqref|pageref|autoref|cref|Cref)\*?\{([^}]*)$/;
@@ -69,11 +69,16 @@ export function texlabCompletionSource(getPath: () => string) {
   };
 }
 
-export function texlabHoverTooltip(getPath: () => string) {
+/** TexLab's hover card; `fallback` answers when TexLab is off, missing or has nothing to say. */
+export function texlabHoverTooltip(
+  getPath: () => string,
+  fallback: (state: EditorState, pos: number) => Tooltip | null = () => null,
+  texlab = true,
+) {
   return hoverTooltip(async (view, pos) => {
-    const position = texlabPosition(getPath(), view.state, pos);
-    if (!position) return null;
-    return quietly(async () => {
+    const position = texlab ? texlabPosition(getPath(), view.state, pos) : null;
+    if (!position) return fallback(view.state, pos);
+    const answer = await quietly<Tooltip>(async () => {
       const hover = await invoke<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
       return {
@@ -88,6 +93,7 @@ export function texlabHoverTooltip(getPath: () => string) {
         },
       };
     });
+    return answer ?? fallback(view.state, pos);
   }, { hoverTime: 420 });
 }
 

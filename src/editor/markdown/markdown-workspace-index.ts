@@ -1,13 +1,8 @@
 /**
- * Workspace Markdown index built on the vendored Open Knowledge search engine.
+ * Workspace Markdown index: parsed pages plus the wiki-link page search.
  */
 import type { FileNode } from "../../app-types";
-import {
-  createWorkspaceSearchCorpus,
-  createWorkspaceSearchDocument,
-  searchWorkspaceCorpus,
-  updateWorkspaceSearchCorpus,
-} from "../../open-knowledge-core/search/workspace-search.ts";
+import { PageSearchIndex } from "../../project/workspace-search";
 import { createCodeFenceTracker } from "../../open-knowledge-core/utils/code-fence-tracker.ts";
 import { scanHeadingLine } from "../../open-knowledge-core/utils/heading-scan.ts";
 import type { HeadingEntry } from "../../open-knowledge-core/utils/slug.ts";
@@ -66,7 +61,7 @@ function parseDocument(path: string, content: string): MarkdownDocEntry {
 
 export class MarkdownWorkspaceIndex {
   private docs: MarkdownDocEntry[] = [];
-  private corpus = createWorkspaceSearchCorpus([]);
+  private readonly pageSearch = new PageSearchIndex();
   private pendingFiles: FileNode[] | null = null;
   private updatePromise: Promise<void> | null = null;
   private listeners = new Set<() => void>();
@@ -106,12 +101,11 @@ export class MarkdownWorkspaceIndex {
     this.replaceDocs(docs);
   }
 
-  /** Ranked page completion via the vendored searchWorkspaceCorpus (intent "autocomplete"); empty query returns first `limit` docs in source order. */
+  /** Ranked page completion for wiki links; an empty query returns the first `limit` docs in source order. */
   searchPages(query: string, limit = 20): MarkdownDocEntry[] {
     if (!query.trim()) return this.docs.slice(0, limit);
     const byName = new Map(this.docs.map((doc) => [doc.docName, doc]));
-    return searchWorkspaceCorpus(this.corpus, query, { intent: "autocomplete", limit })
-      .flatMap((result) => byName.get(result.document.path) ?? []);
+    return this.pageSearch.search(query, limit).flatMap((page) => byName.get(page.path) ?? []);
   }
 
   getDoc(docName: string): MarkdownDocEntry | undefined {
@@ -136,13 +130,10 @@ export class MarkdownWorkspaceIndex {
 
   private replaceDocs(docs: MarkdownDocEntry[]): void {
     this.docs = docs;
-    // Incremental: a single edited document patches the shared BM25 index
-    // instead of re-tokenizing the whole workspace per publication. The
-    // updater diffs against the previous corpus itself and falls back to a
-    // from-scratch build for bulk changes (project open, branch switches).
-    this.corpus = updateWorkspaceSearchCorpus(this.corpus, docs.map((doc) => createWorkspaceSearchDocument({
-      kind: "page", path: doc.docName, title: doc.title, content: doc.content, modifiedTs: 0,
-    }))).corpus;
+    // Page search reads names only and keeps the analysis of every page
+    // whose name is unchanged, so a publication of one edited document does
+    // not re-tokenize the workspace.
+    this.pageSearch.update(docs.map((doc) => ({ path: doc.docName, title: doc.title })));
     for (const listener of this.listeners) listener();
   }
 }

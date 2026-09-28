@@ -11,7 +11,6 @@ import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension, TransactionSpec } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperSourceCitation } from "../papers/paper-source";
-import { latex } from "codemirror-lang-latex";
 import {
   overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
   type PresenceCursor, type TrackedChangeTooltipActions,
@@ -20,7 +19,8 @@ import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreVisualViewportWithReveal } from "../editor/markdown/visual-editor-block-controls";
 import { Columns2 } from "lucide-react";
-import { latexEditorExtensions, latexLanguageOptions, textEditorExtensions } from "../editor/latex/latex-editor";
+import { latexEditorExtensions, textEditorExtensions } from "../editor/latex/latex-editor";
+import { latex } from "../editor/latex/latex-language";
 import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
@@ -660,7 +660,7 @@ export function DocumentCanvas(props: {
     paperDropExtension(path, () => ({ projectRoot: latestRef.current.projectRoot, papers: latestRef.current.papers ?? [] })),
     ...keymap,
     ...(isLatexSourcePath(path) ? [
-      latex(latexLanguageOptions),
+      latex(),
       ...latexEditorExtensions({
         live: latestRef,
         currentPath: path,

@@ -230,10 +230,10 @@ Four dependency-level replacements landed after the fix rounds above:
   replace the poll; `.research/` churn is filtered, `.git/` events keep the
   source-control badge fresh. The frontend keeps a 30-second fallback poll
   for what watchers can miss.
-- **Full BM25 rebuild → incremental corpus update**
-  (`markdown-workspace-index.ts` now routes through
-  `updateWorkspaceSearchCorpus`, which patches the shared index per changed
-  document and rebuilds only for bulk changes).
+- **Full BM25 rebuild → incremental page index**
+  (`markdown-workspace-index.ts` feeds `PageSearchIndex.update` in
+  `src/project/workspace-search.ts`, which indexes page names only and reuses
+  the analysis of every page whose name is unchanged).
 
 Considered and deliberately kept: CodeMirror 6, Yjs, pdf.js, KaTeX,
 lowlight, TipTap/ProseMirror (the split-mode cost is architectural, not the
@@ -262,6 +262,6 @@ Two items that used to sit in this list have **shipped** and are described under
 - The `notify` filesystem watcher replacing the 2-second poll
   (`src-tauri/src/fs_watch.rs`, the `watch_project` command, the
   `project-fs-changed` event).
-- The incremental BM25 workspace index. `updateWorkspaceSearchCorpus` is no
-  longer unused: `src/editor/markdown/markdown-workspace-index.ts:143` calls it on every
-  corpus update.
+- The incremental BM25 workspace index (`PageSearchIndex` in
+  `src/project/workspace-search.ts`, updated on every corpus publication by
+  `src/editor/markdown/markdown-workspace-index.ts`).

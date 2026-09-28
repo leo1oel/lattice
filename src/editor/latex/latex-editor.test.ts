@@ -9,7 +9,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  insertLatexNewline, latexEditorExtensions, latexLanguageOptions, selectionVisibilityExtension,
+  insertLatexNewline, latexEditorExtensions, selectionVisibilityExtension,
   type LatexEditorLiveData, type LatexEditorOptions,
 } from "./latex-editor";
 import { citationTooltipSpace } from "./latex-hover-cards";
@@ -104,8 +104,7 @@ describe("LaTeX editor extensions", () => {
     expect(marked()).toBe(false);
   });
 
-  it("keeps package linting off, enables hover documentation, and bounds citation tooltips to the editor", () => {
-    expect(latexLanguageOptions).toMatchObject({ enableLinting: false, enableTooltips: true });
+  it("bounds citation tooltips to the editor", () => {
     expect(citationTooltipSpace({ left: 320, right: 720, top: 80, bottom: 680 }))
       .toEqual({ left: 328, right: 712, top: 88, bottom: 672 });
   });
@@ -261,11 +260,21 @@ describe("LaTeX editor extensions", () => {
       "\\begin{document}\nHello\n\\end{document}", "Hello", "\\begin{document}\nHello\n\n\\end{document}"],
     ["keeps an already-indented line's indent on newline",
       "\\begin{itemize}\n  \\item one\n\\end{itemize}", "one", "\\begin{itemize}\n  \\item one\n  \n\\end{itemize}"],
-    ["lets Enter after \\begin{env} fall through so the environment can auto-close",
-      "\\begin{align}", "\\begin{align}", null],
+    ["closes an environment when Enter follows its \\begin, with the caret on the body line",
+      "\\begin{align}", "\\begin{align}", "\\begin{align}\n  |\n\\end{align}"],
+    ["keeps the \\begin line's indent for the body and the \\end",
+      "  \\begin{itemize}  ", "\\begin{itemize}  ", "  \\begin{itemize}\n    |\n  \\end{itemize}"],
+    ["only indents the body when the environment is already closed",
+      "\\begin{itemize}\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n\\end{itemize}"],
+    ["does not duplicate the \\end of an environment that already has items",
+      "\\begin{itemize}\n  \\item a\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n  \\item a\n\\end{itemize}"],
+    ["closes a nested environment of the same name inside a closed one",
+      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n\\end{itemize}", "  \\begin{itemize}",
+      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n    |\n  \\end{itemize}\n\\end{itemize}"],
   ])("%s", (_name, source, cursorAfter, expected) => {
     const view = latexView(source, source.indexOf(cursorAfter) + cursorAfter.length);
-    expect(insertLatexNewline(view)).toBe(expected !== null);
-    expect(doc(view)).toBe(expected ?? source);
+    expect(insertLatexNewline(view)).toBe(true);
+    const { head } = view.state.selection.main;
+    expect(expected.includes("|") ? `${doc(view).slice(0, head)}|${doc(view).slice(head)}` : doc(view)).toBe(expected);
   });
 });

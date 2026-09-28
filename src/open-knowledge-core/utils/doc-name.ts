@@ -101,7 +101,7 @@ export function isProjectSkillBundlePath(name: string): boolean {
  * (e.g. `opencode.json`). {@link validateDocName} write-rejects dot-segment
  * names, but they can still appear in the read index (they exist on disk,
  * created outside OK). Search ADMITS hidden docs with a rank penalty
- * (`HIDDEN_DOC_LEXICAL_PENALTY` in `workspace-search.ts`) so "search what the
+ * (Lattice's `src/project/workspace-search.ts`) so "search what the
  * tree shows" holds; embedding + egress still EXCLUDE them so agent-facing
  * results and embedding spend stay focused on the canonical content set —
  * mirroring the file tree's `showHiddenFiles` default-off. Deliberately NOT

@@ -113,9 +113,6 @@ importers:
       '@lingui/react':
         specifier: ^6.6.0
         version: 6.6.0(@babel/core@7.29.7)(@babel/types@7.29.7)(react@19.2.7)
-      '@orama/orama':
-        specifier: ^3.1.18
-        version: 3.1.18
       '@panzoom/panzoom':
         specifier: ^4.6.2
         version: 4.6.2
@@ -281,9 +278,6 @@ importers:
       codemirror-lang-bib:
         specifier: ^0.2.4
         version: 0.2.4(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(@lezer/common@1.5.2)(@lezer/generator@1.8.0)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
-      codemirror-lang-latex:
-        specifier: ^0.6.1
-        version: 0.6.1(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(@lezer/common@1.5.2)(@lezer/generator@1.8.0)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
       codemirror-lang-mermaid:
         specifier: ^0.5.0
         version: 0.5.0
@@ -1477,10 +1471,6 @@ packages:
   '@opentelemetry/api@1.9.1':
     resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
     engines: {node: '>=8.0.0'}
-
-  '@orama/orama@3.1.18':
-    resolution: {integrity: sha512-a61ljmRVVyG5MC/698C8/FfFDw5a8LOIvyOLW5fztgUXqUpc1jOfQzOitSCbge657OgXXThmY3Tk8fpiDb4UcA==}
-    engines: {node: '>= 20.0.0'}
 
   '@oven/bun-darwin-aarch64@1.4.2':
     resolution: {integrity: sha512-MXdZkP1featqxZ+/VTXWG1BVjM4OGBehVY2Q88EeUj/7L0UMeCGItmyPYTN+wxvlGJ6F66JEtzsw+GvQWewnag==}
@@ -3870,21 +3860,6 @@ packages:
 
   codemirror-lang-bib@0.2.4:
     resolution: {integrity: sha512-EEwyUIEjsvN48O2XoOli6oCx+U9TQBEANaHfsYeXRdO0mQtTc3R+XLlnUPJhwlCWuMLL3ciDiqlRPGAyjFp82w==}
-    peerDependencies:
-      '@codemirror/autocomplete': ^6.20.1
-      '@codemirror/commands': ^6.10.3
-      '@codemirror/language': ^6.12.3
-      '@codemirror/lint': ^6.9.5
-      '@codemirror/search': ^6.6.0
-      '@codemirror/state': ^6.6.0
-      '@codemirror/view': ^6.41.0
-      '@lezer/common': ^1.5.2
-      '@lezer/generator': ^1.8.0
-      '@lezer/highlight': ^1.2.3
-      '@lezer/lr': ^1.4.8
-
-  codemirror-lang-latex@0.6.1:
-    resolution: {integrity: sha512-JdCVh2xs2W06zP4gEWolWt59BITnKNDu52DK+4HsZjOFK4Ax/kGM5zk2/N67LKR1yu7PVLJd8wRwws/u7MR5pw==}
     peerDependencies:
       '@codemirror/autocomplete': ^6.20.1
       '@codemirror/commands': ^6.10.3
@@ -7336,8 +7311,6 @@ snapshots:
   '@opentelemetry/api@1.9.1':
     optional: true
 
-  '@orama/orama@3.1.18': {}
-
   '@oven/bun-darwin-aarch64@1.4.2':
     optional: true
 
@@ -9897,20 +9870,6 @@ snapshots:
       - '@types/react-dom'
 
   codemirror-lang-bib@0.2.4(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(@lezer/common@1.5.2)(@lezer/generator@1.8.0)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10):
-    dependencies:
-      '@codemirror/autocomplete': 6.20.3
-      '@codemirror/commands': 6.10.4
-      '@codemirror/language': 6.12.4
-      '@codemirror/lint': 6.9.7
-      '@codemirror/search': 6.7.1
-      '@codemirror/state': 6.7.1
-      '@codemirror/view': 6.43.8
-      '@lezer/common': 1.5.2
-      '@lezer/generator': 1.8.0
-      '@lezer/highlight': 1.2.3
-      '@lezer/lr': 1.4.10
-
-  codemirror-lang-latex@0.6.1(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(@lezer/common@1.5.2)(@lezer/generator@1.8.0)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10):
     dependencies:
       '@codemirror/autocomplete': 6.20.3
       '@codemirror/commands': 6.10.4
