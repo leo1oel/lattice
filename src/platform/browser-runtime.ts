@@ -63,6 +63,18 @@ export interface BrowserRuntimeConfig {
 let runtimeError: string | null = null;
 let browserRuntime = false;
 let runtimeReady: Promise<void> = Promise.resolve();
+let runtimeDetached = false;
+const detachListeners = new Set<() => void>();
+
+// The page stays alive under the failure overlay after another tab or the
+// desktop shell takes over, but its bridge no longer reaches the native host.
+// Anything embedded here that accepts edits must stop doing so: nothing on
+// this page can apply them to the project any more.
+function detachRuntime(): void {
+  if (runtimeDetached) return;
+  runtimeDetached = true;
+  for (const listener of [...detachListeners]) listener();
+}
 
 export class BrowserRelay {
   private readonly socket: WebSocket;
@@ -204,6 +216,7 @@ export class BrowserRelay {
     }
     if (message.type === "desktop-suspended") {
       this.standby = true;
+      detachRuntime();
       const reason = new Error(runtimeMessage("desktop-suspended"));
       showRuntimeFailure(reason);
       for (const pending of this.pending.values()) pending.reject(reason);
@@ -295,6 +308,7 @@ export class BrowserRelay {
   }
 
   private fail(reason: Error): void {
+    detachRuntime();
     if (!this.ready) this.readyReject(reason);
     else showRuntimeFailure(reason);
     this.storageReject(reason);
@@ -758,6 +772,15 @@ export function browserRuntimeError(): string | null {
 
 export function browserRuntimeReady(): Promise<void> {
   return runtimeReady;
+}
+
+export function browserRuntimeDetached(): boolean {
+  return runtimeDetached;
+}
+
+export function subscribeBrowserRuntimeDetached(listener: () => void): () => void {
+  detachListeners.add(listener);
+  return () => detachListeners.delete(listener);
 }
 
 export { decodeBridgeValue, encodeBridgeValue };
