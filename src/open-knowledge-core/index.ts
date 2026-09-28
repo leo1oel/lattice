@@ -25,8 +25,6 @@ export * from "./utils/asset-href.ts";
 export * from "./utils/slug.ts";
 export { isAllowedLinkUri } from "./extensions/link-fidelity.ts";
 export { SAFE_URL_SCHEMES } from "./markdown/safe-url.ts";
-// consumed by vendored SrcAutocomplete (BM25 asset-path suggestions)
-export * from "./search/workspace-search.ts";
 // consumed by vendored image-upload/upload-file.ts (RFC 9457 + upload contract)
 export { ProblemDetailsSchema, UploadAssetSuccessSchema } from "./schemas/api/_envelope.ts";
 // consumed by vendored editor/extensions/math-inline.ts (app NodeView wrapper)

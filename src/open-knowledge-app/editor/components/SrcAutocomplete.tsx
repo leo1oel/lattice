@@ -9,9 +9,8 @@
  *
  * Open behavior:
  *   - Click: opens with up to 8 suggestions in source order.
- *   - Typing: re-ranks via `searchWorkspaceCorpus` (BM25 + title boost +
- *     recency, intent `autocomplete`), matching the wiki-link suggestion
- *     menu's discovery contract.
+ *   - Typing: re-ranks via Lattice's `PageSearchIndex`, matching the
+ *     wiki-link suggestion menu's discovery contract.
  *   - Empty asset list: stays closed (no chrome flash when the workspace
  *     has no matching assets yet).
  *   - Blur / Escape / selection: closes. Click on item uses
@@ -32,12 +31,7 @@
  * still owns the canonical input value.
  */
 
-import {
-  createWorkspaceSearchCorpus,
-  createWorkspaceSearchDocument,
-  searchWorkspaceCorpus,
-  type WorkspaceSearchCorpus,
-} from '@ok-core';
+import { PageSearchIndex } from '../../../project/workspace-search';
 import { useLingui } from '@ok-app/shims/lingui-react-macro';
 import type { ReactNode } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -97,7 +91,7 @@ interface AssetItem {
 interface AutocompleteCorpus {
   fingerprint: string;
   byPath: ReadonlyMap<string, AssetItem>;
-  corpus: WorkspaceSearchCorpus;
+  corpus: PageSearchIndex;
   /** Source-order list — used to render the empty-query "top 8" view. */
   itemsInOrder: readonly AssetItem[];
 }
@@ -113,19 +107,13 @@ function makeAssetItem(path: string): AssetItem {
 function getCachedCorpus(items: readonly AssetItem[]): AutocompleteCorpus {
   const fingerprint = items.map((item) => item.path).join('');
   if (cachedCorpus?.fingerprint === fingerprint) return cachedCorpus;
+  const corpus = new PageSearchIndex();
+  corpus.update(items.map((item) => ({ path: item.path, title: item.basename, content: '' })));
   cachedCorpus = {
     fingerprint,
     byPath: new Map(items.map((item) => [item.path, item])),
     itemsInOrder: items,
-    corpus: createWorkspaceSearchCorpus(
-      items.map((item) =>
-        createWorkspaceSearchDocument({
-          kind: 'page',
-          path: item.path,
-          title: item.basename,
-        }),
-      ),
-    ),
+    corpus,
   };
   return cachedCorpus;
 }
@@ -145,11 +133,9 @@ function normalizeQueryForSearch(raw: string): string {
 function selectSuggestions(corpus: AutocompleteCorpus, rawQuery: string): readonly AssetItem[] {
   const query = normalizeQueryForSearch(rawQuery);
   if (!query) return corpus.itemsInOrder.slice(0, MAX_ITEMS);
-  return searchWorkspaceCorpus(corpus.corpus, query, {
-    intent: 'autocomplete',
-    limit: MAX_ITEMS,
-  })
-    .map((result) => corpus.byPath.get(result.document.path))
+  return corpus.corpus
+    .search(query, MAX_ITEMS)
+    .map((result) => corpus.byPath.get(result.path))
     .filter((item): item is AssetItem => Boolean(item));
 }
 

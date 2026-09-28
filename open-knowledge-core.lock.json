@@ -628,38 +628,6 @@
       "upstream": "99757fa610ce9feb05408f3911b221269a33df7d",
       "vendored": "99757fa610ce9feb05408f3911b221269a33df7d"
     },
-    "search/workspace-search.category-caps.test.ts": {
-      "upstream": "5565d678c0bd5521e3b13c8ef1963ee2939ffd85",
-      "vendored": "5565d678c0bd5521e3b13c8ef1963ee2939ffd85"
-    },
-    "search/workspace-search.filename-quota.test.ts": {
-      "upstream": "553502557cbb3c2bea7462eea2c66dc26d5f1996",
-      "vendored": "553502557cbb3c2bea7462eea2c66dc26d5f1996"
-    },
-    "search/workspace-search.incremental.test.ts": {
-      "upstream": "f1b25056a8ffdf8003a5bab987a353f488cae6e6",
-      "vendored": "f1b25056a8ffdf8003a5bab987a353f488cae6e6"
-    },
-    "search/workspace-search.non-latin.test.ts": {
-      "upstream": "317e3131468d485f462ee001fcdda8b3b293a319",
-      "vendored": "3f6cd8ade41302b9ebf108fb6720d028d69c8852"
-    },
-    "search/workspace-search.semantic.test.ts": {
-      "upstream": "50642a5a977ffefc0a01aaaf91d76d41281e04e3",
-      "vendored": "50642a5a977ffefc0a01aaaf91d76d41281e04e3"
-    },
-    "search/workspace-search.test.ts": {
-      "upstream": "61a214d3d2376e1114cbe926a2a94f3b0443e020",
-      "vendored": "61a214d3d2376e1114cbe926a2a94f3b0443e020"
-    },
-    "search/workspace-search.tier-ranking.test.ts": {
-      "upstream": "07b3431054b422b389e1ac0459d4fa81560639f4",
-      "vendored": "07b3431054b422b389e1ac0459d4fa81560639f4"
-    },
-    "search/workspace-search.ts": {
-      "upstream": "a9072338ad7037ca4f34bb6e58e15dcb40f3bef5",
-      "vendored": "b2c6bc7eea2223534b9e1afe2e584a6c66c62e31"
-    },
     "types/awareness.test.ts": {
       "upstream": "77f3e9a271d7bfd44781916d6d272269d75e213c",
       "vendored": "77f3e9a271d7bfd44781916d6d272269d75e213c"
