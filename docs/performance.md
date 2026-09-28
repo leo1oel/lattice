@@ -196,8 +196,9 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
   `mise run perf-bench` locally).
 - `--only a,b` limits scenarios. `--runs N` repeats each scenario and keeps the
-  run with the fewest counts, because noise only ever adds work. The default is
-  2.
+  run with the fewest gated counts, because noise only ever adds work; the
+  report-only counts shown are that same run's and do not affect the choice.
+  The default is 2.
 - `--dev` uses the Vite dev server so component names stay readable. Its counts
   match production's, but only production runs are gated or written.
 - `--json FILE` writes every run with `topComponents` (who rendered) and

@@ -23,7 +23,7 @@
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
  *   --only a,b      run only these scenarios
- *   --runs N        runs per scenario; the run with the fewest counts is kept (default 2)
+ *   --runs N        runs per scenario; the run with the fewest gated counts is kept (default 2)
  *   --json FILE     write every run, with the components that rendered and why
  *   --dev           use the Vite dev server: readable component names and
  *                   profiles, and counts equal to production's (not gated)
