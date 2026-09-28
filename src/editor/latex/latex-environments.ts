@@ -1,5 +1,3 @@
-import { escapeRegExp } from "./latex-text";
-
 const BEGIN_OR_END = /\\(begin|end)\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 
 type Span = { from: number; to: number };
@@ -83,6 +81,8 @@ export function renameEnvironmentAt(
 /**
  * The body line and `\\end{…}` to add after a just-completed `\\begin{…}`, with
  * the caret on the body line; `indent` is the `\\begin` line's own indentation.
+ * Nothing is added when a later `\\end{…}` of the same name, counting nesting,
+ * already closes it.
  */
 export function beginEnvironmentClose(
   textBeforeCursor: string,
@@ -90,6 +90,16 @@ export function beginEnvironmentClose(
   indent = "",
 ): { insert: string; cursorOffset: number } | null {
   const name = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/.exec(textBeforeCursor)?.[1];
-  if (!name || new RegExp(`^\\s*\\\\end\\{${escapeRegExp(name)}\\}`).test(textAfterCursor)) return null;
+  if (!name || isClosedAfter(name, textAfterCursor)) return null;
   return { insert: `\n${indent}  \n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length };
+}
+
+function isClosedAfter(name: string, text: string): boolean {
+  let depth = 1;
+  for (const event of environmentEvents(text.replace(/(?<!\\)%.*$/gm, ""))) {
+    if (event.name !== name) continue;
+    depth += event.kind === "begin" ? 1 : -1;
+    if (depth === 0) return true;
+  }
+  return false;
 }

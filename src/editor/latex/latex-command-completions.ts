@@ -17,6 +17,7 @@ import type { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { i18n } from "../../i18n";
 import { INSERT_SNIPPETS } from "../insert/insert-snippets";
+import { beginEnvironmentClose } from "./latex-environments";
 import { shouldInsertCommandBraces } from "./latex-symbols";
 import { mathRegionAt } from "./math-region";
 
@@ -191,9 +192,12 @@ function environmentCompletion(entry: Entry, opening: boolean): Completion {
         insertCompletion(view, completion, from, end, `${entry.name}}`, entry.name.length + 1);
         return;
       }
-      const indent = /^\s*/.exec(view.state.doc.lineAt(from).text)?.[0] ?? "";
-      const body = `${entry.name}}\n${indent}  \n${indent}\\end{${entry.name}}`;
-      insertCompletion(view, completion, from, end, body, entry.name.length + 2 + indent.length + 2);
+      const line = view.state.doc.lineAt(from);
+      const indent = /^\s*/.exec(line.text)?.[0] ?? "";
+      const name = `${entry.name}}`;
+      const before = view.state.sliceDoc(line.from, from) + name;
+      const close = beginEnvironmentClose(before, view.state.sliceDoc(end), indent);
+      insertCompletion(view, completion, from, end, name + (close?.insert ?? ""), name.length + (close?.cursorOffset ?? 0));
     },
   };
 }

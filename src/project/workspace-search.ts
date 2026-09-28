@@ -13,7 +13,7 @@
  * match. Equal scores fall back to path order. Body text is never searched.
  */
 
-export type SearchablePage = { path: string; title: string; content: string };
+export type SearchablePage = { path: string; title: string };
 
 /**
  * Word characters are ASCII letters and digits, `_`, `'`, `-` and the

@@ -108,7 +108,7 @@ function getCachedCorpus(items: readonly AssetItem[]): AutocompleteCorpus {
   const fingerprint = items.map((item) => item.path).join('');
   if (cachedCorpus?.fingerprint === fingerprint) return cachedCorpus;
   const corpus = new PageSearchIndex();
-  corpus.update(items.map((item) => ({ path: item.path, title: item.basename, content: '' })));
+  corpus.update(items.map((item) => ({ path: item.path, title: item.basename })));
   cachedCorpus = {
     fingerprint,
     byPath: new Map(items.map((item) => [item.path, item])),

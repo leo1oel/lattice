@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PageSearchIndex, type SearchablePage } from "./workspace-search";
 
-const page = (path: string, title = path.split("/").pop() ?? path, content = ""): SearchablePage => ({ path, title, content });
+const page = (path: string, title = path.split("/").pop() ?? path): SearchablePage => ({ path, title });
 
 function search(pages: SearchablePage[], query: string, limit = 20): string[] {
   const index = new PageSearchIndex();
@@ -23,9 +23,9 @@ describe("page autocomplete", () => {
     expect(search(pages, "arch")).toEqual(["archive/weekly"]);
   });
 
-  it("matches names, never body text", () => {
-    expect(search([page("a", "Alpha", "mentions beta"), page("b", "Beta")], "beta")).toEqual(["b"]);
-    expect(search([page("a", "Alpha", "zzz")], "zzz")).toEqual([]);
+  it("matches names only", () => {
+    expect(search([page("a", "Alpha"), page("b", "Beta")], "beta")).toEqual(["b"]);
+    expect(search([page("a", "Alpha")], "zzz")).toEqual([]);
     expect(search([page("a", "Alpha")], "   ")).toEqual([]);
   });
 

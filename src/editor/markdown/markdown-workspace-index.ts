@@ -133,7 +133,7 @@ export class MarkdownWorkspaceIndex {
     // Page search reads names only and keeps the analysis of every page
     // whose name is unchanged, so a publication of one edited document does
     // not re-tokenize the workspace.
-    this.pageSearch.update(docs.map((doc) => ({ path: doc.docName, title: doc.title, content: doc.content })));
+    this.pageSearch.update(docs.map((doc) => ({ path: doc.docName, title: doc.title })));
     for (const listener of this.listeners) listener();
   }
 }

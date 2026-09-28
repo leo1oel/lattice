@@ -207,6 +207,6 @@
     "components/ui/loading-image.tsx": "7e5c185352155d2a",
     "editor/extensions/autonomous-fragment-edit.ts": "15c872f9f2100830",
     "lib/editor-toolbar-overlap.ts": "77d8e22225de2fae",
-    "editor/components/SrcAutocomplete.tsx": "6383a2bba89df796"
+    "editor/components/SrcAutocomplete.tsx": "1e896f7a635086d0"
   }
 }
