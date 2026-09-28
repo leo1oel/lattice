@@ -17,7 +17,7 @@ import { MarkdownWorkspaceIndex } from "../src/editor/markdown/markdown-workspac
 import { VisualMarkdownEditor } from "../src/editor/markdown/visual-markdown-editor";
 import { activateAppLocale, i18n } from "../src/i18n";
 import type { PaperSummary } from "../src/app-types";
-import type { PresenceCursor } from "../src/overleaf/overleaf-cursors";
+import type { PresenceCursor } from "../src/overleaf/overleaf-editor-extensions";
 import "../src/index.css";
 import "../src/App.css";
 
