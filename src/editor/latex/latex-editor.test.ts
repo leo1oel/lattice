@@ -268,6 +268,9 @@ describe("LaTeX editor extensions", () => {
       "\\begin{itemize}\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n\\end{itemize}"],
     ["does not duplicate the \\end of an environment that already has items",
       "\\begin{itemize}\n  \\item a\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n  \\item a\n\\end{itemize}"],
+    ["closes a nested environment of the same name inside a closed one",
+      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n\\end{itemize}", "  \\begin{itemize}",
+      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n    |\n  \\end{itemize}\n\\end{itemize}"],
   ])("%s", (_name, source, cursorAfter, expected) => {
     const view = latexView(source, source.indexOf(cursorAfter) + cursorAfter.length);
     expect(insertLatexNewline(view)).toBe(true);

@@ -79,10 +79,11 @@ export function renameEnvironmentAt(
 }
 
 /**
- * The body line and `\\end{…}` to add after a just-completed `\\begin{…}`, with
+ * The body line and `\\end{…}` to add after a just-completed `\\begin{…}` that
+ * ends `textBeforeCursor` (the document up to the cursor), with
  * the caret on the body line; `indent` is the `\\begin` line's own indentation.
- * Nothing is added when a later `\\end{…}` of the same name, counting nesting,
- * already closes it.
+ * Nothing is added unless the document, ignoring `%` comments, has more
+ * `\\begin{…}` than `\\end{…}` of that name.
  */
 export function beginEnvironmentClose(
   textBeforeCursor: string,
@@ -90,16 +91,14 @@ export function beginEnvironmentClose(
   indent = "",
 ): { insert: string; cursorOffset: number } | null {
   const name = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/.exec(textBeforeCursor)?.[1];
-  if (!name || isClosedAfter(name, textAfterCursor)) return null;
+  if (!name || !isUnbalanced(name, textBeforeCursor + textAfterCursor)) return null;
   return { insert: `\n${indent}  \n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length };
 }
 
-function isClosedAfter(name: string, text: string): boolean {
-  let depth = 1;
+function isUnbalanced(name: string, text: string): boolean {
+  let open = 0;
   for (const event of environmentEvents(text.replace(/(?<!\\)%.*$/gm, ""))) {
-    if (event.name !== name) continue;
-    depth += event.kind === "begin" ? 1 : -1;
-    if (depth === 0) return true;
+    if (event.name === name) open += event.kind === "begin" ? 1 : -1;
   }
-  return false;
+  return open > 0;
 }

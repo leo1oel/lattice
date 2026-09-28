@@ -195,7 +195,7 @@ function environmentCompletion(entry: Entry, opening: boolean): Completion {
       const line = view.state.doc.lineAt(from);
       const indent = /^\s*/.exec(line.text)?.[0] ?? "";
       const name = `${entry.name}}`;
-      const before = view.state.sliceDoc(line.from, from) + name;
+      const before = view.state.sliceDoc(0, from) + name;
       const close = beginEnvironmentClose(before, view.state.sliceDoc(end), indent);
       insertCompletion(view, completion, from, end, name + (close?.insert ?? ""), name.length + (close?.cursorOffset ?? 0));
     },

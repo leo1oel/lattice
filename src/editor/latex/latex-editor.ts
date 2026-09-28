@@ -101,7 +101,7 @@ export function insertLatexNewline(view: EditorView): boolean {
   const before = line.text.slice(0, main.from - line.from).replace(/[ \t]+$/, "");
   if (!main.empty || !/\\begin\{[^}]+\}$/.test(before)) return insertNewlineKeepIndent(view);
   const indent = /^\s*/.exec(line.text)?.[0] ?? "";
-  const close = beginEnvironmentClose(before, view.state.sliceDoc(main.from), indent)
+  const close = beginEnvironmentClose(view.state.sliceDoc(0, line.from) + before, view.state.sliceDoc(main.from), indent)
     ?? { insert: `\n${indent}  `, cursorOffset: indent.length + 3 };
   // Trailing blanks after the `\begin{…}` would otherwise end up after the `\end{…}`.
   const from = line.from + before.length;
@@ -378,7 +378,8 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       if (!update.docChanged || !typed || !empty) return;
       const before = textBefore(update.state, head, 120);
       const indent = /^\s*/.exec(update.state.doc.lineAt(head).text)?.[0] ?? "";
-      const close = before.endsWith("}") && beginEnvironmentClose(before, update.state.sliceDoc(head), indent);
+      const close = before.endsWith("}")
+        && beginEnvironmentClose(update.state.sliceDoc(0, head), update.state.sliceDoc(head), indent);
       if (close) {
         update.view.dispatch({
           changes: { from: head, insert: close.insert },
