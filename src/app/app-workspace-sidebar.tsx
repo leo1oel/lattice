@@ -34,15 +34,13 @@ import {
 } from "../components/ui/dropdown-menu";
 import { SlidingTabs } from "../components/ui/motion";
 import type { SynaraHost } from "./use-synara-host";
-import type { WorkspaceSidebar } from "./use-workspace-sidebar";
+import type { SidebarMode, WorkspaceSidebar } from "./use-workspace-sidebar";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { ProjectSnapshot } from "../app-types";
 
 // The installed RadioGroup's Base UI dependency stays outside startup chunks.
 const SynaraPermissionPicker = lazy(() => import("../agent/synara-permission-picker"));
 const AppAgentPanel = lazy(() => import("./app-agent-panel"));
-
-type SidebarMode = "project" | "papers" | "agent";
 
 export type AppWorkspaceSidebarProps = {
   sidebar: Pick<WorkspaceSidebar,

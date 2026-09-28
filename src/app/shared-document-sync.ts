@@ -20,7 +20,7 @@ import {
 import type { OpenSlideMutation } from "../editor/presentation/open-slide-bridge";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setWarning } from "./notify";
-import { bytesToBase64 } from "./use-collab-v2-session";
+import { base64ToBytes, bytesToBase64 } from "./use-collab-v2-session";
 
 /**
  * Writes that must land in a live Lattice Share (Yjs v2) as well as on disk:
@@ -51,10 +51,6 @@ const textDecoder = new TextDecoder("utf-8", { fatal: true });
 const textEncoder = new TextEncoder();
 const encodeText = (text: string) => bytesToBase64(textEncoder.encode(text));
 const decodeText = (base64: string) => textDecoder.decode(base64ToBytes(base64));
-
-export function base64ToBytes(value: string): Uint8Array {
-  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
-}
 
 const MIME_TYPES: Record<string, string> = {
   png: "image/png",

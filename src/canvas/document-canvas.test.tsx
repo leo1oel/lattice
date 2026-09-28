@@ -93,15 +93,20 @@ type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 /** Callbacks every canvas gets as a bare spy; the ones that must answer something are set in `baseProps`. */
 const HANDLERS = [
   "setSecondarySource", "onFocusPane", "setSource", "setSelection", "onPdfTextSelect", "onPaperTextSelect",
-  "onContextSurfaceActivate", "onViewMarkdownSource", "onEditorLeave", "onPasteImageFile", "onFigureDropHandled",
-  "onEditorNavigationHandled", "onEditorPosition", "onCompletionActiveChange", "onViewState", "onViewRestoreHandled",
+  "onContextSurfaceActivate", "onViewMarkdownSource", "onEditorLeave", "onPasteImageFile", "onRequestHandled",
+  "onEditorPosition", "onCompletionActiveChange", "onViewState",
   "onGotoDefinition", "onTexlabGoto", "onFindReferences", "onRenameSymbol", "onRenameEnvironment", "onWrapEnvironment",
-  "onEnvRenameHandled", "onWrapEnvHandled", "onGotoLineRequest", "onOutlineOpenChange", "onOutlineNavigate",
-  "onInsertOpenChange", "onTableGeneratorOpenChange", "onCiteInsertHandled", "onForwardSync", "onPdfSource",
+  "onGotoLineRequest", "onOutlineOpenChange", "onOutlineNavigate",
+  "onInsertOpenChange", "onTableGeneratorOpenChange", "onForwardSync", "onPdfSource",
   "onCreateEditorComment", "onOpenEditorComments", "onResolveEditorComment", "onReplyEditorComment",
   "onCommentFocusHandled", "onOpenTodos", "onPdfPageCount", "onPdfPageChange", "onCreateMissingFile",
   "onOpenMarkdownPath", "onOpenCitation",
 ] as const satisfies readonly (keyof CanvasProps)[];
+
+/** The canvas request bundle with only `pending` set. */
+function pending(requests: Partial<CanvasProps["requests"]> = {}): CanvasProps["requests"] {
+  return { navigation: null, viewRestore: null, envRename: null, wrapEnv: null, citeInsert: null, figureDrop: null, ...requests };
+}
 
 function baseProps(): CanvasProps {
   return {
@@ -120,8 +125,7 @@ function baseProps(): CanvasProps {
     localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
     buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
     overleafPresenceCursors: [], overleafChanges: [], collabPeers: [],
-    figureDropRequest: null, editorNavigation: null, viewRestore: null, envRenameRequest: null, wrapEnvRequest: null,
-    citeInsertRequest: null, commentFocusRequest: null, figurePointerPosition: null, fileDropTargetPane: null,
+    requests: pending(), commentFocusRequest: null, figurePointerPosition: null, fileDropTargetPane: null,
     activeOutlineId: null, activeEditorCommentId: null, pdfSyncTarget: null, projectWordCount: null, collabSession: null,
     nativeFigureDropActive: false, outlineOpen: false, insertOpen: false, tableGeneratorOpen: false,
     canForwardSync: false, locatingPdf: false, interactivePreviewsEnabled: false, collabReady: false,
@@ -180,37 +184,33 @@ beforeEach(() => {
 
 describe("DocumentCanvas / mode", () => {
   it("discards a pending saved position when an explicit source jump arrives", async () => {
+    const viewRestore = { path: "main.tex", cursor: 2, scrollTop: 450, id: "saved" };
     const { container, props, rerenderWith } = renderCanvas({
       mode: "pdf",
       source: "first\nsecond\ntarget\nlast\n",
-      viewRestore: { path: "main.tex", cursor: 2, scrollTop: 450, id: "saved" },
+      requests: pending({ viewRestore }),
     });
-    rerenderWith({ mode: "split", editorNavigation: { path: "main.tex", line: 3, id: "jump" } });
-    await waitFor(() => expect(props.onEditorNavigationHandled).toHaveBeenCalledWith("jump"));
+    rerenderWith({ mode: "split", requests: pending({ viewRestore, navigation: { path: "main.tex", line: 3, id: "jump" } }) });
+    await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("jump"));
     const view = await primarySourceView(container);
     expect(view.state.selection.main.head).toBe(13);
-    // App acknowledges requests and supplies a new inline restore callback on
-    // its next render. An unconsumed restore must not move the cursor then.
-    const onViewRestoreHandled = vi.fn();
-    rerenderWith({
-      mode: "split",
-      editorNavigation: null,
-      viewRestore: vi.mocked(props.onViewRestoreHandled).mock.calls.length ? null : props.viewRestore,
-      onViewRestoreHandled,
-    });
+    // App settles requests and may supply a new settle callback on its next
+    // render. An unconsumed restore must not move the cursor then.
+    const restoreSettled = vi.mocked(props.onRequestHandled).mock.calls.some(([id]) => id === "saved");
+    rerenderWith({ mode: "split", requests: pending({ viewRestore: restoreSettled ? null : viewRestore }), onRequestHandled: vi.fn() });
     await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
     expect(view.state.selection.main.head).toBe(13);
     expect(view.scrollDOM.scrollTop).not.toBe(450);
-    expect(props.onViewRestoreHandled).toHaveBeenCalledWith("saved");
+    expect(props.onRequestHandled).toHaveBeenCalledWith("saved");
   });
 
   it.each([null, { path: "other.tex", line: 3, id: "other-jump" }])(
     "still restores a saved position without a competing jump in that file (%j)",
-    async (editorNavigation) => {
+    async (navigation) => {
       const { container, props, rerenderWith } = renderCanvas({ source: "first\nsecond\ntarget\n" });
       const view = await primarySourceView(container);
-      rerenderWith({ editorNavigation, viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" } });
-      await waitFor(() => expect(props.onViewRestoreHandled).toHaveBeenCalledWith("saved"));
+      rerenderWith({ requests: pending({ navigation, viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" } }) });
+      await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("saved"));
       expect(view.state.selection.main.head).toBe(8);
       expect(view.scrollDOM.scrollTop).toBe(120);
     },

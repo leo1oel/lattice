@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -175,10 +175,9 @@ import type {
   NavigationEntry,
   ProjectSnapshot,
   AssetPreview,
-  FigureDropRequest,
+  CanvasRequests,
   FigurePointerDrag,
   SyncTexTarget,
-  EditorNavigation,
   EditorPosition,
   PdfSyncResponse,
   PaperSummary,
@@ -190,6 +189,7 @@ import type {
   SettingsTab,
   InsertSymbolCommand,
   OverleafSyncResult,
+  ViewRestoreRequest,
 } from "./app-types";
 import {
   absoluteProjectPath,
@@ -564,15 +564,30 @@ function App() {
     statesRef: viewStateRef, get: getFileViewState, remember: rememberFileViewState, allow: allowViewState,
     drop: dropViewState, forget: forgetViewStates, remap: remapViewStates, loadForProject: loadViewStatesForProject,
   } = useFileViewStates(project?.root ?? null, projectRef, projectBeforeTransitionRef);
-  const [viewRestore, setViewRestore] = useState<{ path: string; cursor: number; scrollTop: number; id: string } | null>(null);
-  const [envRenameRequest, setEnvRenameRequest] = useState<{ newName: string; id: string } | null>(null);
+  const [canvasRequests, setCanvasRequests] = useState<CanvasRequests>({
+    navigation: null, viewRestore: null, envRename: null, wrapEnv: null, citeInsert: null, figureDrop: null,
+  });
+  /** Post, clear or rewrite one pending canvas request (a value or an updater, like a state setter). */
+  const updateCanvasRequest = useCallback(<K extends keyof CanvasRequests>(
+    kind: K,
+    update: CanvasRequests[K] | ((current: CanvasRequests[K]) => CanvasRequests[K]),
+  ) => setCanvasRequests((requests) => {
+    const next = typeof update === "function" ? update(requests[kind]) : update;
+    return next === requests[kind] ? requests : { ...requests, [kind]: next };
+  }), []);
+  const settleCanvasRequest = useCallback((id: string) => setCanvasRequests((requests) => {
+    const kind = (Object.keys(requests) as (keyof CanvasRequests)[]).find((key) => requests[key]?.id === id);
+    return kind ? { ...requests, [kind]: null } : requests;
+  }), []);
+  const setViewRestore = useCallback((update: SetStateAction<ViewRestoreRequest | null>) => {
+    updateCanvasRequest("viewRestore", update);
+  }, [updateCanvasRequest]);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
   const projectSearch = useProjectSearch();
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
   const { requestReindex: requestSemanticReindex } = semanticSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
-  const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const activePaperSource = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
   const activePaperPreviewSource = paperView === "blog"
@@ -598,7 +613,6 @@ function App() {
   const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
   const [projectFileDropPreview, setProjectFileDropPreview] = useState<EditorDropPreview | null>(null);
   const [agentPanelDropActive, setAgentPanelDropActive] = useState(false);
-  const [figureDropRequest, setFigureDropRequest] = useState<FigureDropRequest | null>(null);
   const [figurePointerDrag, setFigurePointerDrag] = useState<FigurePointerDrag | null>(null);
   const nativeDragPathsRef = useRef<string[]>([]);
   const suppressedFigureClick = useRef<string | null>(null);
@@ -613,10 +627,9 @@ function App() {
     async () => undefined,
   );
   const markdownModeViewportCaptureRef = useRef<(() => void) | null>(null);
-  const [editorNavigation, setEditorNavigation] = useState<EditorNavigation | null>(null);
   const requestEditorLine = useCallback((path: string, line: number) => {
-    setEditorNavigation({ path, line, id: crypto.randomUUID() });
-  }, []);
+    updateCanvasRequest("navigation", { path, line, id: crypto.randomUUID() });
+  }, [updateCanvasRequest]);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
@@ -791,12 +804,11 @@ function App() {
       dispose: () => doc.destroy(),
     };
   }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
-  const [citeInsertRequest, setCiteInsertRequest] = useState<{ key: string; command: InsertSymbolCommand; id: string } | null>(null);
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
-    setCiteInsertRequest({ key, command, id: crypto.randomUUID() });
+    updateCanvasRequest("citeInsert", { key, command, id: crypto.randomUUID() });
     setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-  }, []);
+  }, [updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -1232,7 +1244,7 @@ function App() {
   }, [
     activeCollabVersion, activeFileRef, addOpenTab, closePaper, collabPathMutationGeneration, markDiskMtime,
     projectOperationGenerationRef, projectRef, requestEditorLine, setSavedSource, showActiveAsset,
-    showPrimaryText, viewStateRef,
+    showPrimaryText, viewStateRef, setViewRestore,
   ]);
 
   useLeavePresenceOnClose(collabV2ControllerRef);
@@ -1260,7 +1272,7 @@ function App() {
     tabRecency.current = initialPlan.tabRecency;
     setNavStack((entries) => entries.filter((entry) => entry.path !== path));
     setViewRestore((request) => request?.path === path ? null : request);
-    setEditorNavigation((request) => request?.path === path ? null : request);
+    updateCanvasRequest("navigation", (request) => request?.path === path ? null : request);
 
     if (initialPlan.deletedSecondary) {
       secondaryFileRef.current = null;
@@ -1307,7 +1319,7 @@ function App() {
     }
   }, [
     activeFileRef, collabPathMutationGeneration, dropViewState, loadFile, projectOperationGenerationRef,
-    refreshProject, secondaryFileRef, setActiveFile, setSavedSource, setSource, showSecondaryText,
+    refreshProject, secondaryFileRef, setActiveFile, setSavedSource, setSource, showSecondaryText, setViewRestore, updateCanvasRequest,
   ]);
 
   /**
@@ -4274,7 +4286,7 @@ function App() {
           } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (!paths.length) return;
-              setFigureDropRequest({
+              updateCanvasRequest("figureDrop", {
                 id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y, pane: editorPosition.pane,
               });
             });
@@ -4295,7 +4307,7 @@ function App() {
     };
   }, [
     activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset,
-    postSynaraMessage, project, secondaryFileRef,
+    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest,
   ]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
@@ -4309,14 +4321,6 @@ function App() {
       return null;
     }
   }, [project?.root, refreshProject]);
-
-  const handleFigureDropHandled = useCallback((id: string) => {
-    setFigureDropRequest((request) => request?.id === id ? null : request);
-  }, []);
-
-  const handleEditorNavigationHandled = useCallback((id: string) => {
-    setEditorNavigation((request) => request?.id === id ? null : request);
-  }, []);
 
   const handleEditorPosition = useCallback((position: EditorPosition) => {
     editorPositionRef.current = position;
@@ -4424,7 +4428,7 @@ function App() {
       closedTabsRef.current = closedTabsRef.current.filter((tab) => !wasDeleted(tab));
       setNavStack((entries) => entries.filter((entry) => !wasDeleted(entry.path)));
       setViewRestore((request) => request && wasDeleted(request.path) ? null : request);
-      setEditorNavigation((request) => request && wasDeleted(request.path) ? null : request);
+      updateCanvasRequest("navigation", (request) => request && wasDeleted(request.path) ? null : request);
 
       if (deletedActiveFile) {
         fileLoadGenerationRef.current += 1;
@@ -4503,7 +4507,7 @@ function App() {
     activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, canvasMode, clearSecondaryPane,
     dualPanePreview, forgetViewStates, loadFile, overleafLink, project, projectOperationGenerationRef,
     refreshHistory, refreshProject, savedSourceRef, secondaryAsset, secondaryFile, setActiveFile,
-    setSavedSource, setSource, settleRemoteDeletes, showActiveAsset, sourceRef, t,
+    setSavedSource, setSource, settleRemoteDeletes, showActiveAsset, sourceRef, t, setViewRestore, updateCanvasRequest,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
@@ -4534,7 +4538,7 @@ function App() {
     } : current);
 
     tabRecency.current = tabRecency.current.map(remapPath);
-  }, [remapOpenPaths, remapViewStates, setBuild, setGitStatus, setProject]);
+  }, [remapOpenPaths, remapViewStates, setBuild, setGitStatus, setProject, setViewRestore]);
 
   const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
     try {
@@ -4708,9 +4712,9 @@ function App() {
         setReferenceHits((current) => current && { kind: renameTarget.kind, symbol: name, occurrences: [] });
         await showSymbolReferences(renameTarget.kind, name);
       } else if (renameTarget.kind === "environment") {
-        setEnvRenameRequest({ newName: name, id: crypto.randomUUID() });
+        updateCanvasRequest("envRename", { newName: name, id: crypto.randomUUID() });
       } else if (renameTarget.kind === "wrap-environment") {
-        setWrapEnvRequest({ name, id: crypto.randomUUID() });
+        updateCanvasRequest("wrapEnv", { name, id: crypto.randomUUID() });
       }
       setRenameError(null);
       setRenameTarget(null);
@@ -4719,7 +4723,7 @@ function App() {
     }
   }, [
     activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, setCitationKeys, setCitations,
-    setReferences, showSymbolReferences,
+    setReferences, showSymbolReferences, updateCanvasRequest,
   ]);
 
   const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
@@ -4780,8 +4784,8 @@ function App() {
   }, targetDirectory, "No image found on the clipboard.") : null, [importImageBytes, project]);
   /** Insert an imported figure at the editor caret. */
   const insertFigureAtCaret = useCallback((path: string | null) => {
-    if (path) setFigureDropRequest({ id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
-  }, []);
+    if (path) updateCanvasRequest("figureDrop", { id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
+  }, [updateCanvasRequest]);
   const handlePasteImageFile = useCallback((file: File) => {
     void importClipboardImageFile(file).then(insertFigureAtCaret);
     return true;
@@ -5944,17 +5948,13 @@ function App() {
               x: figurePointerDrag.clientX,
               y: figurePointerDrag.clientY,
             } : null}
-            figureDropRequest={figureDropRequest}
-            onFigureDropHandled={handleFigureDropHandled}
-            editorNavigation={editorNavigation}
-            onEditorNavigationHandled={handleEditorNavigationHandled}
+            requests={canvasRequests}
+            onRequestHandled={settleCanvasRequest}
             onEditorPosition={handleEditorPosition}
             onCompletionActiveChange={handleCompletionActiveChange}
             onViewState={(path, state) => rememberFileViewState(path, { text: state })}
             getFileViewState={getFileViewState}
             onFileViewState={rememberFileViewState}
-            viewRestore={viewRestore}
-            onViewRestoreHandled={(id) => setViewRestore((current) => current?.id === id ? null : current)}
             onGotoDefinition={(target) => void gotoDefinition(target)}
             onTexlabGoto={(path, line) => { void openProjectFile(path, line); }}
             onFindReferences={(target) => void findSymbolReferences(target)}
@@ -5967,10 +5967,6 @@ function App() {
               setRenameError(null);
               setRenameTarget({ kind: "wrap-environment" });
             }}
-            envRenameRequest={envRenameRequest}
-            onEnvRenameHandled={(id) => setEnvRenameRequest((current) => current?.id === id ? null : current)}
-            wrapEnvRequest={wrapEnvRequest}
-            onWrapEnvHandled={(id) => setWrapEnvRequest((current) => current?.id === id ? null : current)}
             localMacros={liveMacros}
             katexMacros={katexMacros}
             onGotoLineRequest={() => setSearchDialog("goto-line")}
@@ -5987,8 +5983,6 @@ function App() {
             editorSpellcheck={appearance.editorSpellcheck}
             spellingWords={project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS}
             onAddSpellingWord={addProjectSpellingWord}
-            citeInsertRequest={citeInsertRequest}
-            onCiteInsertHandled={(id) => setCiteInsertRequest((current) => current?.id === id ? null : current)}
             projectPaths={projectPaths}
             graphicsRoots={graphicsRoots}
             buildDiagnostics={
@@ -6161,7 +6155,7 @@ function App() {
         prewarmLikelyProjectFile={prewarmLikelyProjectFile}
         insertReference={insertCitation}
         goToLine={(line) => {
-          if (activeFile) setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
+          if (activeFile) requestEditorLine(activeFile, line);
         }}
       />
 

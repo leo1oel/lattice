@@ -244,6 +244,15 @@ export type RefreshProject = (scope?: { expectedRoot: string; generation: number
 export type CompileProject = (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean }) => Promise<void>;
 /** Put the caret (a character offset) and scroll position back in a file. */
 export type ViewRestoreRequest = { path: string; cursor: number; scrollTop: number; id: string };
+/** One-shot requests App hands the canvas; each is answered once and settled by its id. */
+export type CanvasRequests = {
+  navigation: EditorNavigation | null;
+  viewRestore: ViewRestoreRequest | null;
+  envRename: { newName: string; id: string } | null;
+  wrapEnv: { name: string; id: string } | null;
+  citeInsert: { key: string; command: InsertSymbolCommand; id: string } | null;
+  figureDrop: FigureDropRequest | null;
+};
 
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.

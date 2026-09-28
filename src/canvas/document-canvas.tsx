@@ -45,8 +45,8 @@ import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
 import type {
-  WordCount, EditorViewState, FileViewState, AssetPreview, FigureDropRequest, EditorNavigation, EditorPosition,
-  PaperSummary, CanvasMode, EditorPaneId, InsertSymbolCommand, EditorKeymap,
+  WordCount, EditorViewState, FileViewState, AssetPreview, CanvasRequests, EditorPosition, PaperSummary, CanvasMode,
+  EditorPaneId, EditorKeymap,
 } from "../app-types";
 import {
   isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath, markdownFrontmatterEnd,
@@ -202,27 +202,20 @@ export function DocumentCanvas(props: {
   nativeFigureDropActive: boolean;
   fileDropTargetPane: EditorPaneId | null;
   figurePointerPosition: { x: number; y: number } | null;
-  figureDropRequest: FigureDropRequest | null;
-  onFigureDropHandled: (id: string) => void;
-  editorNavigation: EditorNavigation | null;
-  onEditorNavigationHandled: (id: string) => void;
+  requests: CanvasRequests;
+  /** Settle the request with this id (ids are unique across every kind). */
+  onRequestHandled: (id: string) => void;
   onEditorPosition: (position: EditorPosition) => void;
   onCompletionActiveChange: (active: boolean) => void;
   onViewState: (path: string, state: EditorViewState) => void;
   getFileViewState?: (path: string) => FileViewState | undefined;
   onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
-  viewRestore: { path: string; cursor: number; scrollTop: number; id: string } | null;
-  onViewRestoreHandled: (id: string) => void;
   onGotoDefinition: (target: DefinitionTarget) => void;
   onTexlabGoto: (path: string, line: number, column?: number) => void;
   onFindReferences: (target: SymbolTarget) => void;
   onRenameSymbol: (target: SymbolTarget) => void;
   onRenameEnvironment: (name: string) => void;
   onWrapEnvironment: () => void;
-  envRenameRequest: { newName: string; id: string } | null;
-  onEnvRenameHandled: (id: string) => void;
-  wrapEnvRequest: { name: string; id: string } | null;
-  onWrapEnvHandled: (id: string) => void;
   localMacros: { label: string; detail: string; type: "keyword" | "type" }[];
   katexMacros: Record<string, string>;
   onGotoLineRequest: () => void;
@@ -239,8 +232,6 @@ export function DocumentCanvas(props: {
   editorSpellcheck: boolean;
   spellingWords: string[];
   onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
-  citeInsertRequest: { key: string; command: InsertSymbolCommand; id: string } | null;
-  onCiteInsertHandled: (id: string) => void;
   projectPaths: string[];
   graphicsRoots: string[];
   buildDiagnostics: CompileDiagnostic[];
@@ -283,19 +274,20 @@ export function DocumentCanvas(props: {
   canOpenCitation: (key: string) => boolean;
 }) {
   const {
-    activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane,
-    buildDiagnostics, texlabDiagnostics, citeInsertRequest, collabEditorKey, collabSession, collabReady,
-    editorKeymap, editorNavigation, editorSpellcheck, envRenameRequest, figureDropRequest, insertOpen,
-    localMacros, katexMacros, onCiteInsertHandled, onEditorNavigationHandled,
-    onEnvRenameHandled, onFigureDropHandled, onFindReferences, onGotoDefinition,
-    onTexlabGoto, onGotoLineRequest, onInsertOpenChange, onOutlineNavigate, onOutlineOpenChange,
-    onPrepareFigure, onPasteImageFile, onCreateMissingFile, onRenameEnvironment, onRenameSymbol,
-    onTableGeneratorOpenChange, onViewRestoreHandled, onWrapEnvHandled, onWrapEnvironment,
-    activeOutlineId, outlineNodes, outlineOpen, projectPaths, graphicsRoots, setSource,
-    source: editorSource, tableGeneratorOpen, viewRestore, wrapEnvRequest, editorComments,
-    commentAuthorName, commentAuthorId, onCreateEditorComment, onOpenEditorComments,
-    commentFocusRequest, onCommentFocusHandled, getFileViewState, onFileViewState,
+    activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane, buildDiagnostics,
+    texlabDiagnostics, collabEditorKey, collabSession, collabReady, editorKeymap, editorSpellcheck, insertOpen,
+    localMacros, katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
+    onInsertOpenChange, onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
+    onCreateMissingFile, onRenameEnvironment, onRenameSymbol, onTableGeneratorOpenChange, onWrapEnvironment,
+    activeOutlineId, outlineNodes, outlineOpen, projectPaths, graphicsRoots, setSource, source: editorSource,
+    tableGeneratorOpen, editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment,
+    onOpenEditorComments, commentFocusRequest, onCommentFocusHandled, getFileViewState, onFileViewState,
+    onRequestHandled,
   } = props;
+  const {
+    navigation: editorNavigation, viewRestore, envRename: envRenameRequest, wrapEnv: wrapEnvRequest,
+    citeInsert: citeInsertRequest, figureDrop: figureDropRequest,
+  } = props.requests;
   const { i18n, t } = useLingui();
   const editorCommentLocalization = useMemo<EditorCommentLocalization>(() => ({
     locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
@@ -993,7 +985,7 @@ export function DocumentCanvas(props: {
         onFocusPane("primary");
       }
       observer?.disconnect();
-      onEditorNavigationHandled(request.id);
+      onRequestHandled(request.id);
     };
     const scheduleNavigation = () => {
       if (frame != null) return;
@@ -1010,7 +1002,7 @@ export function DocumentCanvas(props: {
     };
   }, [
     activeFile, editorNavigation, editorSource, markdownDocument, markdownPreviewLineOffset, markdownPreviewViewport,
-    onEditorNavigationHandled, onFocusPane, props.mode, secondaryFile, secondarySource,
+    onRequestHandled, onFocusPane, props.mode, secondaryFile, secondarySource,
   ]);
   useEffect(() => {
     const view = editorViewRef.current;
@@ -1029,8 +1021,8 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;
-    void insertFigures(request.paths, { x: request.clientX, y: request.clientY }, request.pane).finally(() => onFigureDropHandled(request.id));
-  }, [figureDropRequest, insertFigures, onFigureDropHandled]);
+    void insertFigures(request.paths, { x: request.clientX, y: request.clientY }, request.pane).finally(() => onRequestHandled(request.id));
+  }, [figureDropRequest, insertFigures, onRequestHandled]);
   useEffect(() => {
     const request = citeInsertRequest;
     const view = editorViewRef.current;
@@ -1039,15 +1031,15 @@ export function DocumentCanvas(props: {
     const insert = `\\${request.command}{${request.key}}`;
     view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true });
     view.focus();
-    onCiteInsertHandled(request.id);
-  }, [citeInsertRequest, editorSource, onCiteInsertHandled]);
+    onRequestHandled(request.id);
+  }, [citeInsertRequest, editorSource, onRequestHandled]);
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
     // An explicit jump supersedes an older saved position, even mid-mount, or
     // the restore could run later and undo a completed SyncTeX navigation.
     if (editorNavigation?.path === request.path) {
-      onViewRestoreHandled(request.id);
+      onRequestHandled(request.id);
       return;
     }
     const view = editorViewRef.current;
@@ -1058,10 +1050,10 @@ export function DocumentCanvas(props: {
       const cursor = clamp(request.cursor, 0, current.state.doc.length);
       current.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
       current.scrollDOM.scrollTop = request.scrollTop;
-      onViewRestoreHandled(request.id);
+      onRequestHandled(request.id);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, onViewRestoreHandled, viewRestore, editorSource, editorNavigation]);
+  }, [activeFile, onRequestHandled, viewRestore, editorSource, editorNavigation]);
   useEffect(() => {
     const request = envRenameRequest;
     const view = editorViewRef.current;
@@ -1071,8 +1063,8 @@ export function DocumentCanvas(props: {
       view.dispatch({ changes: edits, scrollIntoView: true });
       view.focus();
     }
-    onEnvRenameHandled(request.id);
-  }, [editorSource, envRenameRequest, onEnvRenameHandled]);
+    onRequestHandled(request.id);
+  }, [editorSource, envRenameRequest, onRequestHandled]);
   useEffect(() => {
     const request = wrapEnvRequest;
     const view = editorViewRef.current;
@@ -1085,8 +1077,8 @@ export function DocumentCanvas(props: {
       scrollIntoView: true,
     });
     view.focus();
-    onWrapEnvHandled(request.id);
-  }, [editorSource, onWrapEnvHandled, wrapEnvRequest]);
+    onRequestHandled(request.id);
+  }, [editorSource, onRequestHandled, wrapEnvRequest]);
   useEffect(() => {
     if (!snippetStops) return;
     const { base, stops } = snippetStops;
