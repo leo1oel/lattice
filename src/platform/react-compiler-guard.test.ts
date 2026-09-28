@@ -24,18 +24,18 @@ import { describe, expect, it } from "vitest";
  */
 const CEILINGS: Record<string, number> = {
   // 22 after the build pipeline, reference import, editor comments and TeX
-  // setup moved into src/app hooks, which carry the rest below.
-  "src/App.tsx": 22,
+  // setup moved into src/app hooks, which carry the rest below; 17 once the
+  // Lattice Shares branches went.
+  "src/App.tsx": 17,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
   "src/app/use-overleaf-workspace.ts": 1,
-  "src/app/use-collab-v2-session.ts": 8,
   "src/app/use-build-pipeline.ts": 4,
   "src/app/use-reference-import.ts": 2,
-  "src/app/use-editor-comments.ts": 1,
+  "src/app/use-editor-comments.ts": 0,
   "src/app/use-tex-setup.ts": 1,
-  "src/app/app-collab-surfaces.tsx": 0,
+  "src/app/app-overleaf-drawer.tsx": 0,
   "src/app/app-editor-panels.tsx": 0,
   "src/app/app-history-drawers.tsx": 0,
   "src/app/app-onboarding-tour.tsx": 0,
