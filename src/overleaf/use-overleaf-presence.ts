@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenOverleafRealtime } from "./overleaf-realtime-listen";
 
 /** Someone else in the project, and where they are — the backend's own shape. */
 export type PresenceUser = {
@@ -88,7 +88,7 @@ export function useOverleafPresence(options: {
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void listen<PresenceEvent>("overleaf-realtime", (event) => {
+    void listenOverleafRealtime<PresenceEvent>((event) => {
       const payload = event.payload;
       // Backend cancellation cannot retract an event already queued for this
       // window. Never relabel an old project's event with the current root.

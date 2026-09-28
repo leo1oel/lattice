@@ -1831,6 +1831,10 @@ async fn bibliography_audit_scan(
     window: tauri::Window,
     project_root: String,
 ) -> Result<citation_audit::AuditScan, String> {
+    // A sync writes pulled and conflicted bibliographies one file at a time;
+    // scanning in between reads a half-applied project.
+    let project = state.project(Path::new(&project_root));
+    let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit scan", move || {
         citation_audit::scan(&root)
@@ -1914,6 +1918,10 @@ async fn bibliography_audit_apply(
     before: String,
     after: String,
 ) -> Result<(), String> {
+    // Like an editor save: the write must land entirely before or after a
+    // sync, never between its snapshot and its merge.
+    let project = state.project(Path::new(&project_root));
+    let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit apply", move || {
         citation_audit::apply(&root, &path, &key, &before, &after)
@@ -2886,7 +2894,10 @@ async fn overleaf_rt_connect(
             if current {
                 // Cancellation cannot retract events already queued for the UI.
                 // Carry the source root so consumers can reject late delivery
-                // after the window has switched projects.
+                // after the window has switched projects. `emit_to` alone does
+                // not keep this out of other windows: Tauri also delivers it to
+                // every untargeted listener, so the web UI must listen through
+                // `listenOverleafRealtime`, which names its own window.
                 #[derive(Clone, serde::Serialize)]
                 #[serde(rename_all = "camelCase")]
                 struct ScopedEvent<'a> {

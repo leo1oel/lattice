@@ -1130,7 +1130,9 @@ export function DocumentCanvas(props: {
     markdownPreviewPersistenceCleanupRef.current?.();
     markdownPreviewPersistenceCleanupRef.current = null;
     markdownPreviewViewportRef.current = viewport;
-    setMarkdownPreviewViewport(viewport);
+    setMarkdownPreviewViewport((current) => (
+      current?.deref() === viewport ? current : viewport ? new WeakRef(viewport) : null
+    ));
     if (!viewport) return;
     const path = activeFile;
     const returnViewport = paperReturnViewportRef.current;
@@ -1502,7 +1504,7 @@ export function DocumentCanvas(props: {
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
-              setPrimaryScrollbarView(view);
+              setPrimaryScrollbarView(new WeakRef(view));
               if (focusedPaneRef.current === "primary") editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
               reportEditorPosition(view, activeFile);
@@ -1510,7 +1512,7 @@ export function DocumentCanvas(props: {
             onChange={onPrimaryChange}
             onUpdate={onPrimaryUpdate}
           />
-          <CodeMirrorScrollbar view={primaryScrollbarView} />
+          <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
           {figureDropMarker && (
             <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
               <span>{t({ message: `Insert above line ${{ line: figureDropMarker.line }}` })}</span>

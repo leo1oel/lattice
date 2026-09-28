@@ -17,6 +17,36 @@ import { useTouchPrimary } from "@/hooks/use-touch-primary";
 import { cn } from "@/lib/utils";
 import "./scroll-area.css";
 
+/**
+ * Base UI writes these four custom properties on the viewport on every scroll
+ * event and registers them as non-inherited only outside WebKit (Safari cannot
+ * `inherit` such a property). Unregistered custom properties inherit, so in
+ * WebKit — the engine Lattice ships in — every scroll event invalidated the
+ * inherited style of everything inside the viewport: scrolling the 2 MB
+ * performance fixture in split mode ran at about 2 fps, against 15 fps with
+ * the properties registered. Lattice never reads these variables, so Base
+ * UI's reason for skipping WebKit does not apply here.
+ */
+const SCROLL_AREA_OVERFLOW_PROPERTIES = [
+  "--scroll-area-overflow-x-start",
+  "--scroll-area-overflow-x-end",
+  "--scroll-area-overflow-y-start",
+  "--scroll-area-overflow-y-end",
+] as const;
+
+function registerScrollAreaOverflowProperties() {
+  if (typeof CSS === "undefined" || typeof CSS.registerProperty !== "function") return;
+  for (const name of SCROLL_AREA_OVERFLOW_PROPERTIES) {
+    try {
+      CSS.registerProperty({ name, syntax: "<length>", inherits: false, initialValue: "0px" });
+    } catch {
+      // Already registered (by Base UI outside WebKit, or an earlier load).
+    }
+  }
+}
+
+registerScrollAreaOverflowProperties();
+
 const ScrollAreaContext = createContext(false);
 
 type Orientation = "vertical" | "horizontal" | "both";

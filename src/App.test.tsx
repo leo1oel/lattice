@@ -156,7 +156,7 @@ vi.mock("@pdfslick/core", () => {
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
-    linkService = { page: 1, goToDestination: vi.fn(async () => undefined) };
+    linkService = { page: 1, goToDestination: vi.fn(async () => undefined), setDocument: vi.fn() };
     l10n = { get: vi.fn(async (id: string) => id) };
     unbindEvents = vi.fn();
     pagesReady = false;
@@ -544,6 +544,16 @@ async function openWithAutomaticBuilds(commands: Commands, snapshot = projectSna
 async function openSettings(section?: string) {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   if (section) fireEvent.click(await screen.findByRole("button", { name: section }));
+}
+
+/** A full GC for retention tests; WeakRef targets survive until the job ends. */
+function exposeGarbageCollector(): () => Promise<void> {
+  v8.setFlagsFromString("--expose-gc");
+  const gc = vm.runInNewContext("gc") as () => void;
+  return async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    gc();
+  };
 }
 
 describe("collaboration status mapping", () => {
@@ -1277,6 +1287,56 @@ describe("project workspace", () => {
     renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     fireEvent.click(await screen.findByRole("button", { name: "Split editor right" }));
     await waitFor(() => expect(paneContent("secondary")).toHaveTextContent("content:recent.md"));
+  });
+
+  it("releases the previous source editor after switching files", async () => {
+    // Regression: DocumentCanvas closures capture their whole render scope and
+    // CodeMirror keeps its extensions' closures alive, so an editor view held
+    // strongly in that scope chained every replaced editor (and its document)
+    // to its successor for the rest of the session.
+    const collectGarbage = exposeGarbageCollector();
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: ["a.txt", "b.txt", "c.txt"].map((path) => ({ name: path, path, kind: "text", children: [] })),
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["a.txt", "b.txt", "c.txt"],
+      activeFile: "a.txt",
+      activeTab: "a.txt",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "source",
+      documentMode: "source",
+      paperView: "blog",
+      tabRecency: ["a.txt", "b.txt", "c.txt"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const primaryContent = () => document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content");
+    await waitFor(() => expect(primaryContent()).toHaveTextContent("content:a.txt"));
+    const firstView = new WeakRef(EditorView.findFromDOM(primaryContent() as HTMLElement)!);
+    for (const path of ["b.txt", "c.txt", "b.txt", "c.txt"]) {
+      fireEvent.click(await screen.findByRole("tab", { name: path }));
+      await waitFor(() => expect(primaryContent()).toHaveTextContent(`content:${path}`));
+    }
+    await waitFor(async () => {
+      await collectGarbage();
+      expect(firstView.deref()).toBeUndefined();
+    }, { timeout: 5_000 });
   });
 
   it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
@@ -2837,6 +2897,116 @@ describe("project workspace", () => {
     expect(syncCalls()[0][1]).toMatchObject({ projectRoot: snapshot.root });
     expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("sections/results.tex");
   });
+
+  it("uploads a reference-check update right away and a resolved bibliography conflict after saving", async () => {
+    // The Papers path behind the reported conflict: an update written straight
+    // to references.bib used to wait, unsynced, for some later save. Here the
+    // first sync it schedules meets an Overleaf edit, and the resolver's choice
+    // must be what lands on disk and what the following sync uploads.
+    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
+    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
+    const snapshot = {
+      root: "/tmp/lattice-bib-sync",
+      manifest: {
+        schemaVersion: 1, projectId: "bib-sync", name: "Bib sync",
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+        primaryBibliography: "references.bib", trusted: false,
+      },
+      files: [
+        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+      ],
+    };
+    const source = "\\documentclass{article}";
+    const before = "@misc{doe2020,\n  title = {A Study},\n  year = {2020},\n}";
+    const after = "@article{doe2020,\n  title = {A Study},\n  journal = {Journal},\n  year = {2020},\n}";
+    let bib = `${before}\n`;
+    const conflicted = `<<<<<<< ours\n${after}\n||||||| original\n${before}\n=======\n>>>>>>> theirs\n`;
+    let syncs = 0;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      const path = (args as { path?: string } | undefined)?.path;
+      if (command === "initial_project" || command === "refresh_project") return snapshot;
+      if (command === "read_project_file") return path === "references.bib" ? bib : source;
+      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
+      if (command === "write_project_file") {
+        if (path === "references.bib") bib = (args as { content: string }).content;
+        return { content: (args as { content: string }).content, hadConflicts: false };
+      }
+      if (command === "overleaf_link") return {
+        projectId: "ol-bib-sync", projectName: "Bib sync", host: "https://www.overleaf.com", paused: false,
+      };
+      if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
+      if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
+      if (command === "overleaf_rt_connect") return {
+        publicId: "me", docs: [{ id: "main", path: "main.tex" }, { id: "bib", path: "references.bib" }], entities: [],
+        permission: "readAndWrite", trackChanges: false, userId: "me",
+      };
+      if (command === "overleaf_rt_join_doc") return {
+        text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
+      };
+      if (command === "bibliography_audit_scan") return {
+        entries: [{ path: "references.bib", key: "doe2020", title: "A Study", bibtex: bib.trim(), issues: [] }],
+        issues: [],
+      };
+      if (command === "bibliography_audit_report_load") return [["references.bib\0doe2020", {
+        snapshot: before, applied: false,
+        result: {
+          status: "update", message: "A published version is available.", before, after,
+          checkedAt: "2026-09-26T10:07:00.000Z", changes: [{ field: "journal", before: "", after: "Journal" }],
+        },
+      }]];
+      if (command === "bibliography_audit_report_save") return null;
+      if (command === "bibliography_audit_apply") {
+        bib = `${after}\n`;
+        return null;
+      }
+      if (command === "overleaf_sync") {
+        syncs += 1;
+        if (syncs === 1) {
+          // Overleaf changed the same entry in the meantime.
+          bib = conflicted;
+          return {
+            pushed: [], pulled: [], merged: [], deletedLocal: [], skippedRemoteDeletes: [], readOnly: false,
+            conflicts: [{ path: "references.bib", localCopy: "references (local conflict 20260926-1808).bib", markers: true }],
+          };
+        }
+        return {
+          pushed: ["references.bib"], pulled: [], merged: [], conflicts: [],
+          deletedLocal: [], skippedRemoteDeletes: [], readOnly: false,
+        };
+      }
+      if (["list_papers", "list_history", "overleaf_chat_messages", "overleaf_threads", "list_todos",
+        "overleaf_comment_anchors", "overleaf_change_authors", "overleaf_rt_connected_users"].includes(command)) return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+    renderApp();
+    await screen.findByRole("button", { name: "Switch project" });
+    await switchSidebarMode("Papers");
+    fireEvent.click(await screen.findByRole("button", { name: "Check references" }));
+    const syncCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync");
+    // The drawer is a lazy chunk; a cold, busy test runner can take a while.
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_scan", { projectRoot: snapshot.root }), { timeout: 60_000 });
+    const apply = await screen.findByRole("button", { name: "Apply this update" }, { timeout: 20_000 });
+    expect(syncCalls()).toHaveLength(0);
+    fireEvent.click(apply);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_apply", expect.objectContaining({
+      path: "references.bib", key: "doe2020", before, after,
+    })));
+    await waitFor(() => expect(syncCalls()).toHaveLength(1), { timeout: 6_000 });
+    expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("references.bib");
+
+    const dialog = await screen.findByRole("dialog", { name: "Resolve conflicts in references.bib" }, { timeout: 60_000 });
+    expect(await within(dialog).findByRole("region", { name: "Overleaf" }, { timeout: 10_000 }))
+      .toHaveTextContent("Overleaf removed this part.");
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Keep this computer's version" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save resolved file" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "references.bib", content: `${after}\n`, projectRoot: snapshot.root,
+    }));
+    // Queued like any disk edit, so it respects the live channel's sync gap.
+    await waitFor(() => expect(syncCalls()).toHaveLength(2), { timeout: 40_000 });
+    expect(bib).toBe(`${after}\n`);
+  }, 240_000);
 
   it("automatically rebuilds after the active source changes on disk", async () => {
     let source = "\\documentclass{article}";

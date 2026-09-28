@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
+import { installPdfTextLayerSelection } from "../pdf/pdf-text-layer-selection";
 import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
 import { useCompileRepair } from "./use-compile-repair";
 
@@ -75,5 +76,48 @@ describe("batch repair controls", () => {
     expect(screen.getByRole("status")).toHaveTextContent("No diagnostics were submitted.");
     rerender(<CompileDiagnosticsPanel {...props} diagnostics={[{ level: "info", message: "Note" }]} onFixAll={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "Fix all" })).not.toBeInTheDocument();
+  });
+});
+
+describe("raw build log", () => {
+  afterEach(cleanup);
+
+  // As reported: an rc-file failure leaves only the log, the panel sits above
+  // the PDF toolbar and the stale PDF's text layer, and the copied "log" ended
+  // "…problem with rc file 1 / 29%000001002Under review as a conference paper".
+  const log = [
+    "playwright._impl._errors.Error: BrowserType.launch: Executable doesn't exist at /Users/me/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "Latexmk: Initialization file './.latexmkrc' gave an error:",
+    "     Probe SVG conversion failed",
+    "",
+    "Latexmk: Stopping because of problem with rc file",
+  ].join("\n");
+
+  function renderAbovePdf() {
+    // The text layer reports its selection to the native copy monitor.
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    const view = render(<>
+      <CompileDiagnosticsPanel {...props} diagnostics={[]} log={log} expanded />
+      <div className="pdf-toolbar"><span className="pdf-page-display">1 / 29</span><span>%</span></div>
+      <div className="textLayer"><span>000</span><span>001</span><span>Under review as a conference paper</span></div>
+    </>);
+    const uninstall = installPdfTextLayerSelection(view.container.querySelector(".textLayer") as HTMLElement);
+    return { ...view, uninstall: () => { uninstall(); vi.mocked(invoke).mockReset(); } };
+  }
+
+  it("keeps Command-A inside the log instead of reaching the PDF below it", () => {
+    const { uninstall } = renderAbovePdf();
+    try {
+      const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Raw build log" });
+      expect(field).toHaveAttribute("readonly");
+      expect(field.value).toBe(log);
+      field.focus();
+      fireEvent.keyDown(field, { key: "a", metaKey: true });
+      expect(field.selectionStart).toBe(0);
+      expect(field.selectionEnd).toBe(log.length);
+      expect(document.getSelection()?.toString() ?? "").not.toMatch(/1 \/ 29|Under review/);
+    } finally {
+      uninstall();
+    }
   });
 });

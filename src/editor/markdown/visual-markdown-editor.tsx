@@ -3117,9 +3117,10 @@ function CompleteVisualMarkdownEditor({
         "aria-label": "Markdown document editor",
         "aria-multiline": "true",
         role: "textbox",
-        // React NodeViews also carry ProseMirror-selectednode when enclosed
-        // by a text range or AllSelection. Only a real NodeSelection should
-        // suppress the browser's native text-selection paint.
+        // Only a real NodeSelection should suppress the browser's native
+        // text-selection paint. Key on the selection type, not on
+        // ProseMirror-selectednode: before @tiptap/react 3.31, NodeViews
+        // enclosed by a text range or AllSelection carried that class too.
         "data-node-selection": String(state.selection instanceof NodeSelection),
       }),
       handleKeyDown: (_view, event) => {

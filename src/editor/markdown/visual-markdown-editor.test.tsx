@@ -139,7 +139,9 @@ describe("VisualMarkdownEditor", () => {
     expect(surface).toHaveAttribute("data-node-selection", "true");
     expect(hidesNativeSelection()).toBe(true);
     act(() => editor.commands.selectAll());
-    await waitFor(() => expect(surface.querySelector(".ProseMirror-selectednode")).not.toBeNull());
+    // Since @tiptap/react 3.31, a range that encloses NodeViews no longer
+    // marks them ProseMirror-selectednode; only the NodeSelection target is.
+    expect(surface.querySelector(".ProseMirror-selectednode")).toBeNull();
     expect(surface).toHaveAttribute("data-node-selection", "false");
     expect(hidesNativeSelection()).toBe(false);
     act(() => editor.commands.setTextSelection({ from: 2, to: editor.state.doc.content.size - 2 }));
@@ -2898,6 +2900,31 @@ describe("VisualMarkdownEditor", () => {
     expect(editor.state.doc.firstChild?.type.name).toBe("jsxComponent");
     expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
     expect(document.querySelector('[data-component-name="Callout"] .callout')).not.toBeNull();
+  });
+
+  it("keeps the caret in place while typing inside a Callout property field", async () => {
+    renderEditor("<Callout title=\"Initial\">\nBody\n</Callout>");
+    const component = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>('[data-component-name="Callout"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    fireEvent.click(within(component).getByRole("button", { name: "Callout properties" }));
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: /title/i });
+    // Type mid-value the way the browser does: the native value and caret
+    // change first, then React sees the input event. The field is rendered
+    // from node attrs, so the NodeView re-render must land inside the event
+    // (see patches/@tiptap__react@*.patch); otherwise React restores the old
+    // value and the caret jumps to the end.
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    setValue.call(input, "InXitial");
+    input.setSelectionRange(3, 3);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(input).toHaveValue("InXitial");
+    expect(input.selectionStart).toBe(3);
+    await act(async () => {});
+    expect(input).toHaveValue("InXitial");
+    expect(input.selectionStart).toBe(3);
   });
 
   it("does not dismiss Callout properties when Enter commits Chinese IME text", async () => {
