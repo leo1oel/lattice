@@ -1793,13 +1793,8 @@ function App() {
       }
       return;
     }
-    const clearOpening = () => setPrimaryOpening((current) => (
-      current?.generation === loadGeneration ? null : current
-    ));
-    setPrimaryOpening({
-      generation: loadGeneration,
-      label: path.split("/").at(-1) ?? path,
-    });
+    const clearOpening = () => setPrimaryOpening((current) => (current?.generation === loadGeneration ? null : current));
+    setPrimaryOpening({ generation: loadGeneration, label: path.split("/").at(-1) ?? path });
     await afterNextPaintOpportunity();
     const openingPaintMs = performance.now() - switchStartedAt;
     if (fileLoadGenerationRef.current !== loadGeneration) {
@@ -1833,30 +1828,15 @@ function App() {
     }
     const contentLoadStartedAt = performance.now();
     let gate: Promise<boolean> | undefined;
-    const primaryDirty = sourceRef.current !== savedSourceRef.current
-      || (Boolean(activePaper) && (
-        paperBuffersDirty()
-      ));
-    const targetAliasesDirtyPaper = Boolean(activePaper) && (
-      paperBuffersDirty()
-    ) && (
-      path === `.research/papers/${activePaper?.arxivId}/paper.md`
-      || path === `.research/papers/${activePaper?.arxivId}/blog.md`
-    );
-    if (
-      primaryDirty
-      || (secondaryFile && secondarySource !== secondarySavedSource)
-    ) {
+    const paperDirty = Boolean(activePaper) && paperBuffersDirty();
+    const targetAliasesDirtyPaper = paperDirty
+      && (path === paperDocumentPath(activePaper!.arxivId, "fulltext") || path === paperDocumentPath(activePaper!.arxivId, "blog"));
+    if (sourceRef.current !== savedSourceRef.current || paperDirty || (secondaryFile && secondarySource !== secondarySavedSource)) {
       if (path === secondaryFile || targetAliasesDirtyPaper) {
         // save() rewrites this destination from either the secondary buffer or
         // the Paper editor; overlapping it with the read below would hand the
         // incoming editor pre-save contents after the write succeeds.
-        const saved = await save();
-        if (!saved) {
-          clearOpening();
-          return;
-        }
-        if (fileLoadGenerationRef.current !== loadGeneration) {
+        if (!(await save()) || fileLoadGenerationRef.current !== loadGeneration) {
           clearOpening();
           return;
         }
@@ -1872,17 +1852,13 @@ function App() {
       revealSource: options?.revealSource ?? true,
       gate,
       loadGeneration,
-      canCommit: () => !flushAndCheckPrimaryDirty(
-        activePaper ? "paper" : activeAsset ? "asset" : "file",
-      ),
+      canCommit: () => !flushAndCheckPrimaryDirty(activePaper ? "paper" : activeAsset ? "asset" : "file"),
       navigateToLine: restoreSecondary ? undefined : line,
     });
     clearOpening();
     if (!applied) return;
     recordNavigationTiming("file", path, switchStartedAt, {
-      openingPaintMs,
-      flushMs,
-      saveAndReadMs: performance.now() - contentLoadStartedAt,
+      openingPaintMs, flushMs, saveAndReadMs: performance.now() - contentLoadStartedAt,
     });
     setFocusedPane("primary");
     restoreSplitLayout();
@@ -3133,18 +3109,12 @@ function App() {
       const flushMs = performance.now() - flushStartedAt;
       const contentLoadStartedAt = performance.now();
       const readPaper = () => readPaperDocuments(paper.arxivId);
-      const paperPath = `.research/papers/${paper.arxivId}/paper.md`;
-      const blogPath = `.research/papers/${paper.arxivId}/blog.md`;
-      const activePaperBufferDirty = paperBuffersDirty();
-      const targetAliasesDirtyBuffer = (
-        activePaper?.arxivId === paper.arxivId && activePaperBufferDirty
-      ) || (
-        (activeFile === paperPath || activeFile === blogPath)
-        && sourceRef.current !== savedSourceRef.current
-      ) || (
-        (secondaryFile === paperPath || secondaryFile === blogPath)
-        && secondarySource !== secondarySavedSource
+      const isPaperDocument = (path: string | null) => (
+        path === paperDocumentPath(paper.arxivId, "fulltext") || path === paperDocumentPath(paper.arxivId, "blog")
       );
+      const targetAliasesDirtyBuffer = (activePaper?.arxivId === paper.arxivId && paperBuffersDirty())
+        || (isPaperDocument(activeFile) && sourceRef.current !== savedSourceRef.current)
+        || (isPaperDocument(secondaryFile) && secondarySource !== secondarySavedSource);
       let results: Awaited<ReturnType<typeof readPaper>>;
       if (targetAliasesDirtyBuffer) {
         if (!(await save())) return null;
