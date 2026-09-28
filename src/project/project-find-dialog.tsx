@@ -68,8 +68,9 @@ export function ProjectFindDialog(props: {
   const paperHits = useMemo(() => props.hits.filter((hit) => hit.kind === "paper"), [props.hits]);
   const selectableHits = [...fileHits, ...paperHits];
   // One paper can match several times (title, overview and full-text lines);
-  // the summary counts papers, so count each titled paper once.
-  const paperCount = new Set(paperHits.map((hit) => hit.title)).size;
+  // the summary counts papers, so count each library key once. Titles are not
+  // unique: a preprint and its published version can share one.
+  const paperCount = new Set(paperHits.map((hit) => /^\.research\/papers\/[^/]+\//.exec(hit.path)?.[0] ?? hit.path)).size;
   // The object form, not an interpolated tagged template: the React Compiler
   // bails out on the latter (react-compiler-guard.test.ts).
   const countHits = (count: number) => (count === 1 ? t`1 hit` : t({ message: `${count} hits` }));
