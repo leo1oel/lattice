@@ -7,7 +7,6 @@
       "mutations": 1744
     },
     "latex-typing": {
-      "commits": 98,
       "renders": 9414,
       "hooks": 75614,
       "mutations": 926
@@ -49,11 +48,7 @@
       "renders": 6,
       "hooks": 14
     },
-    "markdown-preview-scroll": {
-      "commits": 15,
-      "renders": 167,
-      "hooks": 1196
-    },
+    "markdown-preview-scroll": {},
     "compile": {
       "commits": 13,
       "renders": 1250,

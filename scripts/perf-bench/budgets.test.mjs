@@ -50,6 +50,8 @@ describe("perf bench budgets", () => {
     expect(gatedCounts("typing")).toEqual(["commits", "renders", "hooks", "mutations"]);
     expect(gatedCounts("pdf-scroll")).toEqual(["commits", "renders", "hooks"]);
     expect(gatedCounts("markdown-visual-typing")).toEqual(["commits", "mutations"]);
+    expect(gatedCounts("latex-typing")).toEqual(["renders", "hooks", "mutations"]);
+    expect(gatedCounts("markdown-preview-scroll")).toEqual([]);
 
     const budgets = { scenarios: { typing: ceilings(10), "pdf-scroll": ceilings(10, "pdf-scroll") } };
     const results = [
@@ -62,6 +64,8 @@ describe("perf bench budgets", () => {
       expect(Object.keys(outcome.budgets.scenarios.typing)).toEqual(gatedCounts("typing"));
       expect(Object.keys(outcome.budgets.scenarios["pdf-scroll"])).toEqual(gatedCounts("pdf-scroll"));
     }
+    const ungated = applyBudgets({ scenarios: { "markdown-preview-scroll": {} } }, [{ name: "markdown-preview-scroll", result: counts(10_000) }], "check");
+    expect(ungated).toMatchObject({ failures: [], changed: false, budgets: { scenarios: { "markdown-preview-scroll": {} } } });
     const over = applyBudgets(budgets, [{ name: "pdf-scroll", result: { ...counts(1), hooks: 11 } }], "check");
     expect(over.failures).toEqual([{ scenario: "pdf-scroll", key: "hooks", value: 11, ceiling: 10 }]);
   });

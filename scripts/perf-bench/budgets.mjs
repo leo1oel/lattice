@@ -22,15 +22,22 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  * - `markdown-visual-typing` renders and hooks: 24 keystrokes publish in one or
  *   two batches depending on timing, and each batch re-renders the editor
  *   chrome (634–1,243 renders across runs);
- * - `code-highlight` mutations: 2,510–2,957 across runs.
+ * - `code-highlight` mutations: 2,510–2,957 across runs;
+ * - `latex-typing` commits: a keystroke's updates commit together or apart
+ *   depending on timing (81–85 across local runs, 101 on the CI runner, with
+ *   renders within 4%);
+ * - `markdown-preview-scroll` commits, renders and hooks: Base UI's scroll
+ *   area re-renders when a scroll burst starts and 500 ms after it ends, and
+ *   how many bursts 40 notches make depends on stalls (139–259 renders).
  */
 export const REPORT_ONLY = ["recalcs", "layouts"];
 export const REPORT_ONLY_BY_SCENARIO = {
+  "latex-typing": ["commits"],
   "markdown-visual-typing": ["renders", "hooks"],
   "code-highlight": ["mutations"],
   "pdf-scroll": ["mutations"],
   "source-scroll": ["mutations"],
-  "markdown-preview-scroll": ["mutations"],
+  "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
 };
 
 /** The counts a scenario's ceilings gate; they repeat from run to run. */
