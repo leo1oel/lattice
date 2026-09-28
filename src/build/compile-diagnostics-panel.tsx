@@ -155,8 +155,28 @@ export function CompileDiagnosticsPanel(props: {
               })}
             </ul>
           )}
+          {/* A read-only field, not a <pre>: this panel sits directly above
+              the PDF toolbar and text layer, and a selection that starts in
+              a <pre> keeps going. Dragging past the bottom, or Edit → Select
+              All, copied the log followed by "1 / 29", "%" and the stale
+              PDF's text. A field keeps every selection inside the log. */}
           {(tab === "log" || !diagnostics.length) && hasLog && (
-            <pre className="compile-log" aria-label="Raw build log">{props.log}</pre>
+            <textarea
+              className="compile-log"
+              aria-label="Raw build log"
+              readOnly
+              spellCheck={false}
+              value={props.log}
+              onKeyDown={(event) => {
+                // The PDF text layer's capture listener cancels Command-A for
+                // read-only fields; select the log itself instead.
+                if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+                  && event.key.toLowerCase() === "a") {
+                  event.preventDefault();
+                  event.currentTarget.select();
+                }
+              }}
+            />
           )}
           {!props.success && !diagnostics.length && !hasLog && (
             <EmptyState
