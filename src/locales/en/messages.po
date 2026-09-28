@@ -467,6 +467,10 @@ msgstr "Approximately equal"
 msgid "Archived"
 msgstr "Archived"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Argument"
+msgstr "Argument"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Arrows"
 msgstr "Arrows"
@@ -595,6 +599,10 @@ msgstr "BasicTeX installed"
 msgid "Batch result reused"
 msgstr "Batch result reused"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Beamer slide"
+msgstr "Beamer slide"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
 msgstr "Beta"
@@ -607,9 +615,21 @@ msgstr "Beth"
 msgid "Bib"
 msgstr "Bib"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "biblatex bibliography file"
+msgstr "biblatex bibliography file"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "Bibliographic citation (requires natbib or compatible package)"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "BibTeX bibliography files"
+msgstr "BibTeX bibliography files"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "BibTeX bibliography style"
+msgstr "BibTeX bibliography style"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "BibTeX preview"
@@ -685,6 +705,10 @@ msgstr "Body words ({source}): text {text}, headers {headers}, captions {caption
 msgid "Bold"
 msgstr "Bold"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Bold math"
+msgstr "Bold math"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bold text command"
 msgstr "Bold text command"
@@ -700,6 +724,10 @@ msgstr "Booktitle"
 #: src/editor/insert/insert-snippets.ts
 msgid "Bottom / false"
 msgstr "Bottom / false"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Bottom table rule"
+msgstr "Bottom table rule"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Brace-delimited matrix"
@@ -879,13 +907,25 @@ msgstr "Capital upsilon"
 msgid "Capital xi"
 msgstr "Capital xi"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Caption of a figure or table"
+msgstr "Caption of a figure or table"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Cases"
 msgstr "Cases"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Cell spanning columns"
+msgstr "Cell spanning columns"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Center"
 msgstr "Center"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Center the rest of this group"
+msgstr "Center the rest of this group"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Centered block"
@@ -899,6 +939,10 @@ msgstr "Centered display equation"
 msgid "Centered dot"
 msgstr "Centered dot"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Centered ellipsis"
+msgstr "Centered ellipsis"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Centered multi-line equations"
 msgstr "Centered multi-line equations"
@@ -908,6 +952,10 @@ msgstr "Centered multi-line equations"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "Changes"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Chapter heading"
+msgstr "Chapter heading"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Chat"
@@ -996,6 +1044,10 @@ msgstr "Chi"
 msgid "Choose location"
 msgstr "Choose location"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Choose the document class"
+msgstr "Choose the document class"
+
 #: src/settings/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text"
 msgstr "Choose the language used for menus, settings, and help text"
@@ -1059,6 +1111,10 @@ msgstr "Citation tool"
 #: src/history/history-drawer.tsx
 msgid "Citations"
 msgstr "Citations"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Cite bibliography entries"
+msgstr "Cite bibliography entries"
 
 #: src/settings/settings-dialog.tsx
 msgid "Clean"
@@ -1173,6 +1229,10 @@ msgstr "Collecting runtime logs…"
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "Color theme"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Colored text"
+msgstr "Colored text"
 
 #: src/App.tsx
 msgid "Command palette"
@@ -1520,6 +1580,22 @@ msgstr "Decrement year"
 msgid "Default"
 msgstr "Default"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define a command"
+msgstr "Define a command"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define a theorem-like environment"
+msgstr "Define a theorem-like environment"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define an environment"
+msgstr "Define an environment"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Definition"
+msgstr "Definition"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Degree"
 msgstr "Degree"
@@ -1658,9 +1734,21 @@ msgstr "Divides / conditioned on"
 msgid "Division"
 msgstr "Division"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document authors"
+msgstr "Document authors"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document date"
+msgstr "Document date"
+
 #: src/canvas/document-outline.tsx
 msgid "Document outline"
 msgstr "Document outline"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document title"
+msgstr "Document title"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Document view"
@@ -1893,6 +1981,10 @@ msgstr "Edits sync live with Overleaf"
 msgid "Element of"
 msgstr "Element of"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Ellipsis"
+msgstr "Ellipsis"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Embed an image with optional alt text."
 msgstr "Embed an image with optional alt text."
@@ -1932,6 +2024,10 @@ msgstr "Empty set (variant)"
 #: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
 msgstr "Enable version tracking"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "End an environment"
+msgstr "End an environment"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -2022,6 +2118,10 @@ msgstr "Exact title match"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Excel workbook"
 msgstr "Excel workbook"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Exponential"
+msgstr "Exponential"
 
 #: src/telemetry/app-log.tsx
 msgid "Export diagnostic log"
@@ -2169,6 +2269,10 @@ msgstr "Floating figure with image, caption, and label (requires graphicx)"
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "Floating table with ruled rows (requires booktabs)"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Flush floats and start a new page"
+msgstr "Flush floats and start a new page"
+
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
@@ -2217,6 +2321,14 @@ msgstr "Frown relation"
 #: src/agent/synara-permission-picker.tsx
 msgid "Full access"
 msgstr "Full access"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Full-width floating figure"
+msgstr "Full-width floating figure"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Full-width floating table"
+msgstr "Full-width floating table"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gamma"
@@ -2324,6 +2436,10 @@ msgstr "Guided tutorial"
 msgid "H-bar / reduced Planck"
 msgstr "H-bar / reduced Planck"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Hand-written bibliography"
+msgstr "Hand-written bibliography"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Hat accent"
 msgstr "Hat accent"
@@ -2386,6 +2502,10 @@ msgstr "Highlight"
 msgid "Highlight tips, warnings, and notes."
 msgstr "Highlight tips, warnings, and notes."
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Highlighted code"
+msgstr "Highlighted code"
+
 #: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "History views"
@@ -2402,9 +2522,17 @@ msgstr "Hook right arrow"
 msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
 msgstr "Horizontal pill strip + active panel below; click a pill to switch panels."
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Horizontal rule in a table"
+msgstr "Horizontal rule in a table"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal rule that divides sections."
 msgstr "Horizontal rule that divides sections."
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Horizontal space"
+msgstr "Horizontal space"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
@@ -2425,6 +2553,10 @@ msgstr "HTML zoom controls"
 #: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML zoom percentage"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Hyperlink with text"
+msgstr "Hyperlink with text"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
@@ -2706,6 +2838,7 @@ msgid "Insufficient identifying metadata"
 msgstr "Insufficient identifying metadata"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Integral"
 msgstr "Integral"
 
@@ -2744,6 +2877,10 @@ msgstr "Iota"
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Italic"
 msgstr "Italic"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Italic text"
+msgstr "Italic text"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Itemize"
@@ -2980,6 +3117,10 @@ msgstr "Left-right arrow"
 msgid "Left-right double arrow / iff"
 msgstr "Left-right double arrow / iff"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Lemma"
+msgstr "Lemma"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Less than or equal"
 msgstr "Less than or equal"
@@ -2997,6 +3138,7 @@ msgid "Light"
 msgstr "Light"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Limit"
 msgstr "Limit"
 
@@ -3020,6 +3162,10 @@ msgstr "Link to a page or external URL."
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
 msgstr "Link URL"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "List item"
+msgstr "List item"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
@@ -3053,6 +3199,10 @@ msgstr "Live sync"
 #: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "Ln {line}, Col {column}"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Load a package"
+msgstr "Load a package"
 
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/literature-discovery-panel.tsx
@@ -3115,6 +3265,10 @@ msgstr "Local issues"
 msgid "Log level filter"
 msgstr "Log level filter"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Logarithm"
+msgstr "Logarithm"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Logical and"
 msgstr "Logical and"
@@ -3131,6 +3285,10 @@ msgstr "Logs"
 #: src/editor/insert/insert-snippets.ts
 msgid "Long equation broken across lines"
 msgstr "Long equation broken across lines"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Long quotation"
+msgstr "Long quotation"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Manage cited papers"
@@ -3166,11 +3324,16 @@ msgstr "Match case"
 msgid "Math"
 msgstr "Math"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Math array"
+msgstr "Math array"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Math inside a sentence"
 msgstr "Math inside a sentence"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "Matrix"
 
@@ -3183,6 +3346,7 @@ msgid "Max open tabs"
 msgstr "Max open tabs"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
 msgstr "Maximum operator"
 
@@ -3222,6 +3386,10 @@ msgstr "Metadata source"
 msgid "Metadata source · cached"
 msgstr "Metadata source · cached"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Middle table rule"
+msgstr "Middle table rule"
+
 #: src/canvas/editor-tabs.tsx
 msgid "Middle-click to close · ⌘⇧T to reopen"
 msgstr "Middle-click to close · ⌘⇧T to reopen"
@@ -3231,6 +3399,7 @@ msgid "Min"
 msgstr "Min"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Minimum operator"
 msgstr "Minimum operator"
 
@@ -3270,6 +3439,10 @@ msgstr "Models / entails"
 #: src/history/versions-timeline.tsx
 msgid "modified"
 msgstr "modified"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Monospaced text"
+msgstr "Monospaced text"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Move assistant below editor"
@@ -3318,6 +3491,10 @@ msgstr "Name this version…"
 #: src/settings/literature-settings.tsx
 msgid "name@example.org"
 msgstr "name@example.org"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Named operator"
+msgstr "Named operator"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Natural"
@@ -3462,6 +3639,10 @@ msgstr "No history yet"
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "No indent for this paragraph"
+msgstr "No indent for this paragraph"
 
 #: src/papers/bibliography-audit.tsx
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
@@ -3923,6 +4104,10 @@ msgstr "Overleaf's own record of this project, including everything collaborator
 msgid "Overline"
 msgstr "Overline"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Page of a labeled item"
+msgstr "Page of a labeled item"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Pages"
 msgstr "Pages"
@@ -3976,6 +4161,14 @@ msgstr "Parallel"
 #: src/editor/insert/insert-snippets.ts
 msgid "Parenthesized matrix"
 msgstr "Parenthesized matrix"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Parenthetical citation"
+msgstr "Parenthetical citation"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Part heading"
+msgstr "Part heading"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Partial author information"
@@ -4189,6 +4382,7 @@ msgid "Prime"
 msgstr "Prime"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Product"
 msgstr "Product"
 
@@ -4355,6 +4549,10 @@ msgstr "Reconnect to Overleaf"
 msgid "Record identity"
 msgstr "Record identity"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Redefine a command"
+msgstr "Redefine a command"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "Reference"
@@ -4378,6 +4576,10 @@ msgstr "Reference check progress"
 #: src/papers/bibliography-audit.tsx
 msgid "Reference lacks identifying metadata"
 msgstr "Reference lacks identifying metadata"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Reference with its type name"
+msgstr "Reference with its type name"
 
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
@@ -4832,6 +5034,10 @@ msgstr "Right vertical bar"
 msgid "Roman math"
 msgstr "Roman math"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Roman text"
+msgstr "Roman text"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Root with index"
 msgstr "Root with index"
@@ -4856,6 +5062,10 @@ msgstr "Run without asking for approval"
 #: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sans-serif text"
+msgstr "Sans-serif text"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
@@ -5199,6 +5409,14 @@ msgstr "Simplified Chinese"
 msgid "Sixth-level heading."
 msgstr "Sixth-level heading."
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sized closing delimiter"
+msgstr "Sized closing delimiter"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sized opening delimiter"
+msgstr "Sized opening delimiter"
+
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -5206,6 +5424,10 @@ msgstr "Skills"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Small capitals"
+msgstr "Small capitals"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Small section heading."
@@ -5291,6 +5513,10 @@ msgstr "Split"
 msgid "Split editor right"
 msgstr "Split editor right"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Split one equation"
+msgstr "Split one equation"
+
 #. placeholder {0}: props.position
 #. placeholder {1}: props.total
 #: src/history/conflict-resolver.tsx
@@ -5337,9 +5563,21 @@ msgstr "Stale result"
 msgid "Star operator"
 msgstr "Star operator"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start a new page"
+msgstr "Start a new page"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start an environment"
+msgstr "Start an environment"
+
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "Start browser access after login"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start the appendices"
+msgstr "Start the appendices"
 
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
@@ -5408,6 +5646,10 @@ msgstr "Subequations"
 msgid "Submission checklist"
 msgstr "Submission checklist"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Subparagraph heading"
+msgstr "Subparagraph heading"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Subsection"
 msgstr "Subsection"
@@ -5453,6 +5695,7 @@ msgid "Sum with limits"
 msgstr "Sum with limits"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Summation"
 msgstr "Summation"
 
@@ -5518,6 +5761,14 @@ msgstr "Syntax-highlighted listing (listings)"
 msgid "Table"
 msgstr "Table"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Table body"
+msgstr "Table body"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Table of contents"
+msgstr "Table of contents"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Tabs"
 msgstr "Tabs"
@@ -5552,6 +5803,10 @@ msgstr "Text"
 msgid "Text in math"
 msgstr "Text in math"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Textual citation"
+msgstr "Textual citation"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"
 msgstr "The bundled Agent service could not start"
@@ -5564,9 +5819,17 @@ msgstr "The commented file is no longer open live with Overleaf. Try again."
 msgid "The copy on Overleaf"
 msgstr "The copy on Overleaf"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "The document body"
+msgstr "The document body"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "The LaTeX logo"
+msgstr "The LaTeX logo"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
@@ -5787,6 +6050,10 @@ msgstr "This step may take a minute"
 msgid "Three ways to look at a document"
 msgstr "Three ways to look at a document"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "TikZ drawing"
+msgstr "TikZ drawing"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Tilde accent example"
 msgstr "Tilde accent example"
@@ -5816,6 +6083,10 @@ msgstr "To (short right arrow)"
 msgid "Today"
 msgstr "Today"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Today's date"
+msgstr "Today's date"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "TODOs"
 msgstr "TODOs"
@@ -5831,6 +6102,10 @@ msgstr "Toolchain status"
 #: src/editor/insert/insert-snippets.ts
 msgid "Top / true"
 msgstr "Top / true"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Top table rule"
+msgstr "Top table rule"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Top-level section heading"
@@ -5883,6 +6158,18 @@ msgstr "Type"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset a URL"
+msgstr "Typeset a URL"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset the bibliography"
+msgstr "Typeset the bibliography"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset the title block"
+msgstr "Typeset the title block"
 
 #: src/settings/doctor-settings.tsx
 msgid "Unavailable"
@@ -6174,6 +6461,10 @@ msgstr "Version to keep for spot {0}"
 msgid "Versions"
 msgstr "Versions"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Vertical space"
+msgstr "Vertical space"
+
 #: src/App.tsx
 msgid "View"
 msgstr "View"
@@ -6253,6 +6544,14 @@ msgstr "When you delete a file here"
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "Whole word"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Width of the current line"
+msgstr "Width of the current line"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Width of the text block"
+msgstr "Width of the text block"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

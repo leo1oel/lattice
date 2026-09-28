@@ -68,8 +68,9 @@ describe("built-in LaTeX hover", () => {
   };
 
   it("describes a known command or environment", () => {
-    expect(hoverText("\\sec|tion{Intro}")).toBe("\\section\nSection heading");
-    expect(hoverText("\\begin{ali|gn}")).toBe("align\nAligned equations · amsmath");
+    expect(hoverText("\\sec|tion{Intro}")).toBe("\\section\nTop-level section heading");
+    expect(hoverText("\\begin{ali|gn}")).toBe("align\nMulti-line aligned equations");
+    expect(hoverText("\\toprule|")).toBe("\\toprule\nTop table rule · booktabs");
   });
 
   it("stays quiet for unknown commands and plain text", () => {

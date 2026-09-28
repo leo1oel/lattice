@@ -3,179 +3,111 @@
  * answer (it is optional, and only runs for `.tex` files): common commands,
  * environments, math symbols, packages and document classes.
  *
- * A command's `template` is what completion inserts; the caret lands in its
- * first empty `{}`. Environment completion inside `\begin{…}` also writes the
- * matching `\end{…}`, like pressing Enter after a typed `\begin{…}` does.
+ * Most entries come from the insert palette's snippets, whose descriptions
+ * are already translated; the rest are listed here. A command's `template`
+ * is what completion inserts, with the caret in its first empty `{}`.
+ * Environment completion inside `\begin{…}` also writes the matching
+ * `\end{…}`, like pressing Enter after a typed `\begin{…}` does.
  */
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { pickedCompletion } from "@codemirror/autocomplete";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import { i18n } from "../../i18n";
+import { INSERT_SNIPPETS } from "../insert/insert-snippets";
 import { shouldInsertCommandBraces } from "./latex-symbols";
 import { mathRegionAt } from "./math-region";
 
-type Entry = { name: string; detail: string; template?: string; package?: string };
+type Entry = { name: string; detail: MessageDescriptor; template?: string; package?: string; math?: boolean };
 
 const COMMANDS: Entry[] = [
-  { name: "\\documentclass", detail: "Choose the document class", template: "\\documentclass{}" },
-  { name: "\\usepackage", detail: "Load a package", template: "\\usepackage{}" },
-  { name: "\\begin", detail: "Start an environment", template: "\\begin{}" },
-  { name: "\\end", detail: "End an environment", template: "\\end{}" },
-  { name: "\\part", detail: "Part heading", template: "\\part{}" },
-  { name: "\\chapter", detail: "Chapter heading", template: "\\chapter{}" },
-  { name: "\\section", detail: "Section heading", template: "\\section{}" },
-  { name: "\\subsection", detail: "Subsection heading", template: "\\subsection{}" },
-  { name: "\\subsubsection", detail: "Subsubsection heading", template: "\\subsubsection{}" },
-  { name: "\\paragraph", detail: "Paragraph heading", template: "\\paragraph{}" },
-  { name: "\\subparagraph", detail: "Subparagraph heading", template: "\\subparagraph{}" },
-  { name: "\\title", detail: "Document title", template: "\\title{}" },
-  { name: "\\author", detail: "Document authors", template: "\\author{}" },
-  { name: "\\date", detail: "Document date", template: "\\date{}" },
-  { name: "\\maketitle", detail: "Typeset the title block" },
-  { name: "\\tableofcontents", detail: "Table of contents" },
-  { name: "\\appendix", detail: "Start the appendices" },
-  { name: "\\label", detail: "Name this place for cross-references" },
-  { name: "\\ref", detail: "Number of a labelled item" },
-  { name: "\\eqref", detail: "Equation number in parentheses", package: "amsmath" },
-  { name: "\\pageref", detail: "Page of a labelled item" },
-  { name: "\\autoref", detail: "Reference with its type name", package: "hyperref" },
-  { name: "\\cref", detail: "Reference with its type name", package: "cleveref" },
-  { name: "\\cite", detail: "Cite bibliography entries" },
-  { name: "\\citep", detail: "Parenthetical citation", package: "natbib" },
-  { name: "\\citet", detail: "Textual citation", package: "natbib" },
-  { name: "\\parencite", detail: "Parenthetical citation", package: "biblatex" },
-  { name: "\\textcite", detail: "Textual citation", package: "biblatex" },
-  { name: "\\input", detail: "Insert another file's source" },
-  { name: "\\include", detail: "Include a file on a new page" },
-  { name: "\\includegraphics", detail: "Insert an image", template: "\\includegraphics[width=\\linewidth]{}", package: "graphicx" },
-  { name: "\\caption", detail: "Caption of a figure or table", template: "\\caption{}" },
-  { name: "\\centering", detail: "Center the rest of this group" },
-  { name: "\\item", detail: "List item" },
-  { name: "\\footnote", detail: "Footnote", template: "\\footnote{}" },
-  { name: "\\emph", detail: "Emphasized text", template: "\\emph{}" },
-  { name: "\\textbf", detail: "Bold text", template: "\\textbf{}" },
-  { name: "\\textit", detail: "Italic text", template: "\\textit{}" },
-  { name: "\\texttt", detail: "Monospaced text", template: "\\texttt{}" },
-  { name: "\\textsc", detail: "Small capitals", template: "\\textsc{}" },
-  { name: "\\textsf", detail: "Sans-serif text", template: "\\textsf{}" },
-  { name: "\\textrm", detail: "Roman text", template: "\\textrm{}" },
-  { name: "\\underline", detail: "Underlined text", template: "\\underline{}" },
-  { name: "\\textcolor", detail: "Colored text", template: "\\textcolor{}{}", package: "xcolor" },
-  { name: "\\url", detail: "Typeset a URL", template: "\\url{}", package: "url" },
-  { name: "\\href", detail: "Hyperlink with text", template: "\\href{}{}", package: "hyperref" },
-  { name: "\\newcommand", detail: "Define a command", template: "\\newcommand{}{}" },
-  { name: "\\renewcommand", detail: "Redefine a command", template: "\\renewcommand{}{}" },
-  { name: "\\newenvironment", detail: "Define an environment", template: "\\newenvironment{}{}{}" },
-  { name: "\\newtheorem", detail: "Define a theorem-like environment", template: "\\newtheorem{}{}" },
-  { name: "\\bibliography", detail: "BibTeX bibliography files", template: "\\bibliography{}" },
-  { name: "\\bibliographystyle", detail: "BibTeX bibliography style", template: "\\bibliographystyle{}" },
-  { name: "\\addbibresource", detail: "biblatex bibliography file", template: "\\addbibresource{}", package: "biblatex" },
-  { name: "\\printbibliography", detail: "Typeset the bibliography", package: "biblatex" },
-  { name: "\\hline", detail: "Horizontal rule in a table" },
-  { name: "\\toprule", detail: "Top table rule", package: "booktabs" },
-  { name: "\\midrule", detail: "Middle table rule", package: "booktabs" },
-  { name: "\\bottomrule", detail: "Bottom table rule", package: "booktabs" },
-  { name: "\\multicolumn", detail: "Cell spanning columns", template: "\\multicolumn{}{}{}" },
-  { name: "\\vspace", detail: "Vertical space", template: "\\vspace{}" },
-  { name: "\\hspace", detail: "Horizontal space", template: "\\hspace{}" },
-  { name: "\\newpage", detail: "Start a new page" },
-  { name: "\\clearpage", detail: "Flush floats and start a new page" },
-  { name: "\\noindent", detail: "No indent for this paragraph" },
-  { name: "\\linewidth", detail: "Width of the current line" },
-  { name: "\\textwidth", detail: "Width of the text block" },
-  { name: "\\today", detail: "Today's date" },
-  { name: "\\LaTeX", detail: "The LaTeX logo" },
-  { name: "\\ldots", detail: "Ellipsis" },
-  { name: "\\text", detail: "Text inside math", template: "\\text{}", package: "amsmath" },
-  { name: "\\frac", detail: "Fraction", template: "\\frac{}{}" },
-  { name: "\\sqrt", detail: "Square root", template: "\\sqrt{}" },
-  { name: "\\sum", detail: "Summation" },
-  { name: "\\prod", detail: "Product" },
-  { name: "\\int", detail: "Integral" },
-  { name: "\\lim", detail: "Limit" },
-  { name: "\\infty", detail: "Infinity" },
-  { name: "\\partial", detail: "Partial derivative" },
-  { name: "\\left", detail: "Sized opening delimiter" },
-  { name: "\\right", detail: "Sized closing delimiter" },
-];
-
-const MATH_COMMANDS: Entry[] = [
-  ...["alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta", "theta", "vartheta", "iota", "kappa",
-    "lambda", "mu", "nu", "xi", "pi", "rho", "sigma", "tau", "upsilon", "phi", "varphi", "chi", "psi", "omega", "Gamma",
-    "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Phi", "Psi", "Omega"]
-    .map((name) => ({ name: `\\${name}`, detail: "Greek letter" })),
-  { name: "\\mathbb", detail: "Blackboard bold", template: "\\mathbb{}", package: "amssymb" },
-  { name: "\\mathcal", detail: "Calligraphic letters", template: "\\mathcal{}" },
-  { name: "\\mathbf", detail: "Bold math", template: "\\mathbf{}" },
-  { name: "\\mathrm", detail: "Upright math", template: "\\mathrm{}" },
-  { name: "\\operatorname", detail: "Named operator", template: "\\operatorname{}", package: "amsmath" },
-  { name: "\\hat", detail: "Hat accent", template: "\\hat{}" },
-  { name: "\\bar", detail: "Bar accent", template: "\\bar{}" },
-  { name: "\\tilde", detail: "Tilde accent", template: "\\tilde{}" },
-  { name: "\\vec", detail: "Vector arrow", template: "\\vec{}" },
-  { name: "\\cdot", detail: "Centered dot" },
-  { name: "\\cdots", detail: "Centered ellipsis" },
-  { name: "\\times", detail: "Multiplication sign" },
-  { name: "\\leq", detail: "Less than or equal" },
-  { name: "\\geq", detail: "Greater than or equal" },
-  { name: "\\neq", detail: "Not equal" },
-  { name: "\\approx", detail: "Approximately equal" },
-  { name: "\\equiv", detail: "Equivalent" },
-  { name: "\\in", detail: "Element of" },
-  { name: "\\subseteq", detail: "Subset or equal" },
-  { name: "\\cup", detail: "Union" },
-  { name: "\\cap", detail: "Intersection" },
-  { name: "\\forall", detail: "For all" },
-  { name: "\\exists", detail: "There exists" },
-  { name: "\\to", detail: "Right arrow" },
-  { name: "\\mapsto", detail: "Maps to" },
-  { name: "\\Rightarrow", detail: "Implies" },
-  { name: "\\nabla", detail: "Nabla" },
-  { name: "\\log", detail: "Logarithm" },
-  { name: "\\exp", detail: "Exponential" },
-  { name: "\\max", detail: "Maximum" },
-  { name: "\\min", detail: "Minimum" },
-  { name: "\\arg", detail: "Argument" },
+  { name: "\\documentclass", detail: msg`Choose the document class`, template: "\\documentclass{}" },
+  { name: "\\usepackage", detail: msg`Load a package`, template: "\\usepackage{}" },
+  { name: "\\begin", detail: msg`Start an environment`, template: "\\begin{}" },
+  { name: "\\end", detail: msg`End an environment`, template: "\\end{}" },
+  { name: "\\part", detail: msg`Part heading`, template: "\\part{}" },
+  { name: "\\chapter", detail: msg`Chapter heading`, template: "\\chapter{}" },
+  { name: "\\subparagraph", detail: msg`Subparagraph heading`, template: "\\subparagraph{}" },
+  { name: "\\title", detail: msg`Document title`, template: "\\title{}" },
+  { name: "\\author", detail: msg`Document authors`, template: "\\author{}" },
+  { name: "\\date", detail: msg`Document date`, template: "\\date{}" },
+  { name: "\\maketitle", detail: msg`Typeset the title block` },
+  { name: "\\tableofcontents", detail: msg`Table of contents` },
+  { name: "\\appendix", detail: msg`Start the appendices` },
+  { name: "\\pageref", detail: msg`Page of a labeled item` },
+  { name: "\\autoref", detail: msg`Reference with its type name`, package: "hyperref" },
+  { name: "\\cref", detail: msg`Reference with its type name`, package: "cleveref" },
+  { name: "\\cite", detail: msg`Cite bibliography entries` },
+  { name: "\\citet", detail: msg`Textual citation`, package: "natbib" },
+  { name: "\\parencite", detail: msg`Parenthetical citation`, package: "biblatex" },
+  { name: "\\textcite", detail: msg`Textual citation`, package: "biblatex" },
+  { name: "\\caption", detail: msg`Caption of a figure or table`, template: "\\caption{}" },
+  { name: "\\centering", detail: msg`Center the rest of this group` },
+  { name: "\\item", detail: msg`List item` },
+  { name: "\\textit", detail: msg`Italic text`, template: "\\textit{}" },
+  { name: "\\texttt", detail: msg`Monospaced text`, template: "\\texttt{}" },
+  { name: "\\textsc", detail: msg`Small capitals`, template: "\\textsc{}" },
+  { name: "\\textsf", detail: msg`Sans-serif text`, template: "\\textsf{}" },
+  { name: "\\textrm", detail: msg`Roman text`, template: "\\textrm{}" },
+  { name: "\\textcolor", detail: msg`Colored text`, template: "\\textcolor{}{}", package: "xcolor" },
+  { name: "\\url", detail: msg`Typeset a URL`, template: "\\url{}", package: "url" },
+  { name: "\\href", detail: msg`Hyperlink with text`, template: "\\href{}{}", package: "hyperref" },
+  { name: "\\newcommand", detail: msg`Define a command`, template: "\\newcommand{}{}" },
+  { name: "\\renewcommand", detail: msg`Redefine a command`, template: "\\renewcommand{}{}" },
+  { name: "\\newenvironment", detail: msg`Define an environment`, template: "\\newenvironment{}{}{}" },
+  { name: "\\newtheorem", detail: msg`Define a theorem-like environment`, template: "\\newtheorem{}{}" },
+  { name: "\\bibliography", detail: msg`BibTeX bibliography files`, template: "\\bibliography{}" },
+  { name: "\\bibliographystyle", detail: msg`BibTeX bibliography style`, template: "\\bibliographystyle{}" },
+  { name: "\\addbibresource", detail: msg`biblatex bibliography file`, template: "\\addbibresource{}", package: "biblatex" },
+  { name: "\\printbibliography", detail: msg`Typeset the bibliography`, package: "biblatex" },
+  { name: "\\hline", detail: msg`Horizontal rule in a table` },
+  { name: "\\toprule", detail: msg`Top table rule`, package: "booktabs" },
+  { name: "\\midrule", detail: msg`Middle table rule`, package: "booktabs" },
+  { name: "\\bottomrule", detail: msg`Bottom table rule`, package: "booktabs" },
+  { name: "\\multicolumn", detail: msg`Cell spanning columns`, template: "\\multicolumn{}{}{}" },
+  { name: "\\vspace", detail: msg`Vertical space`, template: "\\vspace{}" },
+  { name: "\\hspace", detail: msg`Horizontal space`, template: "\\hspace{}" },
+  { name: "\\newpage", detail: msg`Start a new page` },
+  { name: "\\clearpage", detail: msg`Flush floats and start a new page` },
+  { name: "\\noindent", detail: msg`No indent for this paragraph` },
+  { name: "\\linewidth", detail: msg`Width of the current line` },
+  { name: "\\textwidth", detail: msg`Width of the text block` },
+  { name: "\\today", detail: msg`Today's date` },
+  { name: "\\LaTeX", detail: msg`The LaTeX logo` },
+  { name: "\\ldots", detail: msg`Ellipsis` },
+  { name: "\\left", detail: msg`Sized opening delimiter`, math: true },
+  { name: "\\right", detail: msg`Sized closing delimiter`, math: true },
+  { name: "\\mathbf", detail: msg`Bold math`, template: "\\mathbf{}", math: true },
+  { name: "\\operatorname", detail: msg`Named operator`, template: "\\operatorname{}", package: "amsmath", math: true },
+  { name: "\\cdots", detail: msg`Centered ellipsis`, math: true },
+  { name: "\\sum", detail: msg`Summation`, math: true },
+  { name: "\\prod", detail: msg`Product`, math: true },
+  { name: "\\int", detail: msg`Integral`, math: true },
+  { name: "\\lim", detail: msg`Limit`, math: true },
+  { name: "\\max", detail: msg`Maximum operator`, math: true },
+  { name: "\\min", detail: msg`Minimum operator`, math: true },
+  { name: "\\log", detail: msg`Logarithm`, math: true },
+  { name: "\\exp", detail: msg`Exponential`, math: true },
+  { name: "\\arg", detail: msg`Argument`, math: true },
 ];
 
 const ENVIRONMENTS: Entry[] = [
-  { name: "document", detail: "The document body" },
-  { name: "abstract", detail: "Abstract" },
-  { name: "itemize", detail: "Bulleted list" },
-  { name: "enumerate", detail: "Numbered list" },
-  { name: "description", detail: "Labelled list" },
-  { name: "figure", detail: "Floating figure" },
-  { name: "figure*", detail: "Full-width floating figure" },
-  { name: "table", detail: "Floating table" },
-  { name: "table*", detail: "Full-width floating table" },
-  { name: "tabular", detail: "Table body" },
-  { name: "center", detail: "Centered block" },
-  { name: "quote", detail: "Short quotation" },
-  { name: "quotation", detail: "Long quotation" },
-  { name: "verbatim", detail: "Verbatim text" },
-  { name: "minipage", detail: "Box with its own text width" },
-  { name: "equation", detail: "Numbered equation" },
-  { name: "equation*", detail: "Unnumbered equation", package: "amsmath" },
-  { name: "align", detail: "Aligned equations", package: "amsmath" },
-  { name: "align*", detail: "Unnumbered aligned equations", package: "amsmath" },
-  { name: "gather", detail: "Centered equations", package: "amsmath" },
-  { name: "multline", detail: "Equation over several lines", package: "amsmath" },
-  { name: "split", detail: "Split one equation", package: "amsmath" },
-  { name: "cases", detail: "Case distinction", package: "amsmath" },
-  { name: "matrix", detail: "Matrix", package: "amsmath" },
-  { name: "pmatrix", detail: "Matrix in parentheses", package: "amsmath" },
-  { name: "bmatrix", detail: "Matrix in brackets", package: "amsmath" },
-  { name: "array", detail: "Math array" },
-  { name: "theorem", detail: "Theorem" },
-  { name: "lemma", detail: "Lemma" },
-  { name: "proof", detail: "Proof", package: "amsthm" },
-  { name: "definition", detail: "Definition" },
-  { name: "algorithm", detail: "Floating algorithm", package: "algorithm" },
-  { name: "lstlisting", detail: "Code listing", package: "listings" },
-  { name: "minted", detail: "Highlighted code", package: "minted" },
-  { name: "tikzpicture", detail: "TikZ drawing", package: "tikz" },
-  { name: "frame", detail: "Beamer slide", package: "beamer" },
-  { name: "thebibliography", detail: "Hand-written bibliography" },
+  { name: "document", detail: msg`The document body` },
+  { name: "figure*", detail: msg`Full-width floating figure` },
+  { name: "table*", detail: msg`Full-width floating table` },
+  { name: "tabular", detail: msg`Table body` },
+  { name: "quotation", detail: msg`Long quotation` },
+  { name: "split", detail: msg`Split one equation`, package: "amsmath" },
+  { name: "matrix", detail: msg`Matrix`, package: "amsmath" },
+  { name: "array", detail: msg`Math array` },
+  { name: "lemma", detail: msg`Lemma` },
+  { name: "definition", detail: msg`Definition` },
+  { name: "tikzpicture", detail: msg`TikZ drawing`, package: "tikz" },
+  { name: "frame", detail: msg`Beamer slide`, package: "beamer" },
+  { name: "thebibliography", detail: msg`Hand-written bibliography` },
+  { name: "minted", detail: msg`Highlighted code`, package: "minted" },
 ];
 
 const PACKAGES = [
@@ -186,10 +118,41 @@ const PACKAGES = [
 ];
 const DOCUMENT_CLASSES = ["article", "report", "book", "letter", "beamer", "memoir", "amsart", "scrartcl", "scrreprt", "standalone"];
 
-const COMMAND_INDEX = new Map([...COMMANDS, ...MATH_COMMANDS].map((entry) => [entry.name, entry]));
-const ENVIRONMENT_INDEX = new Map(ENVIRONMENTS.map((entry) => [entry.name, entry]));
+/** A command-shaped snippet: its name, and a template when all it adds is empty arguments. */
+const SNIPPET_COMMAND = /^(\\[A-Za-z]+)(?:\[[^\]]*\])?(?:\{\})*$/;
+const SNIPPET_ENVIRONMENT = /\\begin\{([^}]+)\}/;
 
-const detailOf = (entry: Entry) => entry.package ? `${entry.detail} · ${entry.package}` : entry.detail;
+/** Palette snippets first (their names are what the palette shows), then the entries above. */
+function vocabulary() {
+  const commands = new Map<string, Entry>();
+  const environments = new Map<string, Entry>();
+  for (const snippet of INSERT_SNIPPETS) {
+    const insert = snippet.insert.trim();
+    const environment = SNIPPET_ENVIRONMENT.exec(insert)?.[1];
+    if (environment) {
+      if (!environments.has(environment)) environments.set(environment, { name: environment, detail: snippet.detail });
+      continue;
+    }
+    const command = SNIPPET_COMMAND.exec(insert);
+    if (!command || commands.has(command[1])) continue;
+    commands.set(command[1], {
+      name: command[1],
+      detail: snippet.detail,
+      template: insert === command[1] ? undefined : insert,
+      math: snippet.group !== "Structure",
+    });
+  }
+  for (const entry of COMMANDS) if (!commands.has(entry.name)) commands.set(entry.name, entry);
+  for (const entry of ENVIRONMENTS) if (!environments.has(entry.name)) environments.set(entry.name, entry);
+  return { commands, environments };
+}
+
+const { commands: COMMAND_INDEX, environments: ENVIRONMENT_INDEX } = vocabulary();
+
+const detailOf = (entry: Entry) => {
+  const detail = i18n._(entry.detail);
+  return entry.package ? `${detail} · ${entry.package}` : detail;
+};
 
 /** Insert `text` for a picked completion, placing the caret at `caret` and marking it as a completion. */
 function insertCompletion(view: EditorView, completion: Completion, from: number, to: number, text: string, caret: number) {
@@ -235,10 +198,24 @@ function environmentCompletion(entry: Entry, opening: boolean): Completion {
   };
 }
 
-const COMMAND_OPTIONS = COMMANDS.map(commandCompletion);
-const MATH_OPTIONS = [...COMMANDS, ...MATH_COMMANDS].map(commandCompletion);
-const BEGIN_OPTIONS = ENVIRONMENTS.map((entry) => environmentCompletion(entry, true));
-const END_OPTIONS = ENVIRONMENTS.map((entry) => environmentCompletion(entry, false));
+type Options = { text: Completion[]; math: Completion[]; begin: Completion[]; end: Completion[] };
+/** Options carry translated details, so they are rebuilt when the app locale changes. */
+let cachedOptions: { locale: string; options: Options } | null = null;
+
+function currentOptions(): Options {
+  if (cachedOptions?.locale === i18n.locale) return cachedOptions.options;
+  const commands = [...COMMAND_INDEX.values()];
+  const environments = [...ENVIRONMENT_INDEX.values()];
+  const options = {
+    text: commands.filter((entry) => !entry.math).map(commandCompletion),
+    math: commands.map(commandCompletion),
+    begin: environments.map((entry) => environmentCompletion(entry, true)),
+    end: environments.map((entry) => environmentCompletion(entry, false)),
+  };
+  cachedOptions = { locale: i18n.locale, options };
+  return options;
+}
+
 const PACKAGE_OPTIONS: Completion[] = PACKAGES.map((label) => ({ label, type: "namespace" }));
 const CLASS_OPTIONS: Completion[] = DOCUMENT_CLASSES.map((label) => ({ label, type: "namespace" }));
 
@@ -248,16 +225,16 @@ export function latexCommandCompletions(context: CompletionContext): CompletionR
   if (argument) {
     const kind = /^\\(\w+)/.exec(argument.text)![1];
     const word = context.matchBefore(/[^{},\s]*$/)!;
-    const options = kind === "begin" ? BEGIN_OPTIONS
-      : kind === "end" ? END_OPTIONS
+    const choices = kind === "begin" ? currentOptions().begin
+      : kind === "end" ? currentOptions().end
         : kind === "documentclass" ? CLASS_OPTIONS
           : PACKAGE_OPTIONS;
-    return { from: word.from, options, validFor: /^[^{},\s]*$/ };
+    return { from: word.from, options: choices, validFor: /^[^{},\s]*$/ };
   }
   const word = context.matchBefore(/\\[A-Za-z@]*/);
   if (!word || (word.from === word.to && !context.explicit)) return null;
   const inMath = mathRegionAt(context.state.doc.toString(), context.pos) !== null;
-  return { from: word.from, options: inMath ? MATH_OPTIONS : COMMAND_OPTIONS, validFor: /^\\[A-Za-z@]*$/ };
+  return { from: word.from, options: inMath ? currentOptions().math : currentOptions().text, validFor: /^\\[A-Za-z@]*$/ };
 }
 
 /** The command or environment name at `pos`, with the range it covers. */

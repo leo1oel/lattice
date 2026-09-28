@@ -467,6 +467,10 @@ msgstr "约等于"
 msgid "Archived"
 msgstr "已归档"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Argument"
+msgstr "辐角"
+
 #: src/editor/insert/insert-palette.tsx
 msgid "Arrows"
 msgstr "箭头"
@@ -595,6 +599,10 @@ msgstr "BasicTeX 已安装"
 msgid "Batch result reused"
 msgstr "已复用批量查询结果"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Beamer slide"
+msgstr "Beamer 幻灯片"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
 msgstr "贝塔"
@@ -607,9 +615,21 @@ msgstr "贝特"
 msgid "Bib"
 msgstr "文献"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "biblatex bibliography file"
+msgstr "biblatex 参考文献文件"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "文献引用（需要 natbib 或兼容宏包）"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "BibTeX bibliography files"
+msgstr "BibTeX 参考文献文件"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "BibTeX bibliography style"
+msgstr "BibTeX 参考文献样式"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "BibTeX preview"
@@ -685,6 +705,10 @@ msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {
 msgid "Bold"
 msgstr "粗体"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Bold math"
+msgstr "数学粗体"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Bold text command"
 msgstr "粗体文字命令"
@@ -700,6 +724,10 @@ msgstr "会议录 / 书名"
 #: src/editor/insert/insert-snippets.ts
 msgid "Bottom / false"
 msgstr "底元 / 假"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Bottom table rule"
+msgstr "表格底线"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Brace-delimited matrix"
@@ -879,13 +907,25 @@ msgstr "大写宇普西龙"
 msgid "Capital xi"
 msgstr "大写克西"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Caption of a figure or table"
+msgstr "图或表的标题"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Cases"
 msgstr "分段函数"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Cell spanning columns"
+msgstr "跨列单元格"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Center"
 msgstr "居中"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Center the rest of this group"
+msgstr "将本组其余内容居中"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Centered block"
@@ -899,6 +939,10 @@ msgstr "居中的行间公式"
 msgid "Centered dot"
 msgstr "居中点乘"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Centered ellipsis"
+msgstr "居中省略号"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Centered multi-line equations"
 msgstr "居中的多行公式"
@@ -908,6 +952,10 @@ msgstr "居中的多行公式"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "更改"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Chapter heading"
+msgstr "章标题"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Chat"
@@ -996,6 +1044,10 @@ msgstr "希"
 msgid "Choose location"
 msgstr "选择位置"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Choose the document class"
+msgstr "选择文档类"
+
 #: src/settings/settings-dialog.tsx
 msgid "Choose the language used for menus, settings, and help text"
 msgstr "选择菜单、设置和帮助文字所使用的语言"
@@ -1059,6 +1111,10 @@ msgstr "引文工具"
 #: src/history/history-drawer.tsx
 msgid "Citations"
 msgstr "引文"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Cite bibliography entries"
+msgstr "引用参考文献条目"
 
 #: src/settings/settings-dialog.tsx
 msgid "Clean"
@@ -1173,6 +1229,10 @@ msgstr "正在收集运行日志…"
 #: src/settings/settings-dialog.tsx
 msgid "Color theme"
 msgstr "颜色主题"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Colored text"
+msgstr "彩色文本"
 
 #: src/App.tsx
 msgid "Command palette"
@@ -1520,6 +1580,22 @@ msgstr "年份减一"
 msgid "Default"
 msgstr "默认"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define a command"
+msgstr "定义命令"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define a theorem-like environment"
+msgstr "定义类定理环境"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Define an environment"
+msgstr "定义环境"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Definition"
+msgstr "定义"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Degree"
 msgstr "度"
@@ -1658,9 +1734,21 @@ msgstr "整除 / 条件于"
 msgid "Division"
 msgstr "除号"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document authors"
+msgstr "文档作者"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document date"
+msgstr "文档日期"
+
 #: src/canvas/document-outline.tsx
 msgid "Document outline"
 msgstr "文档大纲"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Document title"
+msgstr "文档标题"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Document view"
@@ -1893,6 +1981,10 @@ msgstr "编辑内容会与 Overleaf 实时同步"
 msgid "Element of"
 msgstr "属于"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Ellipsis"
+msgstr "省略号"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Embed an image with optional alt text."
 msgstr "嵌入图片，并可添加替代文本。"
@@ -1932,6 +2024,10 @@ msgstr "空集（变体）"
 #: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
 msgstr "启用版本追踪"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "End an environment"
+msgstr "结束环境"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -2022,6 +2118,10 @@ msgstr "标题完全匹配"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Excel workbook"
 msgstr "Excel 工作簿"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Exponential"
+msgstr "指数函数"
 
 #: src/telemetry/app-log.tsx
 msgid "Export diagnostic log"
@@ -2169,6 +2269,10 @@ msgstr "浮动图，含图片、题注与标签（需要 graphicx）"
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "浮动表格，三线表样式（需要 booktabs）"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Flush floats and start a new page"
+msgstr "输出浮动体并另起一页"
+
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
@@ -2217,6 +2321,14 @@ msgstr "下弧关系"
 #: src/agent/synara-permission-picker.tsx
 msgid "Full access"
 msgstr "完全访问"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Full-width floating figure"
+msgstr "通栏浮动图"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Full-width floating table"
+msgstr "通栏浮动表"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gamma"
@@ -2324,6 +2436,10 @@ msgstr "引导式教程"
 msgid "H-bar / reduced Planck"
 msgstr "h-bar / 约化普朗克常数"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Hand-written bibliography"
+msgstr "手写参考文献列表"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Hat accent"
 msgstr "帽号记号"
@@ -2386,6 +2502,10 @@ msgstr "高亮"
 msgid "Highlight tips, warnings, and notes."
 msgstr "突出显示提示、警告和注释内容。"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Highlighted code"
+msgstr "高亮代码"
+
 #: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "历史视图"
@@ -2402,9 +2522,17 @@ msgstr "带钩右箭头"
 msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
 msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切换面板。"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Horizontal rule in a table"
+msgstr "表格横线"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal rule that divides sections."
 msgstr "用于分隔章节的水平线。"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Horizontal space"
+msgstr "水平间距"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
@@ -2425,6 +2553,10 @@ msgstr "HTML 缩放控件"
 #: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML 缩放百分比"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Hyperlink with text"
+msgstr "带文字的超链接"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
@@ -2706,6 +2838,7 @@ msgid "Insufficient identifying metadata"
 msgstr "识别元数据不足"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Integral"
 msgstr "积分"
 
@@ -2744,6 +2877,10 @@ msgstr "约塔"
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Italic"
 msgstr "斜体"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Italic text"
+msgstr "斜体文本"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Itemize"
@@ -2980,6 +3117,10 @@ msgstr "左右箭头"
 msgid "Left-right double arrow / iff"
 msgstr "左右双线箭头 / 当且仅当"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Lemma"
+msgstr "引理"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Less than or equal"
 msgstr "小于或等于"
@@ -2997,6 +3138,7 @@ msgid "Light"
 msgstr "浅色"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Limit"
 msgstr "极限"
 
@@ -3020,6 +3162,10 @@ msgstr "链接到页面或外部 URL。"
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
 msgstr "链接地址"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "List item"
+msgstr "列表项"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Literal code / text block"
@@ -3053,6 +3199,10 @@ msgstr "实时同步"
 #: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "第 {line} 行，第 {column} 列"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Load a package"
+msgstr "加载宏包"
 
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/literature-discovery-panel.tsx
@@ -3115,6 +3265,10 @@ msgstr "本地检查发现的问题"
 msgid "Log level filter"
 msgstr "日志级别筛选"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Logarithm"
+msgstr "对数"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Logical and"
 msgstr "逻辑与"
@@ -3131,6 +3285,10 @@ msgstr "日志"
 #: src/editor/insert/insert-snippets.ts
 msgid "Long equation broken across lines"
 msgstr "跨行断开的长公式"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Long quotation"
+msgstr "长引文"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Manage cited papers"
@@ -3166,11 +3324,16 @@ msgstr "区分大小写"
 msgid "Math"
 msgstr "数学"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Math array"
+msgstr "数学阵列"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Math inside a sentence"
 msgstr "句子中的数学公式"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "矩阵"
 
@@ -3183,6 +3346,7 @@ msgid "Max open tabs"
 msgstr "最多打开的标签页"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
 msgstr "最大值运算符"
 
@@ -3222,6 +3386,10 @@ msgstr "采用此来源的元数据"
 msgid "Metadata source · cached"
 msgstr "采用此来源的元数据 · 来自缓存"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Middle table rule"
+msgstr "表格中线"
+
 #: src/canvas/editor-tabs.tsx
 msgid "Middle-click to close · ⌘⇧T to reopen"
 msgstr "中键关闭 · ⌘⇧T 重新打开"
@@ -3231,6 +3399,7 @@ msgid "Min"
 msgstr "最小值"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Minimum operator"
 msgstr "最小值运算符"
 
@@ -3270,6 +3439,10 @@ msgstr "满足 / 蕴涵"
 #: src/history/versions-timeline.tsx
 msgid "modified"
 msgstr "已修改"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Monospaced text"
+msgstr "等宽文本"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Move assistant below editor"
@@ -3318,6 +3491,10 @@ msgstr "为这个版本命名…"
 #: src/settings/literature-settings.tsx
 msgid "name@example.org"
 msgstr "name@example.org"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Named operator"
+msgstr "命名算子"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Natural"
@@ -3462,6 +3639,10 @@ msgstr "暂无历史记录"
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "没有结果。试试更宽泛的关键词，或关闭精确模式。"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "No indent for this paragraph"
+msgstr "本段不缩进"
 
 #: src/papers/bibliography-audit.tsx
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
@@ -3923,6 +4104,10 @@ msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作
 msgid "Overline"
 msgstr "上划线"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Page of a labeled item"
+msgstr "带标签项所在页码"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Pages"
 msgstr "页码"
@@ -3976,6 +4161,14 @@ msgstr "平行"
 #: src/editor/insert/insert-snippets.ts
 msgid "Parenthesized matrix"
 msgstr "圆括号矩阵"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Parenthetical citation"
+msgstr "括号式引用"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Part heading"
+msgstr "部分标题"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Partial author information"
@@ -4189,6 +4382,7 @@ msgid "Prime"
 msgstr "撇号"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Product"
 msgstr "连乘"
 
@@ -4355,6 +4549,10 @@ msgstr "重新连接 Overleaf"
 msgid "Record identity"
 msgstr "记录身份"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Redefine a command"
+msgstr "重新定义命令"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "引用"
@@ -4378,6 +4576,10 @@ msgstr "引用检查进度"
 #: src/papers/bibliography-audit.tsx
 msgid "Reference lacks identifying metadata"
 msgstr "参考文献缺少识别元数据"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Reference with its type name"
+msgstr "带类型名称的引用"
 
 #: src/history/versions-timeline.tsx
 msgid "Refresh versions"
@@ -4832,6 +5034,10 @@ msgstr "右竖线"
 msgid "Roman math"
 msgstr "数学正体"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Roman text"
+msgstr "罗马体文本"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Root with index"
 msgstr "带次数的根号"
@@ -4856,6 +5062,10 @@ msgstr "无需请求批准即可运行"
 #: src/editor/insert/insert-snippets.ts
 msgid "Run-in paragraph heading"
 msgstr "行内段落标题"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sans-serif text"
+msgstr "无衬线文本"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
@@ -5199,6 +5409,14 @@ msgstr "简体中文"
 msgid "Sixth-level heading."
 msgstr "六级标题。"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sized closing delimiter"
+msgstr "可伸缩右定界符"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Sized opening delimiter"
+msgstr "可伸缩左定界符"
+
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -5206,6 +5424,10 @@ msgstr "Skills"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Skip tutorial"
 msgstr "跳过教程"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Small capitals"
+msgstr "小型大写字母"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Small section heading."
@@ -5291,6 +5513,10 @@ msgstr "分栏"
 msgid "Split editor right"
 msgstr "向右分栏编辑器"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Split one equation"
+msgstr "拆分单个公式"
+
 #. placeholder {0}: props.position
 #. placeholder {1}: props.total
 #: src/history/conflict-resolver.tsx
@@ -5337,9 +5563,21 @@ msgstr "结果已过期"
 msgid "Star operator"
 msgstr "星形运算符"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start a new page"
+msgstr "另起一页"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start an environment"
+msgstr "开始环境"
+
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "登录后启动浏览器访问服务"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Start the appendices"
+msgstr "开始附录"
 
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
@@ -5408,6 +5646,10 @@ msgstr "子公式组"
 msgid "Submission checklist"
 msgstr "投稿检查清单"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Subparagraph heading"
+msgstr "子段落标题"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Subsection"
 msgstr "小节"
@@ -5453,6 +5695,7 @@ msgid "Sum with limits"
 msgstr "带上下限的求和"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-command-completions.ts
 msgid "Summation"
 msgstr "求和"
 
@@ -5518,6 +5761,14 @@ msgstr "语法高亮的代码（listings）"
 msgid "Table"
 msgstr "表格"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Table body"
+msgstr "表格主体"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Table of contents"
+msgstr "目录"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Tabs"
 msgstr "标签页"
@@ -5552,6 +5803,10 @@ msgstr "正文"
 msgid "Text in math"
 msgstr "公式中的文字"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Textual citation"
+msgstr "文中式引用"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"
 msgstr "内置智能助手服务无法启动"
@@ -5564,9 +5819,17 @@ msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"
 msgid "The copy on Overleaf"
 msgstr "Overleaf 上的副本"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "The document body"
+msgstr "文档正文"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "The LaTeX logo"
+msgstr "LaTeX 标志"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
@@ -5787,6 +6050,10 @@ msgstr "此步骤可能需要一分钟"
 msgid "Three ways to look at a document"
 msgstr "查看文档的三种方式"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "TikZ drawing"
+msgstr "TikZ 绘图"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Tilde accent example"
 msgstr "波浪符示例"
@@ -5816,6 +6083,10 @@ msgstr "to（短右箭头）"
 msgid "Today"
 msgstr "今天"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Today's date"
+msgstr "今天的日期"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "TODOs"
 msgstr "待办"
@@ -5831,6 +6102,10 @@ msgstr "工具链状态"
 #: src/editor/insert/insert-snippets.ts
 msgid "Top / true"
 msgstr "顶元 / 真"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Top table rule"
+msgstr "表格顶线"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Top-level section heading"
@@ -5883,6 +6158,18 @@ msgstr "类型"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "无需 Markdown 语法，直接在格式化视图中输入。在空行中按 / 可插入标题、表格、公式或图片"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset a URL"
+msgstr "排版网址"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset the bibliography"
+msgstr "排版参考文献"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Typeset the title block"
+msgstr "排版标题区"
 
 #: src/settings/doctor-settings.tsx
 msgid "Unavailable"
@@ -6174,6 +6461,10 @@ msgstr "第 {0} 处要保留的版本"
 msgid "Versions"
 msgstr "版本"
 
+#: src/editor/latex/latex-command-completions.ts
+msgid "Vertical space"
+msgstr "垂直间距"
+
 #: src/App.tsx
 msgid "View"
 msgstr "视图"
@@ -6253,6 +6544,14 @@ msgstr "当你在这里删除文件时"
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "全词匹配"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Width of the current line"
+msgstr "当前行宽"
+
+#: src/editor/latex/latex-command-completions.ts
+msgid "Width of the text block"
+msgstr "版心宽度"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"
