@@ -267,10 +267,7 @@ describe("design token contract", () => {
   it("sizes interface text through the shared type scale", () => {
     const RAW_SIZE =
       /(?:font-size:\s*|font:\s*["'`]?(?:\d+\s+)?|text-\[)(\d*\.?\d+)px/g
-    // Fluid Functionalism's installed size ladder is an upstream token
-    // definition, like foundations. App compositions still use our typography
-    // tokens rather than adding raw sizes.
-    const exempt = (file: string) => file.endsWith("foundations.css") || file === "src/lib/size-context.ts"
+    const exempt = (file: string) => file.endsWith("foundations.css")
     expect(offenders(RAW_SIZE, () => true, exempt)).toEqual([])
   })
 

@@ -74,7 +74,7 @@ which scope the listener to the current window — a bare `listen()` leaks one
 window's Overleaf project into every other open window.
 
 A fourth event, `trackpad-magnify`, is emitted from the macOS window layer
-(`src-tauri/src/macos_window.rs`) and consumed at `src/pdf/pdf-viewer.tsx:916`.
+(`src-tauri/src/macos_window.rs`) and consumed at `src/pdf/use-pdf-zoom.ts:97`.
 
 Every `listen()` call site follows the same cleanup shape (disposed flag +
 unlisten race). Follow the existing pattern; the async `listen()` promise can
@@ -85,15 +85,15 @@ resolve after the effect has already been torn down.
 The Synara agent UI is **not** a React component. It is the sidecar's own web
 application, loaded into a cross-origin `<iframe>`:
 
-- URL construction: `synaraFrameUrl()` at `src/agent/synara-runtime.ts:258`. It
+- URL construction: `synaraFrameUrl()` at `src/agent/synara-runtime.ts:239`. It
   encodes `embed=1`, `workspaceRoot`, `theme`, `locale`, `surface`,
   `hostOrigin` and `section` as query params, and puts the auth token in the
-  URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:278`) so it never
+  URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:259`) so it never
   reaches a server log.
 - Mount points: three `<iframe>` elements — the agent sidebar
   (`src/app/app-agent-panel.tsx`), the source-control / review drawer
   (`src/app/app-history-drawers.tsx`), and the agent settings pane in
-  `src/settings/settings-dialog.tsx`. The first two get their URLs from
+  `src/settings/synara-settings-pane.tsx`. The first two get their URLs from
   `src/app/app-synara-embed.ts`. All three use
   `sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"`.
   Grep for `synaraFrameUrl`.
@@ -114,29 +114,29 @@ file:
 
 | Constant file | Messages |
 | --- | --- |
-| `src/agent/agent-host-context.ts:4-7` | `lattice:host-context`, `lattice:request-host-context`, `lattice:clear-host-context-selection` |
-| `src/agent/synara-runtime.ts:23-25` | `lattice:project-history`, `lattice:restore-agent-checkpoint`, `lattice:agent-compile-result` |
-| `src/agent/synara-confirmations.ts:5-6` | `lattice:confirmation-ack`, `lattice:confirmation-response` |
+| `src/agent/agent-host-context.ts:6-9` | `lattice:host-context`, `lattice:request-host-context`, `lattice:clear-host-context-selection` |
+| `src/agent/synara-runtime.ts:25-27` | `lattice:project-history`, `lattice:restore-agent-checkpoint`, `lattice:agent-compile-result` |
+| `src/agent/synara-confirmations.ts:6-7` | `lattice:confirmation-ack`, `lattice:confirmation-response` |
 | `src/agent/agent-paper-library.ts:3-4` | `lattice:paper-library`, `lattice:request-paper-library` |
-| `src/agent/agent-canvas-tools.ts:8` | `lattice:canvas-tool-result` |
-| `src/agent/agent-spreadsheet-tools.ts:13` | `lattice:spreadsheet-tool-result` |
+| `src/agent/agent-canvas-tools.ts:9` | `lattice:canvas-tool-result` |
+| `src/agent/agent-spreadsheet-tools.ts:23` | `lattice:spreadsheet-tool-result` |
 | `src/agent/agent-composer-files.ts:1` | `lattice:composer-files` |
 | `src/app/use-synara-host.ts:22-25` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
-| `src/settings/settings-dialog.tsx:81` | `lattice:set-settings-section` |
+| `src/settings/synara-settings-pane.tsx:77` | `lattice:set-settings-section` |
 
 `rg '"lattice:' src` enumerates the whole protocol in one pass.
 
 Two properties of this boundary are worth internalising before you touch it:
 
 1. **Inbound payloads are parsed, not trusted.** `parseAgentCompileResultMessage`
-   (`src/agent/synara-runtime.ts:40`) and `parseAgentProjectHistorySnapshot`
-   (`src/agent/synara-runtime.ts:167`) reject unknown keys, enforce bounded
+   (`src/agent/synara-runtime.ts:44`) and `parseAgentProjectHistorySnapshot`
+   (`src/agent/synara-runtime.ts:149`) reject unknown keys, enforce bounded
    correlation-id shapes, and refuse absolute/`..`/scheme-prefixed paths.
-   `synaraProjectRelativeFilePath` (`src/agent/synara-runtime.ts:221`) is the single
+   `synaraProjectRelativeFilePath` (`src/agent/synara-runtime.ts:202`) is the single
    funnel that turns an agent-supplied file reference into a project-relative
    path Lattice's file commands will accept.
 2. **The host pushes context; the agent does not read the editor.**
-   `buildAgentHostContext` (`src/agent/agent-host-context.ts:90`) snapshots the active
+   `buildAgentHostContext` (`src/agent/agent-host-context.ts:108`) snapshots the active
    surface (editor / pdf / paper), cursor position, and up to 12,000 characters
    of selection, and posts it as `lattice:host-context`.
 
