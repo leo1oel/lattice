@@ -421,7 +421,7 @@ previous one, sets `activeClient`/`activePin`/`activePath`, repoints
 `awarenessVersion`, announces presence and re-emits `canWrite`.
 
 **Why a stray activation silently breaks the editor.** The primary editor's
-yCollab extension set is the `collabExtensions` `useMemo` at `src/canvas/document-canvas.tsx:470-481`.
+yCollab extension set is the `collabExtensions` `useMemo` at `src/canvas/document-canvas.tsx:452-463`.
 It returns `EMPTY_EXTENSIONS` when `collabSession.activePath !== activeFile`,
 and `awarenessVersion` is one of its dependencies. A foreign activation both
 moves `activePath` *and* bumps `awarenessVersion`, so the memo re-runs, sees a
@@ -646,7 +646,7 @@ site, or that site gets its own copy of the module graph in a second chunk.
 
 `tldraw`'s barrel has no `sideEffects` flag, so a single value import drags
 ~1.5 MB plus prosemirror into the startup chunk. The whiteboard lives behind
-`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:31`), and the
+`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:28`), and the
 agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` so that
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
