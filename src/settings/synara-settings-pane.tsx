@@ -15,15 +15,6 @@ import {
   normalizeSynaraSettingsHeight,
 } from "../agent/synara-settings-layout";
 
-// The postMessage protocol spoken with the embedded Synara settings runtime.
-const LATTICE_SETTINGS_SECTION_SET = "lattice:set-settings-section";
-const SYNARA_SETTINGS_CONTENT_HEIGHT = "synara:settings-content-height";
-const SYNARA_SETTINGS_WHEEL = "synara:settings-wheel";
-const SYNARA_SETTINGS_NAVIGATION = "synara:settings-navigation";
-const SYNARA_OPEN_EXTERNAL = "synara:open-external";
-const SYNARA_SHOW_IN_FOLDER = "synara:show-in-folder";
-const SYNARA_EMBED_READY = "synara:embed-ready";
-
 const DEFAULT_FRAME_HEIGHT = 470;
 
 type FrameSlot = { current: number | null };
@@ -83,7 +74,7 @@ export function SynaraSettingsPane(props: {
 
   const postSection = useCallback(() => {
     if (!origin || !section) return;
-    frameRef.current?.contentWindow?.postMessage({ type: LATTICE_SETTINGS_SECTION_SET, section }, origin);
+    frameRef.current?.contentWindow?.postMessage({ type: "lattice:set-settings-section", section }, origin);
   }, [origin, section]);
 
   // The geometry is written straight to the DOM rather than through state:
@@ -120,8 +111,9 @@ export function SynaraSettingsPane(props: {
       if (event.source !== frameRef.current?.contentWindow || event.origin !== origin) return;
       const data = event.data;
       const viewport = viewportRef.current;
+      // The postMessage protocol spoken by the embedded Synara settings runtime.
       switch (data?.type) {
-        case SYNARA_SETTINGS_CONTENT_HEIGHT: {
+        case "synara:settings-content-height": {
           if (!isFiniteNumber(data.height) || typeof data.section !== "string") return;
           const height = normalizeSynaraSettingsHeight(data.height);
           heightsRef.current[`${url}#${data.section}`] = height;
@@ -146,7 +138,7 @@ export function SynaraSettingsPane(props: {
           }
           return;
         }
-        case SYNARA_SETTINGS_NAVIGATION: {
+        case "synara:settings-navigation": {
           if (data.section !== section || (data.view !== "detail" && data.view !== "list") || !viewport) return;
           cancelFrame(bottomPinFrameRef);
           cancelFrame(navigationFrameRef);
@@ -165,10 +157,10 @@ export function SynaraSettingsPane(props: {
           viewport.scrollTop = 0;
           return;
         }
-        case SYNARA_EMBED_READY:
+        case "synara:embed-ready":
           setReadyUrl(url);
           return;
-        case SYNARA_SETTINGS_WHEEL:
+        case "synara:settings-wheel":
           if (!isFiniteNumber(data.deltaY) || !viewport) return;
           if (isFiniteNumber(data.contentHeight) && data.section === section) {
             const height = normalizeSynaraSettingsHeight(data.contentHeight);
@@ -176,15 +168,13 @@ export function SynaraSettingsPane(props: {
             showHeight(height);
           }
           applySynaraSettingsWheel(viewport, {
-            deltaX: typeof data.deltaX === "number" ? data.deltaX : 0,
-            deltaY: data.deltaY,
-            deltaMode: data.deltaMode,
+            deltaX: typeof data.deltaX === "number" ? data.deltaX : 0, deltaY: data.deltaY, deltaMode: data.deltaMode,
           });
           return;
-        case SYNARA_OPEN_EXTERNAL:
+        case "synara:open-external":
           if (typeof data.url === "string" && /^https?:\/\//i.test(data.url)) void openUrl(data.url);
           return;
-        case SYNARA_SHOW_IN_FOLDER:
+        case "synara:show-in-folder":
           // The exact iframe window and origin were verified above. Ignore the
           // child-provided path and reveal only Lattice's own shared-skill folder.
           void invoke("synara_open_skills_folder");

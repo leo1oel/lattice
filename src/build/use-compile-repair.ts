@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
@@ -27,10 +28,7 @@ export function useCompileRepair(options: {
 }) {
   const { t } = useLingui();
   const [state, setState] = useState<CompileRepairState | null>(null);
-  const optionsRef = useRef(options);
-  useLayoutEffect(() => {
-    optionsRef.current = options;
-  });
+  const optionsRef = useLatestRef(options);
   const operationRef = useRef<RepairOperation | null>(null);
   // Keep the current phase: a transport error says nothing about the writer's lifetime.
   const noteError = useCallback((error: unknown) => {
@@ -119,7 +117,7 @@ export function useCompileRepair(options: {
     } finally {
       if (operationRef.current === operation) operationRef.current = null;
     }
-  }, [noteError, t]);
+  }, [noteError, optionsRef, t]);
 
   const cancel = useCallback(async () => {
     const operation = operationRef.current;

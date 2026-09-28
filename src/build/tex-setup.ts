@@ -46,9 +46,5 @@ export function isRequiredSetupMissing(report: DoctorReportLike | null | undefin
 
 export function isMissingTexBuildError(message: string): boolean {
   const lower = message.toLowerCase();
-  return (
-    lower.includes("could not start latexmk")
-    || lower.includes("mactex or tex live")
-    || lower.includes("the latex tool")
-  );
+  return ["could not start latexmk", "mactex or tex live", "the latex tool"].some((marker) => lower.includes(marker));
 }

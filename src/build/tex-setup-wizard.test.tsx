@@ -42,7 +42,6 @@ function renderWizard(initial: DoctorReportLike, onRecheck = vi.fn(async (): Pro
 
 describe("tex setup wizard helpers", () => {
   beforeEach(() => {
-    localStorage.clear();
     tauri.invoke.mockReset();
     tauri.channel = null;
   });

@@ -37,28 +37,22 @@
 }
 /* top offset clears the overlay title bar */
 .app-update-banner.top-right { top: 52px; right: 16px; }
-.app-update-banner.top-left { top: 52px; left: 16px; }
-.app-update-banner.bottom-right { bottom: 16px; right: 16px; }
-.app-update-banner.bottom-left { bottom: 16px; left: 16px; }
 .app-update-banner.error { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)); }
 
 /* Grow to fill the fixed-width banner so the button and dismiss × sit flush at
    the right edge instead of leaving a gap after them. */
 .app-update-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--gap-hairline); min-width: 0; }
-.app-update-text strong {
-  font-weight: 600;
+.app-update-text :is(strong, span) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.app-update-text strong { font-weight: 600; }
 .app-update-active-title { display: flex; align-items: center; gap: var(--space-3); }
 .app-update-text span {
   opacity: 0.65;
   font-size: var(--type-caption-size);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .app-update-primary {
@@ -111,7 +105,6 @@
   background: var(--control-active);
   transition: width var(--duration-base) var(--ease-default);
 }
-
 
 @keyframes app-update-in {
   from { opacity: 0; transform: translateY(-6px); }

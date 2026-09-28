@@ -1,10 +1,6 @@
 import type { Diagnostic as CmDiagnostic } from "@codemirror/lint";
 import type { Text } from "@codemirror/state";
-import {
-  diagnosticMatchesFile,
-  diagnosticSeverity,
-  type CompileDiagnostic,
-} from "./compile-diagnostics";
+import { diagnosticMatchesFile, diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
 
 function clampOffset(lineFrom: number, lineLength: number, column: number | undefined, fallback: number): number {
   if (column == null || !Number.isFinite(column)) return lineFrom + fallback;
@@ -12,11 +8,7 @@ function clampOffset(lineFrom: number, lineLength: number, column: number | unde
   return lineFrom + Math.min(zeroBased, lineLength);
 }
 
-export function editorTexlabDiagnosticsForFile(
-  diagnostics: CompileDiagnostic[],
-  activeFile: string,
-  doc: Text,
-): CmDiagnostic[] {
+export function editorTexlabDiagnosticsForFile(diagnostics: CompileDiagnostic[], activeFile: string, doc: Text): CmDiagnostic[] {
   if (!doc.lines) return [];
   return diagnostics.flatMap((diagnostic) => {
     if (!diagnosticMatchesFile(diagnostic.file, activeFile)) return [];
@@ -38,12 +30,6 @@ export function editorTexlabDiagnosticsForFile(
     // An empty or inverted range underlines up to 12 characters of the start line.
     if (to <= from) to = from + Math.min(12, startLine.to - from);
     if (to <= from) return [];
-    return [{
-      from,
-      to,
-      severity: diagnosticSeverity(diagnostic.level),
-      message: diagnostic.message,
-      source: "texlab",
-    }];
+    return [{ from, to, severity: diagnosticSeverity(diagnostic.level), message: diagnostic.message, source: "texlab" }];
   });
 }

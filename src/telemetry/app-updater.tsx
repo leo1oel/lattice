@@ -1,9 +1,5 @@
-// In-app auto-update for Lattice, built on tauri-plugin-updater.
-//
-// Provides:
-//   <UpdaterProvider>        wrap your app once (main.tsx)
-//   <UpdateBanner corner />  the corner "new version" popup + one-click update
-//   useUpdater()             read/drive the updater from anywhere
+// In-app auto-update for Lattice, built on tauri-plugin-updater: one
+// <UpdaterProvider> (main.tsx) shared by the corner <UpdateBanner> and Settings.
 //
 // Update packages are verified with the updater's own minisign key, which is
 // separate from Apple code signing (releases are additionally signed and
@@ -15,25 +11,18 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { toMessage } from "../app-utils";
+import { loadChoice, persistSetting } from "../settings/app-settings";
 import { addAppLog } from "./app-log-store";
 
 export type UpdateMode = "auto" | "manual";
-type UpdatePhase =
-  | "idle"
-  | "checking"
-  | "up-to-date"
-  | "available"
-  | "downloading"
-  | "installing"
-  | "ready"
-  | "error";
+type UpdatePhase = "idle" | "checking" | "up-to-date" | "available" | "downloading" | "installing" | "ready" | "error";
 
 /**
  * Which step produced `error`. Checking and installing both land in the same
@@ -46,21 +35,9 @@ type UpdateErrorKind = "check" | "install";
 const MODE_KEY = "lattice.update.mode.v1";
 const DEFAULT_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 
-function getUpdateMode(): UpdateMode {
-  try {
-    return localStorage.getItem(MODE_KEY) === "auto" ? "auto" : "manual";
-  } catch {
-    return "manual";
-  }
-}
-
-function persistUpdateMode(mode: UpdateMode): void {
-  try {
-    localStorage.setItem(MODE_KEY, mode);
-  } catch {
-    // Storage unavailable — the choice still applies for this session.
-  }
-}
+// Storage failures fall back to manual, and a choice that cannot be saved still
+// applies for this session.
+const getUpdateMode = () => loadChoice<UpdateMode>(MODE_KEY, ["auto"], "manual");
 
 /** Minimal shape of the object returned by `@tauri-apps/plugin-updater`'s check(). */
 type TauriUpdate = {
@@ -69,7 +46,7 @@ type TauriUpdate = {
   downloadAndInstall: (onEvent?: (event: DownloadEvent) => void) => Promise<void>;
 };
 
-type DownloadEvent =
+export type DownloadEvent =
   | { event: "Started"; data?: { contentLength?: number } }
   | { event: "Progress"; data: { chunkLength: number } }
   | { event: "Finished" };
@@ -131,7 +108,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
    * the other side.
    */
   const installFailedRef = useRef(false);
-  const modeRef = useRef(mode);
+  const modeRef = useLatestRef(mode);
 
   const patch = useCallback((next: Partial<UpdaterState>) => {
     setState((current) => ({ ...current, ...next }));
@@ -178,19 +155,12 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
 
   const setMode = useCallback((next: UpdateMode) => {
     setModeState(next);
-    persistUpdateMode(next);
+    persistSetting(MODE_KEY, next);
     // Switching to automatic while an update is already waiting installs it now.
     if (next === "auto" && pendingRef.current && !installingRef.current) {
       void install();
     }
   }, [install]);
-
-  // Refreshed in a layout effect rather than during render: `check` reads it
-  // from inside a callback, so it always runs after this lands, and a
-  // render-phase write makes the React Compiler skip the whole provider.
-  useLayoutEffect(() => {
-    modeRef.current = mode;
-  });
 
   const check = useCallback(async (silent = true) => {
     // A held update is what stops a second banner for one already offered —
@@ -216,7 +186,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
       // the user explicitly pressed "Check for updates".
       if (!silent) fail("check", reason);
     }
-  }, [fail, install, patch]);
+  }, [fail, install, modeRef, patch]);
 
   /**
    * Put the banner away, and let checking resume.
@@ -259,12 +229,7 @@ export function UpdaterProvider(props: {
 // web previews). Matches this module's "safe to always mount" contract rather
 // than crashing the whole tree when the provider happens to be absent.
 const DISCONNECTED_UPDATER: UpdaterApi = {
-  ...IDLE,
-  mode: "manual",
-  setMode: () => {},
-  check: async () => {},
-  install: async () => {},
-  dismiss: () => {},
+  ...IDLE, mode: "manual", setMode: () => {}, check: async () => {}, install: async () => {}, dismiss: () => {},
 };
 
 export function useUpdater(): UpdaterApi {
@@ -273,9 +238,8 @@ export function useUpdater(): UpdaterApi {
 
 // ---- UI ----
 
-export type BannerCorner = "top-right" | "top-left" | "bottom-right" | "bottom-left";
-
-export function UpdateBanner({ corner = "top-right" }: { corner?: BannerCorner }) {
+/** The top-right corner card for an update being offered, installed, or failed. */
+export function UpdateBanner() {
   const { phase, version, progress, error, errorKind, install, dismiss } = useUpdater();
 
   // A failed check has nothing to report here: it only happens when someone
@@ -290,20 +254,13 @@ export function UpdateBanner({ corner = "top-right" }: { corner?: BannerCorner }
   if (!(phase === "available" || stacked || phase === "ready" || failedInstall)) return null;
 
   const pct = Math.round(progress * 100);
-  const dismissButton = (
-    <button type="button" className="app-update-dismiss" aria-label="Dismiss" onClick={dismiss}>
-      ×
-    </button>
-  );
+  const dismissButton = <button type="button" className="app-update-dismiss" aria-label="Dismiss" onClick={dismiss}>×</button>;
 
   return (
-    <div className={`app-update-banner smooth-shadow-ring-lg ${corner} ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
+    <div className={`app-update-banner smooth-shadow-ring-lg top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
-          <div className="app-update-text">
-            <strong>New version {version}</strong>
-            <span>Ready to install</span>
-          </div>
+          <div className="app-update-text"><strong>New version {version}</strong><span>Ready to install</span></div>
           <button type="button" className="app-update-primary" onClick={() => void install()}>
             Update now
           </button>
@@ -320,9 +277,7 @@ export function UpdateBanner({ corner = "top-right" }: { corner?: BannerCorner }
             </strong>
             <span>{phase === "downloading" ? `${pct}%` : "Almost done"}</span>
           </div>
-          <div className="app-update-progress">
-            <div className="app-update-progress-fill" style={{ width: `${pct}%` }} />
-          </div>
+          <div className="app-update-progress"><div className="app-update-progress-fill" style={{ width: `${pct}%` }} /></div>
         </>
       )}
 

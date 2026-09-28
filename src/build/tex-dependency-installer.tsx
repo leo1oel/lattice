@@ -20,23 +20,6 @@ export function TexDependencyInstaller(props: {
   const { t } = useLingui();
   const status = props.status;
   if (!status) return null;
-
-  const stageLabel: Record<TexDependencyInstallProgress["stage"], string> = {
-    "searching-packages": t`Resolving…`,
-    authorizing: t`Waiting for administrator approval…`,
-    "installing-dependency": t`Installing LaTeX packages…`,
-    "verifying-dependency": t`Verifying installation…`,
-    complete: t`Finishing setup…`,
-  };
-  const stageDetail: Record<TexDependencyInstallProgress["stage"], string> = {
-    "searching-packages": t`Checking…`,
-    authorizing: t`Approve the macOS prompt to continue`,
-    "installing-dependency": t`Download time depends on your connection`,
-    "verifying-dependency": t`Almost done`,
-    complete: t`Setup is complete`,
-  };
-  const { stage, progress } = status.progress;
-
   return (
     <TexInstallDialog
       label={t`Install missing package`}
@@ -46,9 +29,8 @@ export function TexDependencyInstaller(props: {
       onClose={props.onClose}
       progress={{
         label: t`LaTeX package installation progress`,
-        percent: Math.round(Math.min(1, Math.max(0, progress)) * 100),
-        stage: stageLabel[stage],
-        detail: stageDetail[stage],
+        percent: Math.round(Math.min(1, Math.max(0, status.progress.progress)) * 100),
+        stage: status.progress.stage,
       }}
       error={status.error}
     >

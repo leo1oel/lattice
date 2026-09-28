@@ -17,11 +17,10 @@ describe("app-notify", () => {
     notifySuccess("Overleaf", "Already up to date");
     notifyInfo("App", "Something happened");
 
-    const log = formatAppLogs();
-    expect(log).toContain("[ERROR] [Build] Build failed");
-    expect(log).toContain("[WARNING] [PDF] No matching position");
-    expect(log).toContain("[SUCCESS] [Overleaf] Already up to date");
-    expect(log).toContain("[INFO] [App] Something happened");
+    for (const line of ["[ERROR] [Build] Build failed", "[WARNING] [PDF] No matching position",
+      "[SUCCESS] [Overleaf] Already up to date", "[INFO] [App] Something happened"]) {
+      expect(formatAppLogs()).toContain(line);
+    }
   });
 
   it("gives failures something to paste into a bug report", () => {
@@ -51,9 +50,8 @@ describe("app-notify", () => {
   it("names the action in a failure and keeps the reason as detail", () => {
     logAction("Build", "Build").fail(new Error("Undefined control sequence"));
 
-    const log = formatAppLogs();
-    expect(log).toContain("[ERROR] [Build] Build failed");
-    expect(log).toContain("Undefined control sequence");
+    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
+    expect(formatAppLogs()).toContain("Undefined control sequence");
   });
 
   it("emits one complete outcome with duration, initial context and accumulated counts", async () => {
@@ -104,13 +102,11 @@ describe("app-notify", () => {
     const fullLog = "! Undefined control sequence.\nl.42 \\badmacro\n(plus 300 more lines)";
     notifyError("Build", "Build failed", { detail: "chapters/intro.tex:42", copyText: fullLog });
 
-    const log = formatAppLogs();
     // The toast shows the first diagnostic; the log has to hold everything the
     // user could paste into a report, or the two disagree about one failure.
-    expect(log).toContain("chapters/intro.tex:42");
-    expect(log).toContain("Build failed — full text");
-    expect(log).toContain("l.42 \\badmacro");
-    expect(log).toContain("(plus 300 more lines)");
+    for (const text of ["chapters/intro.tex:42", "Build failed — full text", "l.42 \\badmacro", "(plus 300 more lines)"]) {
+      expect(formatAppLogs()).toContain(text);
+    }
     // Log-only: the extra text is for reading back, not a second interruption.
     expect(getVisibleAppToastIds()).toHaveLength(1);
   });
@@ -129,9 +125,7 @@ describe("app-notify", () => {
     // A title of its own: the forward queue is asynchronous, so writes from
     // earlier tests can still be in flight and would be counted here.
     const title = "Bibliography rebuild failed";
-    notifyError("Papers", title, { detail: "first" });
-    notifyError("Papers", title, { detail: "second" });
-    notifyError("Papers", title, { detail: "third" });
+    for (const detail of ["first", "second", "third"]) notifyError("Papers", title, { detail });
 
     // One entry in the in-app list, showing the newest — that is the display
     // rule, so three identical failures cannot fill the whole toast stack…
@@ -146,8 +140,6 @@ describe("app-notify", () => {
       .map((call) => String(call[0]))
       .filter((line) => line.includes(title));
     await vi.waitFor(() => expect(written()).toHaveLength(3));
-    expect(written().join("\n")).toContain("first");
-    expect(written().join("\n")).toContain("second");
-    expect(written().join("\n")).toContain("third");
+    for (const detail of ["first", "second", "third"]) expect(written().join("\n")).toContain(detail);
   });
 });

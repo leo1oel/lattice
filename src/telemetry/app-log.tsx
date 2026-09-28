@@ -12,13 +12,7 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup } from "../components/ui/settings-row";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+import { SettingsSelect } from "../settings/settings-controls";
 import { CopyButton } from "../components/copy-button";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -37,12 +31,7 @@ import {
 // One silhouette for every level: a warning triangle among three circles was
 // the only thing breaking the stack's rhythm, and severity already reads from
 // the status colour. Warning and error share the glyph on purpose.
-const LOG_ICON = {
-  info: Info,
-  success: CheckCircle2,
-  warning: CircleAlert,
-  error: CircleAlert,
-};
+const LOG_ICON = { info: Info, success: CheckCircle2, warning: CircleAlert, error: CircleAlert };
 const LOG_LEVEL = { info: "INFO", success: "OK", warning: "WARN", error: "ERROR" };
 const LOG_LEVELS = ["info", "success", "warning", "error"] as const;
 /** Readable names for entry levels and for operation phases and outcomes. */
@@ -226,14 +215,10 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
   const present = useIsPresent();
   const Icon = LOG_ICON[entry.level];
   const detail = visibleToastDetail(entry.detail);
-  const timeoutMs =
-    options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
+  const timeoutMs = options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
   useEffect(() => {
     if (timeoutMs === 0) return;
-    const timer = window.setTimeout(
-      () => dismissAppToast(entry.id),
-      Math.max(1_000, timeoutMs),
-    );
+    const timer = window.setTimeout(() => dismissAppToast(entry.id), Math.max(1_000, timeoutMs));
     return () => window.clearTimeout(timer);
     // entry.timestamp: a deduped repeat refreshes the entry in place (same id),
     // and the toast should stay visible for a full window after the refresh.
@@ -268,32 +253,19 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
         {hasActions && (
           <div className="app-toast-actions">
             {options?.copyText && (
-              <CopyButton
-                className="app-toast-action"
-                text={options.copyText}
-                title={t`Copy notification command`}
-              >
+              <CopyButton className="app-toast-action" text={options.copyText} title={t`Copy notification command`}>
                 {t`Copy`}
               </CopyButton>
             )}
             {actions.map((action, index) => (
-              <button
-                key={index}
-                type="button"
-                className="app-toast-action"
-                onClick={() => void action.onClick()}
-              >
+              <button key={index} type="button" className="app-toast-action" onClick={() => void action.onClick()}>
                 {action.label}
               </button>
             ))}
           </div>
         )}
       </div>
-      <CloseButton
-        label={t`Dismiss notification`}
-        size="compact"
-        onClick={() => dismissAppToast(entry.id)}
-      />
+      <CloseButton label={t`Dismiss notification`} size="compact" onClick={() => dismissAppToast(entry.id)} />
     </motion.div>
   );
 }
@@ -322,9 +294,7 @@ export function AppLogsSettings() {
   const logViewportRef = useRef<HTMLDivElement>(null);
   const logPositionedRef = useRef(false);
   useEffect(() => {
-    invoke<string>("get_app_log_dir")
-      .then(() => setLogFolderAvailable(true))
-      .catch(() => setLogFolderAvailable(false));
+    void invoke<string>("get_app_log_dir").then(() => true, () => false).then(setLogFolderAvailable);
   }, []);
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const visibleGroups = groupLogs(logs).filter((group) => group.entries.some((entry) => {
@@ -347,13 +317,9 @@ export function AppLogsSettings() {
     // A newly opened log starts at the newest entry. Subsequent updates keep
     // following only while the reader remains near the bottom, so inspecting
     // an older entry is not interrupted by new activity.
-    if (!logPositionedRef.current) {
-      panel.scrollTop = panel.scrollHeight;
-      logPositionedRef.current = true;
-      return;
-    }
     const nearBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48;
-    if (nearBottom) panel.scrollTop = panel.scrollHeight;
+    if (!logPositionedRef.current || nearBottom) panel.scrollTop = panel.scrollHeight;
+    logPositionedRef.current = true;
   }, [logText]);
   const openLogFolder = () => {
     if (!logFolderAvailable) return;
@@ -366,10 +332,7 @@ export function AppLogsSettings() {
   );
   return (
     <div className="settings-section app-logs-settings">
-      <SettingsSectionHeader
-        title={t`Logs`}
-        description={t`Shows 300 recent entries; disk logs rotate`}
-      />
+      <SettingsSectionHeader title={t`Logs`} description={t`Shows 300 recent entries; disk logs rotate`} />
       <SettingsGroup title={t`Activity log`}>
         <div className="app-log-actions">
           <div className="app-log-query-row">
@@ -383,21 +346,21 @@ export function AppLogsSettings() {
               controlSize="compact"
               containerClassName="app-log-search"
             />
-            <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | AppLogLevel)}>
-              <SelectTrigger className="app-log-level-filter" size="form" aria-label={t`Log level filter`}><SelectValue /></SelectTrigger>
-              <SelectContent data-settings-control="true" position="popper" align="end">
-                <SelectItem value="all">{t`All levels`}</SelectItem>
-                {LOG_LEVELS.map((level) => <SelectItem key={level} value={level}>{statusLabel(level)}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SettingsSelect
+              className="app-log-level-filter"
+              label={t`Log level filter`}
+              value={levelFilter}
+              options={{
+                all: t`All levels`,
+                ...Object.fromEntries(LOG_LEVELS.map((level) => [level, statusLabel(level)])) as Record<AppLogLevel, string>,
+              }}
+              onChange={setLevelFilter}
+            />
           </div>
           <div className="app-log-action-row">
             <Button size="compact" onClick={() => setExportEntries([...visible])}><Download size={13} />{t`Export…`}</Button>
             <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>{t`Clear`}</Button>
-            <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}>
-              <FolderOpen size={13} />
-              {t`Open log folder`}
-            </Button>
+            <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}><FolderOpen size={13} />{t`Open log folder`}</Button>
           </div>
         </div>
         {visible.length === 0 ? (

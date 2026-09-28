@@ -14,10 +14,8 @@ export type CompileDiagnostic = {
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
 /**
- * Shared empty diagnostic list. App and the shell layout both need a
- * referentially stable "nothing to report" value: a fresh `[]` per render
- * rebuilds the editor's lint pass. It lives here rather than in either caller
- * because both of them need the same array.
+ * The one referentially stable "nothing to report" shared by App and the shell
+ * layout: a fresh `[]` per render rebuilds the editor's lint pass.
  */
 export const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
 
@@ -29,10 +27,7 @@ export function missingTexDependencyFile(message: string): string | null {
 }
 
 const SEVERITIES = new Map<string, DiagnosticSeverity>([
-  ["error", "error"],
-  ["fatal", "error"],
-  ["warning", "warning"],
-  ["warn", "warning"],
+  ["error", "error"], ["fatal", "error"], ["warning", "warning"], ["warn", "warning"],
 ]);
 
 export function diagnosticSeverity(level: string): DiagnosticSeverity {
@@ -72,11 +67,7 @@ export function flattenProjectPaths(nodes: ProjectPathNode[]): string[] {
   return nodes.flatMap((node) => [...(node.path ? [node.path] : []), ...flattenProjectPaths(node.children ?? [])]);
 }
 
-export function resolveDiagnosticPath(
-  diagnosticFile: string | undefined,
-  projectFiles: string[],
-  fallbackPath = "",
-): string {
+export function resolveDiagnosticPath(diagnosticFile: string | undefined, projectFiles: string[], fallbackPath = ""): string {
   const normalized = normalizeDiagnosticPath(diagnosticFile);
   if (!normalized) return fallbackPath;
   const slashed = (path: string) => path.replace(/\\/g, "/");
@@ -99,17 +90,12 @@ export function sortDiagnostics(diagnostics: CompileDiagnostic[]): CompileDiagno
 
 /**
  * Identity of a set of diagnostics, for "has this changed since you dismissed
- * it?".
- *
- * Autosave recompiles on every pause in typing, and each build used to reopen
- * the panel unconditionally — so dismissing a warning the writer had decided
- * to live with bought a second of quiet before the next keystroke brought it
- * back. Order is not identity: latexmk can emit the same set in a different
- * sequence between passes.
+ * it?": autosave recompiles on every pause in typing, and a warning the writer
+ * dismissed must stay dismissed across those rebuilds. Order is not identity:
+ * latexmk can emit the same set in a different sequence between passes.
  *
  * The separators are control characters no diagnostic can contain, written as
- * escapes on purpose: typing the bytes themselves makes git classify this file
- * as binary, and its diffs stop being reviewable.
+ * escapes on purpose: the raw bytes make git treat this file as binary.
  */
 export function diagnosticsFingerprint(diagnostics: CompileDiagnostic[]): string {
   return sortDiagnostics(diagnostics)
@@ -128,22 +114,13 @@ export function summarizeDiagnostics(diagnostics: CompileDiagnostic[]) {
   return summary;
 }
 
-export function editorDiagnosticsForFile(
-  diagnostics: CompileDiagnostic[],
-  activeFile: string,
-  doc: Text,
-): CmDiagnostic[] {
+export function editorDiagnosticsForFile(diagnostics: CompileDiagnostic[], activeFile: string, doc: Text): CmDiagnostic[] {
   return diagnostics.flatMap((diagnostic) => {
     if (!diagnosticMatchesFile(diagnostic.file, activeFile)) return [];
     const lineNumber = Math.min(Math.max(diagnostic.line ?? 1, 1), Math.max(doc.lines, 1));
     const line = doc.line(lineNumber);
-    return [{
-      from: line.from,
-      to: line.to,
-      severity: diagnosticSeverity(diagnostic.level),
-      message: diagnostic.message,
-      source: "latexmk",
-    }];
+    const severity = diagnosticSeverity(diagnostic.level);
+    return [{ from: line.from, to: line.to, severity, message: diagnostic.message, source: "latexmk" }];
   });
 }
 

@@ -43,14 +43,11 @@ export type AppToastOptions = {
 /**
  * Everything one on-screen toast draws, in a single subscribed value.
  *
- * The options used to be looked up from the module map during render while the
- * text came from the subscribed entry. Nothing invalidates a plain map read, so
- * an aggressively memoized toast — `app-log.tsx` compiles with zero React
- * Compiler bailouts, so this ships — kept the id, adopted the new title, and
- * re-rendered the old buttons: "Could not update Pi" over Cancel where the
- * caller had asked for Retry. Options are not serializable (they carry click
- * handlers), so they cannot live on `AppLogEntry`, which is persisted; pairing
- * them here keeps them out of storage and still inside the subscription.
+ * Nothing invalidates a plain module-map read during render, so a memoized
+ * toast (`app-log.tsx` compiles with zero React Compiler bailouts) would keep
+ * its old buttons under a new title. Options carry click handlers, so they
+ * cannot live on the persisted `AppLogEntry`; pairing them here keeps them out
+ * of storage and still inside the subscription.
  */
 export type AppToastView = {
   entry: AppLogEntry;
@@ -131,11 +128,8 @@ function syncVisibleToasts() {
     const entry = entries.find((candidate) => candidate.id === id);
     if (entry) next.push({ entry, options: toastOptionsById.get(id) });
   }
-  const unchanged =
-    next.length === visibleToasts.length &&
-    next.every((toast, index) =>
-      toast.entry === visibleToasts[index].entry &&
-      toast.options === visibleToasts[index].options);
+  const unchanged = next.length === visibleToasts.length && next.every((toast, index) =>
+    toast.entry === visibleToasts[index].entry && toast.options === visibleToasts[index].options);
   if (!unchanged) visibleToasts = next;
 }
 
@@ -166,16 +160,13 @@ function flushPersistence() {
     persistWarningIssued = true;
     // Defer so this entry is added after the current mutation finishes; its
     // own persist() failure is suppressed by the flag above.
-    queueMicrotask(() =>
-      addAppLog({
-        level: "warning",
-        source: "App",
-        title: "Log history can't be saved",
-        detail:
-          "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart.",
-        toast: false,
-      }),
-    );
+    queueMicrotask(() => addAppLog({
+      level: "warning",
+      source: "App",
+      title: "Log history can't be saved",
+      detail: "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart.",
+      toast: false,
+    }));
   }
 }
 
@@ -190,39 +181,26 @@ if (typeof window !== "undefined") {
 const sessionId = crypto.randomUUID();
 const lossEntryId = crypto.randomUUID();
 let pendingLossEntry: AppLogEntry | undefined;
-let lossFlushQueued = false;
 
 function serializeFileEntry(entry: AppLogEntry): string {
   // The plugin may add its own prefix; the message itself is single-line JSON.
   // Keep the original event time, even when IPC delivery is delayed.
-  return JSON.stringify({
-    schema_version: 1,
-    event: entry.context ? "app.operation" : "app.notification",
-    service: "lattice.frontend",
-    version,
-    session_id: sessionId,
-    ...entry,
-  });
+  const event = entry.context ? "app.operation" : "app.notification";
+  return JSON.stringify({ schema_version: 1, event, service: "lattice.frontend", version, session_id: sessionId, ...entry });
 }
 
 function reportFileLoss(losses: LogLosses): string {
   const entry: AppLogEntry = {
-    id: lossEntryId,
-    timestamp: new Date().toISOString(),
-    level: "warning",
-    source: "logging",
-    title: "logging.delivery.loss",
-    detail: "",
+    id: lossEntryId, timestamp: new Date().toISOString(), level: "warning",
+    source: "logging", title: "logging.delivery.loss", detail: "",
     context: {
       operation_id: sessionId, operation: "logging.delivery", phase: "progress",
       metrics: { dropped_overflow: losses.overflow, dropped_failed: losses.failed },
     },
   };
-  pendingLossEntry = entry;
-  if (!lossFlushQueued) {
-    lossFlushQueued = true;
+  // One history update per burst: a later loss replaces the pending summary.
+  if (!pendingLossEntry) {
     queueMicrotask(() => {
-      lossFlushQueued = false;
       if (!pendingLossEntry) return;
       entries = [pendingLossEntry, ...entries.filter((item) => item.id !== lossEntryId)].slice(0, MAX_ENTRIES);
       pendingLossEntry = undefined;
@@ -230,6 +208,7 @@ function reportFileLoss(losses: LogLosses): string {
       emit();
     });
   }
+  pendingLossEntry = entry;
   // Deliberately bypass addAppLog/console capture: sink failures must never
   // enqueue more sink failures. The queue writes this summary after recovery.
   return serializeFileEntry(entry);
@@ -273,17 +252,8 @@ export function addAppLog(input: {
         // Collapse the visible toast, not the history of distinct operations.
         dismissAppToast(existingId, false);
       } else {
-        const updated = updateAppLog(
-          existingId,
-          {
-            level: input.level,
-            source: input.source,
-            title: input.title,
-            detail: input.detail?.trim() ?? "",
-            context: input.context,
-          },
-          input.toastOptions,
-        );
+        const { level, source, title, context } = input;
+        const updated = updateAppLog(existingId, { level, source, title, detail: input.detail?.trim() ?? "", context }, input.toastOptions);
         if (updated) return updated;
       }
     }

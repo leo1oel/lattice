@@ -60,14 +60,11 @@ export function installGlobalErrorCapture(): void {
     report("error", "Unhandled promise rejection", formatArg(event.reason));
   });
 
-  const originalError = console.error.bind(console);
-  const originalWarn = console.warn.bind(console);
-  console.error = (...args: unknown[]) => {
-    originalError(...args);
-    report("error", "console.error", args.map(formatArg).join(" "));
-  };
-  console.warn = (...args: unknown[]) => {
-    originalWarn(...args);
-    report("warning", "console.warn", args.map(formatArg).join(" "));
-  };
+  for (const [method, level] of [["error", "error"], ["warn", "warning"]] as const) {
+    const original = console[method].bind(console);
+    console[method] = (...args: unknown[]) => {
+      original(...args);
+      report(level, `console.${method}`, args.map(formatArg).join(" "));
+    };
+  }
 }

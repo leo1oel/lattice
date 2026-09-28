@@ -1,17 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const cuelume = vi.hoisted(() => ({
-  play: vi.fn(),
-  setEnabled: vi.fn(),
-  setVolume: vi.fn(),
-}));
+const cuelume = vi.hoisted(() => ({ play: vi.fn(), setEnabled: vi.fn(), setVolume: vi.fn() }));
 
 vi.mock("cuelume", () => cuelume);
 
-import {
-  configureInterfaceSounds,
-  playInterfaceSound,
-} from "./interface-sounds";
+import { configureInterfaceSounds, playInterfaceSound } from "./interface-sounds";
 
 describe("interface sounds", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -28,17 +21,11 @@ describe("interface sounds", () => {
     playInterfaceSound("build-failed");
     playInterfaceSound("collaboration-ready");
 
-    expect(cuelume.play.mock.calls).toEqual([
-      ["ready"],
-      ["error"],
-      ["arrival"],
-    ]);
+    expect(cuelume.play.mock.calls).toEqual([["ready"], ["error"], ["arrival"]]);
   });
 
   it("never lets unavailable audio break the completed operation", () => {
-    cuelume.play.mockImplementationOnce(() => {
-      throw new Error("AudioContext unavailable");
-    });
+    cuelume.play.mockImplementationOnce(() => { throw new Error("AudioContext unavailable"); });
 
     expect(() => playInterfaceSound("build-succeeded")).not.toThrow();
   });

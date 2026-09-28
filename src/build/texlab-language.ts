@@ -35,13 +35,22 @@ function texlabPosition(path: string, state: EditorState, pos: number) {
   return { line, request: { path, text: state.doc.toString(), line: line.number, character: pos - line.from + 1 } };
 }
 
+/** TexLab is optional help: any failure, in the request or its reply, means no answer. */
+async function quietly<T>(answer: () => Promise<T | null>): Promise<T | null> {
+  try {
+    return await answer();
+  } catch {
+    return null;
+  }
+}
+
 export function texlabCompletionSource(getPath: () => string) {
   return async (context: CompletionContext): Promise<CompletionResult | null> => {
     const word = context.matchBefore(/\\?[A-Za-z@*]*/);
     if (!word || (word.from === word.to && !context.explicit)) return null;
     const position = texlabPosition(getPath(), context.state, context.pos);
     if (!position) return null;
-    try {
+    return quietly(async () => {
       const items = await invoke<TexlabCompletionItem[]>("texlab_completion", position.request);
       if (!items.length) return null;
       return {
@@ -56,9 +65,7 @@ export function texlabCompletionSource(getPath: () => string) {
         })),
         validFor: /^\\?[A-Za-z@*]*$/,
       };
-    } catch {
-      return null;
-    }
+    });
   };
 }
 
@@ -66,7 +73,7 @@ export function texlabHoverTooltip(getPath: () => string) {
   return hoverTooltip(async (view, pos) => {
     const position = texlabPosition(getPath(), view.state, pos);
     if (!position) return null;
-    try {
+    return quietly(async () => {
       const hover = await invoke<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
       return {
@@ -80,24 +87,13 @@ export function texlabHoverTooltip(getPath: () => string) {
           return { dom };
         },
       };
-    } catch {
-      return null;
-    }
+    });
   }, { hoverTime: 420 });
 }
 
-export async function resolveTexlabDefinition(
-  path: string,
-  text: string,
-  line: number,
-  character: number,
-): Promise<TexlabLocation | null> {
+export async function resolveTexlabDefinition(path: string, text: string, line: number, character: number): Promise<TexlabLocation | null> {
   if (!path.endsWith(".tex")) return null;
-  try {
-    return await invoke<TexlabLocation | null>("texlab_definition", { path, text, line, character });
-  } catch {
-    return null;
-  }
+  return quietly(() => invoke<TexlabLocation | null>("texlab_definition", { path, text, line, character }));
 }
 
 export async function formatLatexDocument(path: string, text: string): Promise<string> {

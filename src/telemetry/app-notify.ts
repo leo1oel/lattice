@@ -51,60 +51,30 @@ function toastKey(...parts: string[]): string {
   return parts.join("\u0000");
 }
 
-function notify(
-  level: AppLogLevel,
-  source: string,
-  title: string,
-  options: ActionFailureOptions = {},
-  context?: AppLogContext,
-): string {
+function notify(level: AppLogLevel, source: string, title: string, options: ActionFailureOptions = {}, context?: AppLogContext) {
   const detail = options.detail?.trim() ?? "";
   // The banner this replaced always offered Copy on failures, and an error you
   // cannot paste into a bug report is half a report.
-  const copyText =
-    options.copyText
-    ?? (level === "error" ? [title, detail].filter(Boolean).join("\n") : undefined);
+  const copyText = options.copyText ?? (level === "error" ? [title, detail].filter(Boolean).join("\n") : undefined);
   // A toast shows one line of a failure; its Copy button often carries far more
   // — a whole LaTeX log, a command, a stack. Anything the user can copy has to
   // be in the log too, or "paste this into the report" and "send me the log"
   // return different stories about the same failure. Logged first and without a
   // toast of its own, so it reads just before the notification it belongs to.
   if (copyText && !`${title}\n${detail}`.includes(copyText)) {
-    addAppLog({
-      level,
-      source,
-      title: `${title} — full text`,
-      detail: copyText,
-      context: context ? { ...context, phase: "progress", outcome: undefined, duration_ms: undefined } : undefined,
-      toast: false,
-    });
+    const progress = context && { ...context, phase: "progress" as const, outcome: undefined, duration_ms: undefined };
+    addAppLog({ level, source, title: `${title} — full text`, detail: copyText, context: progress, toast: false });
   }
-  return addAppLog({
-    level,
-    source,
-    title,
-    detail,
-    context,
-    toast: options.toast,
-    dedupeKey: options.dedupeKey ?? toastKey(source, title),
-    toastOptions: {
-      ...(copyText ? { copyText } : {}),
-      ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-      ...(options.primaryAction ? { primaryAction: options.primaryAction } : {}),
-      ...(options.secondaryAction ? { secondaryAction: options.secondaryAction } : {}),
-      ...(options.onDismiss ? { onDismiss: options.onDismiss } : {}),
-    },
-  }).id;
+  const { toast, dedupeKey = toastKey(source, title), detail: _detail, ...toastOptions } = { ...options, copyText };
+  return addAppLog({ level, source, title, detail, context, toast, dedupeKey, toastOptions }).id;
 }
 
-export const notifyError = (source: string, title: string, options?: NotifyOptions) =>
-  notify("error", source, title, options);
-export const notifyWarning = (source: string, title: string, options?: NotifyOptions) =>
-  notify("warning", source, title, options);
-export const notifySuccess = (source: string, title: string, options?: NotifyOptions) =>
-  notify("success", source, title, options);
-export const notifyInfo = (source: string, title: string, options?: NotifyOptions) =>
-  notify("info", source, title, options);
+const notifier = (level: AppLogLevel) => (source: string, title: string, options?: NotifyOptions) =>
+  notify(level, source, title, options);
+export const notifyError = notifier("error");
+export const notifyWarning = notifier("warning");
+export const notifySuccess = notifier("success");
+export const notifyInfo = notifier("info");
 
 export type ActionLog = {
   /** Full correlation id; only the legacy text tag is shortened for readability. */
@@ -156,39 +126,19 @@ export function logAction(source: string, action: string, detail?: string): Acti
   // replaces the older toast; the correlation id is what separates the runs in
   // the log.
   const outcomeKey = toastKey(source, action);
-  addAppLog({
-    level: "info",
-    source,
-    title: `▶ ${action}`,
-    detail: tagged(id, detail),
-    context: context("started"),
-    toast: false,
-  });
+  const logOnly = (level: AppLogLevel, title: string, entryDetail: string, entryContext: AppLogContext) =>
+    addAppLog({ level, source, title, detail: entryDetail, context: entryContext, toast: false });
+  logOnly("info", `▶ ${action}`, tagged(id, detail), context("started"));
   return {
     id,
     enrich: (values) => { metrics = { ...metrics, ...values }; },
     finish: (outcome, title) => {
       if (completed) return;
       completed = true;
-      addAppLog({
-        level: outcome === "error" ? "error" : outcome === "success" ? "success" : "info",
-        source,
-        title: title ?? `${action} ${outcome}`,
-        detail: tagged(id),
-        context: terminal(outcome),
-        toast: false,
-      });
+      const level = outcome === "error" ? "error" : outcome === "success" ? "success" : "info";
+      logOnly(level, title ?? `${action} ${outcome}`, tagged(id), terminal(outcome));
     },
-    note: (message, noteDetail) => {
-      addAppLog({
-        level: "info",
-        source,
-        title: message,
-        detail: tagged(id, noteDetail),
-        context: context("progress"),
-        toast: false,
-      });
-    },
+    note: (message, noteDetail) => { logOnly("info", message, tagged(id, noteDetail), context("progress")); },
     ok: (title, options) => {
       if (completed) return;
       completed = true;

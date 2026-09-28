@@ -1,9 +1,4 @@
-import {
-  play,
-  setEnabled,
-  setVolume,
-  type SoundName,
-} from "cuelume";
+import { play, setEnabled, setVolume, type SoundName } from "cuelume";
 
 /**
  * Semantic cues are deliberately narrower than Cuelume's full interaction

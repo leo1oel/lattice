@@ -1,15 +1,6 @@
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import {
-  ChevronDown,
-  ChevronUp,
-  CircleAlert,
-  CircleHelp,
-  LoaderCircle,
-  Square,
-  WandSparkles,
-  ScrollText,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, CircleAlert, CircleHelp, LoaderCircle, Square, WandSparkles, ScrollText } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
 import { CloseButton, IconButton } from "../components/ui/icon-button";
@@ -64,11 +55,7 @@ export function CompileDiagnosticsPanel(props: {
   return (
     <section className={`compile-diagnostics ${tone}`} aria-label="Compile diagnostics">
       <div className="compile-diagnostics-bar">
-        <button
-          className="compile-diagnostics-toggle"
-          aria-expanded={props.expanded}
-          onClick={() => props.onExpandedChange(!props.expanded)}
-        >
+        <button className="compile-diagnostics-toggle" aria-expanded={props.expanded} onClick={() => props.onExpandedChange(!props.expanded)}>
           <SeverityIcon level={tone} />
           <span>{title}</span>
           {props.expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -126,12 +113,8 @@ export function CompileDiagnosticsPanel(props: {
                       <span className="compile-diagnostic-message">{diagnostic.message}</span>
                     </button>
                     {missingFile && (
-                      <Button
-                        variant="ghost"
-                        size="compact"
-                        title={`Find and install the TeX Live package for ${missingFile}`}
-                        onClick={() => props.onInstallDependency(missingFile)}
-                      >
+                      <Button variant="ghost" size="compact" title={`Find and install the TeX Live package for ${missingFile}`}
+                        onClick={() => props.onInstallDependency(missingFile)}>
                         Install
                       </Button>
                     )}

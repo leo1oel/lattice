@@ -180,7 +180,7 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
     expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
     expect(read("src/styles/dialogs.css")).toContain('[data-slot="select-content"][data-settings-control="true"]')
-    expect(read("src/settings/settings-dialog.tsx").match(/data-settings-control="true"/g)).toHaveLength(6)
+    expect(read("src/settings/settings-controls.tsx").match(/data-settings-control="true"/g)).toHaveLength(1)
   })
 
   it("shares the soft selected state across compact sidebar selectors", () => {

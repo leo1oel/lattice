@@ -28,9 +28,7 @@ describe("app-log-store file forwarding", () => {
   beforeEach(() => {
     window.dispatchEvent(new Event("pagehide"));
     window.localStorage.clear();
-    fileLog.info.mockReset().mockResolvedValue(undefined);
-    fileLog.warn.mockReset().mockResolvedValue(undefined);
-    fileLog.error.mockReset().mockResolvedValue(undefined);
+    for (const write of Object.values(fileLog)) write.mockReset().mockResolvedValue(undefined);
   });
 
   it("forwards entries to the file log in order, mapping levels", async () => {
@@ -84,13 +82,7 @@ describe("app-log-store file forwarding", () => {
 
   it("caps detail length to protect storage and the file", async () => {
     const { addAppLog } = await loadStore();
-    const entry = addAppLog({
-      level: "info",
-      source: "A",
-      title: "long",
-      detail: "x".repeat(10_000),
-      toast: false,
-    });
+    const entry = addAppLog({ level: "info", source: "A", title: "long", detail: "x".repeat(10_000), toast: false });
     expect(entry.detail).toHaveLength(4_000);
     await flushForwarding();
     expect(fileLog.info.mock.calls[0][0]).toContain("x".repeat(4_000));
@@ -98,11 +90,9 @@ describe("app-log-store file forwarding", () => {
   });
 
   it("warns exactly once when localStorage persistence fails", async () => {
-    const setItem = vi
-      .spyOn(window.localStorage, "setItem")
-      .mockImplementation(() => {
-        throw new Error("QuotaExceededError");
-      });
+    const setItem = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
     const { addAppLog, formatAppLogs } = await loadStore();
 
     addAppLog({ level: "info", source: "A", title: "one", toast: false });

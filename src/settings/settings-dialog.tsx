@@ -5,13 +5,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { spring } from "../components/ui/motion-values";
@@ -21,38 +14,33 @@ import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import { useUpdater, type UpdaterApi, type UpdateMode } from "../telemetry/app-updater";
+import { useUpdater, type UpdaterApi } from "../telemetry/app-updater";
 import {
   MAX_OPEN_TABS,
   type Theme,
   type ThemePreference,
-  type InterfaceLanguage,
-  type AutoBuildMode,
   type BuildPreferences,
   type AppearanceSettings,
   type OverleafRemoteDelete,
   type OverleafSyncMode,
   resolveAppLocale,
 } from "./app-settings";
-import type { ProjectSnapshot, SettingsTab, DoctorReport } from "../app-types";
+import type { ProjectSnapshot, SettingsTab } from "../app-types";
 import { beginWindowDrag, toggleWindowFullscreen, toMessage } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
-import { DoctorSettings } from "./doctor-settings";
+import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
+import { SelectRow, SliderRow } from "./settings-controls";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { AppLogsSettings } from "../telemetry/app-log";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
 import type { LocalSemanticSearchStatus } from "../project/project-semantic-search";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
-const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
-  agent: "providers",
-  api: "skills",
-  mcp: "integrations",
-};
+const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
 
-type SettingsDialogProps = {
+type SettingsDialogProps = DoctorSettingsProps & {
   synaraRuntime: SynaraRuntimeInfo;
   synaraWorkspaceRoot?: string;
   onRetrySynaraRuntime: () => void;
@@ -78,16 +66,7 @@ type SettingsDialogProps = {
   setBuildPreferences: (preferences: BuildPreferences) => void;
   hasProject: boolean;
   project: ProjectSnapshot | null;
-  onUpdateManifest: (patch: {
-    engine?: string | null;
-    trusted?: boolean | null;
-    spellingWords?: string[] | null;
-  }) => void;
-  doctorReport: DoctorReport | null;
-  doctorBusy: boolean;
-  doctorNotice: string;
-  onRunDoctor: () => void;
-  onOpenTexSetup: () => void;
+  onUpdateManifest: (patch: { engine?: string | null; trusted?: boolean | null; spellingWords?: string[] | null }) => void;
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
@@ -101,35 +80,23 @@ type SettingsDialogProps = {
 export function SettingsDialog(props: SettingsDialogProps) {
   const { t } = useLingui();
   const settingsNavGroups = [
-    {
-      label: t`General`,
-      items: [
-        { tab: "appearance", label: t`Appearance`, icon: "faders" },
-        { tab: "editor", label: t`Editor & builds`, icon: "logs" },
-      ],
-    },
-    {
-      label: t`Agent`,
-      items: [
-        { tab: "agent", label: t`Providers`, icon: "robot" },
-        { tab: "mcp", label: t`MCP`, icon: "plugs" },
-        { tab: "api", label: t`Skills`, icon: "package" },
-      ],
-    },
-    {
-      label: t`Integrations`,
-      items: [
-        { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
-        { tab: "literature", label: t`Literature services`, icon: "api-key" },
-      ],
-    },
-    {
-      label: t`Diagnostics`,
-      items: [
-        { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
-        { tab: "logs", label: t`Logs`, icon: "receipt" },
-      ],
-    },
+    { label: t`General`, items: [
+      { tab: "appearance", label: t`Appearance`, icon: "faders" },
+      { tab: "editor", label: t`Editor & builds`, icon: "logs" },
+    ] },
+    { label: t`Agent`, items: [
+      { tab: "agent", label: t`Providers`, icon: "robot" },
+      { tab: "mcp", label: t`MCP`, icon: "plugs" },
+      { tab: "api", label: t`Skills`, icon: "package" },
+    ] },
+    { label: t`Integrations`, items: [
+      { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
+      { tab: "literature", label: t`Literature services`, icon: "api-key" },
+    ] },
+    { label: t`Diagnostics`, items: [
+      { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
+      { tab: "logs", label: t`Logs`, icon: "receipt" },
+    ] },
   ] as const;
   const settingsNavItems = settingsNavGroups
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
@@ -189,10 +156,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       label={t`Settings`}
       focusDialogOnOpen
       onClose={props.onClose}
-      windowDragTop={{
-        onMouseDown: beginWindowDrag,
-        onDoubleClick: toggleWindowFullscreen,
-      }}
+      windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >
       <div className="settings-modal">
         <PanelHeader
@@ -206,24 +170,10 @@ export function SettingsDialog(props: SettingsDialogProps) {
         />
         <div className="settings-body">
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
-            <FluidHoverSurface
-              selector=".settings-nav-group > button"
-              preserveSelection
-              transition={spring.moderate}
-            />
+            <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection transition={spring.moderate} />
             {settingsNavGroups.map((group, groupIndex) => (
-              <div
-                key={group.label}
-                className="settings-nav-group"
-                role="group"
-                aria-labelledby={`settings-nav-${groupIndex}`}
-              >
-                <div
-                  className="settings-nav-group-label"
-                  id={`settings-nav-${groupIndex}`}
-                >
-                  {group.label}
-                </div>
+              <div key={group.label} className="settings-nav-group" role="group" aria-labelledby={`settings-nav-${groupIndex}`}>
+                <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>
                 {group.items.map((item) => (
                   <button
                     key={item.tab}
@@ -239,11 +189,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
               </div>
             ))}
           </nav>
-          <ScrollArea
-            className="settings-content"
-            viewportRef={settingsViewportRef}
-            fadeEdges={false}
-          >
+          <ScrollArea className="settings-content" viewportRef={settingsViewportRef} fadeEdges={false}>
             <SynaraSettingsPane
               runtime={props.synaraRuntime}
               section={synaraSettingsSection}
@@ -264,34 +210,6 @@ function patchAppearance(props: SettingsDialogProps, patch: Partial<AppearanceSe
   props.setAppearance({ ...props.appearance, ...patch });
 }
 
-function SliderRow(props: {
-  id: string;
-  label: string;
-  description: string;
-  min: number;
-  max: number;
-  value: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <SettingsRow htmlFor={props.id} label={props.label} description={props.description}>
-      <div className="settings-row-slider">
-        <input
-          id={props.id}
-          type="range"
-          min={props.min}
-          max={props.max}
-          step="1"
-          value={props.value}
-          onChange={(event) => props.onChange(Number(event.target.value))}
-        />
-        <output htmlFor={props.id}>{props.value}{props.unit}</output>
-      </div>
-    </SettingsRow>
-  );
-}
-
 function AppearanceSettingsPane(props: SettingsDialogProps) {
   const { t } = useLingui();
   const [browserOpening, setBrowserOpening] = useState(false);
@@ -303,18 +221,10 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
   useEffect(() => {
     let active = true;
     void invoke<boolean>("browser_access_enabled")
-      .then((enabled) => {
-        if (active) setBrowserAccessEnabled(enabled);
-      })
-      .catch((reason) => {
-        if (active) setBrowserOpenError(toMessage(reason));
-      })
-      .finally(() => {
-        if (active) setBrowserAccessLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .then((enabled) => { if (active) setBrowserAccessEnabled(enabled); })
+      .catch((reason) => { if (active) setBrowserOpenError(toMessage(reason)); })
+      .finally(() => { if (active) setBrowserAccessLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const updateBrowserAccess = async (enabled: boolean) => {
@@ -342,45 +252,24 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
 
   return (
     <div className="settings-section">
-      <SettingsSectionHeader
-        title={t`Appearance`}
-        description={t`These preferences apply across every project on this Mac`}
-      />
+      <SettingsSectionHeader title={t`Appearance`} description={t`These preferences apply across every project on this Mac`} />
       <SettingsGroup title={t`Language`}>
-        <SettingsRow
+        <SelectRow
           label={t`Interface language`}
           description={t`Choose the language used for menus, settings, and help text`}
-        >
-          <Select
-            value={props.appearance.interfaceLanguage}
-            onValueChange={(value) => patchAppearance(props, { interfaceLanguage: value as InterfaceLanguage })}
-          >
-            <SelectTrigger size="form" aria-label={t`Interface language`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="system">{t`Follow system (default)`}</SelectItem>
-              <SelectItem value="en">{t`English`}</SelectItem>
-              <SelectItem value="zh-CN">{t`Simplified Chinese`}</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
+          value={props.appearance.interfaceLanguage}
+          options={{ system: t`Follow system (default)`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
+          onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
+        />
       </SettingsGroup>
       <SettingsGroup title={t`Theme`}>
-        <SettingsRow
+        <SelectRow
           label={t`Color theme`}
           description={t`Choose the theme for Lattice on this device`}
-        >
-          <Select
-            value={props.themePreference}
-            onValueChange={(value) => props.setThemePreference(value as ThemePreference)}
-          >
-            <SelectTrigger size="form" aria-label={t`Color theme`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="system">{t`Follow system (default)`}</SelectItem>
-              <SelectItem value="light">{t`Light`}</SelectItem>
-              <SelectItem value="dark">{t`Dark`}</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
+          value={props.themePreference}
+          options={{ system: t`Follow system (default)`, light: t`Light`, dark: t`Dark` }}
+          onChange={props.setThemePreference}
+        />
       </SettingsGroup>
       <SettingsGroup title={t`Display`}>
         <SliderRow
@@ -422,11 +311,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
             {browserOpening ? t`Opening…` : moveLabel}
           </Button>
         </SettingsRow>
-        {browserOpenError && (
-          <InlineMessage level="error" className="settings-inline">
-            {browserOpenError}
-          </InlineMessage>
-        )}
+        {browserOpenError && <InlineMessage level="error" className="settings-inline">{browserOpenError}</InlineMessage>}
       </SettingsGroup>
     </div>
   );
@@ -504,29 +389,15 @@ function EditorSettingsPane(props: SettingsDialogProps) {
 
   return (
     <div className="settings-section">
-      <SettingsSectionHeader
-        title={t`Editor & builds`}
-        description={t`Set the editor keymap and build behavior`}
-      />
+      <SettingsSectionHeader title={t`Editor & builds`} description={t`Set the editor keymap and build behavior`} />
       <SettingsGroup title={t`Editing`}>
-        <SettingsRow
+        <SelectRow
           label={t`Editor keymap`}
           description={t`Vim and Emacs keep their modal bindings inside the editor only`}
-        >
-          <Select
-            value={props.appearance.editorKeymap}
-            onValueChange={(value) => patchAppearance(props, {
-              editorKeymap: value as AppearanceSettings["editorKeymap"],
-            })}
-          >
-            <SelectTrigger size="form" aria-label={t`Editor keymap`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="default">{t`Default`}</SelectItem>
-              <SelectItem value="vim">Vim</SelectItem>
-              <SelectItem value="emacs">Emacs</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
+          value={props.appearance.editorKeymap}
+          options={{ default: t`Default`, vim: "Vim", emacs: "Emacs" }}
+          onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
+        />
         <SliderRow
           id="max-open-tabs"
           label={t`Max open tabs`}
@@ -569,9 +440,7 @@ function EditorSettingsPane(props: SettingsDialogProps) {
                 disabled={!props.project}
                 onChange={(event) => setProjectWordDraft(event.target.value)}
               />
-              <Button size="form" type="submit" disabled={!props.project || !projectWordDraft.trim()}>
-                {t`Add`}
-              </Button>
+              <Button size="form" type="submit" disabled={!props.project || !projectWordDraft.trim()}>{t`Add`}</Button>
             </form>
             {projectSpellingWords.length > 0 ? (
               <div className="settings-project-dictionary-terms" role="list" aria-label={t`Project dictionary terms`}>
@@ -598,50 +467,29 @@ function EditorSettingsPane(props: SettingsDialogProps) {
         </SettingsRow>
       </SettingsGroup>
       <SettingsGroup title={t`Builds`}>
-        <SettingsRow
+        <SelectRow
           label={t`Automatic build`}
           description={props.buildPreferences.autoBuildMode === "automatic"
             ? t`Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds`
             : t`Use the Build button or Command-S. Source changes are still saved automatically`}
-        >
-          <Select value={props.buildPreferences.autoBuildMode} onValueChange={(value) => props.setBuildPreferences({ autoBuildMode: value as AutoBuildMode })}>
-            <SelectTrigger size="form" aria-label={t`Automatic build`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="manual">{t`Manual only`}</SelectItem>
-              <SelectItem value="automatic">{t`Automatic`}</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-        <SettingsRow
-          label={t`Auxiliary files`}
-          description={t`Removes .aux, .log, and other build leftovers from this project`}
-        >
-          <Button
-            size="compact"
-            disabled={!props.hasProject || props.cleaning || props.building}
-            onClick={props.onCleanProject}
-          >
+          value={props.buildPreferences.autoBuildMode}
+          options={{ manual: t`Manual only`, automatic: t`Automatic` }}
+          onChange={(autoBuildMode) => props.setBuildPreferences({ autoBuildMode })}
+        />
+        <SettingsRow label={t`Auxiliary files`} description={t`Removes .aux, .log, and other build leftovers from this project`}>
+          <Button size="compact" disabled={!props.hasProject || props.cleaning || props.building} onClick={props.onCleanProject}>
             {props.cleaning ? t`Cleaning…` : t`Clean`}
           </Button>
         </SettingsRow>
         {props.project && (
           <>
-            <SettingsRow
+            <SelectRow
               label={t`Compile engine`}
               description={t`XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence`}
-            >
-              <Select
-                value={props.project.manifest.engine ?? "pdf"}
-                onValueChange={(value) => props.onUpdateManifest({ engine: value })}
-              >
-                <SelectTrigger size="form" aria-label={t`Compile engine`}><SelectValue /></SelectTrigger>
-                <SelectContent data-settings-control="true" position="popper" align="end">
-                  <SelectItem value="pdf">pdfLaTeX</SelectItem>
-                  <SelectItem value="xelatex">XeLaTeX</SelectItem>
-                  <SelectItem value="lualatex">LuaLaTeX</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingsRow>
+              value={props.project.manifest.engine ?? "pdf"}
+              options={{ pdf: "pdfLaTeX", xelatex: "XeLaTeX", lualatex: "LuaLaTeX" }}
+              onChange={(engine) => props.onUpdateManifest({ engine })}
+            />
             <SwitchField
               label={t`Allow external commands`}
               description={t`Lets trusted projects run external tools during builds`}
@@ -652,22 +500,15 @@ function EditorSettingsPane(props: SettingsDialogProps) {
         )}
       </SettingsGroup>
       <SettingsGroup title={t`App updates`}>
-        <SettingsRow label={t`Automatic updates`} description={updateStatus.detail}>
-          <Select value={updater.mode} onValueChange={(value) => updater.setMode(value as UpdateMode)}>
-            <SelectTrigger size="form" aria-label={t`Automatic updates`}><SelectValue /></SelectTrigger>
-            <SelectContent data-settings-control="true" position="popper" align="end">
-              <SelectItem value="manual">{t`Notify me (manual)`}</SelectItem>
-              <SelectItem value="auto">{t`Install automatically`}</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
+        <SelectRow
+          label={t`Automatic updates`}
+          description={updateStatus.detail}
+          value={updater.mode}
+          options={{ manual: t`Notify me (manual)`, auto: t`Install automatically` }}
+          onChange={updater.setMode}
+        />
         <SettingsRow label={t`Version`} description={updateStatus.title}>
-          <ReloadButton
-            size="compact"
-            busy={updateBusy}
-            disabled={updateBusy}
-            onClick={() => void updater.check(false)}
-          >
+          <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
             {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
           </ReloadButton>
         </SettingsRow>

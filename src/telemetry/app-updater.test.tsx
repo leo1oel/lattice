@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { addAppLog } from "./app-log-store";
-import { UpdateBanner, UpdaterProvider, useUpdater, type UpdaterApi } from "./app-updater";
+import { UpdateBanner, UpdaterProvider, useUpdater, type DownloadEvent, type UpdaterApi } from "./app-updater";
 
 /**
  * The updater reaches Tauri through `import()` at call time, so the seam the
@@ -13,12 +13,7 @@ import { UpdateBanner, UpdaterProvider, useUpdater, type UpdaterApi } from "./ap
  * (rather than the factory) keeps one mocked module for the whole file, so
  * flipping the flag cannot depend on vitest's module cache.
  */
-const plugins = vi.hoisted(() => ({
-  check: vi.fn(),
-  invoke: vi.fn(),
-  relaunch: vi.fn(),
-  tauriMissing: false,
-}));
+const plugins = vi.hoisted(() => ({ check: vi.fn(), invoke: vi.fn(), relaunch: vi.fn(), tauriMissing: false }));
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
   get check() {
@@ -34,9 +29,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   },
 }));
 
-vi.mock("@tauri-apps/plugin-process", () => ({
-  relaunch: plugins.relaunch,
-}));
+vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: plugins.relaunch }));
 
 // Stubbed rather than spied: the updater's contract here is "record it, never
 // toast it", and a real entry would leak into the shared log store between
@@ -52,25 +45,11 @@ vi.mock("./app-log-store", async (importOriginal) => ({
  */
 const MODE_KEY = "lattice.update.mode.v1";
 
-type DownloadEvent =
-  | { event: "Started"; data?: { contentLength?: number } }
-  | { event: "Progress"; data: { chunkLength: number } }
-  | { event: "Finished" };
-
-type FakeUpdate = {
-  version: string;
-  currentVersion: string;
-  downloadAndInstall: ReturnType<typeof vi.fn>;
-};
+type FakeUpdate = { version: string; currentVersion: string; downloadAndInstall: ReturnType<typeof vi.fn> };
 
 /** Make the next check resolve with an update (newer than current by default). */
 function offerUpdate(overrides?: Partial<FakeUpdate>): FakeUpdate {
-  const update: FakeUpdate = {
-    version: "0.1.230",
-    currentVersion: "0.1.229",
-    downloadAndInstall: vi.fn(async () => undefined),
-    ...overrides,
-  };
+  const update = { version: "0.1.230", currentVersion: "0.1.229", downloadAndInstall: vi.fn(async () => undefined), ...overrides };
   plugins.check.mockResolvedValue(update);
   return update;
 }
@@ -90,11 +69,7 @@ function pausedDownload() {
       finish = resolve;
     })
   ));
-  return {
-    downloadAndInstall,
-    emit: (event: DownloadEvent) => act(() => emit(event)),
-    finish: () => finish(),
-  };
+  return { downloadAndInstall, emit: (event: DownloadEvent) => act(() => emit(event)), finish: () => finish() };
 }
 
 const run = (action: () => Promise<void>) => act(async () => { await action(); });
@@ -102,9 +77,7 @@ const run = (action: () => Promise<void>) => act(async () => { await action(); }
 function renderUpdater(options?: { autoCheck?: boolean; intervalMs?: number }) {
   return renderHook(() => useUpdater(), {
     wrapper: ({ children }) => (
-      <UpdaterProvider autoCheck={options?.autoCheck ?? false} intervalMs={options?.intervalMs}>
-        {children}
-      </UpdaterProvider>
+      <UpdaterProvider autoCheck={options?.autoCheck ?? false} intervalMs={options?.intervalMs}>{children}</UpdaterProvider>
     ),
   }).result;
 }
@@ -133,12 +106,7 @@ function renderBanner() {
     api.current = useUpdater();
     return null;
   }
-  render(
-    <UpdaterProvider autoCheck={false}>
-      <Probe />
-      <UpdateBanner />
-    </UpdaterProvider>,
-  );
+  render(<UpdaterProvider autoCheck={false}><Probe /><UpdateBanner /></UpdaterProvider>);
   return api;
 }
 
@@ -158,33 +126,19 @@ beforeEach(() => {
 
 describe("useUpdater / check", () => {
   it.each([
-    [true, "idle"],
-    [false, "up-to-date"],
-  ])("with no update (silent: %s) ends %s", async (silent, phase) => {
+    ["nothing", true, null, "idle", null],
+    ["nothing", false, null, "up-to-date", null],
+    // The server answers with the release it has, which on the newest build is
+    // the one already running; only `version !== currentVersion` is an update.
+    ["the running version", false, { version: "0.1.229", currentVersion: "0.1.229" }, "up-to-date", null],
+    ["a newer version", true, {}, "available", "0.1.230"],
+  ] as const)("a check offered %s (silent: %s) ends %s", async (_, silent, offered, phase, version) => {
+    if (offered) offerUpdate(offered);
     const result = await renderChecked(silent);
 
     expect(plugins.check).toHaveBeenCalledOnce();
     expect(result.current.phase).toBe(phase);
-    expect(result.current.version).toBeNull();
-    expect(result.current.error).toBeNull();
-  });
-
-  it("treats a build matching the running version as up to date", async () => {
-    // The server answers with the release it has, which on the newest build is
-    // the one already running; only `version !== currentVersion` is an update.
-    offerUpdate({ version: "0.1.229", currentVersion: "0.1.229" });
-    const result = await renderChecked(false);
-
-    expect(result.current.phase).toBe("up-to-date");
-    expect(result.current.version).toBeNull();
-  });
-
-  it("offers a newer version", async () => {
-    offerUpdate();
-    const result = await renderChecked();
-
-    expect(result.current.phase).toBe("available");
-    expect(result.current.version).toBe("0.1.230");
+    expect(result.current.version).toBe(version);
     expect(result.current.error).toBeNull();
   });
 
@@ -202,29 +156,19 @@ describe("useUpdater / check", () => {
     expect(addAppLog).not.toHaveBeenCalled();
   });
 
-  it("reports the missing runtime when the user asked", async () => {
-    plugins.tauriMissing = true;
-    const result = await renderChecked(false);
-
-    expect(result.current.phase).toBe("error");
-    expect(result.current.error).toBe("plugin-updater unavailable");
-  });
-
-  it("surfaces a failure the user asked for, blames the check, and logs it without a toast", async () => {
+  it.each([
+    ["the runtime is missing", () => { plugins.tauriMissing = true; }, "plugin-updater unavailable"],
+    ["the network fails", () => { plugins.check.mockRejectedValue(new Error("network unreachable")); }, "network unreachable"],
+  ])("surfaces a failed check the user asked for (%s), blames the check, and logs it without a toast", async (_, fail, detail) => {
     // Checking and installing share the "error" phase; the kind is what tells
     // a machine that is merely offline from an update that broke on the way in.
-    plugins.check.mockRejectedValue(new Error("network unreachable"));
+    fail();
     const result = await renderChecked(false);
 
     expect(result.current.phase).toBe("error");
-    expect(result.current.error).toBe("network unreachable");
+    expect(result.current.error).toBe(detail);
     expect(result.current.errorKind).toBe("check");
-    expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
-      level: "error",
-      source: "App updater",
-      toast: false,
-      detail: "network unreachable",
-    }));
+    expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({ level: "error", source: "App updater", toast: false, detail }));
   });
 
   it("does not ask again while an update is already waiting", async () => {
@@ -342,9 +286,7 @@ describe("useUpdater / install", () => {
   });
 
   it("reports a failed install, logs it, and lets the user try again", async () => {
-    const update = offerUpdate({
-      downloadAndInstall: vi.fn().mockRejectedValueOnce(new Error("signature mismatch")),
-    });
+    const update = offerUpdate({ downloadAndInstall: vi.fn().mockRejectedValueOnce(new Error("signature mismatch")) });
     const result = await renderChecked();
 
     await run(() => result.current.install());
@@ -353,10 +295,7 @@ describe("useUpdater / install", () => {
     expect(result.current.error).toBe("signature mismatch");
     expect(result.current.errorKind).toBe("install");
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
-      level: "error",
-      source: "App updater",
-      title: "Lattice update failed",
-      toast: false,
+      level: "error", source: "App updater", title: "Lattice update failed", toast: false,
     }));
     expect(plugins.invoke).not.toHaveBeenCalled();
 
@@ -387,10 +326,7 @@ describe("useUpdater / install", () => {
 });
 
 describe("useUpdater / mode", () => {
-  it.each([
-    ["auto", "auto"],
-    ["yes-please", "manual"],
-  ])("starts from the persisted preference %s", (stored, mode) => {
+  it.each([["auto", "auto"], ["yes-please", "manual"]])("starts from the persisted preference %s", (stored, mode) => {
     localStorage.setItem(MODE_KEY, stored);
     expect(renderUpdater().current.mode).toBe(mode);
   });
@@ -423,21 +359,16 @@ describe("useUpdater / mode", () => {
     }
   });
 
-  it("leaves the update waiting in manual mode", async () => {
+  it.each([
+    ["manual", "leaves it waiting", 0, "available"],
+    ["auto", "installs it", 1, "ready"],
+  ] as const)("in %s mode, %s when a check finds an update", async (mode, _, installs, phase) => {
+    localStorage.setItem(MODE_KEY, mode);
     const update = offerUpdate();
     const result = await renderChecked();
 
-    expect(result.current.phase).toBe("available");
-    expect(update.downloadAndInstall).not.toHaveBeenCalled();
-  });
-
-  it("installs what a check finds when the mode is already automatic", async () => {
-    localStorage.setItem(MODE_KEY, "auto");
-    const update = offerUpdate();
-    const result = await renderChecked();
-
-    await waitFor(() => expect(update.downloadAndInstall).toHaveBeenCalledOnce());
-    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    await waitFor(() => expect(result.current.phase).toBe(phase));
+    expect(update.downloadAndInstall).toHaveBeenCalledTimes(installs);
   });
 
   it("installs what a check finds after the mode was switched this session", async () => {
@@ -506,13 +437,21 @@ describe("useUpdater / dismiss", () => {
 });
 
 describe("UpdateBanner", () => {
-  it("stays out of the way until there is something to say", async () => {
+  it.each([
+    ["an up-to-date check", () => {}, "up-to-date"],
+    // The only way to reach a non-silent check is the Settings button, and that
+    // row reports the outcome itself. Painting "Update failed" in the corner
+    // announces an install that never started.
+    ["a failed check", () => { plugins.check.mockRejectedValue(new Error("network unreachable")); }, "error"],
+  ])("stays out of the way after %s", async (_, arrange, phase) => {
+    arrange();
     const api = renderBanner();
-
     expect(screen.queryByRole("status")).toBeNull();
+
     await run(() => api.current.check(false));
 
-    expect(api.current.phase).toBe("up-to-date");
+    expect(api.current.phase).toBe(phase);
+    expect(screen.queryByText("Update failed")).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
@@ -534,24 +473,7 @@ describe("UpdateBanner", () => {
     expect(screen.getByText("Installing…")).toBeInTheDocument();
   });
 
-  it("does not report a failed check as a failed update", async () => {
-    // The only way to reach a non-silent check is the Settings button, and that
-    // row reports the outcome itself. Painting "Update failed" in the corner
-    // announces an install that never started.
-    plugins.check.mockRejectedValue(new Error("network unreachable"));
-    const api = renderBanner();
-
-    await run(() => api.current.check(false));
-
-    expect(api.current.phase).toBe("error");
-    expect(screen.queryByText("Update failed")).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it.each([
-    ["offer", false],
-    ["failure", true],
-  ])("dismisses the %s from the banner", async (_, installFails) => {
+  it.each([["offer", false], ["failure", true]])("dismisses the %s from the banner", async (_, installFails) => {
     offerUpdate(installFails ? failingInstall() : undefined);
     const api = renderBanner();
     await run(() => api.current.check());

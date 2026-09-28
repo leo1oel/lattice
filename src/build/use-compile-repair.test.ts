@@ -15,10 +15,12 @@ type RepairOptions = Parameters<typeof useCompileRepair>[0];
 
 /** Render the hook with defaults; `rerender` merges option changes over them. */
 function renderRepair(options: Partial<RepairOptions> = {}) {
-  return renderHook((changes: Partial<RepairOptions>) => useCompileRepair({
+  const onComplete = vi.fn(async () => {});
+  const hook = renderHook((changes: Partial<RepairOptions>) => useCompileRepair({
     projectRoot: "/paper", rootDocument: undefined, runtimeMode: "auto", enabled: true,
-    save: async () => true, onComplete: async () => {}, ...options, ...changes,
+    save: async () => true, onComplete, ...options, ...changes,
   }), { initialProps: {} });
+  return { ...hook, onComplete };
 }
 
 /** Answer each compile_repair action; unlisted actions resolve to undefined. */
@@ -36,9 +38,8 @@ describe("user-triggered compile repair", () => {
     "The workspace already has an active writer.",
     new Error("The workspace already has an active writer."),
   ])("explains writer conflicts without starting a task and permits an explicit retry: %s", async (error) => {
-    const onComplete = vi.fn(async () => {});
     vi.mocked(invoke).mockRejectedValueOnce(error);
-    const { result } = renderRepair({ rootDocument: "main.tex", onComplete });
+    const { result, onComplete } = renderRepair({ rootDocument: "main.tex" });
     await act(async () => { await result.current.start([diagnostic]); });
     expect(result.current.state).toEqual({
       status: "failed",
@@ -77,12 +78,11 @@ describe("user-triggered compile repair", () => {
 
   it("saves first, submits all errors and warnings with the selected permissions, then recompiles once", async () => {
     const saved = deferred<boolean>();
-    const onComplete = vi.fn(async () => {});
     const error = { level: "error", message: "Undefined control sequence", file: "main.tex", line: 42 };
     const diagnostics = [diagnostic, error, { level: "info", message: "Build note" }];
     let status = "awaiting-approval";
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status }) });
-    const { result } = renderRepair({ rootDocument: "main.tex", runtimeMode: "full-access", save: () => saved.promise, onComplete });
+    const { result, onComplete } = renderRepair({ rootDocument: "main.tex", runtimeMode: "full-access", save: () => saved.promise });
     let work!: Promise<void>;
     act(() => { work = result.current.start(diagnostics); });
     expect(invoke).not.toHaveBeenCalled();
@@ -114,9 +114,8 @@ describe("user-triggered compile repair", () => {
 
   it("cancels an outgoing project's late start without recompiling the new project", async () => {
     const started = deferred<{ threadId: string }>();
-    const onComplete = vi.fn(async () => {});
     mockRepair({ start: () => started.promise, status: () => ({ status: "completed" }) });
-    const { result, rerender } = renderRepair({ projectRoot: "/old", rootDocument: "main.tex", onComplete });
+    const { result, rerender, onComplete } = renderRepair({ projectRoot: "/old", rootDocument: "main.tex" });
     let work!: Promise<void>;
     await act(async () => { work = result.current.start([diagnostic]); });
     rerender({ projectRoot: "/new" });
@@ -127,7 +126,6 @@ describe("user-triggered compile repair", () => {
   });
 
   it("keeps the writer busy after a status transport error or cancel acknowledgment until it stops", async () => {
-    const onComplete = vi.fn(async () => {});
     let polls = 0;
     let stopped = false;
     mockRepair({
@@ -138,7 +136,7 @@ describe("user-triggered compile repair", () => {
         return { status: stopped ? "failed" : "running", message: stopped ? "Cancelled" : undefined };
       },
     });
-    const { result } = renderRepair({ runtimeMode: "approval-required", onComplete });
+    const { result, onComplete } = renderRepair({ runtimeMode: "approval-required" });
     let work!: Promise<void>;
     await act(async () => { work = result.current.start([diagnostic]); });
     expect(result.current.busy).toBe(true);
@@ -154,14 +152,13 @@ describe("user-triggered compile repair", () => {
 
   it("keeps a cancelled in-flight start locked until its returned task is stopped", async () => {
     const started = deferred<{ threadId: string }>();
-    const onComplete = vi.fn(async () => {});
     let stopped = false;
     mockRepair({
       start: () => started.promise,
       cancel: () => ({ status: "running" }),
       status: () => ({ status: stopped ? "failed" : "running" }),
     });
-    const { result } = renderRepair({ runtimeMode: "full-access", onComplete });
+    const { result, onComplete } = renderRepair({ runtimeMode: "full-access" });
     let work!: Promise<void>;
     await act(async () => { work = result.current.start([diagnostic]); });
     await act(async () => { await result.current.cancel(); });
@@ -177,8 +174,7 @@ describe("user-triggered compile repair", () => {
 
   it("does not start in a read-only project or after save failure", async () => {
     const save = vi.fn(async () => false);
-    const onComplete = vi.fn(async () => {});
-    const { result, rerender } = renderRepair({ runtimeMode: "full-access", enabled: false, save, onComplete });
+    const { result, rerender, onComplete } = renderRepair({ runtimeMode: "full-access", enabled: false, save });
     await act(async () => { await result.current.start([diagnostic]); });
     expect(save).not.toHaveBeenCalled();
     rerender({ enabled: true });
