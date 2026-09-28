@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
 
 /** Cancellable subscriptions for `useEffect` bodies: each returns a synchronous disposer. */
 
@@ -21,12 +21,19 @@ export function disposeWhenSettled(pending: Promise<() => void>): () => void {
   };
 }
 
-/** Listen to a Tauri event until the returned disposer runs. */
-export function subscribeTauriEvent<T>(event: string, handler: (payload: T) => void): () => void {
+/**
+ * Listen to a Tauri event until the returned disposer runs. `event` is an event
+ * name, or a scoped subscribe function such as `listenOverleafRealtime`.
+ */
+export function subscribeTauriEvent<T>(
+  event: string | ((handler: EventCallback<T>) => Promise<UnlistenFn>),
+  handler: (payload: T) => void,
+): () => void {
   let active = true;
-  const dispose = disposeWhenSettled(listen<T>(event, (message) => {
+  const onEvent: EventCallback<T> = (message) => {
     if (active) handler(message.payload);
-  }));
+  };
+  const dispose = disposeWhenSettled(typeof event === "string" ? listen<T>(event, onEvent) : event(onEvent));
   return () => {
     active = false;
     dispose();

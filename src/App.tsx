@@ -2963,7 +2963,7 @@ function App() {
 
   const referenceImport = useReferenceImport({
     project, projectRootRef, refreshProject, refreshHistory, publishToShare: publishTextToCollabV2,
-    shared: Boolean(collabSession),
+    shared: Boolean(collabSession), onExternalEdits: externalOverleafEditsRef,
     editor: {
       activeFile,
       source,

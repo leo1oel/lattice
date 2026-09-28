@@ -785,7 +785,8 @@ CI (`.github/workflows/ci.yml`) covers the same ground across four jobs:
 `lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`).
 
-`pnpm lint` runs `eslint src tools --max-warnings 66`. That cap is a debt ratchet:
+`pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
+in `package.json`. That cap is a debt ratchet:
 lower it when you remove warnings, never raise it.
 
 Testing environment: Vitest + jsdom + fake-indexeddb, 20 s test timeout

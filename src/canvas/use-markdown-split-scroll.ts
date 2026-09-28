@@ -16,10 +16,12 @@ const otherSide = (side: Side): Side => side === "editor" ? "preview" : "editor"
  * listener and for the explicit View-in-source reveal, respectively.
  */
 export function useMarkdownSplitScroll({
-  view, preview, active, previewStart, peerScrollSettleMs, suppressedRef, viewportLockRef, cursorRevealRef, reconcileRef,
+  view: viewHandle, preview: previewHandle, active, previewStart, peerScrollSettleMs, suppressedRef, viewportLockRef,
+  cursorRevealRef, reconcileRef,
 }: {
-  view: EditorView | null;
-  preview: HTMLDivElement | null;
+  /** Weak, like DocumentCanvas's state: dereferenced only inside the effect. */
+  view: WeakRef<EditorView> | null;
+  preview: WeakRef<HTMLDivElement> | null;
   active: boolean;
   previewStart: number;
   peerScrollSettleMs: number;
@@ -31,6 +33,8 @@ export function useMarkdownSplitScroll({
   reconcileRef: RefObject<(() => void) | null>;
 }) {
   useEffect(() => {
+    const view = viewHandle?.deref();
+    const preview = previewHandle?.deref();
     if (!view || !preview || !active) return;
 
     const panes = {
@@ -221,5 +225,5 @@ export function useMarkdownSplitScroll({
       resizeObserver.disconnect();
       for (const [target, type, listener, options] of listeners) target?.removeEventListener(type, listener, options);
     };
-  }, [active, cursorRevealRef, peerScrollSettleMs, preview, previewStart, reconcileRef, suppressedRef, view, viewportLockRef]);
+  }, [active, cursorRevealRef, peerScrollSettleMs, previewHandle, previewStart, reconcileRef, suppressedRef, viewHandle, viewportLockRef]);
 }

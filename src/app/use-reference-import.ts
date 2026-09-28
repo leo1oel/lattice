@@ -40,7 +40,7 @@ type BibEntryDialog = {
  * entry dialog for adding, reviewing or editing a BibTeX entry by hand.
  */
 export function useReferenceImport({
-  project, projectRootRef, refreshProject, refreshHistory, publishToShare, shared, editor, onCite,
+  project, projectRootRef, refreshProject, refreshHistory, publishToShare, shared, editor, onCite, onExternalEdits,
 }: {
   project: ProjectSnapshot | null;
   projectRootRef: { readonly current: string | null };
@@ -60,6 +60,8 @@ export function useReferenceImport({
   };
   /** Insert `\cite{key}` at the editor caret. */
   onCite: (key: string) => void;
+  /** Hand bibliography writes that bypassed save to Overleaf sync, like any other disk edit. */
+  onExternalEdits: { readonly current: (paths: readonly string[]) => void };
 }) {
   const { t } = useLingui();
   const [input, setInput] = useState("");
@@ -120,6 +122,9 @@ export function useReferenceImport({
         setRecentImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
       }
       const snapshot = await refreshProject();
+      // papers.rs writes the bibliography directly; hand it to Overleaf sync
+      // like any other disk edit instead of waiting for an unrelated save.
+      if (!result.alreadyImported && result.citationKey) onExternalEdits.current([snapshot.manifest.primaryBibliography]);
       await refreshHistory();
       if (shared && !result.alreadyImported) {
         // Bibliography is the shared paper catalog. Full-text bundles stay
@@ -172,7 +177,7 @@ export function useReferenceImport({
     // flip a commit before `publishToShare` does, and this memo would then pin
     // the closure that answers `false` for the rest of the share. An imported
     // reference would reach disk here and never reach the people sharing it.
-  }, [projectRootRef, publishToShare, refreshHistory, refreshProject, shared, showBibEntry, t]);
+  }, [projectRootRef, publishToShare, refreshHistory, refreshProject, shared, showBibEntry, t, onExternalEdits]);
 
   const cancelImport = useCallback(() => {
     const requestId = requestIdRef.current;
@@ -245,6 +250,7 @@ export function useReferenceImport({
           projectRoot: project.root,
         });
       }
+      onExternalEdits.current([bibliography]);
       // Re-sync the editor buffer and collab peers with what's now on disk.
       const next = await invoke<string>("read_project_file", { path: bibliography });
       await publishToShare(bibliography, next);
@@ -259,7 +265,7 @@ export function useReferenceImport({
     }
   }, [
     activeFile, bibEntry, commit, dirty, importReference, onCite, project, projectRootRef, publishToShare,
-    refreshProject, save, setBibEntry, source,
+    refreshProject, save, setBibEntry, source, onExternalEdits,
   ]);
 
   const clearStage = useCallback(() => setStage(null), []);

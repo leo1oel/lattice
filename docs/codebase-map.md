@@ -293,7 +293,8 @@ under Fast Refresh.
 
 ### The lint debt is concentrated
 
-`pnpm lint` runs `eslint src tools --max-warnings 66`. The cap is a ratchet: lower
+`pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
+in `package.json`. The cap is a ratchet: lower
 it when you remove warnings, never raise it.
 
 The warnings are almost entirely `react-hooks/*` diagnostics that

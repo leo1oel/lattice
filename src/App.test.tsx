@@ -1,3 +1,5 @@
+import v8 from "node:v8";
+import vm from "node:vm";
 import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -169,7 +171,8 @@ vi.mock("@pdfslick/core", () => {
       },
     };
     viewer: {
-      cleanup: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; currentScale: number; currentScaleValue: string;
+      cleanup: ReturnType<typeof vi.fn>; setDocument: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>;
+      currentScale: number; currentScaleValue: string;
       getPageView: (index: number) => PdfSlickMockPageView;
     };
 
@@ -179,7 +182,7 @@ vi.mock("@pdfslick/core", () => {
       let currentScale = scaleOf(args.options?.scaleValue) || 0.825;
       let currentScaleValue = args.options?.scaleValue ?? "page-width";
       this.viewer = {
-        cleanup: vi.fn(), update: vi.fn(),
+        cleanup: vi.fn(), setDocument: vi.fn(), update: vi.fn(),
         get currentScale() { return currentScale; },
         set currentScale(value: number) { currentScale = value; emit("scalechanging", { scale: value }); },
         get currentScaleValue() { return currentScaleValue; },
@@ -1295,43 +1298,14 @@ describe("project workspace", () => {
     // strongly in that scope chained every replaced editor (and its document)
     // to its successor for the rest of the session.
     const collectGarbage = exposeGarbageCollector();
-    const snapshot = {
-      root: "/tmp/lattice-paper",
-      manifest: {
-        schemaVersion: 1,
-        projectId: "paper-id",
-        name: "Lattice paper",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-      files: ["a.txt", "b.txt", "c.txt"].map((path) => ({ name: path, path, kind: "text", children: [] })),
-    };
-    persistWorkspaceLayout(snapshot.root, {
-      openTabs: ["a.txt", "b.txt", "c.txt"],
-      activeFile: "a.txt",
-      activeTab: "a.txt",
-      secondaryFile: null,
-      focusedPane: "primary",
-      canvasMode: "source",
-      documentMode: "source",
-      paperView: "blog",
-      tabRecency: ["a.txt", "b.txt", "c.txt"],
-    });
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      if (command === "initial_project") return snapshot;
-      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
-      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
-
-    renderApp();
-    const primaryContent = () => document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content");
-    await waitFor(() => expect(primaryContent()).toHaveTextContent("content:a.txt"));
-    const firstView = new WeakRef(EditorView.findFromDOM(primaryContent() as HTMLElement)!);
+    const snapshot = projectSnapshot({ rootDocuments: [], files: fileNodes("a.txt", "b.txt", "c.txt") });
+    persistLayout(snapshot.root, { openTabs: ["a.txt", "b.txt", "c.txt"], activeFile: "a.txt", canvasMode: "source" });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
+    await waitFor(() => expect(paneContent("primary")).toHaveTextContent("content:a.txt"));
+    const firstView = new WeakRef(EditorView.findFromDOM(paneContent("primary")!)!);
     for (const path of ["b.txt", "c.txt", "b.txt", "c.txt"]) {
       fireEvent.click(await screen.findByRole("tab", { name: path }));
-      await waitFor(() => expect(primaryContent()).toHaveTextContent(`content:${path}`));
+      await waitFor(() => expect(paneContent("primary")).toHaveTextContent(`content:${path}`));
     }
     await waitFor(async () => {
       await collectGarbage();
@@ -2903,83 +2877,55 @@ describe("project workspace", () => {
     // to references.bib used to wait, unsynced, for some later save. Here the
     // first sync it schedules meets an Overleaf edit, and the resolver's choice
     // must be what lands on disk and what the following sync uploads.
-    localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "live");
-    const snapshot = {
-      root: "/tmp/lattice-bib-sync",
-      manifest: {
-        schemaVersion: 1, projectId: "bib-sync", name: "Bib sync",
-        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-        primaryBibliography: "references.bib", trusted: false,
-      },
-      files: [
-        { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-        { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
-      ],
-    };
+    const snapshot = projectSnapshot({
+      root: "/tmp/lattice-bib-sync", projectId: "bib-sync", name: "Bib sync", rootDocuments: MAIN_DOCUMENT,
+      files: fileNodes("main.tex", "references.bib"),
+    });
     const source = "\\documentclass{article}";
     const before = "@misc{doe2020,\n  title = {A Study},\n  year = {2020},\n}";
     const after = "@article{doe2020,\n  title = {A Study},\n  journal = {Journal},\n  year = {2020},\n}";
     let bib = `${before}\n`;
     const conflicted = `<<<<<<< ours\n${after}\n||||||| original\n${before}\n=======\n>>>>>>> theirs\n`;
     let syncs = 0;
-    vi.mocked(invoke).mockImplementation(async (command, args) => {
-      const path = (args as { path?: string } | undefined)?.path;
-      if (command === "initial_project" || command === "refresh_project") return snapshot;
-      if (command === "read_project_file") return path === "references.bib" ? bib : source;
-      if (command === "stat_project_file") return { exists: true, mtimeMs: 1 };
-      if (command === "write_project_file") {
-        if (path === "references.bib") bib = (args as { content: string }).content;
-        return { content: (args as { content: string }).content, hadConflicts: false };
-      }
-      if (command === "overleaf_link") return {
-        projectId: "ol-bib-sync", projectName: "Bib sync", host: "https://www.overleaf.com", paused: false,
-      };
-      if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
-      if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
-      if (command === "overleaf_rt_connect") return {
-        publicId: "me", docs: [{ id: "main", path: "main.tex" }, { id: "bib", path: "references.bib" }], entities: [],
-        permission: "readAndWrite", trackChanges: false, userId: "me",
-      };
-      if (command === "overleaf_rt_join_doc") return {
-        text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false,
-      };
-      if (command === "bibliography_audit_scan") return {
-        entries: [{ path: "references.bib", key: "doe2020", title: "A Study", bibtex: bib.trim(), issues: [] }],
-        issues: [],
-      };
-      if (command === "bibliography_audit_report_load") return [["references.bib\0doe2020", {
+    renderOverleafPaper({
+      read_project_file: (args) => (argPath(args) === "references.bib" ? bib : source),
+      stat_project_file: { exists: true, mtimeMs: 1 },
+      write_project_file: (args) => {
+        const { path, content } = args as { path: string; content: string };
+        if (path === "references.bib") bib = content;
+        return { content, hadConflicts: false };
+      },
+      overleaf_link: () => overleafLink({ projectId: "ol-bib-sync", projectName: "Bib sync" }),
+      overleaf_rt_connect: () => overleafSession({
+        publicId: "me", userId: "me", docs: [{ id: "main", path: "main.tex" }, { id: "bib", path: "references.bib" }],
+      }),
+      overleaf_rt_join_doc: { text: source, version: 4, comments: [], changes: [], caughtUp: [], resumed: false },
+      bibliography_audit_scan: () => ({
+        entries: [{ path: "references.bib", key: "doe2020", title: "A Study", bibtex: bib.trim(), issues: [] }], issues: [],
+      }),
+      bibliography_audit_report_load: [["references.bib\0doe2020", {
         snapshot: before, applied: false,
         result: {
           status: "update", message: "A published version is available.", before, after,
           checkedAt: "2026-09-26T10:07:00.000Z", changes: [{ field: "journal", before: "", after: "Journal" }],
         },
-      }]];
-      if (command === "bibliography_audit_report_save") return null;
-      if (command === "bibliography_audit_apply") {
+      }]],
+      bibliography_audit_report_save: null,
+      bibliography_audit_apply: () => {
         bib = `${after}\n`;
         return null;
-      }
-      if (command === "overleaf_sync") {
+      },
+      overleaf_sync: () => {
         syncs += 1;
-        if (syncs === 1) {
-          // Overleaf changed the same entry in the meantime.
-          bib = conflicted;
-          return {
-            pushed: [], pulled: [], merged: [], deletedLocal: [], skippedRemoteDeletes: [], readOnly: false,
-            conflicts: [{ path: "references.bib", localCopy: "references (local conflict 20260926-1808).bib", markers: true }],
-          };
-        }
-        return {
-          pushed: ["references.bib"], pulled: [], merged: [], conflicts: [],
-          deletedLocal: [], skippedRemoteDeletes: [], readOnly: false,
-        };
-      }
-      if (["list_papers", "list_history", "overleaf_chat_messages", "overleaf_threads", "list_todos",
-        "overleaf_comment_anchors", "overleaf_change_authors", "overleaf_rt_connected_users"].includes(command)) return [];
-      return mockAppCommand(command, args as Record<string, unknown> | undefined);
-    });
-    renderApp();
+        if (syncs > 1) return overleafSyncResult({ pushed: ["references.bib"] });
+        // Overleaf changed the same entry in the meantime.
+        bib = conflicted;
+        return overleafSyncResult({
+          conflicts: [{ path: "references.bib", localCopy: "references (local conflict 20260926-1808).bib", markers: true }],
+        });
+      },
+      list_todos: () => [],
+    }, { snapshot, syncMode: "live" });
     await screen.findByRole("button", { name: "Switch project" });
     await switchSidebarMode("Papers");
     fireEvent.click(await screen.findByRole("button", { name: "Check references" }));

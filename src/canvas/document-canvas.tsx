@@ -365,10 +365,18 @@ export function DocumentCanvas(props: {
   const primaryViewRef = useRef<EditorView | null>(null);
   const primaryViewPathRef = useRef("");
   const secondaryViewRef = useRef<EditorView | null>(null);
-  const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
-  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
+  // Weak on purpose; deref at the point of use and never keep the result in a
+  // render-scope variable. Every closure created while rendering captures this
+  // render's scope, and a CodeMirror view keeps its extensions' closures alive
+  // for its whole life. A strong reference here chained each editor to the one
+  // before it (new view → extension closure → render scope → previous view),
+  // so every file switch retained the previous editor and its whole document.
+  const [primaryScrollbarView, setPrimaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
+  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
   const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
-  const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
+  // Weak for the same reason as the scrollbar views above: a retained render
+  // scope must not pin a replaced preview and its whole rendered document.
+  const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<WeakRef<HTMLDivElement> | null>(null);
   const paperPdf = usePaperPdf({
     activePaper: props.activePaper,
     activeFile,
@@ -920,7 +928,7 @@ export function DocumentCanvas(props: {
       : inSecondary ? secondaryViewRef.current
         : request.path === activeFile ? primaryViewRef.current ?? editorViewRef.current : null;
     const view = targetView();
-    const preview = request.path === activeFile && markdownDocument ? markdownPreviewViewport : null;
+    const preview = request.path === activeFile && markdownDocument ? markdownPreviewViewport?.deref() ?? null : null;
     if (!view && !preview) return;
     let frame: number | null = null;
     let observer: MutationObserver | null = null;
@@ -1630,7 +1638,7 @@ export function DocumentCanvas(props: {
   };
   const preview = props.activeAsset ? assetPreview(props.activeAsset)
     : markdownDocument ? paperPreview
-      : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView : null)
+      : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
         : projectPdfPreview(activeFile);
   const twoPane = props.mode === "dual" || props.mode === "columns";
   if (primaryKind && !twoPane) {
@@ -1687,13 +1695,13 @@ export function DocumentCanvas(props: {
           extensions={secondaryEditorExtensions}
           onCreateEditor={(view) => {
             secondaryViewRef.current = view;
-            setSecondaryScrollbarView(view);
+            setSecondaryScrollbarView(new WeakRef(view));
             if (focusedPane === "secondary") editorViewRef.current = view;
           }}
           onChange={onSecondaryChange}
           onUpdate={onSecondaryUpdate}
         />
-        <CodeMirrorScrollbar view={secondaryScrollbarView} />
+        <CodeMirrorScrollbar view={secondaryScrollbarView?.deref() ?? null} />
       </div>
     );
     const secondaryKind = secondaryFile ? structuredDocumentKind(secondaryFile) : null;

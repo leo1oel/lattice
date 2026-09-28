@@ -30,8 +30,9 @@ export function useMarkdownModeHandoff({
   primaryViewPathRef: RefObject<string>;
   previewViewportRef: RefObject<HTMLDivElement | null>;
   /** State mirrors of the two viewports, so a remount re-runs the restore. */
-  previewViewport: HTMLDivElement | null;
-  primaryView: EditorView | null;
+  /** Mount signals only (re-run the restore once a remounted pane exists); weak, never dereferenced here. */
+  previewViewport: WeakRef<HTMLDivElement> | null;
+  primaryView: WeakRef<EditorView> | null;
   /** The canvas's newest props: a reveal is dropped once another file is open. */
   latestRef: RefObject<{ activeFile: string }>;
   scrollSyncSuppressedRef: RefObject<boolean>;

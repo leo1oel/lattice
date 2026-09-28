@@ -8,6 +8,7 @@ import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setError, setNotice, setWarning } from "./notify";
 import { clearTimer, restartTimer, subscribeTauriEvent, useLatest, type TimerRef } from "./effect-helpers";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
+import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
@@ -761,8 +762,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       return;
     }
     const projectRoot = project.root;
+    // Scoped to this window: a bare listen() also hears every other window's Overleaf project.
     return subscribeTauriEvent<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
-      "overleaf-realtime",
+      listenOverleafRealtime,
       (payload) => {
         if (payload.projectRoot !== projectRoot) return;
         if (payload.type === "connected" && payload.publicId) {
