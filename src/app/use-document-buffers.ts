@@ -1,5 +1,6 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { AssetPreview, PaperSummary } from "../app-types";
+import { useRefState } from "./effect-helpers";
 
 export type PaperView = "blog" | "fulltext";
 
@@ -15,74 +16,26 @@ export function paperDocumentPath(arxivId: string, view: PaperView): string {
  * for async work (saves, loads, sync); the helpers write both halves together.
  */
 export function useDocumentBuffers() {
-  const [activeFile, setActiveFile] = useState("");
-  const [source, setSource] = useState("");
-  const [savedSource, setSavedSource] = useState("");
-  const [secondaryFile, setSecondaryFile] = useState<string | null>(null);
-  const [secondarySource, setSecondarySource] = useState("");
-  const [secondarySavedSource, setSecondarySavedSource] = useState("");
-  const [activeAsset, setActiveAsset] = useState<AssetPreview | null>(null);
-  const [secondaryAsset, setSecondaryAsset] = useState<AssetPreview | null>(null);
+  const [activeFile, setActiveFile, activeFileRef, showActiveFile] = useRefState("");
+  const [source, setSource, sourceRef, setPrimarySource] = useRefState("");
+  const [savedSource, setSavedSource, savedSourceRef, setPrimarySaved] = useRefState("");
+  const [secondaryFile, setSecondaryFile, secondaryFileRef, showSecondaryFile] = useRefState<string | null>(null);
+  const [secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive] = useRefState("");
+  const [secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved] = useRefState("");
+  const [activeAsset, setActiveAsset, activeAssetRef, showActiveAsset] = useRefState<AssetPreview | null>(null);
+  const [secondaryAsset, , secondaryAssetRef, showSecondaryAsset] = useRefState<AssetPreview | null>(null);
   const [activePaper, setActivePaper] = useState<PaperSummary | null>(null);
-  const [paperMarkdown, setPaperMarkdown] = useState("");
-  const [savedPaperMarkdown, setSavedPaperMarkdown] = useState("");
+  const [paperMarkdown, setPaperMarkdown, paperMarkdownRef, setPaperMarkdownLive] = useRefState("");
+  const [savedPaperMarkdown, , savedPaperMarkdownRef, setSavedPaperMarkdown] = useRefState("");
   // The alphaXiv overview ("blog") is the default reading view; null when the
   // paper has no report. `paperView` picks which of blog/full-text is shown.
-  const [paperBlog, setPaperBlog] = useState<string | null>(null);
-  const [savedPaperBlog, setSavedPaperBlog] = useState<string | null>(null);
+  const [paperBlog, setPaperBlog, paperBlogRef, setPaperBlogLive] = useRefState<string | null>(null);
+  const [savedPaperBlog, , savedPaperBlogRef, setSavedPaperBlog] = useRefState<string | null>(null);
   const [paperView, setPaperView] = useState<PaperView>("blog");
   // A Paper owns the primary document buffer even when it is drawn on the
   // right; the other visible document stays in the existing secondary buffer.
   const [paperSide, setPaperSide] = useState<"left" | "right">("left");
 
-  const activeFileRef = useRef(activeFile);
-  const sourceRef = useRef(source);
-  const savedSourceRef = useRef(savedSource);
-  const secondaryFileRef = useRef(secondaryFile);
-  const secondarySourceRef = useRef(secondarySource);
-  const secondarySavedRef = useRef(secondarySavedSource);
-  const activeAssetRef = useRef(activeAsset);
-  const secondaryAssetRef = useRef(secondaryAsset);
-  // Re-synced on every commit (no reader runs during render): a helper below
-  // may lead with the ref, and the next commit brings it level with state.
-  useLayoutEffect(() => {
-    activeFileRef.current = activeFile;
-    sourceRef.current = source;
-    savedSourceRef.current = savedSource;
-    secondaryFileRef.current = secondaryFile;
-    secondarySourceRef.current = secondarySource;
-    secondarySavedRef.current = secondarySavedSource;
-    activeAssetRef.current = activeAsset;
-    secondaryAssetRef.current = secondaryAsset;
-  });
-  const paperMarkdownRef = useRef(paperMarkdown);
-  const savedPaperMarkdownRef = useRef(savedPaperMarkdown);
-  const paperBlogRef = useRef(paperBlog);
-  const savedPaperBlogRef = useRef(savedPaperBlog);
-  useLayoutEffect(() => {
-    paperMarkdownRef.current = paperMarkdown;
-    savedPaperMarkdownRef.current = savedPaperMarkdown;
-    paperBlogRef.current = paperBlog;
-    savedPaperBlogRef.current = savedPaperBlog;
-  }, [paperBlog, paperMarkdown, savedPaperBlog, savedPaperMarkdown]);
-
-  /** Live primary edits: the ref leads so a save in the same turn sees them. */
-  const setPrimarySource = useCallback((value: string) => {
-    sourceRef.current = value;
-    setSource(value);
-  }, []);
-  const setSecondarySourceLive = useCallback((value: string) => {
-    secondarySourceRef.current = value;
-    setSecondarySource(value);
-  }, []);
-  const setPrimarySaved = useCallback((value: string) => {
-    savedSourceRef.current = value;
-    setSavedSource(value);
-  }, []);
-  const setSecondarySaved = useCallback((value: string) => {
-    secondarySavedRef.current = value;
-    setSecondarySavedSource(value);
-  }, []);
   /** Replace the primary buffer with durable content (live and saved agree). */
   const commitPrimaryText = useCallback((content: string) => {
     setPrimarySource(content);
@@ -96,7 +49,7 @@ export function useDocumentBuffers() {
   const commitOpenText = useCallback((path: string, content: string) => {
     if (activeFileRef.current === path) commitPrimaryText(content);
     if (secondaryFileRef.current === path) commitSecondaryText(content);
-  }, [commitPrimaryText, commitSecondaryText]);
+  }, [activeFileRef, commitPrimaryText, commitSecondaryText, secondaryFileRef]);
   /** Like commitOpenText, but never replaces a pane holding unsaved edits. */
   const commitCleanOpenText = useCallback((path: string, content: string) => {
     if (activeFileRef.current === path && sourceRef.current === savedSourceRef.current) {
@@ -105,26 +58,19 @@ export function useDocumentBuffers() {
     if (secondaryFileRef.current === path && secondarySourceRef.current === secondarySavedRef.current) {
       commitSecondaryText(content);
     }
-  }, [commitPrimaryText, commitSecondaryText]);
+  }, [
+    activeFileRef, commitPrimaryText, commitSecondaryText, savedSourceRef, secondaryFileRef, secondarySavedRef,
+    secondarySourceRef, sourceRef,
+  ]);
   const showPrimaryText = useCallback((path: string, content: string) => {
-    activeFileRef.current = path;
-    setActiveFile(path);
+    showActiveFile(path);
     commitPrimaryText(content);
-  }, [commitPrimaryText]);
+  }, [commitPrimaryText, showActiveFile]);
   const showSecondaryText = useCallback((path: string | null, content = "", saved = content) => {
-    secondaryFileRef.current = path;
-    setSecondaryFile(path);
+    showSecondaryFile(path);
     setSecondarySourceLive(content);
     setSecondarySaved(saved);
-  }, [setSecondarySaved, setSecondarySourceLive]);
-  const showActiveAsset = useCallback((asset: AssetPreview | null) => {
-    activeAssetRef.current = asset;
-    setActiveAsset(asset);
-  }, []);
-  const showSecondaryAsset = useCallback((asset: AssetPreview | null) => {
-    secondaryAssetRef.current = asset;
-    setSecondaryAsset(asset);
-  }, []);
+  }, [setSecondarySaved, setSecondarySourceLive, showSecondaryFile]);
   const clearSecondaryPane = useCallback(() => {
     showSecondaryText(null);
     showSecondaryAsset(null);
@@ -135,24 +81,15 @@ export function useDocumentBuffers() {
     savedMarkdown = markdown,
     savedBlog = blog,
   ) => {
-    paperMarkdownRef.current = markdown;
-    savedPaperMarkdownRef.current = savedMarkdown;
-    paperBlogRef.current = blog;
-    savedPaperBlogRef.current = savedBlog;
-    setPaperMarkdown(markdown);
+    setPaperMarkdownLive(markdown);
     setSavedPaperMarkdown(savedMarkdown);
-    setPaperBlog(blog);
+    setPaperBlogLive(blog);
     setSavedPaperBlog(savedBlog);
-  }, []);
+  }, [setPaperBlogLive, setPaperMarkdownLive, setSavedPaperBlog, setSavedPaperMarkdown]);
   const markPaperSaved = useCallback((view: PaperView, content: string) => {
-    if (view === "blog") {
-      savedPaperBlogRef.current = content;
-      setSavedPaperBlog(content);
-    } else {
-      savedPaperMarkdownRef.current = content;
-      setSavedPaperMarkdown(content);
-    }
-  }, []);
+    if (view === "blog") setSavedPaperBlog(content);
+    else setSavedPaperMarkdown(content);
+  }, [setSavedPaperBlog, setSavedPaperMarkdown]);
   /** Leave Paper reading: the primary buffer belongs to a file again. */
   const closePaper = useCallback(() => {
     setActivePaper(null);
@@ -165,10 +102,10 @@ export function useDocumentBuffers() {
     setActiveFile((path) => remap(path));
     setSecondaryFile((path) => path && remap(path));
     setActiveAsset((asset) => asset && { ...asset, path: remap(asset.path) });
-  }, []);
+  }, [activeFileRef, secondaryFileRef, setActiveAsset, setActiveFile, setSecondaryFile]);
   const paperBuffersDirty = useCallback(() => (
     paperMarkdownRef.current !== savedPaperMarkdownRef.current || paperBlogRef.current !== savedPaperBlogRef.current
-  ), []);
+  ), [paperBlogRef, paperMarkdownRef, savedPaperBlogRef, savedPaperMarkdownRef]);
 
   const activePaperPath = activePaper ? paperDocumentPath(activePaper.arxivId, paperView) : null;
   const activePaperDirty = Boolean(activePaper) && (paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog);

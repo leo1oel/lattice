@@ -125,11 +125,10 @@ export function useReferenceImport({
         // Bibliography is the shared paper catalog. Full-text bundles stay
         // local — collaborators fetch them when they open a paper.
         const bibliography = snapshot.manifest.primaryBibliography;
-        try {
-          await publishToShare(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
-        } catch {
-          // Optional sidecar / bib may be missing.
-        }
+        // Optional sidecar / bib may be missing.
+        await invoke<string>("read_project_file", { path: bibliography })
+          .then((content) => publishToShare(bibliography, content))
+          .catch(() => undefined);
       }
       // The citation lands even when the download does not (papers.rs commits
       // the bibliography before fetching), so a fetch failure is a notice on a
@@ -183,12 +182,8 @@ export function useReferenceImport({
   }, []);
 
   const importFromInput = useCallback(async () => {
-    if (!input.trim()) return;
-    try {
-      await importReference(input);
-    } catch {
-      // Error already surfaced by importReference.
-    }
+    // importReference has already surfaced any failure.
+    await importReference(input).catch(() => undefined);
   }, [importReference, input]);
 
   const openBibEntry = useCallback((resolveSeed = "") => showBibEntry("add", undefined, resolveSeed), [showBibEntry]);
@@ -206,14 +201,12 @@ export function useReferenceImport({
 
   const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
     setBibEntry({ resolving: true, error: null });
-    try {
-      return await invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
-    } catch (reason) {
+    const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query }).catch((reason) => {
       setBibEntry({ error: toMessage(reason) });
       return null;
-    } finally {
-      setBibEntry({ resolving: false });
-    }
+    });
+    setBibEntry({ resolving: false });
+    return resolved;
   }, [setBibEntry]);
 
   const { activeFile, source, dirty, save, commit } = editor;
@@ -237,7 +230,6 @@ export function useReferenceImport({
         if (!result || projectRootRef.current !== importRoot) return;
         setBibEntry({ open: false, importRoot: null });
         if (insertCite && result.citationKey) onCite(result.citationKey);
-        setError(null);
         return;
       }
       if (mode === "edit") {
@@ -260,7 +252,6 @@ export function useReferenceImport({
       await refreshProject();
       setBibEntry({ open: false });
       if (insertCite) onCite(draft.key);
-      setError(null);
     } catch (reason) {
       setBibEntry({ error: toMessage(reason) });
     } finally {

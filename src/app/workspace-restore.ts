@@ -10,18 +10,21 @@ import {
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import type { WorkspaceLayout } from "../settings/app-settings";
 
-/** Every non-directory path the project shows as an image/binary preview rather than text. */
-export function collectAssetPaths(nodes: FileNode[], paths = new Set<string>()): Set<string> {
+/** Every non-directory path in the tree that `include` accepts, in tree order. */
+export function collectFilePaths(nodes: FileNode[], include: (node: FileNode) => boolean, paths: string[] = []): string[] {
   for (const node of nodes) {
-    // SVG is text on disk but remains an image when tabs are selected or restored.
     const isDirectory = node.kind === "directory" || node.contentKind === "directory";
-    if (!isDirectory && (isProjectAssetFilePath(node.path)
-      || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink")) {
-      paths.add(node.path);
-    }
-    if (node.children.length) collectAssetPaths(node.children, paths);
+    if (!isDirectory && include(node)) paths.push(node.path);
+    if (node.children.length) collectFilePaths(node.children, include, paths);
   }
   return paths;
+}
+
+/** Every non-directory path the project shows as an image/binary preview rather than text. */
+export function collectAssetPaths(nodes: FileNode[]): Set<string> {
+  // SVG is text on disk but remains an image when tabs are selected or restored.
+  return new Set(collectFilePaths(nodes, (node) => isProjectAssetFilePath(node.path)
+    || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink"));
 }
 
 const isTwoPaneMode = (mode: CanvasMode | undefined) => mode === "dual" || mode === "columns";

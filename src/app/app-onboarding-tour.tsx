@@ -8,7 +8,7 @@ import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { markTutorialSeen } from "../settings/app-settings";
 import { TUTORIAL_STEPS } from "../onboarding/onboarding-steps";
 import { setNotice } from "./notify";
-import { isOpenSlideDeckPath } from "../app-utils";
+import { isHtmlFilePath, isWholeFileEditorPath } from "../app-utils";
 import type { CanvasMode, OpenProjectFile } from "../app-types";
 
 const OnboardingTour = lazy(() =>
@@ -33,18 +33,18 @@ export type AppOnboardingTourProps = {
   tutorialStep: number;
 };
 
-/** The tutorial document each step is about, and the canvas mode that shows it. */
-const STEP_DOCUMENTS = new Map<number, [path: string, mode: CanvasMode]>([
-  [TUTORIAL_STEPS.latex, ["main.tex", "split"]],
-  [TUTORIAL_STEPS.presentation, ["slides/understanding-attention/index.tsx", "source"]],
-  [TUTORIAL_STEPS.viewModes, ["main.tex", "split"]],
-  [TUTORIAL_STEPS.markdown, ["notes.md", "split"]],
-  [TUTORIAL_STEPS.markdownVisual, ["notes.md", "split"]],
-  [TUTORIAL_STEPS.html, ["attention-demo.html", "pdf"]],
-  [TUTORIAL_STEPS.board, ["attention-map.tldr", "source"]],
-  [TUTORIAL_STEPS.spreadsheet, ["attention-results.lattice-sheet", "source"]],
-  [TUTORIAL_STEPS.spreadsheetTools, ["attention-results.lattice-sheet", "source"]],
-  [TUTORIAL_STEPS.workspaceActions, ["main.tex", "split"]],
+/** The tutorial document each step is about; `tutorialModeFor` picks the canvas mode that shows it. */
+const STEP_DOCUMENTS = new Map<number, string>([
+  [TUTORIAL_STEPS.latex, "main.tex"],
+  [TUTORIAL_STEPS.presentation, "slides/understanding-attention/index.tsx"],
+  [TUTORIAL_STEPS.viewModes, "main.tex"],
+  [TUTORIAL_STEPS.markdown, "notes.md"],
+  [TUTORIAL_STEPS.markdownVisual, "notes.md"],
+  [TUTORIAL_STEPS.html, "attention-demo.html"],
+  [TUTORIAL_STEPS.board, "attention-map.tldr"],
+  [TUTORIAL_STEPS.spreadsheet, "attention-results.lattice-sheet"],
+  [TUTORIAL_STEPS.spreadsheetTools, "attention-results.lattice-sheet"],
+  [TUTORIAL_STEPS.workspaceActions, "main.tex"],
 ]);
 const STEP_PAPER_VIEWS = new Map<number, "blog" | "fulltext">([
   [TUTORIAL_STEPS.paperBlog, "blog"],
@@ -53,15 +53,14 @@ const STEP_PAPER_VIEWS = new Map<number, "blog" | "fulltext">([
 
 /** Whole-document editors own the canvas; HTML reads best as its preview. */
 function tutorialModeFor(path: string): CanvasMode {
-  if (isOpenSlideDeckPath(path) || path.endsWith(".tldr") || path.endsWith(".lattice-sheet")) return "source";
-  return path.endsWith(".html") ? "pdf" : "split";
+  return isWholeFileEditorPath(path) ? "source" : isHtmlFilePath(path) ? "pdf" : "split";
 }
 
 export function AppOnboardingTour(props: AppOnboardingTourProps) {
   const { canvasMode, openProjectFile, setCanvasMode, setTutorialStep } = props;
   if (!props.tutorialActive) return null;
-  const openAndAdvance = (path: string, mode: CanvasMode, nextStep: number) => openProjectFile(path).then(() => {
-    setCanvasMode(mode);
+  const openAndAdvance = (path: string, nextStep: number) => openProjectFile(path).then(() => {
+    setCanvasMode(tutorialModeFor(path));
     setTutorialStep(nextStep);
   });
   const endTutorial = () => {
@@ -81,7 +80,7 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
         key={`tutorial:${canvasMode}`}
         active
         stepIndex={props.tutorialStep}
-        onSelectTutorialFile={(path, nextStep) => void openAndAdvance(path, tutorialModeFor(path), nextStep)}
+        onSelectTutorialFile={(path, nextStep) => void openAndAdvance(path, nextStep)}
         onStepIndexChange={(nextStep) => {
           const stepDocument = STEP_DOCUMENTS.get(nextStep);
           const paperView = STEP_PAPER_VIEWS.get(nextStep);
@@ -92,11 +91,11 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
           // tour on a full-screen overlay with no cutout and no card.
           // Going forward always arrives with the right document open;
           // only Back returns from a different file.
-          if (!stepDocument || (!props.activePaperPath && props.activeFile === stepDocument[0] && canvasMode === stepDocument[1])) {
+          if (!stepDocument || (!props.activePaperPath && props.activeFile === stepDocument && canvasMode === tutorialModeFor(stepDocument))) {
             setTutorialStep(nextStep);
             return;
           }
-          void openAndAdvance(...stepDocument, nextStep);
+          void openAndAdvance(stepDocument, nextStep);
         }}
         onSkip={endTutorial}
         onComplete={() => {

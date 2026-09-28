@@ -63,8 +63,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       focusCommentId={comments.panelFocusId}
       onClose={comments.closePanel}
       onOpen={(comment) => {
-        const generation = openGenerationRef.current + 1;
-        openGenerationRef.current = generation;
+        const generation = ++openGenerationRef.current;
         setActiveId(comment.id);
         comments.closePanel();
         void openProjectFile(comment.path).then(() => {
@@ -72,16 +71,14 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
           comments.setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
         });
       }}
-      onDelete={(id) => {
-        void (async () => {
-          if (!await confirmAction(
-            t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
-          )) {
-            return;
-          }
-          await persist(comments.comments.filter((comment) => comment.id !== id));
-          setActiveId((current) => (current === id ? null : current));
-        })();
+      onDelete={async (id) => {
+        if (!await confirmAction(
+          t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
+        )) {
+          return;
+        }
+        await persist(comments.comments.filter((comment) => comment.id !== id));
+        setActiveId((current) => (current === id ? null : current));
       }}
       onToggleResolved={(comment) => comments.toggleResolved(comment.id)}
       onUpdateBody={(comment, body) => {

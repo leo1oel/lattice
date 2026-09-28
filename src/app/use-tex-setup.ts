@@ -6,7 +6,7 @@ import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
 import { isRequiredSetupMissing, type TexDependencyInstallProgress } from "../build/tex-setup";
 import { logAction } from "../telemetry/app-notify";
-import { whenIdle } from "./effect-helpers";
+import { useLatest, useRefState, whenIdle } from "./effect-helpers";
 
 /**
  * The TeX toolchain check ("doctor"), the setup wizard it opens when a
@@ -20,22 +20,19 @@ export function useTexSetup(rebuild: () => void) {
   const [doctorNotice, setDoctorNotice] = useState("");
   const doctorGenerationRef = useRef(0);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [install, setInstall] = useState<TexDependencyInstallStatus | null>(null);
-  const installRef = useRef<TexDependencyInstallStatus | null>(null);
+  const [install, , installRef, publishInstall] = useRefState<TexDependencyInstallStatus | null>(null);
   const installAttemptRef = useRef(0);
-  const rebuildRef = useRef(rebuild);
-  useEffect(() => { rebuildRef.current = rebuild; }, [rebuild]);
+  const rebuildRef = useLatest(rebuild);
 
   // Idle-deferred: run_doctor shells out to probe the TeX toolchain, and
   // nothing needs its report during first paint. The timeout keeps the setup
   // wizard appearing within a few seconds on a missing toolchain.
   useEffect(() => {
-    let active = true;
     const cancel = whenIdle(() => {
       const generation = ++doctorGenerationRef.current;
       void invoke<DoctorReport>("run_doctor")
         .then((report) => {
-          if (!active || generation !== doctorGenerationRef.current) return;
+          if (generation !== doctorGenerationRef.current) return;
           setDoctorReport(report);
           if (isRequiredSetupMissing(report)) setWizardOpen(true);
         })
@@ -44,7 +41,7 @@ export function useTexSetup(rebuild: () => void) {
         });
     }, 4_000, 1_000);
     return () => {
-      active = false;
+      doctorGenerationRef.current += 1;
       cancel();
     };
   }, []);
@@ -80,11 +77,6 @@ export function useTexSetup(rebuild: () => void) {
     setWizardOpen(true);
   }, []);
 
-  const publishInstall = (next: TexDependencyInstallStatus | null) => {
-    installRef.current = next;
-    setInstall(next);
-  };
-
   const installDependency = useCallback((missingFile: string) => {
     if (installRef.current?.installing) return;
     const attempt = ++installAttemptRef.current;
@@ -113,13 +105,13 @@ export function useTexSetup(rebuild: () => void) {
         update({ installing: false, error: toMessage(reason) });
         trace.fail(reason);
       });
-  }, [t]);
+  }, [installRef, publishInstall, rebuildRef, t]);
 
   const closeInstall = useCallback(() => {
     if (installRef.current?.installing) return;
     installAttemptRef.current += 1;
     publishInstall(null);
-  }, []);
+  }, [installRef, publishInstall]);
 
   return {
     doctorReport,

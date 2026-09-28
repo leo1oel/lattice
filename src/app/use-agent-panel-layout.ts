@@ -1,24 +1,20 @@
 /* eslint lingui/no-unlocalized-strings: "off" -- Geometry uses DOM selectors and storage keys, not UI copy. */
-import { useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useLayoutEffect, useRef, type PointerEvent, type RefObject } from "react";
+import { useStoredState } from "./use-workspace-sidebar";
 
 const RATIO_KEY = "lattice.agent-dock-ratio.v1";
 const constrain = (value: number) => Math.min(0.65, Math.max(0.2, value));
+const readRatio = (raw: string | null) => {
+  const saved = Number(raw);
+  return saved > 0 && Number.isFinite(saved) ? constrain(saved) : 0.35;
+};
 
 /** Keep the iframe in one DOM location: reparenting it reloads its browsing context. */
 export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: RefObject<HTMLDivElement | null>) {
   const panelRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLElement | null>(null);
-  const [ratio, setRatio] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem(RATIO_KEY));
-      return saved > 0 && Number.isFinite(saved) ? constrain(saved) : 0.35;
-    } catch { return 0.35; }
-  });
-  const resize = (next: number) => {
-    const value = constrain(next);
-    setRatio(value);
-    try { localStorage.setItem(RATIO_KEY, String(value)); } catch { /* Session-only preference. */ }
-  };
+  const [ratio, setRatio] = useStoredState(RATIO_KEY, readRatio, String);
+  const resize = (next: number) => setRatio(constrain(next));
 
   useLayoutEffect(() => {
     const panel = panelRef.current;

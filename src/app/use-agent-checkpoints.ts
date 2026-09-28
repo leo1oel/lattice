@@ -11,6 +11,7 @@ import {
 import type { HistoryItem } from "../history/history-drawer";
 import type { BuildPreferences } from "../settings/app-settings";
 import { persistSynaraThread } from "./app-synara-embed";
+import { clearTimer, restartTimer } from "./effect-helpers";
 
 export type AgentCompileAssociation = { threadId: string; turnId: string; checkpointRef: string };
 
@@ -48,17 +49,13 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
     entriesRef.current.clear();
     primedThreadsRef.current.clear();
     pendingCompilesRef.current.clear();
-    if (buildTimerRef.current !== null) {
-      window.clearTimeout(buildTimerRef.current);
-      buildTimerRef.current = null;
-    }
+    clearTimer(buildTimerRef);
   }, []);
-  const projectRoot = project?.root;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- another project's threads must not survive the switch
     setHistoryByThread({});
     setActiveThreadId(null);
-  }, [projectRoot]);
+  }, [project?.root]);
 
   /** Associations for the checkpoints the next build will cover. */
   const takePendingCompiles = useCallback(() => {
@@ -133,12 +130,10 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
         checkpointRef: entry.checkpointRef,
       });
     }
-    if (buildTimerRef.current) window.clearTimeout(buildTimerRef.current);
-    buildTimerRef.current = window.setTimeout(() => {
-      buildTimerRef.current = null;
+    restartTimer(buildTimerRef, restored ? 0 : 1_500, () => {
       if (projectRef.current?.root !== root) return;
       void compileRef.current(false, false, { consumeAgentAssociations: true });
-    }, restored ? 0 : 1_500);
+    });
   }, [autoBuildModeRef, compileRef, onExternalEdits, projectRef]);
 
   /** Each thread's checkpoints as history-drawer items; only the open thread can restore. */

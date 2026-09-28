@@ -7,7 +7,7 @@ export type SidebarMode = "project" | "papers" | "agent";
 const SYNARA_SIDEBAR_INITIAL_MINIMUM = 310;
 
 /** State persisted to localStorage; storage failures keep it session-only. */
-function useStoredState<T>(
+export function useStoredState<T>(
   key: string,
   read: (raw: string | null) => T,
   write: (value: T) => string,
@@ -32,7 +32,6 @@ function useStoredState<T>(
 const readDocked = (raw: string | null) => raw === "1";
 const writeDocked = (docked: boolean) => (docked ? "1" : "0");
 const readSidebarMode = (raw: string | null): SidebarMode => (raw === "papers" || raw === "agent" ? raw : "project");
-const writeSidebarMode = (mode: SidebarMode) => mode;
 
 /**
  * The left sidebar: its resizable panel, which mode it shows, whether the
@@ -44,11 +43,10 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
   const [minimumSidebarWidth, setMinimumSidebarWidth] = useState(SYNARA_SIDEBAR_INITIAL_MINIMUM);
   const panel = usePanelLayout(minimumSidebarWidth);
   const [agentDocked, setAgentDocked] = useStoredState("lattice.agent-docked.v1", readDocked, writeDocked);
-  const [sidebarMode, setSidebarMode] = useStoredState("lattice.sidebar-mode.v1", readSidebarMode, writeSidebarMode);
+  const [sidebarMode, setSidebarMode] = useStoredState("lattice.sidebar-mode.v1", readSidebarMode, String);
   const sidebarModeHeaderRef = useRef<HTMLDivElement>(null);
   const sidebarModeActionsRef = useRef<HTMLDivElement>(null);
   const [sidebarModeTier, setSidebarModeTier] = useState<SidebarModeTier>(4);
-  const { sidebarOpen } = panel;
   useEffect(() => {
     const header = sidebarModeHeaderRef.current;
     const actions = sidebarModeActionsRef.current;
@@ -88,7 +86,7 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
       window.removeEventListener("resize", scheduleMeasure);
       if (frameId !== null) cancelAnimationFrame(frameId);
     };
-  }, [remeasureKey, sidebarMode, sidebarOpen]);
+  }, [panel.sidebarOpen, remeasureKey, sidebarMode]);
   return {
     ...panel,
     minimumSidebarWidth, setMinimumSidebarWidth,

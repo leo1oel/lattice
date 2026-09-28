@@ -190,54 +190,40 @@ export function AppWorkspaceSidebar({ sidebar, synara, ...props }: AppWorkspaceS
           slotRef={slotRef}
         />
       </Suspense>}
-      <PanelResizer
-        label={t`Resize workspace sidebar`}
-        value={sidebarWidth}
-        open={sidebarOpen}
-        resizing={sidebar.sidebarResizing}
-        onCollapse={() => sidebar.setSidebarOpen(false)}
-        onPointerDown={sidebar.beginSidebarResize}
-        onNudge={sidebar.nudgeSidebar}
-      />
+      <SidebarResizer sidebar={sidebar} />
     </>
   );
 }
 
-function PanelResizer(props: {
-  label: string;
-  value: number;
-  open: boolean;
-  resizing: boolean;
-  onCollapse: () => void;
-  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
-  onNudge: (delta: number) => void;
-}) {
+/** The divider between the sidebar and the canvas: drag to resize, click (or Enter) to collapse. */
+function SidebarResizer({ sidebar }: { sidebar: AppWorkspaceSidebarProps["sidebar"] }) {
   const { t } = useLingui();
+  const { sidebarOpen: open } = sidebar;
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [pointerOffset, setPointerOffset] = useState<number | null>(null);
   const collapse = () => {
-    props.onCollapse();
+    sidebar.setSidebarOpen(false);
     document.querySelector<HTMLButtonElement>(".titlebar-sidebar-toggle button")?.focus();
   };
   const keyActions = new Map<string, () => void>([
     ["Enter", collapse],
     [" ", collapse],
-    ["ArrowLeft", () => props.onNudge(-16)],
-    ["ArrowRight", () => props.onNudge(16)],
+    ["ArrowLeft", () => sidebar.nudgeSidebar(-16)],
+    ["ArrowRight", () => sidebar.nudgeSidebar(16)],
   ]);
   return (
     <TooltipProvider delayDuration={280}>
-    <Tooltip open={tooltipOpen && !props.resizing && props.open} onOpenChange={setTooltipOpen}>
+    <Tooltip open={tooltipOpen && !sidebar.sidebarResizing && open} onOpenChange={setTooltipOpen}>
     <TooltipTrigger asChild>
     <div
       className="panel-resizer sidebar-resizer"
       role="separator"
-      aria-label={props.label}
+      aria-label={t`Resize workspace sidebar`}
       aria-orientation="vertical"
-      aria-valuenow={Math.round(props.value)}
-      aria-hidden={!props.open}
-      tabIndex={props.open ? 0 : -1}
-      onPointerDown={props.onPointerDown}
+      aria-valuenow={Math.round(sidebar.sidebarWidth)}
+      aria-hidden={!open}
+      tabIndex={open ? 0 : -1}
+      onPointerDown={sidebar.beginSidebarResize}
       onPointerMove={(event) => {
         if (event.pointerType === "mouse") setPointerOffset(event.clientY - event.currentTarget.getBoundingClientRect().top);
       }}

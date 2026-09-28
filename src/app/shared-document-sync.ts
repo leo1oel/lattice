@@ -20,7 +20,6 @@ import {
 import type { OpenSlideMutation } from "../editor/presentation/open-slide-bridge";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setWarning } from "./notify";
-import { base64ToBytes, bytesToBase64 } from "./use-collab-v2-session";
 
 /**
  * Writes that must land in a live Lattice Share (Yjs v2) as well as on disk:
@@ -47,6 +46,18 @@ export type SharedWorkspace = {
   projectRoot: string;
 };
 
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+export function base64ToBytes(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
 const textDecoder = new TextDecoder("utf-8", { fatal: true });
 const textEncoder = new TextEncoder();
 const encodeText = (text: string) => bytesToBase64(textEncoder.encode(text));
@@ -72,32 +83,47 @@ function localMutations(disk: SharedWorkspaceDisk): CollabLocalMutationsV2 {
   };
 }
 
-async function bindingContent(
-  binding: SideloadedTextBindingV2,
-  kind: OverleafAuthoritativeEntry["kind"],
-): Promise<string> {
-  if (kind === "board") {
-    return (await import("../editor/board/board-yjs-bridge")).boardDocContent(binding.doc);
-  }
-  if (kind === "spreadsheet") {
-    return (await import("../editor/spreadsheet/spreadsheet-yjs")).spreadsheetDocContent(binding.doc);
-  }
+type SharedDoc = SideloadedTextBindingV2["doc"];
+type StructuredCodec = { content: (doc: SharedDoc) => string; replace: (doc: SharedDoc, source: string) => void };
+
+/** Boards and spreadsheets keep structured Yjs state beside the content text; their codecs load on first use. */
+const structuredCodecs: Record<"board" | "spreadsheet", () => Promise<StructuredCodec>> = {
+  board: async () => {
+    const { boardDocContent, replaceBoardDocFromSource } = await import("../editor/board/board-yjs-bridge");
+    return { content: boardDocContent, replace: replaceBoardDocFromSource };
+  },
+  spreadsheet: async () => {
+    const { spreadsheetDocContent, replaceSpreadsheetDocFromSource } = await import("../editor/spreadsheet/spreadsheet-yjs");
+    return { content: spreadsheetDocContent, replace: replaceSpreadsheetDocFromSource };
+  },
+};
+
+async function bindingContent(binding: SideloadedTextBindingV2, kind: OverleafAuthoritativeEntry["kind"]): Promise<string> {
+  if (kind === "board" || kind === "spreadsheet") return (await structuredCodecs[kind]()).content(binding.doc);
   return binding.ytext.toString();
 }
 
-async function applyStructuredContent(
-  binding: SideloadedTextBindingV2,
-  kind: "board" | "spreadsheet",
-  content: string,
+/** The share's live catalog entry for `path`, if it has one. */
+function liveCatalogFile(controller: CollabProjectControllerV2, path: string) {
+  return controller.catalogFiles().find((entry) => entry.path === path && entry.state === "live");
+}
+
+/** Upload `bytes` as `path`'s shared content; importing over a live path is an update, not a create. */
+export async function publishSharedBinary(
+  controller: CollabProjectControllerV2,
+  path: string,
+  bytes: Uint8Array,
+  mimeType: string,
+  mutations: CollabLocalMutationsV2,
 ): Promise<void> {
-  const version = binding.version;
-  if (kind === "board") {
-    const { replaceBoardDocFromSource } = await import("../editor/board/board-yjs-bridge");
-    binding.applyExternalDocument((doc) => replaceBoardDocFromSource(doc, content), version);
-  } else {
-    const { replaceSpreadsheetDocFromSource } = await import("../editor/spreadsheet/spreadsheet-yjs");
-    binding.applyExternalDocument((doc) => replaceSpreadsheetDocFromSource(doc, content), version);
-  }
+  if (!liveCatalogFile(controller, path)) await controller.create(path, "binary");
+  await controller.replaceBinary(path, bytes, mimeType, mutations);
+}
+
+/** Put `bytes` in the share, then on disk. */
+async function writeSharedBinary({ controller, disk, projectRoot }: SharedWorkspace, path: string, bytes: Uint8Array) {
+  await publishSharedBinary(controller, path, bytes, projectFileMimeType(path), localMutations(disk));
+  await disk.writeBytes(path, bytes, projectRoot);
 }
 
 async function withSideloadedText<T>(
@@ -156,18 +182,15 @@ function catalogKindForNewPath(action: OverleafPreparedAction): OverleafAuthorit
  * locally. Anything that cannot be applied safely right now is deferred.
  */
 export async function syncSharedProjectWithOverleaf(
-  { controller, lease, disk, projectRoot }: SharedWorkspace,
+  workspace: SharedWorkspace,
   commitOpenText: (path: string, content: string) => void,
   request: { observedRemoteVersion?: number | null; livePaths: readonly string[]; operationId: string },
 ): Promise<OverleafSyncResult> {
+  const { controller, lease, disk, projectRoot } = workspace;
   await controller.settled();
   await controller.flush();
   await controller.refetchCatalog();
   assertCollabWorkspaceLease(lease);
-  const mutations = localMutations(disk);
-  const liveFile = (path: string) => controller.catalogFiles().find((entry) => (
-    entry.path === path && entry.state === "live"
-  ));
 
   const inventory: OverleafAuthoritativeEntry[] = [];
   for (const file of controller.catalogFiles().filter((entry) => entry.state === "live")) {
@@ -193,7 +216,7 @@ export async function syncSharedProjectWithOverleaf(
 
   /** The accepted content for one planned action, or null to defer it. */
   const accept = async (action: OverleafPreparedAction): Promise<string | null> => {
-    const file = liveFile(action.path);
+    const file = liveCatalogFile(controller, action.path);
     // Catalog deletion and a Yjs edit cannot be one atomic operation. Keep
     // remote deletions pending while a Share is live rather than deleting a
     // peer's edit in the gap between an equality check and the tree update.
@@ -215,10 +238,7 @@ export async function syncSharedProjectWithOverleaf(
       if (file) return null;
       const kind = catalogKindForNewPath(action);
       if (kind === "binary") {
-        const bytes = base64ToBytes(afterBase64);
-        await controller.create(action.path, kind);
-        await controller.replaceBinary(action.path, bytes, projectFileMimeType(action.path), mutations);
-        await disk.writeBytes(action.path, bytes, projectRoot);
+        await writeSharedBinary(workspace, action.path, base64ToBytes(afterBase64));
       } else {
         const content = decodeText(afterBase64);
         await controller.create(action.path, kind, { seedText: content });
@@ -232,7 +252,7 @@ export async function syncSharedProjectWithOverleaf(
     if (file.kind === "binary") {
       if (bytesToBase64(await controller.downloadBinary(action.path)) !== action.beforeBase64) return null;
       const replacement = base64ToBytes(afterBase64);
-      await controller.replaceBinary(action.path, replacement, projectFileMimeType(action.path), mutations);
+      await controller.replaceBinary(action.path, replacement, projectFileMimeType(action.path), localMutations(disk));
       await disk.writeBytes(action.path, replacement, projectRoot);
       return afterBase64;
     }
@@ -252,7 +272,10 @@ export async function syncSharedProjectWithOverleaf(
       } else {
         if (encodeText(await bindingContent(binding, kind)) !== action.beforeBase64) return null;
         try {
-          await applyStructuredContent(binding, kind, decodeText(afterBase64));
+          const source = decodeText(afterBase64);
+          const version = binding.version;
+          const { replace } = await structuredCodecs[kind]();
+          binding.applyExternalDocument((doc) => replace(doc, source), version);
         } catch {
           return null;
         }
@@ -304,7 +327,7 @@ export async function writeOpenSlideMutation(
 ): Promise<{ text?: string; base64?: string; hadConflicts: boolean }> {
   const { path } = mutation;
   if (mutation.kind === "delete") {
-    if (shared && shared.controller.catalogFiles().some((file) => file.path === path && file.state === "live")) {
+    if (shared && liveCatalogFile(shared.controller, path)) {
       await shared.controller.delete(path, localMutations(shared.disk));
       return { hadConflicts: false };
     }
@@ -356,17 +379,8 @@ export async function writeOpenSlideMutation(
   }
 
   if (mutation.base64 !== undefined) {
-    if (shared) {
-      const { controller, disk } = shared;
-      const bytes = base64ToBytes(mutation.base64);
-      if (!controller.catalogFiles().some((file) => file.path === path && file.state === "live")) {
-        await controller.create(path, "binary");
-      }
-      await controller.replaceBinary(path, bytes, projectFileMimeType(path), localMutations(disk));
-      await disk.writeBytes(path, bytes, projectRoot);
-    } else {
-      await invoke("write_project_bytes", { path, base64Data: mutation.base64, projectRoot });
-    }
+    if (shared) await writeSharedBinary(shared, path, base64ToBytes(mutation.base64));
+    else await invoke("write_project_bytes", { path, base64Data: mutation.base64, projectRoot });
     return { base64: mutation.base64, hadConflicts: false };
   }
 

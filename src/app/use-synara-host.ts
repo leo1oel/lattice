@@ -17,6 +17,7 @@ import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
+import { useLatest } from "./effect-helpers";
 
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
@@ -98,7 +99,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   const [autoModeAvailable, setAutoModeAvailable] = useState(true);
   const frameKey = origin && project ? `${origin}\0${project.root}` : null;
   const frameReady = frameKey !== null && readyFrameKey === frameKey;
-  const projectRootRef = useRef<string | null>(null);
+  const projectRootRef = useLatest(project?.root ?? null);
   const latest = useRef({
     bridge,
     agentVisible,
@@ -107,7 +108,6 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     paperLibrary: null as AgentPaperLibrarySnapshot | null,
   });
   useLayoutEffect(() => {
-    projectRootRef.current = project?.root ?? null;
     Object.assign(latest.current, { bridge, agentVisible, frameKey });
   });
 
@@ -141,7 +141,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
       }
     }
     frameRef.current?.contentWindow?.postMessage(message, origin);
-  }, [origin]);
+  }, [origin, projectRootRef]);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
   }, [frameReady, postMessage]);
@@ -280,7 +280,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [origin, postMessage, projectRef]);
+  }, [origin, postMessage, projectRef, projectRootRef]);
 
   const requestRuntime = useCallback(() => setRuntimeRequested(true), []);
   return {

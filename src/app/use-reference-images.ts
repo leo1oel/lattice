@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview } from "../app-types";
 import { referenceAssetPreviewDataUrl } from "../project/reference-preview";
-import { subscribeTauriEvent } from "./effect-helpers";
+import { subscribeTauriEvent, useRefState } from "./effect-helpers";
 
 type CacheEntry = { promise: Promise<string | null>; characters: number };
 
@@ -48,8 +48,7 @@ function normalizeProjectRelativePath(path: string): string | null {
 export function useReferenceImages(projectRoot: string | undefined, references: unknown) {
   const cacheRef = useRef(new Map<string, CacheEntry>());
   const loadedRef = useRef({ root: "", paths: new Set<string>() });
-  const generationRef = useRef(0);
-  const [generation, setGeneration] = useState(0);
+  const [generation, , generationRef, setGeneration] = useRefState(0);
 
   useEffect(() => {
     cacheRef.current.clear();
@@ -72,10 +71,9 @@ export function useReferenceImages(projectRoot: string | undefined, references: 
       // watcher names one of their assets; paper-library and .git churn must
       // not make an unrelated document repaint.
       cacheRef.current.clear();
-      generationRef.current += 1;
-      setGeneration(generationRef.current);
+      setGeneration(generationRef.current + 1);
     });
-  }, [projectRoot]);
+  }, [generationRef, projectRoot, setGeneration]);
 
   const load = useCallback((path: string) => {
     const root = projectRoot ?? "";
@@ -117,7 +115,7 @@ export function useReferenceImages(projectRoot: string | undefined, references: 
     cache.set(key, { promise: preview, characters: 0 });
     trimCache(cache);
     return preview;
-  }, [projectRoot]);
+  }, [generationRef, projectRoot]);
 
   return { load, generation };
 }

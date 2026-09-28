@@ -1,5 +1,6 @@
-import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { clamp, loadSidebarOpen, loadSidebarWidth, persistSidebarOpen, persistSidebarWidth } from "../settings/app-settings";
+import { clearTimer, restartTimer, useLatest, type TimerRef } from "./effect-helpers";
 
 const MIN_TAB_STRIP_WIDTH = 220;
 const FALLBACK_MIN_EDITOR_WIDTH = 600;
@@ -49,12 +50,8 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
   }, []);
   const finishResizeRef = useRef<(() => void) | null>(null);
   // Synara can report a new intrinsic minimum mid-drag; the active resize
-  // reads it here. Refreshed after commit (both readers are pointer handlers):
-  // a render-phase write would make the React Compiler skip this hook.
-  const minimumSidebarWidthRef = useRef(minimumSidebarWidth);
-  useLayoutEffect(() => {
-    minimumSidebarWidthRef.current = minimumSidebarWidth;
-  });
+  // reads it here (both readers are pointer handlers).
+  const minimumSidebarWidthRef = useLatest(minimumSidebarWidth);
   useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
   useEffect(() => () => finishResizeRef.current?.(), []);
   const fitSidebarToContent = useCallback(() => {
@@ -65,16 +62,13 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
   }, [minimumSidebarWidth]);
   useEffect(() => fitSidebarToContent(), [fitSidebarToContent]);
   useEffect(() => {
-    let timer: number | undefined;
-    const fitAfterWindowResize = () => {
-      window.clearTimeout(timer);
-      // This reads several rendered widths; once per native resize event it can
-      // make WKWebView fall behind the window server during a fast drag.
-      timer = window.setTimeout(fitSidebarToContent, 80);
-    };
+    const timer: TimerRef = { current: null };
+    // This reads several rendered widths; once per native resize event it can
+    // make WKWebView fall behind the window server during a fast drag.
+    const fitAfterWindowResize = () => restartTimer(timer, 80, fitSidebarToContent);
     window.addEventListener("resize", fitAfterWindowResize);
     return () => {
-      window.clearTimeout(timer);
+      clearTimer(timer);
       window.removeEventListener("resize", fitAfterWindowResize);
     };
   }, [fitSidebarToContent]);
@@ -149,7 +143,7 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
     window.addEventListener("pointermove", move, { signal });
     for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, finish, { signal });
     target.addEventListener("lostpointercapture", finish, { signal });
-  }, [sidebarWidth]);
+  }, [minimumSidebarWidthRef, sidebarWidth]);
 
   const nudgeSidebar = useCallback((delta: number) => {
     setSidebarWidth((current) => {

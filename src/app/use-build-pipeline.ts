@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
@@ -9,6 +9,7 @@ import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
+import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
 import { setError } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 
@@ -21,6 +22,7 @@ type BuildOptions = {
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
 type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
+const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
 
 type Ref<T> = { readonly current: T };
 
@@ -38,6 +40,21 @@ function adoptRootDocument(project: ProjectSnapshot, rootDocument: string): Proj
     rootDocuments.push({ path: rootDocument, name: stem || rootDocument, isDefault: true });
   }
   return { ...project, manifest: { ...project.manifest, rootDocuments } };
+}
+
+/** Ask, then delete LaTeX auxiliary files while `cleaning` is held; false when declined or failed. */
+async function cleanAuxiliaryFiles(question: string, setCleaning: (cleaning: boolean) => void): Promise<boolean> {
+  if (!await confirmAction(question)) return false;
+  setCleaning(true);
+  try {
+    await invoke("clean_project");
+    return true;
+  } catch (reason) {
+    setError(toMessage(reason));
+    return false;
+  } finally {
+    setCleaning(false);
+  }
 }
 
 /**
@@ -67,9 +84,8 @@ export function useBuildPipeline({
 }) {
   const { t } = useLingui();
   const [build, setBuild] = useState<BuildResult | null>(null);
-  const [building, setBuilding] = useState(false);
-  const buildingRef = useRef(false);
-  const queueRef = useRef<QueuedBuild>({ force: null, sound: false, consumeAgentAssociations: false });
+  const [building, , buildingRef, setBuilding] = useRefState(false);
+  const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
   const [cleaning, setCleaning] = useState(false);
   /** The buffers each build compiled, so diagnostics only show against the text they describe. */
   const [compiledSources, setCompiledSources] = useState({ primary: "", secondary: "" });
@@ -78,7 +94,7 @@ export function useBuildPipeline({
   /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
    *  set stays dismissed through the recompiles that autosave keeps firing. */
   const dismissedDiagnosticsRef = useRef<string | null>(null);
-  const diagnosticCursorRef = useRef(0);
+  const diagnosticCursorRef = useRef<{ build: BuildResult | null; index: number }>({ build: null, index: 0 });
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const pdfFingerprintRef = useRef<string | null>(null);
@@ -99,21 +115,19 @@ export function useBuildPipeline({
     // change. Debounce preview updates for autosave compiles so pdf.js is
     // not destroyed mid-load on every keystroke pause.
     pendingPreviewRef.current = bytes;
-    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    clearTimer(previewTimerRef);
     const applyPreview = () => {
-      previewTimerRef.current = null;
       const pending = pendingPreviewRef.current;
       if (previewGeneration !== previewGenerationRef.current || !pending) return;
       const fingerprint = pdfBytesFingerprint(pending);
       pendingPreviewRef.current = null;
       if (fingerprint === pdfFingerprintRef.current) return;
       pdfFingerprintRef.current = fingerprint;
-      const nextUrl = pdfBytesToObjectUrl(pending);
       displayedPdfBytesRef.current = pending;
-      replacePdfUrl(nextUrl);
+      replacePdfUrl(pdfBytesToObjectUrl(pending));
     };
     if (immediate) applyPreview();
-    else previewTimerRef.current = window.setTimeout(applyPreview, 1_200);
+    else restartTimer(previewTimerRef, 1_200, applyPreview);
   }, [replacePdfUrl]);
 
   /**
@@ -129,10 +143,7 @@ export function useBuildPipeline({
     pdfFingerprintRef.current = null;
     displayedPdfBytesRef.current = null;
     pendingPreviewRef.current = null;
-    if (previewTimerRef.current) {
-      window.clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
+    clearTimer(previewTimerRef);
     replacePdfUrl(null);
     if (!showCachedPdf) return;
     const current = (fingerprint: string | null) => generation === previewGenerationRef.current
@@ -162,11 +173,8 @@ export function useBuildPipeline({
 
   /** Forget queued work; `cancelQueuedBuild` also drops a queued pass itself. */
   const resetQueue = useCallback((cancelQueuedBuild: boolean) => {
-    queueRef.current.consumeAgentAssociations = false;
-    if (cancelQueuedBuild) {
-      queueRef.current.force = null;
-      queueRef.current.sound = false;
-    }
+    if (cancelQueuedBuild) Object.assign(queueRef.current, IDLE_QUEUE);
+    else queueRef.current.consumeAgentAssociations = false;
   }, []);
 
   const { takePendingCompiles, reportCompiles } = agent;
@@ -197,7 +205,6 @@ export function useBuildPipeline({
       queue.consumeAgentAssociations ||= options?.consumeAgentAssociations === true;
       return;
     }
-    buildingRef.current = true;
     setBuilding(true);
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
@@ -213,8 +220,8 @@ export function useBuildPipeline({
     let shouldNavigateToError = options?.sound === true;
     let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
     let completionSound: "build-succeeded" | "build-failed" | null = null;
-    queue.sound = false;
-    queue.consumeAgentAssociations = false;
+    // Nothing is queued while no build runs (`force` is only set behind the lock), so this clears flags alone.
+    Object.assign(queue, IDLE_QUEUE);
     try {
       let currentForce = force;
       const takeQueuedBuild = () => {
@@ -225,12 +232,10 @@ export function useBuildPipeline({
         shouldPlayCompletionSound ||= queue.sound;
         shouldNavigateToError = queue.sound;
         shouldConsumeAgentAssociations = queue.consumeAgentAssociations;
-        queue.sound = false;
-        queue.consumeAgentAssociations = false;
+        Object.assign(queue, IDLE_QUEUE);
         return true;
       };
       do {
-        queue.force = null;
         // Associate only work present at the start of this pass. A checkpoint
         // arriving during an in-flight build remains pending for the queued
         // pass, rather than being credited to stale output.
@@ -333,95 +338,59 @@ export function useBuildPipeline({
     } finally {
       trace.finish("cancelled", t`Build superseded`);
       const queued = queue.force === null ? null : { ...queue, force: queue.force };
-      queue.force = null;
-      queue.sound = false;
-      queue.consumeAgentAssociations = false;
-      buildingRef.current = false;
+      Object.assign(queue, IDLE_QUEUE);
       setBuilding(false);
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) playInterfaceSound(completionSound);
       // A backend rejection skips the loop's takeQueuedBuild() condition. Start
       // the captured pass only after releasing the in-flight lock, and only if
       // its immutable project scope still owns the active root.
       if (queued && scopeIsCurrent()) {
-        void runBuild(queued.force, {
-          immediatePreview: options?.immediatePreview ?? queued.force,
-          sound: queued.sound,
-          consumeAgentAssociations: queued.consumeAgentAssociations,
-        });
+        void runBuild(queued.force, { ...queued, immediatePreview: options?.immediatePreview ?? queued.force });
       }
     }
   }, [
-    activeFileRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
-    savedSourceRef, secondarySourceRef, setProject, showPreview, sourceRef, t, takePendingCompiles,
+    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
+    savedSourceRef, secondarySourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
 
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
-    try {
-      await invoke<boolean>("abort_build");
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, []);
+    await invoke<boolean>("abort_build").catch((reason) => setError(toMessage(reason)));
+  }, [buildingRef]);
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    if (!await confirmAction("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?")) return;
-    setCleaning(true);
-    try {
-      await invoke("clean_project");
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setCleaning(false);
-    }
+    await cleanAuxiliaryFiles("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?", setCleaning);
   }, [building, cleaning, project]);
 
   const cleanAndRebuild = useCallback(async () => {
     if (!project || cleaning) return;
     // The active build owns the backend until it settles. Preserve the clean
     // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current) {
+    if (buildingRef.current || await cleanAuxiliaryFiles("Delete auxiliary files and rebuild the PDF?", setCleaning)) {
       await runBuild(true, { requested: true, sound: true });
-      return;
     }
-    if (!await confirmAction("Delete auxiliary files and rebuild the PDF?")) return;
-    setCleaning(true);
-    try {
-      await invoke("clean_project");
-      setCleaning(false);
-      await runBuild(true, { requested: true, sound: true });
-    } catch (reason) {
-      setError(toMessage(reason));
-      setCleaning(false);
-    }
-  }, [cleaning, project, runBuild]);
+  }, [buildingRef, cleaning, project, runBuild]);
 
   const dismissDiagnostics = useCallback((diagnostics: CompileDiagnostic[]) => {
     dismissedDiagnosticsRef.current = diagnosticsFingerprint(diagnostics);
     setDiagnosticsDismissed(true);
   }, []);
 
-  /** Step to the next or previous diagnostic of the current build, wrapping. */
+  /** Step to the next or previous diagnostic of the current build, wrapping; a new build restarts the walk. */
   const cycleDiagnostic = useCallback((direction: 1 | -1) => {
     const diagnostics = build?.diagnostics ?? [];
     if (!diagnostics.length) return;
-    const next = (diagnosticCursorRef.current + direction + diagnostics.length * 10) % diagnostics.length;
-    diagnosticCursorRef.current = next;
+    const cursor = diagnosticCursorRef.current.build === build ? diagnosticCursorRef.current.index : 0;
+    const next = (cursor + direction + diagnostics.length * 10) % diagnostics.length;
+    diagnosticCursorRef.current = { build, index: next };
     void openDiagnosticRef.current(diagnostics[next]);
-  }, [build?.diagnostics, openDiagnosticRef]);
-  // A new build restarts the diagnostic walk from its first entry.
-  useEffect(() => {
-    diagnosticCursorRef.current = 0;
-  }, [build]);
+  }, [build, openDiagnosticRef]);
 
   return {
     build,
     setBuild,
     building,
-    buildingRef,
     cleaning,
     compiledSources,
     diagnosticsExpanded,

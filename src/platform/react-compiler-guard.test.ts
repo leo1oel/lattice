@@ -31,8 +31,8 @@ const CEILINGS: Record<string, number> = {
   // the guard's field of view entirely.
   "src/app/use-overleaf-workspace.ts": 1,
   "src/app/use-collab-v2-session.ts": 8,
-  "src/app/use-build-pipeline.ts": 7,
-  "src/app/use-reference-import.ts": 3,
+  "src/app/use-build-pipeline.ts": 6,
+  "src/app/use-reference-import.ts": 2,
   "src/app/use-editor-comments.ts": 1,
   "src/app/use-tex-setup.ts": 1,
   "src/app/app-collab-surfaces.tsx": 0,

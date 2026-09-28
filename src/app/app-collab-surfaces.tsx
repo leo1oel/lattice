@@ -19,11 +19,9 @@ const OverleafCollabDrawer = lazy(() =>
   import("../overleaf/overleaf-collab").then((module) => ({ default: module.OverleafCollabDrawer })),
 );
 
-export type CollabV2Session = ReturnType<typeof useCollabV2Session>;
-
 /** The Lattice Shares dialog. `joinOnly` is the Welcome screen's join form, which has no chat. */
 export function AppCollabDialog({ collab, session, onJoin, onRejoin, onInstallTex, joinOnly = false, chat }: {
-  collab: CollabV2Session;
+  collab: ReturnType<typeof useCollabV2Session>;
   session: EditorCollabSession | null;
   onJoin: () => void;
   onRejoin: (record: CollabProjectRecordV2) => void;
@@ -89,10 +87,8 @@ export function AppCollabDialog({ collab, session, onJoin, onRejoin, onInstallTe
   );
 }
 
-export type OverleafWorkspace = ReturnType<typeof useOverleafWorkspace>;
-
-export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, ...props }: {
-  overleaf: OverleafWorkspace;
+export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, activeFileRef, openProjectFile, source, ...localCommentProps }: {
+  overleaf: ReturnType<typeof useOverleafWorkspace>;
   onClose: () => void;
   localComments: ReactNode;
   localCommentCount: number;
@@ -117,11 +113,7 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, ...
   return (
     <Suspense fallback={null}>
       <OverleafCollabDrawer
-        localComments={props.localComments}
-        localCommentCount={props.localCommentCount}
-        hasLocalComments={props.hasLocalComments}
-        focusLocalComments={props.focusLocalComments}
-        focusThreadId={props.focusThreadId}
+        {...localCommentProps}
         tab={overleaf.overleafCollabTab}
         onTab={overleaf.setOverleafCollabTab}
         projectName={overleafLink.projectName}
@@ -141,10 +133,10 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, ...
         // The comment may be on a file that is not open, so open it first and
         // place the caret after.
         onRevealComment={(path, position) => {
-          void props.openProjectFile(path).then(() => revealAt(path, position));
+          void openProjectFile(path).then(() => revealAt(path, position));
         }}
         onReveal={(position) => {
-          const path = props.activeFileRef.current;
+          const path = activeFileRef.current;
           if (path) revealAt(path, position);
         }}
         messages={overleafChat.messages}
@@ -153,7 +145,7 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, ...
         onSend={overleafChat.send}
         unreadChat={overleafChat.unread}
         changes={overleafRealtime.changes}
-        source={props.source}
+        source={source}
         changeAuthorName={overleafTrackChanges.authorName}
         canActOnChanges={overleafRealtime.canWrite}
         changesBusy={overleafTrackChanges.busy}

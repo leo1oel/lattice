@@ -4,7 +4,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toMessage } from "../app-utils";
 import type { CollabProjectControllerV2 } from "../collab/collab-project-v2";
-import { disposeWhenSettled } from "./effect-helpers";
+import { clearTimer, disposeWhenSettled, restartTimer, type TimerRef } from "./effect-helpers";
 import { setError } from "./notify";
 import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
@@ -23,13 +23,10 @@ type AppWindow = NonNullable<ReturnType<typeof getCurrentWindowSafely>>;
 
 /** Run `callback` once native resize events have been quiet for `delayMs`. */
 function onResizeSettled(appWindow: AppWindow, delayMs: number, callback: () => void): () => void {
-  let timer: number | undefined;
-  const stop = disposeWhenSettled(appWindow.onResized(() => {
-    if (timer !== undefined) window.clearTimeout(timer);
-    timer = window.setTimeout(callback, delayMs);
-  }));
+  const timer: TimerRef = { current: null };
+  const stop = disposeWhenSettled(appWindow.onResized(() => restartTimer(timer, delayMs, callback)));
   return () => {
-    if (timer !== undefined) window.clearTimeout(timer);
+    clearTimer(timer);
     stop();
   };
 }

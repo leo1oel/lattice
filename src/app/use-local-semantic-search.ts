@@ -4,7 +4,7 @@ import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, type LocalSemanticSearchStatus } from "../project/project-semantic-search";
 import { LOCAL_SEMANTIC_SEARCH_KEY, loadLocalSemanticSearchEnabled, persistLocalSemanticSearchEnabled } from "../settings/app-settings";
-import { subscribeTauriEvent } from "./effect-helpers";
+import { clearTimer, restartTimer, subscribeTauriEvent } from "./effect-helpers";
 
 function cancelSemanticIndex(projectRef: RefObject<ProjectSnapshot | null>) {
   const projectRoot = projectRef.current?.root;
@@ -45,18 +45,11 @@ export function useLocalSemanticSearch(
 
   const requestReindex = useCallback(() => {
     if (!enabled) return;
-    if (reindexTimerRef.current !== null) window.clearTimeout(reindexTimerRef.current);
     // One save/build can still produce several coalesced bursts; a trailing
     // request avoids restarting the background generation while files settle.
-    reindexTimerRef.current = window.setTimeout(() => {
-      reindexTimerRef.current = null;
-      setRevision((current) => current + 1);
-    }, 750);
+    restartTimer(reindexTimerRef, 750, () => setRevision((current) => current + 1));
   }, [enabled]);
-  useEffect(() => () => {
-    if (reindexTimerRef.current !== null) window.clearTimeout(reindexTimerRef.current);
-    reindexTimerRef.current = null;
-  }, [enabled, projectRoot]);
+  useEffect(() => () => clearTimer(reindexTimerRef), [enabled, projectRoot]);
 
   useEffect(() => {
     if (!enabled || !projectRoot) return;

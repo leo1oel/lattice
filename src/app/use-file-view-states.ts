@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { FileViewState, ProjectSnapshot } from "../app-types";
 import { loadFileViewStates, persistFileViewStates } from "../settings/app-settings";
+import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
 
 const within = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
@@ -21,8 +22,7 @@ export function useFileViewStates(
 ) {
   const statesRef = useRef(new Map<string, FileViewState>());
   const persistTimerRef = useRef<number | null>(null);
-  const epochRef = useRef(0);
-  const [epoch, setEpoch] = useState(0);
+  const [epoch, , epochRef, setEpoch] = useRefState(0);
   const removedRef = useRef<string[]>([]);
 
   const persist = useCallback(() => {
@@ -30,26 +30,14 @@ export function useFileViewStates(
     if (root) persistFileViewStates(root, Object.fromEntries(statesRef.current));
   }, [projectBeforeTransitionRef, projectRef]);
   const flush = useCallback(() => {
-    if (persistTimerRef.current !== null) {
-      window.clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = null;
-    }
+    clearTimer(persistTimerRef);
     persist();
   }, [persist]);
-  const schedule = useCallback(() => {
-    if (persistTimerRef.current !== null) window.clearTimeout(persistTimerRef.current);
-    persistTimerRef.current = window.setTimeout(() => {
-      persistTimerRef.current = null;
-      persist();
-    }, 250);
-  }, [persist]);
+  const schedule = useCallback(() => restartTimer(persistTimerRef, 250, persist), [persist]);
   useEffect(() => flush, [flush]);
 
   /** Retire every `remember` callback handed out so far. */
-  const invalidate = useCallback(() => {
-    epochRef.current += 1;
-    setEpoch(epochRef.current);
-  }, []);
+  const invalidate = useCallback(() => setEpoch(epochRef.current + 1), [epochRef, setEpoch]);
 
   const remember = useCallback((path: string, update: Partial<FileViewState>) => {
     if (!path || epoch !== epochRef.current || removedRef.current.some((removed) => within(path, removed))
@@ -59,7 +47,7 @@ export function useFileViewStates(
     statesRef.current.delete(path);
     statesRef.current.set(path, next);
     schedule();
-  }, [epoch, projectRef, projectRoot, schedule]);
+  }, [epoch, epochRef, projectRef, projectRoot, schedule]);
   const get = useCallback((path: string) => statesRef.current.get(path), []);
 
   /** A path that was removed exists again (created, imported, renamed onto). */

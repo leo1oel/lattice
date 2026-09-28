@@ -17,6 +17,7 @@ import {
   mergeEditorComments,
   type EditorComment,
 } from "../editor/comments/editor-comment-data";
+import { useLatest } from "./effect-helpers";
 import { setError } from "./notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
 
@@ -48,10 +49,7 @@ export function useEditorComments({
 }) {
   const [comments, setComments] = useState<EditorComment[]>([]);
   /** Read inside async publishes, where the state captured at call time is already stale. */
-  const commentsRef = useRef<EditorComment[]>([]);
-  useLayoutEffect(() => {
-    commentsRef.current = comments;
-  }, [comments]);
+  const commentsRef = useLatest(comments);
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panelFocus, setPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
@@ -91,7 +89,7 @@ export function useEditorComments({
       // the next publish reopens it.
       if (!isClientDestroyedErrorV2(reason)) setError(toMessage(reason));
     }
-  }, [controllerRef, sharedActive]);
+  }, [commentsRef, controllerRef, sharedActive]);
 
   /**
    * Live-update the comments panel from the shared comments file. Peer
@@ -171,12 +169,10 @@ export function useEditorComments({
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);
+    setPanelOpen(!overleafLink);
     if (overleafLink) {
-      setPanelOpen(false);
       setOverleafCollabTab("comments");
       setOverleafCollabOpen(true);
-    } else {
-      setPanelOpen(true);
     }
   }, [overleafLink, setOverleafCollabOpen, setOverleafCollabTab]);
   const openReply = useCallback((commentId: string) => {
@@ -217,7 +213,7 @@ export function useEditorComments({
       };
     };
     return () => { agentOptionsRef.current = null; };
-  }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
+  }, [agentOptionsRef, commentsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
     comments, all, persist, update, create, toggleResolved, reply, reset, load,

@@ -1,3 +1,4 @@
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 
 /** Cancellable subscriptions for `useEffect` bodies: each returns a synchronous disposer. */
@@ -43,6 +44,50 @@ export function whenIdle(callback: () => void, timeout: number, fallbackMs: numb
   }
   const timer = globalThis.setTimeout(callback, fallbackMs);
   return () => globalThis.clearTimeout(timer);
+}
+
+export type TimerRef = { current: number | null };
+
+export function clearTimer(timer: TimerRef) {
+  if (timer.current !== null) window.clearTimeout(timer.current);
+  timer.current = null;
+}
+
+/** (Re)start a one-shot timer held in a ref, replacing any pending run. */
+export function restartTimer(timer: TimerRef, delay: number, run: () => void) {
+  clearTimer(timer);
+  timer.current = window.setTimeout(() => {
+    timer.current = null;
+    run();
+  }, delay);
+}
+
+/**
+ * A ref that follows `value` after every commit, for handlers and timers that
+ * outlive the render. Written in a layout effect, never during render: a
+ * render-phase ref write makes the React Compiler skip the calling hook.
+ */
+export function useLatest<T>(value: T) {
+  const ref = useRef(value);
+  useLayoutEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
+/**
+ * State with a ref twin for async work: `[value, setValue, ref, setLive]`. The
+ * live setter leads with the ref, so work later in the same turn sees the
+ * value; every commit brings the ref level with state again.
+ */
+export function useRefState<T>(initial: T) {
+  const [value, setValue] = useState(initial);
+  const ref = useLatest(value);
+  const setLive = useCallback((next: T) => {
+    ref.current = next;
+    setValue(next);
+  }, [ref]);
+  return [value, setValue, ref, setLive] as const;
 }
 
 /** Let React commit an opening state and WebKit paint it before heavy sync work. */

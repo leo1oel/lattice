@@ -38,6 +38,16 @@ const HistoryDrawer = lazy(() =>
   import("../history/history-drawer").then((module) => ({ default: module.HistoryDrawer })),
 );
 
+/** Run a history change once the reader confirms it; a failure becomes an error toast. */
+async function afterConfirming(question: string, change: () => Promise<void>) {
+  if (!await confirmAction(question)) return;
+  try {
+    await change();
+  } catch (reason) {
+    setError(toMessage(reason));
+  }
+}
+
 /** Which drawer is open, and which Git view (or pinned agent turn) it shows. */
 export type HistoryDrawersState = {
   historyOpen: boolean;
@@ -57,10 +67,10 @@ export type HistoryDrawersState = {
 };
 
 export function AppHistoryDrawers({ drawers, synara: {
-  frameRef, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
+  postMessage, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
 }, project, activeFile, ...props }: {
   drawers: HistoryDrawersState;
-  synara: Pick<ReturnType<typeof useSynaraHost>, "frameRef" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
+  synara: Pick<ReturnType<typeof useSynaraHost>, "postMessage" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
   project: ProjectSnapshot;
   activeFile: string;
   appLocale: AppLocale;
@@ -107,48 +117,28 @@ export function AppHistoryDrawers({ drawers, synara: {
               && typeof item.turnCount === "number"
               && synaraOrigin
             ) {
-              frameRef.current?.contentWindow?.postMessage(
-                {
-                  type: LATTICE_RESTORE_AGENT_CHECKPOINT,
-                  threadId: item.threadId,
-                  turnCount: item.turnCount,
-                },
-                synaraOrigin,
-              );
+              void postMessage({ type: LATTICE_RESTORE_AGENT_CHECKPOINT, threadId: item.threadId, turnCount: item.turnCount });
               return;
             }
-            void (async () => {
-              if (!await confirmAction(
-                "Restore the project to the state before this change? The restore will be added as a new history entry.",
-              )) return;
-              try {
+            void afterConfirming(
+              "Restore the project to the state before this change? The restore will be added as a new history entry.",
+              async () => {
                 await invoke("revert_transaction", { transactionId: item.id, projectRoot: project.root });
                 await reloadAfterRestore();
-              } catch (reason) {
-                setError(toMessage(reason));
-              }
-            })();
+              },
+            );
           }}
-          onRevertFile={async (id, path) => {
-            if (!await confirmAction(
-              `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
-            )) return;
-            try {
+          onRevertFile={(id, path) => afterConfirming(
+            `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
+            async () => {
               await invoke("revert_history_file", { transactionId: id, path });
               await reloadAfterRestore();
-            } catch (reason) {
-              setError(toMessage(reason));
-            }
-          }}
-          onDelete={async (id) => {
-            if (!await confirmAction("Delete this history entry? This cannot be undone.")) return;
-            try {
-              await invoke("delete_history_entry", { transactionId: id });
-              await props.refreshHistory();
-            } catch (reason) {
-              setError(toMessage(reason));
-            }
-          }}
+            },
+          )}
+          onDelete={(id) => afterConfirming("Delete this history entry? This cannot be undone.", async () => {
+            await invoke("delete_history_entry", { transactionId: id });
+            await props.refreshHistory();
+          })}
           onOpenFile={(path, line) => { void props.openProjectFile(path, line); }}
           overleafLinked={props.overleafLink !== null}
           overleafProjectRoot={project.root}

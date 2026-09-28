@@ -22,18 +22,8 @@ function renderSidebar() {
   const props = {
     appLocale: "en",
     theme: "light",
-    project: {
-      root: "/tmp/sidebar-permissions",
-      files: [],
-      manifest: {
-        schemaVersion: 1,
-        projectId: "sidebar-permissions",
-        name: "Sidebar permissions",
-        rootDocuments: [],
-        primaryBibliography: "references.bib",
-        trusted: false,
-      },
-    },
+    // The sidebar reads only the project root.
+    project: { root: "/tmp/sidebar-permissions" },
     sidebar: { sidebarMode: "agent", sidebarModeTier: "full", sidebarWidth: 420, sidebarOpen: true },
     chooseSidebarMode: vi.fn(),
   } as unknown as AppWorkspaceSidebarProps;

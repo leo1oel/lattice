@@ -11,8 +11,7 @@ it("restores a collapsed sidebar and preserves its preferred width through tempo
   persistSidebarOpen(false);
   persistSidebarWidth(700);
   const { result, rerender, unmount } = setup();
-  expect(result.current.sidebarOpen).toBe(false);
-  expect(result.current.sidebarWidth).toBe(window.innerWidth - 600);
+  expect(result.current).toMatchObject({ sidebarOpen: false, sidebarWidth: window.innerWidth - 600 });
   rerender({ minimum: 500 });
   expect(result.current.sidebarWidth).toBe(500);
   rerender({ minimum: 180 });
@@ -47,31 +46,25 @@ it("distinguishes click jitter, real resizing, and unrelated pointer releases", 
   pointer("pointerup", start + 1, 8);
   expect(result.current.sidebarResizing).toBe(true);
   pointer("pointerup", start + 1);
-  expect(result.current.sidebarOpen).toBe(false);
-  expect(result.current.sidebarWidth).toBe(start);
+  expect(result.current).toMatchObject({ sidebarOpen: false, sidebarWidth: start });
   act(() => result.current.setSidebarOpen(true));
   drag(start - 2.5);
-  expect(result.current.sidebarOpen).toBe(true);
-  expect(result.current.sidebarWidth).toBe(start - 2.5);
+  expect(result.current).toMatchObject({ sidebarOpen: true, sidebarWidth: start - 2.5 });
   drag(start + 37);
-  expect(result.current.sidebarOpen).toBe(true);
-  expect(result.current.sidebarWidth).toBe(start + 37);
+  expect(result.current).toMatchObject({ sidebarOpen: true, sidebarWidth: start + 37 });
 });
 
 it("previews only beyond the collapse threshold, rescues before release, and restores width on reopen", () => {
   const { result, begin, pointer, drag } = setup();
   begin();
   pointer("pointermove", 84); // Minimum 180 minus the 96px overshoot.
-  expect(result.current.sidebarCollapsePreview).toBe(false);
-  expect(result.current.sidebarWidth).toBe(180);
+  expect(result.current).toMatchObject({ sidebarCollapsePreview: false, sidebarWidth: 180 });
   pointer("pointermove", 83);
-  expect(result.current.sidebarCollapsePreview).toBe(true);
-  expect(result.current.sidebarOpen).toBe(true);
+  expect(result.current).toMatchObject({ sidebarCollapsePreview: true, sidebarOpen: true });
   pointer("pointermove", 100); // Reversing a little must not flicker open.
   expect(result.current.sidebarCollapsePreview).toBe(true);
   pointer("pointermove", 132);
-  expect(result.current.sidebarCollapsePreview).toBe(false);
-  expect(result.current.sidebarRestoring).toBe(true);
+  expect(result.current).toMatchObject({ sidebarCollapsePreview: false, sidebarRestoring: true });
   act(() => result.current.finishSidebarRestore());
   expect(result.current.sidebarRestoring).toBe(false);
   pointer("pointermove", 231);
@@ -81,8 +74,7 @@ it("previews only beyond the collapse threshold, rescues before release, and res
   drag(80);
   expect(result.current.sidebarOpen).toBe(false);
   act(() => result.current.setSidebarOpen(true));
-  expect(result.current.sidebarWidth).toBe(231);
-  expect(result.current.sidebarCollapsePreview).toBe(false);
+  expect(result.current).toMatchObject({ sidebarWidth: 231, sidebarCollapsePreview: false });
 });
 
 it("rescues directly to the minimum without a second rebound on release", () => {
@@ -91,15 +83,12 @@ it("rescues directly to the minimum without a second rebound on release", () => 
   pointer("pointermove", 80);
   expect(result.current.sidebarCollapsePreview).toBe(true);
   pointer("pointermove", 140);
-  expect(result.current.sidebarRestoring).toBe(true);
-  expect(result.current.sidebarDragWidth).toBe(180);
+  expect(result.current).toMatchObject({ sidebarRestoring: true, sidebarDragWidth: 180 });
   act(() => result.current.finishSidebarRestore());
   pointer("pointermove", 150);
   expect(result.current.sidebarDragWidth).toBe(180);
   pointer("pointerup", 150);
-  expect(result.current.sidebarWidth).toBe(180);
-  expect(result.current.sidebarRebounding).toBe(false);
-  expect(result.current.sidebarOpen).toBe(true);
+  expect(result.current).toMatchObject({ sidebarWidth: 180, sidebarRebounding: false, sidebarOpen: true });
   // A new inward drag still gets elastic feedback and can close the panel.
   begin();
   pointer("pointermove", 120);
@@ -115,9 +104,7 @@ it.each(["pointercancel", "blur"])("cancels a collapse preview on %s without clo
   begin();
   pointer("pointermove", 80);
   act(() => window.dispatchEvent(event === "blur" ? new Event(event) : new PointerEvent(event, { pointerId: 7 })));
-  expect(result.current.sidebarOpen).toBe(true);
-  expect(result.current.sidebarWidth).toBe(start);
-  expect(result.current.sidebarCollapsePreview).toBe(false);
+  expect(result.current).toMatchObject({ sidebarOpen: true, sidebarWidth: start, sidebarCollapsePreview: false });
   expect(document.body).not.toHaveClass("resizing-panels");
 });
 
@@ -132,9 +119,7 @@ it("rubber-bands below the minimum without persisting the visual width", () => {
   expect(result.current.sidebarDragWidth).toBeLessThan(180);
   expect(result.current.sidebarCollapsePreview).toBe(false);
   pointer("pointerup", 120);
-  expect(result.current.sidebarOpen).toBe(true);
-  expect(result.current.sidebarDragWidth).toBeNull();
-  expect(result.current.sidebarWidth).toBe(180);
+  expect(result.current).toMatchObject({ sidebarOpen: true, sidebarDragWidth: null, sidebarWidth: 180 });
   expect(loadSidebarWidth()).toBe(180);
   expect(result.current.sidebarRebounding).toBe(true);
   act(() => result.current.finishSidebarRestore());
@@ -150,8 +135,7 @@ it("bounds the upper overshoot and clears it on cancellation", () => {
   expect(result.current.sidebarDragWidth).toBeGreaterThan(maximum);
   expect(result.current.sidebarDragWidth).toBeLessThanOrEqual(maximum + 48);
   pointer("pointercancel");
-  expect(result.current.sidebarDragWidth).toBeNull();
-  expect(result.current.sidebarOpen).toBe(true);
+  expect(result.current).toMatchObject({ sidebarDragWidth: null, sidebarOpen: true });
 });
 
 it("keeps live drag widths when fitting content or receiving new agent minimums", () => {
@@ -160,12 +144,10 @@ it("keeps live drag widths when fitting content or receiving new agent minimums"
   begin();
   pointer("pointermove", 260);
   act(() => result.current.fitSidebarToContent());
-  expect(result.current.sidebarWidth).toBe(260);
-  expect(result.current.sidebarDragWidth).toBe(260);
+  expect(result.current).toMatchObject({ sidebarWidth: 260, sidebarDragWidth: 260 });
   for (const minimum of [200, 199, 201]) {
     rerender({ minimum });
-    expect(result.current.sidebarWidth).toBe(260);
-    expect(result.current.sidebarDragWidth).toBe(260);
+    expect(result.current).toMatchObject({ sidebarWidth: 260, sidebarDragWidth: 260 });
   }
   expect(loadSidebarWidth()).toBe(320);
   pointer("pointerup", 260);
@@ -182,8 +164,7 @@ it("applies a changed minimum on release even without another pointer move", () 
   pointer("pointermove", 260);
   rerender({ minimum: 290 });
   pointer("pointerup", 260);
-  expect(result.current.sidebarWidth).toBe(290);
-  expect(result.current.sidebarDragWidth).toBeNull();
+  expect(result.current).toMatchObject({ sidebarWidth: 290, sidebarDragWidth: null });
   expect(loadSidebarWidth()).toBe(290);
   expect(result.current.sidebarOpen).toBe(true);
 });
@@ -193,8 +174,7 @@ it("uses a new minimum for sizing without moving the active gesture's collapse t
   begin();
   rerender({ minimum: 400 });
   pointer("pointermove", 290);
-  expect(result.current.sidebarWidth).toBe(400);
-  expect(result.current.sidebarCollapsePreview).toBe(false);
+  expect(result.current).toMatchObject({ sidebarWidth: 400, sidebarCollapsePreview: false });
   pointer("pointerup", 290);
   expect(result.current.sidebarOpen).toBe(true);
 });

@@ -9,6 +9,7 @@ import {
 } from "../agent/agent-host-context";
 import { buildAgentPaperLibrary } from "../agent/agent-paper-library";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
+import { useRefState } from "./effect-helpers";
 import { useSynaraSnapshots, type useSynaraHost } from "./use-synara-host";
 
 type SelectionImage = AgentHostSelectionImage & { source: AgentHostSurface };
@@ -47,28 +48,26 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     pdfPageCount, presentation,
   } = workspace;
   const [selection, setSelection] = useState("");
-  const [selectionSource, setSelectionSource] = useState<AgentHostSurface | null>(null);
+  // In split view the editor and PDF both live behind the one shared selection
+  // chip. An empty report from one pane must not wipe a live selection the other
+  // pane owns, or the chip flickers as they fight. The ref tracks the current owner.
+  const [selectionSource, , sourceRef, setSelectionSource] = useRefState<AgentHostSurface | null>(null);
   const [activeSurface, setActiveSurface] = useState<AgentHostSurface>("editor");
   // A content surface can re-report its DOM selection after Lattice has cleared
   // the one-shot Agent context. Scope that suppression to the original surface
   // so the same text selected in another surface remains valid.
   const dismissedRef = useRef<{ source: AgentHostSurface; text: string } | null>(null);
-  // In split view the editor and PDF both live behind the one shared selection
-  // chip. An empty report from one pane must not wipe a live selection the other
-  // pane owns, or the chip flickers as they fight. This tracks the current owner.
-  const sourceRef = useRef<AgentHostSurface | null>(null);
 
   const setOwner = useCallback((source: AgentHostSurface | null, text = "") => {
-    sourceRef.current = source;
     setSelection(text);
     setSelectionSource(source);
-  }, []);
+  }, [setSelectionSource]);
   /** Clear the selection without letting its surface re-report the same text. */
   const dismissSelection = useCallback(() => {
     const source = sourceRef.current;
     dismissedRef.current = source && selection ? { source, text: selection } : null;
     setOwner(null);
-  }, [selection, setOwner]);
+  }, [selection, setOwner, sourceRef]);
   /** Forget the selection entirely, as when switching projects. */
   const resetSelection = useCallback(() => {
     dismissedRef.current = null;
@@ -94,7 +93,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     if (previousSource === surface) return;
     if (previousSource) dismissSelection();
     else if (dismissedRef.current?.source === surface) dismissedRef.current = null;
-  }, [dismissSelection]);
+  }, [dismissSelection, sourceRef]);
 
   const reportSelection = useCallback((source: AgentHostSurface, value: string) => {
     const dismissed = dismissedRef.current;
@@ -107,7 +106,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     dismissedRef.current = null;
     setActiveSurface(source);
     setOwner(source, value);
-  }, [setOwner]);
+  }, [setOwner, sourceRef]);
 
   // A selected Markdown image reaches the agent as a file it can read. PNG and
   // JPEG are readable as they are; WebP is converted first.
@@ -129,12 +128,11 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   const projectRoot = project?.root;
   useEffect(() => {
     if (!imageEnabled || !imagePath || !selectionSource || !projectRoot || !/\.webp$/i.test(imagePath)) return;
-    const source = selectionSource;
     let disposed = false;
     void invoke<string>("prepare_latex_figure", { path: imagePath, projectRoot })
       .then((agentReadablePath) => {
         if (disposed || !agentReadablePath) return;
-        setPreparedImage({ source, projectRoot, sourcePath: imagePath, agentReadablePath, mimeType: "image/png" });
+        setPreparedImage({ source: selectionSource, projectRoot, sourcePath: imagePath, agentReadablePath, mimeType: "image/png" });
       })
       .catch(() => undefined);
     return () => {

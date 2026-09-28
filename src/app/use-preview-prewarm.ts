@@ -58,8 +58,8 @@ export function usePreviewPrewarm(
 
   const stateRef = useRef({
     generation: 0,
-    timer: null as ReturnType<typeof setTimeout> | null,
-    cancelIdle: null as (() => void) | null,
+    /** Cancels whichever step is pending: the settle timer, then the idle callback it hands off to. */
+    cancel: null as (() => void) | null,
     target: null as string | null,
     warmed: new Set<string>(),
     inFlight: new Set<string>(),
@@ -68,10 +68,8 @@ export function usePreviewPrewarm(
     const state = stateRef.current;
     state.generation += 1;
     state.target = null;
-    if (state.timer != null) globalThis.clearTimeout(state.timer);
-    state.timer = null;
-    state.cancelIdle?.();
-    state.cancelIdle = null;
+    state.cancel?.();
+    state.cancel = null;
   }, []);
   const schedulePreviewPrewarm = useCallback((key: string, task: PrewarmTask) => {
     const state = stateRef.current;
@@ -81,7 +79,7 @@ export function usePreviewPrewarm(
     const generation = state.generation;
     const isCurrent = () => state.generation === generation && state.target === key;
     const run = () => {
-      state.cancelIdle = null;
+      state.cancel = null;
       // Keep speculative work bounded: a fast sweep over the tree must not queue a burst of parses.
       if (!isCurrent() || state.inFlight.size >= 2) return;
       state.inFlight.add(key);
@@ -93,10 +91,10 @@ export function usePreviewPrewarm(
         state.inFlight.delete(key);
       });
     };
-    state.timer = globalThis.setTimeout(() => {
-      state.timer = null;
-      if (isCurrent()) state.cancelIdle = whenIdle(run, 800, 0);
+    const timer = globalThis.setTimeout(() => {
+      if (isCurrent()) state.cancel = whenIdle(run, 800, 0);
     }, 120);
+    state.cancel = () => globalThis.clearTimeout(timer);
   }, [cancelPreviewPrewarm]);
   useEffect(() => {
     cancelPreviewPrewarm();
