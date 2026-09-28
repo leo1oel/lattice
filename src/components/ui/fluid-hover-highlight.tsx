@@ -1,7 +1,7 @@
 // Adapted from https://www.fluidfunctionalism.com/r/use-fluid-hover.json.
 // Lattice uses its existing Motion runtime and semantic surface tokens.
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";
 import { cn } from "@/lib/utils";
 import { spring, springExit } from "./motion-values";
 import type { UseFluidHoverReturn } from "./use-fluid-hover";
@@ -24,7 +24,12 @@ function resolveTarget({ activeIndex, itemRects, isMeasured, sessionRef }: Fluid
  * `absolute`: radius, z-index, and the offsetParent (the container must be
  * `relative`) are the consumer's.
  */
-export function FluidHoverHighlight({ hover, className }: { hover: FluidHoverSource; className?: string }) {
+export function FluidHoverHighlight({ hover, className, transition = spring.fast }: {
+  hover: FluidHoverSource;
+  className?: string;
+  /** The positional travel; the opacity fade stays fast. */
+  transition?: Transition;
+}) {
   const { target, session } = resolveTarget(hover);
   // Reads the OS media query directly, so reduced motion is honoured without
   // the app wrapping its tree in MotionConfig. It keeps the opacity fade and
@@ -46,7 +51,7 @@ export function FluidHoverHighlight({ hover, className }: { hover: FluidHoverSou
           initial={{ opacity: 0, ...target }}
           animate={{ opacity: 1, ...target }}
           exit={{ opacity: 0, transition: springExit.fast }}
-          transition={{ ...(reduceMotion ? { duration: 0 } : spring.fast), opacity: { duration: spring.fast.duration } }}
+          transition={{ ...(reduceMotion ? { duration: 0 } : transition), opacity: { duration: spring.fast.duration } }}
         />
       )}
     </AnimatePresence>

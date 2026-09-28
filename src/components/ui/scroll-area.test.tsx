@@ -3,17 +3,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ScrollArea } from "./scroll-area";
 
-/** Renders a labelled viewport and, since jsdom has no layout, declares its extent. */
+type ScrollGeometry = { clientHeight: number; clientWidth: number; scrollHeight: number; scrollWidth: number };
+
+/** jsdom has no layout, so declare the viewport's extent. */
+function setScrollGeometry(element: HTMLElement, geometry: ScrollGeometry = {} as ScrollGeometry) {
+  for (const [name, value] of Object.entries(geometry)) {
+    Object.defineProperty(element, name, { configurable: true, value });
+  }
+}
+
 function renderViewport(
   label: string,
   props: Omit<ComponentProps<typeof ScrollArea>, "viewportProps">,
-  geometry?: { clientHeight: number; clientWidth: number; scrollHeight: number; scrollWidth: number },
+  geometry?: ScrollGeometry,
 ) {
   render(<ScrollArea {...props} viewportProps={{ "aria-label": label }}><p>Result</p></ScrollArea>);
   const viewport = screen.getByLabelText(label);
-  for (const [name, value] of Object.entries(geometry ?? {})) {
-    Object.defineProperty(viewport, name, { configurable: true, value });
-  }
+  setScrollGeometry(viewport, geometry);
   return viewport;
 }
 

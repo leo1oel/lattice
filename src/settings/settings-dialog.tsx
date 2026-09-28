@@ -131,6 +131,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
       ],
     },
   ] as const;
+  const settingsNavItems = settingsNavGroups
+    .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
@@ -246,7 +248,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
               runtime={props.synaraRuntime}
               section={synaraSettingsSection}
               url={synaraSettingsUrl}
-              synaraSettingsLabel={settingsNavGroups.flatMap((group) => group.items).find((item) => item.tab === props.tab)?.label}
+              synaraSettingsLabel={settingsNavItems.find((item) => item.tab === props.tab)?.label}
               viewportRef={settingsViewportRef}
               onRetry={props.onRetrySynaraRuntime}
             />

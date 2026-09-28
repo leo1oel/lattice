@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import type { Transition } from "motion/react";
 import { FluidHoverHighlight } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
 import "./fluid-hover.css";
@@ -13,9 +14,10 @@ const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading
  * rather than wrapping them, which would break Radix's asChild/collection API.
  * Mount inside a positioned `fluid-hover-surface`, in the scrolling viewport.
  */
-export function FluidHoverSurface({ selector = menuItems, preserveSelection = false }: {
+export function FluidHoverSurface({ selector = menuItems, preserveSelection = false, transition }: {
   selector?: string;
   preserveSelection?: boolean;
+  transition?: Transition;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const hover = useFluidHover(containerRef, { gapClick: false });
@@ -112,6 +114,6 @@ export function FluidHoverSurface({ selector = menuItems, preserveSelection = fa
 
   return <>
     <span hidden aria-hidden="true" ref={attach} />
-    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" />
+    <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" transition={transition} />
   </>;
 }

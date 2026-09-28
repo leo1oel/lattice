@@ -42,6 +42,7 @@ export type SwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  id?: string;
   disabled?: boolean;
 };
 
@@ -51,7 +52,7 @@ export type SwitchProps = {
  * drag-to-toggle or a second clickable label around settings rows.
  * Source: https://www.fluidfunctionalism.com/r/base/switch.json
  */
-export function Switch({ checked, disabled, label, onChange }: SwitchProps) {
+export function Switch({ checked, disabled, id, label, onChange }: SwitchProps) {
   const reduceMotion = useReducedMotion();
   const rootStyleProps = stylex.props(
     styles.root,
@@ -63,6 +64,7 @@ export function Switch({ checked, disabled, label, onChange }: SwitchProps) {
   return (
     <motion.button
       {...rootStyleProps}
+      id={id}
       type="button"
       role="switch"
       aria-checked={checked}
