@@ -39,8 +39,8 @@ export function useEditorComments({
 }: {
   project: ProjectSnapshot | null;
   projectRootRef: Ref<string | null>;
-  /** The live share's controller when a v2 share is active; `fileCount` re-checks for the comments file. */
-  shared: { controllerRef: Ref<CollabProjectControllerV2 | null>; active: boolean; fileCount: number };
+  /** The live share's controller when a v2 share is active (observing also waits until `bound`); `fileCount` re-checks for the comments file. */
+  shared: { controllerRef: Ref<CollabProjectControllerV2 | null>; active: boolean; bound: boolean; fileCount: number };
   overleaf: ReturnType<typeof useOverleafWorkspace>;
   author: { id: string; name: string };
   /** The open buffers, which the agent's comment tools anchor against. */
@@ -60,7 +60,7 @@ export function useEditorComments({
     overleafLink, overleafComments, overleafCommentsRef, overleafDocPaths, overleafRealtime, overleafEditorComments,
     setOverleafCollabOpen, setOverleafCollabTab,
   } = overleaf;
-  const { controllerRef, active: sharedActive, fileCount } = shared;
+  const { controllerRef, active: sharedActive, bound: sharedBound, fileCount } = shared;
 
   const persist = useCallback(async (next: EditorComment[]) => {
     // What this client held before the edit is what makes a delete expressible
@@ -101,7 +101,7 @@ export function useEditorComments({
    */
   useEffect(() => {
     const controller = controllerRef.current;
-    if (!sharedActive || !controller?.hasTextPath(EDITOR_COMMENTS_PATH)) return;
+    if (!sharedActive || !sharedBound || !controller?.hasTextPath(EDITOR_COMMENTS_PATH)) return;
     let cancelled = false;
     let detach: (() => void) | undefined;
     void controller.openCommentsDoc().then((doc) => {
@@ -122,7 +122,7 @@ export function useEditorComments({
       cancelled = true;
       detach?.();
     };
-  }, [controllerRef, fileCount, sharedActive]);
+  }, [controllerRef, fileCount, sharedActive, sharedBound]);
 
   const update = useCallback((id: string, change: (comment: EditorComment) => Partial<EditorComment>) => {
     void persist(comments.map((item) => (

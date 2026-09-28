@@ -204,6 +204,16 @@ describe("DocumentCanvas / mode", () => {
     expect(props.onRequestHandled).toHaveBeenCalledWith("saved");
   });
 
+  it("applies a saved position posted before the editor mounts once it mounts", async () => {
+    const restore = { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" };
+    const { container, props, rerenderWith } = renderCanvas({ mode: "pdf", source: "first\nsecond\ntarget\n", requests: pending({ restore }) });
+    rerenderWith({ mode: "source", requests: pending({ restore }) });
+    const view = await primarySourceView(container);
+    await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("saved"));
+    expect(view.state.selection.main.head).toBe(8);
+    expect(view.scrollDOM.scrollTop).toBe(120);
+  });
+
   it.each([null, { path: "other.tex", line: 3, id: "other-jump" }])(
     "still restores a saved position without a competing jump in that file (%j)",
     async (navigation) => {

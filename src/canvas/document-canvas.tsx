@@ -1018,7 +1018,7 @@ export function DocumentCanvas(props: {
       editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
       onRequestHandled(wrapEnvRequest.id);
     }
-  }, [citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, wrapEnvRequest]);
+  }, [citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, primaryScrollbarView, wrapEnvRequest]);
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
@@ -1039,7 +1039,7 @@ export function DocumentCanvas(props: {
       onRequestHandled(request.id);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeFile, onRequestHandled, viewRestore, editorSource, editorNavigation]);
+  }, [activeFile, onRequestHandled, viewRestore, editorSource, editorNavigation, primaryScrollbarView]);
   useEffect(() => {
     if (!snippetStops) return;
     const { base, stops } = snippetStops;

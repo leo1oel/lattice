@@ -2100,7 +2100,7 @@ function App() {
   ]), [activeFileRef, secondaryFileRef, secondarySourceRef, sourceRef]);
   const editorComments = useEditorComments({
     project, projectRootRef, overleaf,
-    shared: { controllerRef: collabV2ControllerRef, active: activeCollabVersion === 2 && Boolean(collabSession), fileCount: collabFileCount },
+    shared: { controllerRef: collabV2ControllerRef, active: activeCollabVersion === 2, bound: Boolean(collabSession), fileCount: collabFileCount },
     author: { id: editorCommentAuthorId, name: collabName },
     openSources,
     agentOptionsRef: agentCommentsOptionsRef,
