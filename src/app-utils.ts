@@ -1,11 +1,7 @@
 /**
- * Pure, module-level utility helpers extracted from `App.tsx`.
- *
- * These are the small, stateless functions and shared constants the app leans
- * on for formatting, paper tab keys, window drag handling, and drop-target hit
- * testing. They carry no React state
- * and depend only on shared types plus the Tauri window API, so they can be
- * imported anywhere without pulling in the whole component.
+ * Small stateless helpers shared across the app: project path classification,
+ * paper tab keys, window dragging, drop-target hit testing, project tree path
+ * changes, and the confirmation prompts.
  */
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
@@ -19,12 +15,9 @@ import type {
 /** What the second line of a paper row says: where it came from, and its state. */
 export function paperSubtitle(paper: PaperSummary, snippet?: string): string {
   if (snippet) return snippet;
-  const parts: string[] = [];
   // Just the key: the \cite{} wrapper is noise in a list that is entirely
   // citations, and it crowds out the arXiv id in a narrow panel.
-  if (paper.citationKey) parts.push(paper.citationKey);
-  if (paper.arxivId) parts.push(`arXiv ${paper.arxivId}`);
-  return parts.join(" · ");
+  return [paper.citationKey, paper.arxivId && `arXiv ${paper.arxivId}`].filter(Boolean).join(" · ");
 }
 
 /** A cited-only work may have no arXiv id, so identity falls back to its key. */
@@ -66,25 +59,26 @@ export function overleafLinkMatchesSession(sessionHost: string, linkHost: string
   return !linkHost.trim() || overleafHostsMatch(sessionHost, linkHost);
 }
 
-const PROJECT_SOURCE_EXTENSIONS = new Set([
-  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
-  "tsx", "ts", "jsx", "js",
-]);
-const PROJECT_ASSET_EXTENSIONS = new Set(["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"]);
-
 function fileExtension(path: string): string {
   const name = path.split(/[/\\]/).at(-1) ?? "";
   const separator = name.lastIndexOf(".");
   return separator > 0 ? name.slice(separator + 1).toLocaleLowerCase() : "";
 }
 
-export function isProjectSourceFilePath(path: string): boolean {
-  return PROJECT_SOURCE_EXTENSIONS.has(fileExtension(path));
+/** A path predicate matching any of `extensions`, case-insensitively. */
+function hasExtension(...extensions: string[]): (path: string) => boolean {
+  const known = new Set(extensions);
+  return (path) => known.has(fileExtension(path));
 }
 
-export function isHtmlFilePath(path: string): boolean {
-  return fileExtension(path) === "html";
-}
+export const isProjectSourceFilePath = hasExtension(
+  "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
+  "tsx", "ts", "jsx", "js",
+);
+export const isProjectAssetFilePath = hasExtension("png", "jpg", "jpeg", "pdf", "svg", "eps", "webp");
+export const isHtmlFilePath = hasExtension("html");
+export const isPreviewableSourceFilePath = hasExtension("tex", "md", "html");
+export const isHarperProseFilePath = hasExtension("tex", "md", "txt");
 
 export function deckIdFromOpenSlidePath(path: string): string | null {
   const match = /^slides\/([a-z0-9]+(?:-[a-z0-9]+)*)\/index\.tsx$/i.exec(
@@ -113,32 +107,14 @@ export function resolveKnownWholeFileProjectPath(
   path: string,
   projectPaths: readonly string[],
 ): string {
-  const normalizedPath = path.replace(/\\/g, "/");
-  const normalizedPaths = projectPaths.map((candidate) => ({
-    candidate,
-    normalized: candidate.replace(/\\/g, "/"),
-  }));
-  const exact = normalizedPaths.find(({ normalized }) => normalized === normalizedPath);
-  if (exact) return exact.candidate;
-
-  const matches = normalizedPaths
-    .filter(({ candidate, normalized }) => (
-      isWholeFileEditorPath(candidate) && normalizedPath.endsWith(`/${normalized}`)
-    ))
-    .sort((left, right) => right.normalized.length - left.normalized.length);
-  return matches[0]?.candidate ?? path;
-}
-
-export function isPreviewableSourceFilePath(path: string): boolean {
-  return ["tex", "md", "html"].includes(fileExtension(path));
-}
-
-export function isProjectAssetFilePath(path: string): boolean {
-  return PROJECT_ASSET_EXTENSIONS.has(fileExtension(path));
-}
-
-export function isHarperProseFilePath(path: string): boolean {
-  return ["tex", "md", "txt"].includes(fileExtension(path));
+  const normalize = (value: string) => value.replace(/\\/g, "/");
+  const target = normalize(path);
+  const exact = projectPaths.find((candidate) => normalize(candidate) === target);
+  if (exact) return exact;
+  const [longest] = projectPaths
+    .filter((candidate) => isWholeFileEditorPath(candidate) && target.endsWith(`/${normalize(candidate)}`))
+    .sort((left, right) => right.length - left.length);
+  return longest ?? path;
 }
 
 export function classifyExternalProjectDrop(
@@ -199,13 +175,13 @@ export function stripFrontmatter(markdown: string): string {
   return end === 0 ? markdown : markdown.slice(end).replace(/^(?:\r?\n)+/, "");
 }
 
-let windowDragTimer: ReturnType<typeof setTimeout> | null = null;
+/** Controls that keep their own clicks rather than dragging or zooming the window. */
+const WINDOW_CONTROLS = "button, input, select, textarea, a";
+let windowDragTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function isWindowDragExcluded(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  if (target.closest("[data-window-drag-exclude], button, input, select, textarea, a")) {
-    return true;
-  }
+  if (target.closest(`[data-window-drag-exclude], ${WINDOW_CONTROLS}`)) return true;
   const overflowRegion = target.closest("[data-window-drag-exclude-on-overflow]");
   if (!overflowRegion) return false;
   const viewport = overflowRegion.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
@@ -213,27 +189,21 @@ export function isWindowDragExcluded(target: EventTarget | null): boolean {
 }
 
 export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
-  if (
-    event.buttons !== 1
-    || event.detail > 1
-    || isWindowDragExcluded(event.target)
-  ) return;
+  if (event.buttons !== 1 || event.detail > 1 || isWindowDragExcluded(event.target)) return;
   event.preventDefault();
-  if (windowDragTimer) clearTimeout(windowDragTimer);
+  clearTimeout(windowDragTimer);
   // Delay drag so a second click can still register as double-click → fullscreen.
   windowDragTimer = setTimeout(() => {
-    windowDragTimer = null;
+    windowDragTimer = undefined;
     void getCurrentWindow().startDragging();
   }, 180);
 }
 
 export function toggleWindowFullscreen(event: React.MouseEvent<HTMLElement>) {
-  if ((event.target as Element).closest("button, input, select, textarea, a")) return;
+  if ((event.target as Element).closest(WINDOW_CONTROLS)) return;
   event.preventDefault();
-  if (windowDragTimer) {
-    clearTimeout(windowDragTimer);
-    windowDragTimer = null;
-  }
+  clearTimeout(windowDragTimer);
+  windowDragTimer = undefined;
   const appWindow = getCurrentWindow();
   if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.setFullscreen !== "function") return;
   void appWindow.isFullscreen()
@@ -253,10 +223,9 @@ export function relativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+/** Like absoluteProjectPath, except the empty path names the project root itself. */
 export function projectItemPath(root: string, relativePath: string): string {
-  if (!relativePath) return root;
-  const separator = root.includes("\\") ? "\\" : "/";
-  return `${root.replace(/[\\/]+$/, "")}${separator}${relativePath.replace(/[\\/]/g, separator)}`;
+  return relativePath ? absoluteProjectPath(root, relativePath) : root;
 }
 
 function deepestElementFromPoint(x: number, y: number): Element | null {
@@ -269,10 +238,10 @@ function deepestElementFromPoint(x: number, y: number): Element | null {
   return element;
 }
 
-function closestAcrossShadow(element: Element | null, selector: string): Element | null {
+function closestAcrossShadow(element: Element | null, selector: string): HTMLElement | null {
   let current = element;
   while (current) {
-    const match = current.closest(selector);
+    const match = current.closest<HTMLElement>(selector);
     if (match) return match;
     const root = current.getRootNode();
     current = root instanceof ShadowRoot ? root.host : null;
@@ -284,6 +253,24 @@ function trimDirectoryPath(path: string): string {
   return path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
+/** Native drop positions arrive in device pixels; hit testing wants CSS pixels. */
+function toCssPoint(position: { x: number; y: number }): { x: number; y: number } {
+  const scale = window.devicePixelRatio || 1;
+  return { x: position.x / scale, y: position.y / scale };
+}
+
+/**
+ * The directory a file-tree hit means: a flattened "a/b/c" row keeps each
+ * directory segment addressable, a folder row is that folder, and a file row
+ * is the file's parent. Undefined when neither names a row.
+ */
+function treeHitDirectory(segment?: HTMLElement | null, row?: HTMLElement | null): string | undefined {
+  const segmentPath = segment?.dataset.itemFlattenedSubitem;
+  if (segmentPath?.endsWith("/")) return trimDirectoryPath(segmentPath);
+  if (!row?.dataset.itemPath) return undefined;
+  return trimDirectoryPath(row.dataset.itemType === "folder" ? row.dataset.itemPath : row.dataset.itemParentPath ?? "");
+}
+
 /**
  * Resolve a native OS drop to the project directory it lands on, mirroring the
  * tree's own row-drag semantics: a folder row is that folder, a file row is
@@ -291,67 +278,44 @@ function trimDirectoryPath(path: string): string {
  * (""). Null means the drop was not over the Project pane at all.
  */
 export function dropDirectoryAt(position: { x: number; y: number }): string | null {
-  const scale = window.devicePixelRatio || 1;
-  const point = { x: position.x / scale, y: position.y / scale };
+  const point = toCssPoint(position);
   const element = deepestElementFromPoint(point.x, point.y);
-  const explicit = closestAcrossShadow(element, "[data-drop-directory]") as HTMLElement | null;
-  const explicitPath = explicit?.dataset.dropDirectory;
+  const explicitPath = closestAcrossShadow(element, "[data-drop-directory]")?.dataset.dropDirectory;
   if (explicitPath) return trimDirectoryPath(explicitPath);
-  // Flattened "a/b/c" rows keep each segment addressable; honor the one hit.
-  const segment = closestAcrossShadow(element, "[data-item-flattened-subitem]") as HTMLElement | null;
-  const segmentPath = segment?.dataset.itemFlattenedSubitem;
-  if (segmentPath?.endsWith("/")) return trimDirectoryPath(segmentPath);
-  const row = closestAcrossShadow(element, "[data-item-path]") as HTMLElement | null;
-  if (row?.dataset.itemPath) {
-    return row.dataset.itemType === "folder"
-      ? trimDirectoryPath(row.dataset.itemPath)
-      : trimDirectoryPath(row.dataset.itemParentPath ?? "");
-  }
+  const hit = treeHitDirectory(
+    closestAcrossShadow(element, "[data-item-flattened-subitem]"),
+    closestAcrossShadow(element, "[data-item-path]"),
+  );
+  if (hit !== undefined) return hit;
   // During a native Finder drag, WKWebView can report the tree host or its
   // scroll background even though the pointer is visibly over a row. Recover
   // the virtualized row from its rendered bounds before treating the drop as
   // a project-root drop.
   const projectSection = closestAcrossShadow(element, ".project-section");
-  const treeHost = (
-    closestAcrossShadow(element, "file-tree-container.lattice-file-tree")
-    ?? projectSection?.querySelector("file-tree-container.lattice-file-tree")
-  ) as HTMLElement | null;
-  const treeRoot = treeHost?.shadowRoot;
+  const treeHost = closestAcrossShadow(element, "file-tree-container.lattice-file-tree")
+    ?? projectSection?.querySelector<HTMLElement>("file-tree-container.lattice-file-tree");
   const containsPoint = (candidate: Element) => {
-    const bounds = candidate.getBoundingClientRect();
-    return bounds.width > 0
-      && bounds.height > 0
-      && point.x >= bounds.left
-      && point.x <= bounds.right
-      && point.y >= bounds.top
-      && point.y <= bounds.bottom;
+    const { width, height, left, right, top, bottom } = candidate.getBoundingClientRect();
+    return width > 0 && height > 0 && point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
   };
-  const boundedSegment = Array.from(
-    treeRoot?.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]") ?? [],
+  const rowAtPoint = (selector: string) => Array.from(
+    treeHost?.shadowRoot?.querySelectorAll<HTMLElement>(selector) ?? [],
   ).find(containsPoint);
-  const boundedSegmentPath = boundedSegment?.dataset.itemFlattenedSubitem;
-  if (boundedSegmentPath?.endsWith("/")) return trimDirectoryPath(boundedSegmentPath);
-  const boundedRow = Array.from(
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS selector, not UI copy.
-    treeRoot?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [],
-  ).find(containsPoint);
-  if (boundedRow?.dataset.itemPath) {
-    return boundedRow.dataset.itemType === "folder"
-      ? trimDirectoryPath(boundedRow.dataset.itemPath)
-      : trimDirectoryPath(boundedRow.dataset.itemParentPath ?? "");
-  }
+  const bounded = treeHitDirectory(rowAtPoint("[data-item-flattened-subitem]"), rowAtPoint("[data-item-path]"));
+  if (bounded !== undefined) return bounded;
   // Scoped to the file-tree section: the sidebar also hosts the Papers list,
   // where a stray drop should not silently import into the project root.
   return projectSection ? "" : null;
 }
 
-export function editorPaneAt(
-  position: { x: number; y: number },
-): EditorPaneId | null {
+/** The nearest `selector` ancestor of whatever sits at a CSS-pixel point. */
+function closestAt(point: { x: number; y: number }, selector: string): HTMLElement | null {
   if (typeof document.elementFromPoint !== "function") return null;
-  const editor = document.elementFromPoint(position.x, position.y)?.closest<HTMLElement>(
-    ".source-editor[data-editor-pane], .dual-empty[data-editor-pane]",
-  );
+  return document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(selector) ?? null;
+}
+
+export function editorPaneAt(position: { x: number; y: number }): EditorPaneId | null {
+  const editor = closestAt(position, ".source-editor[data-editor-pane], .dual-empty[data-editor-pane]");
   if (!editor) return null;
   return editor.dataset.editorPane === "secondary" ? "secondary" : "primary";
 }
@@ -359,23 +323,13 @@ export function editorPaneAt(
 export function dropEditorAt(
   position: { x: number; y: number },
 ): { x: number; y: number; pane: EditorPaneId } | null {
-  const scale = window.devicePixelRatio || 1;
-  const point = { x: position.x / scale, y: position.y / scale };
+  const point = toCssPoint(position);
   const pane = editorPaneAt(point);
   return pane ? { ...point, pane } : null;
 }
 
-export function canvasContentAt(position: { x: number; y: number }): boolean {
-  if (typeof document.elementFromPoint !== "function") return false;
-  return Boolean(document.elementFromPoint(position.x, position.y)?.closest(".canvas-body"));
-}
-
 export function dropCanvasAt(position: { x: number; y: number }): boolean {
-  const scale = window.devicePixelRatio || 1;
-  return canvasContentAt({
-    x: position.x / scale,
-    y: position.y / scale,
-  });
+  return closestAt(toCssPoint(position), ".canvas-body") !== null;
 }
 
 /**
@@ -387,18 +341,97 @@ export function dropCanvasAt(position: { x: number; y: number }): boolean {
  * would drop the message on the floor, so treat the panel as absent then.
  */
 export function dropAgentPanelAt(position: { x: number; y: number }): boolean {
-  if (typeof document.elementFromPoint !== "function") return false;
-  const scale = window.devicePixelRatio || 1;
-  const shell = document
-    .elementFromPoint(position.x / scale, position.y / scale)
-    ?.closest<HTMLElement>(".synara-frame-shell");
-  return shell?.dataset.ready === "true";
+  return closestAt(toCssPoint(position), ".synara-frame-shell")?.dataset.ready === "true";
 }
 
-export type ProjectPathChange = {
-  previousPath: string;
-  nextPath: string;
-};
+export type ProjectPathChange = { previousPath: string; nextPath: string };
+
+export function remapProjectPath(path: string, changes: readonly ProjectPathChange[]): string {
+  for (const change of changes) {
+    if (path === change.previousPath) return change.nextPath;
+    if (path.startsWith(`${change.previousPath}/`)) {
+      return `${change.nextPath}${path.slice(change.previousPath.length)}`;
+    }
+  }
+  return path;
+}
+
+function sortProjectFiles(nodes: FileNode[]): FileNode[] {
+  const directoryRank = (node: FileNode) => Number(node.kind === "directory");
+  return [...nodes].sort((left, right) => directoryRank(right) - directoryRank(left)
+    || left.name.toLocaleLowerCase().localeCompare(right.name.toLocaleLowerCase()));
+}
+
+function findProjectFile(nodes: readonly FileNode[], path: string): FileNode | undefined {
+  for (const node of nodes) {
+    const found = node.path === path ? node : findProjectFile(node.children, path);
+    if (found) return found;
+  }
+}
+
+/**
+ * Replace the first node (depth-first) that `edit` answers for with the nodes
+ * it returns, or null when it answers for none.
+ */
+function editProjectTree(
+  nodes: readonly FileNode[],
+  edit: (node: FileNode) => FileNode[] | undefined,
+): FileNode[] | null {
+  for (const [index, node] of nodes.entries()) {
+    let replacement = edit(node);
+    if (!replacement) {
+      const children = editProjectTree(node.children, edit);
+      if (children) replacement = [{ ...node, children }];
+    }
+    if (replacement) return [...nodes.slice(0, index), ...replacement, ...nodes.slice(index + 1)];
+  }
+  return null;
+}
+
+function remapProjectFileNode(node: FileNode, change: ProjectPathChange): FileNode {
+  const path = remapProjectPath(node.path, [change]);
+  return {
+    ...node,
+    name: path.split("/").at(-1) ?? node.name,
+    path,
+    children: node.children.map((child) => remapProjectFileNode(child, change)),
+  };
+}
+
+/** Move one tree entry to its new parent without rescanning the project. */
+function applyProjectFilePathChange(nodes: readonly FileNode[], change: ProjectPathChange): FileNode[] {
+  if (change.previousPath === change.nextPath) return [...nodes];
+  const moved = findProjectFile(nodes, change.previousPath);
+  const remaining = moved && editProjectTree(nodes, (node) => (node === moved ? [] : undefined));
+  if (!moved || !remaining) return [...nodes];
+  const entry = remapProjectFileNode(moved, change);
+  const separator = change.nextPath.lastIndexOf("/");
+  const parentPath = separator < 0 ? "" : change.nextPath.slice(0, separator);
+  const inserted = parentPath
+    ? editProjectTree(remaining, (node) => (node.path === parentPath && node.kind === "directory"
+      ? [{ ...node, children: sortProjectFiles([...node.children, entry]) }]
+      : undefined))
+    : sortProjectFiles([...remaining, entry]);
+  return inserted ?? [...nodes];
+}
+
+export function applyProjectPathChanges(
+  snapshot: ProjectSnapshot,
+  changes: readonly ProjectPathChange[],
+): ProjectSnapshot {
+  return {
+    ...snapshot,
+    manifest: {
+      ...snapshot.manifest,
+      rootDocuments: snapshot.manifest.rootDocuments.map((document) => ({
+        ...document,
+        path: remapProjectPath(document.path, changes),
+      })),
+      primaryBibliography: remapProjectPath(snapshot.manifest.primaryBibliography, changes),
+    },
+    files: changes.reduce<FileNode[]>(applyProjectFilePathChange, snapshot.files),
+  };
+}
 
 export type ConfirmActionOptions = {
   message: string;
@@ -412,9 +445,7 @@ export type ConfirmActionOptions = {
 
 export type ConfirmActionChoice = "confirm" | "alternative" | "cancel";
 
-type ConfirmActionHandler = (
-  options: ConfirmActionOptions,
-) => Promise<ConfirmActionChoice | boolean>;
+type ConfirmActionHandler = (options: ConfirmActionOptions) => Promise<ConfirmActionChoice | boolean>;
 
 let confirmActionHandler: ConfirmActionHandler | null = null;
 
@@ -425,160 +456,39 @@ export function registerConfirmActionHandler(handler: ConfirmActionHandler): () 
   };
 }
 
-export function remapProjectPath(path: string, changes: readonly ProjectPathChange[]): string {
-  for (const change of changes) {
-    if (path === change.previousPath) return change.nextPath;
-    if (path.startsWith(`${change.previousPath}/`)) {
-      return `${change.nextPath}${path.slice(change.previousPath.length)}`;
-    }
-  }
-  return path;
-}
-
-function sortProjectFiles(nodes: FileNode[]): FileNode[] {
-  return [...nodes].sort((left, right) => {
-    const leftDirectory = left.kind === "directory";
-    const rightDirectory = right.kind === "directory";
-    return Number(rightDirectory) - Number(leftDirectory)
-      || left.name.toLocaleLowerCase().localeCompare(right.name.toLocaleLowerCase());
-  });
-}
-
-function removeProjectFile(
-  nodes: readonly FileNode[],
-  path: string,
-): { nodes: FileNode[]; removed: FileNode | null } {
-  let removed: FileNode | null = null;
-  const next = nodes.flatMap((node): FileNode[] => {
-    if (node.path === path) {
-      removed = node;
-      return [];
-    }
-    if (removed || node.children.length === 0) return [node];
-    const childResult = removeProjectFile(node.children, path);
-    if (!childResult.removed) return [node];
-    removed = childResult.removed;
-    return [{ ...node, children: childResult.nodes }];
-  });
-  return { nodes: next, removed };
-}
-
-function remapProjectFileNode(node: FileNode, change: ProjectPathChange): FileNode {
-  const path = node.path === change.previousPath
-    ? change.nextPath
-    : `${change.nextPath}${node.path.slice(change.previousPath.length)}`;
-  return {
-    ...node,
-    name: path.split("/").at(-1) ?? node.name,
-    path,
-    children: node.children.map((child) => remapProjectFileNode(child, change)),
-  };
-}
-
-function insertProjectFile(
-  nodes: readonly FileNode[],
-  parentPath: string,
-  entry: FileNode,
-): { nodes: FileNode[]; inserted: boolean } {
-  if (!parentPath) {
-    return { nodes: sortProjectFiles([...nodes, entry]), inserted: true };
-  }
-  let inserted = false;
-  const next = nodes.map((node) => {
-    if (node.path === parentPath && node.kind === "directory") {
-      inserted = true;
-      return { ...node, children: sortProjectFiles([...node.children, entry]) };
-    }
-    if (inserted || node.children.length === 0) return node;
-    const childResult = insertProjectFile(node.children, parentPath, entry);
-    if (!childResult.inserted) return node;
-    inserted = true;
-    return { ...node, children: childResult.nodes };
-  });
-  return { nodes: next, inserted };
-}
-
-function applyProjectFilePathChange(
-  nodes: readonly FileNode[],
-  change: ProjectPathChange,
-): FileNode[] {
-  if (change.previousPath === change.nextPath) return [...nodes];
-  const removal = removeProjectFile(nodes, change.previousPath);
-  if (!removal.removed) return [...nodes];
-  const entry = remapProjectFileNode(removal.removed, change);
-  const separator = change.nextPath.lastIndexOf("/");
-  const parentPath = separator < 0 ? "" : change.nextPath.slice(0, separator);
-  const insertion = insertProjectFile(removal.nodes, parentPath, entry);
-  return insertion.inserted ? insertion.nodes : [...nodes];
-}
-
-export function applyProjectPathChanges(
-  snapshot: ProjectSnapshot,
-  changes: readonly ProjectPathChange[],
-): ProjectSnapshot {
-  const files = changes.reduce<FileNode[]>(
-    (current, change) => applyProjectFilePathChange(current, change),
-    snapshot.files,
-  );
-  return {
-    ...snapshot,
-    manifest: {
-      ...snapshot.manifest,
-      rootDocuments: snapshot.manifest.rootDocuments.map((document) => ({
-        ...document,
-        path: remapProjectPath(document.path, changes),
-      })),
-      primaryBibliography: remapProjectPath(snapshot.manifest.primaryBibliography, changes),
-    },
-    files,
-  };
-}
-
 /**
- * Ask before doing something that cannot be taken back, and wait for the answer.
+ * Ask through the mounted ConfirmActionProvider, or the dialog plugin without one.
  *
- * Not `window.confirm`. Tauri's dialog plugin replaces that global with an
- * async function that invokes `plugin:dialog|confirm` — a command the plugin
- * stopped registering, and which no permission grants, so in the app the call
- * was rejected by the ACL and no dialog ever appeared. Written as
- * `if (!window.confirm(…)) return;` that failed silently in the worst
- * direction: a rejected Promise is still truthy, so deletes and restores went
- * ahead with nothing asked. The plugin's own `confirm` goes through
- * `plugin:dialog|message`, which is registered and is covered by
- * `dialog:default`.
+ * Not `window.confirm`: Tauri's dialog plugin replaces that global with a call
+ * to `plugin:dialog|confirm`, a command it no longer registers and no
+ * permission grants, so the ACL rejected it and no dialog appeared — and since
+ * a rejected Promise is truthy, `if (!window.confirm(…)) return;` let deletes
+ * and restores go ahead unasked. The plugin's own `confirm` uses the registered
+ * `plugin:dialog|message`, covered by `dialog:default`.
  */
-export async function confirmAction(
-  request: string | ConfirmActionOptions,
-): Promise<boolean> {
-  const options = typeof request === "string" ? { message: request } : request;
-  if (confirmActionHandler) {
-    const answer = await confirmActionHandler(options);
-    return answer === true || answer === "confirm";
-  }
-  return confirmDialog(options.message, {
-    title: options.title ?? "Lattice",
-    kind: "warning",
-  });
+function askConfirmation(options: ConfirmActionOptions): Promise<ConfirmActionChoice | boolean> {
+  return confirmActionHandler
+    ? confirmActionHandler(options)
+    : confirmDialog(options.message, { title: options.title ?? "Lattice", kind: "warning" });
+}
+
+/** Ask before doing something that cannot be taken back, and wait for the answer. */
+export async function confirmAction(request: string | ConfirmActionOptions): Promise<boolean> {
+  const answer = await askConfirmation(typeof request === "string" ? { message: request } : request);
+  return answer === true || answer === "confirm";
 }
 
 /**
- * Ask a consequential question with two explicit actions plus Cancel.
- *
- * The native fallback can only represent confirm/cancel. The mounted app
- * always installs ConfirmActionProvider, which exposes the alternative; the
- * fallback keeps scripts and isolated component tests safely cancellable.
+ * Ask a consequential question with two explicit actions plus Cancel. The
+ * native fallback can only confirm or cancel; the mounted app always installs
+ * ConfirmActionProvider, and the fallback keeps scripts and isolated component
+ * tests safely cancellable.
  */
 export async function chooseAction(
   options: ConfirmActionOptions & { alternativeLabel: string },
 ): Promise<ConfirmActionChoice> {
-  if (confirmActionHandler) {
-    const answer = await confirmActionHandler(options);
-    if (answer === true) return "confirm";
-    if (answer === false) return "cancel";
-    return answer;
-  }
-  return await confirmDialog(options.message, {
-    title: options.title ?? "Lattice",
-    kind: "warning",
-  }) ? "confirm" : "cancel";
+  const answer = await askConfirmation(options);
+  if (answer === true) return "confirm";
+  if (answer === false) return "cancel";
+  return answer;
 }

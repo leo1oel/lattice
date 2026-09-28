@@ -1,13 +1,10 @@
 /**
- * The canvas's heavy editors and previews, behind dynamic imports.
+ * The canvas's heavy editors and previews, behind dynamic imports, outside
+ * `document-canvas.tsx` so that file exports components only (Fast Refresh).
  *
- * They live outside `document-canvas.tsx` so that file exports components only
- * and keeps Fast Refresh: one shared function export there invalidates the
- * whole module on every edit, and it is the largest file in the app.
- *
- * Each loader is the identity of a chunk. Import them; do not inline
- * `import("../pdf/pdf-viewer")` at a call site, or that site gets its own copy of
- * the module graph in a second chunk.
+ * Each loader is the identity of a chunk. Import them; an inline
+ * `import("../pdf/pdf-viewer")` at a call site gets its own copy of the module
+ * graph in a second chunk.
  */
 let visualMarkdownEditorWarmed = false;
 

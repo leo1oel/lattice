@@ -9,15 +9,15 @@
 import { lazy, Suspense, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { type EditorComment } from "../editor/comments/editor-comment-data";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { confirmAction, toMessage } from "../app-utils";
 import { setError } from "./notify";
+import type { EditorComments } from "./use-editor-comments";
 import type {
   BuildResult,
-  EditorPaneId,
+  OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
   UnusedSymbols,
@@ -28,122 +28,72 @@ const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
 
-export type AppEditorPanelsProps = {
+export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
+  comments: EditorComments;
+  /** Wraps the comment list in the Overleaf drawer when the project is linked. */
+  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
   activeFileRef: RefObject<string>;
-  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   build: BuildResult | null;
   checklistOpen: boolean;
-  commentOpenGenerationRef: RefObject<number>;
-  commentPanelFocusId: string | null;
-  commentPanelFocusNonce?: string;
   editorCommentAuthorId: string;
-  editorComments: EditorComment[];
-  editorCommentsOpen: boolean;
   mainBodyPages: number | null;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
-  onCloseComments: () => void;
+  openProjectFile: OpenProjectFile;
   pdfPageCount: number | null;
-  persistEditorComments: (next: EditorComment[]) => Promise<void>;
   project: ProjectSnapshot;
   projectWordCount: WordCount | null;
   refreshTodos: () => Promise<void>;
-  replyToEditorComment: (commentId: string, body: string) => void;
-  setActiveEditorCommentId: Dispatch<SetStateAction<string | null>>;
   setChecklistOpen: Dispatch<SetStateAction<boolean>>;
-  setCommentFocusRequest: Dispatch<SetStateAction<{ id: string; nonce: string; } | null>>;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
   setTodosOpen: Dispatch<SetStateAction<boolean>>;
   todoHits: TodoHit[];
   todosOpen: boolean;
-  toggleEditorCommentResolved: (id: string) => void;
   unusedSymbols: UnusedSymbols;
-};
-
-export function AppEditorPanels(props: AppEditorPanelsProps) {
+}) {
   const { t } = useLingui();
-  const {
-    activeFile,
-    activeFileRef,
-    renderCommentsSurface,
-    build,
-    checklistOpen,
-    commentOpenGenerationRef,
-    commentPanelFocusId,
-    editorCommentAuthorId,
-    editorComments,
-    editorCommentsOpen,
-    mainBodyPages,
-    openProjectFile,
-    onCloseComments,
-    pdfPageCount,
-    persistEditorComments,
-    project,
-    projectWordCount,
-    refreshTodos,
-    replyToEditorComment,
-    setActiveEditorCommentId,
-    setChecklistOpen,
-    setCommentFocusRequest,
-    setProject,
-    setTodosOpen,
-    todoHits,
-    todosOpen,
-    toggleEditorCommentResolved,
-    unusedSymbols,
-  } = props;
+  const { openProjectFile, project, setChecklistOpen, setTodosOpen, todoHits, unusedSymbols } = props;
+  const { openGenerationRef, persist, setActiveId } = comments;
   const commentsPanel = (
     <EditorCommentsPanel
-      key={props.commentPanelFocusNonce}
+      key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
-      comments={editorComments}
-      activePath={activeFile}
-      currentAuthorId={editorCommentAuthorId}
-      focusCommentId={commentPanelFocusId}
-      onClose={onCloseComments}
+      comments={comments.comments}
+      activePath={props.activeFile}
+      currentAuthorId={props.editorCommentAuthorId}
+      focusCommentId={comments.panelFocusId}
+      onClose={comments.closePanel}
       onOpen={(comment) => {
-        const generation = commentOpenGenerationRef.current + 1;
-        commentOpenGenerationRef.current = generation;
-        setActiveEditorCommentId(comment.id);
-        onCloseComments();
+        const generation = ++openGenerationRef.current;
+        setActiveId(comment.id);
+        comments.closePanel();
         void openProjectFile(comment.path).then(() => {
-          if (
-            commentOpenGenerationRef.current !== generation
-            || activeFileRef.current !== comment.path
-          ) return;
-          setCommentFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+          if (openGenerationRef.current !== generation || props.activeFileRef.current !== comment.path) return;
+          comments.setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
         });
       }}
-      onDelete={(id) => {
-        void (async () => {
-          if (!await confirmAction(
-            t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
-          )) {
-            return;
-          }
-          await persistEditorComments(editorComments.filter((comment) => comment.id !== id));
-          setActiveEditorCommentId((current) => (current === id ? null : current));
-        })();
+      onDelete={async (id) => {
+        if (!await confirmAction(
+          t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
+        )) {
+          return;
+        }
+        await persist(comments.comments.filter((comment) => comment.id !== id));
+        setActiveId((current) => (current === id ? null : current));
       }}
-      onToggleResolved={(comment) => toggleEditorCommentResolved(comment.id)}
+      onToggleResolved={(comment) => comments.toggleResolved(comment.id)}
       onUpdateBody={(comment, body) => {
         const trimmed = body.trim();
-        if (!trimmed) return;
-        void persistEditorComments(editorComments.map((item) => (
-          item.id === comment.id
-            ? { ...item, body: trimmed, updatedAt: new Date().toISOString() }
-            : item
-        )));
+        if (trimmed) comments.update(comment.id, () => ({ body: trimmed }));
       }}
-      onReply={(comment, body) => replyToEditorComment(comment.id, body)}
+      onReply={(comment, body) => comments.reply(comment.id, body)}
     />
   );
   return (
     <>
       <Suspense fallback={null}>
-        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : editorCommentsOpen && commentsPanel}
+        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
-      {todosOpen && (
+      {props.todosOpen && (
         <TodoScavengerPanel
           hits={todoHits}
           onClose={() => setTodosOpen(false)}
@@ -153,41 +103,37 @@ export function AppEditorPanels(props: AppEditorPanelsProps) {
           }}
         />
       )}
-      {checklistOpen && project && (
+      {props.checklistOpen && project && (
         <ManuscriptChecklistPanel
           data={{
-            words: projectWordCount?.total ?? 0,
-            wordSource: projectWordCount?.source ?? "estimate",
+            words: props.projectWordCount?.total ?? 0,
+            wordSource: props.projectWordCount?.source ?? "estimate",
             wordBudget: project.manifest.wordBudget ?? null,
-            pages: pdfPageCount,
-            mainPages: mainBodyPages,
+            pages: props.pdfPageCount,
+            mainPages: props.mainBodyPages,
             pageBudget: project.manifest.pageBudget ?? null,
             todos: todoHits.length,
             unusedLabels: unusedSymbols.labels.length,
             unusedCitations: unusedSymbols.citations.length,
-            buildOk: build ? build.success : null,
-            buildMessage: build?.log?.split("\n").slice(-1)[0] ?? "",
+            buildOk: props.build ? props.build.success : null,
+            buildMessage: props.build?.log?.split("\n").slice(-1)[0] ?? "",
           }}
           onClose={() => setChecklistOpen(false)}
           onOpenTodos={() => {
             setChecklistOpen(false);
-            void refreshTodos();
+            void props.refreshTodos();
             setTodosOpen(true);
           }}
           onSaveBudgets={(wordBudget, pageBudget) => {
-            void (async () => {
-              try {
-                const manifest = await invoke<ProjectManifest>("update_project_manifest", {
-                  wordBudget: wordBudget ?? undefined,
-                  pageBudget: pageBudget ?? undefined,
-                  clearWordBudget: wordBudget == null,
-                  clearPageBudget: pageBudget == null,
-                });
-                setProject((current) => current ? { ...current, manifest } : current);
-              } catch (reason) {
-                setError(toMessage(reason));
-              }
-            })();
+            void invoke<ProjectManifest>("update_project_manifest", {
+              wordBudget: wordBudget ?? undefined,
+              pageBudget: pageBudget ?? undefined,
+              clearWordBudget: wordBudget == null,
+              clearPageBudget: pageBudget == null,
+            }).then(
+              (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
+              (reason) => setError(toMessage(reason)),
+            );
           }}
         />
       )}

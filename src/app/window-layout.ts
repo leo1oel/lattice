@@ -9,8 +9,7 @@ export const APP_WINDOW_MIN_HEIGHT = 680;
  *
  * The source floor is 40 columns of the default 14px editor font (8.43px per
  * character) plus ~60px of gutters and line padding — enough that a wrapped
- * LaTeX line still reads as one thought. It used to be 480, which was the same
- * rule at 50 columns.
+ * LaTeX line still reads as one thought.
  */
 export const SPLIT_SOURCE_MIN_WIDTH = 400;
 export const SPLIT_PDF_MIN_WIDTH = 500;
@@ -23,9 +22,7 @@ export function minimumWindowWidth(options: {
   minimumWorkspaceWidth: number;
   sidebarOpen: boolean;
 }) {
-  const scale = Number.isFinite(options.interfaceScale)
-    ? Math.max(0.1, options.interfaceScale)
-    : 1;
+  const scale = Number.isFinite(options.interfaceScale) ? Math.max(0.1, options.interfaceScale) : 1;
   const contentWidth = options.minimumWorkspaceWidth
     + (options.sidebarOpen ? options.minimumSidebarWidth + SIDEBAR_RESIZER_WIDTH : 0);
 

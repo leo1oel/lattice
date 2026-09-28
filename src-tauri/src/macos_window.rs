@@ -580,8 +580,9 @@ mod tests {
         assert_eq!(config["app"]["macOSPrivateApi"], true);
         let window = &config["app"]["windows"][0];
         assert!(window.get("trafficLightPosition").is_none());
-        assert!(include_str!("../../src/App.tsx").contains("align_traffic_lights"));
-        assert!(include_str!("../../src/App.tsx").contains("--titlebar-traffic-space-width"));
+        let native_window = include_str!("../../src/app/use-native-window.ts");
+        assert!(native_window.contains("align_traffic_lights"));
+        assert!(native_window.contains("--titlebar-traffic-space-width"));
         let css_entry = include_str!("../../src/App.css");
         assert!(css_entry.contains("./styles/app-shell.css"));
         let css = include_str!("../../src/styles/app-shell.css");
@@ -612,9 +613,9 @@ mod tests {
         // native close, so the frontend's destroy() is the only thing left that
         // can shut the window down. Without the ACL grant that call is denied
         // and the red button does nothing at all — no error, no close.
-        let app = include_str!("../../src/App.tsx");
-        assert!(app.contains("onCloseRequested"));
-        assert!(app.contains("appWindow.destroy()"));
+        let native_window = include_str!("../../src/app/use-native-window.ts");
+        assert!(native_window.contains("onCloseRequested"));
+        assert!(native_window.contains("appWindow.destroy()"));
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
         let permissions = capability["permissions"]
