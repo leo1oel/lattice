@@ -1,48 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import {
-  createCollabChatMessage,
-  MAX_COLLAB_CHAT_MESSAGES,
   mergeTextIntoYText,
-  normalizeCollabHost,
-  observeCollabChatMessages,
   peerCaretOffsetsV2,
-  peerColorForName,
   peerCursorLocationV2,
+  peerInitials,
   publishCollabCursorV2,
-  readCollabChatMessages,
-  sendCollabChatMessage,
+  readCollabPeers,
   type EditorCollabSession,
   waitForPeerCursorLocationV2,
 } from "./collab-session";
 import { Awareness } from "y-protocols/awareness";
 
 describe("mergeTextIntoYText", () => {
-  it("is a no-op for identical content", () => {
+  it.each([
+    ["is a no-op for identical content", "same", "same"],
+    ["edits only the changed span, preserving untouched regions", "alpha beta gamma", "alpha DELTA gamma"],
+    ["treats a pure append as an insert with no deletion", "start", "start and more"],
+  ])("%s", (_name, before, after) => {
     const doc = new Y.Doc();
     const ytext = doc.getText("content");
-    ytext.insert(0, "same");
-    const before = Y.encodeStateAsUpdate(doc);
-    mergeTextIntoYText(ytext, "same");
-    expect(ytext.toString()).toBe("same");
-    // No transaction, so no new update beyond the initial insert.
-    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
-  });
-
-  it("edits only the changed span, preserving untouched regions", () => {
-    const doc = new Y.Doc();
-    const ytext = doc.getText("content");
-    ytext.insert(0, "alpha beta gamma");
-    mergeTextIntoYText(ytext, "alpha DELTA gamma");
-    expect(ytext.toString()).toBe("alpha DELTA gamma");
-  });
-
-  it("treats a pure append as an insert with no deletion", () => {
-    const doc = new Y.Doc();
-    const ytext = doc.getText("content");
-    ytext.insert(0, "start");
-    mergeTextIntoYText(ytext, "start and more");
-    expect(ytext.toString()).toBe("start and more");
+    ytext.insert(0, before);
+    const updates: Uint8Array[] = [];
+    doc.on("update", (update: Uint8Array) => updates.push(update));
+    mergeTextIntoYText(ytext, after);
+    expect(ytext.toString()).toBe(after);
+    // Identical content opens no transaction, so nothing goes on the wire.
+    expect(updates).toHaveLength(before === after ? 0 : 1);
   });
 
   it("marks the transaction local so disk observers skip it", () => {
@@ -94,16 +78,54 @@ describe("mergeTextIntoYText", () => {
   });
 });
 
-describe("collab session helpers", () => {
-  it("normalizes host urls to a host:port form", () => {
-    expect(normalizeCollabHost("https://example.partykit.dev/")).toBe("example.partykit.dev");
-    expect(normalizeCollabHost("ws://localhost:1999")).toBe("localhost:1999");
-    expect(normalizeCollabHost("  localhost:1999  ")).toBe("localhost:1999");
+describe("readCollabPeers", () => {
+  it("lists everyone but us, in a stable order", () => {
+    const states = new Map<number, unknown>([
+      [7, { user: { name: "Zoe", color: "#f00" }, path: "main.tex" }],
+      [1, { user: { name: "Alex", color: "#0f0" }, path: "intro.tex" }],
+      [3, { user: { name: "Me", color: "#00f" }, path: "main.tex" }],
+    ]);
+    const peers = readCollabPeers(states, 3);
+    expect(peers.map((peer) => peer.name)).toEqual(["Alex", "Zoe"]);
+    expect(peers[0]).toEqual({ clientId: 1, name: "Alex", color: "#0f0", path: "intro.tex" });
   });
 
-  it("assigns a stable peer color from the display name", () => {
-    expect(peerColorForName("Ada")).toEqual(peerColorForName("Ada"));
-    expect(peerColorForName("Ada").color).toMatch(/^#/);
+  it("survives a peer on an older build that announces nothing useful", () => {
+    // Awareness records come from other clients, so nothing here is guaranteed.
+    const states = new Map<number, unknown>([
+      [3, { user: { name: "   " }, instanceId: "i3" }],
+      [4, { user: { name: "Ada" }, path: 42 }],
+    ]);
+    const peers = readCollabPeers(states, 99);
+    expect(peers).toHaveLength(2);
+    expect(peers.map((peer) => peer.name)).toEqual(["Anonymous", "Ada"]);
+    expect(peers.every((peer) => typeof peer.color === "string" && peer.color)).toBe(true);
+    expect(peers[1].path).toBeNull();
+  });
+
+  it("ignores connections that never announced anyone", () => {
+    // Awareness publishes `{}` for a client the moment it is constructed, and a
+    // document opened only to mirror it to disk never announces over that. Each
+    // such state used to render as its own "Anonymous" collaborator.
+    const states = new Map<number, unknown>([
+      [1, null],
+      [2, {}],
+      [5, { path: "main.tex" }],
+      [6, { user: {} }],
+      [7, { user: { name: "Ada" }, instanceId: "i7" }],
+    ]);
+    expect(readCollabPeers(states, 99).map((peer) => peer.name)).toEqual(["Ada"]);
+  });
+});
+
+describe("peerInitials", () => {
+  it.each([
+    ["uses first and last initials for a full name", "Ada Lovelace", "AL"],
+    ["uses first and last initials, skipping middle names", "Jean Luc Picard", "JP"],
+    ["takes two letters from a single word", "robin", "RO"],
+    ["never renders empty", "   ", "?"],
+  ])("%s", (_name, name, initials) => {
+    expect(peerInitials(name)).toBe(initials);
   });
 });
 
@@ -123,6 +145,13 @@ function v2SessionWithCaret(text: string, caretIndex: number | null) {
   return { session, awareness };
 }
 
+/** Where the caret `awareness` publishes for this client lands in `doc`'s text. */
+function localCaretIndex(awareness: Awareness, doc: Y.Doc) {
+  const cursor = awareness.getLocalState()?.cursor as { head?: unknown } | undefined;
+  expect(cursor?.head).toBeTruthy();
+  return Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(cursor!.head), doc);
+}
+
 describe("v2 peer caret helpers", () => {
   it("waits for a cross-file peer's real awareness id and resolves its line", async () => {
     vi.useFakeTimers();
@@ -134,7 +163,6 @@ describe("v2 peer caret helpers", () => {
     awareness.emit("change", [{ added: [777], updated: [], removed: [] }, "remote"]);
 
     await expect(pending).resolves.toEqual({ path: "paper.md", line: 3 });
-    vi.useRealTimers();
   });
 
   it("stops waiting when a peer has no cursor in the opened file", async () => {
@@ -147,7 +175,6 @@ describe("v2 peer caret helpers", () => {
 
     await expect(pending).resolves.toBeNull();
     expect(off).toHaveBeenCalledWith("change", expect.any(Function));
-    vi.useRealTimers();
   });
 
   it("publishes a visual editor caret in the format remote peers resolve", () => {
@@ -156,17 +183,8 @@ describe("v2 peer caret helpers", () => {
 
     publishCollabCursorV2(session, 9);
 
-    const cursor = awareness.getLocalState()?.cursor as { head?: unknown } | undefined;
-    expect(cursor?.head).toBeTruthy();
-    const absolute = Y.createAbsolutePositionFromRelativePosition(
-      Y.createRelativePositionFromJSON(cursor!.head),
-      session.doc,
-    );
-    expect(absolute).toMatchObject({ type: session.ytext, index: 9 });
-    expect(awareness.getLocalState()).toMatchObject({
-      user: { name: "Ada" },
-      path: "paper.md",
-    });
+    expect(localCaretIndex(awareness, session.doc)).toMatchObject({ type: session.ytext, index: 9 });
+    expect(awareness.getLocalState()).toMatchObject({ user: { name: "Ada" }, path: "paper.md" });
   });
 
   it("coalesces rapid visual caret moves to the latest position per frame", async () => {
@@ -183,15 +201,10 @@ describe("v2 peer caret helpers", () => {
 
     await vi.advanceTimersByTimeAsync(20);
     expect(publish).toHaveBeenCalledTimes(2);
-    const cursor = awareness.getLocalState()?.cursor as { head: unknown };
-    expect(Y.createAbsolutePositionFromRelativePosition(
-      Y.createRelativePositionFromJSON(cursor.head),
-      session.doc,
-    )?.index).toBe(9);
+    expect(localCaretIndex(awareness, session.doc)?.index).toBe(9);
 
     publishCollabCursorV2(session, 9);
     expect(publish).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
   });
 
   it("discards a pending caret frame when the session switches files", async () => {
@@ -201,30 +214,14 @@ describe("v2 peer caret helpers", () => {
     publishCollabCursorV2(session, 1);
     publishCollabCursorV2(session, 5);
 
-    const docB = new Y.Doc();
-    const textB = docB.getText("content");
-    textB.insert(0, "file b content");
-    const awarenessB = new Awareness(docB);
+    // The session object is live: the controller swaps its doc/text/provider in place.
+    const { session: sessionB, awareness: awarenessB } = v2SessionWithCaret("file b content", null);
     awarenessB.setLocalState({ path: "b.md" });
-    const mutable = session as unknown as {
-      doc: Y.Doc;
-      ytext: Y.Text;
-      activePath: string;
-      provider: { awareness: Awareness };
-    };
-    mutable.doc = docB;
-    mutable.ytext = textB;
-    mutable.activePath = "b.md";
-    mutable.provider = { awareness: awarenessB };
+    Object.assign(session, { ...sessionB, activePath: "b.md" });
     publishCollabCursorV2(session, 3);
 
     await vi.advanceTimersByTimeAsync(20);
-    const cursor = awarenessB.getLocalState()?.cursor as { head: unknown };
-    expect(Y.createAbsolutePositionFromRelativePosition(
-      Y.createRelativePositionFromJSON(cursor.head),
-      docB,
-    )?.index).toBe(3);
-    vi.useRealTimers();
+    expect(localCaretIndex(awarenessB, sessionB.doc)?.index).toBe(3);
   });
 
   it("resolves a remote caret to an offset with identity, skipping self", () => {
@@ -258,79 +255,3 @@ describe("v2 peer caret helpers", () => {
   });
 });
 
-
-describe("collab chat", () => {
-  it("merges messages sent from two independent peers with no data loss", () => {
-    // Two Y.Docs standing in for host and guest, each writing offline, then
-    // syncing the way y-partyserver would: apply each side's update to the
-    // other. A Y.Array merge must keep both authors' messages rather than one
-    // side's write clobbering the other's, which is exactly what a JSON blob
-    // in a single Y.Text (the editor-comments approach) cannot guarantee.
-    const hostDoc = new Y.Doc();
-    const guestDoc = new Y.Doc();
-    sendCollabChatMessage(hostDoc, createCollabChatMessage("host-1", "Ada", "pushed the intro"));
-    sendCollabChatMessage(guestDoc, createCollabChatMessage("guest-1", "Bo", "looking now"));
-
-    Y.applyUpdate(guestDoc, Y.encodeStateAsUpdate(hostDoc));
-    Y.applyUpdate(hostDoc, Y.encodeStateAsUpdate(guestDoc));
-
-    const onHost = readCollabChatMessages(hostDoc).map((m) => m.body).sort();
-    const onGuest = readCollabChatMessages(guestDoc).map((m) => m.body).sort();
-    expect(onHost).toEqual(["looking now", "pushed the intro"]);
-    expect(onGuest).toEqual(["looking now", "pushed the intro"]);
-  });
-
-  it("a guest who joins late receives the whole backlog, unsorted-insert order included", () => {
-    // Simulates the "arrived late" case: the room already has a history by
-    // the time a second doc first syncs, with no separate history fetch — the
-    // backlog is just whatever state the CRDT hands over.
-    const hostDoc = new Y.Doc();
-    sendCollabChatMessage(hostDoc, createCollabChatMessage("host-1", "Ada", "first"));
-    sendCollabChatMessage(hostDoc, createCollabChatMessage("host-1", "Ada", "second"));
-
-    const lateGuestDoc = new Y.Doc();
-    Y.applyUpdate(lateGuestDoc, Y.encodeStateAsUpdate(hostDoc));
-
-    expect(readCollabChatMessages(lateGuestDoc).map((m) => m.body)).toEqual(["first", "second"]);
-  });
-
-  it("caps history to the newest N so a long session does not grow without bound", () => {
-    const doc = new Y.Doc();
-    const total = MAX_COLLAB_CHAT_MESSAGES + 5;
-    for (let i = 0; i < total; i += 1) {
-      sendCollabChatMessage(doc, createCollabChatMessage("host-1", "Ada", `message ${i}`));
-    }
-    const messages = readCollabChatMessages(doc);
-    expect(messages).toHaveLength(MAX_COLLAB_CHAT_MESSAGES);
-    // The oldest 5 were trimmed; the newest one is always kept.
-    expect(messages[0].body).toBe("message 5");
-    expect(messages[messages.length - 1].body).toBe(`message ${total - 1}`);
-  });
-
-  it("drops malformed entries instead of throwing, the way readCollabPeers treats untrusted state", () => {
-    const doc = new Y.Doc();
-    sendCollabChatMessage(doc, createCollabChatMessage("host-1", "Ada", "a real message"));
-    // Someone on an older/newer build (or a mid-write race) leaves a
-    // structurally incomplete entry directly on the array.
-    doc.getArray("chat").push([{ id: "broken" }, "not even an object", null]);
-    expect(() => readCollabChatMessages(doc)).not.toThrow();
-    const messages = readCollabChatMessages(doc);
-    expect(messages).toHaveLength(1);
-    expect(messages[0].body).toBe("a real message");
-  });
-
-  it("notifies observers on send and stops after unsubscribing", () => {
-    const doc = new Y.Doc();
-    let fired = 0;
-    const stop = observeCollabChatMessages(doc, () => { fired += 1; });
-    sendCollabChatMessage(doc, createCollabChatMessage("host-1", "Ada", "hi"));
-    expect(fired).toBe(1);
-    stop();
-    sendCollabChatMessage(doc, createCollabChatMessage("host-1", "Ada", "hi again"));
-    expect(fired).toBe(1);
-  });
-
-  it("falls back to Anonymous for a blank display name", () => {
-    expect(createCollabChatMessage("host-1", "   ", "hi").authorName).toBe("Anonymous");
-  });
-});

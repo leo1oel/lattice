@@ -6,18 +6,20 @@
  * conversation from the writer's point of view — someone leaves a comment, you
  * answer it in chat, and both come down the same realtime channel.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { MessagesSquare } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { OverleafMessage, OverleafThread } from "../app-types";
-import { OverleafChatPanel } from "./overleaf-chat";
+import { ChatPanel } from "../components/ui/chat-panel";
+import { InlineMessage } from "../components/ui/inline-message";
 import { OverleafCommentsPanel } from "./overleaf-comments";
 import { OverleafChangesPanel } from "./overleaf-changes";
-import type { OverleafCommentAnchor } from "./overleaf-comment-anchors";
+import type { OverleafCommentAnchor } from "./use-overleaf-comments";
 import type { TrackedChange } from "./use-overleaf-realtime";
+import "./overleaf-collab.css";
 
 export type OverleafCollabTab = "comments" | "chat" | "changes";
 
@@ -68,16 +70,17 @@ export function OverleafCollabDrawer(props: {
 }) {
   const { t } = useLingui();
   const [commentSource, setCommentSource] = useState(props.focusLocalComments ? "local" : "overleaf");
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") props.onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [props]);
-
+  const projectName = props.projectName || t`this project`;
+  const chatMessages = useMemo(() => props.messages.map((message) => ({
+    id: message.id,
+    authorKey: `${message.mine}:${message.authorName}`,
+    authorName: message.authorName,
+    body: message.content,
+    at: message.timestamp,
+    mine: message.mine,
+  })), [props.messages]);
   const openThreads = props.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
+  const badge = (count: number) => (count > 0 ? <em>{count}</em> : null);
 
   return (
     <ResizableDrawer className="overleaf-collab-drawer editor-comments-content" onClose={props.onClose}>
@@ -94,18 +97,9 @@ export function OverleafCollabDrawer(props: {
           ariaLabel={t`Overleaf collaboration view`}
           className="overleaf-collab-tabs"
           items={[
-            {
-              value: "comments",
-              label: <>{t`Comments`}{openThreads > 0 ? <em>{openThreads}</em> : null}</>,
-            },
-            {
-              value: "changes",
-              label: <>{t`Changes`}{props.changes.length > 0 ? <em>{props.changes.length}</em> : null}</>,
-            },
-            {
-              value: "chat",
-              label: <>{t`Chat`}{props.unreadChat > 0 ? <em>{props.unreadChat}</em> : null}</>,
-            },
+            { value: "comments", label: <>{t`Comments`}{badge(openThreads)}</> },
+            { value: "changes", label: <>{t`Changes`}{badge(props.changes.length)}</> },
+            { value: "chat", label: <>{t`Chat`}{badge(props.unreadChat)}</> },
           ]}
         />
 
@@ -131,7 +125,7 @@ export function OverleafCollabDrawer(props: {
               className="overleaf-collab-tabs"
               items={[
                 { value: "overleaf", label: "Overleaf" },
-                { value: "local", label: <>{t`Local comments`}{props.localCommentCount ? <em>{props.localCommentCount}</em> : null}</> },
+                { value: "local", label: <>{t`Local comments`}{badge(props.localCommentCount ?? 0)}</> },
               ]}
             />}
             {commentSource === "local" && props.hasLocalComments ? (
@@ -158,11 +152,24 @@ export function OverleafCollabDrawer(props: {
             )}
           </>
         ) : (
-          <OverleafChatPanel
-            projectName={props.projectName}
-            messages={props.messages}
+          <ChatPanel
+            header={(
+              <>
+                <p className="drawer-copy">
+                  {t({
+                    message: `The same conversation as the chat panel in ${projectName} on Overleaf. Messages appear on both sides as they are sent`,
+                  })}
+                </p>
+                {props.chatError && <InlineMessage level="error" className="overleaf-chat-inline">{props.chatError}</InlineMessage>}
+              </>
+            )}
+            messages={chatMessages}
+            listClassName="overleaf-chat-list"
+            listLabel={t`Overleaf chat messages`}
             loading={props.chatLoading}
-            error={props.chatError}
+            loadingText={t`Loading the conversation…`}
+            emptyText={props.chatError ? undefined : t`No messages yet. Say something and everyone in the project sees it`}
+            placeholder={t`Message your collaborators…`}
             onSend={props.onSend}
           />
         )}

@@ -26,11 +26,61 @@
  */
 const FALLBACK_COLLAB_HOST = "lattice-collab.paperlattice.workers.dev";
 
-export function builtInCollabHost(): string {
+function builtInCollabHost(): string {
   const fromEnv = (import.meta.env.VITE_LATTICE_COLLAB_HOST as string | undefined)?.trim() ?? "";
-  const host = (fromEnv || FALLBACK_COLLAB_HOST).replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  return host;
+  return normalizeCollabHost(fromEnv || FALLBACK_COLLAB_HOST);
 }
+
+// v2: the old key persisted the built-in host, which pinned users to whatever
+// it was that day and blocked later built-in changes (e.g. the sync-host move)
+// from reaching them. Bumping the key retires those stale values; we now only
+// store a genuine custom override.
+const HOST_STORAGE_KEY = "lattice.collab.host.v2";
+const NAME_STORAGE_KEY = "lattice.collab.name";
+
+/** `host[:port]`, without scheme or trailing slashes. */
+export function normalizeCollabHost(raw: string): string {
+  return raw.trim().replace(/^(https?|wss?):\/\//i, "").replace(/\/+$/, "");
+}
+
+function readStorage(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStorage(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable (private mode, quota): the setting just does not persist.
+  }
+}
+
+/** The sync host to use: an explicit one, else the stored override, else the built-in. */
+export function resolveCollabHost(preferred?: string): string {
+  const explicit = normalizeCollabHost(preferred ?? "");
+  if (explicit) return explicit;
+  const builtIn = builtInCollabHost();
+  const stored = normalizeCollabHost(readStorage(HOST_STORAGE_KEY));
+  // A stored local host from development never shadows a deployed built-in.
+  if (stored && !(builtIn && isLocalCollabHost(stored) && !isLocalCollabHost(builtIn))) return stored;
+  return builtIn || stored || "localhost:8787";
+}
+
+export function saveCollabHost(host: string): void {
+  const normalized = normalizeCollabHost(host);
+  // Only persist a genuine custom override. Storing the built-in host would
+  // pin the user to today's value, so a later change to the built-in (e.g. a
+  // new sync host) could never reach them — exactly the bug v2 retires.
+  writeStorage(HOST_STORAGE_KEY, !normalized || normalized === builtInCollabHost() ? null : normalized);
+}
+
+export const loadCollabDisplayName = () => readStorage(NAME_STORAGE_KEY);
+export const saveCollabDisplayName = (name: string) => writeStorage(NAME_STORAGE_KEY, name);
 
 /**
  * Origin the control plane, binary uploads, and invitations address.

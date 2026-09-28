@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import type { Editor } from "@tiptap/react";
 import { Check, X } from "lucide-react";
-import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-track-changes";
+import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import type { EditorComment } from "../comments/editor-comment-data";
 import { buildCommentTooltipDom } from "../comments/editor-comments";

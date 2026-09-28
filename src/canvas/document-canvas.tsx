@@ -12,8 +12,10 @@ import type { Extension, TransactionSpec } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperSourceCitation } from "../papers/paper-source";
 import { latex } from "codemirror-lang-latex";
-import { hueFromColorHex, overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor } from "../overleaf/overleaf-cursors";
-import { overleafTrackChangesExtension, type TrackedChangeTooltipActions } from "../overleaf/overleaf-track-changes";
+import {
+  hueFromColorHex, overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
+  type PresenceCursor, type TrackedChangeTooltipActions,
+} from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreVisualViewportWithReveal } from "../editor/markdown/visual-editor-block-controls";

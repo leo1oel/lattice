@@ -2,6 +2,7 @@ import * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
 import YProvider from "y-partyserver/provider";
 import { isDurableAckV2, textFileV2RoomName, TEXT_FILE_V2_PARTY, type DurableAckV2 } from "../../protocol/collab-v2";
+import { base64UrlDecode, sha256Hex } from "../../protocol/encoding";
 import { CollabTextDurableStoreV2, textNamespaceKey, type OutboxEntryV2, type TextNamespaceV2, updateCoveredByStateVector } from "./collab-text-v2-store";
 
 const RESTORE_ORIGIN = Symbol("v2-restore"), REMOTE_ORIGIN = Symbol("v2-remote"), SEND_ORIGIN = Symbol("v2-send");
@@ -71,10 +72,9 @@ export class CollabTextClientV2 {
   subscribeState(listener: (state: TextDurabilityStateV2) => void): () => void { this.stateListeners.add(listener); listener(this.durabilityState); return () => this.stateListeners.delete(listener); }
   subscribePermanentError(listener: (error: TextClientPermanentErrorV2) => void): () => void { this.permanentErrorListeners.add(listener); if (this.stopped) listener(this.stopped); return () => this.permanentErrorListeners.delete(listener); }
   async exportRecovery() { return this.store.export(this.namespace); }
-  async recoverAsNewFile(namespace: TextNamespaceV2): Promise<Uint8Array> { if (namespace.deployment !== this.namespace.deployment || namespace.projectInstanceId !== this.namespace.projectInstanceId || namespace.fileId === this.namespace.fileId || !Number.isSafeInteger(namespace.documentEpoch) || namespace.documentEpoch <= 0) throw new Error("Recovery requires a Coordinator-authorized new file identity"); return Y.encodeStateAsUpdate(this.doc); }
   destroy(): void { if (this.destroyed) return; this.destroyed = true; ++this.connectionGeneration; this.cancelReconnect(); this.disposeTransport(); for (const waiter of this.syncWaiters) { if (waiter.timer) clearTimeout(waiter.timer); waiter.reject(new ClientDestroyedErrorV2()); } this.syncWaiters.clear(); this.doc.destroy(); this.stateListeners.clear(); this.permanentErrorListeners.clear(); this.transportListeners.clear(); }
   private enqueue(action: () => Promise<void>): void { this.tail = this.tail.then(action, action); }
-  private async persistThenPublish(update: Uint8Array): Promise<void> { const entry = { id: await hash(update), update, createdAt: Date.now() }; await this.store.persistLocal(this.namespace, this.doc, entry); if (!this.outbox.some((x) => x.id === entry.id)) this.outbox.push(entry); if (this.networkDoc) Y.applyUpdate(this.networkDoc, update, SEND_ORIGIN); this.emitState(); }
+  private async persistThenPublish(update: Uint8Array): Promise<void> { const entry = { id: await sha256Hex(update), update, createdAt: Date.now() }; await this.store.persistLocal(this.namespace, this.doc, entry); if (!this.outbox.some((x) => x.id === entry.id)) this.outbox.push(entry); if (this.networkDoc) Y.applyUpdate(this.networkDoc, update, SEND_ORIGIN); this.emitState(); }
   private async handleCustomMessage(raw: unknown, checkpoint: Uint8Array): Promise<void> { let value = raw; if (typeof raw === "string") { try { value = JSON.parse(raw); } catch { return; } } if (!isDurableAckV2(value) || !this.validAck(value)) return; const ack = value as DurableAckV2; const vector = safeDecodeBase64Url(ack.stateVector); if (!vector) return;
     if (ack.contentRevision < this.revision || ack.snapshotGeneration < this.generation || ((ack.contentRevision === this.revision) !== (ack.snapshotGeneration === this.generation))) return;
     const covered = this.outbox.filter((entry) => updateCoveredByStateVector(entry.update, vector)); if (!covered.length && this.outbox.length) return;
@@ -94,7 +94,6 @@ export class CollabTextClientV2 {
 }
 
 export function closeEventErrorV2(event: { code?: number; reason?: string }): Error | TextClientPermanentErrorV2 | undefined { const code = event.code ?? 1006; const reason = event.reason ?? ""; const mapped = reason.match(/revoked/) ? "revoked" : reason.match(/stale/) ? "stale_epoch" : reason.match(/tombstone|file_deleted/) ? "file_deleted" : reason.match(/project_closed/) ? "project_closed" : undefined; if (mapped) return new TextClientPermanentErrorV2(mapped); if ([4401, 4403, 4410, 4411].includes(code) || code === 1008) return new TextClientPermanentErrorV2(code === 4410 ? "file_deleted" : code === 4411 ? "project_closed" : "revoked"); return code === 1000 ? undefined : new Error(`WebSocket closed (${code}${reason ? `: ${reason}` : ""})`); }
-export function ticketHttpErrorV2(status: number, error?: string): Error | TextClientPermanentErrorV2 { const code = error === "stale_epoch" || status === 409 ? "stale_epoch" : error === "file_deleted" || error === "tombstoned" || status === 410 ? "file_deleted" : error === "project_closed" ? "project_closed" : status === 401 || status === 403 || error === "revoked" ? "revoked" : undefined; return code ? new TextClientPermanentErrorV2(code) : new Error(`Ticket request failed (${status}${error ? `: ${error}` : ""})`); }
 export function createYPartyTransportV2(options: { host: string }): TextTransportFactoryV2 { return ({ namespace, doc, ticket }) => { const room = textFileV2RoomName(namespace.projectInstanceId, namespace.fileId, namespace.documentEpoch); const provider = new YProvider(options.host, room, doc, { party: TEXT_FILE_V2_PARTY, params: { ticket }, disableBc: true }); return {
   awareness: provider.awareness,
   onCustomMessage(listener) { provider.on("custom-message", listener); return () => provider.off("custom-message", listener); },
@@ -107,20 +106,17 @@ export function createYPartyTransportV2(options: { host: string }): TextTranspor
 export type CollabTextPinV2 = { readonly released: boolean; release(): void };
 
 export class CollabTextProviderPoolV2 {
-  private entries = new Map<string, { client: CollabTextClientV2; pins: Set<symbol>; draft: boolean; off: () => void }>();
+  private entries = new Map<string, { client: CollabTextClientV2; pins: Set<symbol>; off: () => void }>();
   constructor(private readonly capacity: number, private readonly clock: () => number = Date.now) { if (!Number.isSafeInteger(capacity) || capacity < 1) throw new RangeError("capacity must be a positive integer"); }
-  add(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const old = this.entries.get(key); if (old) { old.off(); old.client.destroy(); } const entry: { client: CollabTextClientV2; pins: Set<symbol>; draft: boolean; off: () => void } = { client, pins: new Set<symbol>(), draft: false, off: () => undefined }; this.entries.set(key, entry); entry.off = client.subscribeState(() => this.evict()); client.touch(this.clock()); this.evict(); }
+  add(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const old = this.entries.get(key); if (old) { old.off(); old.client.destroy(); } const entry: { client: CollabTextClientV2; pins: Set<symbol>; off: () => void } = { client, pins: new Set<symbol>(), off: () => undefined }; this.entries.set(key, entry); entry.off = client.subscribeState(() => this.evict()); client.touch(this.clock()); this.evict(); }
   remove(client: CollabTextClientV2): void { const key = textNamespaceKey(client.namespace); const entry = this.entries.get(key); if (!entry || entry.client !== client) return; entry.off(); this.entries.delete(key); }
   pin(client: CollabTextClientV2, label?: string): CollabTextPinV2 {
     const entry = this.entry(client); const token = Symbol(label); let released = false;
     entry.pins.add(token); client.touch(this.clock());
     return { get released() { return released; }, release: () => { if (released) return; released = true; const current = this.entries.get(textNamespaceKey(client.namespace)); if (current?.client === client) current.pins.delete(token); this.evict(); } };
   }
-  setDraft(client: CollabTextClientV2, draft: boolean): void { this.entry(client).draft = draft; this.evict(); }
-  rename(client: CollabTextClientV2, _path: string): CollabTextClientV2 { client.touch(); return client; }
   get size(): number { return this.entries.size; }
   private entry(client: CollabTextClientV2) { const entry = this.entries.get(textNamespaceKey(client.namespace)); if (!entry || entry.client !== client) throw new Error("Client is not pooled"); return entry; }
-  private evict(): void { while (this.entries.size > this.capacity) { const candidates = [...this.entries.entries()].filter(([, e]) => !e.pins.size && !e.draft && e.client.durabilityState === "clean").sort((a, b) => a[1].client.lastAccessed - b[1].client.lastAccessed); const victim = candidates[0]; if (!victim) return; victim[1].off(); victim[1].client.destroy(); this.entries.delete(victim[0]); } }
+  private evict(): void { while (this.entries.size > this.capacity) { const candidates = [...this.entries.entries()].filter(([, e]) => !e.pins.size && e.client.durabilityState === "clean").sort((a, b) => a[1].client.lastAccessed - b[1].client.lastAccessed); const victim = candidates[0]; if (!victim) return; victim[1].off(); victim[1].client.destroy(); this.entries.delete(victim[0]); } }
 }
-function safeDecodeBase64Url(value: string): Uint8Array | undefined { try { const base64 = value.replaceAll("-", "+").replaceAll("_", "/"); const bytes = Uint8Array.from(atob(base64 + "===".slice((base64.length + 3) % 4)), (char) => char.charCodeAt(0)); Y.decodeStateVector(bytes); return bytes; } catch { return undefined; } }
-function hash(value: Uint8Array): Promise<string> { return crypto.subtle.digest("SHA-256", value).then((bytes) => Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("")); }
+function safeDecodeBase64Url(value: string): Uint8Array | undefined { try { const bytes = base64UrlDecode(value); Y.decodeStateVector(bytes); return bytes; } catch { return undefined; } }

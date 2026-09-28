@@ -1,6 +1,5 @@
 export type CollabFeaturePolicy = {
   allowCreateV2: boolean;
-  preferV2ForNewProjects: boolean;
   emergencyDisableWrites: boolean;
   emergencyDisableReads: boolean;
 };
@@ -13,55 +12,34 @@ export function isCollabEnabled(): boolean {
   return import.meta.env.VITE_LATTICE_COLLAB_V2 === "true";
 }
 
-export const DEFAULT_COLLAB_FEATURE_POLICY: CollabFeaturePolicy = {
-  // v1 rooms are retired: new shares are always v2 projects. The flags remain
-  // so a build can still opt back out via env/localStorage if v2 ever needs a
-  // kill switch.
-  allowCreateV2: true,
-  preferV2ForNewProjects: true,
-  emergencyDisableWrites: false,
-  emergencyDisableReads: false,
+/**
+ * Kill switches, in increasing precedence: defaults, a JSON override in
+ * localStorage, then build-time env flags. A build without sharing turns
+ * everything off regardless.
+ */
+const POLICY_ENV: Record<keyof CollabFeaturePolicy, string> = {
+  allowCreateV2: "VITE_LATTICE_COLLAB_V2_ALLOW_CREATE",
+  emergencyDisableWrites: "VITE_LATTICE_COLLAB_DISABLE_WRITES",
+  emergencyDisableReads: "VITE_LATTICE_COLLAB_DISABLE_READS",
 };
 
-function envBoolean(name: string): boolean | undefined {
-  const value = import.meta.env[name];
-  return value === "true" ? true : value === "false" ? false : undefined;
-}
-
 export function loadCollabFeaturePolicy(): CollabFeaturePolicy {
-  let persisted: Partial<CollabFeaturePolicy> = {};
+  if (!isCollabEnabled()) return { allowCreateV2: false, emergencyDisableWrites: true, emergencyDisableReads: true };
+  let persisted: Record<string, unknown> = {};
   try {
     const value: unknown = JSON.parse(localStorage.getItem(POLICY_KEY) ?? "{}");
-    if (value && typeof value === "object" && !Array.isArray(value)) persisted = value as Partial<CollabFeaturePolicy>;
+    if (value && typeof value === "object" && !Array.isArray(value)) persisted = value as Record<string, unknown>;
   } catch { /* Invalid convenience configuration falls back safely. */ }
-  const policy = { ...DEFAULT_COLLAB_FEATURE_POLICY };
+  const policy: CollabFeaturePolicy = { allowCreateV2: true, emergencyDisableWrites: false, emergencyDisableReads: false };
   for (const key of Object.keys(policy) as (keyof CollabFeaturePolicy)[]) {
-    if (typeof persisted[key] === "boolean") policy[key] = persisted[key]!;
-  }
-  const environment: Partial<Record<keyof CollabFeaturePolicy, string>> = {
-    allowCreateV2: "VITE_LATTICE_COLLAB_V2_ALLOW_CREATE",
-    preferV2ForNewProjects: "VITE_LATTICE_COLLAB_V2_PREFER_NEW",
-    emergencyDisableWrites: "VITE_LATTICE_COLLAB_DISABLE_WRITES",
-    emergencyDisableReads: "VITE_LATTICE_COLLAB_DISABLE_READS",
-  };
-  for (const key of Object.keys(environment) as (keyof CollabFeaturePolicy)[]) {
-    const value = envBoolean(environment[key]!);
-    if (value !== undefined) policy[key] = value;
-  }
-  if (!isCollabEnabled()) {
-    policy.allowCreateV2 = false;
-    policy.emergencyDisableWrites = true;
-    policy.emergencyDisableReads = true;
+    const fromEnv = import.meta.env[POLICY_ENV[key]];
+    if (fromEnv === "true" || fromEnv === "false") policy[key] = fromEnv === "true";
+    else if (typeof persisted[key] === "boolean") policy[key] = persisted[key];
   }
   return policy;
 }
 
-export function saveCollabFeaturePolicy(policy: CollabFeaturePolicy): void {
-  localStorage.setItem(POLICY_KEY, JSON.stringify(policy));
-}
-
-export function mayResumeCollabProject(version: 1 | 2, policy = loadCollabFeaturePolicy()): boolean {
-  void version;
+export function mayResumeCollabProject(policy = loadCollabFeaturePolicy()): boolean {
   return !policy.emergencyDisableReads;
 }
 

@@ -7,6 +7,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { mockInvoke } from "../platform/tauri-test-mocks";
 import { useOverleafComments } from "./use-overleaf-comments";
 import type { OverleafThread } from "../app-types";
 
@@ -16,34 +17,23 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefi
 const HERE = "doc-open";
 const ELSEWHERE = "doc-other";
 
-function thread(id: string): OverleafThread {
-  return {
-    id,
-    messages: [{
-      id: `${id}-m1`,
-      content: "have a look at this",
-      authorName: "Ada Lovelace",
-      authorEmail: null,
-      timestamp: 1,
-      mine: true,
-    }],
-    resolved: false,
-    resolvedBy: null,
-    resolvedAt: null,
-  };
-}
+const thread = (id: string): OverleafThread => ({
+  id, resolved: false, resolvedBy: null, resolvedAt: null,
+  messages: [{ id: `${id}-m1`, content: "have a look at this", authorName: "Ada Lovelace", authorEmail: null, timestamp: 1, mine: true }],
+});
 
 /** Two threads: one in the open document, one in a file that is not. */
-function mockProject(options: { anchors?: unknown[] } = {}) {
-  vi.mocked(invoke).mockImplementation(async (command) => {
-    if (command === "overleaf_threads") return [thread("t-here"), thread("t-elsewhere")];
-    if (command === "overleaf_comment_anchors") {
-      return options.anchors ?? [
-        { threadId: "t-here", docId: HERE, position: 10, quote: "here" },
-        { threadId: "t-elsewhere", docId: ELSEWHERE, position: 40, quote: "elsewhere" },
-      ];
-    }
-    return undefined;
+function mockProject(anchors: unknown[] = [
+  { threadId: "t-here", docId: HERE, position: 10, quote: "here" },
+  { threadId: "t-elsewhere", docId: ELSEWHERE, position: 40, quote: "elsewhere" },
+]) {
+  mockInvoke({
+    overleaf_threads: [thread("t-here"), thread("t-elsewhere")],
+    overleaf_comment_anchors: anchors,
+    overleaf_resolve_thread: undefined,
+    overleaf_delete_thread: undefined,
+    overleaf_edit_message: undefined,
+    overleaf_delete_message: undefined,
   });
 }
 
@@ -51,8 +41,6 @@ function mount() {
   return renderHook(() => useOverleafComments({
     enabled: true,
     projectRoot: "/tmp/project",
-    docId: HERE,
-    anchored: ["t-here"],
     anchor: async () => undefined,
   }));
 }
@@ -64,58 +52,43 @@ afterEach(() => {
 describe("useOverleafComments", () => {
   it("keeps a new comment bound to its original document across a file switch", async () => {
     let releaseReply!: () => void;
-    const replyPending = new Promise<void>((resolve) => {
-      releaseReply = resolve;
-    });
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "overleaf_reply_to_thread") await replyPending;
-      if (command === "overleaf_threads" || command === "overleaf_comment_anchors") return [];
-      return undefined;
-    });
+    const replyPending = new Promise<void>((resolve) => { releaseReply = resolve; });
+    mockInvoke({ overleaf_reply_to_thread: () => replyPending, overleaf_threads: [], overleaf_comment_anchors: [] });
     const anchor = vi.fn(async () => undefined);
     const { result, rerender } = renderHook(
-      ({ projectRoot, docId }) => useOverleafComments({
-        enabled: true,
-        projectRoot,
-        docId,
-        anchored: [],
-        anchor,
-      }),
-      { initialProps: { projectRoot: "/tmp/project-a", docId: "doc-a" } },
+      ({ projectRoot }) => useOverleafComments({ enabled: true, projectRoot, anchor }),
+      { initialProps: { projectRoot: "/tmp/project-a" } },
     );
     const target = { projectRoot: "/tmp/project-a", docId: "doc-a", path: "a.md" };
     const creating = result.current.create(target, 4, "text", "comment");
 
-    rerender({ projectRoot: "/tmp/project-b", docId: "doc-b" });
+    rerender({ projectRoot: "/tmp/project-b" });
     releaseReply();
     await act(() => creating);
 
     expect(anchor).toHaveBeenCalledWith(target, expect.any(String), 4, "text");
   });
 
-  it("resolves and deletes against the thread's own document, not the open one", async () => {
+  type Comments = ReturnType<typeof useOverleafComments>;
+  it.each([
+    ["resolves against the thread's own document, not the open one", (hook: Comments) => hook.setResolved("t-elsewhere", true),
+      "overleaf_resolve_thread", { docId: ELSEWHERE, threadId: "t-elsewhere", resolved: true }],
+    ["deletes against the thread's own document, not the open one", (hook: Comments) => hook.remove("t-elsewhere"),
+      "overleaf_delete_thread", { docId: ELSEWHERE, threadId: "t-elsewhere" }],
+    ["edits a single message by id", (hook: Comments) => hook.editMessage("t-here", "t-here-m1", "reworded"),
+      "overleaf_edit_message", { threadId: "t-here", messageId: "t-here-m1", content: "reworded" }],
+    ["deletes a single message by id", (hook: Comments) => hook.deleteMessage("t-here", "t-here-m1"),
+      "overleaf_delete_message", { threadId: "t-here", messageId: "t-here-m1" }],
+  ] as const)("%s", async (_label, action, command, expected) => {
     mockProject();
     const { result } = mount();
     await waitFor(() => expect(result.current.threads).toHaveLength(2));
-
-    await act(() => result.current.setResolved("t-elsewhere", true));
-    expect(invoke).toHaveBeenCalledWith("overleaf_resolve_thread", {
-      projectRoot: "/tmp/project",
-      docId: ELSEWHERE,
-      threadId: "t-elsewhere",
-      resolved: true,
-    });
-
-    await act(() => result.current.remove("t-elsewhere"));
-    expect(invoke).toHaveBeenCalledWith("overleaf_delete_thread", {
-      projectRoot: "/tmp/project",
-      docId: ELSEWHERE,
-      threadId: "t-elsewhere",
-    });
+    await act(() => action(result.current));
+    expect(invoke).toHaveBeenCalledWith(command, { projectRoot: "/tmp/project", ...expected });
   });
 
   it("says so plainly when a thread has no anchor left", async () => {
-    mockProject({ anchors: [] });
+    mockProject([]);
     const { result } = mount();
     await waitFor(() => expect(result.current.threads).toHaveLength(2));
 
@@ -137,34 +110,6 @@ describe("useOverleafComments", () => {
     mockProject();
     const { result } = mount();
     await waitFor(() => expect(result.current.anchors.size).toBe(2));
-    expect(result.current.anchors.get("t-elsewhere")).toEqual({
-      threadId: "t-elsewhere",
-      docId: ELSEWHERE,
-      position: 40,
-      quote: "elsewhere",
-    });
-    // Only threads anchored in the open document count as "open here".
-    expect(result.current.openCount).toBe(1);
-  });
-
-  it("edits and deletes a single message by id", async () => {
-    mockProject();
-    const { result } = mount();
-    await waitFor(() => expect(result.current.threads).toHaveLength(2));
-
-    await act(() => result.current.editMessage("t-here", "t-here-m1", "reworded"));
-    expect(invoke).toHaveBeenCalledWith("overleaf_edit_message", {
-      projectRoot: "/tmp/project",
-      threadId: "t-here",
-      messageId: "t-here-m1",
-      content: "reworded",
-    });
-
-    await act(() => result.current.deleteMessage("t-here", "t-here-m1"));
-    expect(invoke).toHaveBeenCalledWith("overleaf_delete_message", {
-      projectRoot: "/tmp/project",
-      threadId: "t-here",
-      messageId: "t-here-m1",
-    });
+    expect(result.current.anchors.get("t-elsewhere")).toEqual({ threadId: "t-elsewhere", docId: ELSEWHERE, position: 40, quote: "elsewhere" });
   });
 });

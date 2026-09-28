@@ -1,58 +1,33 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OverleafCommentsPanel } from "./overleaf-comments";
-import { anchorsByThreadId, type OverleafCommentAnchor } from "./overleaf-comment-anchors";
+import type { OverleafCommentAnchor } from "./use-overleaf-comments";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { OverleafComment, OverleafThread } from "../app-types";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
-function message(overrides: Partial<OverleafComment> = {}): OverleafComment {
-  return {
-    id: "c1",
-    content: "This claim needs a citation",
-    authorName: "Ada Lovelace",
-    authorEmail: "ada@example.edu",
-    timestamp: 1_700_000_000_000,
-    mine: false,
-    ...overrides,
-  };
-}
+const message = (overrides: Partial<OverleafComment> = {}): OverleafComment => ({
+  id: "c1", content: "This claim needs a citation", authorName: "Ada Lovelace", authorEmail: "ada@example.edu",
+  timestamp: 1_700_000_000_000, mine: false, ...overrides,
+});
+const thread = (overrides: Partial<OverleafThread> = {}): OverleafThread => ({
+  id: "t1", messages: [message()], resolved: false, resolvedBy: null, resolvedAt: null, ...overrides,
+});
+const anchor = (overrides: Partial<OverleafCommentAnchor> = {}): OverleafCommentAnchor => ({
+  threadId: "t1", docId: "doc-open", position: 42, quote: "state of the art", ...overrides,
+});
 
-function thread(overrides: Partial<OverleafThread> = {}): OverleafThread {
-  return {
-    id: "t1",
-    messages: [message()],
-    resolved: false,
-    resolvedBy: null,
-    resolvedAt: null,
-    ...overrides,
-  };
-}
+const anchorsByThreadId = (list: OverleafCommentAnchor[]) => new Map(list.map((item) => [item.threadId, item]));
+const resolves = () => vi.fn().mockResolvedValue(undefined);
 
-function anchor(overrides: Partial<OverleafCommentAnchor> = {}): OverleafCommentAnchor {
-  return { threadId: "t1", docId: "doc-open", position: 42, quote: "state of the art", ...overrides };
-}
-
-function panel(overrides: Partial<Parameters<typeof OverleafCommentsPanel>[0]> = {}) {
-  return (
-    <OverleafCommentsPanel
-      threads={[thread()]}
-      anchors={anchorsByThreadId([anchor()])}
-      activeDocId="doc-open"
-      pathForDoc={() => null}
-      loading={false}
-      error={null}
-      onReply={vi.fn().mockResolvedValue(undefined)}
-      onResolve={vi.fn().mockResolvedValue(undefined)}
-      onDelete={vi.fn().mockResolvedValue(undefined)}
-      onEditMessage={vi.fn().mockResolvedValue(undefined)}
-      onDeleteMessage={vi.fn().mockResolvedValue(undefined)}
-      onReveal={vi.fn()}
-      {...overrides}
-    />
-  );
-}
+const panel = (overrides: Partial<Parameters<typeof OverleafCommentsPanel>[0]> = {}) => (
+  <OverleafCommentsPanel
+    threads={[thread()]} anchors={anchorsByThreadId([anchor()])} activeDocId="doc-open" pathForDoc={() => null}
+    loading={false} error={null} onReply={resolves()} onResolve={resolves()} onDelete={resolves()}
+    onEditMessage={resolves()} onDeleteMessage={resolves()} onReveal={vi.fn()} {...overrides}
+  />
+);
 
 describe("Overleaf comments panel", () => {
   beforeEach(() => {
@@ -93,24 +68,11 @@ describe("Overleaf comments panel", () => {
     expect(screen.getByLabelText("Reply")).toHaveFocus();
   });
 
-  it("replies on Enter and resolves through the callbacks", async () => {
-    const onReply = vi.fn().mockResolvedValue(undefined);
-    const onResolve = vi.fn().mockResolvedValue(undefined);
+  it("replies on Enter (never mid-IME-composition) and resolves through the callbacks", async () => {
+    const onReply = resolves();
+    const onResolve = resolves();
     render(panel({ onReply, onResolve }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-    const box = screen.getByLabelText("Reply");
-    fireEvent.change(box, { target: { value: "added it" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(onReply).toHaveBeenCalledWith("t1", "added it"));
-
-    fireEvent.click(await screen.findByRole("button", { name: /Resolve/ }));
-    await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t1", true));
-  });
-
-  it("does not send Enter while an IME composition is in progress", async () => {
-    const onReply = vi.fn().mockResolvedValue(undefined);
-    render(panel({ onReply }));
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
     const box = screen.getByLabelText("Reply");
     fireEvent.change(box, { target: { value: "半" } });
@@ -119,6 +81,9 @@ describe("Overleaf comments panel", () => {
     // The real Enter that commits the composed text still sends.
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(onReply).toHaveBeenCalledWith("t1", "半"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Resolve/ }));
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t1", true));
   });
 
   // `useOverleafComments` is what actually looks up the right document id
@@ -126,43 +91,26 @@ describe("Overleaf comments panel", () => {
   // that acting on a thread from another file was blocked or ignored just
   // because that file was not open. These check the panel dispatches the
   // same way regardless of which file the thread's anchor points at.
-  it("resolves a thread anchored in another (unopened) file exactly like one in the open file", async () => {
-    const onResolve = vi.fn().mockResolvedValue(undefined);
-    render(panel({
-      threads: [thread({ id: "t2" })],
-      anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-other-file" })]),
-      activeDocId: "doc-open",
-      pathForDoc: (id) => (id === "doc-other-file" ? "elsewhere.tex" : null),
-      onResolve,
-    }));
-    const resolveButton = screen.getByRole("button", { name: /Resolve/ });
-    expect(resolveButton).toBeEnabled();
-    fireEvent.click(resolveButton);
-    await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t2", true));
-  });
-
-  it("deletes a thread anchored in another (unopened) file exactly like one in the open file", async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined);
+  it("resolves and deletes a thread anchored in another (unopened) file exactly like one in the open file", async () => {
+    const onResolve = resolves();
+    const onDelete = resolves();
     vi.mocked(confirm).mockResolvedValue(true);
     render(panel({
       threads: [thread({ id: "t2" })],
       anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-other-file" })]),
-      activeDocId: "doc-open",
       pathForDoc: (id) => (id === "doc-other-file" ? "elsewhere.tex" : null),
+      onResolve,
       onDelete,
     }));
-    const deleteButton = screen.getByRole("button", { name: /Delete/ });
-    expect(deleteButton).toBeEnabled();
-    fireEvent.click(deleteButton);
-    await waitFor(() => expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("Delete this discussion?"),
-      expect.anything(),
-    ));
+    fireEvent.click(screen.getByRole("button", { name: /Resolve/ }));
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t2", true));
+    fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Delete this discussion?"), expect.anything()));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith("t2"));
   });
 
   it("does not delete a discussion when the warning is cancelled", async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined);
+    const onDelete = resolves();
     vi.mocked(confirm).mockResolvedValue(false);
     render(panel({ onDelete }));
 
@@ -196,74 +144,8 @@ describe("Overleaf comments panel", () => {
     expect(screen.getByRole("button", { name: "Reply" })).toBeEnabled();
   });
 
-  it("offers edit and delete on your own message", () => {
-    render(panel({
-      threads: [thread({ messages: [message({ id: "m1", mine: true, content: "My own note" })] })],
-    }));
-    expect(screen.getByRole("button", { name: "Edit message" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete message" })).toBeInTheDocument();
-  });
-
-  it("offers neither edit nor delete on someone else's message", () => {
-    render(panel({
-      threads: [thread({ messages: [message({ id: "m1", mine: false, content: "Someone else's note" })] })],
-    }));
-    expect(screen.queryByRole("button", { name: "Edit message" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete message" })).not.toBeInTheDocument();
-  });
-
-  it("edits your own message inline and saves on Enter", async () => {
-    const onEditMessage = vi.fn().mockResolvedValue(undefined);
-    render(panel({
-      threads: [thread({ messages: [message({ id: "m1", mine: true, content: "Original text" })] })],
-      onEditMessage,
-    }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
-    const box = screen.getByLabelText("Edit message text");
-    expect(box).toHaveValue("Original text");
-    fireEvent.change(box, { target: { value: "Corrected text" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(onEditMessage).toHaveBeenCalledWith("t1", "m1", "Corrected text"));
-    // Saving closes the editor and puts the "Edit" action back, not a stuck textbox.
-    expect(screen.queryByLabelText("Edit message text")).not.toBeInTheDocument();
-  });
-
-  it("deletes a message that is not the only one without warning about the thread", async () => {
-    const onDeleteMessage = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.mocked(confirm).mockResolvedValue(true);
-    render(panel({
-      threads: [thread({
-        messages: [
-          message({ id: "m1", mine: false, content: "First" }),
-          message({ id: "m2", mine: true, content: "Second, mine" }),
-        ],
-      })],
-      onDeleteMessage,
-    }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete message" }));
-    expect(confirmSpy).toHaveBeenCalledWith("Delete this message?", expect.anything());
-    await waitFor(() => expect(onDeleteMessage).toHaveBeenCalledWith("t1", "m2"));
-    confirmSpy.mockRestore();
-  });
-
-  it("warns that deleting the only message deletes the whole thread, and does not delete silently", async () => {
-    const onDeleteMessage = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.mocked(confirm).mockResolvedValue(false);
-    render(panel({
-      threads: [thread({ messages: [message({ id: "m1", mine: true, content: "Only message" })] })],
-      onDeleteMessage,
-    }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete message" }));
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete this message? It's the only one in the thread, so this deletes the whole thread.",
-      expect.anything(),
-    );
-    // Declining the confirm must not call through.
-    expect(onDeleteMessage).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
-  });
-
-  it("scopes edit/delete to the message they were clicked on when a thread has several", () => {
+  it("offers edit and delete on your own messages only, editing the one clicked inline and saving on Enter", async () => {
+    const onEditMessage = resolves();
     render(panel({
       threads: [thread({
         messages: [
@@ -272,12 +154,36 @@ describe("Overleaf comments panel", () => {
           message({ id: "m3", mine: true, content: "Mine second" }),
         ],
       })],
+      onEditMessage,
     }));
-    const editButtons = screen.getAllByRole("button", { name: "Edit message" });
-    expect(editButtons).toHaveLength(2);
-    const secondMineArticle = screen.getByText("Mine second").closest(".overleaf-thread-message");
-    expect(secondMineArticle).not.toBeNull();
-    fireEvent.click(within(secondMineArticle as HTMLElement).getByRole("button", { name: "Edit message" }));
-    expect(screen.getByLabelText("Edit message text")).toHaveValue("Mine second");
+    expect(screen.getAllByRole("button", { name: "Edit message" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Delete message" })).toHaveLength(2);
+    const messageOf = (text: string) => screen.getByText(text).closest(".overleaf-thread-message") as HTMLElement;
+    expect(within(messageOf("Theirs")).queryByRole("button", { name: "Edit message" })).toBeNull();
+    fireEvent.click(within(messageOf("Mine second")).getByRole("button", { name: "Edit message" }));
+    const box = screen.getByLabelText("Edit message text");
+    expect(box).toHaveValue("Mine second");
+    fireEvent.change(box, { target: { value: "Corrected text" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(onEditMessage).toHaveBeenCalledWith("t1", "m3", "Corrected text"));
+    // Saving closes the editor and puts the "Edit" action back, not a stuck textbox.
+    expect(screen.queryByLabelText("Edit message text")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["deletes a message that is not the only one without warning about the thread", true, "Delete this message?",
+      [message({ id: "m0", mine: false, content: "First" }), message({ id: "m1", mine: true, content: "Second, mine" })]],
+    // Declining must not call through, whatever the warning said.
+    ["warns that deleting the only message deletes the whole thread, and does not delete silently", false,
+      "Delete this message? It's the only one in the thread, so this deletes the whole thread.",
+      [message({ id: "m1", mine: true, content: "Only message" })]],
+  ])("%s", async (_label, confirmed, warning, messages) => {
+    const onDeleteMessage = resolves();
+    vi.mocked(confirm).mockResolvedValue(confirmed);
+    render(panel({ threads: [thread({ messages })], onDeleteMessage }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete message" }));
+    expect(confirm).toHaveBeenCalledWith(warning, expect.anything());
+    if (confirmed) await waitFor(() => expect(onDeleteMessage).toHaveBeenCalledWith("t1", "m1"));
+    else expect(onDeleteMessage).not.toHaveBeenCalled();
   });
 });

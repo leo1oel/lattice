@@ -1,99 +1,114 @@
 /**
- * Owns Overleaf's own project-history timeline: the paginated feed of
- * updates, the label list, and the handful of mutations — restore a file,
- * restore something deleted, restore the whole project, name or unname a
- * version — that all move through the same REST layer Overleaf's own editor
- * uses. Every mutation re-reads the first page afterward rather than patching
- * local state, because a restore mints a brand new update at the top of the
- * feed and the server is the only authority on what that looks like.
+ * Overleaf's own project history: the paginated feed of updates and the
+ * mutations — restore a file, restore something deleted, restore the whole
+ * project, name or unname a version — that move through the same REST layer
+ * Overleaf's own editor uses. Every mutation re-reads the first page afterward
+ * rather than patching local state, because a restore mints a brand new update
+ * at the top of the feed and the server is the only authority on its shape.
  *
- * This is deliberately not a merge with `versions-timeline.tsx`. That hook (it
- * has no separate hook; the component owns its own state) tracks Lattice's
- * local git history — only what happened through this app. This one tracks
- * what Overleaf itself recorded, including every edit a collaborator made in
- * the browser while Lattice was closed. Restoring through here rewrites files
- * on Overleaf's server, not the local project directly; callers are expected
- * to sync afterward.
+ * This is not Lattice's git history (`versions-timeline.tsx`): it is what
+ * Overleaf itself recorded, including every edit a collaborator made in the
+ * browser while Lattice was closed. Restoring rewrites files on Overleaf's
+ * server, not the local project; callers are expected to sync afterward.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { OverleafLabel, OverleafUpdate, OverleafUpdatesPage } from "./overleaf-history-types";
+import { toMessage } from "../app-utils";
+import type { DiffFileChange } from "../history/pierre-diff";
+
+/** One entry in the paginated `overleaf_history_updates` feed, newest first. */
+export type OverleafUpdate = {
+  fromVersion: number;
+  toVersion: number;
+  /** Milliseconds since the epoch — not an ISO string. */
+  startTs: number;
+  endTs: number;
+  /** Display names; accounts Overleaf could not resolve are already dropped. */
+  authors: string[];
+  /** Files this entry touched. Can be empty even though the entry is real. */
+  paths: string[];
+  labels: OverleafLabel[];
+  /** "upload", "dropbox", "git-bridge", "file-restore", "project-restore", … or null for a normal editor edit. */
+  origin: string | null;
+};
+
+export type OverleafLabel = {
+  id: string;
+  comment: string;
+  version: number;
+  createdAt: string | null;
+  author: string | null;
+};
+
+type OverleafUpdatesPage = {
+  updates: OverleafUpdate[];
+  /** Epoch milliseconds to pass back as `before` for the next page; null when there is none. */
+  nextBefore: number | null;
+};
+
+/** One run of a per-file diff: unchanged, inserted, or deleted verbatim text. */
+export type OverleafDiffChunk = { u?: string; i?: string; d?: string; meta?: unknown };
+
+export type OverleafFileOperation = "added" | "edited" | "removed" | "renamed";
+
+/**
+ * One row of `overleaf_history_files`. An entry with no `operation` existed,
+ * unchanged, for the entire range asked about, so only entries that have one
+ * are part of "what changed".
+ */
+export type OverleafFileEntry = {
+  pathname: string;
+  operation?: OverleafFileOperation;
+  newPathname?: string;
+  /** Set when `operation` is "removed"; the version to pass back to bring the file back. */
+  deletedAtV?: number;
+  editable?: boolean;
+};
+
+/**
+ * Walk Overleaf's chunk stream back into the two full texts it was split from:
+ * `u` belongs to both sides, `d` only to the before text, `i` only to the after
+ * text, so the shared diff renderer can diff them itself.
+ */
+export function textFromDiffChunks(path: string, chunks: OverleafDiffChunk[]): DiffFileChange {
+  let before = "";
+  let after = "";
+  for (const chunk of chunks) {
+    before += (chunk.u ?? "") + (chunk.d ?? "");
+    after += (chunk.u ?? "") + (chunk.i ?? "");
+  }
+  return { path, before, after };
+}
 
 /** Updates per page. Overleaf's own history view uses a similar batch size. */
 const PAGE_SIZE = 20;
 
-function message(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
-}
-
-export type UseOverleafHistory = {
-  updates: OverleafUpdate[];
-  labels: OverleafLabel[];
-  /** True only while the first page (or an explicit `refresh`) is in flight. */
-  loading: boolean;
-  loadingMore: boolean;
-  /** Whether another `loadMore` would find anything — mirrors `nextBefore !== null`. */
-  hasMore: boolean;
-  error: string | null;
-  /** True while a restore or label mutation is in flight. */
-  busy: boolean;
-  loadMore: () => Promise<void>;
-  /** Reload from the top, as if the drawer had just been opened. */
-  refresh: () => Promise<void>;
-  /** Restore one file to the state it had at `version`. */
-  revertFile: (version: number, path: string) => Promise<void>;
-  /**
-   * Restore the whole project to `version`. Destructive — it also deletes
-   * files that did not exist at that version — so callers must confirm with
-   * the user themselves before calling this; it performs the restore
-   * unconditionally, same as every other action here.
-   */
-  revertProject: (version: number) => Promise<void>;
-  /** Bring back a file that was deleted; `version` is its `deletedAtV`. */
-  restoreDeletedFile: (version: number, path: string) => Promise<void>;
-  addLabel: (version: number, comment: string) => Promise<void>;
-  deleteLabel: (labelId: string) => Promise<void>;
-};
-
-export function useOverleafHistory(projectRoot: string): UseOverleafHistory {
+export function useOverleafHistory(projectRoot: string) {
   const [updates, setUpdates] = useState<OverleafUpdate[]>([]);
-  const [labels, setLabels] = useState<OverleafLabel[]>([]);
   const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const refreshLabels = useCallback(async () => {
-    try {
-      setLabels(await invoke<OverleafLabel[]>("overleaf_history_labels", { projectRoot }));
-    } catch {
-      // Labels are a supplement to the timeline — each update already carries
-      // its own — so a failure here does not need its own error surface.
-    }
+  const fetchPage = useCallback((before: number | null) => {
+    setError(null);
+    const page = before === null ? { count: PAGE_SIZE } : { before, count: PAGE_SIZE };
+    return invoke<OverleafUpdatesPage>("overleaf_history_updates", { projectRoot, ...page }).then((result) => {
+      setUpdates((current) => (before === null ? result.updates : [...current, ...result.updates]));
+      setNextBefore(result.nextBefore);
+    }, (reason: unknown) => setError(toMessage(reason)));
   }, [projectRoot]);
 
+  /** Reload from the top, as if the drawer had just been opened. */
   const refresh = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const page = await invoke<OverleafUpdatesPage>("overleaf_history_updates", {
-        projectRoot,
-        count: PAGE_SIZE,
-      });
-      setUpdates(page.updates);
-      setNextBefore(page.nextBefore);
-    } catch (reason) {
-      setError(message(reason));
-    }
+    await fetchPage(null);
     setLoading(false);
-    void refreshLabels();
-  }, [projectRoot, refreshLabels]);
+  }, [fetchPage]);
 
-  // Mount fires `refresh` through a ref rather than calling it directly, so
-  // the effect body never contains a traceable synchronous setState call.
-  // The ref itself is kept current from its own effect rather than during
-  // render, same as `callbacksRef` in versions-timeline.tsx.
+  // Mount fires `refresh` through a ref so the effect body never contains a
+  // traceable synchronous setState call.
   const refreshRef = useRef(refresh);
   useEffect(() => {
     refreshRef.current = refresh;
@@ -102,73 +117,45 @@ export function useOverleafHistory(projectRoot: string): UseOverleafHistory {
     void refreshRef.current();
   }, [projectRoot]);
 
-  const loadMore = useCallback(async () => {
+  const loadMore = async () => {
     if (nextBefore == null || loadingMore) return;
     setLoadingMore(true);
-    setError(null);
-    try {
-      const page = await invoke<OverleafUpdatesPage>("overleaf_history_updates", {
-        projectRoot,
-        before: nextBefore,
-        count: PAGE_SIZE,
-      });
-      setUpdates((current) => [...current, ...page.updates]);
-      setNextBefore(page.nextBefore);
-    } catch (reason) {
-      setError(message(reason));
-    }
+    await fetchPage(nextBefore);
     setLoadingMore(false);
-  }, [projectRoot, nextBefore, loadingMore]);
+  };
 
   /** Run a mutation, then re-read: Overleaf's server is the only authority on the result. */
-  const act = useCallback(async (run: () => Promise<void>) => {
+  const mutate = (command: string, args: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
-    try {
-      await run();
-      await refreshRef.current();
-    } catch (reason) {
-      setError(message(reason));
-      throw reason;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  const revertFile = useCallback((version: number, path: string) => act(async () => {
-    await invoke("overleaf_history_revert", { projectRoot, version, path });
-  }), [act, projectRoot]);
-
-  const revertProject = useCallback((version: number) => act(async () => {
-    await invoke("overleaf_history_revert", { projectRoot, version });
-  }), [act, projectRoot]);
-
-  const restoreDeletedFile = useCallback((version: number, path: string) => act(async () => {
-    await invoke("overleaf_history_restore_file", { projectRoot, version, path });
-  }), [act, projectRoot]);
-
-  const addLabel = useCallback((version: number, comment: string) => act(async () => {
-    await invoke("overleaf_history_add_label", { projectRoot, version, comment });
-  }), [act, projectRoot]);
-
-  const deleteLabel = useCallback((labelId: string) => act(async () => {
-    await invoke("overleaf_history_delete_label", { projectRoot, labelId });
-  }), [act, projectRoot]);
+    return invoke(command, { projectRoot, ...args })
+      .then(() => refreshRef.current())
+      .catch((reason: unknown) => {
+        setError(toMessage(reason));
+        throw reason;
+      })
+      .finally(() => setBusy(false));
+  };
 
   return {
     updates,
-    labels,
     loading,
     loadingMore,
     hasMore: nextBefore !== null,
     error,
+    /** True while a restore or label mutation is in flight. */
     busy,
     loadMore,
-    refresh,
-    revertFile,
-    revertProject,
-    restoreDeletedFile,
-    addLabel,
-    deleteLabel,
+    /** Restore one file to the state it had at `version`. */
+    revertFile: (version: number, path: string) => mutate("overleaf_history_revert", { version, path }),
+    /**
+     * Restore the whole project to `version`. Destructive — it also deletes
+     * files that did not exist then — so callers confirm with the user first.
+     */
+    revertProject: (version: number) => mutate("overleaf_history_revert", { version }),
+    /** Bring back a deleted file; `version` is its `deletedAtV`. */
+    restoreDeletedFile: (version: number, path: string) => mutate("overleaf_history_restore_file", { version, path }),
+    addLabel: (version: number, comment: string) => mutate("overleaf_history_add_label", { version, comment }),
+    deleteLabel: (labelId: string) => mutate("overleaf_history_delete_label", { labelId }),
   };
 }

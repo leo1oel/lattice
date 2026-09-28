@@ -1,5 +1,6 @@
 import { isBinaryContentType, isBinarySize, isOperationId, isSha256, type BinaryConflictV2, type BinaryReferenceV2 } from "../../protocol/collab-v2";
 import { diagnosticFetch, type DiagnosticOperationContext } from "../telemetry/diagnostic-request";
+import { sha256Hex } from "../../protocol/encoding";
 
 export type BinaryReplaceResult = { status: "complete"; current: BinaryReferenceV2 } | { status: "conflict"; current?: BinaryReferenceV2; conflict: BinaryConflictV2 };
 export type WorkspaceLeaseCheck = () => void | Promise<void>;
@@ -37,7 +38,7 @@ export class CollabBinaryV2Client {
     const diagnostic = { operationId: crypto.randomUUID() };
     await this.checkWorkspaceLease?.();
     if (!isBinarySize(bytes.byteLength) || !isBinaryContentType(contentType) || !isOperationId(operationId)) throw new Error("Invalid binary replacement");
-    const hash = await sha256(bytes);
+    const hash = await sha256Hex(bytes);
     await this.checkWorkspaceLease?.();
     const ticket = await this.json("binary/upload-tickets", { fileId, documentEpoch, declaredHash: hash, declaredSize: bytes.byteLength, contentType, expectedCatalogRevision, expectedContentRevision, expectedPriorHash, operationId }, diagnostic) as { ticket: string };
     await this.checkWorkspaceLease?.();
@@ -60,7 +61,7 @@ export class CollabBinaryV2Client {
     await this.checkWorkspaceLease?.();
     if (!response.ok) throw await httpError(response, "Binary download failed");
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength !== issued.size || await sha256(bytes) !== issued.hash) throw new Error("Downloaded binary failed integrity verification");
+    if (bytes.byteLength !== issued.size || await sha256Hex(bytes) !== issued.hash) throw new Error("Downloaded binary failed integrity verification");
     await this.checkWorkspaceLease?.();
     return bytes;
   }
@@ -85,7 +86,3 @@ async function httpError(response: Response, fallback: string): Promise<CollabBi
   return new CollabBinaryHttpError(response.status, value.error ?? "request_failed", value.message ?? `${fallback} (${response.status})`);
 }
 
-async function sha256(bytes: Uint8Array): Promise<string> {
-  const value = await crypto.subtle.digest("SHA-256", bytes.slice().buffer);
-  return Array.from(new Uint8Array(value), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}

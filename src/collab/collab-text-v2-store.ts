@@ -1,5 +1,6 @@
 import * as Y from "yjs";
 import { isCatalogV2, isDurableAckV2, type CatalogV2, type DurableAckV2 } from "../../protocol/collab-v2";
+import { keyedQueue } from "./collab-workspace-lease";
 
 export type TextNamespaceV2 = { deployment: string; projectInstanceId: string; fileId: string; documentEpoch: number };
 export type OutboxEntryV2 = { id: string; update: Uint8Array; createdAt: number };
@@ -36,12 +37,21 @@ type StoredCatalogSnapshotV2 = {
 };
 
 function normalizedDeployment(deployment: string): string { return deployment.replace(/\/$/, ""); }
+/** Settle one IndexedDB request. */
+function settled<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+}
+/** Resolves when `tx` commits; rejects on error or abort. */
+function committed(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error); });
+}
 function catalogSnapshotKey(deployment: string, projectInstanceId: string): string {
   return [normalizedDeployment(deployment), projectInstanceId].map(encodeURIComponent).join("|");
 }
 
 export class CollabTextDurableStoreV2 {
-  private readonly tails = new Map<string, Promise<unknown>>();
+  /** Every operation on one document (or catalog) key runs after the previous one settles. */
+  private readonly serial = keyedQueue();
   private readonly snapshotWrittenAt = new Map<string, number>();
   constructor(
     private readonly indexedDB: IDBFactory = globalThis.indexedDB,
@@ -137,29 +147,14 @@ export class CollabTextDurableStoreV2 {
       projectInstanceId,
       catalog: structuredClone(catalog),
     };
-    await this.serial(`catalog:${key}`, async () => {
-      const db = await this.db();
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(CATALOG_STORE, "readwrite");
-        tx.objectStore(CATALOG_STORE).put(value);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-      });
-      db.close();
-    });
+    await this.serial(`catalog:${key}`, () => this.put(CATALOG_STORE, value));
   }
 
   /** Invalid, stale-version, or differently bound records are indistinguishable from no cache. */
   async loadCatalog(deployment: string, projectInstanceId: string): Promise<CatalogV2 | undefined> {
     const key = catalogSnapshotKey(deployment, projectInstanceId);
     return this.serial(`catalog:${key}`, async () => {
-      const db = await this.db();
-      const raw = await new Promise<unknown>((resolve, reject) => {
-        const request = db.transaction(CATALOG_STORE).objectStore(CATALOG_STORE).get(key);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      }).finally(() => db.close());
+      const raw: unknown = await this.withDb((db) => settled(db.transaction(CATALOG_STORE).objectStore(CATALOG_STORE).get(key)));
       if (!raw || typeof raw !== "object") return undefined;
       const record = raw as Partial<StoredCatalogSnapshotV2>;
       if (record.key !== key || record.version !== CATALOG_SNAPSHOT_VERSION
@@ -188,50 +183,42 @@ export class CollabTextDurableStoreV2 {
     });
   }
 
-  protected async read(key: string): Promise<DurableTextRecordV2 | undefined> { const db = await this.db(); return new Promise((resolve, reject) => { const request = db.transaction(STORE).objectStore(STORE).get(key); request.onsuccess = () => { db.close(); resolve(request.result as DurableTextRecordV2 | undefined); }; request.onerror = () => { db.close(); reject(request.error); }; }); }
-  protected async write(value: DurableTextRecordV2): Promise<void> { const db = await this.db(); await new Promise<void>((resolve, reject) => { const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(value); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error); }); db.close(); }
+  /** Open the database for one unit of work, closing the connection after it either way. */
+  private async withDb<T>(work: (db: IDBDatabase) => Promise<T>): Promise<T> {
+    const db = await this.db();
+    try { return await work(db); } finally { db.close(); }
+  }
+
+  private put(store: string, value: unknown): Promise<void> {
+    return this.withDb((db) => { const tx = db.transaction(store, "readwrite"); tx.objectStore(store).put(value); return committed(tx); });
+  }
+
+  protected read(key: string): Promise<DurableTextRecordV2 | undefined> { return this.withDb((db) => settled(db.transaction(STORE).objectStore(STORE).get(key))); }
+  protected write(value: DurableTextRecordV2): Promise<void> { return this.put(STORE, value); }
 
   private outboxKey(docKey: string, entryId: string): string { return `${docKey}|${entryId}`; }
 
   private async readOutboxEntry(docKey: string, entryId: string): Promise<OutboxEntryV2 | undefined> {
-    const db = await this.db();
-    return new Promise((resolve, reject) => {
-      const request = db.transaction(OUTBOX_STORE).objectStore(OUTBOX_STORE).get(this.outboxKey(docKey, entryId));
-      request.onsuccess = () => { db.close(); resolve((request.result as StoredOutboxRecordV2 | undefined)?.entry); };
-      request.onerror = () => { db.close(); reject(request.error); };
-    });
+    const record: StoredOutboxRecordV2 | undefined = await this.withDb((db) => settled(db.transaction(OUTBOX_STORE).objectStore(OUTBOX_STORE).get(this.outboxKey(docKey, entryId))));
+    return record?.entry;
   }
 
   private async readOutboxEntries(docKey: string): Promise<OutboxEntryV2[]> {
-    const db = await this.db();
-    return new Promise((resolve, reject) => {
-      const request = db.transaction(OUTBOX_STORE).objectStore(OUTBOX_STORE).index(OUTBOX_DOC_INDEX).getAll(docKey);
-      request.onsuccess = () => {
-        db.close();
-        const entries = (request.result as StoredOutboxRecordV2[]).map((record) => record.entry);
-        entries.sort((a, b) => a.createdAt - b.createdAt);
-        resolve(entries);
-      };
-      request.onerror = () => { db.close(); reject(request.error); };
-    });
+    const records: StoredOutboxRecordV2[] = await this.withDb((db) => settled(db.transaction(OUTBOX_STORE).objectStore(OUTBOX_STORE).index(OUTBOX_DOC_INDEX).getAll(docKey)));
+    return records.map((record) => record.entry).sort((a, b) => a.createdAt - b.createdAt);
   }
 
-  private async writeOutboxEntry(docKey: string, entry: OutboxEntryV2): Promise<void> {
-    const db = await this.db();
-    await new Promise<void>((resolve, reject) => { const tx = db.transaction(OUTBOX_STORE, "readwrite"); tx.objectStore(OUTBOX_STORE).put({ key: this.outboxKey(docKey, entry.id), doc: docKey, entry } satisfies StoredOutboxRecordV2); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error); });
-    db.close();
+  private writeOutboxEntry(docKey: string, entry: OutboxEntryV2): Promise<void> {
+    return this.put(OUTBOX_STORE, { key: this.outboxKey(docKey, entry.id), doc: docKey, entry } satisfies StoredOutboxRecordV2);
   }
 
   private async deleteOutboxEntries(docKey: string, entryIds: string[]): Promise<void> {
     if (!entryIds.length) return;
-    const db = await this.db();
-    await new Promise<void>((resolve, reject) => {
+    await this.withDb((db) => {
       const tx = db.transaction(OUTBOX_STORE, "readwrite");
-      const store = tx.objectStore(OUTBOX_STORE);
-      for (const id of entryIds) store.delete(this.outboxKey(docKey, id));
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+      for (const id of entryIds) tx.objectStore(OUTBOX_STORE).delete(this.outboxKey(docKey, id));
+      return committed(tx);
     });
-    db.close();
   }
 
   private async readValidated(key: string, namespace: TextNamespaceV2): Promise<DurableTextRecordV2 | undefined> {
@@ -262,7 +249,6 @@ export class CollabTextDurableStoreV2 {
     return record;
   }
 
-  private serial<T>(key: string, action: () => Promise<T>): Promise<T> { const prior = this.tails.get(key) ?? Promise.resolve(); const result = prior.then(action, action); this.tails.set(key, result.catch(() => undefined)); return result; }
 }
 
 export function updateCoveredByStateVector(update: Uint8Array, stateVector: Uint8Array): boolean {
