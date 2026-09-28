@@ -527,6 +527,8 @@ function App() {
     activeTab: string;
     canvasMode: CanvasMode;
     paperView: "blog" | "fulltext";
+    /** False once the writer opened a file after the restore queued this surface. */
+    isCurrent: () => boolean;
   } | null>(null);
   const projectAssetPaths = useMemo(
     () => collectAssetPaths(project?.files ?? []),
@@ -2397,8 +2399,12 @@ function App() {
       await loadWordCount();
       setPdfPageCount(null);
       setChecklistOpen(false);
-      if (plan.activeKind !== "document") {
-        pendingWorkspaceSurfaceRef.current = { root: snapshot.root, activeTab, canvasMode: mode, paperView: plan.paperView };
+      // The loads above are slow on large projects; a file the writer opened
+      // meanwhile must not be replaced by the restored Paper or asset tab.
+      if (plan.activeKind !== "document" && restoreIsCurrent()) {
+        pendingWorkspaceSurfaceRef.current = {
+          root: snapshot.root, activeTab, canvasMode: mode, paperView: plan.paperView, isCurrent: restoreIsCurrent,
+        };
       } else {
         setWorkspacePersistenceReadyRoot(snapshot.root);
       }
@@ -3538,6 +3544,10 @@ function App() {
     const pending = pendingWorkspaceSurfaceRef.current;
     if (!pending || pending.root !== project?.root) return;
     pendingWorkspaceSurfaceRef.current = null;
+    if (!pending.isCurrent()) {
+      setWorkspacePersistenceReadyRoot(pending.root);
+      return;
+    }
     void (async () => {
       if (isPaperTabKey(pending.activeTab)) {
         const arxivId = arxivIdFromTabKey(pending.activeTab);

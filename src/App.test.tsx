@@ -1304,6 +1304,41 @@ describe("project workspace", () => {
     await waitFor(() => expect(within(tabs).queryByRole("tab", { name: /pinned\.tex/ })).toBeNull());
   });
 
+  it.each([
+    ["PDF asset", "reference.pdf", "read_project_asset"],
+    ["paper", ".research/papers/1706.03762/paper.md", "read_paper"],
+  ])("keeps a file opened during slow restore loads over the restored %s tab", async (_kind, restoredTab, reader) => {
+    // Regression: restore awaited history, comments, todos and word count
+    // after its last freshness check, then queued the restored surface anyway;
+    // it opened with a newer load generation and dropped the writer's file.
+    const snapshot = projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") });
+    persistLayout(snapshot.root, {
+      openTabs: ["main.tex", "notes.md", restoredTab], activeFile: "main.tex", activeTab: restoredTab, canvasMode: "split",
+    });
+    const wordCount = deferred<null>();
+    const notesRead = deferred<string>();
+    renderApp({
+      ...projectCommands(snapshot), list_papers: () => [attentionPaper()],
+      read_project_file: (args) => argPath(args) === "notes.md" ? notesRead.promise : readPathContent(args),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }),
+      read_paper: PAPER_ABSTRACT, read_paper_blog_local: null, count_project_words: () => wordCount.promise,
+    });
+    await waitFor(() => expect(invokeCalls("count_project_words")).toHaveLength(1));
+    fireEvent.click(await findProjectTreeItem("notes.md"));
+    await waitFor(() => expect(invokeCalls("read_project_file", (args) => argPath(args) === "notes.md")).toHaveLength(1));
+    await act(async () => {
+      wordCount.resolve(null);
+      await nextFrames(3);
+    });
+    await act(async () => {
+      notesRead.resolve("content:notes.md");
+      await nextFrames(3);
+    });
+    await waitForSelectedTab("notes.md");
+    expect(paneContent("primary")).toHaveTextContent("content:notes.md");
+    expect(invokeCalls(reader)).toHaveLength(0);
+  });
+
   it("opens the most recently used other file before a stale secondary or a TeX fallback", async () => {
     const snapshot = projectSnapshot({
       rootDocuments: rootDocument("old.tex", "Old paper"), files: fileNodes("old.tex", "recent.md", "current.bib"),
