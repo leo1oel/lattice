@@ -230,7 +230,7 @@ a discrepancy:
 
 | File | LOC | Role |
 | --- | --- | --- |
-| `src/App.tsx` | ~5,980 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
+| `src/App.tsx` | ~5,960 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
 | `src-tauri/src/project.rs` | 8,093 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. 10 other Rust modules depend on it. |
 | `src-tauri/src/overleaf.rs` | 4,955 | Overleaf session, clone, and the three-way merge against `.research/overleaf-base/`. |
 | `src/canvas/document-canvas.tsx` | 1,794 | The editing surface: source pane, preview pane, split/dual/columns layouts, and the mount points for every lazy editor. Hosts the yCollab binding. |
@@ -258,7 +258,7 @@ generated), `src/settings/settings-dialog.tsx` (861).
 
 Stated plainly so you are not surprised.
 
-### `App.tsx` is still the hub, at ~5,980 lines
+### `App.tsx` is still the hub, at ~5,960 lines
 
 It was 10,891 lines before the simplification pass that split it up. Most
 self-contained state now lives in hooks under `src/app/`, and App composes
