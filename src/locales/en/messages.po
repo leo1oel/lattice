@@ -131,7 +131,7 @@ msgstr "{collabPeers} connected · {0}"
 msgid "{completed} of {progressTotal} references checked"
 msgstr "{completed} of {progressTotal} references checked"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comments"
 msgstr "{count} comments"
 
@@ -140,7 +140,7 @@ msgstr "{count} comments"
 msgid "{count} papers"
 msgstr "{count} papers"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
 
@@ -183,11 +183,11 @@ msgstr "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} ·
 msgid "{title} — no local reading available"
 msgstr "{title} — no local reading available"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "{title} paper reader"
 msgstr "{title} paper reader"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
 
@@ -316,7 +316,7 @@ msgstr "Add bibliography entry"
 msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "Add comment"
@@ -619,7 +619,7 @@ msgstr "Back"
 msgid "Back prime"
 msgstr "Back prime"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Back to {view}"
 msgstr "Back to {view}"
 
@@ -718,7 +718,7 @@ msgid "Block quotation"
 msgstr "Block quotation"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Blog"
 msgstr "Blog"
 
@@ -730,15 +730,15 @@ msgstr "Blog view gives you an illustrated overview before you read the full pap
 msgid "Bmatrix"
 msgstr "Bmatrix"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
 msgstr "Body {body} · raw {raw} · {chars} chars"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body word count unavailable"
 msgstr "Body word count unavailable"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 msgstr "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 
@@ -805,7 +805,7 @@ msgstr "Build only when requested · Command-S builds now. Shift-click for clean
 msgid "Build project"
 msgstr "Build project"
 
-#: src/App.tsx
+#: src/app/use-build-pipeline.ts
 msgid "Build superseded"
 msgstr "Build superseded"
 
@@ -843,7 +843,7 @@ msgid "Callout"
 msgstr "Callout"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -873,7 +873,7 @@ msgid "Cancel repair"
 msgstr "Cancel repair"
 
 #. placeholder {0}: result.title
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
 msgstr "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
 
@@ -1272,7 +1272,7 @@ msgstr "Color theme"
 msgid "Command palette"
 msgstr "Command palette"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "comment"
 msgstr "comment"
 
@@ -1294,7 +1294,7 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "Comments"
@@ -1488,12 +1488,12 @@ msgstr "Could not disconnect from Overleaf"
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
 msgstr "Could not load PDF"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/use-paper-pdf.ts
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
@@ -1828,7 +1828,7 @@ msgstr "Download arXiv {id}"
 msgid "Download JSON"
 msgstr "Download JSON"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
 
@@ -1866,7 +1866,7 @@ msgstr "Drag to cite · Click to read"
 msgid "Drag to resize"
 msgstr "Drag to resize"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 
@@ -1964,7 +1964,7 @@ msgid "Editor & builds"
 msgstr "Editor & builds"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Editor comments"
 msgstr "Editor comments"
@@ -1977,11 +1977,11 @@ msgstr "Editor font size"
 msgid "Editor keymap"
 msgstr "Editor keymap"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Editor shortcuts"
 msgstr "Editor shortcuts"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "Editor status"
 
@@ -2046,7 +2046,7 @@ msgstr "Enter a page number"
 msgid "Enter a replacement key"
 msgstr "Enter a replacement key"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "Enter a zoom percentage or scroll to zoom"
@@ -2100,7 +2100,7 @@ msgstr "Equivalent / congruent"
 msgid "Error"
 msgstr "Error"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "estimate"
 msgstr "estimate"
 
@@ -2216,7 +2216,7 @@ msgstr "Filter snippets"
 msgid "Final sigma"
 msgstr "Final sigma"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "find"
 msgstr "find"
 
@@ -2373,7 +2373,7 @@ msgstr "Git status and commit"
 msgid "Git workspace"
 msgstr "Git workspace"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Go to {title}"
 msgstr "Go to {title}"
 
@@ -2381,7 +2381,7 @@ msgstr "Go to {title}"
 msgid "Go to line"
 msgstr "Go to line"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Go to line (⌘G)"
 msgstr "Go to line (⌘G)"
 
@@ -2529,15 +2529,15 @@ msgstr "HTML"
 msgid "HTML files render live here, so you can build interactive demos and figures"
 msgstr "HTML files render live here, so you can build interactive demos and figures"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
 msgstr "HTML preview for {path}"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML zoom controls"
 msgstr "HTML zoom controls"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML zoom percentage"
 
@@ -2549,7 +2549,7 @@ msgstr "If and only if"
 msgid "Image"
 msgstr "Image"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
 msgstr "Image zoom percentage"
 
@@ -2562,7 +2562,7 @@ msgid "Implies"
 msgstr "Implies"
 
 #. placeholder {0}: result.title
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 
@@ -2704,7 +2704,7 @@ msgstr "Inline Math"
 msgid "Input file"
 msgstr "Input file"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "insert"
 msgstr "insert"
 
@@ -2800,7 +2800,7 @@ msgstr "Install LaTeX tools"
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "Install LaTeX tools (needed to compile PDFs)"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 #: src/build/tex-dependency-installer.tsx
 msgid "Install missing package"
 msgstr "Install missing package"
@@ -3021,11 +3021,11 @@ msgstr "Last, First and Last, First"
 msgid "LaTeX package installation progress"
 msgstr "LaTeX package installation progress"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 msgid "LaTeX package installed"
 msgstr "LaTeX package installed"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 msgid "LaTeX setup"
 msgstr "LaTeX setup"
 
@@ -3070,7 +3070,7 @@ msgstr "Layout"
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
@@ -3230,7 +3230,7 @@ msgstr "Live sharing…"
 msgid "Live sync"
 msgstr "Live sync"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "Ln {line}, Col {column}"
 
@@ -3257,7 +3257,7 @@ msgstr "Loading files…"
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Loading PDF…"
 msgstr "Loading PDF…"
@@ -3329,7 +3329,7 @@ msgid "Manual only"
 msgstr "Manual only"
 
 #: src/App.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Manuscript TODOs"
 msgstr "Manuscript TODOs"
 
@@ -3583,7 +3583,7 @@ msgstr "New spreadsheet"
 msgid "New versions install automatically"
 msgstr "New versions install automatically"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "next"
 
@@ -3865,7 +3865,7 @@ msgstr "Open another folder"
 msgid "Open another Overleaf project"
 msgstr "Open another Overleaf project"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Open article in browser"
 msgstr "Open article in browser"
 
@@ -3934,7 +3934,7 @@ msgstr "Open or drag a file here"
 msgid "Open Papers to see the sources cited by this manuscript"
 msgstr "Open Papers to see the sources cited by this manuscript"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Open PDF in browser"
 msgstr "Open PDF in browser"
 
@@ -4115,11 +4115,11 @@ msgid "Pages"
 msgstr "Pages"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Paper"
 msgstr "Paper"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Paper actions"
 msgstr "Paper actions"
 
@@ -4127,11 +4127,11 @@ msgstr "Paper actions"
 msgid "Paper content"
 msgstr "Paper content"
 
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
 msgstr "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
 
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
@@ -4146,7 +4146,7 @@ msgid "Paper view shows the complete text, sections, equations, and figures as s
 msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
 
 #: src/app/app-workspace-sidebar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/use-paper-pdf.ts
 #: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "Papers"
@@ -4209,7 +4209,7 @@ msgstr "Pause syncing with Overleaf?\n"
 "\n"
 "Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "PDF"
 msgstr "PDF"
 
@@ -4323,15 +4323,15 @@ msgstr "Preparing board editor"
 msgid "Preparing editor"
 msgstr "Preparing editor"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing HTML preview…"
 msgstr "Preparing HTML preview…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing Markdown editor"
 msgstr "Preparing Markdown editor"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
 
@@ -4364,7 +4364,7 @@ msgstr "Preview interactive HTML"
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Preview of {path}"
 msgstr "Preview of {path}"
 
@@ -4372,7 +4372,7 @@ msgstr "Preview of {path}"
 msgid "Preview PDF"
 msgstr "Preview PDF"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "previous"
 msgstr "previous"
 
@@ -4615,7 +4615,7 @@ msgstr "Rejoin {0}"
 msgid "Relations"
 msgstr "Relations"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
 
@@ -5265,7 +5265,7 @@ msgstr "Section"
 msgid "Section sign"
 msgstr "Section sign"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
 
@@ -5639,6 +5639,7 @@ msgid "Starting Agent"
 msgstr "Starting Agent"
 
 #: src/canvas/document-canvas.tsx
+#: src/canvas/open-slide-tab-pool.tsx
 msgid "Starting Open Slide"
 msgstr "Starting Open Slide"
 
@@ -5894,7 +5895,7 @@ msgstr "The linked Overleaf project changed. Try commenting again."
 msgid "The local model is unavailable."
 msgstr "The local model is unavailable."
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
 
@@ -6040,7 +6041,7 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 msgstr "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "This format cannot be rendered in the preview"
 
@@ -6130,7 +6131,7 @@ msgstr "To (short right arrow)"
 msgid "Today"
 msgstr "Today"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "TODOs"
 msgstr "TODOs"
 
@@ -6500,7 +6501,7 @@ msgstr "View"
 msgid "View in source Markdown"
 msgstr "View in source Markdown"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "View original PDF"
 msgstr "View original PDF"
 
@@ -6512,7 +6513,7 @@ msgstr "View repair"
 msgid "Vim and Emacs keep their modal bindings inside the editor only"
 msgstr "Vim and Emacs keep their modal bindings inside the editor only"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Vim mode"
 msgstr "Vim mode"
 
@@ -6674,12 +6675,12 @@ msgstr "Zeta"
 msgid "ZIP archive"
 msgstr "ZIP archive"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "Zoom in"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
