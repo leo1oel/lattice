@@ -8,40 +8,21 @@ import { confirmAction, toMessage } from "../app-utils";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { isPaperLibraryPath } from "../papers/paper-link";
+import { clearPreCollabProjectRoot, resolvePreCollabProjectRoot } from "../collab/collab-return";
 import {
-  clearPreCollabProjectRoot,
-  resolvePreCollabProjectRoot,
-} from "../collab/collab-return";
-import {
-  loadCollabDisplayName,
-  loadCollabHost,
-  mergeTextIntoYText,
-  resolveCollabHost,
-  saveCollabDisplayName,
-  saveCollabHost,
-  type CollabPeer,
-  type CollabStatus,
-  type EditorCollabSession,
+  loadCollabDisplayName, loadCollabHost, mergeTextIntoYText, resolveCollabHost, saveCollabDisplayName, saveCollabHost,
+  type CollabPeer, type CollabStatus, type EditorCollabSession,
 } from "../collab/collab-session";
 import { collabDeploymentOrigin } from "../collab/collab-config";
 import { collabCredentialStore, type CollabCredentialStore } from "../collab/collab-credentials";
 import { createProjectV2 } from "../collab/collab-import-v2";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "../collab/collab-control-v2";
-import {
-  CollabProjectControllerV2,
-  type CollabMaterializeCallbacksV2,
-  type CollabProjectStatusV2,
-} from "../collab/collab-project-v2";
+import { CollabProjectControllerV2, type CollabMaterializeCallbacksV2, type CollabProjectStatusV2 } from "../collab/collab-project-v2";
 import { mapCollabProjectStatusV2 } from "../collab/collab-status";
 import { TextClientPermanentErrorV2 } from "../collab/collab-text-v2";
 import { readRememberedV2Credential } from "../collab/collab-app-v2";
-import {
-  forgetCollabProjectV2,
-  loadCollabProjectsV2,
-  rememberCollabProjectV2,
-  type CollabProjectRecordV2,
-} from "../collab/collab-rooms";
+import { forgetCollabProjectV2, loadCollabProjectsV2, rememberCollabProjectV2, type CollabProjectRecordV2 } from "../collab/collab-rooms";
 import type { CollabDiskWriteQueue, CollabWorkspaceLease } from "../collab/collab-workspace-lease";
 import type { CollabDialogMode } from "../collab/collab-dialog";
 import type { CatalogV2 } from "../../protocol/collab-v2";
@@ -101,13 +82,12 @@ async function leaveExclusively(leaving: RefObject<boolean>, leave: () => Promis
 }
 
 /**
- * What the v2 share borrows from App. The seam is `loadFile`: it binds the
- * editor to a shared Y.Text, so what it touches (the session, version, ready
- * flag, controller/lease/write-queue refs, per-path mutation counter) is
- * declared above it in App and passed down; everything needed to *start, run
- * and stop* the share lives here. Stable refs and setters are listed in deps anyway.
+ * What the v2 share borrows from App: whatever `loadFile` touches when it binds
+ * the editor to a shared Y.Text (session, version, ready flag, controller/lease/
+ * write-queue refs, mutation counter) is declared in App; starting, running and
+ * stopping the share lives here.
  */
-export type CollabV2SessionDeps = {
+type CollabV2SessionDeps = {
   project: ProjectSnapshot | null;
   /** Imperative project identity; async work compares against it before committing. */
   projectRef: RefObject<ProjectSnapshot | null>;
@@ -144,8 +124,7 @@ export type CollabV2SessionDeps = {
 /**
  * The Lattice Share (Yjs v2) session: room state, the start / join / leave /
  * close lifecycle, catalog and permanent-error handling, and the two publish
- * paths (`publishTextToCollabV2`, `shareCreatedFileWithCollabV2`) that the rest
- * of App uses to keep collaborators in step with local writes.
+ * paths App uses to keep collaborators in step with local writes.
  */
 export function useCollabV2Session(deps: CollabV2SessionDeps) {
   const {
@@ -155,8 +134,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
     collabPathMutationGeneration, collabDetachRef, enterProjectRef, setBusyLabel, startProjectTransition,
     cancelProjectTransition, refreshProject, loadFile, v2WorkspaceCallbacks,
   } = deps;
-  // Called here rather than taken from App: the Lingui macro only rewrites
-  // `t` in the scope that destructured it from `useLingui()`.
+  // The Lingui macro only rewrites `t` in the scope that destructured it.
   const { t } = useLingui();
 
   const [collabOpen, setCollabOpen] = useState(false);
@@ -202,7 +180,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         setCollabReady(false);
         collabDetachRef.current?.();
         collabDetachRef.current = null;
-        if (session) session.destroy();
+        session?.destroy();
         collabV2ControllerRef.current = null;
         collabSessionRef.current = null;
         collabV2TreeSignatureRef.current = null;
@@ -276,11 +254,10 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   /**
    * Open the joined project's first document and make sure the share is bound
    * to it. `loadFile` activates a shared document only if its load is still the
-   * newest when the room syncs, so a slow open cannot steal the editor back.
-   * Joining runs that load behind materialization, a project switch and a
-   * refresh, so it is easily superseded, leaving the guest in the room with no
-   * active document: no identity, no caret, every peer "not in a file right
-   * now". One retry re-captures the generations after everything has settled.
+   * newest when the room syncs; joining runs it behind materialization, a
+   * project switch and a refresh, so it is easily superseded and would leave
+   * the guest with no active document (no identity, no caret). One retry
+   * re-captures the generations after everything has settled.
    */
   const bindJoinedDocument = useCallback(async (controller: CollabProjectControllerV2, path: string) => {
     const opened = await loadFile(path, { collabController: controller });
@@ -290,20 +267,17 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [collabV2ControllerRef, loadFile]);
 
   /**
-   * The session ended from the other side: the host removed this collaborator
-   * or ended the room. Both revoke the credential, so say what happened, hand
-   * back the guest's own project, and retire a room they can no longer enter.
+   * The host removed this collaborator or ended the room. Both revoke the
+   * credential: say so, hand back the guest's own project, and retire the room.
    */
   const handleV2PermanentError = useCallback((error: Error) => {
-    // File-scoped codes (a deleted file, a stale epoch) are recovered per file
-    // and must not tear the session down.
+    // File-scoped codes (a deleted file, a stale epoch) are recovered per file.
     const code = error instanceof TextClientPermanentErrorV2 ? error.code : null;
     if (code !== "revoked" && code !== "project_closed") return;
     if (collabRoleRef.current === "host") return;
     const controller = collabV2ControllerRef.current;
-    // Every open file has its own socket, fenced together: the first signal
-    // tears the session down, and later ones find no active controller, so the
-    // project is not restored and the closure announced repeatedly.
+    // Every open file has its own socket: the first signal tears the session
+    // down, and later ones find no controller rather than announcing it again.
     if (!controller) return;
     forgetCollabProjectV2(controller.host, controller.room);
     refreshRecentRooms();
@@ -316,9 +290,8 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [collabV2ControllerRef, leaveGuestShareSession, refreshRecentRooms, t]);
 
   /**
-   * The host steps out without ending the room: collaborators keep editing and
-   * the entry stays under Your shared rooms for rejoining or Close for everyone.
-   * Shared by the Leave share button and by switching projects.
+   * The host steps out without ending the room (Leave share, or switching
+   * projects): collaborators keep editing and the entry stays for rejoining.
    */
   const leaveHostShareSession = useCallback(async () => {
     await clearCollabLocalState();
@@ -337,16 +310,13 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
     if (!session) return;
     const currentRoot = projectRootRef.current;
     if (currentRoot && currentRoot === nextRoot) return;
-    // Switching projects only detaches the host locally, like closing the app;
-    // only "Stop sharing" ends the room for everyone. A guest leaves quietly.
+    // Switching projects only detaches the host locally; a guest leaves quietly.
     if (collabRoleRef.current === "host") await leaveHostShareSession();
     else await leaveGuestShareSession("Left the shared session", false);
   }, [collabSessionRef, leaveGuestShareSession, leaveHostShareSession, projectRootRef]);
 
   const mapV2Status = useCallback((status: CollabProjectStatusV2) => {
-    // Start sharing owns the more useful phase-by-phase progress copy. Provider
-    // status changes during openPath must not erase it or expose the live card
-    // before setup has actually finished.
+    // Start sharing owns the phase-by-phase progress copy until setup finishes.
     if (collabStartingRef.current) return;
     const mapped = mapCollabProjectStatusV2(status);
     showCollabStatus(mapped.status, mapped.detail);
@@ -354,13 +324,11 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
 
   /**
    * v2 catalog push (peer create/rename/delete, grants, lifecycle): keep the
-   * file count live and refresh the tree when paths change. Remote deletion has
-   * its own post-delete refresh that also fences stale editor buffers. The first
-   * callback after join only records the baseline; materialization refreshes.
+   * file count live and refresh the tree when paths change. The first callback
+   * after join only records the baseline; materialization refreshes.
    */
   const handleV2Catalog = useCallback((catalog: CatalogV2) => {
-    // A closed room is gone for good (every grant is revoked), so drop its
-    // entry the moment the catalog says so, on whichever side sees it.
+    // A closed room is gone for good: drop its entry on whichever side sees it.
     if (catalog.lifecycle === "closing" || catalog.lifecycle === "closed") {
       const activeController = collabV2ControllerRef.current;
       const deployment = activeController?.host;
@@ -368,8 +336,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         forgetCollabProjectV2(deployment, catalog.projectInstanceId);
         refreshRecentRooms();
       }
-      // The catalog poll is the fallback for a guest who was offline when the
-      // socket closed; either signal must leave the dead workspace too.
+      // The catalog poll is the fallback for a guest offline when the socket closed.
       if (collabRoleRef.current !== "host" && activeController?.room === catalog.projectInstanceId) {
         void leaveGuestShareSession(t`The host ended this share. Your own project is open again.`, true);
         return;
@@ -384,29 +351,23 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [collabV2ControllerRef, leaveGuestShareSession, refreshProject, refreshRecentRooms, t]);
 
   /**
-   * Push a non-active text buffer into the v2 session and onto disk. Sideload,
-   * so publishing never steals the active file (editor binding, awareness
-   * path). Returns false when the file is not live in the share, so the caller
-   * can fall back to a plain local write.
+   * Push a non-active text buffer into the v2 session and onto disk, sideloaded
+   * so publishing never steals the active file. Returns false when the file is
+   * not live in the share, so the caller can fall back to a plain local write.
    *
-   * Every caller must list this in its own dependency array: its identity tracks
-   * `activeCollabVersion`, the one state value it reads, and a closure captured
-   * while that was `null` answers `false` forever. `loadFile` can publish the
-   * session a commit *before* the version, so a caller memoized only on
-   * `collabSession` silently stops reaching collaborators for the whole share.
-   *
-   * `expectedMutationGeneration` is no substitute: evaluated fresh at call time
-   * even from a stale closure, it only fences the disk write against a
-   * rename/delete landing during `openPath`.
+   * Every caller must list this in its own dependency array: its identity
+   * tracks `activeCollabVersion`, and a closure captured while that was `null`
+   * answers `false` forever (`loadFile` can publish the session a commit before
+   * the version). `expectedMutationGeneration` is no substitute: it only fences
+   * the disk write against a rename/delete landing during `openPath`.
    */
   const publishTextToCollabV2 = useCallback(async (path: string, content: string, expectedMutationGeneration = collabPathMutationGeneration(path)): Promise<boolean> => {
     const controller = collabV2ControllerRef.current;
     if (activeCollabVersion !== 2 || !controller || path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path) || isPaperLibraryPath(path)) return false;
     if (!controller.hasTextPath(path)) return false;
     const ytext = await controller.openPath(path, "secondary", { sideload: true });
-    // Minimal-span merge, not delete-all + insert-all: a peer's concurrent
-    // edits outside the changed span survive, and the local origin keeps disk
-    // observers from rewriting the file we are about to write ourselves.
+    // Minimal-span merge: a peer's concurrent edits outside the span survive,
+    // and the local origin keeps disk observers from rewriting this file.
     mergeTextIntoYText(ytext, content);
     const lease = collabWorkspaceLeaseRef.current;
     const projectRoot = lease?.projectRoot ?? projectRootRef.current;
@@ -445,8 +406,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         await controller.replaceBinary(path, bytes, asset.mimeType, conflictWriter);
       } else {
         const seed = await invoke<string>("read_project_file", { path });
-        // Structured editors keep live state beside the content text, so an
-        // import over an existing live document leaves its shared doc as-is.
+        // Structured editors keep live state beside the content text: leave an existing shared doc as-is.
         if (controller.hasTextPath(path)) {
           if (kind === "text") await publishTextToCollabV2(path, seed);
         } else {
@@ -525,9 +485,8 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         });
         assertCurrentStart();
         setCollabStatusDetail(t`Connecting to the live session…`);
-        // Permanent socket errors can arrive as soon as the first document
-        // opens, before the session is published below. Classify them using
-        // the session being started rather than the previous session's role.
+        // Permanent socket errors can arrive as soon as the first document opens,
+        // before the session is published: classify them by this session's role.
         collabRoleRef.current = "host";
         controller = await CollabProjectControllerV2.start({ deployment, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore: store, permission: "host", onStatus: mapV2Status, onCatalog: handleV2Catalog, displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList, onPermanentError: handleV2PermanentError });
         assertCurrentStart();
@@ -586,9 +545,8 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [handleV2PermanentError, activeFile, clearCollabLocalState, collabHost, collabName, collabProjectName, collabSessionRef, collabV2ControllerRef, collabWorkspaceLeaseRef, editorCommentAuthorId, handleV2Catalog, loadFile, mapV2Status, project, projectRootRef, setActiveCollabVersion, setCollabReady, setCollabSession, showCollabStatus, t, v2WorkspaceCallbacks]);
 
   const copyCollabInvite = useCallback(async () => {
-    // Minting the invitation is a network round trip; when it fails (offline,
-    // host unreachable) the click must say so instead of leaving the previous
-    // clipboard contents masquerading as a fresh invite.
+    // Minting the invitation is a network round trip; a failure must say so
+    // rather than leave the previous clipboard contents posing as an invite.
     try {
       const controller = collabV2ControllerRef.current;
       if (activeCollabVersion === 2 && collabRoleRef.current === "host" && controller) {
@@ -634,9 +592,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
         collabDetachRef.current?.();
         collabDetachRef.current = null;
       }
-      void (collabSession.flush?.() ?? Promise.resolve())
-        .catch(() => undefined)
-        .finally(() => collabSession.destroy());
+      void (collabSession.flush?.() ?? Promise.resolve()).catch(() => undefined).finally(() => collabSession.destroy());
     };
   }, [collabDetachRef, collabSession, collabSessionRef]);
 
@@ -696,9 +652,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
           await mutateRememberedRoomV2(record, store, "close-begin");
           remoteClosed = true;
         }
-        if (record.credentialRef) {
-          await store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
-        }
+        if (record.credentialRef) await store.delete(record.credentialRef, record.projectInstanceId, record.host).catch(() => undefined);
         forgetCollabProjectV2(record.host, record.projectInstanceId);
         refreshRecentRooms();
         setNotice(`Closed “${record.title}” for everyone`);
@@ -712,40 +666,16 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
   }, [activeCollabVersion, clearCollabLocalState, collabV2ControllerRef, refreshRecentRooms]);
 
   return {
-    collabOpen, setCollabOpen,
-    collabMode, setCollabMode,
-    collabHost,
-    collabRoom, setCollabRoom,
-    collabInvite, setCollabInvite,
-    collabName, setCollabName,
-    collabProjectName, setCollabProjectName,
-    recentProjectsV2, refreshRecentRooms,
-    collabStatus, setCollabStatus,
-    collabStatusDetail,
-    collabPeerList, setCollabPeerList,
-    collabPeers,
-    collabFileCount, setCollabFileCount,
-    collabRole, setCollabRole,
+    collabOpen, setCollabOpen, collabMode, setCollabMode, collabHost, collabRoom, setCollabRoom,
+    collabInvite, setCollabInvite, collabName, setCollabName, collabProjectName, setCollabProjectName,
+    recentProjectsV2, refreshRecentRooms, collabStatus, setCollabStatus, collabStatusDetail,
+    collabPeerList, setCollabPeerList, collabPeers, collabFileCount, setCollabFileCount, collabRole, setCollabRole,
     /** Read by the join/rejoin flows, which classify socket errors before publishing. */
     collabRoleRef,
-    collabWorkspaceGenerationRef,
-    preCollabProjectRootRef,
-    clearCollabLocalState,
-    leaveHostShareSession,
-    bindJoinedDocument,
-    handleV2PermanentError,
-    disconnectCollab,
-    settleCollabBeforeProjectSwitch,
-    mapV2Status,
-    handleV2Catalog,
-    publishTextToCollabV2,
-    shareCreatedFileWithCollabV2,
-    startCollabShare,
-    copyCollabInvite,
-    removeCollabPeer,
-    openCollabDialog,
-    forgetRecentProjectV2,
-    renameRecentProjectV2,
-    closeRecentProjectV2,
+    collabWorkspaceGenerationRef, preCollabProjectRootRef,
+    clearCollabLocalState, leaveHostShareSession, bindJoinedDocument, handleV2PermanentError, disconnectCollab,
+    settleCollabBeforeProjectSwitch, mapV2Status, handleV2Catalog, publishTextToCollabV2, shareCreatedFileWithCollabV2,
+    startCollabShare, copyCollabInvite, removeCollabPeer, openCollabDialog,
+    forgetRecentProjectV2, renameRecentProjectV2, closeRecentProjectV2,
   };
 }

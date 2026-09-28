@@ -3,21 +3,19 @@ import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
 import type { CanvasMode } from "../app-types";
 import {
-  captureViewport, capturePreviewViewport, restorePreviewViewport, restoreViewport, scrollRange,
-  type MarkdownModeViewportHandoff,
+  captureViewport, capturePreviewViewport, restorePreviewViewport, restoreViewport, scrollRange, sourceAnchorCenter,
+  sourceAnchors, type MarkdownModeViewportHandoff,
 } from "./markdown-preview-sync";
 
 const isMarkdownMode = (mode: CanvasMode) => mode === "source" || mode === "split" || mode === "pdf";
 
 /**
- * Keeps the reader's place when a Markdown document moves between Edit,
- * Split and Preview: the outgoing viewports are captured (App calls
- * `captureMarkdownModeViewport` before it switches) and restored into
- * whichever panes the new mode mounts. An explicit "View in source" instead
- * centres the same source-backed block in both Split panes.
- *
- * While either transition owns the viewports it sets `scrollSyncSuppressedRef`,
- * which pauses the split scroll coordinator.
+ * Keeps the reader's place when a Markdown document moves between Edit, Split
+ * and Preview: App calls `captureMarkdownModeViewport` before it switches, and
+ * the viewports are restored into whichever panes the new mode mounts. An
+ * explicit "View in source" instead centres the same source-backed block in
+ * both Split panes. Either transition pauses the split scroll coordinator
+ * through `scrollSyncSuppressedRef`.
  */
 export function useMarkdownModeHandoff({
   activeFile, mode, markdownDocument, previewStart, primaryViewRef, primaryViewPathRef, previewViewportRef,
@@ -92,19 +90,13 @@ export function useMarkdownModeHandoff({
         if (restoreGenerationRef.current !== restoreGeneration) return false;
         const sourceView = livePrimaryView();
         const preview = previewViewportRef.current;
-        let ready = true;
-        if (mode !== "pdf") {
-          const sourceSnapshot = handoff.source ?? handoff.preview;
-          ready = Boolean(sourceView && sourceSnapshot && restoreViewport(sourceView.scrollDOM, sourceSnapshot)) && ready;
-        }
-        if (mode !== "source") {
-          ready = Boolean(preview && (
-            handoff.preview
-              ? restorePreviewViewport(preview, handoff.preview)
-              : handoff.source && restoreViewport(preview, handoff.source)
-          )) && ready;
-        }
-        return ready;
+        const sourceSnapshot = handoff.source ?? handoff.preview;
+        const sourceReady = mode === "pdf"
+          || Boolean(sourceView && sourceSnapshot && restoreViewport(sourceView.scrollDOM, sourceSnapshot));
+        const previewReady = mode === "source" || Boolean(preview && (handoff.preview
+          ? restorePreviewViewport(preview, handoff.preview)
+          : handoff.source && restoreViewport(preview, handoff.source)));
+        return sourceReady && previewReady;
       };
       let attempts = 0;
       let stableRestores = 0;
@@ -132,10 +124,9 @@ export function useMarkdownModeHandoff({
   }, [activeFile, livePrimaryView, markdownDocument, mode, previewViewport, previewViewportRef, primaryView, scrollSyncSuppressedRef]);
 
   const viewMarkdownSource = useCallback((sourceOffset: number) => {
-    // This is an explicit cross-pane reveal. Preview-only and Split have
-    // different React roots, and the narrower Split preview reflows prose, so
-    // coordinates from the old Preview cannot be carried across reliably.
-    // Once both panes exist, center the same source-backed block in each pane.
+    // Preview-only and Split have different React roots and reflow prose
+    // differently, so once both panes exist, centre the same source-backed
+    // block in each rather than carrying coordinates across.
     if (mode !== "split") explicitViewInSourceTransitionRef.current = true;
     const revealGeneration = ++explicitViewInSourceGenerationRef.current;
     explicitViewInSourcePendingGenerationRef.current = revealGeneration;
@@ -158,11 +149,9 @@ export function useMarkdownModeHandoff({
         window.requestAnimationFrame(() => {
           if (revealIsCurrent() && identityRef.current.mode === "split") {
             endReveal();
-            // The split coordinator's initial pass ran while the explicit
-            // two-pane centering was in progress, so it was intentionally
-            // blocked. Reconcile once against that final geometry now;
-            // otherwise the first tiny source scroll performs this alignment
-            // and visibly nudges the other pane.
+            // The split coordinator's initial pass was blocked by this reveal.
+            // Reconcile once against the final geometry, or the first tiny
+            // source scroll performs the alignment and nudges the other pane.
             reconcileFromSourceRef.current?.();
           }
         });
@@ -173,30 +162,19 @@ export function useMarkdownModeHandoff({
       const view = primaryViewRef.current;
       const preview = previewViewportRef.current;
       // The tightest source-labelled block that contains the offset.
-      const span = (element: HTMLElement) => Number(element.dataset.sourceEndOffset) - Number(element.dataset.sourceOffset);
-      const target = Array.from(preview?.querySelectorAll<HTMLElement>("[data-source-offset]") ?? [])
-        .filter((element) => {
-          const from = Number(element.dataset.sourceOffset);
-          const to = Number(element.dataset.sourceEndOffset);
-          return Number.isFinite(from) && Number.isFinite(to) && sourceOffset >= from && sourceOffset <= to;
-        })
-        .sort((left, right) => span(left) - span(right))[0] ?? null;
+      const target = (preview ? sourceAnchors(preview) : [])
+        .filter(({ from, to }) => sourceOffset >= from && sourceOffset <= to)
+        .sort((left, right) => (left.to - left.from) - (right.to - right.from))[0];
       if (identityRef.current.mode !== "split" || !view?.dom.isConnected || !preview?.isConnected || !target) {
         if (attempts++ < 30) window.requestAnimationFrame(focusSource);
-        // Source reveal remains useful even if a malformed document never
-        // receives source labels. Stop suppressing normal split scrolling.
+        // A document that never receives source labels must not suppress split scrolling forever.
         else if (revealIsCurrent()) endReveal();
         return;
       }
-      const cursor = clamp(previewStart + sourceOffset, 0, view.state.doc.length);
-      view.dispatch({ selection: { anchor: cursor } });
-      const previewFrom = Number(target.dataset.sourceOffset);
-      const previewTo = Number(target.dataset.sourceEndOffset);
-      const sourceFrom = clamp(previewStart + previewFrom, 0, view.state.doc.length);
-      const sourceTo = clamp(previewStart + Math.max(previewFrom, previewTo - 1), sourceFrom, view.state.doc.length);
-      const sourceCenter = (view.lineBlockAt(sourceFrom).top + view.lineBlockAt(sourceTo).bottom) / 2;
+      view.dispatch({ selection: { anchor: clamp(previewStart + sourceOffset, 0, view.state.doc.length) } });
+      const sourceCenter = sourceAnchorCenter(view, previewStart, target);
       view.scrollDOM.scrollTop = clamp(sourceCenter - view.scrollDOM.clientHeight / 2, 0, scrollRange(view.scrollDOM));
-      const targetRect = target.getBoundingClientRect();
+      const targetRect = target.element.getBoundingClientRect();
       const previewCenter = preview.scrollTop + targetRect.top - preview.getBoundingClientRect().top + targetRect.height / 2;
       preview.scrollTop = clamp(previewCenter - preview.clientHeight / 2, 0, scrollRange(preview));
       view.focus();

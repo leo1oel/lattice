@@ -39,19 +39,16 @@ export function usePreviewPrewarm(
     let cancelled = false;
     const paths = flattenProjectPaths(project.files);
     const canvasModule = loadDocumentCanvas();
-    // Chunk downloads can overlap the normal project setup without mounting
-    // hidden previews or changing user-visible state. Idle-gated: firing the
-    // burst immediately (visual editor + pdf viewer + worker can total ~4 MB)
-    // competes with the first real editor mount for main-thread time.
+    // Chunk downloads (visual editor + pdf viewer + worker, ~4 MB) are
+    // idle-gated so they do not compete with the first real editor mount.
     const cancelWarm = whenIdle(() => {
       void Promise.all([canvasModule, loadCanvasPrewarm()]).then(([, warm]) => {
         if (!cancelled) warm.prewarmProjectPreviewModules(paths);
       });
     }, 3_000, 300);
-    // Keep the lightweight search index warm, but do not parse every Markdown
-    // file into ProseMirror in the background. A project with many papers can
-    // otherwise spend hundreds of milliseconds in each "idle" callback while
-    // the user is scrolling or trying to open a file.
+    // Keep the lightweight search index warm, but never parse every Markdown
+    // file into ProseMirror in the background: with many papers each "idle"
+    // callback could cost hundreds of milliseconds.
     void workspaceIndex.update(project.files);
     return () => {
       cancelled = true;
@@ -85,9 +82,7 @@ export function usePreviewPrewarm(
     const isCurrent = () => state.generation === generation && state.target === key;
     const run = () => {
       state.cancelIdle = null;
-      // Intent can move again while an earlier parse is still running. Keep
-      // speculative work strictly bounded instead of allowing a fast sweep
-      // over the tree to queue a project-sized burst of parses.
+      // Keep speculative work bounded: a fast sweep over the tree must not queue a burst of parses.
       if (!isCurrent() || state.inFlight.size >= 2) return;
       state.inFlight.add(key);
       void task(isCurrent).then((warmed) => {

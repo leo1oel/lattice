@@ -32,11 +32,13 @@ function setup() {
   const pointer = (type: string, clientX = 0, pointerId = 7) => act(() => {
     window.dispatchEvent(new PointerEvent(type, { clientX, pointerId }));
   });
-  return { ...hook, begin, pointer };
+  /** A whole gesture: grab the divider, move to `clientX`, release there. */
+  const drag = (clientX: number) => { begin(); pointer("pointermove", clientX); pointer("pointerup", clientX); };
+  return { ...hook, begin, pointer, drag };
 }
 
 it("distinguishes click jitter, real resizing, and unrelated pointer releases", () => {
-  const { result, begin, pointer } = setup();
+  const { result, begin, pointer, drag } = setup();
   const start = result.current.sidebarWidth;
   begin(2);
   expect(result.current.sidebarResizing).toBe(false);
@@ -48,20 +50,16 @@ it("distinguishes click jitter, real resizing, and unrelated pointer releases", 
   expect(result.current.sidebarOpen).toBe(false);
   expect(result.current.sidebarWidth).toBe(start);
   act(() => result.current.setSidebarOpen(true));
-  begin();
-  pointer("pointermove", start - 2.5);
-  pointer("pointerup", start - 2.5);
+  drag(start - 2.5);
   expect(result.current.sidebarOpen).toBe(true);
   expect(result.current.sidebarWidth).toBe(start - 2.5);
-  begin();
-  pointer("pointermove", start + 37);
-  pointer("pointerup", start + 37);
+  drag(start + 37);
   expect(result.current.sidebarOpen).toBe(true);
   expect(result.current.sidebarWidth).toBe(start + 37);
 });
 
 it("previews only beyond the collapse threshold, rescues before release, and restores width on reopen", () => {
-  const { result, begin, pointer } = setup();
+  const { result, begin, pointer, drag } = setup();
   begin();
   pointer("pointermove", 84); // Minimum 180 minus the 96px overshoot.
   expect(result.current.sidebarCollapsePreview).toBe(false);
@@ -80,9 +78,7 @@ it("previews only beyond the collapse threshold, rescues before release, and res
   expect(result.current.sidebarCollapsePreview).toBe(false);
   pointer("pointerup", 231);
   expect(result.current.sidebarWidth).toBe(231);
-  begin();
-  pointer("pointermove", 80);
-  pointer("pointerup", 80);
+  drag(80);
   expect(result.current.sidebarOpen).toBe(false);
   act(() => result.current.setSidebarOpen(true));
   expect(result.current.sidebarWidth).toBe(231);

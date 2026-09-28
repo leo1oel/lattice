@@ -13,12 +13,8 @@ type TabsProps = ComponentProps<typeof EditorTabs>;
 
 function tabsProps(overrides: Partial<TabsProps> = {}): TabsProps {
   return {
-    tabs: [{ path: "main.tex" }, { path: "sections/intro.tex" }],
-    activePath: "main.tex",
-    onSelect: vi.fn(),
-    onClose: vi.fn(),
-    onReorder: vi.fn(),
-    ...overrides,
+    tabs: [{ path: "main.tex" }, { path: "sections/intro.tex" }], activePath: "main.tex",
+    onSelect: vi.fn(), onClose: vi.fn(), onReorder: vi.fn(), ...overrides,
   };
 }
 
@@ -60,10 +56,7 @@ const dropPreview = () => document.querySelector(".editor-tab-split-drop-preview
 
 describe("EditorTabs", () => {
   it("exposes distinct paths for same-name tabs on focus", async () => {
-    renderTabs({
-      tabs: [{ path: "chapters/intro.tex" }, { path: "appendices/intro.tex", label: "intro.tex" }],
-      activePath: "chapters/intro.tex",
-    });
+    renderTabs({ tabs: [{ path: "chapters/intro.tex" }, { path: "appendices/intro.tex", label: "intro.tex" }], activePath: "chapters/intro.tex" });
     const tabs = screen.getAllByRole("tab", { name: "intro.tex" });
     fireEvent.focus(tabs[0]);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("chapters/intro.tex");
@@ -135,11 +128,7 @@ describe("EditorTabs", () => {
   it("pins and unpins from the context menu and protects pinned tabs from closing", async () => {
     const onClose = vi.fn();
     const onSetPinned = vi.fn();
-    const { rerender } = renderTabs({
-      tabs: [{ path: "main.tex", pinned: true }, { path: "notes.tex" }],
-      onClose,
-      onSetPinned,
-    });
+    const { rerender } = renderTabs({ tabs: [{ path: "main.tex", pinned: true }, { path: "notes.tex" }], onClose, onSetPinned });
     const mainTab = tab(/main\.tex/i);
     expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close main.tex" })).toBeNull();
@@ -156,17 +145,10 @@ describe("EditorTabs", () => {
   });
 
   it.each([
-    {
-      name: "drags a back tab to the front",
-      tabs: [{ path: "a.tex" }, { path: "b.tex" }, { path: "c.tex" }],
-      drag: "c.tex",
-      expected: ["c.tex", "a.tex", "b.tex"],
-    },
+    { name: "drags a back tab to the front", tabs: [{ path: "a.tex" }, { path: "b.tex" }, { path: "c.tex" }], drag: "c.tex", expected: ["c.tex", "a.tex", "b.tex"] },
     {
       name: "keeps pinned and ordinary tabs in separate drag partitions",
-      tabs: [{ path: "pinned.tex", pinned: true }, { path: "a.tex" }, { path: "b.tex" }],
-      drag: "b.tex",
-      expected: ["pinned.tex", "b.tex", "a.tex"],
+      tabs: [{ path: "pinned.tex", pinned: true }, { path: "a.tex" }, { path: "b.tex" }], drag: "b.tex", expected: ["pinned.tex", "b.tex", "a.tex"],
     },
   ])("$name", ({ tabs, drag, expected }) => {
     mockTabLayout(Object.fromEntries(tabs.map((item, index) => [item.path, index * 100])));
@@ -203,15 +185,7 @@ describe("EditorTabs", () => {
   });
 
   it("uses the live split divider for full-bleed left and right targets", () => {
-    const { container } = render(
-      <div className="canvas-body">
-        <div className="split-canvas">
-          <div />
-          <div className="split-resizer" />
-          <div />
-        </div>
-      </div>,
-    );
+    const { container } = render(<div className="canvas-body"><div className="split-canvas"><div /><div className="split-resizer" /><div /></div></div>);
     mockRect(container.querySelector<HTMLElement>(".canvas-body")!, { left: 200, top: 40, width: 800, height: 600 });
     mockRect(container.querySelector<HTMLElement>(".split-resizer")!, { left: 720, top: 40, width: 1, height: 600 });
 

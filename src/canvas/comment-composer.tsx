@@ -17,9 +17,8 @@ export type CommentDraft = {
 };
 
 /**
- * The popover for a new source-editor comment, pinned beside the text it
- * quotes while the editor scrolls. `anchorKey` names the document and editor
- * instance it is anchored in.
+ * The popover for a new source-editor comment, pinned beside the text it quotes
+ * while the editor scrolls. `anchorKey` names the document and editor instance.
  */
 export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel, onSave }: {
   draft: CommentDraft;
@@ -75,13 +74,13 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
     const observer = new ResizeObserver(scheduleReposition);
     observer.observe(host);
     observer.observe(view.contentDOM);
-    window.addEventListener("scroll", scheduleReposition, true);
-    window.addEventListener("resize", scheduleReposition);
+    const listening = new AbortController();
+    window.addEventListener("scroll", scheduleReposition, { capture: true, signal: listening.signal });
+    window.addEventListener("resize", scheduleReposition, { signal: listening.signal });
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("scroll", scheduleReposition, true);
-      window.removeEventListener("resize", scheduleReposition);
+      listening.abort();
     };
   }, [anchorKey, view]);
   return (

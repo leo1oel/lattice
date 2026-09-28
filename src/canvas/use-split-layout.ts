@@ -100,10 +100,8 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
       const sourceWidth = clamp(Math.round(moveEvent.clientX - bounds.left), minimum, maximum);
       latest = constrainSplitRatio(sourceWidth / tracksWidth);
       setSplitResizerResistance(grip, Math.round(moveEvent.clientX - bounds.left) - sourceWidth);
-      // Keep the hot drag path outside React. Re-rendering the PDF viewer for
-      // every pointer event made WebKit repeatedly lay out and repaint the
-      // toolbar, which showed up as tiny icon shifts. The committed ratio is
-      // still sent through React on pointer-up.
+      // Keep the hot drag path outside React: re-rendering the PDF viewer per
+      // pointer event made its toolbar icons shift. Pointer-up commits the ratio.
       split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`;
     }, () => commitSplitRatio(latest));
   };

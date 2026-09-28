@@ -1,9 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 
-/**
- * Cancellable subscriptions for `useEffect` bodies. Every function here
- * returns a synchronous disposer, so an effect can `return subscribe(...)`.
- */
+/** Cancellable subscriptions for `useEffect` bodies: each returns a synchronous disposer. */
 
 /**
  * Adopt an asynchronously-created unlisten function. Disposing before the

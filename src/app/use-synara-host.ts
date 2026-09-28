@@ -1,34 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ProjectSnapshot } from "../app-types";
-import {
-  executeAgentBibliographyToolRequest,
-  parseAgentBibliographyToolRequest,
-} from "../agent/agent-bibliography-tools";
+import { executeAgentBibliographyToolRequest, parseAgentBibliographyToolRequest } from "../agent/agent-bibliography-tools";
 import { executeAgentCanvasToolRequest, parseAgentCanvasToolRequest } from "../agent/agent-canvas-tools";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
-  LATTICE_HOST_CONTEXT,
-  LATTICE_HOST_CONTEXT_REQUEST,
-  LATTICE_HOST_CONTEXT_SELECTION_CLEAR,
-  type AgentHostContextSnapshot,
+  LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, type AgentHostContextSnapshot,
 } from "../agent/agent-host-context";
 import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from "../agent/agent-paper-library";
 import {
-  executeAgentProjectDocumentToolRequest,
-  parseAgentProjectDocumentToolRequest,
-  type AgentProjectDocumentToolRequest,
+  executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
 } from "../agent/agent-project-document-tools";
-import {
-  executeAgentSpreadsheetToolRequest,
-  parseAgentSpreadsheetToolRequest,
-} from "../agent/agent-spreadsheet-tools";
+import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
-import {
-  parseAgentProjectHistorySnapshot,
-  synaraProjectRelativeFilePath,
-} from "../agent/synara-runtime";
+import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
 
@@ -45,7 +31,7 @@ function loadAgentEditorComments() {
 }
 
 /** What the embedded agent can reach in the host; read at message time. */
-export type SynaraHostBridge = {
+type SynaraHostBridge = {
   openProviderSettings: () => void;
   /** Open a project file the agent named, in the host's own surfaces. */
   openProjectPath: (path: string) => void;
@@ -113,7 +99,6 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   const frameKey = origin && project ? `${origin}\0${project.root}` : null;
   const frameReady = frameKey !== null && readyFrameKey === frameKey;
   const projectRootRef = useRef<string | null>(null);
-  projectRootRef.current = project?.root ?? null;
   const latest = useRef({
     bridge,
     agentVisible,
@@ -122,6 +107,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     paperLibrary: null as AgentPaperLibrarySnapshot | null,
   });
   useLayoutEffect(() => {
+    projectRootRef.current = project?.root ?? null;
     Object.assign(latest.current, { bridge, agentVisible, frameKey });
   });
 
@@ -163,10 +149,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     void postMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
   }, [postMessage]);
 
-  // WebKit drops pointerleave when the cursor crosses out of the agent iframe,
-  // so hover states inside it (its overlay scrollbar) stick until the pointer
-  // returns. Any pointerover in this document means the pointer is not over
-  // the iframe; relay it, throttled, as the missing leave signal.
+  // WebKit drops pointerleave when the cursor leaves the agent iframe, so hover
+  // states inside it stick. Any pointerover here means the pointer is not over
+  // the iframe: relay it, throttled, as the missing leave signal.
   useEffect(() => {
     if (!origin) return;
     let lastPost = 0;
@@ -197,24 +182,20 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         host.bridge.openProviderSettings();
       },
       "synara:open-file": (data, host) => {
-        // A file the agent named in its answer. The panel has no editor of its
-        // own to show it in, and the one beside it is ours. Route cached Paper
-        // markdown through the reader just like links inside our own preview.
+        // A file the agent named: open it in our editor (cached Paper markdown
+        // goes through the reader, like links inside our own preview).
         const path = synaraProjectRelativeFilePath(data.filePath, projectRef.current?.root);
         if (path) host.bridge.openProjectPath(path);
       },
       "synara:open-external": (data) => {
-        // WebKit does not hand an embedded frame's `_blank` navigation to the
-        // system browser. Keep that privileged operation in the host instead.
+        // WebKit does not hand an embedded frame's `_blank` navigation to the system browser.
         const url = stringField(data.url);
         if (/^https?:\/\//i.test(url)) void openUrl(url).catch(() => undefined);
       },
       "synara:open-review": (data, host) => {
-        // The embedded chat has no diff surface of its own. A file row carries
-        // its path and opens in the host's native file surface; the bare Review
-        // button opens the drawer pinned to that turn's checkpoint diff — the
-        // working tree may already be clean (undo, saved version) and would
-        // review nothing.
+        // A file row opens in the host's file surface; the bare Review button
+        // opens the drawer pinned to that turn's checkpoint diff, since the
+        // working tree may already be clean.
         const filePath = synaraProjectRelativeFilePath(data.filePath, projectRef.current?.root);
         if (filePath) {
           host.bridge.openProjectPath(filePath);
@@ -272,9 +253,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
       "synara:layout-metrics": (data, host) => {
         const width = data.minimumSidebarWidth;
         if (typeof width !== "number" || !Number.isFinite(width)) return;
-        // Synara reports an intrinsic control width, not the footer's currently
-        // assigned grid width, so this value may safely decrease after controls
-        // or model labels change.
+        // An intrinsic control width, not the assigned grid width, so it may safely decrease.
         host.bridge.onMinimumSidebarWidth(Math.round(
           Math.min(SYNARA_SIDEBAR_MAXIMUM_MINIMUM, Math.max(SYNARA_SIDEBAR_MINIMUM, width)),
         ));
@@ -323,8 +302,7 @@ export function useSynaraSnapshots(
 ) {
   const { deliverable, latest, postMessage } = synara;
   useLayoutEffect(() => {
-    latest.current.hostContext = hostContext;
-    latest.current.paperLibrary = paperLibrary;
+    Object.assign(latest.current, { hostContext, paperLibrary });
   }, [hostContext, latest, paperLibrary]);
   useEffect(() => {
     if (!hostContext || !deliverable) return;

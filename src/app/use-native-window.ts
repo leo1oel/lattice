@@ -10,12 +10,11 @@ import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
 
-export function getCurrentWindowSafely() {
+function getCurrentWindowSafely() {
   try {
     return getCurrentWindow();
   } catch {
-    // Browser previews, recovery pages, and a briefly unavailable Tauri
-    // bridge should not replace the entire application with a white screen.
+    // Browser previews and a briefly unavailable Tauri bridge must not white-screen the app.
     return null;
   }
 }
@@ -51,8 +50,7 @@ export function useWindowMinimumSize({ interfaceScale, minimumSidebarWidth, side
     const appWindow = getCurrentWindowSafely();
     if (typeof appWindow?.setMinSize !== "function") return;
     const minimumWorkspaceWidth = Number(
-      document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")
-        ?.dataset.minimumWorkspaceWidth,
+      document.querySelector<HTMLElement>(".split-canvas[data-minimum-workspace-width]")?.dataset.minimumWorkspaceWidth,
     ) || 0;
     const width = minimumWindowWidth({ interfaceScale, minimumSidebarWidth, minimumWorkspaceWidth, sidebarOpen });
     void appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT)).catch(() => {
@@ -76,10 +74,8 @@ export function useLeavePresenceOnClose(controllerRef: RefObject<CollabProjectCo
       const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 500));
       void Promise.race([leave.catch(() => undefined), deadline]).finally(() => {
         if (!active) return;
-        // Preventing the close above means this call is the only thing that
-        // still closes the window: swallowing its rejection (a missing
-        // core:window:allow-destroy grant did exactly that) leaves the traffic
-        // light dead with nothing on screen to explain it.
+        // Having prevented the close, this is the only thing that still closes
+        // the window: a swallowed rejection would leave the traffic light dead.
         void appWindow.destroy().catch((reason) => {
           closing = false;
           setError(`Lattice could not close its window: ${toMessage(reason)}`);
@@ -99,12 +95,9 @@ export function useFullscreen(): boolean {
     const appWindow = getCurrentWindowSafely();
     if (typeof appWindow?.isFullscreen !== "function" || typeof appWindow.onResized !== "function") return;
     let active = true;
-    const refresh = () => {
-      void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
-    };
+    const refresh = () => void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
     refresh();
-    // Native resize events can arrive much faster than WebKit presents
-    // frames. A trailing check avoids queueing an IPC round trip per pixel.
+    // A trailing check avoids an IPC round trip per native resize event.
     const stop = onResizeSettled(appWindow, 80, refresh);
     return () => {
       active = false;
@@ -133,12 +126,10 @@ export function useTrafficLightAlignment(
       const titlebar = shell?.querySelector<HTMLElement>(".titlebar");
       if (!shell || !titlebar) return;
       const rect = titlebar.getBoundingClientRect();
-      // WebKit reports unzoomed CSS pixels while AppKit consumes logical
-      // points. Measuring the rendered titlebar and applying the live webview
-      // zoom keeps the native center aligned for every interface scale.
-      // Horizontally, Hide Sidebar sits at the midpoint between the green
-      // traffic-light's right edge and the project *label* (not the padded
-      // button box — padding made the control look biased left).
+      // WebKit reports unzoomed CSS pixels while AppKit consumes logical points,
+      // so apply the live webview zoom. Horizontally, Hide Sidebar sits midway
+      // between the green light's right edge and the project *label* (not its
+      // padded button box, which made the control look biased left).
       const placeToggle = (greenRight: number) => {
         if (!active) return;
         shell.style.setProperty("--titlebar-traffic-space-width", `${greenRight}px`);
@@ -168,8 +159,7 @@ export function useTrafficLightAlignment(
     const frame = window.requestAnimationFrame(align);
     const initialTimer = window.setTimeout(align, 120);
     const appWindow = getCurrentWindowSafely();
-    // Wait until AppKit's live-resize layout pass has settled, then measure
-    // once. Updating on every resize event makes the native buttons jitter.
+    // Measure once AppKit's live-resize layout settles; every event would make the buttons jitter.
     const stop = typeof appWindow?.onResized === "function" ? onResizeSettled(appWindow, 120, align) : undefined;
     return () => {
       active = false;

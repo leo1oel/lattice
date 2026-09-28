@@ -4,12 +4,10 @@ import type { EditorView } from "@codemirror/view";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { clamp } from "../settings/app-settings";
-import {
-  calculateVerticalScrollGeometry,
-  EXTERNAL_SCROLLBAR_TRACK_INSET,
-} from "../components/ui/external-scrollbar-geometry";
+import { calculateVerticalScrollGeometry, EXTERNAL_SCROLLBAR_TRACK_INSET } from "../components/ui/external-scrollbar-geometry";
 import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
 import type { HtmlFileViewState } from "../app-types";
+import { scrollRange } from "./markdown-preview-sync";
 import { useZoomScale } from "./use-zoom-scale";
 import { ZoomControls } from "./zoom-controls";
 
@@ -68,9 +66,8 @@ function referencedProjectResources(source: string, path: string): Set<string> {
 
 /**
  * The sandboxed srcdoc for an authored HTML file: project resources inlined,
- * relative links disabled, and two bridge scripts that report scrolling and
- * accept scroll/zoom requests, since the opaque-origin frame is otherwise
- * unreachable from the host.
+ * relative links disabled, and bridge scripts for scrolling and zoom, since the
+ * opaque-origin frame is otherwise unreachable from the host.
  */
 function buildPreviewDocument(source: string, path: string, resources: Map<string, string>, relativeLinkTitle: string): string {
   const document = new DOMParser().parseFromString(source, "text/html");
@@ -117,11 +114,11 @@ function buildPreviewDocument(source: string, path: string, resources: Map<strin
   return `<!doctype html>${document.documentElement.outerHTML}`;
 }
 
-function isScrollReport(data: object): data is { clientHeight: number; scrollHeight: number; scrollTop: number } {
-  return "clientHeight" in data && "scrollHeight" in data && "scrollTop" in data
-    && typeof data.clientHeight === "number"
-    && typeof data.scrollHeight === "number"
-    && typeof data.scrollTop === "number";
+type ScrollMetrics = { clientHeight: number; scrollHeight: number; scrollTop: number };
+
+function isScrollReport(data: object): data is ScrollMetrics {
+  const { clientHeight, scrollHeight, scrollTop } = data as Partial<Record<keyof ScrollMetrics, unknown>>;
+  return typeof clientHeight === "number" && typeof scrollHeight === "number" && typeof scrollTop === "number";
 }
 
 /** A sandboxed live preview of a project HTML file, with Lattice's own zoom and scrollbar. */
@@ -144,12 +141,9 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   const [scale, updateScale] = useZoomScale(initialViewState?.scale ?? 1, HTML_PREVIEW_MIN_SCALE, HTML_PREVIEW_MAX_SCALE);
   const scaleRef = useRef(scale);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onViewStateRef = useRef(onViewState);
-  const [initialScrollTop] = useState(initialViewState?.scrollTop ?? 0);
-  // Republishing srcDoc reloads the frame, which drops the reader back to the
-  // top of the document. Editing an HTML file therefore threw away the reading
-  // position every time typing paused. Carry it across the reload.
+  const initialScrollTop = initialViewState?.scrollTop ?? 0;
+  // Republishing srcDoc reloads the frame at the top; carry the reading position across.
   const restoreScrollTopRef = useRef(initialScrollTop);
   const scrollRangeRef = useRef(initialViewState?.scrollRange ?? 0);
   const awaitingInitialRestoreRef = useRef(initialScrollTop > 0);
@@ -183,6 +177,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   }, [assetRevision, onLoadAsset, path, previewSource]);
 
   useEffect(() => {
+    let scrollingTimer: ReturnType<typeof setTimeout> | undefined;
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (event.source !== frameRef.current?.contentWindow) return;
       const data = event.data;
@@ -194,15 +189,12 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
         if (data.scrollTop > 0 || data.scrollHeight <= data.clientHeight) awaitingInitialRestoreRef.current = false;
         if (!awaitingInitialRestoreRef.current) {
           restoreScrollTopRef.current = data.scrollTop;
-          scrollRangeRef.current = Math.max(0, data.scrollHeight - data.clientHeight);
+          scrollRangeRef.current = scrollRange(data);
           onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: data.scrollTop, scrollRange: scrollRangeRef.current });
         }
         setScrolling(true);
-        if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
-        scrollingTimerRef.current = setTimeout(() => {
-          scrollingTimerRef.current = null;
-          setScrolling(false);
-        }, 500);
+        clearTimeout(scrollingTimer);
+        scrollingTimer = setTimeout(() => setScrolling(false), 500);
         return;
       }
       if (data.type !== HTML_PREVIEW_OPEN_EXTERNAL || !("href" in data) || typeof data.href !== "string") return;
@@ -218,10 +210,9 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
-      const metrics = scrollMetricsRef.current;
-      const scrollRange = Math.max(0, metrics.scrollHeight - metrics.clientHeight);
-      onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: restoreScrollTopRef.current, scrollRange });
+      clearTimeout(scrollingTimer);
+      const range = scrollRange(scrollMetricsRef.current);
+      onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: restoreScrollTopRef.current, scrollRange: range });
     };
   }, []);
 
@@ -231,10 +222,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   );
 
   const postToFrame = useCallback((message: object) => frameRef.current?.contentWindow?.postMessage(message, "*"), []);
-  const setScrollTop = useCallback(
-    (scrollTop: number) => postToFrame({ type: HTML_PREVIEW_SET_SCROLL_TOP, scrollTop }),
-    [postToFrame],
-  );
+  const setScrollTop = useCallback((scrollTop: number) => postToFrame({ type: HTML_PREVIEW_SET_SCROLL_TOP, scrollTop }), [postToFrame]);
 
   useEffect(() => {
     if (!sourceEditorView) return;
@@ -244,9 +232,8 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
       if (frame) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        const sourceRange = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-        const previewMetrics = scrollMetricsRef.current;
-        const previewRange = Math.max(0, previewMetrics.scrollHeight - previewMetrics.clientHeight);
+        const sourceRange = scrollRange(scroller);
+        const previewRange = scrollRange(scrollMetricsRef.current);
         if (sourceRange <= 0 || previewRange <= 0) return;
         setScrollTop(previewRange * clamp(scroller.scrollTop / sourceRange, 0, 1));
       });

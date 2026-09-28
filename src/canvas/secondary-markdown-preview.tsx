@@ -13,9 +13,8 @@ type ForwardedEditorProps = Pick<
 >;
 
 /**
- * The visual Markdown editor for the secondary pane. It edits the secondary
- * buffer directly and keeps its own undo history, since that pane has no
- * CodeMirror view behind it to own one.
+ * The visual Markdown editor for the secondary pane: it edits the secondary
+ * buffer directly and keeps its own undo history, with no CodeMirror view behind it.
  */
 export function SecondaryMarkdownPreview({
   path, projectRoot, source, onChange, onEditSource, onCaretChange, editorComments, onCreateComment, ...forwarded

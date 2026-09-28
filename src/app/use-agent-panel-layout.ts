@@ -30,6 +30,8 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
       host?.classList.remove("agent-dock-host");
       host?.style.removeProperty("--agent-dock-height");
     };
+    // In dual mode the primary column owns the dock whether it holds an editor
+    // or a preview; only single-pane previews fall back to the canvas.
     const findHost = () => docked && visible
       ? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary .source-workspace")
         ?? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary")
@@ -37,8 +39,6 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
         ?? workspace.querySelector<HTMLElement>(".canvas-body")
       : null;
     const update = () => {
-      // In dual mode the primary column owns the dock whether it contains an
-      // editor or a preview. Only single-pane previews fall back to the canvas.
       const next = findHost();
       if (next !== host) {
         if (host) observer.unobserve(host);
@@ -56,8 +56,7 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
       // Keep some writing space even in a short window; the panel scrolls.
       const headerHeight = slotRef.current?.offsetTop ?? 0;
       const height = docked ? Math.min(rect.height * ratio, Math.max(0, rect.height - 120)) : rect.height - headerHeight;
-      // Match the sidebar's clipping animation without squeezing the live
-      // iframe's controls through every intermediate column width.
+      // Match the sidebar's clipping animation without squeezing the live iframe.
       const width = docked ? rect.width : slotRef.current?.offsetWidth || rect.width;
       if (host) {
         host.classList.add("agent-dock-host");
@@ -74,8 +73,8 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
     observer.observe(workspace);
     if (sidebar) observer.observe(sidebar);
     if (slotRef.current) observer.observe(slotRef.current);
-    // Lazy editors and document-mode changes can replace the docking anchor.
-    // Ordinary editor mutations must not force a layout read on every keystroke.
+    // Lazy editors and mode changes can replace the docking anchor; ordinary
+    // editor mutations must not force a layout read per keystroke.
     const mutations = new MutationObserver(() => {
       if (findHost() !== host) update();
     });

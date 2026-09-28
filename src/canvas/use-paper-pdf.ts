@@ -7,6 +7,7 @@ import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
 import type { CanvasMode, PaperSummary } from "../app-types";
+import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { captureViewport, type ViewportSnapshot } from "./markdown-preview-sync";
 
@@ -25,9 +26,7 @@ type PaperLink = Pick<PaperSummary, "arxivId" | "url">;
 
 function normalizedArxivId(value: string): string {
   const candidate = value.trim();
-  return /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(candidate)
-    ? candidate
-    : "";
+  return /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(candidate) ? candidate : "";
 }
 
 /** `value` as an http(s) URL; anything malformed or unsafe to hand the OS opener is null. */
@@ -48,10 +47,9 @@ function paperPdfSource(paper: PaperLink): PaperPdfSource | null {
   }
   const parsed = httpUrl(paperPdfUrl(paper));
   if (!parsed?.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
-  const pathName = parsed.pathname.split("/").at(-1) || "paper.pdf";
-  let fileName = pathName;
+  let fileName = parsed.pathname.split("/").at(-1) || "paper.pdf";
   try {
-    fileName = decodeURIComponent(pathName);
+    fileName = decodeURIComponent(fileName);
   } catch {
     // A malformed escape in the display name must not make an otherwise safe PDF URL unusable.
   }
@@ -65,10 +63,9 @@ function paperBrowserUrl(paper: PaperLink): string | null {
 type PaperQuoteFallback = { paperId: string; path: string; returnPath: string; quote: PdfSourceQuote };
 
 /**
- * The Paper reader's alternate PDF surface: which original PDF the open Paper
- * has, the one view of it currently shown (with its bytes cached for a quick
- * return), and the fallback into the full-text Markdown when a quoted source
- * cannot be shown in the PDF.
+ * The Paper reader's alternate PDF surface: the open Paper's original PDF, the
+ * one view of it shown (bytes cached for a quick return), and the fallback into
+ * the full-text Markdown when a quoted source cannot be shown in the PDF.
  */
 export function usePaperPdf({
   activePaper, activeFile, mode, onOpenMarkdownPath, flushVisualMarkdown, previewViewportRef, settledPreviewText,
@@ -104,12 +101,9 @@ export function usePaperPdf({
     requestRef.current += 1;
     setQuoteFallback((current) => current?.paperId === activePaperId ? current : null);
     setPdfView((current) => current?.key === pdfSource?.key ? current : null);
-  }, [activePaperId, pdfSource]);
-  useEffect(() => {
-    // The paper article is already useful while this local chunk initializes.
-    // Start it here so a later PDF click waits only for the remote source and PDF.js.
+    // Start the viewer chunk now so a later PDF click waits only for the remote source.
     if (pdfSource) void loadPdfPreviewModule();
-  }, [pdfSource]);
+  }, [activePaperId, pdfSource]);
   const closePdf = useCallback(() => {
     requestRef.current += 1;
     setPdfView(null);
@@ -188,9 +182,7 @@ export function usePaperPdf({
   const openInBrowser = useCallback(() => {
     if (!browserUrl) return;
     void openUrl(browserUrl).catch((reason) => {
-      notifyError(t`Papers`, t`Could not open the article in your browser`, {
-        detail: reason instanceof Error ? reason.message : String(reason),
-      });
+      notifyError(t`Papers`, t`Could not open the article in your browser`, { detail: toMessage(reason) });
     });
   }, [browserUrl, t]);
 

@@ -1,7 +1,8 @@
 import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
-import { interpolateScrollAnchors, scrollRange } from "./markdown-preview-sync";
+import { whenIdle } from "../app/effect-helpers";
+import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, type SourceAnchor } from "./markdown-preview-sync";
 
 type Side = "editor" | "preview";
 const otherSide = (side: Side): Side => side === "editor" ? "preview" : "editor";
@@ -42,7 +43,7 @@ export function useMarkdownSplitScroll({
     let scrollOwnerTimer: number | null = null;
     let anchorsDirty = true;
     const anchorMaps: Record<Side, Array<{ from: number; to: number }>> = { editor: [], preview: [] };
-    let cachedAnchorRanges: Array<{ from: number; to: number; element: HTMLElement }> = [];
+    let cachedAnchorRanges: SourceAnchor[] = [];
     const scrollSyncBlocked = () => suppressedRef.current || viewportLockRef.current !== 0;
     const holdScrollOwnership = (owner: Side) => {
       activeScrollOwner = owner;
@@ -53,53 +54,32 @@ export function useMarkdownSplitScroll({
       }, 200);
     };
     const rebuildAnchorPairs = () => {
-      const sourceAnchors = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-offset]"));
-      const previewRect = preview.getBoundingClientRect();
+      const previewTop = preview.getBoundingClientRect().top;
       const pairs: Array<{ editor: number; preview: number }> = [];
-      const ranges: Array<{ from: number; to: number; element: HTMLElement }> = [];
-      for (const anchor of sourceAnchors) {
-        const previewFrom = Number(anchor.dataset.sourceOffset);
-        const previewTo = Number(anchor.dataset.sourceEndOffset);
-        if (!Number.isFinite(previewFrom) || !Number.isFinite(previewTo)) continue;
-        ranges.push({ from: previewFrom, to: previewTo, element: anchor });
-        const sourceFrom = clamp(previewStart + previewFrom, 0, view.state.doc.length);
-        const sourceTo = clamp(previewStart + Math.max(previewFrom, previewTo - 1), sourceFrom, view.state.doc.length);
-        const anchorRect = anchor.getBoundingClientRect();
+      cachedAnchorRanges = sourceAnchors(preview);
+      for (const anchor of cachedAnchorRanges) {
+        const anchorRect = anchor.element.getBoundingClientRect();
         const pair = {
-          editor: (view.lineBlockAt(sourceFrom).top + view.lineBlockAt(sourceTo).bottom) / 2,
-          preview: Math.max(0, preview.scrollTop + anchorRect.top - previewRect.top + anchorRect.height / 2),
+          editor: sourceAnchorCenter(view, previewStart, anchor),
+          preview: Math.max(0, preview.scrollTop + anchorRect.top - previewTop + anchorRect.height / 2),
         };
         const previous = pairs.at(-1);
         if (!previous || (pair.editor > previous.editor && pair.preview > previous.preview)) pairs.push(pair);
       }
       anchorMaps.editor = pairs.map((pair) => ({ from: pair.editor, to: pair.preview }));
       anchorMaps.preview = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
-      cachedAnchorRanges = ranges;
       anchorsDirty = false;
     };
     const refreshAnchorsIfNeeded = () => {
       if (anchorsDirty) rebuildAnchorPairs();
     };
-    // Measuring every anchor is O(document) and lands as a dropped frame when
-    // it runs on the scroll path. Rebuild the map ahead of time once the DOM
-    // quiets down after a publication, in idle time where available, so a
-    // burst's throttled follows can interpolate from a fresh cache and the
-    // lazy rebuild remains only a fallback.
-    let anchorPrebuild: number | null = null;
-    const usesIdleCallback = typeof window.requestIdleCallback === "function";
-    const cancelAnchorPrebuild = () => {
-      if (anchorPrebuild == null) return;
-      if (usesIdleCallback) window.cancelIdleCallback(anchorPrebuild);
-      else window.clearTimeout(anchorPrebuild);
-      anchorPrebuild = null;
-    };
+    // Measuring every anchor is O(document): a dropped frame on the scroll
+    // path. Rebuild the map in idle time once the DOM quiets after a
+    // publication, so follows interpolate from a fresh cache.
+    let cancelAnchorPrebuild = () => {};
     const scheduleAnchorPrebuild = () => {
       cancelAnchorPrebuild();
-      const run = () => {
-        anchorPrebuild = null;
-        refreshAnchorsIfNeeded();
-      };
-      anchorPrebuild = usesIdleCallback ? window.requestIdleCallback(run, { timeout: 1_000 }) : window.setTimeout(run, 200);
+      cancelAnchorPrebuild = whenIdle(refreshAnchorsIfNeeded, 1_000, 200);
     };
     /** Move the other pane so the block centred in `source` is centred there too. */
     const follow = (source: Side, measureAnchors = true) => {
@@ -123,27 +103,23 @@ export function useMarkdownSplitScroll({
       to.scroller.scrollTop = nextTop;
     };
     const reconcilePreviewFromSource = () => {
-      // Split changes the Preview width, so discard measurements from its
-      // initial mount and align with the final source/Preview geometry.
+      // Split changes the Preview width: discard measurements from its initial mount.
       anchorsDirty = true;
       follow("editor");
     };
     reconcileRef.current = reconcilePreviewFromSource;
 
     // Cursor-driven reveal, VS Code style: when the source cursor lands on a
-    // block that is not visible in the preview (a click far away, a find
-    // jump, typing below the fold), bring that block to the middle of the
-    // preview viewport. A partially visible block is left alone — nudging it
-    // would fight the user's own preview scrolling, and it already shows the
-    // text being edited. Scroll gestures never arrive here; the coordinator
-    // above owns those.
+    // block the preview does not show at all, centre that block there. A
+    // partially visible block is left alone, so this never fights the user's
+    // own preview scrolling.
     let lastRevealHead = view.state.selection.main.head;
     let revealTimer: number | null = null;
     const revealPreviewAtCursor = () => {
       if (scrollSyncBlocked()) return;
       refreshAnchorsIfNeeded();
       const offset = view.state.selection.main.head - previewStart;
-      let best: { from: number; to: number; element: HTMLElement } | null = null;
+      let best: SourceAnchor | null = null;
       for (const range of cachedAnchorRanges) {
         // Half-open with a floor of one character, so a cursor on an empty
         // block still matches it; prefer the tightest enclosing block.
@@ -163,18 +139,14 @@ export function useMarkdownSplitScroll({
       const head = view.state.selection.main.head;
       if (head === lastRevealHead) return;
       lastRevealHead = head;
-      // Only cursor motion the user made in the source pane reveals; caret
-      // restores on unfocused editors (file switches, programmatic
-      // selection) must not move the preview.
+      // Only the user's own cursor motion reveals, not restores on an unfocused editor.
       if (!view.hasFocus) return;
       if (revealTimer != null) window.clearTimeout(revealTimer);
       revealTimer = window.setTimeout(revealPreviewAtCursor, 80);
     };
 
-    // Trackpad input can deliver several scroll events before the browser
-    // paints. Synchronizing both panes for every event repeatedly walks and
-    // measures the Markdown DOM, so coalesce each direction to one pass per
-    // animation frame.
+    // Trackpad input can deliver several scroll events per paint: coalesce each
+    // direction to one pass per animation frame.
     const scheduleFollow = (source: Side, measureAnchors = true) => {
       const pane = panes[source];
       pane.frameMeasure ||= measureAnchors;
@@ -187,16 +159,12 @@ export function useMarkdownSplitScroll({
       });
     };
 
-    // Large Markdown places two expensive, independently painted documents
-    // beside each other (the split preview is a full editable ProseMirror
-    // tree, which cannot use content-visibility culling — see
-    // editor-globals.css on .ok-chunk-wrapper). The peer still follows every
-    // animation frame — anything sparser reads as stuttering during trackpad
-    // momentum — but burst follows interpolate purely from the cached anchor
-    // map, so the scroll path performs no DOM measurement. The one exact,
-    // freshly measured reconciliation runs after the gesture settles.
-    // Smaller documents may measure lazily on the scroll path itself,
-    // regardless of whether they are Paper/Blog or ordinary project Markdown.
+    // Large Markdown puts two expensive documents side by side (the preview is
+    // a full editable ProseMirror tree that cannot use content-visibility
+    // culling). The peer still follows every frame — anything sparser stutters
+    // during trackpad momentum — but from the cached anchor map alone, and the
+    // one freshly measured reconciliation runs after the gesture settles.
+    // Smaller documents may measure lazily on the scroll path itself.
     const followPeer = (owner: Side) => {
       settledSyncOwner = owner;
       scheduleFollow(owner, false);
@@ -207,10 +175,9 @@ export function useMarkdownSplitScroll({
       }, peerScrollSettleMs);
     };
 
-    // scrollTop writes can coalesce into fewer events or arrive after the
-    // next frame. The one-shot ignore flag handles the normal reciprocal
-    // event; ownership also rejects a late/coalesced peer event so it cannot
-    // seize control and write back into the scrollbar the user is dragging.
+    // The one-shot ignore flag absorbs the normal reciprocal event; ownership
+    // also rejects a late or coalesced peer event, so it cannot write back
+    // into the scrollbar the user is dragging.
     const ownScroll = (side: Side) => () => {
       const pane = panes[side];
       if (pane.ignore) {
@@ -242,10 +209,7 @@ export function useMarkdownSplitScroll({
     ];
     for (const [target, type, listener, options] of listeners) target?.addEventListener(type, listener, options);
     const markAnchorsDirty = () => {
-      // Source labels and child nodes change after every settled visual edit.
-      // Measuring every block here forces a full layout after each source
-      // publication. Mark the map stale and remeasure once the mutations
-      // stop, off the scroll path.
+      // Labels change after every settled visual edit; remeasure once mutations stop.
       anchorsDirty = true;
       scheduleAnchorPrebuild();
     };
@@ -255,8 +219,7 @@ export function useMarkdownSplitScroll({
     resizeObserver.observe(preview);
     const previewContent = preview.firstElementChild;
     if (previewContent instanceof HTMLElement) resizeObserver.observe(previewContent);
-    // Initial alignment uses the proportional fallback. Exact block geometry
-    // is measured lazily on the first real scroll after labels are available.
+    // Initial alignment is proportional; exact geometry waits for the first real scroll.
     scheduleFollow("editor", false);
     return () => {
       cursorRevealRef.current = null;

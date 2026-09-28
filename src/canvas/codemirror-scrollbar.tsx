@@ -13,9 +13,6 @@ const scrollerBeside = (bar: HTMLElement) => bar.parentElement?.querySelector<HT
 /** Lattice's overlay scrollbar for a CodeMirror view: a thumb that tracks the scroller and can be dragged. */
 export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
-  const thumbFrameRef = useRef<number | null>(null);
-  const scrollingTimerRef = useRef<number | null>(null);
-  const lastScrollAtRef = useRef(0);
   const scrollingActiveRef = useRef(false);
   const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -41,20 +38,23 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   useEffect(() => {
     const scroller = view?.scrollDOM;
     if (!scroller) return;
+    let thumbFrame: number | null = null;
+    let scrollingTimer: number | null = null;
+    let lastScrollAt = 0;
     const scheduleThumbUpdate = () => {
-      if (thumbFrameRef.current != null) return;
-      thumbFrameRef.current = window.requestAnimationFrame(() => {
-        thumbFrameRef.current = null;
+      if (thumbFrame != null) return;
+      thumbFrame = window.requestAnimationFrame(() => {
+        thumbFrame = null;
         updateThumb();
       });
     };
     const finishScrolling = () => {
-      const remaining = 180 - (performance.now() - lastScrollAtRef.current);
+      const remaining = 180 - (performance.now() - lastScrollAt);
       if (remaining > 0) {
-        scrollingTimerRef.current = window.setTimeout(finishScrolling, remaining);
+        scrollingTimer = window.setTimeout(finishScrolling, remaining);
         return;
       }
-      scrollingTimerRef.current = null;
+      scrollingTimer = null;
       scrollingActiveRef.current = false;
       setScrolling(false);
     };
@@ -64,8 +64,8 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
         scrollingActiveRef.current = true;
         setScrolling(true);
       }
-      lastScrollAtRef.current = performance.now();
-      scrollingTimerRef.current ??= window.setTimeout(finishScrolling, 180);
+      lastScrollAt = performance.now();
+      scrollingTimer ??= window.setTimeout(finishScrolling, 180);
     };
     const resizeObserver = new ResizeObserver(scheduleThumbUpdate);
     resizeObserver.observe(scroller);
@@ -75,10 +75,8 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     return () => {
       resizeObserver.disconnect();
       scroller.removeEventListener("scroll", handleScroll);
-      if (thumbFrameRef.current != null) window.cancelAnimationFrame(thumbFrameRef.current);
-      thumbFrameRef.current = null;
-      if (scrollingTimerRef.current) window.clearTimeout(scrollingTimerRef.current);
-      scrollingTimerRef.current = null;
+      if (thumbFrame != null) window.cancelAnimationFrame(thumbFrame);
+      if (scrollingTimer != null) window.clearTimeout(scrollingTimer);
       scrollingActiveRef.current = false;
     };
   }, [updateThumb, view]);

@@ -3,12 +3,7 @@ import { createPortal } from "react-dom";
 import { PanelLeft, PanelRight, Pin, Square, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useLingui } from "@lingui/react/macro";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tip } from "@/components/icon-tip";
 
@@ -50,13 +45,6 @@ export type EditorDropZone = "left" | "center" | "right";
 const DROP_ZONE_EDGE_SHARE = 0.28;
 const DROP_TARGET_SPRING = { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.65 };
 
-function dropZoneForX(bounds: DOMRect, clientX: number): EditorDropPreview["zone"] {
-  const relativeX = (clientX - bounds.left) / bounds.width;
-  if (relativeX <= DROP_ZONE_EDGE_SHARE) return "left";
-  if (relativeX >= 1 - DROP_ZONE_EDGE_SHARE) return "right";
-  return "center";
-}
-
 /** The highlighted part of the canvas: the half (or live split side) a drop opens into, else all of it. */
 function dropTargetGeometry({ zone, width, dividerLeft, dividerRight }: EditorDropPreview) {
   if (zone === "left") return { x: 0, width: dividerLeft ?? width / 2 };
@@ -66,26 +54,18 @@ function dropTargetGeometry({ zone, width, dividerLeft, dividerRight }: EditorDr
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- project-tree and tab drags share one canvas hit-test.
-export function editorDropPreviewAt(
-  path: string,
-  clientX: number,
-  clientY: number,
-): EditorDropPreview | null {
+export function editorDropPreviewAt(path: string, clientX: number, clientY: number): EditorDropPreview | null {
   const canvas = document.querySelector<HTMLElement>(".canvas-body");
   if (!canvas) return null;
-  const bounds = canvas.getBoundingClientRect();
-  const { left, top, right, bottom, width, height } = bounds;
+  const { left, top, right, bottom, width, height } = canvas.getBoundingClientRect();
   const overCanvas = clientX >= left && clientX <= right && clientY >= top && clientY <= bottom;
   if (!overCanvas || width <= 0 || height <= 0) return null;
   const divider = canvas.querySelector<HTMLElement>(".split-canvas > .split-resizer")?.getBoundingClientRect();
   const liveDivider = divider && divider.width > 0 && divider.left > left && divider.right < right ? divider : null;
+  const relativeX = (clientX - left) / width;
+  const zone = relativeX <= DROP_ZONE_EDGE_SHARE ? "left" : relativeX >= 1 - DROP_ZONE_EDGE_SHARE ? "right" : "center";
   return {
-    path,
-    zone: dropZoneForX(bounds, clientX),
-    left,
-    top,
-    width,
-    height,
+    path, zone, left, top, width, height,
     dividerLeft: liveDivider ? liveDivider.left - left : null,
     dividerRight: liveDivider ? liveDivider.right - left : null,
   };
@@ -145,8 +125,7 @@ export function EditorDropPreviewPortal(props: {
 
 /**
  * Memoized: the tab strip is inside the titlebar, which App re-renders on every
- * keystroke. Nothing here depends on the document text — only on which tabs are
- * open, which is active, and whether each is dirty.
+ * keystroke, yet it depends only on which tabs are open, active and dirty.
  */
 export const EditorTabs = memo(function EditorTabs(props: {
   tabs: EditorTab[];
@@ -165,11 +144,9 @@ export const EditorTabs = memo(function EditorTabs(props: {
   const activeTabRef = useRef<HTMLDivElement | null>(null);
   const tabsViewportRef = useRef<HTMLDivElement | null>(null);
 
-  // Refs so the window-level pointer handlers always see the latest props even
-  // though the drag reorders the list (and re-renders) many times mid-gesture.
-  // Written from an every-commit effect (not during render): pointer events
-  // only arrive after the commit, and render-phase ref writes make the React
-  // Compiler bail out of the whole component.
+  // The window-level pointer handlers read the latest props through these while
+  // the drag reorders the list mid-gesture. Written after commit, not during
+  // render, which would make the React Compiler bail out of the component.
   const tabsRef = useRef(props.tabs);
   const onReorderRef = useRef(props.onReorder);
   const onDropTabRef = useRef(props.onDropTab);
@@ -272,25 +249,21 @@ export const EditorTabs = memo(function EditorTabs(props: {
     dragCleanupRef.current?.();
     const pointerId = event.pointerId;
     dragRef.current = { path, pointerId, startX: event.clientX, startY: event.clientY, active: false };
+    const listening = new AbortController();
     const cleanup = () => {
-      window.removeEventListener("pointermove", moveDrag);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", cancelPointer);
-      window.removeEventListener("blur", cancel);
+      listening.abort();
       if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
     };
     const end = (commitSplit: boolean) => {
       cleanup();
       completeDrag(commitSplit);
     };
-    const finish = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId && end(true);
-    const cancelPointer = (pointerEvent: PointerEvent) => pointerEvent.pointerId === pointerId && end(false);
-    const cancel = () => end(false);
     dragCleanupRef.current = cleanup;
-    window.addEventListener("pointermove", moveDrag, { passive: false });
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", cancelPointer);
-    window.addEventListener("blur", cancel);
+    const { signal } = listening;
+    window.addEventListener("pointermove", moveDrag, { passive: false, signal });
+    window.addEventListener("pointerup", (pointerEvent) => pointerEvent.pointerId === pointerId && end(true), { signal });
+    window.addEventListener("pointercancel", (pointerEvent) => pointerEvent.pointerId === pointerId && end(false), { signal });
+    window.addEventListener("blur", () => end(false), { signal });
   }, [completeDrag, moveDrag]);
 
   // Clean up window listeners if unmounted mid-drag.

@@ -36,18 +36,13 @@ export function useProjectLibrary(state: ProjectState) {
   const postSaveRefreshGenerationRef = useRef(0);
   const bibliographyRefreshGenerationRef = useRef(0);
 
-  const loadHistory = useCallback(async () => {
-    setHistory(await invoke<HistoryItem[]>("list_history"));
-  }, []);
-  const loadTodos = useCallback(async () => {
-    setDiskTodos(await invoke<TodoHit[]>("list_todos").catch(() => []));
-  }, []);
-  const loadWordCount = useCallback(async () => {
-    setProjectWordCount(await invoke<WordCount>("count_project_words").catch(() => null));
-  }, []);
-  const refreshUnusedSymbols = useCallback(async () => {
-    setUnusedSymbols(await invoke<UnusedSymbols>("list_unused_symbols").catch(() => NO_UNUSED_SYMBOLS));
-  }, []);
+  const loadHistory = useCallback(async () => setHistory(await invoke<HistoryItem[]>("list_history")), []);
+  const loadTodos = useCallback(async () => setDiskTodos(await invoke<TodoHit[]>("list_todos").catch(() => [])), []);
+  const loadWordCount = useCallback(async () => setProjectWordCount(await invoke<WordCount>("count_project_words").catch(() => null)), []);
+  const refreshUnusedSymbols = useCallback(
+    async () => setUnusedSymbols(await invoke<UnusedSymbols>("list_unused_symbols").catch(() => NO_UNUSED_SYMBOLS)),
+    [],
+  );
   const refreshHistory = useCallback(async () => {
     if (project) await loadHistory();
   }, [loadHistory, project]);
@@ -130,7 +125,7 @@ export function useProjectLibrary(state: ProjectState) {
   }, [applyBibliographyIndex, projectOperationGenerationRef, projectRef, projectRefreshGenerationRef, refreshUnusedSymbols, setProject]);
 
   return {
-    papers, setPapers, citationKeys, setCitationKeys, citations, setCitations, references, setReferences,
+    papers, citationKeys, setCitationKeys, citations, setCitations, references, setReferences,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave, refreshProject,

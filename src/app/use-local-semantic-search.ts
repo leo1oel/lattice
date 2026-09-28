@@ -2,15 +2,8 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
-import {
-  DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-  type LocalSemanticSearchStatus,
-} from "../project/project-semantic-search";
-import {
-  LOCAL_SEMANTIC_SEARCH_KEY,
-  loadLocalSemanticSearchEnabled,
-  persistLocalSemanticSearchEnabled,
-} from "../settings/app-settings";
+import { DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, type LocalSemanticSearchStatus } from "../project/project-semantic-search";
+import { LOCAL_SEMANTIC_SEARCH_KEY, loadLocalSemanticSearchEnabled, persistLocalSemanticSearchEnabled } from "../settings/app-settings";
 import { subscribeTauriEvent } from "./effect-helpers";
 
 function cancelSemanticIndex(projectRef: RefObject<ProjectSnapshot | null>) {
@@ -53,9 +46,8 @@ export function useLocalSemanticSearch(
   const requestReindex = useCallback(() => {
     if (!enabled) return;
     if (reindexTimerRef.current !== null) window.clearTimeout(reindexTimerRef.current);
-    // Filesystem events are already coalesced, but one save/build can still
-    // produce several bursts. A trailing request avoids repeatedly cancelling
-    // and restarting the background generation while files are settling.
+    // One save/build can still produce several coalesced bursts; a trailing
+    // request avoids restarting the background generation while files settle.
     reindexTimerRef.current = window.setTimeout(() => {
       reindexTimerRef.current = null;
       setRevision((current) => current + 1);
@@ -68,9 +60,8 @@ export function useLocalSemanticSearch(
 
   useEffect(() => {
     if (!enabled || !projectRoot) return;
-    // Semantic freshness must not depend on whether the Project sidebar is
-    // visible. Reuse the existing root watcher, but keep this listener separate
-    // from tree refreshes so ordinary source edits only schedule background work.
+    // Freshness must not depend on the Project sidebar being visible: reuse the
+    // root watcher, with a listener separate from tree refreshes.
     void invoke("watch_project").catch(() => undefined);
     return subscribeTauriEvent<{ root: string }>("project-fs-changed", (payload) => {
       if (payload.root === projectRoot) requestReindex();
@@ -85,34 +76,18 @@ export function useLocalSemanticSearch(
       setStatus(next);
       if (next.state !== "indexing") return;
       pollTimer = window.setTimeout(() => {
-        void invoke<LocalSemanticSearchStatus>("semantic_search_status", { projectRoot })
-          .then(acceptStatus)
-          .catch(() => {
-            if (!stopped) {
-              setStatus((current) => ({
-                ...current,
-                state: "error",
-                detail: "The local semantic index could not be checked",
-              }));
-            }
-          });
+        void invoke<LocalSemanticSearchStatus>("semantic_search_status", { projectRoot }).then(acceptStatus).catch(() => {
+          if (!stopped) setStatus((current) => ({ ...current, state: "error", detail: "The local semantic index could not be checked" }));
+        });
       }, 500);
     };
     if (!projectRoot || !enabled) {
       setStatus(DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS);
     } else {
-      setStatus((current) => ({
-        ...current,
-        state: "indexing",
-        detail: "Building an on-device index in the background",
-      }));
-      void invoke<LocalSemanticSearchStatus>("semantic_search_start_index", { projectRoot })
-        .then(acceptStatus)
-        .catch((reason) => {
-          if (!stopped) {
-            setStatus({ ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, state: "error", detail: toMessage(reason) });
-          }
-        });
+      setStatus((current) => ({ ...current, state: "indexing", detail: "Building an on-device index in the background" }));
+      void invoke<LocalSemanticSearchStatus>("semantic_search_start_index", { projectRoot }).then(acceptStatus).catch((reason) => {
+        if (!stopped) setStatus({ ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, state: "error", detail: toMessage(reason) });
+      });
     }
     return () => {
       stopped = true;

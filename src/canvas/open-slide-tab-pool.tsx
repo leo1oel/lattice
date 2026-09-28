@@ -60,11 +60,7 @@ export function OpenSlideTabPool({ projectRoot, activeWorkspace, openPaths, getF
         const active = key === activeKey;
         return (
           <div key={key} className="open-slide-tab-session" data-active={active ? "true" : "false"}>
-            <Suspense
-              fallback={active
-                ? <div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />
-                : null}
-            >
+            <Suspense fallback={active && <div className="open-slide-status" aria-busy="true" aria-label={t`Starting Open Slide`} />}>
               <OpenSlideWorkspace {...workspace} active={active} />
             </Suspense>
           </div>

@@ -60,8 +60,7 @@ type CanvasToolbarProps = {
   /** Open comments plus unread chat: what is waiting on you in the project. */
   overleafUnreadChat?: number;
   onOverleafChat?: () => void;
-  /** Where the Overleaf presence avatars go; kept as a slot so this file need
-   *  not know anything about who is in the project. */
+  /** Slot for the Overleaf presence avatars. */
   overleafPresence?: ReactNode;
 };
 
@@ -274,11 +273,9 @@ type ForwardedHandlers = Pick<CanvasToolbarProps, keyof typeof FORWARDED_HANDLER
 const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandlers)[];
 
 /**
- * App rebuilds these handlers inline on every render, i.e. every keystroke.
- * Here they keep one identity for the component's life and forward to the
- * newest props through a ref, so the view memoizes on what it actually draws.
- * Optional handlers stay optional: the view reads their presence to decide what
- * to render.
+ * App rebuilds these handlers inline on every keystroke. Here they keep one
+ * identity and forward to the newest props, so the view memoizes on what it
+ * draws. Optional handlers stay optional: their presence decides what renders.
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
   const latest = useRef(props);

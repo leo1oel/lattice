@@ -106,10 +106,8 @@ function syncFixture() {
   let failSync = false;
   let deleted = false;
   const project = {
-    root: "/project", files: [], manifest: {
-      schemaVersion: 1, projectId: "paper", name: "Paper", rootDocuments: [],
-      primaryBibliography: "references.bib", trusted: false,
-    },
+    root: "/project", files: [],
+    manifest: { schemaVersion: 1, projectId: "paper", name: "Paper", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
   };
   const deps: OverleafWorkspaceDeps = {
     ...remote, project, activeFile: "section.tex", source: "old caption",
@@ -130,9 +128,7 @@ function syncFixture() {
     resolveOverleafSyncRef: { current: null },
   };
   vi.mocked(invoke).mockImplementation(async (command) => {
-    if (command === "overleaf_link") return {
-      projectId: "ol-paper", projectName: "Paper", host: "https://www.overleaf.com", paused: false,
-    };
+    if (command === "overleaf_link") return { projectId: "ol-paper", projectName: "Paper", host: "https://www.overleaf.com", paused: false };
     if (command === "overleaf_status") return { connected: true, host: "https://www.overleaf.com" };
     if (command === "overleaf_probe") return { versionKnown: true, changed: false, localChanged: false, remoteVersion: 1 };
     if (command === "read_project_file") return disk;
@@ -314,12 +310,8 @@ describe("projectOverleafEditorComments", () => {
   });
 
   it("uses new live anchors and does not revive deleted live anchors from REST", () => {
-    const comments = projectOverleafEditorComments(
-      [thread("main"), thread("new")], anchors, paths, "doc-main",
-      new Map([["new", { threadId: "new", position: 3, quote: "new quote" }]]),
-    );
-    expect(comments.map(({ id, path, from }) => ({ id, path, from }))).toEqual([
-      { id: "overleaf:new", path: "main.tex", from: 3 },
-    ]);
+    const live = new Map([["new", { threadId: "new", position: 3, quote: "new quote" }]]);
+    const comments = projectOverleafEditorComments([thread("main"), thread("new")], anchors, paths, "doc-main", live);
+    expect(comments.map(({ id, path, from }) => ({ id, path, from }))).toEqual([{ id: "overleaf:new", path: "main.tex", from: 3 }]);
   });
 });

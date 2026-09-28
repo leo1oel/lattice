@@ -11,11 +11,8 @@ export function paperDocumentPath(arxivId: string, view: PaperView): string {
 /**
  * The editable buffers behind the canvas: the primary file (or a Paper, which
  * owns the primary buffer even when drawn on the right), the secondary split
- * pane, and whichever asset either pane previews.
- *
- * Every buffer has a ref twin. Async work (saves, loads, sync) reads the refs,
- * because the state captured when it started is stale by the time it resumes;
- * the helpers below write both halves together so the two never disagree.
+ * pane, and whichever asset either pane previews. Every buffer has a ref twin
+ * for async work (saves, loads, sync); the helpers write both halves together.
  */
 export function useDocumentBuffers() {
   const [activeFile, setActiveFile] = useState("");
@@ -46,14 +43,18 @@ export function useDocumentBuffers() {
   const secondarySavedRef = useRef(secondarySavedSource);
   const activeAssetRef = useRef(activeAsset);
   const secondaryAssetRef = useRef(secondaryAsset);
-  activeFileRef.current = activeFile;
-  sourceRef.current = source;
-  savedSourceRef.current = savedSource;
-  secondaryFileRef.current = secondaryFile;
-  secondarySourceRef.current = secondarySource;
-  secondarySavedRef.current = secondarySavedSource;
-  activeAssetRef.current = activeAsset;
-  secondaryAssetRef.current = secondaryAsset;
+  // Re-synced on every commit (no reader runs during render): a helper below
+  // may lead with the ref, and the next commit brings it level with state.
+  useLayoutEffect(() => {
+    activeFileRef.current = activeFile;
+    sourceRef.current = source;
+    savedSourceRef.current = savedSource;
+    secondaryFileRef.current = secondaryFile;
+    secondarySourceRef.current = secondarySource;
+    secondarySavedRef.current = secondarySavedSource;
+    activeAssetRef.current = activeAsset;
+    secondaryAssetRef.current = secondaryAsset;
+  });
   const paperMarkdownRef = useRef(paperMarkdown);
   const savedPaperMarkdownRef = useRef(savedPaperMarkdown);
   const paperBlogRef = useRef(paperBlog);
@@ -166,35 +167,28 @@ export function useDocumentBuffers() {
     setActiveAsset((asset) => asset && { ...asset, path: remap(asset.path) });
   }, []);
   const paperBuffersDirty = useCallback(() => (
-    paperMarkdownRef.current !== savedPaperMarkdownRef.current
-    || paperBlogRef.current !== savedPaperBlogRef.current
+    paperMarkdownRef.current !== savedPaperMarkdownRef.current || paperBlogRef.current !== savedPaperBlogRef.current
   ), []);
-  const primaryTextDirty = useCallback(() => sourceRef.current !== savedSourceRef.current, []);
-  const secondaryTextDirty = useCallback(() => secondarySourceRef.current !== secondarySavedRef.current, []);
 
   const activePaperPath = activePaper ? paperDocumentPath(activePaper.arxivId, paperView) : null;
-  const activePaperDirty = Boolean(activePaper) && (
-    paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog
-  );
+  const activePaperDirty = Boolean(activePaper) && (paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog);
 
   return {
     activeFile, setActiveFile, activeFileRef,
     source, setSource, sourceRef, setPrimarySource,
     savedSource, setSavedSource, savedSourceRef, setPrimarySaved,
-    secondaryFile, setSecondaryFile, secondaryFileRef,
+    secondaryFile, secondaryFileRef,
     secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive,
     secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved,
     activeAsset, activeAssetRef, showActiveAsset,
     secondaryAsset, secondaryAssetRef, showSecondaryAsset,
     activePaper, setActivePaper, activePaperPath, activePaperDirty,
     paperMarkdown, setPaperMarkdown, paperMarkdownRef,
-    savedPaperMarkdown, setSavedPaperMarkdown, savedPaperMarkdownRef,
-    paperBlog, setPaperBlog, paperBlogRef,
-    savedPaperBlog, setSavedPaperBlog, savedPaperBlogRef,
+    savedPaperMarkdown, savedPaperMarkdownRef, paperBlog, setPaperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef,
     paperView, setPaperView, paperSide, setPaperSide,
     commitPrimaryText, commitSecondaryText, commitOpenText, commitCleanOpenText,
     showPrimaryText, showSecondaryText, clearSecondaryPane,
     setPaperBuffers, markPaperSaved, closePaper, remapOpenPaths,
-    paperBuffersDirty, primaryTextDirty, secondaryTextDirty,
+    paperBuffersDirty,
   };
 }

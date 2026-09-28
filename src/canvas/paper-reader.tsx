@@ -37,9 +37,7 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
       </button>
     </Tip>
   ) : undefined;
-  const blogLabel = t`Blog`;
-  const paperLabel = t`Paper`;
-  const viewName = (path: string | null) => path?.toLocaleLowerCase().endsWith("/blog.md") ? blogLabel : paperLabel;
+  const viewName = (path: string | null) => path?.toLocaleLowerCase().endsWith("/blog.md") ? t`Blog` : t`Paper`;
   const quoteReturnLabel = t({ message: `Back to ${{ view: viewName(pdf.quoteReturnPath) }}` });
   const toolbarStart = (
     <Tip label={t({ message: `Back to ${{ view: viewName(activeFile) }}` })}>

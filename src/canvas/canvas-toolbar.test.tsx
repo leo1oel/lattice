@@ -5,11 +5,7 @@ import { CanvasToolbar } from "./canvas-toolbar";
 afterEach(cleanup);
 
 const baseProps = {
-  mode: "source" as const,
-  activePath: "main.tex",
-  activeKind: "document" as const,
-  supportsDocumentViewModes: true,
-  canInsert: true,
+  mode: "source" as const, activePath: "main.tex", activeKind: "document" as const, supportsDocumentViewModes: true, canInsert: true,
   markdown: false, html: false, dirty: false, collabLive: false, collabPeers: 0, commentCount: 0,
   setMode: vi.fn(), onInsert: vi.fn(), onCollab: vi.fn(), onHistory: vi.fn(), onGit: vi.fn(), onComments: vi.fn(),
 };
@@ -21,9 +17,7 @@ const openOverleafActions = () => fireEvent.pointerDown(
 describe("CanvasToolbar Overleaf status", () => {
   it("offers one comment entry for linked projects and keeps local projects' entry", () => {
     const onOverleafChat = vi.fn();
-    const { rerender } = render(
-      <CanvasToolbar {...baseProps} overleafLinked onOverleafChat={onOverleafChat} overleafUnreadChat={3} />,
-    );
+    const { rerender } = render(<CanvasToolbar {...baseProps} overleafLinked onOverleafChat={onOverleafChat} overleafUnreadChat={3} />);
     expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Overleaf comments and chat · 3 waiting" }));
     expect(onOverleafChat).toHaveBeenCalledOnce();
@@ -36,17 +30,10 @@ describe("CanvasToolbar Overleaf status", () => {
     const onSync = vi.fn();
     const onOpenCurrent = vi.fn();
     const onOpenOther = vi.fn();
-    render(
-      <CanvasToolbar
-        {...baseProps}
-        overleafLinked
-        overleafProjectName="Attention Paper"
-        onOverleafSync={onSync}
-        onOverleafOpenCurrent={onOpenCurrent}
-        onOverleafOpen={onOpenOther}
-      />,
-    );
-
+    render(<CanvasToolbar
+      {...baseProps} overleafLinked overleafProjectName="Attention Paper"
+      onOverleafSync={onSync} onOverleafOpenCurrent={onOpenCurrent} onOverleafOpen={onOpenOther}
+    />);
     fireEvent.click(screen.getByRole("button", { name: "Sync with Overleaf" }));
     expect(onSync).toHaveBeenCalledOnce();
 
@@ -87,10 +74,13 @@ describe("CanvasToolbar document views", () => {
     expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
   });
 
-  it("presents two editable panes as Edit rather than source-and-preview Split", () => {
-    render(<CanvasToolbar {...baseProps} mode="dual" />);
+  it("presents two editable panes as Edit rather than source-and-preview Split, with an explicit close", () => {
+    const onCloseSplit = vi.fn();
+    render(<CanvasToolbar {...baseProps} mode="dual" onCloseSplit={onCloseSplit} />);
     expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Split" })).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Close split" }));
+    expect(onCloseSplit).toHaveBeenCalledOnce();
   });
 
   it("replaces unsupported file view modes with one split action", () => {
@@ -99,14 +89,7 @@ describe("CanvasToolbar document views", () => {
     expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Split editor right" })).not.toBeInTheDocument();
 
-    rerender(
-      <CanvasToolbar
-        {...baseProps}
-        activePath="references.bib"
-        supportsDocumentViewModes={false}
-        onSplit={onSplit}
-      />,
-    );
+    rerender(<CanvasToolbar {...baseProps} activePath="references.bib" supportsDocumentViewModes={false} onSplit={onSplit} />);
     expect(screen.queryByRole("tablist", { name: "Document view" })).not.toBeInTheDocument();
     const split = screen.getByRole("button", { name: "Split editor right" });
     expect(split).toBe(split.closest(".canvas-actions")?.firstElementChild);
@@ -116,27 +99,11 @@ describe("CanvasToolbar document views", () => {
     expect(onSplit).toHaveBeenCalledTimes(1);
   });
 
-  it("exposes an explicit action for closing a two-file split", () => {
-    const onCloseSplit = vi.fn();
-    render(<CanvasToolbar {...baseProps} mode="dual" onCloseSplit={onCloseSplit} />);
-
-    const close = screen.getByRole("button", { name: "Close split" });
-    fireEvent.click(close);
-    expect(onCloseSplit).toHaveBeenCalledOnce();
-  });
 });
 
 describe("CanvasToolbar collaboration status", () => {
   it("shows the live peer count in the collaboration-specific badge", () => {
-    render(
-      <CanvasToolbar
-        {...baseProps}
-        collabLive
-        collabPeers={2}
-        collabPresence={<div aria-label="Collaboration avatars" />}
-      />,
-    );
-
+    render(<CanvasToolbar {...baseProps} collabLive collabPeers={2} collabPresence={<div aria-label="Collaboration avatars" />} />);
     const button = screen.getByRole("button", { name: "Live · 2 others" });
     const badge = button.querySelector(".collab-live-badge");
     expect(badge).toHaveTextContent("2");

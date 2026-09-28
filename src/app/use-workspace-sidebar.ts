@@ -7,7 +7,7 @@ export type SidebarMode = "project" | "papers" | "agent";
 const SYNARA_SIDEBAR_INITIAL_MINIMUM = 310;
 
 /** State persisted to localStorage; storage failures keep it session-only. */
-export function useStoredState<T>(
+function useStoredState<T>(
   key: string,
   read: (raw: string | null) => T,
   write: (value: T) => string,

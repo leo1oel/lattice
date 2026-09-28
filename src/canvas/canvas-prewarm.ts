@@ -1,9 +1,7 @@
 /**
- * Chunk prewarming for the document canvas.
- *
- * Separate from `document-canvas.tsx` so that file exports components only and
- * keeps Fast Refresh. App drives the timing (idle-gated); this module only
- * decides which chunks a given project needs.
+ * Chunk prewarming for the document canvas, kept out of `document-canvas.tsx`
+ * for Fast Refresh. App drives the (idle-gated) timing; this module decides
+ * which chunks a given project needs.
  */
 import {
   loadBoardEditorModule,

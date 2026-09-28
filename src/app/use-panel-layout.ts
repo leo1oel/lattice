@@ -1,11 +1,4 @@
-import {
-  type PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { clamp, loadSidebarOpen, loadSidebarWidth, persistSidebarOpen, persistSidebarWidth } from "../settings/app-settings";
 
 const MIN_TAB_STRIP_WIDTH = 220;
@@ -43,9 +36,7 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
   const [sidebarOpen, setSidebarOpen] = useState(loadSidebarOpen);
   const [initialSidebarWidth] = useState(loadSidebarWidth);
   const preferredSidebarWidthRef = useRef(initialSidebarWidth);
-  const [sidebarWidth, setSidebarWidth] = useState(() =>
-    resizedWidth(initialSidebarWidth, 0, minimumSidebarWidth),
-  );
+  const [sidebarWidth, setSidebarWidth] = useState(() => resizedWidth(initialSidebarWidth, 0, minimumSidebarWidth));
   const [sidebarResizing, setSidebarResizing] = useState(false);
   // Visual overshoot never becomes the saved width or squeezes sidebar content.
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
@@ -57,12 +48,9 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
     setSidebarRebounding(false);
   }, []);
   const finishResizeRef = useRef<(() => void) | null>(null);
-  // Synara discovers its intrinsic minimum while the pointer is already moving.
-  // A ref lets that active resize session use the new limit immediately instead
-  // of keeping the value captured when the drag began. Refreshed in a layout
-  // effect rather than during render — both readers are pointer handlers, which
-  // only run after commit, and a render-phase write makes the React Compiler
-  // skip this whole hook.
+  // Synara can report a new intrinsic minimum mid-drag; the active resize
+  // reads it here. Refreshed after commit (both readers are pointer handlers):
+  // a render-phase write would make the React Compiler skip this hook.
   const minimumSidebarWidthRef = useRef(minimumSidebarWidth);
   useLayoutEffect(() => {
     minimumSidebarWidthRef.current = minimumSidebarWidth;
@@ -70,12 +58,9 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
   useEffect(() => persistSidebarOpen(sidebarOpen), [sidebarOpen]);
   useEffect(() => () => finishResizeRef.current?.(), []);
   const fitSidebarToContent = useCallback(() => {
-    // The gesture owns both content and elastic widths until release. Restoring
-    // the saved preference here would resize the iframe behind a stationary
-    // divider. Move/finish already read the latest constraints.
+    // The gesture owns both widths until release; move/finish read the latest constraints.
     if (finishResizeRef.current) return;
-    // Window and panel minimums constrain the display, not the user's saved
-    // preference. Reapply that preference when space becomes available again.
+    // Minimums constrain the display, not the saved preference: reapply it when space returns.
     setSidebarWidth(resizedWidth(preferredSidebarWidthRef.current, 0, minimumSidebarWidth));
   }, [minimumSidebarWidth]);
   useEffect(() => fitSidebarToContent(), [fitSidebarToContent]);
@@ -83,9 +68,8 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
     let timer: number | undefined;
     const fitAfterWindowResize = () => {
       window.clearTimeout(timer);
-      // This calculation deliberately reads several rendered widths. Doing it
-      // once per native resize event forces repeated synchronous layouts and
-      // can make WKWebView fall behind the window server during a fast drag.
+      // This reads several rendered widths; once per native resize event it can
+      // make WKWebView fall behind the window server during a fast drag.
       timer = window.setTimeout(fitSidebarToContent, 80);
     };
     window.addEventListener("resize", fitAfterWindowResize);
@@ -101,8 +85,7 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
     finishResizeRef.current?.();
     const startX = event.clientX;
     const startWidth = sidebarWidth;
-    // Freeze the collapse boundary for this gesture. A newly reported Agent
-    // minimum must not turn a small movement into an accidental collapse.
+    // Freeze the collapse boundary: a new Agent minimum must not turn a small move into a collapse.
     const collapseBoundary = Math.min(startWidth, minimumSidebarWidthRef.current) - COLLAPSE_SLOP;
     const pointerId = event.pointerId;
     const target = event.currentTarget;
@@ -125,16 +108,13 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
         collapse = nextCollapse;
         setSidebarCollapsePreview(collapse);
         if (!collapse) rescued = true;
-        // Do not re-enable direct tracking until the returning sidebar has
-        // finished its transition; disabling it immediately snaps the grid open.
+        // Keep direct tracking off until the returning sidebar finishes its transition.
         setSidebarRestoring(!collapse);
       }
-      // Keep pointer capture alive through the preview. Pulling back rescues
-      // the sidebar; releasing commits the close and retains its prior width.
+      // Pulling back rescues the sidebar; releasing commits the close at its prior width.
       if (collapse) return;
       latest = resizedWidth(startWidth, delta, minimumSidebarWidthRef.current);
-      // A rescued panel opens directly to a valid width. Stretching it below
-      // the minimum here would add a second movement when the pointer releases.
+      // A rescued panel opens straight to a valid width, with no rebound on release.
       overshoot = rescued ? 0 : startWidth + delta - latest;
       setSidebarDragWidth(latest + Math.sign(overshoot) * 48 * (1 - Math.exp(-Math.abs(overshoot) / 120)));
       setSidebarWidth(latest);
@@ -154,7 +134,7 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
       setSidebarRestoring(false);
       if (commit && (collapse || !moved)) setSidebarOpen(false);
       document.body.classList.remove("resizing-panels");
-      for (const [source, type, listener] of listeners) source.removeEventListener(type, listener);
+      listening.abort();
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
       if (moved && !collapse) {
         preferredSidebarWidthRef.current = latest;
@@ -162,16 +142,13 @@ export function usePanelLayout(minimumSidebarWidth = 180) {
       }
       if (finishResizeRef.current === finish) finishResizeRef.current = null;
     };
-    const listeners: Array<[EventTarget, string, (event: Event) => void]> = [
-      [window, "pointermove", move as (event: Event) => void],
-      [window, "pointerup", finish],
-      [window, "pointercancel", finish],
-      [window, "blur", finish],
-      [target, "lostpointercapture", finish],
-    ];
+    const listening = new AbortController();
+    const { signal } = listening;
     finishResizeRef.current = finish;
     target.setPointerCapture(pointerId);
-    for (const [source, type, listener] of listeners) source.addEventListener(type, listener);
+    window.addEventListener("pointermove", move, { signal });
+    for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, finish, { signal });
+    target.addEventListener("lostpointercapture", finish, { signal });
   }, [sidebarWidth]);
 
   const nudgeSidebar = useCallback((delta: number) => {

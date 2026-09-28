@@ -4,27 +4,16 @@ import { FileCode2 } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "../pdf/pdf-loading";
 import {
-  isVisualMarkdownEditorWarmed,
-  loadBoardEditorModule,
-  loadOpenSlideWorkspaceModule,
-  loadPdfPreviewModule,
-  loadSpreadsheetEditorModule,
-  loadVisualMarkdownEditorModule,
-  markVisualMarkdownEditorWarmed,
+  isVisualMarkdownEditorWarmed, loadBoardEditorModule, loadOpenSlideWorkspaceModule, loadPdfPreviewModule,
+  loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule, markVisualMarkdownEditorWarmed,
 } from "./canvas-lazy-modules";
 
 /** The canvas's heavy editors, each behind its own chunk (see canvas-lazy-modules). */
 export const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({ default: module.PdfPreview })));
-const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((module) => ({
-  default: module.VisualMarkdownEditor,
-})));
+const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((module) => ({ default: module.VisualMarkdownEditor })));
 export const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({ default: module.BoardEditor })));
-export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({
-  default: module.SpreadsheetEditor,
-})));
-export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({
-  default: module.OpenSlideWorkspace,
-})));
+export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({ default: module.SpreadsheetEditor })));
+export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({ default: module.OpenSlideWorkspace })));
 
 export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();

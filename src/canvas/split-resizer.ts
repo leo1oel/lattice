@@ -23,18 +23,14 @@ export function trackResizeDrag(
   event.preventDefault();
   const grip = event.currentTarget;
   document.body.classList.add("resizing-split");
-  const handleMove = (moveEvent: PointerEvent) => onMove(moveEvent, grip);
+  const listening = new AbortController();
   const handleUp = () => {
     document.body.classList.remove("resizing-split");
     setSplitResizerResistance(grip, 0);
-    window.removeEventListener("pointermove", handleMove);
-    window.removeEventListener("pointerup", handleUp);
-    window.removeEventListener("pointercancel", handleUp);
-    window.removeEventListener("blur", handleUp);
+    listening.abort();
     onEnd();
   };
-  window.addEventListener("pointermove", handleMove);
-  window.addEventListener("pointerup", handleUp);
-  window.addEventListener("pointercancel", handleUp);
-  window.addEventListener("blur", handleUp);
+  const { signal } = listening;
+  window.addEventListener("pointermove", (moveEvent) => onMove(moveEvent, grip), { signal });
+  for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, handleUp, { signal });
 }

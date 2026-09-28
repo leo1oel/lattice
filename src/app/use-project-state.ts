@@ -4,20 +4,16 @@ import type { GitFileStatus, GitStatus, ProjectSnapshot } from "../app-types";
 import { subscribeTauriEvent } from "./effect-helpers";
 
 /**
- * The open project's snapshot and its imperative identity.
- *
- * `projectRef` is what async work compares against: it is nulled the moment a
- * root-changing command starts (see beginTransition) and re-published when
- * React commits the next snapshot, so a result computed for project A cannot
- * land in project B during the gap between the backend switch and the render.
+ * The open project's snapshot and its imperative identity. `projectRef`, what
+ * async work compares against, is nulled when a root-changing command starts
+ * (beginTransition) and re-published when React commits the next snapshot, so
+ * a result computed for project A cannot land in project B in between.
  */
 export function useProjectState() {
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const projectRef = useRef<ProjectSnapshot | null>(project);
   const projectBeforeTransitionRef = useRef<ProjectSnapshot | null>(null);
   // Incremented before any command that can replace the backend project root.
-  // Long-running work captures this value so results from A cannot update B
-  // during the short gap between the backend switch and React committing B.
   const projectOperationGenerationRef = useRef(0);
   const projectRefreshGenerationRef = useRef(0);
   /** Optimistic tree edits in flight; background refreshes must not undo them. */
@@ -31,9 +27,8 @@ export function useProjectState() {
   const beginTransition = useCallback(() => {
     if (projectRef.current) projectBeforeTransitionRef.current = projectRef.current;
     projectOperationGenerationRef.current += 1;
-    // A root-changing backend command may finish before React commits the new
-    // snapshot. Nulling only the imperative identity closes that gap without
-    // flashing the welcome screen or discarding the rendered old project.
+    // Null only the imperative identity: the rendered old project stays up
+    // (no welcome-screen flash) until React commits the new snapshot.
     projectRef.current = null;
   }, []);
   const cancelProjectTransition = useCallback(() => {
@@ -81,14 +76,13 @@ export function useProjectState() {
 
 export type ProjectState = ReturnType<typeof useProjectState>;
 
-export type ProjectGitStatus = { projectRoot: string; files: GitFileStatus[]; remoteUrl: string | null };
+type ProjectGitStatus = { projectRoot: string; files: GitFileStatus[]; remoteUrl: string | null };
 
 /**
  * Keep the tree and git status fresh while the Project sidebar shows them.
- * Event-driven: the Rust watcher coalesces filesystem bursts into one
- * project-fs-changed broadcast (its payload carries the root so a window
- * showing another project ignores it); the interval is only a safety net for
- * anything a watcher can genuinely miss (network volumes, overflow).
+ * The Rust watcher coalesces filesystem bursts into one project-fs-changed
+ * broadcast carrying the root; the interval is only a safety net for what a
+ * watcher can miss (network volumes, overflow).
  */
 export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
   const { project, setProject, projectRef, projectRefreshGenerationRef, projectTreeMutationCountRef } = state;
@@ -138,9 +132,8 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
       }
     };
     void refresh();
-    void invoke("watch_project").catch(() => {
-      // Watcher-less operation degrades to the fallback poll below.
-    });
+    // Watcher-less operation degrades to the fallback poll below.
+    void invoke("watch_project").catch(() => {});
     const stopListening = subscribeTauriEvent<{ root: string }>("project-fs-changed", (payload) => {
       if (payload.root === initialProject.root) void refresh();
     });

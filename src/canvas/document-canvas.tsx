@@ -118,6 +118,15 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
   }
 }
 
+/** Hand App `value` through `register` while this canvas is mounted with both. */
+function useRegistration<T>(register: ((value: T | null) => void) | undefined, value: T) {
+  useLayoutEffect(() => {
+    if (!register) return;
+    register(value);
+    return () => register(null);
+  }, [register, value]);
+}
+
 /** A focusable cell of the two-pane layout: pointer-down or focus anywhere inside it enters `pane`. */
 function PaneCell({ pane, focusedPane, classes, onEnter, children, ...attributes }: HTMLAttributes<HTMLDivElement> & {
   pane: EditorPaneId;
@@ -289,20 +298,15 @@ export function DocumentCanvas(props: {
   } = props;
   const { i18n, t } = useLingui();
   const editorCommentLocalization = useMemo<EditorCommentLocalization>(() => ({
-    locale: i18n.locale,
-    anonymous: t`Anonymous`,
-    noCommentText: t`(no comment text)`,
-    reopen: t`Reopen`,
-    resolve: t`Resolve comment`,
-    reply: t`Reply`,
+    locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
+    reopen: t`Reopen`, resolve: t`Resolve comment`, reply: t`Reply`,
   }), [i18n.locale, t]);
   const editorCommentLocalizationRef = useRef(editorCommentLocalization);
   useEffect(() => {
     editorCommentLocalizationRef.current = editorCommentLocalization;
   }, [editorCommentLocalization]);
-  // Handlers CodeMirror extensions and window listeners call after render read
-  // the newest props through this, so those extensions never rebuild for them.
-  // It doubles as the LaTeX editors' live data (citations, macros, spelling).
+  // The newest props for CodeMirror extensions and window listeners, so those
+  // never rebuild for them; also the LaTeX editors' live data (citations, macros).
   const latestRef = useRef(props);
   latestRef.current = props;
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
@@ -314,15 +318,11 @@ export function DocumentCanvas(props: {
     secondaryVisualMarkdownFlushRef.current = flush;
   }, []);
   const flushPrimaryVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.(), []);
-  useLayoutEffect(() => {
-    if (!props.onVisualMarkdownFlushChange) return;
-    const flushVisualMarkdown = () => {
-      if (primaryVisualMarkdownFlushRef.current?.() === false) return false;
-      return secondaryVisualMarkdownFlushRef.current?.() !== false;
-    };
-    props.onVisualMarkdownFlushChange(flushVisualMarkdown);
-    return () => props.onVisualMarkdownFlushChange?.(null);
-  }, [props.onVisualMarkdownFlushChange]);
+  const flushVisualMarkdown = useCallback(
+    () => primaryVisualMarkdownFlushRef.current?.() !== false && secondaryVisualMarkdownFlushRef.current?.() !== false,
+    [],
+  );
+  useRegistration(props.onVisualMarkdownFlushChange, flushVisualMarkdown);
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
   const primaryKind = props.activePaper ? null : structuredDocumentKind(activeFile);
   const markdownDocument = Boolean(props.activePaper)
@@ -336,9 +336,8 @@ export function DocumentCanvas(props: {
   const markdownPreviewEnd = markdownPreviewStart + markdownPreviewText.length;
   const { settled: settledPreviewText, markEcho: setVisualEchoSource, policy: markdownSyncPolicy } = useSettledPreviewText(
     props.source,
-    // A LaTeX or plain-text file never reaches the Markdown preview, so feed
-    // the settling a constant there: otherwise every keystroke in a .tex file
-    // scheduled a publication whose only effect was one more render.
+    // Other files never reach the Markdown preview: a constant spares each
+    // keystroke a publication whose only effect was one more render.
     markdownDocument ? markdownPreviewText : "",
     activeFile,
   );
@@ -387,9 +386,8 @@ export function DocumentCanvas(props: {
   const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownPreviewViewportLockRef = useRef(0);
-  // Populated by the split scroll coordinator; poked from the primary
-  // editor's update listener so cursor motion can reveal the matching
-  // preview block (VS Code-style cursor-driven synchronization).
+  // Filled by the split scroll coordinator; the primary editor's update
+  // listener pokes it so cursor motion reveals the matching preview block.
   const markdownCursorRevealRef = useRef<(() => void) | null>(null);
   const markdownPreviewReconcileFromSourceRef = useRef<(() => void) | null>(null);
   const markdownPreviewOverflowAnchorRef = useRef("");
@@ -414,10 +412,8 @@ export function DocumentCanvas(props: {
   // This is separate from the mounted viewer's identity: all TeX source files
   // share the project's compiled PDF, including across SyncTeX jumps.
   const [previewIdentity, setPreviewIdentity] = useState(activeFile);
-  useEffect(() => {
-    const owner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
-    if (owner) setPreviewIdentity(owner);
-  }, [activeFile, secondaryFile]);
+  const previewOwner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
+  if (previewOwner && previewOwner !== previewIdentity) setPreviewIdentity(previewOwner);
 
   const activeFileRef = useRef(activeFile);
   activeFileRef.current = activeFile;
@@ -436,12 +432,7 @@ export function DocumentCanvas(props: {
     reconcileFromSourceRef: markdownPreviewReconcileFromSourceRef,
     onViewMarkdownSource: props.onViewMarkdownSource,
   });
-  useLayoutEffect(() => {
-    const register = props.onMarkdownModeViewportCaptureChange;
-    if (!register) return;
-    register(captureMarkdownModeViewport);
-    return () => register(null);
-  }, [captureMarkdownModeViewport, props.onMarkdownModeViewportCaptureChange]);
+  useRegistration(props.onMarkdownModeViewportCaptureChange, captureMarkdownModeViewport);
 
   const focusedPath = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
   const focusedSource = focusedPane === "secondary" && secondaryFile ? secondarySource : editorSource;
@@ -456,18 +447,15 @@ export function DocumentCanvas(props: {
     commentsForSecondaryFileRef.current = commentsForSecondaryFile;
   }, [commentsForSecondaryFile]);
 
-  // Comments rebased into the preview's own coordinates. The preview may render
-  // a slice of the file, and anchors are resolved against the text it was given
-  // — offsets from the whole document would land in the wrong prose or nowhere.
+  // Comments rebased into the preview's own coordinates: it may render a slice
+  // of the file, and resolves anchors against the text it was given.
   const markdownVisualComments = useMemo(
     () => rangesWithinPreview(commentsForActiveFile, markdownPreviewStart, markdownPreviewEnd),
     [commentsForActiveFile, markdownPreviewEnd, markdownPreviewStart],
   );
 
   useEffect(() => {
-    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
-      if (view) refreshLint(view);
-    }
+    for (const view of [primaryViewRef.current, secondaryViewRef.current]) if (view) refreshLint(view);
   }, [buildDiagnostics, texlabDiagnostics]);
 
   useEffect(() => {
@@ -495,9 +483,8 @@ export function DocumentCanvas(props: {
     // Binding before the host's Y.Texts have synced can create a competing
     // placeholder. Keep this stable across keystrokes so yCollab listeners live.
     if (!collabSession || !activeFile || !collabReady) return EMPTY_EXTENSIONS;
-    // Joining/materializing updates several parent states in one transition.
-    // Never turn a transient path mismatch into a render-time app crash; the
-    // awaited loadFile/openPath flow will re-render once this path is active.
+    // Joining updates several parent states in one transition: a transient path
+    // mismatch waits for loadFile/openPath to re-render once this path is active.
     if (collabSession.activePath !== activeFile) return EMPTY_EXTENSIONS;
     collabSession.setActivePath(activeFile, latestRef.current.source);
     return collabEditorExtensions(collabSession);
@@ -528,11 +515,9 @@ export function DocumentCanvas(props: {
     () => secondaryCollabLive ? collabEditorExtensions(secondaryCollabBinding.binding) : EMPTY_EXTENSIONS,
     [secondaryCollabBinding, secondaryCollabLive],
   );
-  // Lattice collab (v2) carets for the visual editor: the same awareness room
-  // the source editor's yCollab binds, resolved to row/column against the live
+  // Lattice collab (v2) carets for the visual editor, resolved against the live
   // Y.Text and shifted into preview coordinates like the Overleaf carets above.
-  // A remote caret move publishes a fresh peer list. Memoize against that
-  // signal so unrelated App renders do not dispatch equal PM decorations.
+  // Memoized on the peer list so other App renders dispatch no equal decorations.
   const collabVisualCursors = useMemo(() => {
     const cursors: PresenceCursor[] = [];
     if (!collabLive || !markdownDocument || !collabSession?.boardPresenceUser) return cursors;
@@ -619,8 +604,6 @@ export function DocumentCanvas(props: {
       position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
     });
   }, [dismissSelectionToolbar]);
-  // Stable callbacks. CodeMirrorHost reads handlers through refs, so identity
-  // churn does not force a reconfigure; they stay stable regardless.
   const reportEditorPosition = useCallback((view: EditorView, path: string) => {
     const head = view.state.selection.main.head;
     const line = view.state.doc.lineAt(head);
@@ -680,17 +663,13 @@ export function DocumentCanvas(props: {
 
   useEffect(() => {
     let frame: number | null = null;
-    const reposition = () => {
-      const owner = selectionToolbarOwnerRef.current;
-      if (!owner) return;
-      const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
-      if (view) updateSelectionToolbar(view, owner.path);
-    };
     const scheduleReposition = () => {
       if (frame != null || !selectionToolbarOwnerRef.current) return;
       frame = window.requestAnimationFrame(() => {
         frame = null;
-        reposition();
+        const owner = selectionToolbarOwnerRef.current;
+        const view = owner && (owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current);
+        if (owner && view) updateSelectionToolbar(view, owner.path);
       });
     };
     const resizeObserver = new ResizeObserver(scheduleReposition);
@@ -698,13 +677,13 @@ export function DocumentCanvas(props: {
       const editor = view?.dom.closest(".source-editor");
       if (editor) resizeObserver.observe(editor);
     }
-    window.addEventListener("resize", scheduleReposition);
-    window.addEventListener("scroll", scheduleReposition, true);
+    const listening = new AbortController();
+    window.addEventListener("resize", scheduleReposition, { signal: listening.signal });
+    window.addEventListener("scroll", scheduleReposition, { capture: true, signal: listening.signal });
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
-      window.removeEventListener("resize", scheduleReposition);
-      window.removeEventListener("scroll", scheduleReposition, true);
+      listening.abort();
     };
   }, [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
 
@@ -727,8 +706,7 @@ export function DocumentCanvas(props: {
     secondaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFile) });
   }, [commentsForSecondaryFile, collabEditorKey]);
 
-  // Someone else's caret has to repaint when they move it, not when we
-  // happen to type next.
+  // Someone else's caret has to repaint when they move it, not when we type next.
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setOverleafCursorsEffect.of(props.overleafPresenceCursors) });
   }, [props.overleafPresenceCursors, collabEditorKey]);
@@ -816,9 +794,7 @@ export function DocumentCanvas(props: {
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const [secondaryKeymapExtensions, secondaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
-  const secondaryTextLanguageExtensions = useTextLanguageExtensions(
-    secondaryFile && !isLatexSourcePath(secondaryFile) ? secondaryFile : "",
-  );
+  const secondaryTextLanguageExtensions = useTextLanguageExtensions(secondaryFile && !isLatexSourcePath(secondaryFile) ? secondaryFile : "");
   /**
    * Everything either pane's editor of `path` runs, in precedence order; `extra`
    * slots in after collaboration. Every getter here runs in CodeMirror handlers,
@@ -861,12 +837,10 @@ export function DocumentCanvas(props: {
       { delay: 200 },
     )] : []),
   ];
-  // Both panes capture volatile inputs (macros, graphics roots, citations,
-  // diagnostics, comments, App-provided lambdas) at reconfigure time or read
-  // them through refs, and refresh on file switch. CodeMirrorHost answers a
-  // changed extensions identity with a full StateEffect.reconfigure, so listing
-  // them would tear down the editor (language, linters, autocomplete, yCollab
-  // carets) on every keystroke.
+  // Both panes capture volatile inputs (macros, citations, diagnostics, App
+  // lambdas) at reconfigure time or read them through refs. CodeMirrorHost
+  // answers a new extensions identity with a full reconfigure, so listing them
+  // would tear down language, linters and yCollab carets on every keystroke.
   const editorExtensions = useMemo(
     () => paneExtensions(
       activeFile,
@@ -913,10 +887,7 @@ export function DocumentCanvas(props: {
     setSnippetStops(stops.length > 1 ? { base: from, stops } : null);
     view.focus();
   }, []);
-  const insertSnippet = useCallback(
-    (snippet: InsertSnippet) => insertTextAtCursor(snippet.insert, snippet.cursorOffset),
-    [insertTextAtCursor],
-  );
+  const insertSnippet = useCallback((snippet: InsertSnippet) => insertTextAtCursor(snippet.insert, snippet.cursorOffset), [insertTextAtCursor]);
   const insertFigures = useCallback(async (
     paths: string[],
     coordinates?: { x: number; y: number },
@@ -977,9 +948,8 @@ export function DocumentCanvas(props: {
     if (!request) return;
     const editorVisible = props.mode !== "pdf" && props.mode !== "asset";
     const inSecondary = request.path === secondaryFile;
-    // Refs can be assigned just before CodeMirror's DOM reports connected.
-    // Treat the view as ready here; otherwise a one-shot navigation can be
-    // missed because the later ref attachment does not itself rerun this effect.
+    // A ref can be assigned before CodeMirror's DOM reports connected; treat the
+    // view as ready, since the later attachment does not rerun this effect.
     const targetView = () => !editorVisible ? null
       : inSecondary ? secondaryViewRef.current
         : request.path === activeFile ? primaryViewRef.current ?? editorViewRef.current : null;
@@ -990,10 +960,8 @@ export function DocumentCanvas(props: {
     let observer: MutationObserver | null = null;
     // codemirror-host holds an external value back while someone is typing, so
     // the view can still carry the previous file's text when a jump arrives.
-    // Resolving the line against that document scrolls somewhere meaningless
-    // and consumes the request, which is one of the ways a SyncTeX jump lands
-    // in the wrong place. Wait for the text to catch up — but not forever: a
-    // best-effort jump is better than a request nobody answers.
+    // Wait for the text to catch up — but not forever: a best-effort jump is
+    // better than a request nobody answers.
     const staleDocumentDeadline = performance.now() + 600;
     const navigate = () => {
       frame = null;
@@ -1076,9 +1044,8 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
-    // An explicit jump supersedes an older saved position, including while
-    // the editor is still mounting. Otherwise the pending restore can run on
-    // a later render and undo a successfully completed SyncTeX navigation.
+    // An explicit jump supersedes an older saved position, even mid-mount, or
+    // the restore could run later and undo a completed SyncTeX navigation.
     if (editorNavigation?.path === request.path) {
       onViewRestoreHandled(request.id);
       return;
@@ -1143,8 +1110,7 @@ export function DocumentCanvas(props: {
 
   const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     // VisualMarkdownEditor retains the previous publisher until its layout
-    // flush. The host normally flushes before switching, but never let a late
-    // callback mutate refs or setters once another document owns the canvas.
+    // flush: a late callback must not write once another document owns the canvas.
     if (activeFileRef.current !== activeFile) return false;
     const view = livePrimaryView();
     const ytext = collabReady && collabSession?.activePath === activeFile ? collabSession.ytext : null;
@@ -1153,10 +1119,8 @@ export function DocumentCanvas(props: {
     if (!splice) return false;
     const nextSource = `${splice.prefix}${splice.inserted}`;
     const change = minimalTextChange(expectedBody, splice.inserted, markdownPreviewStart);
-    // Mark the document this edit is about to produce, before any writer can
-    // echo it back through props, so useSettledPreviewText hands it straight to
-    // the preview and keeps the preview's accepted document level with the
-    // source it just wrote.
+    // Mark the document this edit produces before any writer echoes it back,
+    // so useSettledPreviewText hands it straight to the preview.
     setVisualEchoSource(nextSource);
 
     if (view) {
@@ -1178,13 +1142,11 @@ export function DocumentCanvas(props: {
       visualSourceHistoryRef.current.redo = [];
     }
     mountSourceRef.current = nextSource;
-    // This callback can be retained by VisualMarkdownEditor until its layout
-    // flush during a path switch. Use the setter from the render that created
-    // the callback; the mutable source-editor ref already belongs to the next
-    // document by then and can otherwise receive the previous document body.
-    props.setSource(nextSource);
+    // Use the setter from the render that created this callback: during a path
+    // switch the source-editor ref already belongs to the next document.
+    setSource(nextSource);
     return true;
-  }, [activeFile, collabReady, collabSession, livePrimaryView, markdownPreviewStart, props.setSource, setVisualEchoSource]);
+  }, [activeFile, collabReady, collabSession, livePrimaryView, markdownPreviewStart, setSource, setVisualEchoSource]);
 
   const lockMarkdownPreviewViewport = useCallback((anchor: HTMLElement | null, anchorTop: number | null, reveal: HTMLElement | null) => {
     const viewport = markdownPreviewViewportRef.current;
@@ -1355,14 +1317,11 @@ export function DocumentCanvas(props: {
     const source = primary ? props.source : secondarySource;
     const [fallbackClass, fallbackLabel] = structuredFallbacks[kind];
     const editor = {
-      path,
-      source,
+      path, source, active,
       onChange: primary ? onPrimaryChange : onSecondaryChange,
       onFlushPendingChange: primary ? registerPrimaryVisualMarkdownFlush : registerSecondaryVisualMarkdownFlush,
-      active,
     };
-    // Remount per file so each board gets a fresh store. In v2 collaboration
-    // the path-specific Y.Doc carries records; local and v1 boards serialize
+    // Remount per file so each board gets a fresh store; local boards serialize
     // back through the source buffer before a document switch.
     const tour = kind === "presentation" && active === undefined ? "open-slide-workspace" : undefined;
     return (
@@ -1371,11 +1330,7 @@ export function DocumentCanvas(props: {
           <BoardEditor key={path} {...editor} collab={structuredCollab(kind, path)} {...viewStateBinding(path, "board")} />
         ) : kind === "spreadsheet" ? (
           <SpreadsheetEditor
-            key={path}
-            {...editor}
-            onPersist={props.onSave}
-            collab={structuredCollab(kind, path)}
-            {...viewStateBinding(path, "spreadsheet")}
+            key={path} {...editor} onPersist={props.onSave} collab={structuredCollab(kind, path)} {...viewStateBinding(path, "spreadsheet")}
           />
         ) : (
           <OpenSlideWorkspace
@@ -1409,9 +1364,8 @@ export function DocumentCanvas(props: {
   };
   /**
    * Focus handler for `pane`: the agent surface it offers, whether it takes the
-   * selection toolbar from the other pane, and whether its source view becomes
-   * the one insertions target. The pane ref updates at once, so editor updates
-   * landing before the next render already see the new owner.
+   * selection toolbar, and whether its source view becomes the insertion
+   * target. The pane ref updates at once, ahead of the next render.
    */
   const focusPane = (pane: EditorPaneId, surface: AgentHostSurface | null, { claim = false, view = false } = {}) => {
     if (surface) props.onContextSurfaceActivate(surface);
@@ -1442,8 +1396,7 @@ export function DocumentCanvas(props: {
     onLoadAsset: props.onLoadReferenceImage,
     assetRevision: props.referenceImageGeneration ?? 0,
     activeEditorCommentId: props.activeEditorCommentId,
-    // Opens the panel focused on that thread — the same thing replying from
-    // the source editor's tooltip does.
+    // Opens the panel on that thread, like replying from the source editor's tooltip.
     onEditorCommentClick: props.onReplyEditorComment,
     onSelectionMarkdown: (value: string) => latestRef.current.setSelection(value),
   };
@@ -1451,14 +1404,10 @@ export function DocumentCanvas(props: {
     <ScrollArea
       className="markdown-preview"
       data-tour={props.activePaper ? "paper-reading-view" : "markdown-visual-editor"}
-      // The document surface itself scrolls vertically; wide tables, code and
-      // formulas own their local horizontal overflow. A second root scrollbar
-      // made Base UI run another ResizeObserver loop as lazy blocks changed
-      // size during scrolling.
+      // Wide tables, code and formulas own their horizontal overflow; a second
+      // root scrollbar made Base UI run another ResizeObserver loop.
       orientation="vertical"
-      // Mask gradients repaint the full editable surface while scrolling in
-      // WebKit. Markdown has a persistent scrollbar, so the fade adds cost
-      // without adding useful overflow information.
+      // Mask gradients repaint the whole editable surface while scrolling in WebKit.
       fadeEdges={false}
       contentClassName="markdown-preview-content"
       viewportClassName="editor-doc-scroll"
@@ -1477,9 +1426,8 @@ export function DocumentCanvas(props: {
           event.stopPropagation();
           paperPdf.openPdf({ ...citation, id: crypto.randomUUID() });
         },
-        // Split mode has an explicit source/preview scroll coordinator and
-        // insertion viewport lock. Native anchoring is a competing scroll
-        // writer when media above the viewport resolves or remounts.
+        // Split mode has its own scroll coordinator and insertion viewport lock;
+        // native anchoring would be a competing scroll writer.
         style: props.mode === "split" ? { overflowAnchor: "none" } : undefined,
       }}
       viewportRef={attachMarkdownPreviewViewport}
@@ -1515,9 +1463,8 @@ export function DocumentCanvas(props: {
           projectRoot={props.activePaper ? undefined : props.projectRoot}
           optimizeForReading={Boolean(props.activePaper)}
           onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
-          // Split previews keep source labels for scroll sync. Pure preview
-          // enables them only for a pending navigation, so collaborator jumps
-          // stay exact without paying the labeling cost while typing.
+          // Split previews keep source labels for scroll sync; pure preview only
+          // for a pending navigation, sparing the labeling cost while typing.
           synchronizeSourceScroll={props.mode === "split" || editorNavigation?.path === activeFile}
           onRequestViewportLock={lockMarkdownPreviewViewport}
           onChangeMarkdown={replaceVisualMarkdown}
@@ -1672,9 +1619,8 @@ export function DocumentCanvas(props: {
   const projectPdfPreview = (requestedPath: string) => {
     const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity;
     const leaveEditorForPdf = () => {
-      // Scrolling the PDF need not blur CodeMirror. End completion explicitly
-      // before saving, or its active-menu guard can suspend autosave indefinitely.
-      // Pointer leave alone must still preserve the menu for option selection.
+      // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
+      // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
       if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
       if (secondaryViewRef.current) closeCompletion(secondaryViewRef.current);
       props.onEditorLeave();
@@ -1705,11 +1651,9 @@ export function DocumentCanvas(props: {
             canForwardSync={props.canForwardSync}
             locatingPdf={props.locatingPdf}
             onForwardSync={props.onForwardSync}
-            // Reverse-jump to source needs an editor to land in. PDF-only view has
-            // none, and neither does a dual layout whose panes are both previews
-            // (or whose only other pane is an asset); those clicks stay inert and
-            // the synctex cursor is off. With one pane still holding an editor the
-            // jump goes there — App picks the pane, since it owns that state.
+            // Reverse-jump to source needs an editor to land in: PDF-only view and
+            // a dual layout of previews (or an asset) have none, so those clicks
+            // stay inert. Otherwise App picks the pane, since it owns that state.
             onSource={props.mode === "pdf" || !props.canRevealPdfSource ? undefined : props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}
             onNumPages={props.onPdfPageCount}

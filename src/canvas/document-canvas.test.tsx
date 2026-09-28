@@ -30,13 +30,9 @@ vi.mock("./canvas-lazy-modules", () => {
     </div>
   );
   const editorStub = (testId: string) => (props: {
-    path?: string;
-    source?: string;
-    onEligibilityChange?: (reason: string | null) => void;
-    initialViewState?: { camera?: { x: number; y: number; z: number } };
-    editorComments?: Array<{ id: string; from: number; to: number }>;
-    activeEditorCommentId?: string | null;
-    onEditorCommentClick?: (id: string) => void;
+    path?: string; source?: string; initialViewState?: { camera?: { x: number; y: number; z: number } };
+    editorComments?: Array<{ id: string; from: number; to: number }>; activeEditorCommentId?: string | null;
+    onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
     onCreateComment?: (from: number, to: number, body: string) => void;
   }) => (
     <div
@@ -333,10 +329,8 @@ describe("DocumentCanvas / mode", () => {
       "<!doctype html><html><body><div id='plot'></div><script>window.inlinePlotReady=true</script></body></html>",
     );
     renderCanvas({
-      mode: "pdf",
-      activeFile: "presentation.html",
+      mode: "pdf", activeFile: "presentation.html", interactivePreviewsEnabled: true,
       source: `<iframe src="data:text/html;charset=utf-8;base64,${embeddedPlot}" title="Plot"></iframe>`,
-      interactivePreviewsEnabled: true,
     });
 
     const preview = await screen.findByTitle<HTMLIFrameElement>("HTML preview for presentation.html");
@@ -358,13 +352,9 @@ describe("DocumentCanvas / mode", () => {
 
   it("places a Paper beside an editor on either side", async () => {
     const { container, rerenderWith } = renderCanvas({
-      mode: "dual",
-      activeFile: ".research/papers/1706.03762/paper.md",
-      source: "## Abstract\n\nPaper content.",
+      mode: "dual", activeFile: ".research/papers/1706.03762/paper.md", source: "## Abstract\n\nPaper content.",
       activePaper: { arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Ashish Vaswani and Noam Shazeer", hasFullText: true, hasBlog: false },
-      paperSide: "left",
-      secondaryFile: "main.tex",
-      secondarySource: "\\documentclass{article}\n",
+      paperSide: "left", secondaryFile: "main.tex", secondarySource: "\\documentclass{article}\n",
     });
 
     await waitFor(() => expect(container.querySelector(".cm-editor")).not.toBeNull());
@@ -412,9 +402,7 @@ describe("DocumentCanvas / editor for the open document", () => {
 
   it("places a paper's visual editing warning above its generated title", async () => {
     renderCanvas({
-      mode: "pdf",
-      activeFile: ".research/papers/2408.05088/paper.md",
-      source: "Paper body.",
+      mode: "pdf", activeFile: ".research/papers/2408.05088/paper.md", source: "Paper body.",
       activePaper: { arxivId: "2408.05088", title: "UNIC", authors: "Mert and Philippe", hasFullText: true, hasBlog: false },
     });
 
@@ -430,13 +418,8 @@ describe("DocumentCanvas / editor for the open document", () => {
   it("keeps an open presentation iframe mounted while another tab is active", async () => {
     const path = "slides/research-update/index.tsx";
     const activeWorkspace = {
-      projectRoot: "/tmp/project",
-      path,
-      source: "export default [];\n",
-      editable: true,
-      locale: "en" as const,
-      theme: "light" as const,
-      onMutation: vi.fn(async () => []),
+      projectRoot: "/tmp/project", path, source: "export default [];\n", editable: true,
+      locale: "en" as const, theme: "light" as const, onMutation: vi.fn(async () => []),
     };
     const pool = (workspace: typeof activeWorkspace | null, openPaths: string[]) => (
       <OpenSlideTabPool projectRoot="/tmp/project" activeWorkspace={workspace} openPaths={openPaths} />
@@ -455,36 +438,24 @@ describe("DocumentCanvas / editor for the open document", () => {
   });
 
   it("lets the external presentation pool own the primary Open Slide surface", async () => {
-    const { container } = renderCanvas({
-      mode: "source",
-      activeFile: "slides/research-update/index.tsx",
-      source: "export default [];\n",
-    });
+    const { container } = renderCanvas({ mode: "source", activeFile: "slides/research-update/index.tsx", source: "export default [];\n" });
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it("keeps a native Open Slide deck inside the secondary pane as its complete workspace", async () => {
+    const path = "slides/research-update/index.tsx";
     const { container, props } = renderCanvas({
-      mode: "dual",
-      activeFile: "main.tex",
-      secondaryFile: "slides/research-update/index.tsx",
-      secondarySource: "export default [];\n",
-      focusedPane: "secondary",
-      secondaryEditorEditable: false,
-      locale: "zh-CN",
-      theme: "dark",
+      mode: "dual", activeFile: "main.tex", secondaryFile: path, secondarySource: "export default [];\n",
+      focusedPane: "secondary", secondaryEditorEditable: false, locale: "zh-CN", theme: "dark",
     });
 
     const presentation = await screen.findByTestId("open-slide-workspace");
-    expect(presentation.dataset.active).toBe("true");
-    expect(presentation.dataset.editable).toBe("false");
-    expect(presentation.dataset.projectRoot).toBe("/tmp/project");
-    expect(presentation.dataset.path).toBe("slides/research-update/index.tsx");
-    expect(presentation.dataset.locale).toBe("zh-CN");
-    expect(presentation.dataset.theme).toBe("dark");
+    expect({ ...presentation.dataset }).toMatchObject({
+      active: "true", editable: "false", projectRoot: "/tmp/project", path, locale: "zh-CN", theme: "dark",
+    });
     fireEvent.click(screen.getByTestId("open-slide-mutation"));
-    expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path: "slides/research-update/index.tsx", kind: "write" }));
+    expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path, kind: "write" }));
     expect(container.querySelector("[data-editor-pane='secondary'] [data-testid='open-slide-workspace']"))
       .not.toBeNull();
   });
@@ -492,13 +463,7 @@ describe("DocumentCanvas / editor for the open document", () => {
   it("keeps a board inside its pane when a second editor is open", async () => {
     // Board and spreadsheet documents take over the canvas — except in the
     // two-pane modes, where taking over would close the other pane's editor.
-    const { container } = renderCanvas({
-      mode: "dual",
-      activeFile: "diagram.tldr",
-      source: "{}",
-      secondaryFile: "main.tex",
-      secondarySource: "\\section{Intro}\n",
-    });
+    const { container } = renderCanvas({ mode: "dual", activeFile: "diagram.tldr", source: "{}", secondaryFile: "main.tex", secondarySource: "\\section{Intro}\n" });
 
     expect(await screen.findByTestId("board-editor")).toBeInTheDocument();
     expect(container.querySelector("[data-editor-pane='primary'] [data-testid='board-editor']")).not.toBeNull();
@@ -653,12 +618,7 @@ describe("DocumentCanvas / per-file view state", () => {
     const getFileViewState = (statePath: string) => states[statePath];
     // The canvas hosts decks in the secondary pane; App's tab pool hosts the primary one.
     const { rerenderWith } = renderCanvas({
-      mode: "dual",
-      activeFile: "main.tex",
-      secondaryFile: path,
-      secondarySource: "export default [];\n",
-      getFileViewState,
-      onFileViewState,
+      mode: "dual", activeFile: "main.tex", secondaryFile: path, secondarySource: "export default [];\n", getFileViewState, onFileViewState,
     });
     fireEvent.click(await screen.findByTestId("open-slide-view-state"));
 
