@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { deckIdFromOpenSlidePath, toMessage } from "../../app-utils";
 import type { OpenSlideFileViewState } from "../../app-types";
+import {
+  browserRuntimeDetached,
+  subscribeBrowserRuntimeDetached,
+} from "../../platform/browser-runtime";
 import type { AppLocale, Theme } from "../../settings/app-settings";
 import {
+  advanceOpenSlideEventCursor,
   consumeOpenSlideEvents,
+  openSlideEventCursor,
   type OpenSlideContext,
   type OpenSlideMutation,
   type OpenSlideSyncOperation,
@@ -70,9 +76,9 @@ function syncSource(info: PresentationRuntimeInfo, path: string, text: string, s
 }
 
 /** Report a failure unless it is the abort that tore its effect down. */
-function reportUnlessAborted(signal: AbortSignal, onError?: (message: string) => void) {
+function reportUnlessAborted(signal: AbortSignal, latest: { current: { onError?: (message: string) => void } }) {
   return (reason: unknown) => {
-    if (!signal.aborted) onError?.(toMessage(reason));
+    if (!signal.aborted) latest.current.onError?.(toMessage(reason));
   };
 }
 
@@ -105,27 +111,31 @@ export function OpenSlideWorkspace({
   // and reload the deck that just reported it.
   const [restoredPage] = useState(() => Math.max(1, Math.floor(initialViewState?.page ?? 1)));
   const reportedPageRef = useRef(restoredPage);
-  const lastEventIdRef = useRef(0);
   const latestContextRef = useRef<OpenSlideContext | null>(null);
   const mutationInFlightRef = useRef(0);
   const requestNativeRefreshRef = useRef<() => void>(() => undefined);
-  const latest = useRef({ source, active, onContext, onViewState });
+  // App rebuilds these callbacks whenever the project or file tree refreshes.
+  // No effect below may depend on their identity: re-running the event
+  // effect aborted the stream about once a second, and each gap dropped the
+  // Open Slide saves broadcast inside it; re-running the sync effects pushed
+  // the old project source back over those saves.
+  const latest = useRef({ source, active, onMutation, onContext, onError, onViewState });
   useEffect(() => {
-    latest.current = { source, active, onContext, onViewState };
+    latest.current = { source, active, onMutation, onContext, onError, onViewState };
   });
   useEffect(() => {
-    if (active && latestContextRef.current) {
-      onContext?.(latestContextRef.current);
-    } else if (!active) {
-      // Another cached deck owns the shared project event queue while this
-      // iframe is hidden. Re-enter as a fresh consumer instead of replaying
-      // mutations that the active deck has already applied to the host.
-      lastEventIdRef.current = 0;
-    }
-  }, [active, onContext]);
+    // The event cursor is shared by every deck on this page, so a deck that
+    // becomes active resumes after whatever the previously active deck
+    // applied rather than replaying it.
+    if (active && latestContextRef.current) latest.current.onContext?.(latestContextRef.current);
+  }, [active]);
   useEffect(() => () => {
     if (latest.current.active) latest.current.onContext?.(null);
   }, []);
+  // Once this page is displaced, its iframe would keep accepting saves into
+  // the runtime while nothing here can apply them to the project. Drop the
+  // iframe and every host bridge loop instead.
+  const detached = useSyncExternalStore(subscribeBrowserRuntimeDetached, browserRuntimeDetached);
 
   useEffect(() => {
     let disposed = false;
@@ -148,13 +158,20 @@ export function OpenSlideWorkspace({
   useEffect(() => {
     if (!runtime?.leaseId) return;
     const controller = new AbortController();
-    void postControl(runtime, "access", { leaseId: runtime.leaseId, writable: editable }, controller.signal)
-      .catch(reportUnlessAborted(controller.signal, onError));
+    // A displaced page cannot reach the native host to release its lease, but
+    // the runtime is loopback HTTP. Withdraw the lease directly so that, with
+    // no live page holding one, the runtime refuses saves outright.
+    void postControl(runtime, "access", detached
+      ? { leaseId: runtime.leaseId, remove: true }
+      : { leaseId: runtime.leaseId, writable: editable }, controller.signal)
+      .catch((reason) => {
+        if (!detached) reportUnlessAborted(controller.signal, latest)(reason);
+      });
     return () => controller.abort();
-  }, [editable, onError, runtime]);
+  }, [detached, editable, runtime]);
 
   useEffect(() => {
-    if (!runtime) return;
+    if (!runtime || detached) return;
     if (latestContextRef.current?.pendingEdits || mutationInFlightRef.current > 0) {
       // The queued native refresh will send the latest canonical source after
       // the inspector draft has become a real file mutation. Sending this prop
@@ -163,12 +180,12 @@ export function OpenSlideWorkspace({
       return;
     }
     const controller = new AbortController();
-    void syncSource(runtime, path, source, controller.signal).catch(reportUnlessAborted(controller.signal, onError));
+    void syncSource(runtime, path, source, controller.signal).catch(reportUnlessAborted(controller.signal, latest));
     return () => controller.abort();
-  }, [onError, path, runtime, source]);
+  }, [detached, path, runtime, source]);
 
   useEffect(() => {
-    if (!active || !runtime) return;
+    if (!active || !runtime || detached) return;
     const controller = new AbortController();
     let refreshing = false;
     let refreshQueued = false;
@@ -202,7 +219,7 @@ export function OpenSlideWorkspace({
         // last so a peer edit can never be replaced by that stale mirror.
         await syncSource(runtime, path, latest.current.source, controller.signal);
       } catch (reason) {
-        reportUnlessAborted(controller.signal, onError)(reason);
+        reportUnlessAborted(controller.signal, latest)(reason);
       } finally {
         refreshing = false;
         if (refreshQueued) {
@@ -229,24 +246,33 @@ export function OpenSlideWorkspace({
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       requestNativeRefreshRef.current = () => undefined;
     };
-  }, [active, onError, path, projectRoot, runtime]);
+  }, [active, detached, path, projectRoot, runtime]);
 
   useEffect(() => {
-    if (!active || !runtime?.origin || !runtime.controlToken) return;
+    if (!active || detached || !runtime?.origin || !runtime.controlToken) return;
+    const { origin, controlToken } = runtime;
     const controller = new AbortController();
     const receive = async () => {
       while (!controller.signal.aborted) {
         try {
+          const cursor = openSlideEventCursor(origin, controlToken);
           const response = await controlFetch(runtime, "events", {
-            headers: lastEventIdRef.current ? { "last-event-id": String(lastEventIdRef.current) } : {},
+            // Send the cursor even when it is 0: that still asks the runtime
+            // to replay whatever was broadcast while this page had no stream
+            // open. Only a page that never attached omits it.
+            headers: cursor !== undefined ? { "last-event-id": String(cursor) } : {},
             signal: controller.signal,
           });
           // Preserve the HTTP status in diagnostic detail for support logs.
           // eslint-disable-next-line lingui/no-unlocalized-strings
           if (!response.ok || !response.body) throw new Error(`Open Slide event bridge returned ${response.status}`);
           await consumeOpenSlideEvents(response.body, async (event) => {
+            if ("type" in event && event.type === "ready") {
+              advanceOpenSlideEventCursor(origin, controlToken, event);
+              return;
+            }
             if ("context" in event) {
-              lastEventIdRef.current = Math.max(lastEventIdRef.current, event.id);
+              advanceOpenSlideEventCursor(origin, controlToken, event);
               if (event.context.pagePath !== path) return;
               const refreshWasBlocked = latestContextRef.current?.pendingEdits === true;
               latestContextRef.current = event.context;
@@ -257,17 +283,19 @@ export function OpenSlideWorkspace({
                 reportedPageRef.current = event.context.pageNumber;
                 latest.current.onViewState?.({ page: event.context.pageNumber });
               }
-              onContext?.(event.context);
+              latest.current.onContext?.(event.context);
               return;
             }
             mutationInFlightRef.current += 1;
             try {
-              const operations = await onMutation(event).catch((reason: unknown) => {
-                onError?.(toMessage(reason));
+              const operations = await latest.current.onMutation(event).catch((reason: unknown) => {
+                latest.current.onError?.(toMessage(reason));
                 return revertMutation(event);
               });
               if (operations.length) await postControl(runtime, "sync", { operations }, controller.signal);
-              lastEventIdRef.current = Math.max(lastEventIdRef.current, event.id);
+              // Advance only once the host has the edit. An abort before this
+              // point leaves the mutation for the next stream to replay.
+              advanceOpenSlideEventCursor(origin, controlToken, event);
             } finally {
               mutationInFlightRef.current -= 1;
               requestNativeRefreshRef.current();
@@ -275,14 +303,14 @@ export function OpenSlideWorkspace({
           });
         } catch (reason) {
           if (controller.signal.aborted) return;
-          onError?.(toMessage(reason));
+          latest.current.onError?.(toMessage(reason));
           await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
         }
       }
     };
     void receive();
     return () => controller.abort();
-  }, [active, onContext, onError, onMutation, path, runtime]);
+  }, [active, detached, path, runtime]);
 
   const status = (role: "alert" | "status", children: ReactNode) => (
     <div className="open-slide-status" role={role} data-tour="open-slide-workspace">{children}</div>
@@ -293,6 +321,11 @@ export function OpenSlideWorkspace({
       <strong>{t`Open Slide could not start`}</strong>
       <span>{startupError}</span>
     </>);
+  }
+  if (detached) {
+    // The runtime failure overlay covers the page and explains why. Keeping
+    // only the frame's container avoids leaving a focused editor behind it.
+    return <div className="open-slide-workspace" data-tour="open-slide-workspace" />;
   }
   if (!runtime?.sessionUrl) return status("status", t`Starting Open Slide…`);
   // Open Slide owns this application route.

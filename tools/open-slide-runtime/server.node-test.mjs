@@ -862,3 +862,28 @@ test("does not replay a previous iframe's page to a fresh event stream", () => {
   }, 2);
   assert.equal(JSON.parse(reconnectFrames[0].split("data: ")[1]).context.pageNumber, 4);
 });
+
+test("replays everything after a bridge cursor of zero and announces the cursor", () => {
+  const queue = createMutationQueue("/tmp/project", "secret");
+  const context = (pageIndex) => ({
+    slideId: "research-update",
+    pageIndex,
+    totalPages: 8,
+    slideTitle: "Research update",
+    view: "slides",
+  });
+  // A bridge that attached before the first event learned cursor 0. Anything
+  // broadcast while it was between streams must come back on resume, or the
+  // project never receives an edit Open Slide already accepted.
+  assert.equal(queue.attach({ on() {}, write() { return true; } }), 0);
+  queue.reportCurrent(context(1));
+  queue.reportCurrent(context(2));
+
+  const resumed = [];
+  const cursor = queue.attach({
+    on() {},
+    write(frame) { resumed.push(JSON.parse(frame.split("data: ")[1])); return true; },
+  }, 0);
+  assert.deepEqual(resumed.map((event) => event.id), [1, 2]);
+  assert.equal(cursor, 2);
+});

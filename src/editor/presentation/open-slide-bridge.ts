@@ -21,7 +21,48 @@ export type OpenSlideEvent = OpenSlideMutation | {
   id: number;
   type: "context";
   context: OpenSlideContext;
+} | {
+  // Sent once per stream after any replay. `id` is the runtime's current
+  // sequence, i.e. the cursor a bridge that has consumed the stream holds.
+  id: number;
+  type: "ready";
 };
+
+// The last event this page's host bridge consumed, per runtime instance. It
+// lives outside the workspace component on purpose: remounting a workspace,
+// switching which cached deck is active, or reconnecting after a dropped
+// stream must all resume from what the page has applied, because the runtime
+// only replays a mutation to a stream that names a cursor. A new page starts
+// with no cursor, which the runtime treats as a fresh bridge.
+const eventCursors = new Map<string, number>();
+
+function eventCursorKey(origin: string, controlToken: string): string {
+  return `${origin}\n${controlToken}`;
+}
+
+export function openSlideEventCursor(origin: string, controlToken: string): number | undefined {
+  return eventCursors.get(eventCursorKey(origin, controlToken));
+}
+
+export function advanceOpenSlideEventCursor(
+  origin: string,
+  controlToken: string,
+  event: OpenSlideEvent,
+): void {
+  const key = eventCursorKey(origin, controlToken);
+  // The ready frame is authoritative: it also rewinds a cursor that outlived
+  // a runtime restart on the same origin, whose sequence starts over.
+  eventCursors.set(
+    key,
+    "type" in event && event.type === "ready"
+      ? event.id
+      : Math.max(eventCursors.get(key) ?? 0, event.id),
+  );
+}
+
+export function __resetOpenSlideEventCursorsForTests(): void {
+  eventCursors.clear();
+}
 
 /** Feed each server-sent event in `stream` to `onEvent`, in order, until the stream ends. */
 export async function consumeOpenSlideEvents(

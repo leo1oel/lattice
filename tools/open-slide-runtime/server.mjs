@@ -1544,17 +1544,23 @@ export function createMutationQueue(root, controlToken) {
     sync,
     syncFile,
     seed,
-    attach(response, lastEventId = 0) {
+    attach(response, lastEventId = null) {
       clients.add(response);
       response.on("close", () => clients.delete(response));
       // A missing Last-Event-ID denotes a new iframe/host bridge, not a
       // reconnect. Replaying the previous iframe's page here could overwrite
       // the page restored for the new tab before that iframe finished loading.
-      if (lastEventId > 0) {
+      // Any present value, including 0, is a bridge resuming from its cursor:
+      // a mutation broadcast while it had no stream open is only ever applied
+      // to the project through this replay.
+      if (lastEventId !== null) {
         for (const event of history) {
           if (event.id > lastEventId) response.write(event.frame);
         }
       }
+      // The caller announces this so a fresh bridge learns its resume cursor
+      // before it has seen any event.
+      return sequence;
     },
     connected: () => clients.size > 0,
     authorized: (req) => equalSecret(bearer(req), controlToken),
@@ -1747,8 +1753,14 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         "access-control-allow-origin": "*",
         connection: "keep-alive",
       });
-      queue.attach(res, Number.parseInt(req.headers["last-event-id"] || "0", 10) || 0);
-      res.write(": ready\n\n");
+      const resumeFrom = req.headers["last-event-id"];
+      const sequence = queue.attach(
+        res,
+        /^\d{1,15}$/.test(resumeFrom ?? "") ? Number(resumeFrom) : null,
+      );
+      // Carries no SSE `id:` field: it names the cursor rather than being an
+      // event, so it is never recorded in or replayed from history.
+      res.write(`data: ${JSON.stringify({ id: sequence, type: "ready" })}\n\n`);
       // Asset migration can emit binaries larger than the bounded replay
       // history. Wait for the durable host bridge so no canonical copy exists
       // only in this disposable shadow workspace.
