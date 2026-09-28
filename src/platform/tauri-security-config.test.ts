@@ -196,12 +196,14 @@ describe("Tauri security boundary", () => {
     expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin", "node.exe")');
     for (const runtime of [synaraRuntime, presentationRuntime]) {
       expect(runtime).toContain("tauri::is_dev()");
-      expect(runtime).toContain('not(debug_assertions)');
-      expect(runtime).toContain('.env("ELECTRON_RUN_AS_NODE", "1")');
-      expect(runtime).toContain(
-        'chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron',
-      );
+      expect(runtime).toContain("NodeRuntime::resolve(");
     }
+    // Both sidecars resolve their Node through chromium.rs's NodeRuntime.
+    expect(chromiumRuntime).toContain("not(debug_assertions)");
+    expect(chromiumRuntime).toContain('.env("ELECTRON_RUN_AS_NODE", "1")');
+    expect(chromiumRuntime).toContain(
+      "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron",
+    );
   });
 
   it("keeps Chromium titlebar whitespace draggable without consuming tab interactions", () => {

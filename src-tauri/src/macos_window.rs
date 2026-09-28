@@ -1,31 +1,55 @@
-//! macOS-only window chrome helpers (traffic lights, pinch gestures, quarantine
-//! cleanup).
+//! macOS window chrome helpers: traffic lights, window backing colors, AppKit
+//! event monitors (pinch, Command-C), the screen color sampler, and quarantine
+//! cleanup.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Mutex;
-
-#[cfg(target_os = "macos")]
+use block2::RcBlock;
+use objc2_app_kit::{NSColor, NSEvent, NSEventMask, NSWindow};
 use std::collections::HashMap;
-#[cfg(target_os = "macos")]
-use std::sync::LazyLock;
+use std::path::Path;
+use std::process::Command;
+use std::ptr::NonNull;
+use std::sync::{LazyLock, Mutex};
+use std::time::Duration;
 
-#[cfg(target_os = "macos")]
 static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
-#[cfg(target_os = "macos")]
-static FOCUSED_WINDOW_LABEL: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
+static FOCUSED_WINDOW_LABEL: Mutex<Option<String>> = Mutex::new(None);
+
+const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
+const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
+const TRAFFIC_LIGHT_LEFT_INSET: f64 = 13.0;
+const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 20.0;
+static TRAFFIC_LIGHT_CENTER_FROM_TOP: Mutex<f64> =
+    Mutex::new(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP);
 
 /// Payload of the `trackpad-magnify` event the web UI listens for.
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MagnifyEvent {
+struct MagnifyEvent {
     /// Incremental scale change for this tick: 0.02 means "2% bigger".
-    pub magnification: f64,
+    magnification: f64,
     /// Cursor position in CSS pixels from the top-left of the web view, so the
     /// page can decide whether the pinch happened over the PDF.
-    pub x: f64,
-    pub y: f64,
+    x: f64,
+    y: f64,
+}
+
+/// Observe AppKit events for the app's lifetime. The handler returns the
+/// event to let it continue on its way, or null to consume it.
+fn add_local_monitor(mask: NSEventMask, handler: impl Fn(&NSEvent) -> bool + 'static) {
+    let block = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        // SAFETY: AppKit hands us a live event for the duration of the block.
+        if handler(unsafe { event.as_ref() }) {
+            event.as_ptr()
+        } else {
+            std::ptr::null_mut()
+        }
+    });
+    // SAFETY: the block matches the documented handler signature, and we keep
+    // the returned monitor alive for the process lifetime on purpose.
+    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &block) };
+    std::mem::forget(monitor);
+    std::mem::forget(block);
 }
 
 /// Forward trackpad pinches to the web UI.
@@ -35,52 +59,29 @@ pub struct MagnifyEvent {
 /// a browser, not embedded. AppKit still sees the raw `NSEventTypeMagnify`
 /// though, so we watch for it below WebKit and hand the delta to the page,
 /// which is what makes pinch-to-zoom work on the PDF.
-#[cfg(target_os = "macos")]
 pub fn install_magnify_monitor(app: tauri::AppHandle) {
-    use block2::RcBlock;
-    use objc2_app_kit::{NSEvent, NSEventMask};
-    use std::ptr::NonNull;
     use tauri::{Emitter, Manager};
 
-    // The monitor must outlive this call; AppKit owns it for the app's life.
-    let handler = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
-        let raw = event.as_ptr();
-        // SAFETY: AppKit hands us a live event for the duration of the block.
-        let magnification = unsafe { event.as_ref().magnification() };
-        if magnification != 0.0 {
-            if let Some(window) = app.get_webview_window("main") {
-                // NSEvent reports window coordinates with a bottom-left origin;
-                // the page wants top-left CSS pixels.
-                let location = unsafe { event.as_ref().locationInWindow() };
-                let (x, y) = window
-                    .inner_size()
-                    .ok()
-                    .zip(window.scale_factor().ok())
-                    .map(|(size, scale)| {
-                        let height = size.height as f64 / scale;
-                        (location.x, height - location.y)
-                    })
-                    .unwrap_or((location.x, location.y));
-                let _ = window.emit(
-                    "trackpad-magnify",
-                    MagnifyEvent {
-                        magnification,
-                        x,
-                        y,
-                    },
-                );
-            }
+    add_local_monitor(NSEventMask::Magnify, move |event| {
+        let magnification = event.magnification();
+        if magnification == 0.0 {
+            return true;
         }
-        // Let the event continue on its way; we only observe it.
-        raw
+        let Some(window) = app.get_webview_window("main") else {
+            return true;
+        };
+        // NSEvent reports window coordinates with a bottom-left origin; the
+        // page wants top-left CSS pixels.
+        let location = event.locationInWindow();
+        let (x, y) = window
+            .inner_size()
+            .ok()
+            .zip(window.scale_factor().ok())
+            .map(|(size, scale)| (location.x, size.height as f64 / scale - location.y))
+            .unwrap_or((location.x, location.y));
+        let _ = window.emit("trackpad-magnify", MagnifyEvent { magnification, x, y });
+        true
     });
-    // SAFETY: the block matches the documented handler signature, and we keep
-    // the returned monitor alive for the process lifetime on purpose.
-    let monitor = unsafe {
-        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::Magnify, &handler)
-    };
-    std::mem::forget(monitor);
-    std::mem::forget(handler);
 }
 
 /// Keep the selected PDF text close to AppKit's Command-C handler.
@@ -89,116 +90,72 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
 /// selection loses ownership. Other platforms copy in the webview directly.
 #[tauri::command]
 pub fn set_pdf_copy_text(window: tauri::WebviewWindow, text: Option<String>) {
-    #[cfg(target_os = "macos")]
-    {
-        let mut selections = PDF_COPY_TEXT.lock().unwrap();
-        if let Some(text) = text.filter(|text| !text.is_empty()) {
-            selections.insert(window.label().to_string(), text);
-        } else {
-            selections.remove(window.label());
-        }
+    let mut selections = PDF_COPY_TEXT.lock().unwrap();
+    if let Some(text) = text.filter(|text| !text.is_empty()) {
+        selections.insert(window.label().to_string(), text);
+    } else {
+        selections.remove(window.label());
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (window, text);
 }
 
 pub fn clear_pdf_copy_text(window_label: &str) {
-    #[cfg(target_os = "macos")]
-    {
-        PDF_COPY_TEXT.lock().unwrap().remove(window_label);
-        let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
-        if focused.as_deref() == Some(window_label) {
-            *focused = None;
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = window_label;
+    PDF_COPY_TEXT.lock().unwrap().remove(window_label);
+    set_window_focused(window_label, false);
 }
 
 pub fn set_window_focused(window_label: &str, is_focused: bool) {
-    #[cfg(target_os = "macos")]
-    {
-        let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
-        if is_focused {
-            *focused = Some(window_label.to_string());
-        } else if focused.as_deref() == Some(window_label) {
-            *focused = None;
-        }
+    let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
+    if is_focused {
+        *focused = Some(window_label.to_string());
+    } else if focused.as_deref() == Some(window_label) {
+        *focused = None;
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (window_label, is_focused);
 }
 
 /// AppKit consumes Command-C as an Edit-menu key equivalent before WKWebView's
 /// JavaScript listeners run. If the active window owns a PDF selection, write
 /// its synchronized glyph text here and consume the event so native copying of
 /// transparent text cannot overwrite the clipboard with an empty string.
-#[cfg(target_os = "macos")]
 pub fn install_copy_shortcut_monitor(app: tauri::AppHandle) {
-    use block2::RcBlock;
-    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags};
-    use std::ptr::NonNull;
+    use objc2_app_kit::NSEventModifierFlags as Flags;
     use tauri_plugin_clipboard_manager::ClipboardExt;
 
-    let handler = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
-        let raw = event.as_ptr();
-        // SAFETY: AppKit hands us a live event for the duration of the block.
-        let pressed = unsafe { event.as_ref() };
+    add_local_monitor(NSEventMask::KeyDown, move |pressed| {
         let modifiers = pressed.modifierFlags();
-        if !modifiers.contains(NSEventModifierFlags::Command)
-            || modifiers.contains(NSEventModifierFlags::Shift)
-            || modifiers.contains(NSEventModifierFlags::Option)
-            || modifiers.contains(NSEventModifierFlags::Control)
+        if !modifiers.contains(Flags::Command)
+            || modifiers.intersects(Flags::Shift | Flags::Option | Flags::Control)
         {
-            return raw;
+            return true;
         }
-        let mut is_c = pressed.keyCode() == 8;
-        if let Some(characters) = pressed.charactersIgnoringModifiers() {
-            is_c = is_c || characters.to_string().eq_ignore_ascii_case("c");
-        }
+        let is_c = pressed.keyCode() == 8
+            || pressed
+                .charactersIgnoringModifiers()
+                .is_some_and(|characters| characters.to_string().eq_ignore_ascii_case("c"));
         if !is_c {
-            return raw;
+            return true;
         }
         // Physical key events are not guaranteed to carry `NSEvent.window`.
         // Window events maintain this label outside AppKit's key callback, so
         // reading it here cannot synchronously call back into Tauri's event loop.
         let Some(window_label) = FOCUSED_WINDOW_LABEL.lock().unwrap().clone() else {
-            return raw;
+            return true;
         };
-        let text = PDF_COPY_TEXT.lock().unwrap().get(&window_label).cloned();
-        if let Some(text) = text {
-            match app.clipboard().write_text(text) {
-                Ok(()) => return std::ptr::null_mut(),
-                Err(error) => {
-                    log::warn!(target: "lattice::pdf", "Could not copy selected PDF text: {error}")
-                }
+        let Some(text) = PDF_COPY_TEXT.lock().unwrap().get(&window_label).cloned() else {
+            return true;
+        };
+        match app.clipboard().write_text(text) {
+            Ok(()) => false,
+            Err(error) => {
+                log::warn!(target: "lattice::pdf", "Could not copy selected PDF text: {error}");
+                true
             }
         }
-        raw
     });
-    // SAFETY: the block matches the documented handler signature, and we keep
-    // the returned monitor alive for the process lifetime on purpose.
-    let monitor = unsafe {
-        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &handler)
-    };
-    std::mem::forget(monitor);
-    std::mem::forget(handler);
 }
 
-const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
-const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
-const TRAFFIC_LIGHT_LEFT_INSET: f64 = 13.0;
-const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 20.0;
-
-static TRAFFIC_LIGHT_CENTER_FROM_TOP: Mutex<f64> =
-    Mutex::new(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP);
-
-fn window_background(dark: bool) -> (f64, f64, f64) {
-    if dark {
-        DARK_WINDOW_BACKGROUND
-    } else {
-        LIGHT_WINDOW_BACKGROUND
-    }
+/// The window's NSWindow pointer as an address that can cross threads.
+fn ns_window_address(window: &tauri::WebviewWindow) -> Option<usize> {
+    window.ns_window().ok().filter(|pointer| !pointer.is_null()).map(|pointer| pointer as usize)
 }
 
 /// Align the native traffic-light centers with the measured web titlebar.
@@ -207,9 +164,8 @@ fn window_background(dark: bool) -> (f64, f64, f64) {
 /// those details differ between macOS releases. Read that geometry at runtime
 /// and convert the desired window-space center into the button superview rather
 /// than treating Tauri's version-sensitive titlebar inset as a stable position.
-#[cfg(target_os = "macos")]
 pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
-    schedule_traffic_light_alignment(window);
+    let _ = measure_traffic_light_alignment(window);
     install_traffic_light_layout_observers(window);
 
     // AppKit performs a final titlebar layout after the window first appears.
@@ -217,8 +173,8 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
     // hierarchy survives unchanged.
     let delayed = window.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(120));
-        schedule_traffic_light_alignment(&delayed);
+        std::thread::sleep(Duration::from_millis(120));
+        let _ = measure_traffic_light_alignment(&delayed);
     });
 }
 
@@ -231,37 +187,28 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
 /// user held the mouse and jumped back on release. These observers fire on the
 /// main thread as part of the same pass that displaced them, which is early
 /// enough that the default position is never presented.
-#[cfg(target_os = "macos")]
 fn install_traffic_light_layout_observers(window: &tauri::WebviewWindow) {
-    let Ok(ptr) = window.ns_window() else {
+    let Some(address) = ns_window_address(window) else {
         return;
     };
-    if ptr.is_null() {
-        return;
-    }
-    let ptr = ptr as usize;
     let _ = window.run_on_main_thread(move || unsafe {
-        use block2::RcBlock;
         use objc2::rc::Retained;
         use objc2_app_kit::{
-            NSView, NSViewFrameDidChangeNotification, NSWindow, NSWindowButton,
-            NSWindowDidResizeNotification,
+            NSView, NSViewFrameDidChangeNotification, NSWindowButton, NSWindowDidResizeNotification,
         };
         use objc2_foundation::{NSNotification, NSNotificationCenter};
-        use std::ptr::NonNull;
 
-        let window = &*(ptr as *const NSWindow);
+        let window = &*(address as *const NSWindow);
         let center = NSNotificationCenter::defaultCenter();
 
         // Each block reads its subject back out of the notification instead of
         // capturing a pointer: the observers are never removed, so a captured
         // window could outlive the object it points at.
         let on_resize = RcBlock::new(move |notification: NonNull<NSNotification>| {
-            let Some(object) = notification.as_ref().object() else {
-                return;
-            };
-            let _ =
-                align_traffic_lights_on_main(Retained::as_ptr(&object) as *mut std::ffi::c_void);
+            if let Some(object) = notification.as_ref().object() {
+                let _ =
+                    align_traffic_lights_on_main(&*(Retained::as_ptr(&object) as *const NSWindow));
+            }
         });
         std::mem::forget(center.addObserverForName_object_queue_usingBlock(
             Some(NSWindowDidResizeNotification),
@@ -286,11 +233,9 @@ fn install_traffic_light_layout_observers(window: &tauri::WebviewWindow) {
                 return;
             };
             let view = &*(Retained::as_ptr(&object) as *const NSView);
-            let Some(window) = view.window() else {
-                return;
-            };
-            let _ =
-                align_traffic_lights_on_main(Retained::as_ptr(&window) as *mut std::ffi::c_void);
+            if let Some(window) = view.window() {
+                let _ = align_traffic_lights_on_main(&window);
+            }
         });
         std::mem::forget(center.addObserverForName_object_queue_usingBlock(
             Some(NSViewFrameDidChangeNotification),
@@ -305,7 +250,6 @@ fn install_traffic_light_layout_observers(window: &tauri::WebviewWindow) {
 ///
 /// Returns the zoom (green) button's right edge in window logical points so the
 /// web titlebar can center chrome between that edge and the project switcher.
-#[cfg(target_os = "macos")]
 pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f64) -> Option<f64> {
     if !center_from_top.is_finite() || center_from_top < 0.0 {
         return None;
@@ -316,61 +260,30 @@ pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f
     measure_traffic_light_alignment(window)
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn align_traffic_lights_to(
-    _window: &tauri::WebviewWindow,
-    _center_from_top: f64,
-) -> Option<f64> {
-    None
-}
-
-#[cfg(target_os = "macos")]
-fn schedule_traffic_light_alignment(window: &tauri::WebviewWindow) {
-    let _ = measure_traffic_light_alignment(window);
-}
-
-#[cfg(target_os = "macos")]
 fn measure_traffic_light_alignment(window: &tauri::WebviewWindow) -> Option<f64> {
-    let Ok(ptr) = window.ns_window() else {
-        return None;
-    };
-    if ptr.is_null() {
-        return None;
-    }
-    let ptr = ptr as usize;
+    let address = ns_window_address(window)?;
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
     let _ = window.run_on_main_thread(move || {
-        let right = unsafe { align_traffic_lights_on_main(ptr as *mut std::ffi::c_void) };
+        let right = unsafe { align_traffic_lights_on_main(&*(address as *const NSWindow)) };
         let _ = tx.send(right);
     });
-    rx.recv_timeout(std::time::Duration::from_millis(500))
-        .ok()
-        .flatten()
+    rx.recv_timeout(Duration::from_millis(500)).ok().flatten()
 }
 
-#[cfg(target_os = "macos")]
-fn traffic_light_center_from_top() -> f64 {
-    TRAFFIC_LIGHT_CENTER_FROM_TOP
-        .lock()
-        .map(|target| *target)
-        .unwrap_or(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP)
-}
-
-#[cfg(target_os = "macos")]
-unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) -> Option<f64> {
-    use objc2_app_kit::{NSView, NSWindow, NSWindowButton};
+unsafe fn align_traffic_lights_on_main(window: &NSWindow) -> Option<f64> {
+    use objc2_app_kit::{NSView, NSWindowButton};
     use objc2_foundation::NSPoint;
 
-    let window = &*(ns_window as *const NSWindow);
     let close = window.standardWindowButton(NSWindowButton::CloseButton)?;
     let miniaturize = window.standardWindowButton(NSWindowButton::MiniaturizeButton)?;
     let zoom = window.standardWindowButton(NSWindowButton::ZoomButton)?;
     let button_superview = close.superview()?;
 
-    let close_frame = NSView::frame(&close);
-    let miniaturize_frame = NSView::frame(&miniaturize);
-    let spacing = miniaturize_frame.origin.x - close_frame.origin.x;
-    let center_y_in_window = window.frame().size.height - traffic_light_center_from_top();
+    let spacing = NSView::frame(&miniaturize).origin.x - NSView::frame(&close).origin.x;
+    let center_from_top = TRAFFIC_LIGHT_CENTER_FROM_TOP
+        .lock()
+        .map_or(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP, |target| *target);
+    let center_y_in_window = window.frame().size.height - center_from_top;
 
     for (index, button) in [close, miniaturize, zoom.clone()].into_iter().enumerate() {
         let frame = NSView::frame(&button);
@@ -396,26 +309,19 @@ unsafe fn align_traffic_lights_on_main(ns_window: *mut std::ffi::c_void) -> Opti
 /// briefly expose that surface while AppKit performs a live resize; leaving it
 /// at the system default produces white strips along the growing edges.
 pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
-    let (red, green, blue) = window_background(dark);
+    let (red, green, blue) = if dark { DARK_WINDOW_BACKGROUND } else { LIGHT_WINDOW_BACKGROUND };
+    let color = move || {
+        NSColor::colorWithSRGBRed_green_blue_alpha(red / 255.0, green / 255.0, blue / 255.0, 1.0)
+    };
 
-    if let Ok(ptr) = window.ns_window() {
-        if !ptr.is_null() {
-            let ptr = ptr as usize;
-            let _ = window.run_on_main_thread(move || unsafe {
-                use objc2_app_kit::{NSColor, NSWindow};
-                let ns_window = &*(ptr as *const NSWindow);
-                let color = NSColor::colorWithSRGBRed_green_blue_alpha(
-                    red / 255.0,
-                    green / 255.0,
-                    blue / 255.0,
-                    1.0,
-                );
-                ns_window.setBackgroundColor(Some(&color));
-                // Let AppKit preserve the last complete frame while the window
-                // server is resizing faster than WebKit can present new tiles.
-                ns_window.setPreservesContentDuringLiveResize(true);
-            });
-        }
+    if let Some(address) = ns_window_address(window) {
+        let _ = window.run_on_main_thread(move || unsafe {
+            let ns_window = &*(address as *const NSWindow);
+            ns_window.setBackgroundColor(Some(&color()));
+            // Let AppKit preserve the last complete frame while the window
+            // server is resizing faster than WebKit can present new tiles.
+            ns_window.setPreservesContentDuringLiveResize(true);
+        });
     }
 
     // NSWindow is only the outer backing surface. During a fast live resize,
@@ -427,9 +333,7 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
     // regions or freezing the page until mouse-up.
     let _ = window.with_webview(move |webview| unsafe {
         use objc2::sel;
-        use objc2_app_kit::{
-            NSColor, NSViewLayerContentsPlacement, NSViewLayerContentsRedrawPolicy,
-        };
+        use objc2_app_kit::{NSViewLayerContentsPlacement, NSViewLayerContentsRedrawPolicy};
         use objc2_foundation::NSObjectProtocol;
         use objc2_web_kit::WKWebView;
 
@@ -437,50 +341,14 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
         view.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
         view.setLayerContentsPlacement(NSViewLayerContentsPlacement::ScaleAxesIndependently);
         if view.respondsToSelector(sel!(setUnderPageBackgroundColor:)) {
-            let color = NSColor::colorWithSRGBRed_green_blue_alpha(
-                red / 255.0,
-                green / 255.0,
-                blue / 255.0,
-                1.0,
-            );
-            view.setUnderPageBackgroundColor(Some(&color));
+            view.setUnderPageBackgroundColor(Some(&color()));
         }
     });
 }
 
-/// Open the native print panel for the invoking WKWebView.
-///
-/// JavaScript's `window.print()` is a silent no-op in WKWebView, so the
-/// presentation editor prepares its print-only DOM and asks AppKit to print the
-/// same web view. The operation runs on the WebKit/AppKit thread and the IPC
-/// request stays pending until the user prints or cancels.
-pub async fn print_webview(window: &tauri::WebviewWindow) -> Result<bool, String> {
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    window
-        .with_webview(move |webview| unsafe {
-            use objc2_app_kit::NSPrintInfo;
-            use objc2_web_kit::WKWebView;
-
-            let view = &*webview.inner().cast::<WKWebView>();
-            let print_info = NSPrintInfo::sharedPrintInfo();
-            let operation = view.printOperationWithPrintInfo(&print_info);
-            operation.setShowsPrintPanel(true);
-            let _ = sender.send(operation.runOperation());
-        })
-        .map_err(|error| format!("Could not prepare the print dialog: {error}"))?;
-    receiver
-        .await
-        .map_err(|_| "The print dialog closed unexpectedly.".to_string())
-}
-
 fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
     let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
-    format!(
-        "#{:02X}{:02X}{:02X}",
-        channel(red),
-        channel(green),
-        channel(blue)
-    )
+    format!("#{:02X}{:02X}{:02X}", channel(red), channel(green), channel(blue))
 }
 
 /// Open AppKit's system-wide color sampler and resolve after the user selects
@@ -488,28 +356,20 @@ fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
 /// sampling, Escape handling, and screen access, so the app does not need to
 /// capture the desktop or request screen-recording permission itself.
 pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String>, String> {
-    use block2::RcBlock;
-    use objc2_app_kit::{NSColor, NSColorSampler, NSColorSpace};
-    use std::ptr::NonNull;
-    use std::sync::{Arc, Mutex};
-    use tokio::sync::oneshot;
+    use objc2_app_kit::{NSColorSampler, NSColorSpace};
+    use std::sync::Arc;
 
-    let (sender, receiver) = oneshot::channel();
+    let (sender, receiver) = tokio::sync::oneshot::channel();
     let sender = Arc::new(Mutex::new(Some(sender)));
     app.run_on_main_thread(move || {
         let sampler = NSColorSampler::new();
-        let sender = Arc::clone(&sender);
         let handler = RcBlock::new(move |color: *mut NSColor| {
             let selected = NonNull::new(color).and_then(|color| {
                 // SAFETY: AppKit guarantees the selected NSColor remains valid
                 // for the duration of the completion handler.
                 let color = unsafe { color.as_ref() };
                 let srgb = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
-                Some(rgb_hex(
-                    srgb.redComponent(),
-                    srgb.greenComponent(),
-                    srgb.blueComponent(),
-                ))
+                Some(rgb_hex(srgb.redComponent(), srgb.greenComponent(), srgb.blueComponent()))
             });
             if let Some(sender) = sender.lock().ok().and_then(|mut slot| slot.take()) {
                 let _ = sender.send(selected);
@@ -521,36 +381,30 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
     })
     .map_err(|reason| format!("Could not start the screen color sampler: {reason}"))?;
 
-    receiver
-        .await
-        .map_err(|_| "The screen color sampler ended without a result.".to_string())
+    receiver.await.map_err(|_| "The screen color sampler ended without a result.".to_string())
 }
 
 /// Strip Gatekeeper quarantine from our bundle (and an adjacent collab folder when present).
 pub fn clear_launch_quarantine() {
-    if let Some(bundle) = bundle_root() {
-        clear_quarantine_path(&bundle);
-        if let Some(parent) = bundle.parent() {
-            if parent
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.contains("Lattice"))
-            {
-                clear_quarantine_path(parent);
-            }
-        }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let Some(bundle) = exe.ancestors().find(|path| {
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("app"))
+    }) else {
+        return;
+    };
+    clear_quarantine_path(bundle);
+    if let Some(parent) = bundle.parent().filter(|parent| {
+        parent
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.contains("Lattice"))
+    }) {
+        clear_quarantine_path(parent);
     }
-}
-
-fn bundle_root() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    exe.ancestors()
-        .find(|path| {
-            path.extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("app"))
-        })
-        .map(Path::to_path_buf)
 }
 
 fn clear_quarantine_path(path: &Path) {
@@ -562,13 +416,13 @@ mod tests {
     use serde_json::Value;
 
     #[test]
-    fn native_window_backgrounds_match_css_themes() {
-        assert_eq!(super::window_background(false), (247.0, 247.0, 246.0));
-        assert_eq!(super::window_background(true), (23.0, 23.0, 24.0));
-    }
-
-    #[test]
     fn sampled_colors_are_clamped_and_formatted_as_srgb_hex() {
+        // The native window backings match the CSS themes' backgrounds.
+        let hex = |(red, green, blue): (f64, f64, f64)| {
+            super::rgb_hex(red / 255.0, green / 255.0, blue / 255.0)
+        };
+        assert_eq!(hex(super::LIGHT_WINDOW_BACKGROUND), "#F7F7F6");
+        assert_eq!(hex(super::DARK_WINDOW_BACKGROUND), "#171718");
         assert_eq!(super::rgb_hex(1.0, 0.5, 0.0), "#FF8000");
         assert_eq!(super::rgb_hex(-0.2, 1.4, 1.0 / 255.0), "#00FF01");
     }
@@ -580,30 +434,31 @@ mod tests {
         assert_eq!(config["app"]["macOSPrivateApi"], true);
         let window = &config["app"]["windows"][0];
         assert!(window.get("trafficLightPosition").is_none());
-        let native_window = include_str!("../../src/app/use-native-window.ts");
-        assert!(native_window.contains("align_traffic_lights"));
-        assert!(native_window.contains("--titlebar-traffic-space-width"));
-        let css_entry = include_str!("../../src/App.css");
-        assert!(css_entry.contains("./styles/app-shell.css"));
-        let css = include_str!("../../src/styles/app-shell.css");
-        assert!(css.contains(".titlebar {"));
-        assert!(css.contains("height: var(--titlebar-height)"));
-        assert!(css.contains("align-items: center"));
-        assert!(css.contains(".titlebar-sidebar-toggle"));
-        let foundations = include_str!("../../src/styles/foundations.css");
-        assert!(foundations.contains("--titlebar-height: 40px"));
-        assert!(foundations.contains("--titlebar-traffic-space-width"));
         assert_eq!(window["backgroundColor"], "#F7F7F6");
+        for (source, expected) in [
+            (include_str!("../../src/app/use-native-window.ts"), "align_traffic_lights"),
+            (include_str!("../../src/app/use-native-window.ts"), "--titlebar-traffic-space-width"),
+            (include_str!("../../src/App.css"), "./styles/app-shell.css"),
+            (include_str!("../../src/styles/app-shell.css"), ".titlebar {"),
+            (include_str!("../../src/styles/app-shell.css"), "height: var(--titlebar-height)"),
+            (include_str!("../../src/styles/app-shell.css"), "align-items: center"),
+            (include_str!("../../src/styles/app-shell.css"), ".titlebar-sidebar-toggle"),
+            (include_str!("../../src/styles/foundations.css"), "--titlebar-height: 40px"),
+            (include_str!("../../src/styles/foundations.css"), "--titlebar-traffic-space-width"),
+        ] {
+            assert!(source.contains(expected), "{expected}");
+        }
         assert!(
             include_str!("../Cargo.toml").contains("\"macos-private-api\""),
             "the macOS WebView must disable its opaque white backing surface"
         );
-        assert_eq!(
-            include_str!("lib.rs")
-                .matches(".accept_first_mouse(true)")
-                .count(),
-            3,
-            "the main, project, and paper lookup WebView windows must accept the activation click"
+        // The main and project windows (`workspace_window`) and the paper
+        // lookup window all take the activation click from `overlay_title_bar`.
+        let lib = include_str!("lib.rs");
+        assert_eq!(lib.matches(".accept_first_mouse(true)").count(), 1);
+        assert!(lib.contains("let window = overlay_title_bar(builder).build()?;"));
+        assert!(
+            include_str!("ipc/windows.rs").contains("crate::overlay_title_bar(builder).build()")
         );
     }
 
@@ -618,13 +473,9 @@ mod tests {
         assert!(native_window.contains("appWindow.destroy()"));
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
-        let permissions = capability["permissions"]
-            .as_array()
-            .expect("capability permissions");
+        let permissions = capability["permissions"].as_array().expect("capability permissions");
         assert!(
-            permissions
-                .iter()
-                .any(|permission| permission == "core:window:allow-destroy"),
+            permissions.iter().any(|permission| permission == "core:window:allow-destroy"),
             "the window close handler needs core:window:allow-destroy"
         );
     }

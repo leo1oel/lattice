@@ -136,6 +136,7 @@ run = "cargo test --manifest-path src-tauri/Cargo.toml"
 sources = [
   "src-tauri/**/*.rs",
   "src-tauri/src/**/*.c",
+  "src-tauri/src/**/*.sh",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
@@ -149,6 +150,7 @@ run = "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-fea
 sources = [
   "src-tauri/**/*.rs",
   "src-tauri/src/**/*.c",
+  "src-tauri/src/**/*.sh",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
@@ -189,6 +191,7 @@ sources = [
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
   "scripts/generate-notices.mjs",
+  "scripts/lib/util.mjs",
   "public/licenses/**",
   "THIRD_PARTY_NOTICES.md",
 ]

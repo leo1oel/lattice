@@ -6,8 +6,8 @@ versioning and no deprecation notice. Everything Lattice relies on was observed,
 and this document is the record of what was observed, what the implementation
 now depends on, and what it takes to change any of it safely.
 
-Read this before changing anything under `src-tauri/src/overleaf.rs`,
-`src-tauri/src/overleaf_rt.rs` or `src/overleaf/`.
+Read this before changing anything under `src-tauri/src/overleaf.rs` and
+`overleaf/`, `src-tauri/src/overleaf_rt.rs` and `overleaf_rt/`, or `src/overleaf/`.
 
 This document is not a legal opinion about license compatibility. The dated
 project-stage material that used to live here — a baseline commit, test-count
@@ -64,8 +64,8 @@ replace it.
 
 | Area | Responsibility | External evidence behind it |
 | --- | --- | --- |
-| `src-tauri/src/overleaf.rs` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
-| `src-tauri/src/overleaf_rt.rs` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
+| `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
+| `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
 | `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes and tracked-change spans through the same ops that move the text, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` | React-side document ownership, debounce, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns `overleafSyncMode` and the workspace-level Overleaf state; consumed by `src/App.tsx`, which chooses between Overleaf OT, ordinary Overleaf sync and a Lattice Share, and excludes live-owned paths from ordinary sync | Lattice safety policy |
@@ -117,7 +117,7 @@ purpose.
   origins must not silently move authentication to another host.
 - The browser session cookie is an **opaque credential**. Its name is
   `overleaf_session2` on Overleaf Cloud or `sharelatex.sid` on a self-hosted
-  instance (`has_session_cookie` in `src-tauri/src/overleaf.rs`). It must never
+  instance (`has_session_cookie` in `src-tauri/src/overleaf/account.rs`). It must never
   be normalized, partially reconstructed, or logged.
 - The persisted session file is written through a private temporary file,
   synchronized, and atomically renamed. On Unix it stays mode `0600`. That
@@ -181,7 +181,7 @@ purpose.
   switch cannot reinterpret the operation midway.
 - Only a freshly known `owner` or `readAndWrite` permission performs ordinary
   remote file mutations. `readOnly` and `Unknown` fail closed
-  (`Permission::can_write` in `src-tauri/src/overleaf_rt.rs`); reviewers
+  (`Permission::can_write` in `src-tauri/src/overleaf_rt/events.rs`); reviewers
   contribute only through tracked operations (`can_suggest`).
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
@@ -191,18 +191,16 @@ purpose.
 
 ## Opt-in cloud tests
 
-Twelve Rust tests are `#[ignore]`d because they need a saved session and a real
-project — three in `overleaf.rs`, nine in `overleaf_rt.rs`:
+Ten Rust tests are `#[ignore]`d because they need a saved session and a real
+project — two under `overleaf/`, eight in `overleaf_rt/tests.rs`:
 
 | Area | Test |
 | --- | --- |
-| REST / settings | `turns_suggestions_on_for_this_account` |
 | REST / project adoption | `opening_an_already_downloaded_project_opens_it` |
 | REST / history | `reads_the_real_project_history` |
 | Realtime connection | `connects_to_the_real_overleaf` |
 | Realtime edit round trip | `edits_a_document_through_the_real_overleaf` |
 | Two-client versioning | `a_collaborators_update_carries_the_version_it_applied_at` |
-| Track-changes setting event | `turning_suggestions_on_comes_back_on_the_channel` |
 | Cross-document acknowledgement | `an_answer_still_arrives_after_joining_another_document` |
 | Catch-up / replay | `rejoining_a_document_replays_what_was_missed` |
 | Comment create/delete | `comments_on_a_real_document` |
@@ -210,7 +208,7 @@ project — three in `overleaf.rs`, nine in `overleaf_rt.rs`:
 | Presence | `appears_present_on_the_real_overleaf` |
 
 > **These hit overleaf.com with your own account and several of them write.**
-> They mutate project text, comments, account settings or presence and then
+> They mutate project text, comments or presence and then
 > attempt to restore what they changed. An interrupted run leaves the project
 > mid-change.
 >

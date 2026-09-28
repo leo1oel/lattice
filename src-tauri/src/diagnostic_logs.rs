@@ -1,8 +1,10 @@
+//! The support bundle: bounded, redacted tails of the app and sidecar logs.
+
 use regex::{Captures, Regex};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::Manager;
 
 const MAX_LOG_BYTES: u64 = 128 * 1024;
@@ -27,42 +29,21 @@ struct DiagnosticLogFile {
 
 #[tauri::command]
 pub fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
-    let log_root = app
-        .path()
-        .app_log_dir()
-        .map_err(|error| error.to_string())?;
-    let data_root = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let log_root = app.path().app_log_dir().map_err(|error| error.to_string())?;
+    let data_root = app.path().app_data_dir().map_err(|error| error.to_string())?;
     let home = app.path().home_dir().ok();
     let specs = [
-        (
-            "lattice.log",
-            log_root.clone(),
-            PathBuf::from("lattice.log"),
-        ),
-        (
-            "sidecar.log",
-            data_root.clone(),
-            PathBuf::from("synara/lattice-logs/sidecar.log"),
-        ),
-        (
-            "sidecar-error.log",
-            data_root.clone(),
-            PathBuf::from("synara/lattice-logs/sidecar-error.log"),
-        ),
-        (
-            "server.log",
-            data_root,
-            PathBuf::from("synara/userdata/logs/server.log"),
-        ),
+        ("lattice.log", &log_root, "lattice.log"),
+        ("sidecar.log", &data_root, "synara/lattice-logs/sidecar.log"),
+        ("sidecar-error.log", &data_root, "synara/lattice-logs/sidecar-error.log"),
+        ("server.log", &data_root, "synara/userdata/logs/server.log"),
     ];
-
     Ok(DiagnosticLogBundle {
         files: specs
             .into_iter()
-            .map(|(name, root, relative)| collect_file(name, &root, &relative, home.as_deref()))
+            .map(|(name, root, relative)| {
+                collect_file(name, root, Path::new(relative), home.as_deref())
+            })
             .collect(),
         platform: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
@@ -70,26 +51,13 @@ pub fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBun
 }
 
 fn collect_file(
-    name: &str,
-    root: &Path,
-    relative: &Path,
-    home: Option<&Path>,
+    name: &str, root: &Path, relative: &Path, home: Option<&Path>,
 ) -> DiagnosticLogFile {
-    let path = root.join(relative);
-    match read_allowed_tail(root, &path) {
-        Ok((content, truncated)) => DiagnosticLogFile {
-            name: name.to_string(),
-            content: redact(&content, home),
-            truncated,
-            error: None,
-        },
-        Err(error) => DiagnosticLogFile {
-            name: name.to_string(),
-            content: String::new(),
-            truncated: false,
-            error: Some(redact(&error, home)),
-        },
-    }
+    let (content, truncated, error) = match read_allowed_tail(root, &root.join(relative)) {
+        Ok((content, truncated)) => (redact(&content, home), truncated, None),
+        Err(error) => (String::new(), false, Some(redact(&error, home))),
+    };
+    DiagnosticLogFile { name: name.to_string(), content, truncated, error }
 }
 
 fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String> {
@@ -103,12 +71,10 @@ fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String>
     if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Err("refused non-regular or symlinked log file".to_string());
     }
-    let canonical_root = root
-        .canonicalize()
-        .map_err(|error| format!("log root unavailable: {error}"))?;
-    let canonical_path = path
-        .canonicalize()
-        .map_err(|error| format!("log unavailable: {error}"))?;
+    let canonical_root =
+        root.canonicalize().map_err(|error| format!("log root unavailable: {error}"))?;
+    let canonical_path =
+        path.canonicalize().map_err(|error| format!("log unavailable: {error}"))?;
     if !canonical_path.starts_with(&canonical_root) {
         return Err("refused log path outside its allowed root".to_string());
     }
@@ -127,15 +93,8 @@ fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String>
 
     // A tail can begin in the middle of a UTF-8 scalar. Drop only those leading
     // continuation bytes; malformed bytes elsewhere remain visible as replacement characters.
-    let skip = bytes
-        .iter()
-        .take(3)
-        .take_while(|byte| **byte & 0xc0 == 0x80)
-        .count();
-    Ok((
-        String::from_utf8_lossy(&bytes[skip..]).into_owned(),
-        truncated,
-    ))
+    let skip = bytes.iter().take(3).take_while(|byte| **byte & 0xc0 == 0x80).count();
+    Ok((String::from_utf8_lossy(&bytes[skip..]).into_owned(), truncated))
 }
 
 fn redact(input: &str, home: Option<&Path>) -> String {
@@ -146,28 +105,13 @@ fn redact(input: &str, home: Option<&Path>) -> String {
             r#"(?i)(authorization["']?\s*[:=]\s*["']?(?:bearer|basic)\s+)[^\s,;"']+"#.to_string(),
             "$1[REDACTED]",
         ),
-        (
-            format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*")[^"]*(")"#),
-            "$1[REDACTED]$2",
-        ),
-        (
-            format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*')[^']*(')"#),
-            "$1[REDACTED]$2",
-        ),
-        (
-            format!(r#"(?i)(\b{keys}\s*=\s*)[^\s&;,"']+"#),
-            "$1[REDACTED]",
-        ),
-        (
-            r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@".to_string(),
-            "$1[REDACTED]@",
-        ),
+        (format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*")[^"]*(")"#), "$1[REDACTED]$2"),
+        (format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*')[^']*(')"#), "$1[REDACTED]$2"),
+        (format!(r#"(?i)(\b{keys}\s*=\s*)[^\s&;,"']+"#), "$1[REDACTED]"),
+        (r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@".to_string(), "$1[REDACTED]@"),
     ];
     for (pattern, replacement) in substitutions {
-        output = Regex::new(&pattern)
-            .unwrap()
-            .replace_all(&output, replacement)
-            .into_owned();
+        output = Regex::new(&pattern).unwrap().replace_all(&output, replacement).into_owned();
     }
     if let Some(home) = home.and_then(Path::to_str).filter(|home| !home.is_empty()) {
         output = output.replace(home, "~");
@@ -183,17 +127,11 @@ fn redact(input: &str, home: Option<&Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn temp_dir() -> PathBuf {
-        let path =
-            std::env::temp_dir().join(format!("lattice-diagnostic-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&path).unwrap();
-        path
-    }
+    use crate::test_support::TempDir;
 
     #[test]
     fn tail_is_bounded_and_starts_on_a_multibyte_boundary() {
-        let root = temp_dir();
+        let root = TempDir::new("diagnostic");
         let path = root.join("log");
         let mut data = "€".as_bytes().to_vec();
         data.extend(std::iter::repeat_n(b'x', MAX_LOG_BYTES as usize - 1));
@@ -203,30 +141,20 @@ mod tests {
         assert!(!content.starts_with('\u{fffd}'));
         assert!(content.bytes().all(|byte| byte == b'x'));
         assert!(content.len() <= MAX_LOG_BYTES as usize);
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn reports_missing_allowlisted_files() {
-        let root = temp_dir();
+    fn reports_missing_files_and_rejects_a_parent_symlink_escape() {
+        let root = TempDir::new("diagnostic");
         let file = collect_file("missing.log", &root, Path::new("missing.log"), None);
         assert_eq!(file.error.as_deref(), Some("not found"));
         assert!(file.content.is_empty());
-        std::fs::remove_dir_all(root).unwrap();
-    }
 
-    #[cfg(unix)]
-    #[test]
-    fn rejects_a_parent_symlink_escape() {
-        use std::os::unix::fs::symlink;
-        let root = temp_dir();
-        let outside = temp_dir();
-        std::fs::write(outside.join("secret.log"), "secret").unwrap();
-        symlink(&outside, root.join("linked")).unwrap();
+        let outside = TempDir::new("diagnostic");
+        outside.write("secret.log", "secret");
+        std::os::unix::fs::symlink(&*outside, root.join("linked")).unwrap();
         let error = read_allowed_tail(&root, &root.join("linked/secret.log")).unwrap_err();
         assert!(error.contains("outside"));
-        std::fs::remove_dir_all(root).unwrap();
-        std::fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]

@@ -98,7 +98,7 @@ create the Release and upload assets.
    - `TAURI_SIGNING_PRIVATE_KEY` / `..._PASSWORD` sign the updater artifact
      (`bundle.createUpdaterArtifacts` is on);
    - `LATTICE_FIRECRAWL_KEY` is compiled into the binary here via `option_env!`
-     in `src-tauri/src/firecrawl.rs`. It is extractable from the shipped app —
+     in `src-tauri/src/literature_credentials.rs`. It is extractable from the shipped app —
      that is a known and accepted trade-off; rotate it on abuse.
 11. **Notarize.** `xcrun notarytool submit <dmg> --wait` with the API key, then
     `xcrun stapler staple <dmg>`.

@@ -1,11 +1,9 @@
 //! Project filesystem watcher.
 //!
-//! The frontend used to poll `refresh_project` + `git_status` every 2
-//! seconds, which re-scanned the project tree and spawned git subprocesses
-//! whether or not anything had changed. This watcher inverts that: `notify`
-//! (FSEvents on macOS) reports changes, a debounce thread coalesces bursts,
-//! and one `project-fs-changed` event tells every window showing that root
-//! to refresh. The frontend keeps a slow fallback poll as a safety net.
+//! `notify` (FSEvents) reports changes, a debounce thread coalesces bursts,
+//! and one `project-fs-changed` event tells every window showing that root to
+//! refresh, instead of the frontend polling `refresh_project` + `git_status`.
+//! The frontend keeps a slow fallback poll as a safety net.
 //!
 //! `.research/` churn is filtered out except for cached paper prose used by
 //! local semantic search. App state writes (history, FTS indexes, caches) fire
@@ -22,7 +20,7 @@ use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 /// Quiet period before a burst of events becomes one refresh.
-const DEBOUNCE_MS: u64 = 300;
+const DEBOUNCE: Duration = Duration::from_millis(300);
 /// A bounded, off-search-path scan catches events missed by the OS watcher and
 /// changes made while Lattice was not running.
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
@@ -93,69 +91,57 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
         let batch = match event {
-            Ok(event) if relevant(&event, &filter_root) => WatchBatch {
-                paths: event.paths,
-                reconcile: false,
-            },
+            Ok(event) if relevant(&event, &filter_root) => {
+                WatchBatch { paths: event.paths, reconcile: false }
+            }
             Ok(_) => return,
-            Err(_) => WatchBatch {
-                paths: Vec::new(),
-                reconcile: true,
-            },
+            Err(_) => WatchBatch { paths: Vec::new(), reconcile: true },
         };
         let _ = sender.send(batch);
     })
     .map_err(|error| error.to_string())?;
-    watcher
-        .watch(&root, RecursiveMode::Recursive)
-        .map_err(|error| error.to_string())?;
+    watcher.watch(&root, RecursiveMode::Recursive).map_err(|error| error.to_string())?;
 
     std::thread::spawn(move || {
+        let reconcile_index = || {
+            if let Err(error) = crate::fts::reconcile(&root) {
+                eprintln!("Could not reconcile the project search index: {error}");
+            }
+        };
         // Reconcile an existing index once after attaching the watcher. This
         // catches edits made while the project was closed without delaying
         // either project open or the first search.
-        if let Err(error) = crate::fts::reconcile(&root) {
-            eprintln!("Could not reconcile the project search index: {error}");
-        }
+        reconcile_index();
         let mut next_reconcile = Instant::now() + RECONCILE_INTERVAL;
         loop {
-            let first = match receiver
-                .recv_timeout(next_reconcile.saturating_duration_since(Instant::now()))
-            {
-                Ok(batch) => batch,
-                Err(RecvTimeoutError::Timeout) => {
-                    if let Err(error) = crate::fts::reconcile(&root) {
-                        eprintln!("Could not reconcile the project search index: {error}");
+            let until_reconcile =
+                |deadline: Instant| deadline.saturating_duration_since(Instant::now());
+            let WatchBatch { mut paths, mut reconcile } =
+                match receiver.recv_timeout(until_reconcile(next_reconcile)) {
+                    Ok(batch) => batch,
+                    Err(RecvTimeoutError::Timeout) => {
+                        reconcile_index();
+                        next_reconcile = Instant::now() + RECONCILE_INTERVAL;
+                        continue;
                     }
-                    next_reconcile = Instant::now() + RECONCILE_INTERVAL;
-                    continue;
-                }
-                Err(RecvTimeoutError::Disconnected) => return,
-            };
-            let mut paths = first.paths;
-            let mut reconcile = first.reconcile;
-            // Drain the burst: keep absorbing events until things go quiet.
+                    Err(RecvTimeoutError::Disconnected) => return,
+                };
+            // Drain the burst: keep absorbing events until things go quiet or
+            // the periodic reconcile falls due.
             loop {
-                let until_reconcile = next_reconcile.saturating_duration_since(Instant::now());
-                let timeout = Duration::from_millis(DEBOUNCE_MS).min(until_reconcile);
-                match receiver.recv_timeout(timeout) {
+                match receiver.recv_timeout(DEBOUNCE.min(until_reconcile(next_reconcile))) {
                     Ok(batch) => {
                         paths.extend(batch.paths);
                         reconcile |= batch.reconcile;
                         if Instant::now() >= next_reconcile {
-                            reconcile = true;
                             break;
                         }
                     }
-                    Err(RecvTimeoutError::Timeout) => {
-                        if Instant::now() >= next_reconcile {
-                            reconcile = true;
-                        }
-                        break;
-                    }
+                    Err(RecvTimeoutError::Timeout) => break,
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
+            reconcile |= Instant::now() >= next_reconcile;
             let changed_paths = payload_paths(&root, &paths, reconcile);
             let update = if reconcile {
                 crate::fts::reconcile(&root)
@@ -171,10 +157,7 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
             // Broadcast; each window filters by its own project root.
             let _ = app.emit(
                 "project-fs-changed",
-                FsChangedPayload {
-                    root: root.to_string_lossy().to_string(),
-                    paths: changed_paths,
-                },
+                FsChangedPayload { root: root.to_string_lossy().to_string(), paths: changed_paths },
             );
         }
     });
@@ -195,58 +178,32 @@ mod tests {
     #[test]
     fn filters_app_private_state_but_keeps_project_and_git_paths() {
         let root = PathBuf::from("/tmp/project");
-        assert!(relevant(&event_for(vec![root.join("main.tex")]), &root));
-        assert!(relevant(&event_for(vec![root.join(".git/index")]), &root));
-        assert!(!relevant(
-            &event_for(vec![root.join(".research/history/x.json")]),
-            &root
-        ));
-        assert!(relevant(
-            &event_for(vec![root.join(".research/papers/2401.00001/paper.md")]),
-            &root
-        ));
-        assert!(relevant(
-            &event_for(vec![root.join(".research/papers/2401.00001/blog.md")]),
-            &root
-        ));
-        // Mixed bursts stay relevant if any path matters.
-        assert!(relevant(
-            &event_for(vec![
-                root.join(".research/cache/fts.sqlite"),
-                root.join("notes.md")
-            ]),
-            &root
-        ));
+        for (paths, expected) in [
+            (&["main.tex"][..], true),
+            (&[".git/index"], true),
+            (&[".research/history/x.json"], false),
+            (&[".research/papers/2401.00001/paper.md"], true),
+            (&[".research/papers/2401.00001/blog.md"], true),
+            // Mixed bursts stay relevant if any path matters.
+            (&[".research/cache/fts.sqlite", "notes.md"], true),
+        ] {
+            let event = event_for(paths.iter().map(|path| root.join(path)).collect());
+            assert_eq!(relevant(&event, &root), expected, "{paths:?}");
+        }
     }
 
     #[test]
     fn reports_sorted_deduplicated_project_relative_paths() {
         let root = PathBuf::from("/tmp/project");
+        let chart = root.join("images/chart.png");
+        let exact = [chart.clone(), root.join("main.md"), chart];
         assert_eq!(
-            payload_paths(
-                &root,
-                &[
-                    root.join("images/chart.png"),
-                    root.join("main.md"),
-                    root.join("images/chart.png"),
-                ],
-                false,
-            ),
+            payload_paths(&root, &exact, false),
             Some(vec!["images/chart.png".into(), "main.md".into()])
         );
-    }
-
-    #[test]
-    fn omits_paths_when_the_changed_set_is_not_exact() {
-        let root = PathBuf::from("/tmp/project");
-        assert_eq!(payload_paths(&root, &[root.join("main.md")], true), None);
-        assert_eq!(
-            payload_paths(&root, std::slice::from_ref(&root), false),
-            None
-        );
-        assert_eq!(
-            payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false),
-            None
-        );
+        // Not an exact set: a reconcile, the root itself, or a path outside it.
+        assert_eq!(payload_paths(&root, &exact, true), None);
+        assert_eq!(payload_paths(&root, std::slice::from_ref(&root), false), None);
+        assert_eq!(payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false), None);
     }
 }

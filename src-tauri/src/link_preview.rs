@@ -34,10 +34,7 @@ pub struct LinkMetadata {
 pub async fn link_preview(url: String) -> LinkPreviewResult {
     match tokio::time::timeout(Duration::from_millis(5000), preview(&url)).await {
         Ok(Ok(metadata)) => LinkPreviewResult::Success { ok: true, metadata },
-        _ => LinkPreviewResult::Failure {
-            ok: false,
-            reason: "blocked",
-        },
+        _ => LinkPreviewResult::Failure { ok: false, reason: "blocked" },
     }
 }
 
@@ -80,18 +77,12 @@ fn clean_url(mut url: Url) -> Result<Url, ()> {
 async fn client_for(url: &Url) -> Result<Client, ()> {
     let host = url.host_str().ok_or(())?;
     let port = url.port_or_known_default().ok_or(())?;
-    let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
-        .await
-        .map_err(|_| ())?
-        .collect();
+    let addresses: Vec<SocketAddr> =
+        tokio::net::lookup_host((host, port)).await.map_err(|_| ())?.collect();
     if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(());
     }
-    Client::builder()
-        .redirect(Policy::none())
-        .resolve(host, addresses[0])
-        .build()
-        .map_err(|_| ())
+    Client::builder().redirect(Policy::none()).resolve(host, addresses[0]).build().map_err(|_| ())
 }
 
 fn is_public_ip(ip: IpAddr) -> bool {
@@ -145,45 +136,38 @@ async fn request(url: &Url, accept: &str) -> Result<reqwest::Response, ()> {
         .map_err(|_| ())
 }
 
-async fn fetch_page(mut url: Url) -> Result<(Url, String), ()> {
+/// GET `url`, following at most three redirects by hand so every hop is
+/// cleaned and its address re-checked by `client_for`.
+async fn follow_redirects(mut url: Url, accept: &str) -> Result<(Url, reqwest::Response), ()> {
     for hop in 0..=3 {
         url = clean_url(url)?;
-        let response = request(&url, "text/html").await?;
-        if is_redirect(response.status()) {
-            if hop == 3 {
-                return Err(());
-            }
-            let location = response
-                .headers()
-                .get(header::LOCATION)
-                .ok_or(())?
-                .to_str()
-                .map_err(|_| ())?;
-            url = url.join(location).map_err(|_| ())?;
-            continue;
+        let response = request(&url, accept).await?;
+        if !is_redirect(response.status()) {
+            return Ok((url, response));
         }
-        if !response.status().is_success()
-            || !content_type(&response).is_some_and(|kind| kind.eq_ignore_ascii_case("text/html"))
-        {
+        if hop == 3 {
             return Err(());
         }
-        let bytes = read_head(response).await?;
-        return String::from_utf8(bytes)
-            .map(|html| (url, html))
-            .map_err(|_| ());
+        let location =
+            response.headers().get(header::LOCATION).ok_or(())?.to_str().map_err(|_| ())?;
+        url = url.join(location).map_err(|_| ())?;
     }
     Err(())
 }
 
+async fn fetch_page(url: Url) -> Result<(Url, String), ()> {
+    let (url, response) = follow_redirects(url, "text/html").await?;
+    if !response.status().is_success()
+        || !content_type(&response).is_some_and(|kind| kind.eq_ignore_ascii_case("text/html"))
+    {
+        return Err(());
+    }
+    let bytes = read_head(response).await?;
+    String::from_utf8(bytes).map(|html| (url, html)).map_err(|_| ())
+}
+
 fn content_type(response: &reqwest::Response) -> Option<&str> {
-    response
-        .headers()
-        .get(header::CONTENT_TYPE)?
-        .to_str()
-        .ok()?
-        .split(';')
-        .next()
-        .map(str::trim)
+    response.headers().get(header::CONTENT_TYPE)?.to_str().ok()?.split(';').next().map(str::trim)
 }
 
 async fn read_head(response: reqwest::Response) -> Result<Vec<u8>, ()> {
@@ -206,58 +190,39 @@ async fn read_head(response: reqwest::Response) -> Result<Vec<u8>, ()> {
     Ok(bytes)
 }
 
-async fn fetch_icon(mut url: Url) -> Result<String, ()> {
-    for hop in 0..=3 {
-        url = clean_url(url)?;
-        let response = request(&url, "image/*").await?;
-        if is_redirect(response.status()) {
-            if hop == 3 {
-                return Err(());
-            }
-            let location = response
-                .headers()
-                .get(header::LOCATION)
-                .ok_or(())?
-                .to_str()
-                .map_err(|_| ())?;
-            url = url.join(location).map_err(|_| ())?;
-            continue;
-        }
-        let declared = content_type(&response).ok_or(())?.to_ascii_lowercase();
-        if !response.status().is_success() || !declared.starts_with("image/") {
+async fn fetch_icon(url: Url) -> Result<String, ()> {
+    let (_, response) = follow_redirects(url, "image/*").await?;
+    let declared = content_type(&response).ok_or(())?.to_ascii_lowercase();
+    if !response.status().is_success() || !declared.starts_with("image/") {
+        return Err(());
+    }
+    let mut bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|_| ())?;
+        if bytes.len() + chunk.len() > ICON_LIMIT {
             return Err(());
         }
-        let mut bytes = Vec::new();
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|_| ())?;
-            if bytes.len() + chunk.len() > ICON_LIMIT {
-                return Err(());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let mime = sniff_image(&bytes).ok_or(())?;
-        return Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)));
+        bytes.extend_from_slice(&chunk);
     }
-    Err(())
+    let mime = sniff_image(&bytes).ok_or(())?;
+    Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)))
 }
 
+/// The image type the bytes' own signature declares, whatever the server said.
 fn sniff_image(bytes: &[u8]) -> Option<&'static str> {
-    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        Some("image/png")
-    } else if bytes.starts_with(b"\xff\xd8\xff") {
-        Some("image/jpeg")
-    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
-        Some("image/gif")
-    } else if bytes.starts_with(b"BM") {
-        Some("image/bmp")
-    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
-        Some("image/webp")
-    } else if bytes.starts_with(&[0, 0, 1, 0]) {
-        Some("image/x-icon")
-    } else {
-        None
+    const SIGNATURES: [(&[u8], &str); 6] = [
+        (b"\x89PNG\r\n\x1a\n", "image/png"),
+        (b"\xff\xd8\xff", "image/jpeg"),
+        (b"GIF87a", "image/gif"),
+        (b"GIF89a", "image/gif"),
+        (b"BM", "image/bmp"),
+        (&[0, 0, 1, 0], "image/x-icon"),
+    ];
+    if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        return Some("image/webp");
     }
+    SIGNATURES.iter().find(|(signature, _)| bytes.starts_with(signature)).map(|(_, mime)| *mime)
 }
 
 #[derive(Default)]
@@ -302,31 +267,24 @@ fn extract_metadata(html: &str) -> Extracted {
                     .get("property")
                     .or_else(|| attrs.get("name"))
                     .map(|s| s.to_ascii_lowercase());
-                let value = attrs.get("content").copied();
-                match key.as_deref() {
-                    Some("og:title") if out.title.is_none() => {
-                        out.title = value.and_then(|v| sanitized(v, 200))
-                    }
-                    Some("og:description") if out.description.is_none() => {
-                        out.description = value.and_then(|v| sanitized(v, 500))
-                    }
-                    Some("description") if fallback_description.is_none() => {
-                        fallback_description = value.and_then(|v| sanitized(v, 500))
-                    }
-                    Some("og:site_name") if out.site_name.is_none() => {
-                        out.site_name = value.and_then(|v| sanitized(v, 100))
-                    }
-                    _ => {}
+                // The first tag of each kind wins.
+                let (slot, max) = match key.as_deref() {
+                    Some("og:title") => (&mut out.title, 200),
+                    Some("og:description") => (&mut out.description, 500),
+                    Some("description") => (&mut fallback_description, 500),
+                    Some("og:site_name") => (&mut out.site_name, 100),
+                    _ => continue,
+                };
+                if slot.is_none() {
+                    *slot = attrs.get("content").and_then(|v| sanitized(v, max));
                 }
             } else if out.favicon.is_none()
                 && attrs.get("rel").is_some_and(|v| {
-                    v.split_ascii_whitespace()
-                        .any(|r| r.eq_ignore_ascii_case("icon"))
+                    v.split_ascii_whitespace().any(|r| r.eq_ignore_ascii_case("icon"))
                 })
             {
-                out.favicon = attrs
-                    .get("href")
-                    .map(|v| html_escape::decode_html_entities(v).into_owned());
+                out.favicon =
+                    attrs.get("href").map(|v| html_escape::decode_html_entities(v).into_owned());
             }
         }
     }
@@ -335,35 +293,28 @@ fn extract_metadata(html: &str) -> Extracted {
     out
 }
 
+/// Entity-decoded, whitespace-collapsed text of at most `max` characters, with
+/// zero-width and bidi-override characters dropped and controls blanked.
 fn sanitized(value: &str, max: usize) -> Option<String> {
-    let decoded = html_escape::decode_html_entities(value);
-    let cleaned: String = decoded.chars().map(|c| {
-        if matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}') { '\0' }
-        else if c.is_control() { ' ' } else { c }
-    }).filter(|c| *c != '\0').collect();
-    let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    let invisible = |c: &char| matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}');
+    let cleaned: String = html_escape::decode_html_entities(value)
+        .chars()
+        .filter(|c| !invisible(c))
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let collapsed = crate::papers::collapse_whitespace(&cleaned);
     if collapsed.is_empty() {
         return None;
     }
     if collapsed.chars().count() <= max {
         return Some(collapsed);
     }
-    Some(
-        collapsed
-            .chars()
-            .take(max.saturating_sub(1))
-            .collect::<String>()
-            + "…",
-    )
+    Some(collapsed.chars().take(max.saturating_sub(1)).collect::<String>() + "…")
 }
 
 fn display_domain(url: &Url) -> Result<String, ()> {
     let host = url.host_str().ok_or(())?;
-    Ok(host
-        .strip_prefix("www.")
-        .filter(|rest| rest.contains('.'))
-        .unwrap_or(host)
-        .to_string())
+    Ok(host.strip_prefix("www.").filter(|rest| rest.contains('.')).unwrap_or(host).to_string())
 }
 
 #[cfg(test)]
@@ -402,10 +353,7 @@ mod tests {
 
     #[test]
     fn sanitizes_entities_controls_and_length() {
-        assert_eq!(
-            sanitized(" A&nbsp; &amp;\u{202e}\u{0007} B ", 20).as_deref(),
-            Some("A & B")
-        );
+        assert_eq!(sanitized(" A&nbsp; &amp;\u{202e}\u{0007} B ", 20).as_deref(), Some("A & B"));
         assert_eq!(sanitized("abcdef", 5).as_deref(), Some("abcd…"));
     }
 

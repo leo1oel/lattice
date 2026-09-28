@@ -4,7 +4,6 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const CROSSREF_WORKS_URL: &str = "https://api.crossref.org/works";
@@ -39,6 +38,26 @@ pub struct CitationHealth {
     pub stale: bool,
 }
 
+impl CitationHealth {
+    /// Too incomplete to vouch for a reference: never checked, or an expired
+    /// verdict kept because Crossref was unreachable.
+    pub(crate) fn is_incomplete(&self) -> bool {
+        self.kind == "unavailable" || self.stale
+    }
+
+    fn crossref(kind: &str, checked_at: String) -> Self {
+        CitationHealth {
+            kind: kind.to_string(),
+            update_type: None,
+            source: Some("crossref".to_string()),
+            date: None,
+            link: None,
+            checked_at,
+            stale: false,
+        }
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CitationHealthCache {
     schema: u32,
@@ -53,25 +72,15 @@ struct CacheEntry {
 }
 
 pub fn lookup(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
+    root: &Path, dois: impl IntoIterator<Item = String>,
 ) -> BTreeMap<String, CitationHealth> {
-    lookup_with_base(root, dois, CROSSREF_WORKS_URL)
+    lookup_at(root, dois, CROSSREF_WORKS_URL, None)
 }
 
-fn lookup_with_base(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
-    base_url: &str,
-) -> BTreeMap<String, CitationHealth> {
-    lookup_with_base_and_contact(root, dois, base_url, None)
-}
-
-fn lookup_with_base_and_contact(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
-    base_url: &str,
-    contact_override: Option<Option<String>>,
+/// `contact` replaces the saved Crossref contact when set (tests only).
+fn lookup_at(
+    root: &Path, dois: impl IntoIterator<Item = String>, base_url: &str,
+    contact: Option<Option<String>>,
 ) -> BTreeMap<String, CitationHealth> {
     let dois = dois.into_iter().collect::<BTreeSet<_>>();
     if dois.is_empty() {
@@ -97,16 +106,12 @@ fn lookup_with_base_and_contact(
         .cloned()
         .collect::<Vec<_>>();
 
-    let fetched = fetch_parallel(&stale, base_url, contact_override);
+    let fetched = fetch_parallel(&stale, base_url, contact);
     for doi in stale {
         match fetched.get(&doi) {
             Some(Ok(health)) => {
-                let mut health = health.clone();
-                health.checked_at = timestamp_now();
-                let entry = CacheEntry {
-                    checked_at_epoch: now,
-                    health: health.clone(),
-                };
+                let health = CitationHealth { checked_at: timestamp_now(), ..health.clone() };
+                let entry = CacheEntry { checked_at_epoch: now, health: health.clone() };
                 cache.entries.insert(doi.clone(), entry);
                 results.insert(doi, health);
             }
@@ -115,13 +120,7 @@ fn lookup_with_base_and_contact(
                     target: "lattice::citation_health",
                     "Crossref lookup failed for {doi}: {error}"
                 );
-                if let Some(entry) = cache.entries.get(&doi) {
-                    let mut health = entry.health.clone();
-                    health.stale = true;
-                    results.insert(doi, health);
-                } else {
-                    results.insert(doi, unavailable());
-                }
+                results.insert(doi.clone(), stale_or_unavailable(&cache, &doi));
             }
             None => {}
         }
@@ -130,17 +129,7 @@ fn lookup_with_base_and_contact(
     // an unbounded burst. Entries outside this scan's cap still expose stale
     // data, or a quiet unavailable state when they have never been checked.
     for doi in dois {
-        results.entry(doi.clone()).or_insert_with(|| {
-            cache
-                .entries
-                .get(&doi)
-                .map(|entry| {
-                    let mut health = entry.health.clone();
-                    health.stale = true;
-                    health
-                })
-                .unwrap_or_else(unavailable)
-        });
+        results.entry(doi.clone()).or_insert_with(|| stale_or_unavailable(&cache, &doi));
     }
     if !fetched.is_empty() {
         trim_cache(&mut cache);
@@ -151,69 +140,55 @@ fn lookup_with_base_and_contact(
     results
 }
 
+/// An expired cached result remains more useful than hiding a known notice.
+fn stale_or_unavailable(cache: &CitationHealthCache, doi: &str) -> CitationHealth {
+    cache
+        .entries
+        .get(doi)
+        .map(|entry| CitationHealth { stale: true, ..entry.health.clone() })
+        .unwrap_or_else(|| CitationHealth::crossref("unavailable", timestamp_now()))
+}
+
 fn fetch_parallel(
-    dois: &[String],
-    base_url: &str,
-    contact_override: Option<Option<String>>,
+    dois: &[String], base_url: &str, contact: Option<Option<String>>,
 ) -> BTreeMap<String, Result<CitationHealth, String>> {
     if dois.is_empty() {
         return BTreeMap::new();
     }
-    let contact = match contact_override
-        .map(Ok)
-        .unwrap_or_else(crate::literature_credentials::crossref_contact)
-    {
-        Ok(contact) => contact,
-        Err(error) => {
-            return dois
-                .iter()
-                .cloned()
-                .map(|doi| (doi, Err(error.clone())))
-                .collect()
-        }
+    let fail_all =
+        |error: String| dois.iter().map(|doi| (doi.clone(), Err(error.clone()))).collect();
+    let contact =
+        match contact.map(Ok).unwrap_or_else(crate::literature_credentials::crossref_contact) {
+            Ok(contact) => contact,
+            Err(error) => return fail_all(error),
+        };
+    let user_agent = match &contact {
+        Some(email) => format!("Lattice/0.1 (research writing; mailto:{email})"),
+        None => "Lattice/0.1 (research writing)".to_string(),
     };
-    let user_agent = contact
-        .as_ref()
-        .map(|email| format!("Lattice/0.1 (research writing; mailto:{email})"))
-        .unwrap_or_else(|| "Lattice/0.1 (research writing)".to_string());
-    let client = match reqwest::blocking::Client::builder()
-        .user_agent(user_agent)
-        .timeout(REQUEST_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-    {
+    let client = match crate::literature_service::client(REQUEST_TIMEOUT, Some(&user_agent)) {
         Ok(client) => client,
-        Err(error) => {
-            return dois
-                .iter()
-                .cloned()
-                .map(|doi| (doi, Err(format!("could not create client: {error}"))))
-                .collect()
-        }
+        Err(error) => return fail_all(format!("could not create client: {error}")),
     };
-    let output = Mutex::new(BTreeMap::new());
     let worker_count = dois.len().min(MAX_CONCURRENT_REQUESTS);
     std::thread::scope(|scope| {
-        for worker in 0..worker_count {
-            let client = &client;
-            let output = &output;
-            let contact = contact.as_deref();
-            scope.spawn(move || {
-                for doi in dois.iter().skip(worker).step_by(worker_count) {
-                    let result = fetch_one(client, base_url, doi, contact);
-                    output.lock().unwrap().insert(doi.clone(), result);
-                }
-            });
-        }
-    });
-    output.into_inner().unwrap()
+        let workers: Vec<_> = (0..worker_count)
+            .map(|worker| {
+                let (client, contact) = (&client, contact.as_deref());
+                scope.spawn(move || {
+                    let assigned = dois.iter().skip(worker).step_by(worker_count);
+                    assigned
+                        .map(|doi| (doi.clone(), fetch_one(client, base_url, doi, contact)))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|worker| worker.join().unwrap()).collect()
+    })
 }
 
 fn fetch_one(
-    client: &reqwest::blocking::Client,
-    base_url: &str,
-    doi: &str,
-    contact: Option<&str>,
+    client: &reqwest::blocking::Client, base_url: &str, doi: &str, contact: Option<&str>,
 ) -> Result<CitationHealth, String> {
     // `updates` asks for update notices whose update-to target is this DOI.
     // That target is checked again while parsing: titles and search ranking
@@ -232,68 +207,46 @@ fn fetch_one(
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| error.to_string())?;
+    let payload = response.json::<Value>().map_err(|error| error.to_string())?;
     parse_response(&payload, doi)
 }
 
+/// The most serious Crossref update notice whose update-to target is exactly
+/// `doi`, or "unknown" when there is none.
 fn parse_response(payload: &Value, doi: &str) -> Result<CitationHealth, String> {
     let items = payload
         .pointer("/message/items")
         .and_then(Value::as_array)
         .ok_or_else(|| "response had no message.items array".to_string())?;
-    let mut candidates = Vec::new();
-    for item in items {
-        let notice_link = item
-            .get("URL")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .or_else(|| {
-                item.get("DOI")
-                    .and_then(Value::as_str)
-                    .map(|notice| format!("https://doi.org/{notice}"))
-            });
-        for update in item
-            .get("update-to")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            let Some(target) = update.get("DOI").and_then(Value::as_str) else {
-                continue;
-            };
-            if !target.eq_ignore_ascii_case(doi) {
-                continue;
-            }
-            let update_type = update
-                .get("type")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown")
-                .to_string();
-            let kind = classify(&update_type).to_string();
-            let date = update
-                .pointer("/updated/date-time")
-                .and_then(Value::as_str)
-                .map(|value| value.chars().take(10).collect::<String>());
-            candidates.push(CitationHealth {
-                kind,
-                update_type: Some(update_type),
-                source: update
-                    .get("source")
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
-                date,
-                link: notice_link.clone(),
-                checked_at: String::new(),
-                stale: false,
-            });
-        }
-    }
-    Ok(candidates
-        .into_iter()
+    let text =
+        |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
+    let notices = items.iter().flat_map(|item| {
+        let link = text(item, "URL")
+            .or_else(|| text(item, "DOI").map(|notice| format!("https://doi.org/{notice}")));
+        let updates = item.get("update-to").and_then(Value::as_array).into_iter().flatten();
+        updates
+            .filter(|update| {
+                text(update, "DOI").is_some_and(|target| target.eq_ignore_ascii_case(doi))
+            })
+            .map(move |update| {
+                let update_type = text(update, "type").unwrap_or_else(|| "unknown".to_string());
+                CitationHealth {
+                    kind: classify(&update_type).to_string(),
+                    update_type: Some(update_type),
+                    source: text(update, "source"),
+                    date: update
+                        .pointer("/updated/date-time")
+                        .and_then(Value::as_str)
+                        .map(|value| value.chars().take(10).collect()),
+                    link: link.clone(),
+                    checked_at: String::new(),
+                    stale: false,
+                }
+            })
+    });
+    Ok(notices
         .max_by_key(|health| (severity(&health.kind), health.date.clone()))
-        .unwrap_or_else(unknown))
+        .unwrap_or_else(|| CitationHealth::crossref("unknown", String::new())))
 }
 
 fn classify(update_type: &str) -> &'static str {
@@ -315,39 +268,12 @@ fn severity(kind: &str) -> u8 {
     }
 }
 
-fn unknown() -> CitationHealth {
-    CitationHealth {
-        kind: "unknown".to_string(),
-        update_type: None,
-        source: Some("crossref".to_string()),
-        date: None,
-        link: None,
-        checked_at: String::new(),
-        stale: false,
-    }
-}
-
-fn unavailable() -> CitationHealth {
-    CitationHealth {
-        kind: "unavailable".to_string(),
-        update_type: None,
-        source: Some("crossref".to_string()),
-        date: None,
-        link: None,
-        checked_at: timestamp_now(),
-        stale: false,
-    }
-}
-
 fn read_cache(root: &Path) -> CitationHealthCache {
     fs::read(root.join(CACHE_PATH))
         .ok()
         .and_then(|bytes| serde_json::from_slice::<CitationHealthCache>(&bytes).ok())
         .filter(|cache| cache.schema == CACHE_SCHEMA)
-        .unwrap_or_else(|| CitationHealthCache {
-            schema: CACHE_SCHEMA,
-            entries: BTreeMap::new(),
-        })
+        .unwrap_or_else(|| CitationHealthCache { schema: CACHE_SCHEMA, entries: BTreeMap::new() })
 }
 
 fn write_cache(root: &Path, cache: &CitationHealthCache) -> Result<(), String> {
@@ -360,29 +286,22 @@ fn write_cache(root: &Path, cache: &CitationHealthCache) -> Result<(), String> {
     fs::write(path, bytes).map_err(|error| error.to_string())
 }
 
+/// Drop the oldest checks beyond the cap (ties go to the smaller DOI).
 fn trim_cache(cache: &mut CitationHealthCache) {
-    if cache.entries.len() <= MAX_CACHE_ENTRIES {
-        return;
-    }
-    let mut oldest = cache
+    let excess = cache.entries.len().saturating_sub(MAX_CACHE_ENTRIES);
+    let mut by_age = cache
         .entries
         .iter()
-        .map(|(doi, entry)| (doi.clone(), entry.checked_at_epoch))
+        .map(|(doi, entry)| (entry.checked_at_epoch, doi.clone()))
         .collect::<Vec<_>>();
-    oldest.sort_by_key(|(_, checked)| *checked);
-    for (doi, _) in oldest
-        .into_iter()
-        .take(cache.entries.len() - MAX_CACHE_ENTRIES)
-    {
+    by_age.sort();
+    for (_, doi) in by_age.into_iter().take(excess) {
         cache.entries.remove(&doi);
     }
 }
 
 fn epoch_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
 fn timestamp_now() -> String {
@@ -392,7 +311,6 @@ fn timestamp_now() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
 
     fn fixture() -> Value {
         serde_json::json!({
@@ -432,30 +350,25 @@ mod tests {
         assert_eq!(health.update_type.as_deref(), Some("retraction"));
         assert_eq!(health.source.as_deref(), Some("retraction-watch"));
         assert_eq!(health.date.as_deref(), Some("2023-09-17"));
-        assert_eq!(
-            health.link.as_deref(),
-            Some("https://retractionwatch.com/example")
-        );
+        assert_eq!(health.link.as_deref(), Some("https://retractionwatch.com/example"));
     }
 
     #[test]
     fn classifies_crossref_update_vocabulary() {
-        assert_eq!(classify("expression_of_concern"), "expressionOfConcern");
-        assert_eq!(classify("erratum"), "corrected");
-        assert_eq!(classify("new_version"), "replaced");
-        assert_eq!(classify("something_new"), "unknown");
+        for (update_type, kind) in [
+            ("expression_of_concern", "expressionOfConcern"),
+            ("erratum", "corrected"),
+            ("new_version", "replaced"),
+            ("something_new", "unknown"),
+        ] {
+            assert_eq!(classify(update_type), kind);
+        }
     }
 
     #[test]
     fn caches_mocked_crossref_results_and_reuses_them_offline() {
-        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
-        let endpoint = format!("http://{}/works", server.server_addr());
         let fixture = fixture().to_string();
-        let responder = std::thread::spawn(move || {
-            let request = server
-                .recv_timeout(Duration::from_secs(10))
-                .unwrap()
-                .unwrap();
+        let (base, responder) = crate::literature_service::serve_once(move |request| {
             assert!(request.url().contains("filter=updates:10.1234%2Fexample"));
             assert!(request.url().contains("mailto=person%40example.org"));
             request
@@ -464,12 +377,11 @@ mod tests {
                 ))
                 .unwrap();
         });
-        let root = std::env::temp_dir().join(format!("lattice-health-{}", Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        let online = lookup_with_base_and_contact(
+        let root = crate::test_support::TempDir::new("health");
+        let online = lookup_at(
             &root,
             ["10.1234/example".to_string()],
-            &endpoint,
+            &format!("{base}/works"),
             Some(Some("person@example.org".into())),
         );
         responder.join().unwrap();
@@ -477,13 +389,9 @@ mod tests {
         assert!(root.join(CACHE_PATH).is_file());
 
         // A fresh cache does not contact this unreachable endpoint.
-        let cached = lookup_with_base(
-            &root,
-            ["10.1234/example".to_string()],
-            "http://127.0.0.1:1/works",
-        );
+        let cached =
+            lookup_at(&root, ["10.1234/example".to_string()], "http://127.0.0.1:1/works", None);
         assert_eq!(cached["10.1234/example"].kind, "retracted");
         assert!(!cached["10.1234/example"].stale);
-        fs::remove_dir_all(root).unwrap();
     }
 }

@@ -3444,7 +3444,7 @@ describe("project workspace", () => {
   it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {
     renderApp({
       ...refreshableProject(overleafPaperSnapshot()), list_papers: () => [attentionPaper({ hasBlog: false })],
-      read_paper: "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.", read_paper_blog: null,
+      read_paper: "## Abstract\n\nPaper content.\n\n## Method\n\nEditable notes.",
       ...overleafCommands({
         overleaf_link: () => overleafLink({ projectId: "ol-read-only" }),
         overleaf_rt_connect: () => overleafSession({ permission: "readOnly" }),
@@ -3684,7 +3684,7 @@ describe("project workspace", () => {
         arxivId: "web-0123456789abcdef", url: "https://example.com/research/article", title: "A captured research article",
         hasFullText: true, hasBlog: false,
       }],
-      read_paper: "# A captured research article\n\nArticle content.", read_paper_blog: null,
+      read_paper: "# A captured research article\n\nArticle content.",
     });
     await openPaper("A captured research article");
     const paperHeader = await findElement(".paper-visual-header");
@@ -3708,7 +3708,7 @@ describe("project workspace", () => {
         { arxivId: "web-first", url: firstUrl, title: "First PDF", hasFullText: true, hasBlog: false },
         { arxivId: "web-second", url: secondUrl, title: "Second PDF", hasFullText: true, hasBlog: false },
       ],
-      read_paper: (args) => `# ${(args as { arxivId: string }).arxivId}`, read_paper_blog: null,
+      read_paper: (args) => `# ${(args as { arxivId: string }).arxivId}`,
       paper_pdf_preview_url: (args) => {
         if ((args as { url: string }).url === firstUrl) return firstPreview.promise;
         secondAttempts += 1;
@@ -3765,7 +3765,7 @@ describe("project workspace", () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),
       list_papers: () => [{ arxivId: "1706.03762v7", title: "Attention Is All You Need", hasFullText: true, hasBlog: false }],
-      read_paper: PAPER_ABSTRACT, read_paper_blog: null,
+      read_paper: PAPER_ABSTRACT,
     });
     await openPaper("Attention Is All You Need");
     const viewOriginalPdf = await screen.findByRole("button", { name: "View original PDF" });
@@ -3892,7 +3892,7 @@ describe("project workspace", () => {
   const renderNotesBesidePaper = async (title: string, commands: Commands) => {
     renderApp({
       ...refreshableProject(markdownSnapshot(), "Original notes"),
-      list_papers: () => [{ arxivId: "2407.06438", title, hasFullText: true }], read_paper_blog: null, ...commands,
+      list_papers: () => [{ arxivId: "2407.06438", title, hasFullText: true }], ...commands,
     });
     return visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
   };
@@ -3943,7 +3943,6 @@ describe("project workspace", () => {
         { arxivId: "2103.00020", title: "Second paper", hasFullText: true },
       ],
       read_paper: (args) => new Promise<string>((resolve) => { paperResolvers.set((args as { arxivId: string }).arxivId, resolve); }),
-      read_paper_blog: null,
     });
     await openPaper("First paper");
     await waitFor(() => expect(paperResolvers.has("2407.06438")).toBe(true));

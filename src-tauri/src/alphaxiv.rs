@@ -1,12 +1,15 @@
-// alphaXiv gives two things this app leans on: a full-text search over the
-// arXiv corpus (body-wording matches that a title/abstract index misses) and a
-// per-paper "overview" — a readable analysis of the paper we store next to the
-// full text as the default reading view. Both are plain HTTPS GETs; we mirror
-// the inline reqwest::blocking pattern in openalex.rs rather than share a
-// client, since these are the only two callers.
+//! alphaXiv gives two things this app leans on: a full-text search over the
+//! arXiv corpus (body-wording matches that a title/abstract index misses) and a
+//! per-paper "overview" — a readable analysis of the paper we store next to the
+//! full text as the default reading view.
 
+use crate::models::LiteratureHit;
 use crate::openalex::urlencoding;
+use crate::papers::{collapse_whitespace, http_client, send_checked, LITERATURE_USER_AGENT};
+use crate::util::truncate_chars;
 use regex::Regex;
+use reqwest::blocking::RequestBuilder;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 const SEARCH_URL: &str = "https://api.alphaxiv.org/search/v2/paper/full-text";
@@ -15,26 +18,14 @@ const PAPER_API: &str = "https://api.alphaxiv.org/papers/v3";
 /// pull its whole pool once and reveal it incrementally on the client.
 const SEARCH_LIMIT: usize = 50;
 const OVERVIEW_BASE: &str = "https://www.alphaxiv.org/overview";
-const USER_AGENT: &str = "Lattice/0.1 (research writing; mailto:lattice@local)";
 /// An overview shorter than this is alphaXiv's "not found" stub, not a report.
 const MIN_OVERVIEW_LEN: usize = 200;
 
-/// A full-text search hit, normalized from the alphaXiv JSON.
-#[derive(Debug, Clone)]
-pub struct AlphaxivWork {
-    pub paper_id: String,
-    pub title: String,
-    pub year: Option<u32>,
-    pub votes: Option<u32>,
-    pub snippet: Option<String>,
-}
-
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SearchHit {
-    #[serde(rename = "paperId")]
     paper_id: Option<String>,
     title: Option<String>,
-    #[serde(rename = "publicationDate")]
     publication_date: Option<String>,
     votes: Option<i64>,
     snippets: Option<Vec<Snippet>>,
@@ -45,37 +36,38 @@ struct Snippet {
     snippet: Option<String>,
 }
 
-fn http_client() -> Result<reqwest::blocking::Client, String> {
-    reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
+fn client() -> Result<reqwest::blocking::Client, String> {
+    http_client(LITERATURE_USER_AGENT, 20)
         .map_err(|error| format!("Could not create alphaXiv client: {error}"))
 }
 
-/// Full-text search over arXiv via alphaXiv. Ranked as alphaXiv returns them.
-pub fn search_works(query: &str) -> Result<Vec<AlphaxivWork>, String> {
+/// A JSON response, or `None` for a 404.
+fn get_json<T: DeserializeOwned>(request: RequestBuilder) -> Result<Option<T>, String> {
+    let response = request.send().map_err(|e| e.to_string())?;
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    response
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .map(Some)
+        .map_err(|e| e.to_string())
+}
+
+/// Full-text search over arXiv via alphaXiv, as Discover rows ranked as
+/// alphaXiv returns them.
+pub fn search_works(query: &str) -> Result<Vec<LiteratureHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
-    let url = format!(
-        "{SEARCH_URL}?q={}&limit={SEARCH_LIMIT}",
-        urlencoding(trimmed)
-    );
-    let response = http_client()?
-        .get(&url)
-        .send()
-        .map_err(|error| format!("alphaXiv request failed: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "alphaXiv returned HTTP {}.",
-            response.status().as_u16()
-        ));
-    }
-    let body = response
-        .bytes()
-        .map_err(|error| format!("Could not read alphaXiv response: {error}"))?;
+    let url = format!("{SEARCH_URL}?q={}&limit={SEARCH_LIMIT}", urlencoding(trimmed));
+    let response = send_checked(client()?.get(&url), "alphaXiv request failed", |status| {
+        format!("alphaXiv returned HTTP {status}.")
+    })?;
+    let body =
+        response.bytes().map_err(|error| format!("Could not read alphaXiv response: {error}"))?;
     let hits = parse_search_hits(&body)?;
     Ok(hits.into_iter().filter_map(map_hit).collect())
 }
@@ -95,52 +87,41 @@ fn repair_unpaired_json_surrogates(body: &[u8]) -> Vec<u8> {
     let mut repaired = Vec::with_capacity(body.len());
     let mut index = 0;
     while index < body.len() {
-        if body[index] != b'\\' || body.get(index + 1) != Some(&b'u') {
-            if body[index] == b'\\' && body.get(index + 1) == Some(&b'\\') {
-                repaired.extend_from_slice(&body[index..index + 2]);
-                index += 2;
-            } else {
-                repaired.push(body[index]);
-                index += 1;
-            }
-            continue;
-        }
-        let Some(code) = json_hex_code_unit(body.get(index + 2..index + 6)) else {
-            repaired.push(body[index]);
-            index += 1;
-            continue;
+        // How many bytes to keep verbatim: an escaped backslash stays whole so
+        // its second byte never starts an escape, and a surrogate stays only
+        // with its pair.
+        let keep = match (body[index], body.get(index + 1)) {
+            (b'\\', Some(b'\\')) => 2,
+            (b'\\', Some(b'u')) => match escaped_code_unit(body, index) {
+                Some(0xD800..=0xDBFF)
+                    if escaped_code_unit(body, index + 6)
+                        .is_some_and(|low| (0xDC00..=0xDFFF).contains(&low)) =>
+                {
+                    12
+                }
+                Some(0xD800..=0xDFFF) => {
+                    repaired.extend_from_slice(br"\uFFFD");
+                    index += 6;
+                    continue;
+                }
+                Some(_) => 6,
+                None => 1,
+            },
+            _ => 1,
         };
-        if (0xD800..=0xDBFF).contains(&code) {
-            let paired = body.get(index + 6) == Some(&b'\\')
-                && body.get(index + 7) == Some(&b'u')
-                && json_hex_code_unit(body.get(index + 8..index + 12))
-                    .is_some_and(|low| (0xDC00..=0xDFFF).contains(&low));
-            if paired {
-                repaired.extend_from_slice(&body[index..index + 12]);
-                index += 12;
-            } else {
-                repaired.extend_from_slice(br"\uFFFD");
-                index += 6;
-            }
-        } else if (0xDC00..=0xDFFF).contains(&code) {
-            repaired.extend_from_slice(br"\uFFFD");
-            index += 6;
-        } else {
-            repaired.extend_from_slice(&body[index..index + 6]);
-            index += 6;
-        }
+        repaired.extend_from_slice(&body[index..index + keep]);
+        index += keep;
     }
     repaired
 }
 
-fn json_hex_code_unit(bytes: Option<&[u8]>) -> Option<u16> {
-    let bytes = bytes?;
-    if bytes.len() != 4 || !bytes.iter().all(u8::is_ascii_hexdigit) {
+/// The UTF-16 code unit of a `\uXXXX` escape starting at `index`.
+fn escaped_code_unit(body: &[u8], index: usize) -> Option<u16> {
+    let escape = body.get(index..index + 6)?;
+    if !escape.starts_with(br"\u") || !escape[2..].iter().all(u8::is_ascii_hexdigit) {
         return None;
     }
-    std::str::from_utf8(bytes)
-        .ok()
-        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+    u16::from_str_radix(std::str::from_utf8(&escape[2..]).ok()?, 16).ok()
 }
 
 /// AlphaXiv also hosts reports without an arXiv identity. Keep those IDs out
@@ -153,20 +134,14 @@ pub fn paper_id_from_url(input: &str) -> Option<String> {
         return None;
     }
     let path = url.path().trim_end_matches('/');
-    let id = ["/abs/", "/pdf/", "/overview/"]
-        .iter()
-        .find_map(|prefix| path.strip_prefix(prefix))?;
-    let id = id
-        .strip_suffix(".pdf")
-        .or_else(|| id.strip_suffix(".md"))
-        .unwrap_or(id);
+    let id =
+        ["/abs/", "/pdf/", "/overview/"].iter().find_map(|prefix| path.strip_prefix(prefix))?;
+    let id = id.strip_suffix(".pdf").or_else(|| id.strip_suffix(".md")).unwrap_or(id);
     valid_paper_id(id).then(|| id.to_string())
 }
 
 fn valid_paper_id(id: &str) -> bool {
-    Regex::new(r"^[A-Za-z0-9][A-Za-z0-9.-]*(?:/[0-9]+(?:v[0-9]+)?)?$")
-        .unwrap()
-        .is_match(id)
+    Regex::new(r"^[A-Za-z0-9][A-Za-z0-9.-]*(?:/[0-9]+(?:v[0-9]+)?)?$").unwrap().is_match(id)
         && !id.contains("..")
 }
 
@@ -184,18 +159,9 @@ pub fn resolve_paper(id: &str) -> Result<Option<Paper>, String> {
     if !valid_paper_id(id) {
         return Err("Invalid alphaXiv paper id.".into());
     }
-    let response = http_client()?
-        .get(format!("{PAPER_API}/{id}"))
-        .send()
-        .map_err(|e| e.to_string())?;
-    if response.status().as_u16() == 404 {
+    let Some(paper) = get_json::<Paper>(client()?.get(format!("{PAPER_API}/{id}")))? else {
         return Ok(None);
-    }
-    let paper: Paper = response
-        .error_for_status()
-        .map_err(|e| e.to_string())?
-        .json()
-        .map_err(|e| e.to_string())?;
+    };
     if !valid_paper_id(&paper.universal_id) || !valid_paper_id(&paper.version_id) {
         return Err("Invalid alphaXiv response identity.".into());
     }
@@ -204,7 +170,7 @@ pub fn resolve_paper(id: &str) -> Result<Option<Paper>, String> {
 
 /// Exact title only: a ranked near-match must not silently become a citation.
 pub fn resolve_title(title: &str) -> Result<Option<Paper>, String> {
-    let response = http_client()?
+    let response = client()?
         .get("https://api.alphaxiv.org/search/v2/paper/fast")
         .query(&[("q", title), ("includePrivate", "false")])
         .send()
@@ -212,10 +178,7 @@ pub fn resolve_title(title: &str) -> Result<Option<Paper>, String> {
         .map_err(|e| e.to_string())?;
     let hits = parse_search_hits(&response.bytes().map_err(|e| e.to_string())?)?;
     let normalize = |s: &str| {
-        s.chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(char::to_lowercase)
-            .collect::<String>()
+        s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>()
     };
     let title = normalize(title);
     let ids: std::collections::BTreeSet<_> = hits
@@ -234,19 +197,12 @@ pub fn resolve_title(title: &str) -> Result<Option<Paper>, String> {
 }
 
 pub fn fetch_paper_overview(paper: &Paper) -> Result<Option<String>, String> {
-    let response = http_client()?
+    let request = client()?
         .get(format!("{PAPER_API}/{}/overview-v2", paper.version_id))
-        .query(&[("language", "en")])
-        .send()
-        .map_err(|e| e.to_string())?;
-    if response.status().as_u16() == 404 {
+        .query(&[("language", "en")]);
+    let Some(body) = get_json::<serde_json::Value>(request)? else {
         return Ok(None);
-    }
-    let body: serde_json::Value = response
-        .error_for_status()
-        .map_err(|e| e.to_string())?
-        .json()
-        .map_err(|e| e.to_string())?;
+    };
     let overview = &body["overview"];
     if overview["state"] != "done" {
         return Ok(None);
@@ -300,30 +256,26 @@ pub fn fetch_overview(arxiv_id: &str) -> Result<Option<String>, String> {
             return Ok(Some(overview));
         }
     }
-    let url = format!("{OVERVIEW_BASE}/{arxiv_id}.md");
-    let response = http_client()?
-        .get(&url)
+    let response = client()?
+        .get(format!("{OVERVIEW_BASE}/{arxiv_id}.md"))
         .send()
         .map_err(|error| format!("alphaXiv overview request failed: {error}"))?;
-    if response.status().as_u16() == 404 {
-        return Ok(None);
+    match response.status().as_u16() {
+        404 => return Ok(None),
+        status if !response.status().is_success() => {
+            return Err(format!("alphaXiv overview returned HTTP {status}."))
+        }
+        _ => {}
     }
-    if !response.status().is_success() {
-        return Err(format!(
-            "alphaXiv overview returned HTTP {}.",
-            response.status().as_u16()
-        ));
-    }
-    let body = response
-        .text()
-        .map_err(|error| format!("Could not read alphaXiv overview: {error}"))?;
+    let body =
+        response.text().map_err(|error| format!("Could not read alphaXiv overview: {error}"))?;
     if body.trim().len() < MIN_OVERVIEW_LEN {
         return Ok(None);
     }
     Ok(Some(body))
 }
 
-fn map_hit(hit: SearchHit) -> Option<AlphaxivWork> {
+fn map_hit(hit: SearchHit) -> Option<LiteratureHit> {
     let paper_id = hit.paper_id?.trim().to_string();
     let title = hit.title?.trim().to_string();
     if paper_id.is_empty() || title.is_empty() {
@@ -340,27 +292,31 @@ fn map_hit(hit: SearchHit) -> Option<AlphaxivWork> {
         .and_then(|snippets| snippets.into_iter().find_map(|item| item.snippet))
         .map(|text| collapse_whitespace(&text))
         .filter(|text| !text.is_empty())
-        .map(|text| truncate(&text, 240));
-    Some(AlphaxivWork {
-        paper_id,
+        .map(|text| truncate_chars(&text, 240));
+    Some(LiteratureHit {
+        source: "alphaxiv".to_string(),
+        arxiv_id: arxiv_shaped(&paper_id).map(str::to_string),
         title,
         year,
+        authors: Vec::new(),
+        cited_by_count: None,
         votes,
         snippet,
+        doi: None,
+        landing_url: None,
     })
 }
 
-fn collapse_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn truncate(value: &str, max_chars: usize) -> String {
-    if value.chars().count() <= max_chars {
-        return value.to_string();
-    }
-    let mut out: String = value.chars().take(max_chars).collect();
-    out.push('…');
-    out
+/// alphaXiv paperIds are almost always arXiv ids, but the corpus has occasional
+/// non-arXiv slugs. Only an arXiv-shaped id is fetchable / dedupe-comparable.
+fn arxiv_shaped(id: &str) -> Option<&str> {
+    let bytes = id.as_bytes();
+    let is_new = id.len() >= 9
+        && bytes.get(4) == Some(&b'.')
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && bytes[5..].iter().take(4).all(u8::is_ascii_digit);
+    let is_old = id.contains('/') && id.chars().any(|c| c.is_ascii_digit());
+    (is_new || is_old).then_some(id)
 }
 
 #[cfg(test)]
@@ -375,10 +331,8 @@ mod tests {
             "overview/2609.mimo-scaling-reinforcement-learning.md",
         ] {
             assert_eq!(
-                paper_id_from_url(&format!(
-                    "https://www.alphaxiv.org/{path}?source=test#page=8"
-                ))
-                .as_deref(),
+                paper_id_from_url(&format!("https://www.alphaxiv.org/{path}?source=test#page=8"))
+                    .as_deref(),
                 Some("2609.mimo-scaling-reinforcement-learning")
             );
         }
@@ -419,19 +373,15 @@ mod tests {
         let source = r#"<PaperCite page={0}>Keep this prose</PaperCite><ImageCaption src="javascript:alert(1)">Keep caption</ImageCaption>"#;
         let markdown = overview_markdown(source, "2609.report").unwrap();
         assert_eq!(markdown, "Keep this proseKeep caption");
-        assert!(
-            overview_markdown("<PaperCite {...execute()}>claim</PaperCite>", "2609.report")
-                .unwrap()
-                .contains("claim")
-        );
+        assert!(overview_markdown("<PaperCite {...execute()}>claim</PaperCite>", "2609.report")
+            .unwrap()
+            .contains("claim"));
     }
 
     #[test]
     #[ignore = "Live AlphaXiv API smoke test"]
     fn live_mimo_overview_contains_page_citations() {
-        let paper = resolve_paper("2609.mimo-scaling-reinforcement-learning")
-            .unwrap()
-            .unwrap();
+        let paper = resolve_paper("2609.mimo-scaling-reinforcement-learning").unwrap().unwrap();
         let markdown = fetch_paper_overview(&paper).unwrap().unwrap();
         assert!(markdown.contains(
             "[p8](https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning.pdf#page=8"
@@ -444,37 +394,26 @@ mod tests {
     }
 
     #[test]
-    fn maps_a_search_hit() {
-        let hit = SearchHit {
-            paper_id: Some("2401.12345".into()),
-            title: Some("  A Great Paper  ".into()),
-            publication_date: Some("2024-06-26T06:08:44.000Z".into()),
-            votes: Some(7),
-            snippets: Some(vec![
-                Snippet { snippet: None },
-                Snippet {
-                    snippet: Some("some\n  matching   text".into()),
-                },
-            ]),
-        };
-        let work = map_hit(hit).unwrap();
-        assert_eq!(work.paper_id, "2401.12345");
+    fn maps_search_hits_and_drops_those_without_an_id_or_title() {
+        let hits = parse_search_hits(
+            br#"[{"paperId":"2401.12345","title":"  A Great Paper  ","publicationDate":"2024-06-26T06:08:44.000Z","votes":7,
+                  "snippets":[{"snippet":null},{"snippet":"some\n  matching   text"}]},
+                 {"paperId":"some-slug-id","title":"Slug Paper"},
+                 {"paperId":"2401.12345","title":"   "}]"#,
+        )
+        .unwrap();
+        let mut works = hits.into_iter().map(map_hit);
+        let work = works.next().unwrap().unwrap();
+        assert_eq!(work.source, "alphaxiv");
+        assert_eq!(work.arxiv_id.as_deref(), Some("2401.12345"));
         assert_eq!(work.title, "A Great Paper");
         assert_eq!(work.year, Some(2024));
         assert_eq!(work.votes, Some(7));
         assert_eq!(work.snippet.as_deref(), Some("some matching text"));
-    }
-
-    #[test]
-    fn drops_a_hit_without_an_id_or_title() {
-        let hit = SearchHit {
-            paper_id: Some("2401.12345".into()),
-            title: Some("   ".into()),
-            publication_date: None,
-            votes: None,
-            snippets: None,
-        };
-        assert!(map_hit(hit).is_none());
+        // A non-arXiv slug is kept, but without a fetchable id.
+        let slug = works.next().unwrap().unwrap();
+        assert_eq!((slug.title.as_str(), slug.arxiv_id), ("Slug Paper", None));
+        assert!(works.next().unwrap().is_none());
     }
 
     #[test]
@@ -484,10 +423,7 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].title.as_deref(), Some("Action + �..."));
         assert_eq!(
-            hits[0]
-                .snippets
-                .as_ref()
-                .and_then(|snippets| snippets[0].snippet.as_deref()),
+            hits[0].snippets.as_ref().and_then(|snippets| snippets[0].snippet.as_deref()),
             Some("valid pair: 𝑨; literal: \\ud835")
         );
     }

@@ -1,0 +1,4 @@
+# Denser layout than rustfmt's defaults: the 60-char call/struct heuristics and
+# one-parameter-per-line signatures spread short Tauri commands over a screen.
+use_small_heuristics = "Max"
+fn_params_layout = "Compressed"

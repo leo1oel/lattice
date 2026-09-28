@@ -172,7 +172,7 @@ renamed. They are not all Lattice code:
 
 | Group | Count | Names | Implemented by |
 | --- | --- | --- | --- |
-| Literature | 8 | `search_literature`, `list_papers`, `search_library`, `fetch_paper`, `fetch_web_reference`, `cite`, `upgrade_bibliography`, `remove_reference` | Lattice. They shell out to the Lattice executable, which parses them as the `LiteratureRequest` enum in `src-tauri/src/lib.rs` (grep `enum LiteratureRequest`) and dispatches to `literature::` and `papers::`, keeping the Rust literature and bibliography code the only source of truth. |
+| Literature | 8 | `search_literature`, `list_papers`, `search_library`, `fetch_paper`, `fetch_web_reference`, `cite`, `upgrade_bibliography`, `remove_reference` | Lattice. They shell out to the Lattice executable, which parses them as the `LiteratureRequest` enum in `src-tauri/src/agent_literature.rs` (grep `enum LiteratureRequest`) and dispatches to `literature::` and `papers::`, keeping the Rust literature and bibliography code the only source of truth. |
 | Canvas | 4 | `list_canvas_shapes`, `create_canvas_shapes`, `update_canvas_shapes`, `delete_canvas_shapes` | Lattice. They reach the tldraw surface through the canvas broker (`src/agent/agent-canvas-tools.ts`, actions `list` / `create` / `update` / `delete`). |
 | Spreadsheet | 2 | `spreadsheet_read`, `spreadsheet_batch_update` | Lattice, via `src/agent/agent-spreadsheet-tools.ts` (actions `read` / `batch_update`). |
 | Project documents | 1 | `create_project_document` | Lattice. It creates and opens native `.tldr` boards or `.lattice-sheet` spreadsheets through the project transaction path, including shared-project catalog registration. |

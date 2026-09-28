@@ -29,11 +29,7 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
     let pid = child.0.id().to_string();
     let parent = std::process::id().to_string();
     let all = snapshot(BIB_SANDBOX, &["-eo", "pid=,ppid=,command="]);
-    assert!(
-        all.status.success(),
-        "{}",
-        String::from_utf8_lossy(&all.stderr)
-    );
+    assert!(all.status.success(), "{}", String::from_utf8_lossy(&all.stderr));
     let all = String::from_utf8(all.stdout).unwrap();
     let row = all
         .lines()
@@ -48,10 +44,7 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
 
     let selected = snapshot(BIB_SANDBOX, &["-p", &pid, "-o", "pid=,command="]);
     assert!(selected.status.success());
-    assert_eq!(
-        String::from_utf8(selected.stdout).unwrap(),
-        format!("{pid} {identity}\n")
-    );
+    assert_eq!(String::from_utf8(selected.stdout).unwrap(), format!("{pid} {identity}\n"));
 
     // Equal executable names are not identities: separate sleep instances
     // must differ, while repeated queries for the first instance stay equal.
@@ -62,13 +55,9 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
     assert!(selected.status.success());
     let selected = String::from_utf8(selected.stdout).unwrap();
     assert_eq!(selected.lines().count(), 2);
-    assert!(selected
-        .lines()
-        .any(|line| line == format!("{pid} {identity}")));
-    let sibling_row = selected
-        .lines()
-        .find(|line| line.starts_with(&format!("{sibling_pid} ")))
-        .unwrap();
+    assert!(selected.lines().any(|line| line == format!("{pid} {identity}")));
+    let sibling_row =
+        selected.lines().find(|line| line.starts_with(&format!("{sibling_pid} "))).unwrap();
     assert_ne!(sibling_row.split_once(' ').unwrap().1, identity);
 
     child.0.kill().unwrap();
@@ -80,10 +69,7 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
 
 #[test]
 fn denied_snapshot_is_an_error_not_a_successful_empty_process_table() {
-    for args in [
-        vec!["-eo", "pid=,ppid=,command="],
-        vec!["-p", "1", "-o", "pid=,command="],
-    ] {
+    for args in [vec!["-eo", "pid=,ppid=,command="], vec!["-p", "1", "-o", "pid=,command="]] {
         // Deny only process reads: dyld itself needs unrelated sysctls before
         // our entrypoint can run, so denying every sysctl tests the loader.
         let output = snapshot(

@@ -77,28 +77,21 @@ pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
             .send()
             .map_err(|error| format!("Firecrawl request failed: {error}"))?;
         let status = response.status().as_u16();
-        match status {
+        let refusal = match status {
             401 | 403 => {
-                return Err("Firecrawl rejected the API key. Check it in Settings → Literature services.".into());
+                Some("Firecrawl rejected the API key. Check it in Settings → Literature services.")
             }
-            402 => {
-                return Err(
-                    "The active Firecrawl key has insufficient credits. Check its quota or change the key in Settings → Literature services."
-                        .to_string(),
-                )
-            }
+            402 => Some("The active Firecrawl key has insufficient credits. Check its quota or change the key in Settings → Literature services."),
             429 if attempt < RETRY_DELAYS_S.len() => {
                 std::thread::sleep(std::time::Duration::from_secs(RETRY_DELAYS_S[attempt]));
                 attempt += 1;
                 continue;
             }
-            429 => {
-                return Err(
-                    "Firecrawl is rate-limiting the active key. Wait a moment and retry."
-                        .to_string(),
-                )
-            }
-            _ => {}
+            429 => Some("Firecrawl is rate-limiting the active key. Wait a moment and retry."),
+            _ => None,
+        };
+        if let Some(refusal) = refusal {
+            return Err(refusal.to_string());
         }
         let parsed: ScrapeResponse = response
             .json()
@@ -112,20 +105,14 @@ pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
                     .replace(&key, "[redacted]")
             ));
         }
-        let data = parsed
-            .data
-            .ok_or_else(|| "Firecrawl reported success with no content.".to_string())?;
+        let data =
+            parsed.data.ok_or_else(|| "Firecrawl reported success with no content.".to_string())?;
         return scraped_page(data).map_err(|error| format!("{error} Source: {url}"));
     }
 }
 
 fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
-    if let Some(status) = data
-        .metadata
-        .as_ref()
-        .and_then(|m| m.status_code)
-        .filter(|s| *s >= 400)
-    {
+    if let Some(status) = data.metadata.as_ref().and_then(|m| m.status_code).filter(|s| *s >= 400) {
         return Err(match status {
             404 | 410 => format!("The source link is missing or no longer available (HTTP {status}). Check the citation's DOI or replace its URL; retrying the same link may not help."),
             401 | 403 => format!("The source denied access (HTTP {status}). It may require sign-in or block automated access."),
@@ -143,15 +130,9 @@ fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
     }
     Ok(ScrapedPage {
         markdown,
-        title: data
-            .metadata
-            .and_then(|metadata| metadata.title)
-            .and_then(|value| {
-                value
-                    .as_str()
-                    .or_else(|| value.as_array()?.first()?.as_str())
-                    .map(str::to_string)
-            }),
+        title: data.metadata.and_then(|metadata| metadata.title).and_then(|value| {
+            value.as_str().or_else(|| value.as_array()?.first()?.as_str()).map(str::to_string)
+        }),
         html: data.html.unwrap_or_default(),
     })
 }
@@ -169,10 +150,7 @@ mod tests {
             let error = scraped_page(data).err().unwrap();
             assert!(error.contains(&format!("HTTP {status}")));
             assert_eq!(error.contains("sign-in"), status == 403);
-            assert_eq!(
-                error.contains("missing or no longer available"),
-                status != 403
-            );
+            assert_eq!(error.contains("missing or no longer available"), status != 403);
         }
     }
 

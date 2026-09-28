@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { evaluateTrace, parseTrace } from "./agent-quality-eval.mjs";
 
 const base = (records: object[]) => ({ schemaVersion: 1, records });
+const ids = { threadId: "t", turnId: "u" };
+const rules = (records: object[]) =>
+  evaluateTrace(base(records)).violations.map((item: { rule: string }) => item.rule);
 describe("agent quality eval", () => {
   it("accepts fetched evidence, brokered bibliography and associated compile", () => {
-    const ids = { threadId: "t", turnId: "u" };
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["main.tex", "refs.bib"] },
@@ -15,7 +17,6 @@ describe("agent quality eval", () => {
     ])).pass).toBe(true);
   });
   it("finds every research policy violation while ignoring sensitive content fields", () => {
-    const ids = { threadId: "t", turnId: "u" };
     const result = evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["main.tex", "references.bib"], content: "private manuscript text" },
       { type: "checkpoint", ...ids, status: "success", checkpointRef: "bib", files: [{ path: "references.bib" }] },
@@ -42,7 +43,6 @@ describe("agent quality eval", () => {
     expect(() => parseTrace("not json")).toThrow(/malformed/);
   });
   it("requires checkpoint scope and rejects traversal in either path set", () => {
-    const ids = { threadId: "t", turnId: "u" };
     for (const records of [
       [{ type: "checkpoint", ...ids, status: "success", files: [{ path: "main.tex" }] }],
       [{ type: "turn.context", ...ids, allowedPaths: ["main.tex/../../private"] },
@@ -58,12 +58,10 @@ describe("agent quality eval", () => {
       [{ type: "turn.context", ...ids, allowedPaths: ["main.tex"] },
         { type: "checkpoint", ...ids, status: "success", files: [{ path: 42 }] }],
     ]) {
-      expect(evaluateTrace(base(records)).violations.map((item: { rule: string }) => item.rule))
-        .toContain("allowed-paths");
+      expect(rules(records)).toContain("allowed-paths");
     }
   });
   it("does not let fetching one source justify citing another", () => {
-    const ids = { threadId: "t", turnId: "u" };
     const paperA = "a".repeat(64);
     const paperB = "b".repeat(64);
     const result = evaluateTrace(base([
@@ -76,7 +74,6 @@ describe("agent quality eval", () => {
     ]);
   });
   it("accepts a provider file read only when its cached paper identifier matches", () => {
-    const ids = { threadId: "t", turnId: "u" };
     const evidenceId = "a".repeat(64);
     expect(evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
@@ -85,46 +82,30 @@ describe("agent quality eval", () => {
     ])).pass).toBe(true);
   });
   it("rejects untrusted or malformed evidence claims", () => {
-    const ids = { threadId: "t", turnId: "u" };
     const evidenceId = "a".repeat(64);
-    const untrustedRead = evaluateTrace(base([
-      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceIds: [evidenceId] } },
-      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
-    ]));
-    expect(untrustedRead.violations.map((item: { rule: string }) => item.rule))
-      .toContain("metadata-not-evidence");
-
-    const selfAttestingRead = evaluateTrace(base([
-      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
-      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
-    ]));
-    expect(selfAttestingRead.violations.map((item: { rule: string }) => item.rule))
-      .toContain("metadata-not-evidence");
-
-    const selfAttestingCitation = evaluateTrace(base([
-      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceAccess: "fulltext", evidenceIds: [evidenceId] } },
-    ]));
-    expect(selfAttestingCitation.violations.map((item: { rule: string }) => item.rule))
-      .toContain("metadata-not-evidence");
-
-    const malformed = evaluateTrace(base([
+    const context = { type: "turn.context", ...ids, allowedPaths: ["references.bib"] };
+    const cite = { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } };
+    const tool = (name: string, claim: object = {}) =>
+      ({ type: "tool", ...ids, tool: { name, status: "success", ...claim, evidenceIds: [evidenceId] } });
+    // An untrusted read, and a read or citation that vouches for itself.
+    for (const records of [
+      [context, tool("Read"), cite],
+      [context, tool("Read", { evidenceAccess: "fulltext" }), cite],
+      [context, tool("cite", { evidenceAccess: "fulltext" })],
+    ]) {
+      expect(rules(records)).toContain("metadata-not-evidence");
+    }
+    expect(rules([
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId, "invalid"] } },
-    ]));
-    expect(malformed.violations.map((item: { rule: string }) => item.rule)).toContain("schema");
+    ])).toContain("schema");
   });
   it("rejects correlation identifiers that could collide across turns", () => {
-    const result = evaluateTrace(base([
+    expect(rules([
       { type: "turn.started", threadId: "a", turnId: "b\0c" },
       { type: "turn.started", threadId: "a\0b", turnId: "c" },
-    ]));
-    expect(result.violations.map((item: { rule: string }) => item.rule))
-      .toEqual(["schema", "schema"]);
+    ])).toEqual(["schema", "schema"]);
   });
   it("requires a valid checkpoint reference on both sides of compile correlation", () => {
-    const ids = { threadId: "t", turnId: "u" };
     for (const records of [
       [
         { type: "checkpoint", ...ids, status: "success", files: [{ path: "main.tex" }] },
@@ -139,18 +120,15 @@ describe("agent quality eval", () => {
         { type: "compile", ...ids, checkpointRef: "other", success: true },
       ],
     ]) {
-      expect(evaluateTrace(base(records)).violations.map((item: { rule: string }) => item.rule))
-        .toContain("compile-after-tex");
+      expect(rules(records)).toContain("compile-after-tex");
     }
   });
   it("treats a stop request as terminal and correlates recovery by checkpoint count", () => {
-    const ids = { threadId: "t", turnId: "u" };
-    const result = evaluateTrace(base([
+    expect(rules([
       { type: "session", ...ids, action: "recovery", checkpointTurnCount: 3 },
       { type: "session", ...ids, action: "recovered", checkpointTurnCount: 3 },
       { type: "stop", ...ids, status: "requested" },
       { type: "tool", ...ids, tool: { name: "read_paper", status: "success" } },
-    ]));
-    expect(result.violations.map((item: { rule: string }) => item.rule)).toEqual(["stop-terminal"]);
+    ])).toEqual(["stop-terminal"]);
   });
 });

@@ -27,16 +27,14 @@
  *   --revision:  resolve this ref in the upstream clone instead of the commit
  *                already recorded in the lock. Required when moving the pin.
  */
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { capture, projectRoot, readJson, sha256, writeJson } from "./lib/util.mjs";
 
 const UPSTREAM = path.join(homedir(), ".cache/research-writer/open-knowledge");
-const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const DEST = path.join(REPO, "src/open-knowledge-app");
-const LOCK = path.join(REPO, "open-knowledge-app.lock.json");
+const DEST = path.join(projectRoot, "src/open-knowledge-app");
+const LOCK = path.join(projectRoot, "open-knowledge-app.lock.json");
 const SOURCE_ROOT = "packages/app/src";
 
 /** Files copied verbatim (modulo import rewrites) from packages/app/src/. */
@@ -235,10 +233,8 @@ const MANIFEST = [
 const ASSET_DIRS = ["editor/slash-command/preview-assets"];
 
 const REWRITES = [
-  [/from '@\//g, "from '@ok-app/"],
-  [/from "@\//g, 'from "@ok-app/'],
-  [/from '@inkeep\/open-knowledge-core'/g, "from '@ok-core'"],
-  [/from "@inkeep\/open-knowledge-core"/g, 'from "@ok-core"'],
+  [/from (['"])@\//g, "from $1@ok-app/"],
+  [/from (['"])@inkeep\/open-knowledge-core\1/g, "from $1@ok-core$1"],
   [/from '@lingui\/core\/macro'/g, "from '@ok-app/shims/lingui-core-macro'"],
   [/from '@lingui\/react\/macro'/g, "from '@ok-app/shims/lingui-react-macro'"],
   [/from '@lingui\/core'/g, "from '@ok-app/shims/lingui-core'"],
@@ -293,12 +289,10 @@ ${hostListbox}
   // touching the host app's own Radix popups, which use identical
   // data-slot names. Upstream renders these into document.body, outside
   // the .tiptap-editor scope.
-  [/data-slot="dropdown-menu-content"/g, 'data-slot="dropdown-menu-content" data-ok-vendor=""'],
-  [/data-slot="dropdown-menu-sub-content"/g, 'data-slot="dropdown-menu-sub-content" data-ok-vendor=""'],
-  [/data-slot="tooltip-content"/g, 'data-slot="tooltip-content" data-ok-vendor=""'],
-  [/data-slot="popover-content"/g, 'data-slot="popover-content" data-ok-vendor=""'],
-  [/data-slot="dialog-content"/g, 'data-slot="dialog-content" data-ok-vendor=""'],
-  [/data-slot="dialog-overlay"/g, 'data-slot="dialog-overlay" data-ok-vendor=""'],
+  [
+    /data-slot="(dropdown-menu-content|dropdown-menu-sub-content|tooltip-content|popover-content|dialog-content|dialog-overlay)"/g,
+    'data-slot="$1" data-ok-vendor=""',
+  ],
   // Upstream bug fix: cmdk@1.1.x always renders data-disabled="true"/"false"
   // (never omits the attribute), but Tailwind's bare `data-disabled:` variant
   // is a PRESENCE match — so every CommandItem gets pointer-events:none and
@@ -411,10 +405,6 @@ ${hostListbox}
     /e\.preventDefault\(\);\n(\s+)const p = typeof getPos === 'function' \? getPos\(\) : undefined;/g,
     "e.preventDefault();\n$1if (editor.isDestroyed) return;\n$1const p = typeof getPos === 'function' ? getPos() : undefined;",
   ],
-  // pdfjs-dist v6 (host) removed PDFDocumentProxy.destroy(); the
-  // supported teardown is loadingTask.destroy() (upstream pins v5).
-  [/await doc\.destroy\(\);/g, "await doc.loadingTask.destroy();"],
-  [/void activeDoc\.destroy\(\);/g, "void activeDoc.loadingTask.destroy();"],
   // Mirror reads other documents through a Hocuspocus/Yjs provider pool
   // (use-mirror-source.ts) — collab boundary. Route componentMap to a local
   // placeholder that renders the descriptor as unsupported in this host.
@@ -524,30 +514,6 @@ ${hostListbox}
     /const MERMAID_PAN_STEP = 48;/g,
     "const MERMAID_PAN_STEP = 48;\nconst MERMAID_PAN_ANIMATE_MS = 200;\nconst MERMAID_PAN_EASING = 'ease-out';",
   ],
-  [
-    /  const \{ t \} = useLingui\(\);\n  const labels = \{\n    zoomIn: t`Zoom in`,/g,
-    "  const { t } = useLingui();\n  const reducedMotion = useReducedMotion();\n  const labels = {\n    zoomIn: t`Zoom in`,",
-  ],
-  [
-    /  const panBy = \(x: number, y: number\) => \{\n    panzoomRef\.current\?\.pan\(x, y, \{ relative: true \}\);\n  \};/g,
-    "  // Panzoom translates the SVG element itself, so +y moves the diagram down\n  // and the viewport up — an Up arrow needs to pass +MERMAID_PAN_STEP.\n  const panBy = (x: number, y: number) => {\n    panzoomRef.current?.pan(x, y, {\n      animate: !reducedMotion,\n      duration: MERMAID_PAN_ANIMATE_MS,\n      easing: MERMAID_PAN_EASING,\n      relative: true,\n    });\n  };",
-  ],
-  [
-    /title=\{labels\.panUp\}\n        aria-label=\{labels\.panUp\}\n        onClick=\{\(\) => panBy\(0, -MERMAID_PAN_STEP\)\}/g,
-    "title={labels.panUp}\n        aria-label={labels.panUp}\n        onClick={() => panBy(0, MERMAID_PAN_STEP)}",
-  ],
-  [
-    /title=\{labels\.panLeft\}\n        aria-label=\{labels\.panLeft\}\n        onClick=\{\(\) => panBy\(-MERMAID_PAN_STEP, 0\)\}/g,
-    "title={labels.panLeft}\n        aria-label={labels.panLeft}\n        onClick={() => panBy(MERMAID_PAN_STEP, 0)}",
-  ],
-  [
-    /title=\{labels\.panRight\}\n        aria-label=\{labels\.panRight\}\n        onClick=\{\(\) => panBy\(MERMAID_PAN_STEP, 0\)\}/g,
-    "title={labels.panRight}\n        aria-label={labels.panRight}\n        onClick={() => panBy(-MERMAID_PAN_STEP, 0)}",
-  ],
-  [
-    /title=\{labels\.panDown\}\n        aria-label=\{labels\.panDown\}\n        onClick=\{\(\) => panBy\(0, MERMAID_PAN_STEP\)\}/g,
-    "title={labels.panDown}\n        aria-label={labels.panDown}\n        onClick={() => panBy(0, -MERMAID_PAN_STEP)}",
-  ],
   // Mermaid stays a normal code block. Add it to the existing HTML-style
   // language picker + eye-toggle preview path and render MermaidView in the
   // preview surface instead of an iframe.
@@ -588,17 +554,8 @@ function rewrite(content) {
   return out;
 }
 
-function sha256(content) {
-  return createHash("sha256").update(content).digest("hex").slice(0, 16);
-}
-
-function git(args, options = {}) {
-  return execFileSync("git", args, {
-    cwd: UPSTREAM,
-    stdio: ["ignore", "pipe", "pipe"],
-    ...options,
-  });
-}
+const shortHash = (content) => sha256(content).slice(0, 16);
+const git = (args, encoding = "utf8") => capture("git", args, { cwd: UPSTREAM, encoding });
 
 const check = process.argv.includes("--check");
 const lockOnly = process.argv.includes("--lock-only");
@@ -608,21 +565,19 @@ if (!existsSync(path.join(UPSTREAM, ".git"))) {
   throw new Error(`Open Knowledge upstream clone is missing at ${UPSTREAM}.`);
 }
 
-const previousLock = existsSync(LOCK) ? JSON.parse(readFileSync(LOCK, "utf8")) : null;
+const previousLock = existsSync(LOCK) ? readJson(LOCK) : null;
 const requestedRevision = revisionArgument?.slice("--revision=".length) || previousLock?.commit;
 if (!requestedRevision) {
   throw new Error("No upstream revision is locked. Pass --revision=<ref> with --lock-only.");
 }
-const upstreamCommit = git(["rev-parse", `${requestedRevision}^{commit}`], {
-  encoding: "utf8",
-}).trim();
+const upstreamCommit = git(["rev-parse", `${requestedRevision}^{commit}`]).trim();
 if (!lockOnly && previousLock?.commit && upstreamCommit !== previousLock.commit) {
   throw new Error("Move the upstream pin with --lock-only --revision=<ref> after the three-way merge.");
 }
 
 function readUpstreamFile(rel, encoding = null) {
   try {
-    return git(["show", `${upstreamCommit}:${SOURCE_ROOT}/${rel}`], { encoding });
+    return git(["show", `${upstreamCommit}:${SOURCE_ROOT}/${rel}`], encoding);
   } catch {
     throw new Error(`Missing upstream file at ${upstreamCommit}: ${rel}`);
   }
@@ -630,9 +585,7 @@ function readUpstreamFile(rel, encoding = null) {
 
 function upstreamDirectoryFiles(rel) {
   const prefix = `${SOURCE_ROOT}/${rel}/`;
-  return git(["ls-tree", "-r", "--name-only", upstreamCommit, "--", prefix], {
-    encoding: "utf8",
-  })
+  return git(["ls-tree", "-r", "--name-only", upstreamCommit, "--", prefix])
     .split("\n")
     .filter(Boolean)
     .map((file) => file.slice(SOURCE_ROOT.length + 1));
@@ -644,9 +597,8 @@ const localOverrides = lockOnly ? {} : { ...(previousLock?.localOverrides ?? {})
 
 function processFile(rel, content) {
   const destPath = path.join(DEST, rel);
-  const baselineHash = sha256(content);
-  const current = existsSync(destPath) ? readFileSync(destPath) : null;
-  const currentHash = current === null ? null : sha256(current);
+  const baselineHash = shortHash(content);
+  const currentHash = existsSync(destPath) ? shortHash(readFileSync(destPath)) : null;
   lockFiles[rel] = baselineHash;
 
   if (lockOnly) {
@@ -697,22 +649,15 @@ for (const rel of ASSET_DIRS) {
 }
 
 if (!check && mismatches === 0) {
-  writeFileSync(
-    LOCK,
-    `${JSON.stringify(
-      {
-        upstream: "https://github.com/inkeep/open-knowledge",
-        commit: upstreamCommit,
-        sourceRoot: SOURCE_ROOT,
-        vendoredAt: new Date().toISOString(),
-        note: "Regenerate unmodified files with node scripts/vendor-open-knowledge.mjs. Paths in localOverrides are protected three-way-merged Lattice adaptations; refresh them with --lock-only after review. Local seams live outside the manifest.",
-        files: lockFiles,
-        localOverrides,
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writeJson(LOCK, {
+    upstream: "https://github.com/inkeep/open-knowledge",
+    commit: upstreamCommit,
+    sourceRoot: SOURCE_ROOT,
+    vendoredAt: new Date().toISOString(),
+    note: "Regenerate unmodified files with node scripts/vendor-open-knowledge.mjs. Paths in localOverrides are protected three-way-merged Lattice adaptations; refresh them with --lock-only after review. Local seams live outside the manifest.",
+    files: lockFiles,
+    localOverrides,
+  });
   console.log(
     lockOnly
       ? `Locked ${Object.keys(lockFiles).length} files at ${upstreamCommit} with ${Object.keys(localOverrides).length} Lattice overrides (no files written)`

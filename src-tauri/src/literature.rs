@@ -3,10 +3,11 @@
 // arXiv id, then DOI/source identity/title, with alphaXiv winning,
 // so a paper both indexes know appears once, on top, as an alphaXiv row.
 
-use crate::alphaxiv::{self, AlphaxivWork};
+use crate::alphaxiv;
 use crate::models::{LiteratureHit, LiteraturePage, OpenAlexWork};
 use crate::openalex;
 use crate::papers::arxiv_base_id;
+use std::collections::HashSet;
 
 /// One page of merged results. `page` is 0-indexed. Page 0 carries alphaXiv's
 /// whole full-text pool (it can't paginate) plus OpenAlex's first page; later
@@ -15,20 +16,12 @@ use crate::papers::arxiv_base_id;
 pub fn search(query: &str, precise: bool, page: u32) -> Result<LiteraturePage, String> {
     let open = openalex::search_works(query, precise, page + 1)?;
     let has_more = open.len() as u32 >= openalex::PER_PAGE;
-    let alpha = if page == 0 {
-        alphaxiv::search_works(query)
-    } else {
-        Ok(Vec::new())
-    };
-    Ok(LiteraturePage {
-        hits: merge_available(alpha, open),
-        has_more,
-    })
+    let alpha = if page == 0 { alphaxiv::search_works(query) } else { Ok(Vec::new()) };
+    Ok(LiteraturePage { hits: merge_available(alpha, open), has_more })
 }
 
 fn merge_available(
-    alpha: Result<Vec<AlphaxivWork>, String>,
-    open: Vec<OpenAlexWork>,
+    alpha: Result<Vec<LiteratureHit>, String>, open: Vec<OpenAlexWork>,
 ) -> Vec<LiteratureHit> {
     let alpha = alpha.unwrap_or_else(|error| {
         // alphaXiv is an enrichment source. OpenAlex has already completed at
@@ -40,68 +33,36 @@ fn merge_available(
     merge(alpha, open)
 }
 
-fn merge(alpha: Vec<AlphaxivWork>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit> {
+fn merge(alpha: Vec<LiteratureHit>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit> {
+    let arxiv_identity = |id: &str| format!("arxiv:{}", arxiv_base_id(id).to_lowercase());
+    let title_identity = |title: &str| format!("title:{}", title.trim().to_lowercase());
     let mut hits: Vec<LiteratureHit> = Vec::with_capacity(alpha.len() + open.len());
-    let mut seen: Vec<String> = Vec::new();
+    let mut seen = HashSet::new();
 
-    for work in alpha {
-        if let Some(id) = arxiv_shaped(&work.paper_id) {
-            seen.push(format!("arxiv:{}", arxiv_base_id(id).to_lowercase()));
-        } else {
-            seen.push(format!("title:{}", work.title.trim().to_lowercase()));
-        }
-        hits.push(from_alphaxiv(work));
+    for hit in alpha {
+        seen.insert(match hit.arxiv_id.as_deref() {
+            Some(id) => arxiv_identity(id),
+            None => title_identity(&hit.title),
+        });
+        hits.push(hit);
     }
 
     for work in open {
         let identity = work
             .arxiv_id
             .as_deref()
-            .map(|id| format!("arxiv:{}", arxiv_base_id(id).to_lowercase()))
-            .or_else(|| {
-                work.doi
-                    .as_deref()
-                    .map(|doi| format!("doi:{}", doi.trim().to_lowercase()))
-            })
+            .map(arxiv_identity)
+            .or_else(|| work.doi.as_deref().map(|doi| format!("doi:{}", doi.trim().to_lowercase())))
             .unwrap_or_else(|| format!("openalex:{}", work.id.trim().to_lowercase()));
-        let title_identity = format!("title:{}", work.title.trim().to_lowercase());
-        if seen.contains(&identity) || seen.contains(&title_identity) {
+        let title = title_identity(&work.title);
+        if seen.contains(&identity) || seen.contains(&title) {
             continue;
         }
-        seen.push(identity);
-        seen.push(title_identity);
+        seen.extend([identity, title]);
         hits.push(from_openalex(work));
     }
 
     hits
-}
-
-/// alphaXiv paperIds are almost always arXiv ids, but the corpus has occasional
-/// non-arXiv slugs. Only an arXiv-shaped id is fetchable / dedupe-comparable.
-fn arxiv_shaped(id: &str) -> Option<&str> {
-    let bytes = id.as_bytes();
-    let is_new = id.len() >= 9
-        && bytes.get(4) == Some(&b'.')
-        && bytes[..4].iter().all(u8::is_ascii_digit)
-        && bytes[5..].iter().take(4).all(u8::is_ascii_digit);
-    let is_old = id.contains('/') && id.chars().any(|c| c.is_ascii_digit());
-    (is_new || is_old).then_some(id)
-}
-
-fn from_alphaxiv(work: AlphaxivWork) -> LiteratureHit {
-    let arxiv_id = arxiv_shaped(&work.paper_id).map(ToString::to_string);
-    LiteratureHit {
-        source: "alphaxiv".to_string(),
-        arxiv_id,
-        title: work.title,
-        year: work.year,
-        authors: Vec::new(),
-        cited_by_count: None,
-        votes: work.votes,
-        snippet: work.snippet,
-        doi: None,
-        landing_url: None,
-    }
 }
 
 fn from_openalex(work: OpenAlexWork) -> LiteratureHit {
@@ -123,13 +84,19 @@ fn from_openalex(work: OpenAlexWork) -> LiteratureHit {
 mod tests {
     use super::*;
 
-    fn alpha(id: &str, title: &str) -> AlphaxivWork {
-        AlphaxivWork {
-            paper_id: id.to_string(),
+    /// An alphaXiv row as `alphaxiv::search_works` maps it.
+    fn alpha(arxiv_id: &str, title: &str) -> LiteratureHit {
+        LiteratureHit {
+            source: "alphaxiv".to_string(),
+            arxiv_id: Some(arxiv_id.to_string()),
             title: title.to_string(),
             year: None,
+            authors: Vec::new(),
+            cited_by_count: None,
             votes: None,
             snippet: None,
+            doi: None,
+            landing_url: None,
         }
     }
 
@@ -146,44 +113,30 @@ mod tests {
         }
     }
 
+    /// alphaXiv rows lead, and an OpenAlex row naming the same work by
+    /// versionless arXiv id is dropped.
     #[test]
-    fn alphaxiv_leads_and_non_arxiv_openalex_follows() {
-        let hits = merge(
-            vec![alpha("2401.00001", "Alpha One")],
-            vec![
-                open(None, "No arXiv here"),
-                open(Some("2402.00002"), "Open Two"),
-            ],
-        );
-        let sources: Vec<_> = hits
-            .iter()
-            .map(|h| (h.source.as_str(), h.title.as_str()))
-            .collect();
-        assert_eq!(
-            sources,
-            vec![
-                ("alphaxiv", "Alpha One"),
-                ("openalex", "No arXiv here"),
-                ("openalex", "Open Two")
-            ]
-        );
-    }
-
-    #[test]
-    fn dedupes_by_base_id_with_alphaxiv_winning() {
-        let hits = merge(
-            vec![alpha("2401.00001v2", "Alpha One")],
-            vec![open(Some("2401.00001"), "Same Paper From OpenAlex")],
-        );
-        assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].source, "alphaxiv");
-    }
-
-    #[test]
-    fn keeps_a_non_arxiv_alphaxiv_slug_but_without_a_fetchable_id() {
-        let hits = merge(vec![alpha("some-slug-id", "Slug Paper")], vec![]);
-        assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].arxiv_id, None);
+    fn merges_alphaxiv_first_and_dedupes_by_arxiv_identity() {
+        for (alpha_hits, open_hits, expected) in [
+            (
+                vec![alpha("2401.00001", "Alpha One")],
+                vec![open(None, "No arXiv here"), open(Some("2402.00002"), "Open Two")],
+                vec![
+                    ("alphaxiv", "Alpha One"),
+                    ("openalex", "No arXiv here"),
+                    ("openalex", "Open Two"),
+                ],
+            ),
+            (
+                vec![alpha("2401.00001v2", "Alpha One")],
+                vec![open(Some("2401.00001"), "Same Paper From OpenAlex")],
+                vec![("alphaxiv", "Alpha One")],
+            ),
+        ] {
+            let hits = merge(alpha_hits, open_hits);
+            let got: Vec<_> = hits.iter().map(|h| (h.source.as_str(), h.title.as_str())).collect();
+            assert_eq!(got, expected);
+        }
     }
 
     #[test]

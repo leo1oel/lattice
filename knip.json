@@ -4,6 +4,8 @@
   // `<script type="module">` in index.html. `tools/icon-lab/main.tsx` is listed
   // because it is the entry of the dev-only playground shell (icon-lab.html),
   // which is deliberately not a build input, so nothing knip reads points at it.
+  // electron-regression-fixtures.tsx is imported by URL inside the Electron
+  // harness's page, which knip cannot follow.
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
   // launched by Rust or the nested package's test script, not frontend imports.
   "workspaces": {
@@ -11,6 +13,7 @@
       "entry": [
         "tools/icon-lab/main.tsx",
         "scripts/*.mjs",
+        "scripts/electron-regression-fixtures.tsx",
         "lingui.config.ts"
       ],
       "project": ["src/**", "scripts/**", "protocol/**", "tools/**"]
