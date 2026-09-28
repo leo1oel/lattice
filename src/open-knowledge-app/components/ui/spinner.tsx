@@ -1,5 +1,5 @@
 import { Loader2Icon, type LucideIcon, type LucideProps } from 'lucide-react';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { cn } from '@ok-app/lib/utils';
 
 export function Spinner({

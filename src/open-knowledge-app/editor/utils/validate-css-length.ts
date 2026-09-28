@@ -20,6 +20,8 @@
  * Pure — no DOM, no React. Exported for unit testing.
  */
 
+import { t } from '@lingui/core/macro';
+
 export type CssLengthValidationResult =
   | { valid: true }
   | { valid: false; reason: 'empty' | 'malformed-syntax' | 'unknown-unit' };
@@ -62,8 +64,8 @@ export function cssLengthValidationMessage(validation: CssLengthValidationResult
     case 'malformed-syntax':
       // Lists every accepted keyword (not just `auto`) so the inline
       // error matches the validator's actual acceptance set.
-      return 'Enter a number (e.g. 100), a number with a CSS unit (e.g. 100px, 50%, 26rem), or one of: auto, inherit, initial, unset.';
+      return t`Enter a number (e.g. 100), a number with a CSS unit (e.g. 100px, 50%, 26rem), or one of: auto, inherit, initial, unset.`;
     case 'unknown-unit':
-      return 'Unknown CSS unit. Use px, %, rem, em, vh, vw, ch, ex, or fr.';
+      return t`Unknown CSS unit. Use px, %, rem, em, vh, vw, ch, ex, or fr.`;
   }
 }

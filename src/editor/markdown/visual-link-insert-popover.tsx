@@ -1,9 +1,10 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { isAllowedLinkUri } from "../../open-knowledge-core/extensions/link-fidelity";
-import { isPaperCitationHref } from "../../open-knowledge-core/extensions/paper-citation";
+import { isPaperCitationHref, PaperCitation } from "../../open-knowledge-core/extensions/paper-citation";
 import { listen } from "../dom-utils";
 import { VISUAL_LINK_INSERT_EVENT } from "./visual-slash-items";
 
@@ -20,6 +21,7 @@ export function VisualLinkInsertPopover({
   editor: Editor;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLingui();
   const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
   const [url, setUrl] = useState("");
   const [citationTitle, setCitationTitle] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function VisualLinkInsertPopover({
       if ((event as CustomEvent<{ editor?: Editor }>).detail?.editor !== editor) return;
       const currentUrl = String(editor.getAttributes("link").href ?? "");
       setUrl(currentUrl);
-      setCitationTitle(editor.isActive("paperCitation") ? String(editor.getAttributes("paperCitation").label) : null);
+      setCitationTitle(editor.isActive(PaperCitation.name) ? String(editor.getAttributes(PaperCitation.name).label) : null);
       setAnchor(caretAnchor(editor));
       onOpenChange(true);
       if (!currentUrl) {
@@ -80,7 +82,7 @@ export function VisualLinkInsertPopover({
     const chain = editor.chain();
     if (restoreEditorFocus) chain.focus();
     if (citationTitle !== null) {
-      const label = citationTitle || String(editor.getAttributes("paperCitation").label);
+      const label = citationTitle || String(editor.getAttributes(PaperCitation.name).label);
       const node = editor.state.doc.nodeAt(editor.state.selection.from)!;
       const marks = node.marks.filter((mark) => mark.type.name !== "link").map((mark) => mark.toJSON());
       if (href) marks.push({ type: "link", attrs: { ...editor.getAttributes("link"), href } });
@@ -96,7 +98,7 @@ export function VisualLinkInsertPopover({
   const remove = useCallback(() => {
     const chain = editor.chain().focus();
     if (citationTitle !== null) {
-      chain.insertContent({ type: "text", text: citationTitle || editor.getAttributes("paperCitation").label, marks: [] });
+      chain.insertContent({ type: "text", text: citationTitle || editor.getAttributes(PaperCitation.name).label, marks: [] });
     }
     chain.unsetLink().run();
     close();
@@ -131,15 +133,15 @@ export function VisualLinkInsertPopover({
     >
       {citationTitle !== null && (
         <input
-          aria-label="Citation title"
-          placeholder="Citation title"
+          aria-label={t`Citation title`}
+          placeholder={t`Citation title`}
           value={citationTitle}
           onChange={(event) => setCitationTitle(event.target.value)}
         />
       )}
-      <input autoFocus aria-label="Link URL" placeholder="Link URL" value={url} onChange={(event) => setUrl(event.target.value)} />
-      {editor.isActive("link") && <button className="secondary" type="button" onClick={remove}>Remove</button>}
-      <button type="submit">Done</button>
+      <input autoFocus aria-label={t`Link URL`} placeholder={t`Link URL`} value={url} onChange={(event) => setUrl(event.target.value)} />
+      {editor.isActive("link") && <button className="secondary" type="button" onClick={remove}><Trans>Remove</Trans></button>}
+      <button type="submit"><Trans>Done</Trans></button>
     </form>
   );
 }

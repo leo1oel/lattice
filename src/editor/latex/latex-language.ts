@@ -1,3 +1,4 @@
+/* eslint-disable lingui/no-unlocalized-strings -- tokenizer: LaTeX command/environment names and CodeMirror style names, none shown as interface text */
 /**
  * LaTeX language support: the MIT `stex` stream mode from
  * `@codemirror/legacy-modes`, refined so its tokens carry the highlight tags

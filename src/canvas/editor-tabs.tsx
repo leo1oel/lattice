@@ -259,7 +259,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
         contentClassName="editor-tabs-content"
         viewportProps={{
           role: "tablist",
-          "aria-label": "Open files",
+          "aria-label": t`Open files`,
           onWheel: (event) => {
             // A plain mouse wheel (deltaY only) still scrolls the tab strip.
             if (event.deltaX === 0 && event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
@@ -309,7 +309,7 @@ export const EditorTabs = memo(function EditorTabs(props: {
                     >
                       {tab.pinned && <Pin className="editor-tab-pin" size={11} aria-label={t`Pinned`} />}
                       <span>{tabLabel(tab)}</span>
-                      {tab.dirty && <i aria-label="Unsaved changes" />}
+                      {tab.dirty && <i aria-label={t`Unsaved changes`} />}
                     </button>
                   </Tip>
                   {canClose && (

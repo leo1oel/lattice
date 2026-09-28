@@ -139,6 +139,7 @@ import {
   parseYouTubeUrl,
   toDesktopAssetHref,
 } from '@ok-core';
+import { useLingui } from '@lingui/react/macro';
 import Vimeo from '@u-wave/react-vimeo';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import LiteYouTubeEmbed from 'react-lite-youtube-embed';
@@ -238,8 +239,9 @@ interface VimeoPlayerWithElement {
 }
 
 function VimeoEmbed(props: VideoProps & { src: string }) {
+  const { t } = useLingui();
   const playerRef = useRef<VimeoPlayerWithElement | null>(null);
-  const fallbackTitle = 'Vimeo video player';
+  const fallbackTitle = t`Vimeo video player`;
   const effectiveTitle = props.title ?? fallbackTitle;
 
   // React Compiler is enabled (see CLAUDE.md / AGENTS.md) — no useCallback.

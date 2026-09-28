@@ -3,8 +3,8 @@ import {
   findFootnoteDefinitionInsertPos,
   nextFootnoteIdentifier,
 } from '@ok-core';
-import { t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import type { EditorState } from '@tiptap/pm/state';
 import type { ChainedCommands, Editor } from '@tiptap/react';
 import {

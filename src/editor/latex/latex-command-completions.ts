@@ -96,7 +96,9 @@ const COMMANDS: Entry[] = [
 
 const ENVIRONMENTS: Entry[] = [
   { name: "document", detail: msg`The document body` },
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- LaTeX environment name
   { name: "figure*", detail: msg`Full-width floating figure` },
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- LaTeX environment name
   { name: "table*", detail: msg`Full-width floating table` },
   { name: "tabular", detail: msg`Table body` },
   { name: "quotation", detail: msg`Long quotation` },

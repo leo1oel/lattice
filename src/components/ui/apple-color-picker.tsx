@@ -1,3 +1,6 @@
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, Pipette, Plus, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -13,9 +16,14 @@ import { SegmentedControl } from "./segmented-control";
 
 type Rgb = { r: number; g: number; b: number };
 type Hsv = { h: number; s: number; v: number };
-type PickerTab = "Grid" | "Spectrum" | "Sliders";
+type PickerTab = "grid" | "spectrum" | "sliders";
 
-const PICKER_TABS: PickerTab[] = ["Grid", "Spectrum", "Sliders"];
+const PICKER_TABS: PickerTab[] = ["grid", "spectrum", "sliders"];
+const PICKER_TAB_LABELS: Record<PickerTab, MessageDescriptor> = {
+  grid: msg`Grid`,
+  spectrum: msg`Spectrum`,
+  sliders: msg`Slider`,
+};
 const MAX_RECENT_COLORS = 8;
 
 const APPLE_GRID_COLORS = [
@@ -67,20 +75,24 @@ function rgbToHsv({ r, g, b }: Rgb): Hsv {
   return { h: hue, s: max ? (delta / max) * 100 : 0, v: max * 100 };
 }
 
-function colorName(hex: string) {
+const HUE_NAMES: MessageDescriptor[] = [
+  msg`Red`, msg`Orange`, msg`Yellow`, msg`Lime`, msg`Green`, msg`Teal`,
+  msg`Cyan`, msg`Azure`, msg`Blue`, msg`Indigo`, msg`Violet`, msg`Magenta`,
+];
+
+function colorName(hex: string, i18n: I18n) {
   const { h, s, v } = rgbToHsv(hexToRgb(hex));
   if (s < 8) {
-    if (v > 96) return "White";
-    if (v > 78) return "Light Gray";
-    if (v > 42) return "Gray";
-    if (v > 10) return "Dark Gray";
-    return "Black";
+    if (v > 96) return i18n._(msg`White`);
+    if (v > 78) return i18n._(msg`Light Gray`);
+    if (v > 42) return i18n._(msg`Gray`);
+    if (v > 10) return i18n._(msg`Dark Gray`);
+    return i18n._(msg`Black`);
   }
-  const names = ["Red", "Orange", "Yellow", "Lime", "Green", "Teal", "Cyan", "Azure", "Blue", "Indigo", "Violet", "Magenta"];
-  const name = names[Math.round(h / 30) % names.length];
-  if (v < 45) return `Dark ${name}`;
-  if (s < 30) return `Muted ${name}`;
-  if (s < 55 || (v > 94 && s < 75)) return `Soft ${name}`;
+  const name = i18n._(HUE_NAMES[Math.round(h / 30) % HUE_NAMES.length]);
+  if (v < 45) return i18n._(msg`Dark ${name}`);
+  if (s < 30) return i18n._(msg`Muted ${name}`);
+  if (s < 55 || (v > 94 && s < 75)) return i18n._(msg`Soft ${name}`);
   return name;
 }
 
@@ -123,13 +135,14 @@ function ColorGrid(props: {
   selectionId: string;
   reduceMotion: boolean;
 }) {
+  const { t } = useLingui();
   return (
     <div className="highlight-color-grid">
       {APPLE_GRID_COLORS.map((color, index) => (
         <button
           key={`${color}-${index}`}
           type="button"
-          aria-label={`Select ${color}`}
+          aria-label={t`Select ${color}`}
           aria-pressed={props.value === color}
           className="highlight-color-swatch"
           style={{ backgroundColor: color }}
@@ -153,6 +166,7 @@ function ColorGrid(props: {
 }
 
 function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
+  const { t } = useLingui();
   const update = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = clampedNumber((event.clientX - bounds.left) / bounds.width, 0, 1);
@@ -162,7 +176,7 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
   return (
     <div
       role="application"
-      aria-label="Color spectrum"
+      aria-label={t`Color spectrum`}
       className="highlight-spectrum"
       style={{ "--spectrum-value": `${props.hsv.v}%` } as CSSProperties}
       onPointerDown={(event) => {
@@ -185,11 +199,13 @@ function SpectrumPicker(props: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
   );
 }
 
+/* eslint-disable lingui/no-unlocalized-strings -- R/G/B are the channel notation itself, not words */
 const RGB_CHANNELS = [
-  { label: "Red", shortLabel: "R", key: "r", color: "#EF4444" },
-  { label: "Green", shortLabel: "G", key: "g", color: "#22C55E" },
-  { label: "Blue", shortLabel: "B", key: "b", color: "#3B82F6" },
+  { label: msg`Red`, valueLabel: msg`Red value`, shortLabel: "R", key: "r", color: "#EF4444" },
+  { label: msg`Green`, valueLabel: msg`Green value`, shortLabel: "G", key: "g", color: "#22C55E" },
+  { label: msg`Blue`, valueLabel: msg`Blue value`, shortLabel: "B", key: "b", color: "#3B82F6" },
 ] as const;
+/* eslint-enable lingui/no-unlocalized-strings */
 
 function SliderPicker(props: {
   rgb: Rgb;
@@ -197,6 +213,7 @@ function SliderPicker(props: {
   onRgbChange: (rgb: Rgb) => void;
   onHexChange: (hex: string) => void;
 }) {
+  const { i18n, t } = useLingui();
   const [hexDraft, setHexDraft] = useState(() => ({
     source: props.value,
     text: props.value.slice(1),
@@ -217,7 +234,7 @@ function SliderPicker(props: {
                 type="range"
                 min="0"
                 max="255"
-                aria-label={channel.label}
+                aria-label={i18n._(channel.label)}
                 value={value}
                 className="highlight-range-input"
                 onChange={(event) => setChannel(Number(event.target.value))}
@@ -234,7 +251,7 @@ function SliderPicker(props: {
               type="number"
               min="0"
               max="255"
-              aria-label={`${channel.label} value`}
+              aria-label={i18n._(channel.valueLabel)}
               value={value}
               className="highlight-number-input"
               onChange={(event) => setNumber(event.target.value, 255, setChannel)}
@@ -244,12 +261,12 @@ function SliderPicker(props: {
         );
       })}
       <label className="highlight-hex-row">
-        <span>Hex</span>
+        <span><Trans>Hex</Trans></span>
         <span className="highlight-hex-input-wrap">
           <span aria-hidden="true">#</span>
           <input
             value={resolvedHexDraft}
-            aria-label="Hex color"
+            aria-label={t`Hex color`}
             className="highlight-hex-input"
             onChange={(event) => {
               const next = event.target.value;
@@ -269,9 +286,10 @@ function OpacitySlider(props: {
   color: string;
   onChange: (opacity: number) => void;
 }) {
+  const { t } = useLingui();
   return (
     <section className="highlight-opacity">
-      <div className="highlight-section-label">Opacity</div>
+      <div className="highlight-section-label"><Trans>Opacity</Trans></div>
       <div className="highlight-opacity-row">
         <div
           className="highlight-opacity-track"
@@ -287,7 +305,7 @@ function OpacitySlider(props: {
             type="range"
             min="0"
             max="100"
-            aria-label="Opacity"
+            aria-label={t`Opacity`}
             value={props.value}
             className="highlight-range-input"
             onChange={(event) => props.onChange(Number(event.target.value))}
@@ -308,7 +326,7 @@ function OpacitySlider(props: {
             type="number"
             min="0"
             max="100"
-            aria-label="Opacity value"
+            aria-label={t`Opacity value`}
             value={props.value}
             className="highlight-number-input"
             onChange={(event) => setNumber(event.target.value, 100, props.onChange)}
@@ -326,16 +344,17 @@ function RecentColors(props: {
   onSelect: (color: string) => void;
   onAdd: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <section className="highlight-recents">
-      <div className="highlight-section-label">Recent</div>
+      <div className="highlight-section-label"><Trans>Recent</Trans></div>
       <div className="highlight-recent-grid">
         {props.colors.map((color, index) => (
-          <button key={`${color}-${index}`} type="button" aria-label={`Recent color ${color}`} aria-pressed={props.current === color} className="highlight-recent-swatch" style={{ backgroundColor: color }} onClick={() => props.onSelect(color)}>
+          <button key={`${color}-${index}`} type="button" aria-label={t`Recent color ${color}`} aria-pressed={props.current === color} className="highlight-recent-swatch" style={{ backgroundColor: color }} onClick={() => props.onSelect(color)}>
             {props.current === color && <Check aria-hidden="true" size={10} strokeWidth={2.2} />}
           </button>
         ))}
-        <button type="button" aria-label="Add current color" className="highlight-recent-add" onClick={props.onAdd}>
+        <button type="button" aria-label={t`Add current color`} className="highlight-recent-add" onClick={props.onAdd}>
           <Plus size={11} />
         </button>
       </div>
@@ -349,14 +368,15 @@ export function AppleColorPicker(props: {
   onConfirm: (color: string, opacity: number) => void;
   onCancel: () => void;
 }) {
+  const { i18n, t } = useLingui();
   const initialValue = normalizeHex(props.value) ?? "#007AFF";
   const [draftValue, setDraftValue] = useState(initialValue);
   const [draftOpacity, setDraftOpacity] = useState(props.opacity ?? 100);
-  const [activeTab, setActiveTab] = useState<PickerTab>("Grid");
+  const [activeTab, setActiveTab] = useState<PickerTab>("grid");
   const [tabDirection, setTabDirection] = useState(1);
   const [recentColors, setRecentColors] = useState(DEFAULT_RECENT_COLORS);
   const nativeColorInputRef = useRef<HTMLInputElement>(null);
-  const gridSelectionId = `${useId()}-grid-selection`;
+  const gridSelectionId = useId() + "grid-selection";
   const reduceMotion = useReducedMotion();
   const rgb = hexToRgb(draftValue);
   const hsv = rgbToHsv(rgb);
@@ -392,7 +412,7 @@ export function AppleColorPicker(props: {
       <input
         ref={nativeColorInputRef}
         type="color"
-        aria-label="Native color picker"
+        aria-label={t`Native color picker`}
         value={draftValue}
         className="sr-only"
         tabIndex={-1}
@@ -404,18 +424,18 @@ export function AppleColorPicker(props: {
             <span style={{ backgroundColor: draftValue, opacity: draftOpacity / 100 }} />
           </span>
           <span>
-            <strong>{colorName(draftValue)}</strong>
+            <strong>{colorName(draftValue, i18n)}</strong>
             <small>{draftValue} · {draftOpacity}%</small>
           </span>
         </div>
         <div className="highlight-picker-actions">
-          <button type="button" aria-label="Pick color from screen" className="ui-icon-button" data-size="compact" onClick={() => void pickFromScreen()}>
+          <button type="button" aria-label={t`Pick color from screen`} className="ui-icon-button" data-size="compact" onClick={() => void pickFromScreen()}>
             <Pipette size={14} strokeWidth={1.6} />
           </button>
-          <button type="button" aria-label="Apply highlight color" className="ui-icon-button highlight-picker-confirm" data-size="compact" onClick={() => props.onConfirm(draftValue, draftOpacity)}>
+          <button type="button" aria-label={t`Apply highlight color`} className="ui-icon-button highlight-picker-confirm" data-size="compact" onClick={() => props.onConfirm(draftValue, draftOpacity)}>
             <Check size={14} strokeWidth={1.8} />
           </button>
-          <button type="button" aria-label="Cancel color selection" className="ui-icon-button" data-size="compact" onClick={props.onCancel}>
+          <button type="button" aria-label={t`Cancel color selection`} className="ui-icon-button" data-size="compact" onClick={props.onCancel}>
             <X size={14} strokeWidth={1.6} />
           </button>
         </div>
@@ -427,15 +447,16 @@ export function AppleColorPicker(props: {
             setTabDirection(PICKER_TABS.indexOf(tab) > PICKER_TABS.indexOf(activeTab) ? 1 : -1);
             setActiveTab(tab);
           }}
-          ariaLabel="Color selection mode"
+          ariaLabel={t`Color selection mode`}
           className="highlight-picker-tabs"
           tabClassName="highlight-picker-tab"
           items={PICKER_TABS.map((tab) => ({
             value: tab,
-            label: tab === "Sliders" ? "Slider" : tab,
+            label: i18n._(PICKER_TAB_LABELS[tab]),
           }))}
         />
         <div className="highlight-picker-main">
+          { }
           <AnimatePresence initial={false} mode="popLayout">
             <motion.div
               key={activeTab}
@@ -445,7 +466,7 @@ export function AppleColorPicker(props: {
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: tabDirection * -8 }}
               transition={reduceMotion ? { duration: 0.1 } : { type: "spring", duration: 0.3, bounce: 0 }}
             >
-              {activeTab === "Grid" && (
+              {activeTab === "grid" && (
                 <ColorGrid
                   value={draftValue}
                   onChange={setColor}
@@ -453,8 +474,8 @@ export function AppleColorPicker(props: {
                   reduceMotion={Boolean(reduceMotion)}
                 />
               )}
-              {activeTab === "Spectrum" && <SpectrumPicker hsv={hsv} onChange={(next) => setColor(rgbToHex(hsvToRgb(next)))} />}
-              {activeTab === "Sliders" && (
+              {activeTab === "spectrum" && <SpectrumPicker hsv={hsv} onChange={(next) => setColor(rgbToHex(hsvToRgb(next)))} />}
+              {activeTab === "sliders" && (
                 <SliderPicker
                   rgb={rgb}
                   value={draftValue}

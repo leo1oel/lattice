@@ -29,8 +29,8 @@ export function ClipboardTextLive({ size = 16, className }: { size?: number; cla
     /* Per-instance ids: url(#…) resolves document-wide, so with a hard-coded id
        every copy would animate the first copy's mask. */
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-    const win = `lgLogWindow-${uid}`;
-    const msk = `lgLogMask-${uid}`;
+    const win = `lg-log-window-${uid}`;
+    const msk = `lg-log-mask-${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
             <clipPath id={win}>

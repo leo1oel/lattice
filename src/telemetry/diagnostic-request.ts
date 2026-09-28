@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 import { addAppLog } from "./app-log-store";
 
 export type DiagnosticOperationContext = { operationId: string; requestId?: string };
@@ -8,8 +10,8 @@ function logCompletion(operation: string, context: DiagnosticContext, started: n
   try {
     addAppLog({
       level: outcome === "success" ? "success" : "error",
-      source: "Diagnostics",
-      title: `${operation} request ${outcome}`,
+      source: i18n._(msg`Diagnostics`),
+      title: outcome === "success" ? i18n._(msg`${operation} request success`) : i18n._(msg`${operation} request error`),
       detail: "",
       context: {
         operation_id: context.operation_id,
@@ -17,6 +19,7 @@ function logCompletion(operation: string, context: DiagnosticContext, started: n
         phase: "completed",
         outcome,
         duration_ms: Math.round(performance.now() - started),
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- error_type is a JavaScript error class name
         error_type: error instanceof Error ? error.name : error === undefined ? undefined : "Error",
         request_id: context.request_id,
         parent_request_id: parentRequestId,

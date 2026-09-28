@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ProjectSnapshot } from "../app-types";
@@ -84,14 +85,15 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   // One-way by design. A hidden Synara surface may still own a background turn
   // or PTY, so the first request starts the service for the rest of this app
   // process; process-idle shutdown needs an explicit lease/task protocol.
+  const { t } = useLingui();
   const [runtimeRequested, setRuntimeRequested] = useState(false);
   const { runtime, retry } = useSynaraRuntime(runtimeRequested);
   const origin = runtime.state === "ready" ? runtime.origin : null;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const sourceControlFrameRef = useRef<HTMLIFrameElement>(null);
-  useSynaraNotificationBridge({ frameRef, origin, source: "Synara agent" });
+  useSynaraNotificationBridge({ frameRef, origin, source: t`Synara agent` });
   useSynaraConfirmationBridge({ frameRef, origin });
-  useSynaraNotificationBridge({ frameRef: sourceControlFrameRef, origin, source: "Synara source control" });
+  useSynaraNotificationBridge({ frameRef: sourceControlFrameRef, origin, source: t`Synara source control` });
   useSynaraConfirmationBridge({ frameRef: sourceControlFrameRef, origin });
   const [frameMounted, setFrameMounted] = useState(false);
   const [readyFrameKey, setReadyFrameKey] = useState<string | null>(null);

@@ -7,7 +7,7 @@
  * themed surface so the two pickers can't drift apart visually.
  */
 
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { EmojiPicker, type EmojiPickerListComponents } from 'frimousse';
 
 /**

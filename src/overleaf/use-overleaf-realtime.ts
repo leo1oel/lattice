@@ -12,9 +12,11 @@
  * channel is an improvement on syncing, never a replacement for it.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
+import { i18n } from "../i18n";
 import { OtDocument, transformCaret, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import {
@@ -35,7 +37,7 @@ const RECONNECT_MAX_MS = 30_000;
 const DRAIN_TIMEOUT_MS = 15_000;
 /** How long typing is coalesced into one operation. */
 const SEND_DEBOUNCE_MS = 250;
-const DRIFT_NOTICE = "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.";
+const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
 
 export type OverleafRealtime = ReturnType<typeof useOverleafRealtime>;
 
@@ -231,8 +233,11 @@ export function useOverleafRealtime(options: {
     const first = !uncertain.current.has(id);
     uncertain.current.add(id);
     publishLivePaths();
-    const path = pathsByDocId.current.get(id) ?? "this file";
-    const message = `Lattice could not confirm whether Overleaf accepted the latest edit to ${path} (${String(reason)}). Syncing is paused for this file while Lattice checks.`;
+    const path = pathsByDocId.current.get(id);
+    const detail = String(reason);
+    const message = path
+      ? i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to ${path} (${detail}). Syncing is paused for this file while Lattice checks.`)
+      : i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to this file (${detail}). Syncing is paused for this file while Lattice checks.`);
     if (docId.current === id) setDetail(message);
     if (first) callbacks.current.onNotice(message);
     reconcileUnknownRef.current(id);
@@ -277,7 +282,7 @@ export function useOverleafRealtime(options: {
     draining.current.set(previous, setTimeout(() => {
       const held = documents.current.get(previous);
       if (!held || held.settled) release(previous);
-      else markOutcomeUnknown(previous, "the acknowledgement did not arrive in time");
+      else markOutcomeUnknown(previous, i18n._(msg`the acknowledgement did not arrive in time`));
     }, DRAIN_TIMEOUT_MS));
   }, [markOutcomeUnknown, release]);
 
@@ -437,7 +442,7 @@ export function useOverleafRealtime(options: {
         // identify may apply our own text a second time. Keep the outcome
         // unknown until the connection supplies our public id.
         if (docId.current === id) {
-          setDetail("Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file.");
+          setDetail(i18n._(msg`Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file.`));
         }
         return;
       }
@@ -474,7 +479,7 @@ export function useOverleafRealtime(options: {
     if (!send || !id) return;
     const projectRoot = connectionRoot.current;
     if (!projectRoot) {
-      markOutcomeUnknown(id, "the Overleaf project connection is no longer active");
+      markOutcomeUnknown(id, i18n._(msg`the Overleaf project connection is no longer active`));
       return;
     }
     try {
@@ -511,19 +516,21 @@ export function useOverleafRealtime(options: {
         noteDocumentTree(payload.docs, payload.entities);
         return;
       case "disconnected": {
-        const reason = payload.reason || "The realtime connection closed.";
+        const reason = payload.reason || i18n._(msg`The realtime connection closed.`);
         stopAfterDisconnect(reason);
         requestReconnectRef.current(reason);
         return;
       }
-      case "otError":
+      case "otError": {
         // Overleaf addresses a rejection to the document it happened in, and
         // one document failing says nothing about the others.
         if (payload.docId && !documents.current.has(payload.docId)) return;
-        if (payload.docId) dropDocument(payload.docId, `Overleaf rejected a live update (${payload.message}).`);
-        else fail(payload.message);
-        callbacks.current.onNotice(`Overleaf rejected a live update (${payload.message}). Falling back to syncing.`);
+        const detail = payload.message;
+        if (payload.docId) dropDocument(payload.docId, i18n._(msg`Overleaf rejected a live update (${detail}).`));
+        else fail(detail);
+        callbacks.current.onNotice(i18n._(msg`Overleaf rejected a live update (${detail}). Falling back to syncing.`));
         return;
+      }
       case "docAck": {
         // Overleaf never sends an operation back to whoever sent it: the
         // originating client gets the version alone, and that is the
@@ -541,7 +548,7 @@ export function useOverleafRealtime(options: {
           releaseIfDone(payload.docId, doc);
         } catch (reason) {
           dropDocument(payload.docId, toMessage(reason));
-          callbacks.current.onNotice(DRIFT_NOTICE);
+          callbacks.current.onNotice(driftNotice());
         }
         return;
       }
@@ -582,7 +589,7 @@ export function useOverleafRealtime(options: {
           if (onScreen) deliverRemoteText(payload.docId, text, transformCaret(caret, applied), baseContent);
         } catch (reason) {
           dropDocument(payload.docId, toMessage(reason));
-          callbacks.current.onNotice(DRIFT_NOTICE);
+          callbacks.current.onNotice(driftNotice());
         }
       }
     }
@@ -624,9 +631,10 @@ export function useOverleafRealtime(options: {
       const delay = immediate ? 0 : Math.min(RECONNECT_BASE_MS * 2 ** retryAttempt, RECONNECT_MAX_MS);
       if (!immediate) retryAttempt += 1;
       setStatus("connecting");
+      const seconds = Math.ceil(delay / 1_000);
       setDetail(delay === 0
-        ? `Overleaf live editing disconnected (${reason}). Reconnecting now…`
-        : `Overleaf live editing disconnected (${reason}). Reconnecting in ${Math.ceil(delay / 1_000)}s…`);
+        ? i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting now…`)
+        : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds}s…`));
       retryTimer = setTimeout(() => {
         retryTimer = null;
         void connect();
@@ -661,7 +669,7 @@ export function useOverleafRealtime(options: {
         // new client. Reconcile uncertain sends once the command itself has
         // returned, when joining their history is guaranteed to be possible.
         for (const id of uncertain.current) reconcileUnknownRef.current(id);
-        if (recovered) callbacks.current.onNotice("Overleaf live editing reconnected.");
+        if (recovered) callbacks.current.onNotice(i18n._(msg`Overleaf live editing reconnected.`));
       } catch (reason) {
         if (cancelled) return;
         const message = String(reason);
@@ -685,7 +693,7 @@ export function useOverleafRealtime(options: {
       if (!needsReconnect || cancelled || connecting) return;
       if (retryTimer) clearTimeout(retryTimer);
       retryTimer = null;
-      scheduleReconnect(lastReason || "the network became available", true);
+      scheduleReconnect(lastReason || i18n._(msg`the network became available`), true);
     };
     window.addEventListener("online", retryNow);
     window.addEventListener("focus", retryNow);
@@ -713,7 +721,8 @@ export function useOverleafRealtime(options: {
     const { projectRoot, permission: scopedPermission } = projectPermission;
     if (!projectRoot || projectRoot !== options.projectRoot || scopedPermission === "unknown") return;
     void invoke("overleaf_set_permission", { permission: scopedPermission, projectRoot }).catch((reason) => {
-      callbacks.current.onNotice(`Could not record Overleaf's ${scopedPermission} permission locally (${String(reason)}).`);
+      const detail = String(reason);
+      callbacks.current.onNotice(i18n._(msg`Could not record Overleaf's ${scopedPermission} permission locally (${detail}).`));
     });
   }, [options.projectRoot, projectPermission]);
 
@@ -734,6 +743,7 @@ export function useOverleafRealtime(options: {
     const id = activeDocId;
     if (!options.documents || status !== "live" || !options.activeFile || !id) return;
     if (suspendedPaths.current.has(options.activeFile)) return;
+    const activeFile = options.activeFile;
     let cancelled = false;
     const pendingUpdates: DocUpdateEvent[] = [];
     const pendingByDocument = joiningUpdates.current;
@@ -751,7 +761,7 @@ export function useOverleafRealtime(options: {
     let held = fullJoin ? undefined : documents.current.get(id);
     const joiningRoot = connectionRoot.current;
     if (!joiningRoot) {
-      setDetail("The Overleaf project connection is no longer active.");
+      setDetail(i18n._(msg`The Overleaf project connection is no longer active.`));
       return;
     }
     const receipt = crypto.randomUUID();
@@ -787,8 +797,8 @@ export function useOverleafRealtime(options: {
       if (heldProof) heldProof.receipt = receipt;
       if (held && !held.settled && !joined.resumed) {
         pauseUnproven(
-          "Overleaf could not replay from the last version Lattice trusts",
-          `Overleaf could not replay enough history to confirm the last edit to ${options.activeFile}. Syncing remains paused for this file.`,
+          i18n._(msg`Overleaf could not replay from the last version Lattice trusts`),
+          i18n._(msg`Overleaf could not replay enough history to confirm the last edit to ${activeFile}. Syncing remains paused for this file.`),
         );
         return;
       }
@@ -796,8 +806,8 @@ export function useOverleafRealtime(options: {
         const caughtUp = joined.caughtUp ?? [];
         if (held.waiting && !publicId.current && caughtUp.length) {
           pauseUnproven(
-            "the connection id needed to classify replayed updates is not available",
-            `Lattice cannot yet identify which replayed edits to ${options.activeFile} are its own. Syncing remains paused for this file.`,
+            i18n._(msg`the connection id needed to classify replayed updates is not available`),
+            i18n._(msg`Lattice cannot yet identify which replayed edits to ${activeFile} are its own. Syncing remains paused for this file.`),
           );
           return;
         }
@@ -842,7 +852,7 @@ export function useOverleafRealtime(options: {
           if (joinedDocument.settled) dropDocument(id, message);
           else markOutcomeUnknown(id, message);
           setDetail(message);
-          callbacks.current.onNotice("This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it.");
+          callbacks.current.onNotice(i18n._(msg`This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it.`));
           return;
         }
       }
@@ -993,7 +1003,7 @@ export function useOverleafRealtime(options: {
       const id = docId.current;
       const doc = openDocument();
       if (typingUnsent() || (doc && !doc.settled) || deliveryPending(doc)) {
-        setDetail("A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely.");
+        setDetail(i18n._(msg`A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely.`));
         if (id && uncertain.current.has(id)) reconcileUnknownRef.current(id);
         return;
       }

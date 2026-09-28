@@ -16,9 +16,9 @@
  * pre-writing the prop bag.
  */
 
-import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
-import { msg, t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { CopyPlus, ExternalLink, FileUp, Link2 } from 'lucide-react';
 import type { ReactNode } from 'react';

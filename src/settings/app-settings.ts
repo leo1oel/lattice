@@ -15,8 +15,10 @@ export type RecentProject = { name: string; path: string };
 export type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
+/* eslint-disable lingui/no-unlocalized-strings -- CSS font stacks */
 export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
 const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
+/* eslint-enable lingui/no-unlocalized-strings */
 
 export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_KEY = "lattice.theme.v1";
@@ -127,6 +129,7 @@ export function hasSeenTutorial(): boolean {
     const seenInAnEarlierVersion = loadRecentProjects().some((project) => {
       const path = project.path.replaceAll("\\", "/");
       return project.name === "Understanding Attention"
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- on-disk path of the tutorial project
         && path.includes("/Lattice Tutorials/Understanding Attention");
     });
     if (seenInAnEarlierVersion) localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
@@ -361,6 +364,7 @@ export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?
   // list made a secondary Chinese input/reading language override an English
   // system language; only the system's first preference chooses the UI locale.
   const normalized = languages[0]?.toLowerCase() ?? "";
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- locale code
   return normalized === "zh" || normalized.startsWith("zh-") ? "zh-CN" : "en";
 }
 
@@ -382,6 +386,7 @@ export function loadAppearance(): AppearanceSettings {
     const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
     const storedInterfaceScale = clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35);
     return {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- locale codes
       interfaceLanguage: oneOf(value?.interfaceLanguage, ["en", "zh-CN"], defaults.interfaceLanguage),
       // Keep the field in the persisted shape for backwards compatibility, but
       // normalize every old preference to the bundled application UI face.

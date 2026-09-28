@@ -2,6 +2,7 @@ type DoctorCheckLike = { name: string; detail: string; ok: boolean };
 export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorCheckLike[] };
 
 /** Rough installed size after our one-click scripts finish. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- a size with a unit, the same in every locale
 export const TEX_INSTALL_SIZE_HINT = "1 GB";
 
 export type TexInstallProgress = {
@@ -46,5 +47,6 @@ export function isRequiredSetupMissing(report: DoctorReportLike | null | undefin
 
 export function isMissingTexBuildError(message: string): boolean {
   const lower = message.toLowerCase();
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- markers matched in backend error text
   return ["could not start latexmk", "mactex or tex live", "the latex tool"].some((marker) => lower.includes(marker));
 }

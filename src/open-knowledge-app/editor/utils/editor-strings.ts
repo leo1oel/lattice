@@ -12,7 +12,7 @@
  */
 
 import type { PropDef } from '@ok-core';
-import { plural, t } from '@ok-app/shims/lingui-core-macro';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * Human-readable container summary used as an aria-label on block-

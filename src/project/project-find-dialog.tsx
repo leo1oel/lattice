@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { useLingui } from "@lingui/react/macro";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
@@ -17,11 +18,6 @@ export type ProjectFindHit = {
   line?: number | null;
   fileKind?: string | null;
 };
-
-function resultType(hit: ProjectFindHit): string {
-  if (hit.kind === "paper") return "Paper";
-  return hit.fileKind ? `${hit.fileKind.toLocaleUpperCase()} file` : "File";
-}
 
 export function ProjectFindDialog(props: {
   open: boolean;
@@ -78,6 +74,12 @@ export function ProjectFindDialog(props: {
   if (!props.open) return null;
 
   const searching = debouncing || props.busy;
+  const trimmedQuery = query.trim();
+  const fileCount = fileHits.length;
+  const paperCount = paperHits.length;
+  const hitSummary = t`${plural(fileCount, { one: "# hit", other: "# hits" })}`;
+  const paperSummary = t`${plural(paperCount, { one: "# paper", other: "# papers" })}`;
+  const summary = paperCount ? t`${hitSummary} · ${paperSummary}` : hitSummary;
   const showResults = Boolean(query.trim()) && !searching && !props.error;
   const openHit = (index: number) => {
     const hit = selectableHits[index];
@@ -88,17 +90,24 @@ export function ProjectFindDialog(props: {
     setQuery("");
     inputRef.current?.focus();
   };
+  const resultType = (hit: ProjectFindHit): string => {
+    if (hit.kind === "paper") return t`Paper`;
+    if (!hit.fileKind) return t`File`;
+    const format = hit.fileKind.toLocaleUpperCase();
+    return t`${format} file`;
+  };
   const renderHits = (hits: ProjectFindHit[], offset: number) => (
     <ScrollArea className="project-find-results">
       <ul className="project-replace-hits">
         {hits.map((hit, index) => {
           const paper = hit.kind === "paper";
+          const paperTitle = hit.title;
           return (
             <li key={paper ? `paper:${hit.path}:${hit.title}` : `${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
               <button
                 type="button"
                 className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
-                aria-label={paper ? `Open paper result: ${hit.title}` : undefined}
+                aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
                 onClick={() => {
                   setActiveIndex(offset + index);
                   props.onOpenHit(hit.path, hit.line ?? undefined);
@@ -142,7 +151,7 @@ export function ProjectFindDialog(props: {
             setQuery(event.target.value);
           }}
           onClear={clearSearch}
-          placeholder="Phrase or tokens"
+          placeholder={t`Phrase or tokens`}
           {...compositionProps}
           onKeyDown={(event) => {
             if (isComposing(event)) return;
@@ -186,26 +195,24 @@ export function ProjectFindDialog(props: {
             {!query.trim()
               ? null
               : props.error
-                ? "Search failed."
+                ? t`Search failed.`
               : searching
-                ? "Searching…"
-                : `${fileHits.length} hit${fileHits.length === 1 ? "" : "s"}${
-                  paperHits.length ? ` · ${paperHits.length} paper${paperHits.length === 1 ? "" : "s"}` : ""
-                }`}
+                ? t`Searching…`
+                : summary}
           </div>
           {showResults && !selectableHits.length && (
             <EmptyState
               align="start"
               density="compact"
-              title={`No results for “${query.trim()}”`}
-              description="Try a shorter phrase or different terms"
-              actions={<Button size="compact" variant="secondary" onClick={clearSearch}>Clear search</Button>}
+              title={t`No results for “${trimmedQuery}”`}
+              description={t`Try a shorter phrase or different terms`}
+              actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}
             />
           )}
           {showResults && fileHits.length > 0 && renderHits(fileHits, 0)}
           {showResults && paperHits.length > 0 && (
             <div className="project-find-papers">
-              <div className="project-replace-preview-summary">Papers</div>
+              <div className="project-replace-preview-summary"><Trans>Papers</Trans></div>
               {renderHits(paperHits, fileHits.length)}
             </div>
           )}

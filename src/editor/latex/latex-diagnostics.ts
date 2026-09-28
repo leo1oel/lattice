@@ -1,4 +1,7 @@
 import type { Diagnostic } from "@codemirror/lint";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { i18n } from "../../i18n";
 import { environmentEvents, type EnvironmentEvent } from "./latex-environments";
 import {
   CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, resolveProjectPath, unwrapLatexPath, type KeySpan,
@@ -8,10 +11,19 @@ import { unclosedMathDiagnostics } from "./math-region";
 
 const BIB_ENTRY = /@\w+\s*\{\s*([^,\s}]+)/g;
 
-const warning = (from: number, to: number, source: string, message: string): Diagnostic =>
-  ({ from, to, severity: "warning", message, source });
+/** The lint tooltip prints `source` under the message, so it is interface text too. */
+type Source = "structure" | "paths" | "labels" | "bibliography";
+const SOURCE_NAMES: Record<Source, MessageDescriptor> = {
+  structure: msg`structure`,
+  paths: msg`paths`,
+  labels: msg`labels`,
+  bibliography: msg`bibliography`,
+};
+
+const warning = (from: number, to: number, source: Source, message: string): Diagnostic =>
+  ({ from, to, severity: "warning", message, source: i18n._(SOURCE_NAMES[source]) });
 const error = (span: { from: number; to: number }, message: string): Diagnostic =>
-  ({ from: span.from, to: span.to, severity: "error", message, source: "structure" });
+  ({ from: span.from, to: span.to, severity: "error", message, source: i18n._(SOURCE_NAMES.structure) });
 
 function labelSpans(text: string): KeySpan[] {
   return argumentsOf(text, LABEL).flatMap(({ from, content }) => {
@@ -28,12 +40,12 @@ function bibKeySpans(text: string): KeySpan[] {
 }
 
 /** Every repeat of a key after its first occurrence. */
-function duplicates(spans: KeySpan[], source: string, noun: string): Diagnostic[] {
+function duplicates(spans: KeySpan[], source: Source, message: (key: string) => string): Diagnostic[] {
   const seen = new Set<string>();
   return spans.flatMap(({ from, to, key }) => {
     const repeat = seen.has(key);
     seen.add(key);
-    return repeat ? [warning(from, to, source, `Duplicate ${noun} “${key}”.`)] : [];
+    return repeat ? [warning(from, to, source, message(key))] : [];
   });
 }
 
@@ -56,16 +68,17 @@ export function pathDiagnostics(
     if (!path || resolveProjectPath(path, projectPaths, "tex")) continue;
     const createPath = missingIncludeCreatePath(path);
     diagnostics.push({
-      ...warning(from, from + content.length, "paths", `Missing file “${path}”.`),
+      ...warning(from, from + content.length, "paths", i18n._(msg`Missing file “${path}”.`)),
       actions: createPath && onCreateMissingFile
-        ? [{ name: "Create file", apply: () => onCreateMissingFile(createPath) }]
+        ? [{ name: i18n._(msg`Create file`), apply: () => onCreateMissingFile(createPath) }]
         : undefined,
     });
   }
   for (const { from, content } of argumentsOf(text, GRAPHICS)) {
     const raw = content.trim();
     if (!raw || resolveProjectPath(raw, projectPaths, "graphics", graphicsRoots)) continue;
-    diagnostics.push(warning(from, from + content.length, "paths", `Missing figure “${unwrapLatexPath(raw) || raw}”.`));
+    const figure = unwrapLatexPath(raw) || raw;
+    diagnostics.push(warning(from, from + content.length, "paths", i18n._(msg`Missing figure “${figure}”.`)));
   }
   return diagnostics;
 }
@@ -93,16 +106,23 @@ export function structureDiagnostics(text: string): Diagnostic[] {
       continue;
     }
     const open = stack.pop();
-    if (!open) diagnostics.push(error(event, `Unmatched \\end{${event.name}}.`));
+    // The command goes in whole as a placeholder: literal braces inside a
+    // message would read as ICU syntax.
+    const found = `\\end{${event.name}}`;
+    if (!open) diagnostics.push(error(event, i18n._(msg`Unmatched ${found}.`)));
     else if (open.name !== event.name) {
-      diagnostics.push(error(event, `Expected \\end{${open.name}}, found \\end{${event.name}}.`));
+      const expected = `\\end{${open.name}}`;
+      diagnostics.push(error(event, i18n._(msg`Expected ${expected}, found ${found}.`)));
     }
   }
   return [
     ...diagnostics,
-    ...stack.map((open) => error(open, `Unclosed \\begin{${open.name}}.`)),
-    ...duplicates(labelSpans(source), "labels", "label"),
-    ...duplicates(bibKeySpans(source), "bibliography", "bibliography key"),
+    ...stack.map((open) => {
+      const command = `\\begin{${open.name}}`;
+      return error(open, i18n._(msg`Unclosed ${command}.`));
+    }),
+    ...duplicates(labelSpans(source), "labels", (key) => i18n._(msg`Duplicate label “${key}”.`)),
+    ...duplicates(bibKeySpans(source), "bibliography", (key) => i18n._(msg`Duplicate bibliography key “${key}”.`)),
     ...unclosedMathDiagnostics(source),
   ];
 }
@@ -129,25 +149,29 @@ export function indexDiagnostics(
   const unusedCitations = new Set(index.unusedCitations);
   const labelPaths = new Map<string, Set<string>>();
   for (const { label, path } of index.references) labelPaths.set(label, (labelPaths.get(label) ?? new Set()).add(path));
-  const unknown = (pattern: RegExp, known: Set<string>, source: string, noun: string) =>
+  const unknown = (pattern: RegExp, known: Set<string>, source: Source, message: (key: string) => string) =>
     argumentsOf(text, pattern).flatMap(({ from, content }) => keySpans(content, from)
       .filter(({ key }) => !known.has(key))
-      .map(({ from, to, key }) => warning(from, to, source, `Unknown ${noun} “${key}”.`)));
+      .map(({ from, to, key }) => warning(from, to, source, message(key))));
   const labelDiagnostics = labelSpans(text).flatMap(({ from, to, key }) => {
     const others = currentPath ? [...labelPaths.get(key) ?? []].filter((path) => path !== currentPath) : [];
-    const message = others.length
-      ? `Duplicate label “${key}” also defined in ${others[0]}${others.length > 1 ? ` (+${others.length - 1} more)` : ""}.`
-      : unusedLabels.has(key) ? `Unused label “${key}”.` : null;
+    const [path] = others;
+    const more = others.length - 1;
+    const message = !others.length
+      ? unusedLabels.has(key) ? i18n._(msg`Unused label “${key}”.`) : null
+      : more > 0
+        ? i18n._(msg`Duplicate label “${key}” also defined in ${path} (+${more} more).`)
+        : i18n._(msg`Duplicate label “${key}” also defined in ${path}.`);
     return message ? [warning(from, to, "labels", message)] : [];
   });
   return [
     ...structureDiagnostics(text),
     ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),
-    ...unknown(CITATION, citationKeys, "bibliography", "citation key"),
-    ...unknown(REFERENCE, labels, "labels", "label"),
+    ...unknown(CITATION, citationKeys, "bibliography", (key) => i18n._(msg`Unknown citation key “${key}”.`)),
+    ...unknown(REFERENCE, labels, "labels", (key) => i18n._(msg`Unknown label “${key}”.`)),
     ...labelDiagnostics,
     ...bibKeySpans(text)
       .filter(({ key }) => unusedCitations.has(key))
-      .map(({ from, to, key }) => warning(from, to, "bibliography", `Unused citation key “${key}”.`)),
+      .map(({ from, to, key }) => warning(from, to, "bibliography", i18n._(msg`Unused citation key “${key}”.`))),
   ];
 }

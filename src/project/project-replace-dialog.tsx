@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Replace } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -34,6 +35,7 @@ export function ProjectReplaceDialog(props: {
   onReplace: (query: string, replacement: string, options: ReplaceOptions) => void;
   onOpenMatch?: (path: string, line: number) => void;
 }) {
+  const { t } = useLingui();
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");
   const [matchCase, setMatchCase] = useState(true);
@@ -44,26 +46,33 @@ export function ProjectReplaceDialog(props: {
   const options: ReplaceOptions = { matchCase, useRegex };
   const preview = props.preview;
   const canReplace = Boolean(query.trim() && preview && preview.replacements > 0 && !props.busy);
+  const replacementCount = preview?.replacements ?? 0;
+  const fileCount = preview?.files ?? 0;
+  const matchSummary = replacementCount === 1 ? t`${replacementCount} match` : t`${replacementCount} matches`;
+  const fileSummary = fileCount === 1 ? t`${fileCount} file` : t`${fileCount} files`;
+  const previewSummary = preview && preview.matches.length < preview.replacements
+    ? t`${matchSummary} in ${fileSummary} (showing first 200)`
+    : t`${matchSummary} in ${fileSummary}`;
 
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
-      <aside className="project-replace" onMouseDown={(event) => event.stopPropagation()} aria-label="Project find and replace">
+      <aside className="project-replace" onMouseDown={(event) => event.stopPropagation()} aria-label={t`Project find and replace`}>
         <PanelHeader
           className="drawer-header"
           icon={<Replace size={16} />}
-          title="Find & replace in project"
+          title={t`Find & replace in project`}
           onClose={props.onClose}
         />
-        <p className="drawer-copy">Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history</p>
+        <p className="drawer-copy"><Trans>Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history</Trans></p>
         <label>
-          Find
+          <Trans>Find</Trans>
           <SearchField
             autoFocus
-            aria-label="Find text to replace"
+            aria-label={t`Find text to replace`}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onClear={() => setQuery("")}
-            placeholder={useRegex ? "Regular expression" : "Text to find"}
+            placeholder={useRegex ? t`Regular expression` : t`Text to find`}
             onKeyDown={(event) => {
               if (event.key === "Enter" && query.trim() && !props.busy) {
                 event.preventDefault();
@@ -73,28 +82,26 @@ export function ProjectReplaceDialog(props: {
           />
         </label>
         <label>
-          Replace with
+          <Trans>Replace with</Trans>
           <Input
             value={replacement}
             onChange={(event) => setReplacement(event.target.value)}
-            placeholder="Replacement text"
+            placeholder={t`Replacement text`}
           />
         </label>
         <div className="project-replace-options">
           {([
-            ["Match case", matchCase, setMatchCase],
-            ["Regex", useRegex, setUseRegex],
-          ] as const).map(([label, checked, setChecked]) => (
-            <CheckboxField key={label} checked={checked} label={label} onChange={(event) => setChecked(event.target.checked)} />
+            ["match-case", t`Match case`, matchCase, setMatchCase],
+            ["regex", t`Regex`, useRegex, setUseRegex],
+          ] as const).map(([optionKey, label, checked, setChecked]) => (
+            <CheckboxField key={optionKey} checked={checked} label={label} onChange={(event) => setChecked(event.target.checked)} />
           ))}
         </div>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         {preview && (
           <div className="project-replace-preview" aria-live="polite">
             <div className="project-replace-preview-summary">
-              {preview.replacements
-                ? `${preview.replacements} match${preview.replacements === 1 ? "" : "es"} in ${preview.files} file${preview.files === 1 ? "" : "s"}${preview.matches.length < preview.replacements ? " (showing first 200)" : ""}`
-                : "No matches found"}
+              {preview.replacements ? previewSummary : t`No matches found`}
             </div>
             {preview.matches.length > 0 && (
               <ul className="project-replace-hits">
@@ -115,19 +122,19 @@ export function ProjectReplaceDialog(props: {
           </div>
         )}
         <div className="table-generator-actions">
-          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={props.onClose}><Trans>Cancel</Trans></Button>
           <Button
             disabled={!query.trim() || props.busy}
             onClick={() => props.onPreview(query, options)}
           >
-            {props.busy && !preview ? "Searching…" : "Preview"}
+            {props.busy && !preview ? t`Searching…` : t`Preview`}
           </Button>
           <Button
             variant="primary"
             disabled={!canReplace}
             onClick={() => props.onReplace(query, replacement, options)}
           >
-            {props.busy && preview ? "Replacing…" : preview ? `Replace ${preview.replacements}` : "Replace all"}
+            {props.busy && preview ? t`Replacing…` : preview ? t`Replace ${replacementCount}` : t`Replace all`}
           </Button>
         </div>
       </aside>

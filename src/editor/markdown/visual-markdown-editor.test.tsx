@@ -17,7 +17,8 @@ import { LinkPathSuggestionInput } from "@ok-app/editor/link-path-suggestions";
 import { getParseHealth, resetParseHealth } from "../../open-knowledge-core/metrics/parse-health";
 import { parseWithFallback } from "../../open-knowledge-core/markdown/parse-with-fallback";
 import tutorialMarkdown from "../../../src-tauri/templates/tutorial/notes.md?raw";
-import { activateAppLocale } from "../../i18n";
+import { msg } from "@lingui/core/macro";
+import { activateAppLocale, i18n } from "../../i18n";
 import {
   addBlockBelow,
   blockControlCrossAxisOffset,
@@ -62,8 +63,9 @@ const PAPER_PATH = ".research/papers/example/paper.md";
 const PAPER = { activePath: PAPER_PATH, optimizeForReading: true };
 const PNG = "data:image/png;base64,cGxvdA==";
 
+// The surface is labelled in the active locale; one test switches to zh-CN.
 const getSurface = () =>
-  screen.getByRole("textbox", { name: "Markdown document editor" }) as HTMLElement & { editor: Editor };
+  screen.getByRole("textbox", { name: i18n._(msg`Markdown document editor`) }) as HTMLElement & { editor: Editor };
 
 function editorProps(props: Partial<EditorProps> = {}): EditorProps {
   return { text: "Hello", activePath: "notes.md", onChangeMarkdown: () => true, onUndo: () => false, onRedo: () => false, ...props };
@@ -152,7 +154,7 @@ function waitForElement<T extends Element = HTMLElement>(selector: string): Prom
 
 function openSlashMenu(editor: Editor, query = "") {
   editor.chain().focus().insertContent(`/${query}`).run();
-  return screen.findByRole("listbox", { name: "Slash commands" });
+  return screen.findByRole("listbox", { name: i18n._(msg`Slash commands`) });
 }
 
 async function openComponentProperties(name: string) {

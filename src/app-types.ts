@@ -228,7 +228,7 @@ export type EditorPaneId = "primary" | "secondary";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
-type DoctorCheck = { name: string; detail: string; ok: boolean };
+type DoctorCheck = { name: string; detail: string; ok: boolean; code?: string; params?: Record<string, string> };
 export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 export type EditorKeymap = "default" | "vim" | "emacs";
 

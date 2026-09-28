@@ -23,7 +23,7 @@
  * PropPanel's `treatEmptyAsUndefined` logic as a delete signal for
  * optional props).
  */
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { Command as CommandPrimitive } from 'cmdk';
 import { ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';

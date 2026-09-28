@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { deckIdFromOpenSlidePath, toMessage } from "../../app-utils";
+import { i18n } from "../../i18n";
 import type { OpenSlideFileViewState } from "../../app-types";
 import {
   browserRuntimeDetached,
@@ -48,11 +50,11 @@ function revertMutation({ path, kind, previousText, previousBase64 }: OpenSlideM
   return kind === "create" ? [{ path, kind: "delete" }] : [];
 }
 
-// Bridge routes, headers and raw transport errors are loopback protocol
-// constants, not interface copy. Callers surface them as diagnostic detail.
-/* eslint-disable lingui/no-unlocalized-strings */
+// Bridge routes and headers are loopback protocol constants, not interface
+// copy. Their errors reach the user as an error notice.
 async function controlFetch(info: PresentationRuntimeInfo, endpoint: string, init: RequestInit & { headers?: Record<string, string> }) {
-  if (!info.origin || !info.controlToken) throw new Error("Open Slide is not ready");
+  if (!info.origin || !info.controlToken) throw new Error(i18n._(msg`Open Slide is not ready`));
+  /* eslint-disable lingui/no-unlocalized-strings -- loopback bridge route and headers */
   return fetch(`${info.origin}/__lattice/${endpoint}`, {
     ...init,
     headers: { authorization: `Bearer ${info.controlToken}`, ...init.headers },
@@ -66,9 +68,10 @@ async function postControl(info: PresentationRuntimeInfo, endpoint: "access" | "
     body: JSON.stringify(body),
     signal,
   });
-  if (!response.ok) throw new Error(await response.text() || `Open Slide bridge returned ${response.status}`);
+  /* eslint-enable lingui/no-unlocalized-strings */
+  const status = response.status;
+  if (!response.ok) throw new Error(await response.text() || i18n._(msg`Open Slide bridge returned ${status}`));
 }
-/* eslint-enable lingui/no-unlocalized-strings */
 
 /** Push the canonical editor bytes for `path` into Open Slide's shadow copy. */
 function syncSource(info: PresentationRuntimeInfo, path: string, text: string, signal: AbortSignal) {
@@ -264,8 +267,8 @@ export function OpenSlideWorkspace({
             signal: controller.signal,
           });
           // Preserve the HTTP status in diagnostic detail for support logs.
-          // eslint-disable-next-line lingui/no-unlocalized-strings
-          if (!response.ok || !response.body) throw new Error(`Open Slide event bridge returned ${response.status}`);
+          const status = response.status;
+          if (!response.ok || !response.body) throw new Error(i18n._(msg`Open Slide event bridge returned ${status}`));
           await consumeOpenSlideEvents(response.body, async (event) => {
             if ("type" in event && event.type === "ready") {
               advanceOpenSlideEventCursor(origin, controlToken, event);

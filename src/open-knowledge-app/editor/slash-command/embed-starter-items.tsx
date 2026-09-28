@@ -24,8 +24,8 @@
  */
 
 import { PREVIEW_EMBED_STARTERS, type PreviewEmbedStarter } from '@ok-core';
-import { t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { BarChart3, Code, LayoutGrid, Shapes, SlidersHorizontal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { SlashCommandContext, SlashCommandItem } from './items';

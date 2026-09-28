@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { motion, useReducedMotion } from "motion/react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MAGNET_SPRING } from "../../components/ui/motion-values";
@@ -59,6 +60,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
   onSelect: (item: DocumentHeadingItem) => void;
 }) {
   const items = useMemo(() => navigableHeadingItems(rawItems), [rawItems]);
+  const { t } = useLingui();
   const reduceMotion = useReducedMotion() ?? false;
   const navRef = useRef<HTMLElement | null>(null);
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -137,7 +139,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
       <nav
         ref={navRef}
         className="visual-heading-rail-nav"
-        aria-label="Document sections"
+        aria-label={t`Document sections`}
         onPointerMove={(event) => {
           if (event.pointerType === "touch") return;
           const bounds = event.currentTarget.getBoundingClientRect();

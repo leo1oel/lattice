@@ -1,4 +1,4 @@
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { ExternalScrollbar } from '../../../components/ui/external-scrollbar';
 import type { SlashCommandItem } from './items';

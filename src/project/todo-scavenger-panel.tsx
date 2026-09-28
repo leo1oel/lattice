@@ -1,4 +1,5 @@
 import { CircleDot, ListTodo } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PanelHeader } from "../components/ui/panel-header";
 import type { TodoHit } from "./todo-scavenger";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -8,22 +9,28 @@ export function TodoScavengerPanel(props: {
   onClose: () => void;
   onOpen: (path: string, line: number) => void;
 }) {
+  const { t } = useLingui();
+  const count = props.hits.length;
   return (
     <ResizableDrawer className="todo-drawer" onClose={props.onClose}>
         <PanelHeader
           className="drawer-header"
           icon={<ListTodo size={16} />}
-          title="Manuscript TODOs"
+          title={t`Manuscript TODOs`}
           onClose={props.onClose}
         />
         <p className="drawer-copy">
-          Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\todo`.
-          Click a hit to jump; the active unsaved buffer is included
+          <Trans>
+            Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\todo`.
+            Click a hit to jump; the active unsaved buffer is included
+          </Trans>
         </p>
         <div className="project-replace-preview-summary">
-          {props.hits.length
-            ? `${props.hits.length} marker${props.hits.length === 1 ? "" : "s"}`
-            : "No TODO markers found"}
+          {count === 0
+            ? t`No TODO markers found`
+            : count === 1
+              ? t`${count} marker`
+              : t`${count} markers`}
         </div>
         <ul className="project-replace-hits todo-hits">
           {props.hits.map((hit) => (

@@ -68,6 +68,7 @@ export function parseAgentCompileResultMessage(value: unknown): AgentCompileResu
 export type AgentGitWorkspaceView = "changes" | "pull-requests";
 
 export function agentGitWorkspacePath(view: AgentGitWorkspaceView): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Synara route paths
   return view === "pull-requests" ? "/pull-requests/" : "/source-control";
 }
 
@@ -121,6 +122,7 @@ function strictUtcTimestamp(value: unknown): value is string {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return false;
   const canonical = new Date(timestamp).toISOString();
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- ISO 8601 UTC designator
   return value === canonical || value === canonical.replace(".000Z", "Z");
 }
 
@@ -207,11 +209,13 @@ export function synaraProjectRelativeFilePath(
   const decoded = decodeFileReference(filePath.trim());
   if (!decoded) return null;
 
+  /* eslint-disable lingui/no-unlocalized-strings -- Unicode normalization form */
   const target = decoded
     .replace(/\\/g, "/")
     .replace(FILE_POSITION_SUFFIX_PATTERN, "")
     .normalize("NFC");
   const root = projectRoot.trim().replace(/\\/g, "/").replace(/\/+$/, "").normalize("NFC");
+  /* eslint-enable lingui/no-unlocalized-strings */
   if (!root || /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(target)) return null;
   const absolute = target.startsWith("/") || WINDOWS_ABSOLUTE_PATH_PATTERN.test(target);
   const caseInsensitive = WINDOWS_ABSOLUTE_PATH_PATTERN.test(root);

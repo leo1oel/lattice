@@ -13,7 +13,9 @@
  * and wait out active typing as the wrapper did.
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { Annotation, EditorState, StateEffect, type Extension } from "@codemirror/state";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Annotation, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
 import {
   EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, lineNumbers, rectangularSelection, type ViewUpdate,
@@ -25,6 +27,7 @@ import {
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
+import { i18n } from "../i18n";
 
 const hostExternalChange = Annotation.define<boolean>();
 
@@ -44,6 +47,38 @@ const baseSetup: Extension = [
     indentWithTab,
   ]),
 ];
+
+/**
+ * Interface text the loaded CodeMirror packages read through `state.phrase`
+ * (fold gutter, lint panel, completion list, screen-reader announcements).
+ * The search panel's phrases live with `compactSearchPanel`.
+ */
+const HOST_PHRASES: Record<string, MessageDescriptor> = {
+  "Fold line": msg`Fold line`,
+  "Unfold line": msg`Unfold line`,
+  "folded code": msg`folded code`,
+  unfold: msg`unfold`,
+  // Announced as "Folded lines 3 to 7." with the numbers between the phrases.
+  "Folded lines": msg`Folded lines`,
+  "Unfolded lines": msg`Unfolded lines`,
+  to: msg`to`,
+  Diagnostics: msg`Diagnostics`,
+  "No diagnostics": msg`No diagnostics`,
+  close: msg`Close`,
+  Completions: msg`Completions`,
+  "Selection deleted": msg`Selection deleted`,
+  "Control character": msg`Control character`,
+};
+
+/**
+ * Phrases resolve against the active catalog, so they are built per editor
+ * rather than at module load. Lowest precedence lets an editor's own phrases
+ * (the search panel's "close") win.
+ */
+function hostPhrases(): Extension {
+  const phrases = Object.fromEntries(Object.entries(HOST_PHRASES).map(([phrase, message]) => [phrase, i18n._(message)]));
+  return Prec.lowest(EditorState.phrases.of(phrases));
+}
 
 // Both mounts fill their pane; the light background matches the wrapper's
 // default theme so nothing shifts visually.
@@ -91,6 +126,7 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
     }),
     hostTheme,
     baseSetup,
+    hostPhrases(),
     ...(editable ? [] : [EditorView.editable.of(false)]),
     ...extensions,
   ];

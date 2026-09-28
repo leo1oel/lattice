@@ -6,6 +6,7 @@
  * Licensed under GPL-3.0-or-later.
  */
 /* eslint-disable react-refresh/only-export-components */
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import Suggestion from "@tiptap/suggestion";
@@ -42,12 +43,13 @@ export function matchPapers(papers: readonly PaperSummary[], query: string): Pap
 
 function VisualPaperCitationMenu(props: SuggestionMenuProps<PaperSummary>) {
   const { items, selectedIndex } = props;
+  const { t } = useLingui();
   const containerRef = useSelectedOptionScroll(selectedIndex);
 
   if (!items.length) {
     return (
       <div className={`${menuClassName} visual-paper-citation-empty`} role="status" aria-live="polite" onMouseDown={keepEditorFocus}>
-        No matching papers — import them in the Papers panel first
+        <Trans>No matching papers — import them in the Papers panel first</Trans>
       </div>
     );
   }
@@ -55,7 +57,7 @@ function VisualPaperCitationMenu(props: SuggestionMenuProps<PaperSummary>) {
     <ScrollArea
       className={menuClassName}
       viewportRef={containerRef}
-      viewportProps={listboxProps(props, "Paper citation suggestions")}
+      viewportProps={listboxProps(props, t`Paper citation suggestions`)}
       contentClassName="fluid-hover-surface p-[var(--surface-inset)]"
       fadeEdges={false}
       onMouseDown={keepEditorFocus}

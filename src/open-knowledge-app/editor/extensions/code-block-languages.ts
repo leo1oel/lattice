@@ -6,8 +6,8 @@
  * Aliases let users type `js` / `ts` / `sh` / etc. in the filter input.
  */
 
-import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
-import { msg } from '@ok-app/shims/lingui-core-macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 
 interface CodeLanguageOption {
   value: string;

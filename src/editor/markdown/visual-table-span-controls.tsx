@@ -1,3 +1,5 @@
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useId } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -7,6 +9,7 @@ import { CellSelection, TableMap, mergeCells, splitCell } from "@tiptap/pm/table
 import { TableCellsMerge, TableCellsSplit } from "lucide-react";
 import { Button } from "@ok-app/components/ui/button";
 import { tableSpanLayoutForPmTable } from "../../open-knowledge-core/extensions/table-fidelity";
+import { i18n } from "../../i18n";
 import { notifyInfo } from "../../telemetry/app-notify";
 
 function tableContextAt($position: ResolvedPos): { table: PmNode; tablePosition: number } | null {
@@ -65,7 +68,7 @@ function markSelectedTableLayoutExplicit(transaction: Transaction): boolean {
 
 function mergeSelectedTableCells(editor: Editor): void {
   if (tableSpanControlState(editor) !== "merge") {
-    notifyInfo("Table", "Select a complete rectangular group of cells.");
+    notifyInfo(i18n._(msg`Table`), i18n._(msg`Select a complete rectangular group of cells.`));
     return;
   }
   const { selection } = editor.state;
@@ -138,6 +141,7 @@ function splitSelectedTableCell(editor: Editor): void {
 }
 
 export function TableSpanControls({ editor }: { editor: Editor }) {
+  const { t } = useLingui();
   const action = useEditorState({ editor, selector: ({ editor: current }) => tableSpanControlState(current) });
   const mergeReasonId = useId();
   if (!action) return null;
@@ -156,11 +160,11 @@ export function TableSpanControls({ editor }: { editor: Editor }) {
       {action === "split" ? (
         <Button type="button" variant="ghost" size="sm" onMouseDown={keepEditorFocus} onClick={() => splitSelectedTableCell(editor)}>
           <TableCellsSplit aria-hidden />
-          Split cell
+          <Trans>Split cell</Trans>
         </Button>
       ) : (
         <>
-          <span className="inline-flex" title={mergeDisabled ? "Select a complete rectangular group of cells" : undefined}>
+          <span className="inline-flex" title={mergeDisabled ? t`Select a complete rectangular group of cells` : undefined}>
             <Button
               type="button"
               variant="ghost"
@@ -171,12 +175,12 @@ export function TableSpanControls({ editor }: { editor: Editor }) {
               onClick={() => mergeSelectedTableCells(editor)}
             >
               <TableCellsMerge aria-hidden />
-              Merge cells
+              <Trans>Merge cells</Trans>
             </Button>
           </span>
           {mergeDisabled && (
             <span id={mergeReasonId} className="sr-only">
-              Only a complete rectangular group of cells can be merged.
+              <Trans>Only a complete rectangular group of cells can be merged.</Trans>
             </span>
           )}
         </>

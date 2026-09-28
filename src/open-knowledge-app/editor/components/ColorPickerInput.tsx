@@ -15,7 +15,7 @@
  * caller's `treatEmptyAsUndefined` handling. A dedicated "Clear" button
  * surfaces when the value is non-empty.
  */
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { Eraser } from 'lucide-react';
 import { useRef } from 'react';
 import { Button } from '../../components/ui/button';

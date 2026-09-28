@@ -1,7 +1,7 @@
 //! Reading latexmk's log: diagnostics for the editor, and a trimmed copy for
 //! the Log tab.
 
-use crate::models::Diagnostic;
+use crate::models::{Diagnostic, MessageParams};
 use regex::{Captures, Regex};
 
 /// Warnings every multi-pass build prints on its way to converging, or that
@@ -36,7 +36,21 @@ pub(super) fn diagnostic(
     file: Option<String>, line: Option<u32>, level: &str, message: String,
 ) -> Diagnostic {
     let level = level.to_string();
-    Diagnostic { file, line, column: None, end_line: None, end_column: None, level, message }
+    let (column, end_line, end_column, code, params) =
+        (None, None, None, None, MessageParams::new());
+    Diagnostic { file, line, column, end_line, end_column, level, message, code, params }
+}
+
+/// Lattice's own explanation of a failed build: `message` in English, and
+/// `code` with `params` for the interface to translate
+/// (src/build/build-log-messages.ts).
+pub(super) fn advice(
+    level: &str, code: &'static str, params: &[(&'static str, &str)], message: String,
+) -> Diagnostic {
+    let mut advice = diagnostic(None, None, level, message);
+    advice.code = Some(code);
+    advice.params = params.iter().map(|(name, value)| (*name, value.to_string())).collect();
+    advice
 }
 
 /// latexmk's answer when the PDF is already current.
@@ -107,18 +121,20 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         push_unique(&mut diagnostics, located(&capture, "warning"));
     }
     let missing_tool = missing_command.captures(log).map(|capture| {
-        format!(
-            "The LaTeX tool '{}' was not found. Install MacTeX or TeX Live, then restart Lattice.",
-            &capture[1]
-        )
+        let tool = &capture[1];
+        let message = format!(
+            "The LaTeX tool '{tool}' was not found. Install MacTeX or TeX Live, then restart Lattice."
+        );
+        advice("error", "latex-tool-missing", &[("tool", tool)], message)
     });
     let missing_file =
-        missing_dependency.captures(log).map(|capture| missing_dependency_message(&capture[1]));
+        missing_dependency.captures(log).map(|capture| missing_dependency_advice(&capture[1]));
     let stale = is_stale_previous_invocation_log(log).then(|| {
-        "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again.".to_string()
+        let message = "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again.";
+        advice("error", "stale-build", &[], message.to_string())
     });
-    for message in [missing_tool, missing_file, rc_file_failure(log), stale].into_iter().flatten() {
-        push_unique(&mut diagnostics, diagnostic(None, None, "error", message));
+    for advice in [missing_tool, missing_file, rc_file_failure(log), stale].into_iter().flatten() {
+        push_unique(&mut diagnostics, advice);
     }
     for capture in warning.captures_iter(log).take(40) {
         let message = capture[1].trim();
@@ -142,13 +158,23 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn missing_dependency_message(missing_file: &str) -> String {
+fn missing_dependency_advice(missing_file: &str) -> Diagnostic {
     match conference_template_venue(missing_file) {
-        Some(venue) => format!(
-            "Missing style file `{missing_file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
+        Some(venue) => advice(
+            "error",
+            "conference-style-missing",
+            &[("file", missing_file), ("venue", venue)],
+            format!(
+                "Missing style file `{missing_file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
+            ),
         ),
-        None => format!(
-            "Missing LaTeX dependency `{missing_file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
+        None => advice(
+            "error",
+            "tex-dependency-missing",
+            &[("file", missing_file)],
+            format!(
+                "Missing LaTeX dependency `{missing_file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
+            ),
         ),
     }
 }
@@ -156,7 +182,7 @@ fn missing_dependency_message(missing_file: &str) -> String {
 /// latexmk runs a project's rc file before any engine pass, and a `die` there
 /// ends the build with only the rc's own output in the log: no LaTeX error,
 /// so the diagnostics list stayed empty and the raw dump was all anyone saw.
-fn rc_file_failure(log: &str) -> Option<String> {
+fn rc_file_failure(log: &str) -> Option<Diagnostic> {
     let rc_error = Regex::new(
         r"(?m)^Latexmk: Initialization file '([^'\n]+)' gave an error:[ \t]*\n((?:[ \t]+\S[^\n]*\n?)*)",
     )
@@ -166,10 +192,12 @@ fn rc_file_failure(log: &str) -> Option<String> {
         let file = capture[1].trim_start_matches("./");
         let reason = crate::util::collapse_whitespace(&capture[2]);
         let reason = reason.trim_end_matches('.');
-        let reason = if reason.is_empty() { String::new() } else { format!(": {reason}") };
-        format!(
-            "latexmk stopped before LaTeX ran because {file} failed{reason}. The Log tab shows the output of the command it runs."
-        )
+        let message = if reason.is_empty() {
+            format!("latexmk stopped before LaTeX ran because {file} failed. The Log tab shows the output of the command it runs.")
+        } else {
+            format!("latexmk stopped before LaTeX ran because {file} failed: {reason}. The Log tab shows the output of the command it runs.")
+        };
+        advice("error", "latexmkrc-failed", &[("file", file), ("reason", reason)], message)
     }))
 }
 
@@ -180,7 +208,7 @@ fn rc_file_failure(log: &str) -> Option<String> {
 /// the user's HOME, so the lookup is the same `~/Library/Caches/ms-playwright`
 /// a Terminal build uses; the fix is the install Playwright asks for, run by
 /// the same Playwright, which the traceback's site-packages path identifies.
-fn playwright_browser_missing(log: &str) -> Option<String> {
+fn playwright_browser_missing(log: &str) -> Option<Diagnostic> {
     let missing = Regex::new(r"(?m)Executable doesn't exist at (.+?)\s*$").unwrap();
     let executable = missing.captures(log)?.get(1)?.as_str();
     let chromium_build = Regex::new(r"^chromium[a-z_]*-\d+$").unwrap();
@@ -198,9 +226,10 @@ fn playwright_browser_missing(log: &str) -> Option<String> {
     let capture = python_env.captures(log)?;
     let python = format!("{}/bin/python3", &capture[1]);
     let command = format!("{} -m playwright install chromium", shell_word(&python));
-    Some(format!(
+    let message = format!(
         "The project's .latexmkrc runs Playwright, and the Chromium this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
-    ))
+    );
+    Some(advice("error", "playwright-chromium-missing", &[("command", &command)], message))
 }
 
 fn shell_word(value: &str) -> String {
@@ -344,6 +373,12 @@ mod tests {
         let diagnostics = parse_diagnostics("sh: pdflatex: command not found\n");
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0].message.contains("pdflatex"));
+        // The interface translates Lattice's advice from its code and params.
+        assert_eq!(diagnostics[0].code, Some("latex-tool-missing"));
+        assert_eq!(diagnostics[0].params.get("tool").map(String::as_str), Some("pdflatex"));
+        let dependency = parse_diagnostics("! LaTeX Error: File `cvpr.sty' not found.\n");
+        assert_eq!(dependency[0].code, Some("conference-style-missing"));
+        assert_eq!(dependency[0].params.get("venue").map(String::as_str), Some("CVPR"));
 
         // Packages, classes and bibliography styles are offered an install,
         // named without the log's quotes.

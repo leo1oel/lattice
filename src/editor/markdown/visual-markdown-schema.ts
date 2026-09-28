@@ -34,6 +34,7 @@ export function getMarkdownManager(): MarkdownManager {
 
 /** Legacy Research Writer `rw-component <kind>` fence kinds → registry components. */
 const LEGACY_COMPONENT_KINDS: Record<string, string> = {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- component name written into the document
   callout: "Callout",
 };
 

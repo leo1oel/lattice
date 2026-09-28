@@ -12,7 +12,9 @@
  */
 import { StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
 import { Decoration, EditorView, hoverTooltip, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
+import { msg } from "@lingui/core/macro";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
+import { i18n } from "../i18n";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { hueColor } from "../components/ui/collab-colors";
 
@@ -126,7 +128,7 @@ class PresenceCaretWidget extends WidgetType {
     const wrap = element("span", "cm-overleaf-caret");
     wrap.style.borderColor = this.color;
     const dot = element("span", "cm-overleaf-caret-dot");
-    const label = element("span", "cm-overleaf-caret-label", this.name || "Anonymous");
+    const label = element("span", "cm-overleaf-caret-label", this.name || i18n._(msg`Anonymous`));
     dot.style.backgroundColor = label.style.backgroundColor = this.color;
     wrap.append(dot, label);
     return wrap;
@@ -275,11 +277,12 @@ export function buildTrackedChangeTooltipDom(changes: TrackedChange[], actions: 
     if (change.timestamp) {
       head.append(element("span", "cm-tracked-change-tooltip-time", formatCommentTimestamp(change.timestamp, now)));
     }
+    const text = change.text;
     const body = element("div", "cm-tracked-change-tooltip-body", change.deletion
-      ? `Suggests removing "${change.text}"`
-      : `Suggests inserting "${change.text}"`);
+      ? i18n._(msg`Suggests removing "${text}"`)
+      : i18n._(msg`Suggests inserting "${text}"`));
     const row = element("div", "cm-tracked-change-tooltip-actions");
-    for (const [label, act] of [["Accept", actions.onAccept], ["Reject", actions.onReject]] as const) {
+    for (const [label, act] of [[i18n._(msg`Accept`), actions.onAccept], [i18n._(msg`Reject`), actions.onReject]] as const) {
       const button = element("button", "", label);
       button.type = "button";
       button.disabled = !actions.canAct();

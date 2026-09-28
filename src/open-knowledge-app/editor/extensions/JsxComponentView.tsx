@@ -47,7 +47,7 @@ import {
   incrementJsxStuckDeleteFailed,
   type JsxNodeAction,
 } from '@ok-core';
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { GapCursor } from '@tiptap/pm/gapcursor';
 import { Selection, TextSelection } from '@tiptap/pm/state';
@@ -88,6 +88,7 @@ import { normalizeDocRelativeMediaRenderProps } from '../extensions/media-render
 import { getWrapperBridgeId } from '../extensions/selection-state-plugin.ts';
 import { useBlockSelection } from '../hooks/use-block-selection.ts';
 import { markUserTyping } from '../observers.ts';
+import { childComponentLabel, descriptorDisplayName } from '../registry/descriptor-labels.ts';
 import { getDescriptor } from '../registry/index.ts';
 import {
   resolveDescriptorPlaceholder,
@@ -478,7 +479,8 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
     descriptor.name === 'MermaidFence'
       ? { propName: 'chart', language: 'mermaid' }
       : null;
-  const editableSourceLabel = t`Edit ${descriptor.displayName ?? descriptor.name} source`;
+  const sourceComponentLabel = descriptorDisplayName(descriptor);
+  const editableSourceLabel = t`Edit ${sourceComponentLabel} source`;
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [diagramLightboxOpen, setDiagramLightboxOpen] = useState(false);
 
@@ -782,7 +784,7 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
     // → close → paste elsewhere), not name an internal subsystem the user
     // has never encountered.
     const componentName = node.attrs.componentName as string;
-    const descriptorLabel = descriptor.displayName ?? descriptor.name;
+    const descriptorLabel = descriptorDisplayName(descriptor);
     const label =
       descriptor.name === '*'
         ? t`<${componentName}> isn't a known component. Copy the source to use it elsewhere, or delete the block.`
@@ -870,7 +872,7 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   // next step rather than implementation jargon.
   if (needsConversion) {
     const componentName = node.attrs.componentName as string;
-    const descriptorLabel = descriptor.displayName ?? descriptor.name;
+    const descriptorLabel = descriptorDisplayName(descriptor);
     const label =
       descriptor.name === '*'
         ? t`Unknown component: ${componentName} — source editable below`
@@ -887,9 +889,9 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
 
   // ── BRANCH 2: Registered healthy render ───────────────────────────────
   const Comp = descriptor.Component;
-  const deleteDescriptorLabel = descriptor.displayName ?? descriptor.name;
-  const settingsDescriptorLabel = descriptor.displayName ?? descriptor.name;
-  const propPanelDescriptorLabel = descriptor.displayName ?? descriptor.name;
+  const deleteDescriptorLabel = descriptorDisplayName(descriptor);
+  const settingsDescriptorLabel = descriptorDisplayName(descriptor);
+  const propPanelDescriptorLabel = descriptorDisplayName(descriptor);
 
   // For components with no editable children (self-closing like Image, …), a
   // click on the rendered body would otherwise land the caret in the node's
@@ -946,12 +948,12 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
   // See precedent "A11y codified in the selection plugin, not retrofitted
   // per-block" and its consumers (SelectionAnnouncer).
   //
-  // Descriptor display text is English (all descriptors ship with
-  // English labels). Pluralization uses locale-neutral "with N items"
+  // Descriptor display text is localized through `descriptor-labels.ts`
+  // (descriptors ship with English labels). Pluralization uses locale-neutral "with N items"
   // shapes that avoid inflecting the descriptor's child name — every
   // string change goes through the `editor-strings.ts` helpers so a
   // future i18n pass has a single place to swap.
-  const componentLabel = descriptor.displayName ?? descriptor.name;
+  const componentLabel = descriptorDisplayName(descriptor);
   const isGroupContainer = Boolean(descriptor.emptyChildName);
   const groupAriaLabel = isGroupContainer
     ? formatContainerAriaLabel(componentLabel, descriptor.emptyChildName, node.childCount)
@@ -1586,7 +1588,7 @@ export function JsxComponentView({ node, editor, extension, getPos, selected }: 
         {descriptor.emptyChildName &&
           !(descriptor.name === 'Tabs' && node.childCount > 0) &&
           (() => {
-            const addChildName = descriptor.emptyChildName;
+            const addChildName = childComponentLabel(descriptor.emptyChildName);
             return (
               <button
                 type="button"

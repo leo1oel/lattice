@@ -17,7 +17,6 @@ import { FileKindIcon, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
 
 /** Notification source label for the version timeline. */
-const VERSIONS_SOURCE = "Versions";
 
 type Phase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
 
@@ -116,7 +115,7 @@ export function VersionsTimeline(props: {
   /** Run one logged action, then reload the timeline; resolves to its success message. */
   const runAction = async (label: string, detail: string | undefined, action: () => Promise<string>) => {
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, label, detail);
+    const trace = logAction(t`Versions`, label, detail);
     try {
       const outcome = await action();
       await load();

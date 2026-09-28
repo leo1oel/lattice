@@ -96,6 +96,7 @@ const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment">, (value?:
   link: (value) => {
     const url = value?.trim();
     if (!url) return null;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- percent-encodings
     const safeUrl = url.replace(/\\/g, "%5C").replace(/\{/g, "%7B").replace(/\}/g, "%7D");
     return [`\\href{${safeUrl}}{`, "}"];
   },

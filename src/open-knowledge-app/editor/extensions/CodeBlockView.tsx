@@ -8,7 +8,7 @@
  * (precedent #30) so codeblocks compose visually with other rich blocks.
  */
 
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import {

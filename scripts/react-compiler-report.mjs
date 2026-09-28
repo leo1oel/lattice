@@ -27,6 +27,7 @@ const pluginReactRequire = createRequire(
 );
 const { transformFileSync } = pluginReactRequire("@babel/core");
 const reactCompiler = require("babel-plugin-react-compiler");
+const linguiMacro = require("@lingui/babel-plugin-lingui-macro");
 
 export const GUARDED_FILES = [
   "src/App.tsx",
@@ -48,7 +49,10 @@ export function compileErrors(relative) {
     // Same shape as @vitejs/plugin-react: the compiler runs over the raw TSX
     // AST (parser-level typescript/jsx support, no TS-stripping preset).
     parserOpts: { plugins: ["typescript", "jsx"] },
-    plugins: [[reactCompiler, {
+    // As in vite.config.ts, Lingui macros expand before the compiler runs: it
+    // bails out on a raw `t` tagged template with interpolations, which the
+    // build never shows it.
+    plugins: [linguiMacro, [reactCompiler, {
       target: "19",
       logger: { logEvent: (_filename, event) => events.push(event) },
     }]],

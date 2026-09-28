@@ -4,6 +4,7 @@ import type { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationCompletionRange, includeCompletionRange, referenceCompletionRange } from "./latex-symbols";
+import { referenceKindLabel } from "./latex-text";
 
 const GRAPHICS_FILE = /\.(png|jpe?g|pdf|svg|eps|webp)$/i;
 
@@ -53,7 +54,7 @@ export function referenceCompletions(live: () => LatexEditorLiveData) {
       from: range.from,
       options: live().references
         .filter((reference) => matchesQuery(query, reference.label, reference.title))
-        .map((reference) => ({ label: reference.label, type: "variable", detail: reference.kind, info: reference.title || undefined })),
+        .map((reference) => ({ label: reference.label, type: "variable", detail: referenceKindLabel(reference.kind), info: reference.title || undefined })),
       validFor: /^[^,}\s]*$/,
     };
   };
@@ -67,13 +68,14 @@ export function includeCompletions(live: () => LatexEditorLiveData) {
     const { projectPaths, graphicsRoots } = live();
     const graphics = before.includes("\\includegraphics");
     const details = new Map<string, string>();
+    const figure = referenceKindLabel("figure");
     for (const path of projectPaths) {
       if (!graphics) {
         if (path.endsWith(".tex")) details.set(path, "tex");
         continue;
       }
       if (!GRAPHICS_FILE.test(path)) continue;
-      details.set(path, "figure");
+      details.set(path, figure);
       for (const root of graphicsRoots) {
         if (path.startsWith(`${root}/`)) details.set(path.slice(root.length + 1), "graphicspath");
       }
@@ -101,7 +103,9 @@ export function macroCompletions(live: () => LatexEditorLiveData) {
   };
 }
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- SVG markup
 const CITATION_ICON = '<svg class="cm-citation-icon" viewBox="0 0 24 24" aria-hidden="true">'
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- SVG markup
   + '<path d="M12 7v14m0-14C9 4 5 4 2 5v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 2Z"/></svg>';
 
 export function citationIcon(completion: Completion): Node | null {

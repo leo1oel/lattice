@@ -9,8 +9,13 @@ const SAFE_METRICS = new Set([
   "read_only", "retry_scheduled", "force", "compiler_duration_ms", "diagnostics", "has_pdf",
   "status_code", "dropped_overflow", "dropped_failed",
 ]);
+/** Stable `logAction` operation ids, independent of the translated action name. */
+/* eslint-disable lingui/no-unlocalized-strings -- operation ids allowed into the safe export */
+export const BUILD_OPERATION = "Build";
+export const SYNC_OPERATION = "Sync";
+/* eslint-enable lingui/no-unlocalized-strings */
 const SAFE_OPERATIONS = new Set([
-  "Build", "Sync", "logging.delivery", "build_project", "overleaf_sync",
+  BUILD_OPERATION, SYNC_OPERATION, "logging.delivery", "build_project", "overleaf_sync",
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1_000;

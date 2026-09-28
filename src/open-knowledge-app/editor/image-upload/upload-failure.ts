@@ -17,7 +17,7 @@
  * `slice(0, 1)` spans zero bytes, resolves to an empty buffer, and reports
  * success for precisely the case worth catching.
  */
-import { t } from '@ok-app/shims/lingui-core-macro';
+import { t } from '@lingui/core/macro';
 
 export type UploadFailureKind = 'file-unreadable' | 'network';
 

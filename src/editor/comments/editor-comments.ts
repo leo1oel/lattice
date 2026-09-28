@@ -1,6 +1,8 @@
+import { msg } from "@lingui/core/macro";
 import { StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
 import { Decoration, EditorView, hoverTooltip, type DecorationSet } from "@codemirror/view";
 import { peerColorForKey } from "../../components/ui/collab-colors";
+import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import {
   editorCommentAuthorDisplayName,
@@ -16,8 +18,9 @@ export const setEditorCommentDraftEffect = StateEffect.define<EditorCommentDraft
 
 export function commentMarkStyle(comment: EditorComment): string {
   const { color, colorLight } = peerColorForKey(comment.authorId || comment.authorName);
-  return `background-color: ${colorLight}; border-bottom: 2px solid ${color}; border-radius: 2px; `
+  const markStyle = `background-color: ${colorLight}; border-bottom: 2px solid ${color}; border-radius: 2px; `
     + "box-decoration-break: clone; -webkit-box-decoration-break: clone";
+  return markStyle;
 }
 
 type AnchoredComment = { comment: EditorComment; from: number; to: number };
@@ -92,14 +95,16 @@ export type EditorCommentLocalization = {
   reply: string;
 };
 
-const DEFAULT_COMMENT_LOCALIZATION: EditorCommentLocalization = {
-  locale: "en",
-  anonymous: "Anonymous",
-  noCommentText: "(no comment text)",
-  reopen: "Reopen",
-  resolve: "Resolve",
-  reply: "Reply",
-};
+function defaultCommentLocalization(): EditorCommentLocalization {
+  return {
+    locale: i18n.locale,
+    anonymous: i18n._(msg`Anonymous`),
+    noCommentText: i18n._(msg`(no comment text)`),
+    reopen: i18n._(msg`Reopen`),
+    resolve: i18n._(msg({ message: "Resolve", context: "comment thread" })),
+    reply: i18n._(msg`Reply`),
+  };
+}
 
 type CommentTooltipActions = {
   onResolve: (id: string) => void;
@@ -132,7 +137,7 @@ export function buildCommentTooltipDom(
   comments: EditorComment[],
   actions?: CommentTooltipActions,
   now = Date.now(),
-  localization = DEFAULT_COMMENT_LOCALIZATION,
+  localization = defaultCommentLocalization(),
 ): HTMLElement {
   const dom = element("div", "cm-editor-comment-tooltip");
   for (const comment of comments) {
@@ -268,7 +273,7 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
           hits.map((hit) => hit.comment),
           tooltipActions,
           Date.now(),
-          options.getLocalization?.() ?? DEFAULT_COMMENT_LOCALIZATION,
+          options.getLocalization?.() ?? defaultCommentLocalization(),
         ),
         // Constrain long threads to the available space on the chosen side
         // of the line; the card scrolls without hiding its actions off-screen.

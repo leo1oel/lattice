@@ -1,5 +1,5 @@
-import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
-import { msg } from '@ok-app/shims/lingui-core-macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 import { isMacOS } from '@tiptap/core';
 
 export type ShortcutPlatform = 'mac' | 'windowsLinux';

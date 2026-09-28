@@ -79,7 +79,7 @@ const doc = (view: EditorView) => view.state.doc.toString();
 
 describe("LaTeX editor extensions", () => {
   it("shows the current and total matches in the find panel", () => {
-    const view = mount(EditorState.create({ doc: "alpha alpha alpha", extensions: [search({ top: true }), compactSearchPanel] }));
+    const view = mount(EditorState.create({ doc: "alpha alpha alpha", extensions: [search({ top: true }), compactSearchPanel()] }));
     openSearchPanel(view);
     view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "alpha" })), selection: { anchor: 6, head: 11 } });
     expect(view.dom.querySelector(".cm-search-count")).toHaveTextContent("2/3");

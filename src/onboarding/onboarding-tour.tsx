@@ -1,12 +1,16 @@
 import { ArrowLeft, ArrowRight, MousePointer2, Sparkles } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
+import { msg } from "@lingui/core/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ACTIONS, EVENTS, Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from "react-joyride";
 import { TUTORIAL_STEPS } from "./onboarding-steps";
+import { i18n } from "../i18n";
 
 const ACTION_BUTTONS: Step["buttons"] = ["back", "skip"];
 const READING_BUTTONS: Step["buttons"] = ["back", "skip", "primary"];
-const MARKDOWN_EDITOR = '[role="textbox"][aria-label="Markdown document editor"]';
+// These controls are found by their accessible names, which are translated:
+// resolve the same messages at lookup time so the selectors match any locale.
+const markdownEditorSelector = () => `[role="textbox"][aria-label="${i18n._(msg`Markdown document editor`)}"]`;
 
 /**
  * Remounts to spend on re-resolving a step target before giving up on it.
@@ -90,7 +94,7 @@ function projectTreeFile(path: string): HTMLElement | null {
 
 /** The visible Markdown block nearest the middle of the visual editor. */
 function markdownBlockForTour(): HTMLElement | null {
-  const editor = document.querySelector<HTMLElement>(MARKDOWN_EDITOR);
+  const editor = document.querySelector<HTMLElement>(markdownEditorSelector());
   if (!editor) return null;
   const viewport = editor.closest<HTMLElement>('[data-tour="markdown-visual-editor"]')?.getBoundingClientRect()
     ?? editor.getBoundingClientRect();
@@ -110,8 +114,8 @@ function markdownBlockForTour(): HTMLElement | null {
 }
 
 function closeMarkdownSlashMenu() {
-  if (!document.querySelector('[role="listbox"][aria-label="Slash commands"]')) return;
-  document.querySelector<HTMLElement>(MARKDOWN_EDITOR)?.dispatchEvent(new KeyboardEvent("keydown", {
+  if (!document.querySelector(`[role="listbox"][aria-label="${i18n._(msg`Slash commands`)}"]`)) return;
+  document.querySelector<HTMLElement>(markdownEditorSelector())?.dispatchEvent(new KeyboardEvent("keydown", {
     key: "Escape",
     code: "Escape",
     bubbles: true,
@@ -283,7 +287,7 @@ export function OnboardingTour(props: {
           clientY: rect.top + Math.min(18, rect.height / 2),
         }));
       }
-      const addButton = document.querySelector<HTMLElement>('button.ok-add-block-btn[aria-label="Add block below"]');
+      const addButton = document.querySelector<HTMLElement>(`button.ok-add-block-btn[aria-label="${i18n._(msg`Add block below`)}"]`);
       const addRect = addButton?.getBoundingClientRect();
       const blockRect = block?.getBoundingClientRect();
       if (!addButton || !addRect || !blockRect || addRect.width <= 0 || addRect.height <= 0

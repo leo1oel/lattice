@@ -31,6 +31,7 @@ mod literature_credentials;
 mod literature_service;
 mod macos_window;
 mod models;
+mod native_locale;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
@@ -309,6 +310,7 @@ pub fn run() {
             ipc::windows::set_browser_access_enabled,
             ipc::windows::restart_after_update,
             ipc::windows::set_window_background,
+            ipc::windows::set_native_locale,
             ipc::windows::align_traffic_lights,
             ipc::windows::sample_screen_color,
             ipc::files::list_project_tree_with_hidden,

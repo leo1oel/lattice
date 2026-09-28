@@ -19,7 +19,7 @@
  * guard keys off `isFileNodeSelected`).
  */
 
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import { Download } from 'lucide-react';

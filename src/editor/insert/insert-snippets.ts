@@ -6,8 +6,10 @@ import type { MessageDescriptor } from "@lingui/core";
  * glyph grid rather than as description cards, because the command and the
  * glyph already say everything the name would repeat.
  */
+/* eslint-disable lingui/no-unlocalized-strings -- group keys; the palette's useGroupLabels translates them */
 export const INSERT_SYMBOL_GROUPS = ["Greek", "Operators", "Relations", "Arrows", "Sets", "Delimiters", "Accents", "Symbols"] as const;
 export const INSERT_GROUPS = ["Environment", "Structure", "Math", ...INSERT_SYMBOL_GROUPS] as const;
+/* eslint-enable lingui/no-unlocalized-strings */
 export type InsertGroup = (typeof INSERT_GROUPS)[number];
 type SymbolGroup = (typeof INSERT_SYMBOL_GROUPS)[number];
 
@@ -48,6 +50,7 @@ const ENVIRONMENTS: CodeRow[] = [
   ["env-subequations", msg`Subequations`, msg`Grouped numbered equations`, "\\begin{subequations}\n  \\begin{align}\n    a &= b \\\\\n    c &= d\n  \\end{align}\n\\end{subequations}\n", 36],
   ["env-bmatrix", msg`Bmatrix`, msg`Bracketed matrix`, "\\begin{bmatrix}\n  a & b \\\\\n  c & d\n\\end{bmatrix}", 18],
   ["env-vmatrix", msg`Vmatrix`, msg`Determinant-style matrix`, "\\begin{vmatrix}\n  a & b \\\\\n  c & d\n\\end{vmatrix}", 18],
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- snippet id
   ["env-Bmatrix", msg`Curly matrix`, msg`Brace-delimited matrix`, "\\begin{Bmatrix}\n  a & b \\\\\n  c & d\n\\end{Bmatrix}", 18],
   ["env-multline", msg`Multline`, msg`Long equation broken across lines`, "\\begin{multline}\n  a + b + c \\\\\n  + d + e\n\\end{multline}\n", 17],
   ["env-cases", msg`Cases`, msg`Piecewise definition`, "\\begin{cases}\n  a & \\text{if } x > 0 \\\\\n  b & \\text{otherwise}\n\\end{cases}", 14],
@@ -69,7 +72,7 @@ const STRUCTURES: CodeRow[] = [
   ["sec-section", msg`Section`, msg`Top-level section heading`, "\\section{}\n", 9],
   ["sec-subsection", msg`Subsection`, msg`Second-level heading`, "\\subsection{}\n", 12],
   ["sec-subsubsection", msg`Subsubsection`, msg`Third-level heading`, "\\subsubsection{}\n", 15],
-  ["sec-paragraph", msg`Paragraph`, msg`Run-in paragraph heading`, "\\paragraph{}\n", 11],
+  ["sec-paragraph", msg({ message: "Paragraph", context: "LaTeX heading" }), msg`Run-in paragraph heading`, "\\paragraph{}\n", 11],
   ["sec-label", msg`Label`, msg`Cross-reference label`, "\\label{}", 7],
   ["sec-ref", msg`Reference`, msg`Reference an existing label`, "\\ref{}", 5],
   ["sec-eqref", msg`Equation reference`, msg`Reference an equation label`, "\\eqref{}", 7],
@@ -84,6 +87,7 @@ const STRUCTURES: CodeRow[] = [
 
 const MATH: MathRow[] = [
   ["math-inline", msg`Inline math`, msg`Math inside a sentence`, "$ $", 1, "x"],
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- KaTeX preview source
   ["math-display", msg`Display math`, msg`Centered display equation`, "\\[\n  \n\\]\n", 4, "x^{2}"],
   ["math-frac", msg`Fraction`, msg`a over b`, "\\frac{}{}", 6, "\\frac{a}{b}"],
   ["math-dfrac", msg`Display fraction`, msg`Larger fraction`, "\\dfrac{}{}", 7, "\\dfrac{a}{b}"],
@@ -184,6 +188,7 @@ const SYMBOLS: Record<SymbolGroup, SymbolRow[]> = {
     ["\\tilde{}", "ã", msg`Tilde accent example`, "\\tilde{a}"], ["\\acute{}", "á", msg`Acute accent example`, "\\acute{a}"],
     ["\\grave{}", "à", msg`Grave accent example`, "\\grave{a}"], ["\\dot{}", "ȧ", msg`Dot accent example`, "\\dot{a}"],
     ["\\ddot{}", "ä", msg`Double-dot accent example`, "\\ddot{a}"], ["\\breve{}", "ă", msg`Breve accent example`, "\\breve{a}"],
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- accent glyph
     ["\\bar{}", "ā", msg`Bar accent example`, "\\bar{a}"], ["\\vec{}", "a⃗", msg`Vector accent example`, "\\vec{a}"],
   ],
   Symbols: [
@@ -195,6 +200,7 @@ const SYMBOLS: Record<SymbolGroup, SymbolRow[]> = {
     ["\\clubsuit", "♣", msg`Club suit`], ["\\spadesuit", "♠", msg`Spade suit`], ["\\flat", "♭", msg`Flat`],
     ["\\natural", "♮", msg`Natural`], ["\\sharp", "♯", msg`Sharp`],
     // A baseline LaTeX expression: `\degree` needs gensymb.
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- LaTeX source and its KaTeX preview
     ["^{\\circ}", "°", msg`Degree`, "90^{\\circ}"],
     ["\\ell", "ℓ", msg`Script l`], ["\\hbar", "ℏ", msg`H-bar / reduced Planck`], ["\\imath", "ı", msg`Dotless i`],
     ["\\jmath", "ȷ", msg`Dotless j`], ["\\wp", "℘", msg`Weierstrass p`], ["\\Re", "ℜ", msg`Real part`],
@@ -214,8 +220,10 @@ const codeSnippets = (group: InsertGroup, rows: CodeRow[]): InsertSnippet[] =>
   }));
 
 export const INSERT_SNIPPETS: InsertSnippet[] = [
+  /* eslint-disable lingui/no-unlocalized-strings -- group keys; the palette's useGroupLabels translates them */
   ...codeSnippets("Environment", ENVIRONMENTS),
   ...codeSnippets("Structure", STRUCTURES),
+  /* eslint-enable lingui/no-unlocalized-strings */
   ...MATH.map(([id, label, detail, insert, cursorOffset, mathPreview]): InsertSnippet => ({
     id, group: "Math", label, detail, insert, cursorOffset, mathPreview,
   })),

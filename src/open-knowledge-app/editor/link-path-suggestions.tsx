@@ -1,6 +1,6 @@
 import { autoUpdate, computePosition, flip, offset, shift, size } from '@floating-ui/dom';
 import { isExternalHref } from '@ok-core';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import {
   type ComponentProps,
   type KeyboardEvent,

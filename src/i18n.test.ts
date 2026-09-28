@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { msg } from "@lingui/core/macro";
+import { msg, t } from "@lingui/core/macro";
 import { activateAppLocale, i18n } from "./i18n";
 
 describe("application localization", () => {
@@ -14,5 +14,11 @@ describe("application localization", () => {
     expect(i18n._(msg`Starting Agent`)).toBe("正在启动智能助手");
     expect(i18n._(msg`Editor comments`)).toBe("编辑器评论");
     expect(i18n._(msg`Include resolved`)).toBe("包括已解决");
+  });
+
+  it("activates the instance that standalone core macros resolve through", async () => {
+    await activateAppLocale("zh-CN");
+
+    expect(t`Settings`).toBe("设置");
   });
 });

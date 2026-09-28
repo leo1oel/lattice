@@ -34,7 +34,7 @@ const SPARK_MARK_B = "M240,80h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0
 export function SparkleLive({ size = 16, className }: { size?: number; className?: string }) {
     /* per instance: url(#id) resolves document-wide, so a hardcoded id makes a
        second instance use the first one's mask */
-    const sparkRingsId = "lgSparkRings-" + useId().replace(/[^a-zA-Z0-9]/g, "");
+    const sparkRingsId = "lg-spark-rings-" + useId().replace(/[^a-zA-Z0-9]/g, "");
     return (
         // overflow visible: the marks overshoot ~0.3px past the top edge on their
         // way back in, and clipping that would read as a bug

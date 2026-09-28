@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { rankMatches, subsequenceScore } from "../components/ui/picker-ranking";
 import { PickerDialog } from "../components/ui/search-picker-dialog";
 
@@ -25,6 +26,7 @@ export function QuickOpenDialog({ open, ...props }: QuickOpenProps & { open: boo
 }
 
 function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
+  const { t } = useLingui();
   const rank = useMemo(() => (query: string) => rankMatches(
     paths,
     (path) => scorePath(path, query),
@@ -34,12 +36,12 @@ function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
   return (
     <PickerDialog
       {...props}
-      label="Quick open file"
-      searchLabel="Quick open search"
-      placeholder="Open file…"
-      closeLabel="Close quick search"
+      label={t`Quick open file`}
+      searchLabel={t`Quick open search`}
+      placeholder={t`Open file…`}
+      closeLabel={t`Close quick search`}
       compactClose
-      emptyText="No matching files"
+      emptyText={t`No matching files`}
       rank={rank}
       itemKey={(path) => path}
       renderItem={(path) => path}

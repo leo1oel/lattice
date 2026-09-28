@@ -35,7 +35,7 @@
  * display-toggle inside the browser — that is orthogonal to the precedent.
  */
 
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { Trans } from '@lingui/react/macro';
 import {
   AlertOctagon,
   AlertTriangle,

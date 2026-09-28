@@ -71,14 +71,8 @@ fn parse_latex_references(
                 .then(|| includegraphics_argument(body))
                 .flatten()
                 .and_then(|value| resolve_graphics_path(root, source_path, &value));
-            let title = caption.unwrap_or_else(|| {
-                match kind {
-                    "figure" => "Figure",
-                    "table" => "Table",
-                    _ => "Equation",
-                }
-                .to_string()
-            });
+            // Uncaptioned: the interface names the kind in its own language.
+            let title = caption.unwrap_or_default();
             (kind.to_string(), title, environment_snippet(body, kind), image_path)
         } else if let Some(title) = nearest_section_title(source, position) {
             ("section".to_string(), title, String::new(), None)

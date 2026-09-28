@@ -4,10 +4,12 @@
  * rebuilds from a published snapshot of the source text and maps its
  * decorations through ordinary document edits in between.
  */
+import { msg } from "@lingui/core/macro";
 import { Extension } from "@tiptap/core";
 import type { Editor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { i18n } from "../../i18n";
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import { presenceCursorColor, type PresenceCursor } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
@@ -54,7 +56,7 @@ function presenceCaret(name: string, color: string): HTMLElement {
   caret.setAttribute("aria-hidden", "true");
   caret.style.borderColor = color;
   const dot = element("span", "visual-overleaf-caret-dot");
-  const label = element("span", "visual-overleaf-caret-label", name || "Anonymous");
+  const label = element("span", "visual-overleaf-caret-label", name || i18n._(msg`Anonymous`));
   dot.style.backgroundColor = label.style.backgroundColor = color;
   caret.append(dot, label);
   return caret;
@@ -88,7 +90,7 @@ export const visualPresence = sourceDecorationLayer<SourceSnapshot & { cursors: 
 );
 
 export const trackedChangeLabel = (change: TrackedChange) => (
-  change.deletion ? "Suggested deletion" : "Suggested insertion"
+  i18n._(change.deletion ? msg`Suggested deletion` : msg`Suggested insertion`)
 );
 export const trackedChangeColor = (change: TrackedChange) => `hsl(${change.hue}, 70%, 50%)`;
 export const trackedChangeTint = (change: TrackedChange) => (

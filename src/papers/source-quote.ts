@@ -39,6 +39,7 @@ function normalizeWithOffsets(value: string): NormalizedText {
       continue;
     }
 
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- Unicode normalization form
     const normalizedCharacter = character.normalize("NFKC");
     for (let index = 0; index < normalizedCharacter.length; index += 1) {
       text += normalizedCharacter[index];

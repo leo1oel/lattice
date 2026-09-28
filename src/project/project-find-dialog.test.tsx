@@ -28,7 +28,7 @@ function renderFind(overrides: Partial<FindProps> = {}) {
     ...overrides,
   };
   const view = render(<ProjectFindDialog {...props} />);
-  const input = () => screen.getByRole("searchbox", { name: "Find in project" });
+  const input = () => screen.getByRole("searchbox", { name: /^(?:Find in project|在项目中查找)$/ });
   return {
     ...view,
     props,
@@ -62,6 +62,24 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByRole("complementary", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
+  });
+
+  it("shows its placeholder, counts, empty state, and close label in Chinese", async () => {
+    vi.useRealTimers();
+    await activateAppLocale("zh-CN");
+    vi.useFakeTimers();
+    const { search, rerenderWith } = renderFind({
+      hits: [fileHit("main.tex", 3), fileHit("intro.tex", 8), { kind: "paper", path: "p", title: "Attention", snippet: "", line: null }],
+    });
+    expect(screen.getByPlaceholderText("短语或关键词")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "关闭 在项目中查找" })).toBeInTheDocument();
+    search("image");
+    expect(screen.getByText("2 处命中 · 1 篇论文")).toBeInTheDocument();
+    rerenderWith({ hits: [] });
+    search("zzq");
+    expect(screen.getByText("未找到“zzq”的结果")).toBeInTheDocument();
+    expect(screen.getByText("试试更短的短语或换个关键词")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "清除搜索" })).toHaveLength(2);
   });
 
   it("lists and announces file and paper hits by type, and opens the selected file line", () => {

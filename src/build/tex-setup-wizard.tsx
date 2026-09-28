@@ -11,6 +11,7 @@ import {
   type TexInstallProgress,
 } from "./tex-setup";
 import { TexInstallDialog } from "./tex-install-dialog";
+import { doctorCheckDetail } from "./tex-doctor-messages";
 import { MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -69,7 +70,7 @@ export function TexSetupWizard(props: {
       const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
       const issues = [
         ...(missingTools.length > 0 ? [t`Missing tools: ${missingTools.join(", ")}`] : []),
-        ...(fontCheck?.ok !== true ? [fontCheck?.detail ?? t`Conference font verification is missing.`] : []),
+        ...(fontCheck?.ok !== true ? [fontCheck ? doctorCheckDetail(fontCheck) : t`Conference font verification is missing.`] : []),
       ];
       if (issues.length > 0) {
         throw new Error(t({

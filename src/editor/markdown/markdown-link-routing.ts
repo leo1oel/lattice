@@ -46,6 +46,7 @@ function paperArxivIdFromPath(activePath: string): string | null {
   return match && !match[1]!.startsWith("web-") ? match[1]! : null;
 }
 
+const ARXIV_HTML_PATH = "/html/";
 const baseArxivId = (id: string) => id.replace(/v\d+$/i, "").toLocaleLowerCase();
 
 function attempt<T>(read: () => T): T | null {
@@ -63,8 +64,8 @@ export function localPaperFragment(activePath: string, href: string): { id: stri
   let fallbackUrl = paperId ? `https://arxiv.org/html/${paperId}${href}` : undefined;
   if (!href.startsWith("#")) {
     const url = paperId ? attempt(() => new URL(href)) : null;
-    if (!url || !/^(?:www\.)?arxiv\.org$/i.test(url.hostname) || !url.pathname.startsWith("/html/") || !url.hash) return null;
-    const linkedId = attempt(() => decodeURIComponent(url.pathname.slice("/html/".length)));
+    if (!url || !/^(?:www\.)?arxiv\.org$/i.test(url.hostname) || !url.pathname.startsWith(ARXIV_HTML_PATH) || !url.hash) return null;
+    const linkedId = attempt(() => decodeURIComponent(url.pathname.slice(ARXIV_HTML_PATH.length)));
     if (linkedId === null || baseArxivId(linkedId) !== baseArxivId(paperId!)) return null;
     fragment = url.hash;
     fallbackUrl = href;

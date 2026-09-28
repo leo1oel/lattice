@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ClipboardCheck } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
@@ -53,6 +54,7 @@ export function ManuscriptChecklistPanel(props: {
   onOpenTodos: () => void;
   onSaveBudgets: (wordBudget: number | null, pageBudget: number | null) => void;
 }) {
+  const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
   const wordsOk = props.data.wordBudget == null ? null : props.data.words <= props.data.wordBudget;
@@ -60,12 +62,14 @@ export function ManuscriptChecklistPanel(props: {
   const pagesOk = props.data.pageBudget == null || countedPages == null
     ? null
     : countedPages <= props.data.pageBudget;
-  const pageDetail = props.data.pages == null
+  const totalPages = props.data.pages;
+  const mainPages = props.data.mainPages;
+  const pageDetail = totalPages == null
     ? undefined
-    : props.data.mainPages != null && props.data.mainPages !== props.data.pages
-      ? `${props.data.pages} total · appendix after p.${props.data.mainPages}`
-      : props.data.mainPages == null
-        ? "venue limit usually excludes appendix"
+    : mainPages != null && mainPages !== totalPages
+      ? t`${totalPages} total · appendix after p.${mainPages}`
+      : mainPages == null
+        ? t`venue limit usually excludes appendix`
         : undefined;
 
   return (
@@ -73,51 +77,51 @@ export function ManuscriptChecklistPanel(props: {
         <PanelHeader
           className="drawer-header"
           icon={<ClipboardCheck size={16} />}
-          title="Submission checklist"
+          title={t`Submission checklist`}
           onClose={props.onClose}
         />
         <p className="drawer-copy">
-          Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits
+          <Trans>Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits</Trans>
         </p>
         <div className="checklist-rows">
           <BudgetRow
-            label="Body words"
+            label={t`Body words`}
             value={`${props.data.words.toLocaleString()}${props.data.wordBudget != null ? ` / ${props.data.wordBudget.toLocaleString()}` : ""}`}
             ok={wordsOk}
-            detail={props.data.wordSource === "texcount" ? "via texcount -inc" : "local estimate"}
+            detail={props.data.wordSource === "texcount" ? t`via texcount -inc` : t`local estimate`}
           />
           <BudgetRow
-            label={props.data.mainPages != null ? "Main pages" : "PDF pages"}
+            label={props.data.mainPages != null ? t`Main pages` : t`PDF pages`}
             value={countedPages == null
-              ? "Build to count"
+              ? t`Build to count`
               : `${countedPages}${props.data.pageBudget != null ? ` / ${props.data.pageBudget}` : ""}`}
             ok={pagesOk}
             detail={pageDetail}
           />
           <BudgetRow
-            label="TODOs"
+            label={t`TODOs`}
             value={`${props.data.todos}`}
             ok={props.data.todos === 0}
             onClick={props.onOpenTodos}
           />
           <BudgetRow
-            label="Unused labels / cites"
+            label={t`Unused labels / cites`}
             value={`${props.data.unusedLabels} / ${props.data.unusedCitations}`}
             ok={props.data.unusedLabels + props.data.unusedCitations === 0}
           />
           <BudgetRow
-            label="Last build"
-            value={props.data.buildOk == null ? "Not built" : props.data.buildOk ? "OK" : "Failed"}
+            label={t`Last build`}
+            value={props.data.buildOk == null ? t`Not built` : props.data.buildOk ? t`OK` : t`Failed`}
             ok={props.data.buildOk}
             detail={props.data.buildMessage}
           />
         </div>
         <div className="checklist-budgets">
           {([
-            ["Word budget", wordBudget, setWordBudget, "e.g. 5500"],
-            ["Page budget", pageBudget, setPageBudget, "e.g. 9"],
-          ] as const).map(([label, value, setValue, placeholder]) => (
-            <label key={label}>
+            ["word", t`Word budget`, wordBudget, setWordBudget, t`e.g. 5500`],
+            ["page", t`Page budget`, pageBudget, setPageBudget, t`e.g. 9`],
+          ] as const).map(([budgetKey, label, value, setValue, placeholder]) => (
+            <label key={budgetKey}>
               {label}
               <Input
                 controlSize="compact"
@@ -129,7 +133,7 @@ export function ManuscriptChecklistPanel(props: {
             </label>
           ))}
           <button type="button" onClick={() => props.onSaveBudgets(parseBudget(wordBudget), parseBudget(pageBudget))}>
-            Save budgets
+            <Trans>Save budgets</Trans>
           </button>
         </div>
     </ResizableDrawer>

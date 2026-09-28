@@ -69,7 +69,7 @@ export function SynaraSettingsPane(props: {
   const origin = runtime.state === "ready" && runtime.origin ? new URL(runtime.origin).origin : null;
   const key = url && section ? `${url}#${section}` : null;
   const ready = Boolean(url && readyUrl === url);
-  useSynaraNotificationBridge({ frameRef, origin, source: "Synara settings" });
+  useSynaraNotificationBridge({ frameRef, origin, source: t`Synara settings` });
   useSynaraConfirmationBridge({ frameRef, origin });
 
   const postSection = useCallback(() => {

@@ -1,5 +1,7 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "./i18n";
 import { Image } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -233,6 +235,7 @@ const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
 
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
+// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
 
 function isSynaraSettingsTab(tab: SettingsTab): boolean {
@@ -283,8 +286,8 @@ function recordNavigationTiming(
   if (detail.totalMs < 100) return;
   addAppLog({
     level: "info",
-    source: "Navigation performance",
-    title: `${kind === "paper" ? "Paper" : "File"} switch`,
+    source: i18n._(msg`Navigation performance`),
+    title: kind === "paper" ? i18n._(msg`Paper switch`) : i18n._(msg`File switch`),
     detail: `${path}\n${Object.entries(detail)
       .filter(([key]) => key.endsWith("Ms"))
       .map(([key, value]) => `${key}=${Number(value).toFixed(1)}`)
@@ -908,7 +911,7 @@ function App() {
     if (overleafSyncingRef.current) {
       const settled = overleafSyncSettledRef.current;
       if (settled) {
-        setNotice("Finishing Overleaf sync, then switching…", "Overleaf");
+        setNotice(t`Finishing Overleaf sync, then switching…`, "Overleaf");
         await Promise.race([
           settled,
           new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
@@ -919,7 +922,7 @@ function App() {
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
     if (visualMarkdownFlushRef.current?.() === false) {
-      setNotice("Finish the current text composition, then switch projects again.");
+      setNotice(t`Finish the current text composition, then switch projects again.`);
       return false;
     }
     if (!(await saveBeforeProjectTransitionRef.current())) return false;
@@ -928,17 +931,23 @@ function App() {
       new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
     ]);
     if (hasLateProjectTransitionEditRef.current()) {
-      setNotice("The document changed while saving. Save it, then switch projects again.");
+      setNotice(t`The document changed while saving. Save it, then switch projects again.`);
       return false;
     }
     if (beginProjectTransition()) return true;
-    setNotice("Overleaf sync is finishing. Try switching projects again in a moment.", "Overleaf");
+    setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
-  }, [beginProjectTransition]);
+  }, [beginProjectTransition, t]);
 
-  const [createForm, setCreateForm] = useState<CreateProjectForm>({
-    open: false, error: null, name: "Untitled research", venue: "neurips",
+  // `name: null` is the untouched default, resolved per render so it follows the interface language.
+  const [createFormState, setCreateForm] = useState<Omit<CreateProjectForm, "name"> & { name: string | null }>({
+    open: false, error: null, name: null, venue: "neurips",
   });
+  const defaultProjectName = t`Untitled research`;
+  const createForm = useMemo<CreateProjectForm>(
+    () => ({ ...createFormState, name: createFormState.name ?? defaultProjectName }),
+    [createFormState, defaultProjectName],
+  );
   const updateCreateForm = useCallback((update: Partial<CreateProjectForm>) => {
     setCreateForm((form) => ({ ...form, error: null, ...update }));
   }, []);
@@ -1153,14 +1162,14 @@ function App() {
       // Autosave runs constantly, so this path gets a plain notification rather
       // than a `logAction` trace — a start line per keystroke pause would bury
       // everything else in the log.
-      notifyError("Save", `Could not save ${activeFile || "the project"}`, { detail: toMessage(reason) });
+      notifyError(t`Save`, activeFile ? t`Could not save ${activeFile}` : t`Could not save the project`, { detail: toMessage(reason) });
       return false;
     }
   }, [
     activeAsset, activeFile, activeFileRef, activePaper, externalEditConflictMessage, markPaperSaved,
     paperBlogRef, paperMarkdownRef, project, recordSavedPaths, refreshAfterSave, savedPaperBlogRef,
     savedPaperMarkdownRef, savedSourceRef, secondaryFileRef, secondarySavedRef, secondarySourceRef,
-    setPrimarySaved, setPrimarySource, setSecondarySaved, setSecondarySourceLive, sourceRef,
+    setPrimarySaved, setPrimarySource, setSecondarySaved, setSecondarySourceLive, sourceRef, t,
   ]);
   // Keep activity tracking outside the save body: React Compiler cannot lower
   // try/finally, while Promise.finally still covers every early return/error.
@@ -1606,11 +1615,12 @@ function App() {
     mutation: OpenSlideMutation,
   ): Promise<OpenSlideSyncOperation[]> => {
     const projectRoot = projectRef.current?.root;
-    if (!projectRoot) throw new Error("The project closed before the Open Slide edit could be saved.");
+    if (!projectRoot) throw new Error(t`The project closed before the Open Slide edit could be saved.`);
     const written = await writeOpenSlideMutation(mutation, projectRoot, () => projectRef.current?.root === projectRoot);
     if (written.text !== undefined) commitOpenText(mutation.path, written.text);
     if (written.hadConflicts) {
-      setWarning(`Open Slide and another editor changed the same lines in ${mutation.path}; Lattice kept both with conflict markers.`);
+      const path = mutation.path;
+      setWarning(t`Open Slide and another editor changed the same lines in ${path}; Lattice kept both with conflict markers.`);
     }
     const snapshot = await refreshProject();
     await refreshHistory();
@@ -1630,7 +1640,7 @@ function App() {
           kind: mutation.kind,
           ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
         }];
-  }, [activeFileRef, commitOpenText, loadFile, projectRef, recordSavedPaths, refreshHistory, refreshProject, showPrimaryText]);
+  }, [activeFileRef, commitOpenText, loadFile, projectRef, recordSavedPaths, refreshHistory, refreshProject, showPrimaryText, t]);
 
   const openSources = useCallback(() => new Map([
     [activeFileRef.current, sourceRef.current],
@@ -1684,7 +1694,7 @@ function App() {
       });
       if (!isCurrentRequest()) return;
       if (!target) {
-        warnOnly("This source line has no matching position in the PDF.");
+        warnOnly(t`This source line has no matching position in the PDF.`);
         return;
       }
       setWarning(null);
@@ -1705,7 +1715,7 @@ function App() {
     }
   }, [
     forwardSyncPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, secondaryFile, secondarySavedSource,
-    secondarySource, source, captureProjectScope,
+    secondarySource, source, captureProjectScope, t,
   ]);
 
   const navigateOutline = useCallback(async (path: string, line: number) => {
@@ -1968,7 +1978,7 @@ function App() {
   /// showing it. Returns the failure message so a caller that keeps a list of
   /// projects can decide whether the project is worth forgetting.
   const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
-    setBusyLabel("Opening window…");
+    setBusyLabel(t`Opening window…`);
     try {
       await invoke("open_project_window", { path });
       return null;
@@ -1979,7 +1989,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, []);
+  }, [t]);
 
   /// Show a project that was just created, imported or cloned. A window in use
   /// keeps what it has and the project gets one of its own; an empty window
@@ -2025,33 +2035,33 @@ function App() {
 
 
   const chooseExisting = useCallback(async () => {
-    const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
+    const selected = await open({ directory: true, multiple: false, title: t`Open a LaTeX project` });
     if (!selected) return;
     // Same rule as the recent-projects list: a window in use keeps the project
     // it has, and the chosen one gets a window of its own.
     if (project?.root) await openProjectWindow(String(selected));
-    else await switchProject("Opening project…", String(selected));
-  }, [openProjectWindow, project?.root, switchProject]);
+    else await switchProject(t`Opening project…`, String(selected));
+  }, [openProjectWindow, project?.root, switchProject, t]);
 
   const createProject = useCallback(async () => {
     if (!createForm.name.trim()) {
-      updateCreateForm({ error: "Enter a project name." });
+      updateCreateForm({ error: t`Enter a project name.` });
       return;
     }
-    const parent = await open({ directory: true, multiple: false, title: "Choose where to create the project" });
+    const parent = await open({ directory: true, multiple: false, title: t`Choose where to create the project` });
     if (!parent) return;
-    await revealNewProject("Creating project…", async () => {
+    await revealNewProject(t`Creating project…`, async () => {
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
         parent, name: createForm.name, venue: createForm.venue,
       });
       updateCreateForm({ open: false });
       return snapshot.root;
     }, (reason) => updateCreateForm({ error: toMessage(reason) }));
-  }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm]);
+  }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm, t]);
 
   const openTutorialProject = useCallback(async () => {
     autoTutorialAttemptedRef.current = true;
-    setBusyLabel("Preparing tutorial…");
+    setBusyLabel(t`Preparing tutorial…`);
     try {
       if (!(await save()) || !await startProjectTransition()) {
         autoTutorialAttemptedRef.current = false;
@@ -2074,7 +2084,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, enterProject, save, setSidebarMode, setSidebarOpen, startProjectTransition]);
+  }, [cancelProjectTransition, enterProject, save, setSidebarMode, setSidebarOpen, startProjectTransition, t]);
   useEffect(() => {
     if (didRouteStartupRef.current) return;
     didRouteStartupRef.current = true;
@@ -2127,12 +2137,12 @@ function App() {
   const exportProjectZip = useCallback(async () => {
     if (!project) return;
     const zipPath = await saveDialog({
-      title: "Export project ZIP",
-      defaultPath: `${project.manifest.name.replace(/[\\/:*?"<>|]+/g, "-") || "project"}.zip`,
-      filters: [{ name: "ZIP archive", extensions: ["zip"] }],
+      title: t`Export project ZIP`,
+      defaultPath: `${project.manifest.name.replace(/[\\/:*?"<>|]+/g, "-") || t`project`}.zip`,
+      filters: [{ name: t`ZIP archive`, extensions: ["zip"] }],
     });
     if (!zipPath) return;
-    setBusyLabel("Exporting ZIP…");
+    setBusyLabel(t`Exporting ZIP…`);
     try {
       if (!(await save())) return;
       await invoke("export_project_zip", { zipPath });
@@ -2142,7 +2152,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [project, save]);
+  }, [project, save, t]);
 
   const chooseRecentProject = useCallback(async (path: string) => {
     if (path === project?.root) {
@@ -2164,8 +2174,8 @@ function App() {
       }
       return;
     }
-    await switchProject("Switching project…", path, () => setRecentProjects(forgetRecentProject(path)));
-  }, [openProjectWindow, project?.root, switchProject]);
+    await switchProject(t`Switching project…`, path, () => setRecentProjects(forgetRecentProject(path)));
+  }, [openProjectWindow, project?.root, switchProject, t]);
 
   useEffect(() => {
     let active = true;
@@ -2342,7 +2352,7 @@ function App() {
       if (flushAndCheckPrimaryDirty()) return null;
       setPaperBuffers(fullText, blog);
       setPaperView((current) => preferredPaperView(current, fullText, blog));
-      if (!fullText && blog) setNotice("Full paper text is unavailable; showing the overview instead.");
+      if (!fullText && blog) setNotice(t`Full paper text is unavailable; showing the overview instead.`);
       setActivePaper(paper);
       setPaperSide("left");
       showActiveAsset(null);
@@ -3188,6 +3198,7 @@ function App() {
   useLayoutEffect(() => {
     const createAgentProjectDocument = async (request: AgentProjectDocumentToolRequest) => {
       if (!project?.root) {
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the agent
         throw Object.assign(new Error("Open a Lattice project before creating a document."), {
           code: "project_document_project_unavailable",
         });
@@ -3218,7 +3229,10 @@ function App() {
       });
       for (const importedPath of imported) allowViewState(importedPath);
       await refreshProject();
-      trace.ok(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory || "the project root"}.`);
+      const count = imported.length;
+      trace.ok(targetDirectory
+        ? count === 1 ? t`Imported ${count} figure into ${targetDirectory}.` : t`Imported ${count} figures into ${targetDirectory}.`
+        : count === 1 ? t`Imported ${count} figure into the project root.` : t`Imported ${count} figures into the project root.`);
       return imported;
     } catch (reason) {
       trace.fail(reason);
@@ -3290,12 +3304,12 @@ function App() {
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
       multiple: true,
-      title: `Import figures into ${targetDirectory}`,
-      filters: [{ name: "Figures", extensions: ["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"] }],
+      title: t`Import figures into ${targetDirectory}`,
+      filters: [{ name: t`Figures`, extensions: ["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"] }],
     });
     if (!selected) return;
     await importProjectAssets(Array.isArray(selected) ? selected : [selected], targetDirectory);
-  }, [importProjectAssets]);
+  }, [importProjectAssets, t]);
 
   useEffect(() => {
     if (!project) return;
@@ -3353,11 +3367,11 @@ function App() {
             // without opening; editor/canvas drops import and open instead.
             void importProjectFiles(event.payload.paths, targetDirectory);
           } else if (dropKind === "source") {
-            setError("Drop source files onto an editor to open them, or into the Project pane to add them.");
+            setError(t`Drop source files onto an editor to open them, or into the Project pane to add them.`);
           } else if (dropKind === "mixed") {
-            setError("Drop source files and figures separately so Lattice knows whether to open or insert them.");
+            setError(t`Drop source files and figures separately so Lattice knows whether to open or insert them.`);
           } else if (dropKind === "unsupported") {
-            setError("Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor.");
+            setError(t`Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor.`);
           } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (!paths.length) return;
@@ -3370,7 +3384,7 @@ function App() {
               for (const path of paths) await openProjectAsset(path);
             });
           } else {
-            setError("Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them.");
+            setError(t`Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them.`);
           }
         }
       }))
@@ -3382,7 +3396,7 @@ function App() {
     };
   }, [
     activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset,
-    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest, openProjectFileRef,
+    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest, openProjectFileRef, t,
   ]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
@@ -3421,20 +3435,21 @@ function App() {
           ? target.path
           : paths.find((path) => path.endsWith(`/${target.path}`));
         if (!resolved) {
+          const path = target.path;
           throw new Error(target.kind === "include"
-            ? `Could not find included file “${target.path}”.`
-            : `Could not find figure “${target.path}”.`);
+            ? t`Could not find included file “${path}”.`
+            : t`Could not find figure “${path}”.`);
         }
         return target.kind === "include" ? openProjectFile(resolved, 1) : openProjectAsset(resolved);
       }
       const bibliography = project.manifest.primaryBibliography;
-      if (!bibliography) throw new Error("This project has no primary bibliography.");
+      if (!bibliography) throw new Error(t`This project has no primary bibliography.`);
       const content = bibliography === activeFile
         ? source
         : await invoke<string>("read_project_file", { path: bibliography });
       await openProjectFile(bibliography, bibliographyEntryLine(content, target.key) ?? 1);
     });
-  }, [activeFile, openProjectAsset, openProjectFile, project, source]);
+  }, [activeFile, openProjectAsset, openProjectFile, project, source, t]);
 
   const deleteProjectEntries = useCallback(async (requestedPaths: string[]) => {
     const paths = [...new Set(requestedPaths.map((path) => path.replace(/[\\/]+$/, "")))]
@@ -3752,7 +3767,7 @@ function App() {
     const image = await readImage();
     const size = await image.size();
     return { base64: await rgbaImageToPngBase64(await image.rgba(), size.width, size.height), type: "image/png" };
-  }, targetDirectory, "No image found on the clipboard.") : null, [importImageBytes, project]);
+  }, targetDirectory, t`No image found on the clipboard.`) : null, [importImageBytes, project, t]);
   /** Insert an imported figure at the editor caret. */
   const insertFigureAtCaret = useCallback((path: string | null) => {
     if (path) updateCanvasRequest("figure", { id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
@@ -3763,14 +3778,14 @@ function App() {
   }, [importClipboardImageFile, insertFigureAtCaret]);
   const pasteClipboardImage = useCallback(async () => {
     if (!project || !activeFile?.endsWith(".tex")) {
-      setError("Open a .tex file before pasting a figure.");
+      setError(t`Open a .tex file before pasting a figure.`);
       return;
     }
     const path = await importSystemClipboardImage("figures");
     if (!path) return;
     setCanvasMode(showEditor);
     insertFigureAtCaret(path);
-  }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project]);
+  }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project, t]);
 
   const revealProjectItem = useCallback(async (relativePath: string) => {
     if (!project) return;
@@ -3778,13 +3793,14 @@ function App() {
       await revealItemInDir(projectItemPath(project.root, relativePath));
       setError(null);
     } catch (reason) {
-      setError(`Could not show that item in Finder. ${toMessage(reason)}`);
+      const message = toMessage(reason);
+      setError(t`Could not show that item in Finder. ${message}`);
     }
-  }, [project]);
+  }, [project, t]);
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
     if (!paper.citationKey) {
-      setError("This bibliography entry has no citation key to remove.");
+      setError(t`This bibliography entry has no citation key to remove.`);
       return;
     }
     const projectRoot = project?.root;
@@ -3847,9 +3863,11 @@ function App() {
       if (!operationIsCurrent()) return;
       if (!result.removed) {
         const first = result.blockers[0];
+        const citationCommand = `\\cite{${paper.citationKey}}`;
+        const blocker = first ? `${first.path}:${first.line}` : "";
         setError(first
-          ? `The bibliography changed while removing \\cite{${paper.citationKey}} (${first.path}:${first.line}). Try again.`
-          : `Could not remove \\cite{${paper.citationKey}}.`);
+          ? t`The bibliography changed while removing ${citationCommand} (${blocker}). Try again.`
+          : t`Could not remove ${citationCommand}.`);
         return;
       }
 
@@ -3873,8 +3891,8 @@ function App() {
         }).then(() => true, () => false);
         if (operationIsCurrent()) {
           setError(reverted
-            ? `${conflictPath} changed while the reference was being removed. Nothing was removed; try again.`
-            : `${conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History.`);
+            ? t`${conflictPath} changed while the reference was being removed. Nothing was removed; try again.`
+            : t`${conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History.`);
           await refreshProject();
           await refreshHistory();
         }
@@ -4008,7 +4026,7 @@ function App() {
         onCloneCancelled={cancelProjectTransition}
         onCloned={(root) => {
           setOverleafPickerOpen(false);
-          void revealNewProject("Opening the Overleaf project…", async () => root).then((opened) => {
+          void revealNewProject(t`Opening the Overleaf project…`, async () => root).then((opened) => {
             if (opened) setError(null);
           });
         }}
@@ -4177,7 +4195,7 @@ function App() {
     if (isPaperTabKey(path)) {
       const id = arxivIdFromTabKey(path);
       const open = activePaper?.arxivId === id;
-      const label = papers.find((paper) => paper.arxivId === id)?.title ?? "Paper";
+      const label = papers.find((paper) => paper.arxivId === id)?.title ?? t`Paper`;
       return { path, pinned, kind: "paper", label, dirty: open && activePaperDirty, beside: open && twoPane };
     }
     if (projectAssetPaths.has(path)) return { path, pinned, kind: "asset", beside: path === secondaryAsset?.path && twoPane };
@@ -4190,7 +4208,7 @@ function App() {
     };
   }), [
     activeFile, activePaper?.arxivId, activePaperDirty, canvasMode, openTabs, papers, pinnedTabs, primarySourceDirty,
-    projectAssetPaths, secondaryFile, secondaryAsset?.path, secondarySourceDirty,
+    projectAssetPaths, secondaryFile, secondaryAsset?.path, secondarySourceDirty, t,
   ]);
   useLayoutEffect(() => {
     fitSidebarToContent();
@@ -4320,22 +4338,23 @@ function App() {
     const path = secondary ? secondaryFile! : activeFile;
     const text = secondary ? secondarySource : source;
     if (!path.endsWith(".tex")) {
-      setError("Open a .tex file before formatting.", "Format");
+      setError(t`Open a .tex file before formatting.`, t`Format`);
       return;
     }
-    const trace = logAction("Format", "Format document", path);
+    const trace = logAction(t`Format`, t`Format document`, path);
     void import("./build/texlab-language")
       .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
       .then((formatted) => {
         if (formatted === text) {
-          trace.ok("Document is already formatted.");
+          trace.ok(t`Document is already formatted.`);
           return;
         }
         (secondary ? setSecondarySource : setSource)(formatted);
-        trace.ok("Formatted with latexindent.");
+        trace.ok(t`Formatted with latexindent.`);
       })
       .catch((reason) => trace.fail(reason));
   };
+  const todoCount = todoHits.length;
   /**
    * Every app-level action, as the command palette lists it (entries with a
    * label) and as the global ⌘/Ctrl shortcuts reach it (entries with a key;
@@ -4381,7 +4400,7 @@ function App() {
     { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
     { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all .tex files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
     {
-      id: "todos", label: t`Manuscript TODOs`, detail: t({ message: `${todoHits.length || t`No`} markers` }), group: t`Edit`,
+      id: "todos", label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
       run: () => {
         void refreshTodos();
         setTodosOpen(true);
@@ -4875,6 +4894,7 @@ function App() {
               onReject: (change) => void overleafTrackChanges.reject([change]),
             }}
             activeEditorCommentId={editorComments.activeId}
+            // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
             commentAuthorName={authorName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}
             onCreateEditorComment={editorComments.create}

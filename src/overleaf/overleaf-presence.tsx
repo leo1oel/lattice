@@ -5,6 +5,7 @@
  * resolving a document id to a file path or acting on a click is entirely the
  * caller's business — this component has no notion of "the project" at all.
  */
+import { useLingui } from "@lingui/react/macro";
 import type { PresenceUser } from "./use-overleaf-presence";
 import { AvatarGroup } from "../components/ui/avatar-group";
 import { hueColor, peerInitials } from "../components/ui/collab-colors";
@@ -19,17 +20,18 @@ export function OverleafPresenceAvatars(props: {
   /** Jump to where this person is; the caller owns opening the file and moving the caret. */
   onJump: (peer: PresenceUser) => void;
 }) {
+  const { t } = useLingui();
   const { peers } = props;
   if (!peers.length) return null;
   const shown = peers.slice(0, MAX_AVATARS);
   const overflow = peers.slice(MAX_AVATARS);
 
   return (
-    <AvatarGroup className="overleaf-presence-avatars" ariaLabel="People in this Overleaf project">
+    <AvatarGroup className="overleaf-presence-avatars" ariaLabel={t`People in this Overleaf project`}>
       {shown.map((peer) => {
-        const label = peer.name || "Anonymous";
+        const label = peer.name || t`Anonymous`;
         const path = peer.docId ? props.pathForDoc(peer.docId) : null;
-        const title = path ? `${label} · ${path} — click to jump there` : label;
+        const title = path ? t`${label} · ${path} — click to jump there` : label;
         return (
           <button
             key={peer.id}
@@ -46,7 +48,7 @@ export function OverleafPresenceAvatars(props: {
       {overflow.length > 0 && (
         <span
           className="overleaf-presence-avatar more"
-          title={overflow.map((peer) => peer.name || "Anonymous").join(", ")}
+          title={overflow.map((peer) => peer.name || t`Anonymous`).join(", ")}
         >
           +{overflow.length}
         </span>

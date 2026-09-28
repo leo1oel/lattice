@@ -1,5 +1,7 @@
 import type { Diagnostic as CmDiagnostic } from "@codemirror/lint";
 import type { Text } from "@codemirror/state";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 
 export type CompileDiagnostic = {
   file?: string;
@@ -9,6 +11,9 @@ export type CompileDiagnostic = {
   endColumn?: number;
   level: string;
   message: string;
+  /** Lattice's own advice as a code the interface translates (build-log-messages.ts). */
+  code?: string;
+  params?: Record<string, string>;
 };
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
@@ -39,6 +44,7 @@ export function normalizeDiagnosticPath(file: string | undefined): string | unde
   const normalized = file.replace(/\\/g, "/").replace(/^\.\/+/, "");
   if (!normalized) return undefined;
   const lower = normalized.toLocaleLowerCase();
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- project directory names
   const markers = ["/src/", "/chapters/", "/sections/", "/figures/"];
   for (const marker of markers) {
     const index = lower.lastIndexOf(marker);
@@ -128,6 +134,7 @@ export function diagnosticLocationLabel(diagnostic: CompileDiagnostic): string {
   const file = normalizeDiagnosticPath(diagnostic.file);
   if (file && diagnostic.line) return `${file}:${diagnostic.line}`;
   if (file) return file;
-  if (diagnostic.line) return `line ${diagnostic.line}`;
-  return "Build log";
+  const line = diagnostic.line;
+  if (line) return i18n._(msg`line ${line}`);
+  return i18n._(msg`Build log`);
 }

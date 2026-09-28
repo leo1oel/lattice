@@ -16,8 +16,8 @@
  */
 
 import type { PropDef } from '@ok-core';
-import { t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { ChevronDown, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@ok-app/shims/sonner';
@@ -40,8 +40,9 @@ import { IconPickerInput } from '@ok-app/editor/components/IconPickerInput.tsx';
 import { SrcAutocomplete } from '@ok-app/editor/components/SrcAutocomplete.tsx';
 import { UploadFailedError } from '@ok-app/editor/image-upload/upload-failure.ts';
 import { uploadFile } from '@ok-app/editor/image-upload/upload-file.ts';
+import { propDisplayName } from '@ok-app/editor/registry/descriptor-labels.ts';
 import type { JsxComponentDescriptor } from '@ok-app/editor/registry/types.ts';
-import { getAutoFocusedPropName, humanizePropName } from '@ok-app/editor/utils/editor-strings.ts';
+import { getAutoFocusedPropName } from '@ok-app/editor/utils/editor-strings.ts';
 import {
   cssLengthValidationMessage,
   validateCssLength,
@@ -329,7 +330,7 @@ function PropControl({
         return (
           <div className="flex flex-col gap-1">
             <label id={labelId} htmlFor={stringId} className="text-xs text-muted-foreground">
-              {humanizePropName(propDef.name)}
+              {propDisplayName(propDef.name)}
             </label>
             <CodeMirrorPropInput
               id={stringId}
@@ -359,7 +360,7 @@ function PropControl({
         return (
           <div className="flex flex-col gap-1">
             <label htmlFor={stringId} className="text-xs text-muted-foreground">
-              {humanizePropName(propDef.name)}
+              {propDisplayName(propDef.name)}
             </label>
             <IconPickerInput
               id={stringId}
@@ -387,7 +388,7 @@ function PropControl({
         return (
           <div className="flex flex-col gap-1">
             <label htmlFor={stringId} className="text-xs text-muted-foreground">
-              {humanizePropName(propDef.name)}
+              {propDisplayName(propDef.name)}
             </label>
             <ColorPickerInput
               id={stringId}
@@ -417,7 +418,7 @@ function PropControl({
         return (
           <div className="flex flex-col gap-1">
             <label htmlFor={stringId} className="text-xs text-muted-foreground">
-              {humanizePropName(propDef.name)}
+              {propDisplayName(propDef.name)}
             </label>
             <Input
               id={stringId}
@@ -483,7 +484,7 @@ function PropControl({
       return (
         <div className="flex flex-col gap-1">
           <label htmlFor={stringId} className="text-xs text-muted-foreground">
-            {humanizePropName(propDef.name)}
+            {propDisplayName(propDef.name)}
           </label>
           {/* Two-row layout: src input on its own line, then the upload
               affordance below it as a labeled full-width button. UX
@@ -574,7 +575,7 @@ function PropControl({
 
     case 'boolean': {
       const boolId = `prop-${propDef.name}`;
-      const boolLabel = humanizePropName(propDef.name);
+      const boolLabel = propDisplayName(propDef.name);
       return (
         <div className="flex items-center justify-between gap-2">
           <label htmlFor={boolId} className="text-xs text-muted-foreground">
@@ -596,7 +597,7 @@ function PropControl({
       return (
         <div className="flex flex-col gap-1">
           <label htmlFor={enumId} className="text-xs text-muted-foreground">
-            {humanizePropName(propDef.name)}
+            {propDisplayName(propDef.name)}
           </label>
           <Select value={enumValue} onValueChange={onChange}>
             <SelectTrigger id={enumId} size="sm">
@@ -622,7 +623,7 @@ function PropControl({
       return (
         <div className="flex flex-col gap-1">
           <label htmlFor={numberId} className="text-xs text-muted-foreground">
-            {humanizePropName(propDef.name)}
+            {propDisplayName(propDef.name)}
           </label>
           <Input
             id={numberId}
