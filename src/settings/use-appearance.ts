@@ -5,12 +5,12 @@ import {
   type AppearanceSettings,
   type Theme,
   type ThemePreference,
-  APPEARANCE_KEY,
   FIXED_UI_FONT,
   SYSTEM_DARK_QUERY,
-  THEME_PREFERENCE_KEY,
   loadAppearance,
   loadThemePreference,
+  persistAppearance,
+  persistThemePreference,
   resolveAppLocale,
   systemTheme,
 } from "./app-settings";
@@ -45,13 +45,7 @@ export function useAppearance(): Appearance {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(THEME_PREFERENCE_KEY, themePreference);
-    } catch {
-      // Theme changes still apply for the current session without storage.
-    }
-  }, [themePreference]);
+  useEffect(() => { persistThemePreference(themePreference); }, [themePreference]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -71,11 +65,7 @@ export function useAppearance(): Appearance {
     document.documentElement.style.setProperty("--ui-font", FIXED_UI_FONT);
     document.documentElement.style.setProperty("--editor-font", appearance.editorFont);
     document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
-    try {
-      localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
-    } catch {
-      // Appearance changes still apply for the current session without storage.
-    }
+    persistAppearance(appearance);
   }, [appearance]);
 
   useEffect(() => {

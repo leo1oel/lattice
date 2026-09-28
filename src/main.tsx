@@ -47,7 +47,7 @@ async function startApp() {
           <UpdaterProvider>
             <ConfirmActionProvider>
               <App />
-              <UpdateBanner corner="top-right" />
+              <UpdateBanner />
               <AppToastStack />
             </ConfirmActionProvider>
           </UpdaterProvider>

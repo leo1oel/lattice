@@ -92,11 +92,7 @@
   color: var(--text-tertiary);
 }
 
-.ui-search-field-clear:hover {
-  background: var(--border-subtle);
-  color: var(--text-primary);
-}
-
+.ui-search-field-clear:hover,
 .ui-search-field-clear:focus-visible {
   background: var(--border-subtle);
   color: var(--text-primary);

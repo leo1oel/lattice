@@ -6,47 +6,46 @@ import {
 } from "./agent-host-context";
 
 describe("selected Markdown image context", () => {
-  it("resolves Markdown and HTML image blocks relative to their document", () => {
-    expect(selectedMarkdownImageProjectPath(
-      "![Figure](paper_assets/figure-001.webp)",
-      ".research/papers/2010.11929/paper.md",
-    )).toBe(".research/papers/2010.11929/paper_assets/figure-001.webp");
-    expect(selectedMarkdownImageProjectPath(
-      '<img src="../figures/My%20Plot.png" alt="Plot" width={223} />',
-      "notes/method.md",
-    )).toBe("figures/My Plot.png");
-  });
-
-  it("ignores prose, remote images, and paths outside the project", () => {
-    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(selectedMarkdownImageProjectPath("A paragraph", "notes.md")).toBeNull();
-    expect(selectedMarkdownImageProjectPath(
-      "![Remote](https://example.com/figure.png)",
-      "notes.md",
-    )).toBeNull();
-    expect(selectedMarkdownImageProjectPath(
-      "![Outside](../../figure.png)",
-      "notes/method.md",
-    )).toBeNull();
-    warning.mockRestore();
+  // Markdown and HTML image blocks resolve relative to their document; prose,
+  // remote images, and paths outside the project do not resolve.
+  it.each([
+    ["![Figure](paper_assets/figure-001.webp)", ".research/papers/2010.11929/paper.md", ".research/papers/2010.11929/paper_assets/figure-001.webp"],
+    ['<img src="../figures/My%20Plot.png" alt="Plot" width={223} />', "notes/method.md", "figures/My Plot.png"],
+    ["A paragraph", "notes.md", null],
+    ["![Remote](https://example.com/figure.png)", "notes.md", null],
+    ["![Outside](../../figure.png)", "notes/method.md", null],
+  ])("resolves %s in %s to %s", (block, documentPath, expected) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(selectedMarkdownImageProjectPath(block, documentPath)).toBe(expected);
+    vi.restoreAllMocks();
   });
 });
+
+const baseInput: Parameters<typeof buildAgentHostContext>[0] = {
+  workspaceRoot: "/tmp/paper",
+  activeFile: "main.tex",
+  secondaryFile: null,
+  editorPosition: null,
+  activePaper: null,
+  canvasMode: "split",
+  paperView: "blog",
+  pdfPage: 1,
+  pdfPageCount: null,
+  selection: "",
+  selectionSource: null,
+  activeSurface: "editor",
+};
 
 describe("agent host context", () => {
   it("shares bounded editor and PDF location metadata", () => {
     expect(buildAgentHostContext({
-      workspaceRoot: "/tmp/paper",
-      activeFile: "main.tex",
+      ...baseInput,
       secondaryFile: "appendix.tex",
       editorPosition: { path: "main.tex", line: 42, column: 7 },
-      activePaper: null,
-      canvasMode: "split",
-      paperView: "blog",
       pdfPage: 3,
       pdfPageCount: 8,
       selection: "related work",
       selectionSource: "editor",
-      activeSurface: "editor",
       now: () => new Date("2026-08-14T10:00:00.000Z"),
     })).toEqual({
       type: LATTICE_HOST_CONTEXT,
@@ -76,43 +75,13 @@ describe("agent host context", () => {
   });
 
   it("shares the live Open Slide page and inspector selection for the open deck", () => {
-    expect(buildAgentHostContext({
-      workspaceRoot: "/tmp/paper",
-      activeFile: "slides/research-update/index.tsx",
-      secondaryFile: null,
-      editorPosition: null,
-      activePaper: null,
-      canvasMode: "source",
-      paperView: "blog",
-      pdfPage: 1,
-      pdfPageCount: null,
-      selection: "",
-      selectionSource: null,
-      presentation: {
-        slideId: "research-update",
-        pageIndex: 2,
-        pageNumber: 3,
-        totalPages: 8,
-        slideTitle: "Research update",
-        view: "slides",
-        pagePath: "slides/research-update/index.tsx",
-        pendingComments: [{
-          id: "c-1234abcd",
-          line: 44,
-          ts: "2026-09-03T00:00:00.000Z",
-          note: "Make this chart larger",
-        }],
-        selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
-        updatedAt: "2026-08-30T12:00:00.000Z",
-      },
-      activeSurface: "editor",
-    }).presentation).toEqual({
+    const presentation = {
       slideId: "research-update",
       pageIndex: 2,
       pageNumber: 3,
       totalPages: 8,
       slideTitle: "Research update",
-      view: "slides",
+      view: "slides" as const,
       pagePath: "slides/research-update/index.tsx",
       pendingComments: [{
         id: "c-1234abcd",
@@ -122,15 +91,23 @@ describe("agent host context", () => {
       }],
       selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
       updatedAt: "2026-08-30T12:00:00.000Z",
-    });
+    };
+    expect(buildAgentHostContext({
+      ...baseInput,
+      activeFile: "slides/research-update/index.tsx",
+      canvasMode: "source",
+      presentation,
+    }).presentation).toEqual(presentation);
   });
 
   it("points at the active locally cached paper view", () => {
+    const selectionImage = {
+      sourcePath: ".research/papers/1706.03762/paper_assets/figure-001.webp",
+      agentReadablePath: ".research/papers/1706.03762/paper_assets/figure-001-converted.png",
+      mimeType: "image/png" as const,
+    };
     expect(buildAgentHostContext({
-      workspaceRoot: "/tmp/paper",
-      activeFile: "main.tex",
-      secondaryFile: null,
-      editorPosition: null,
+      ...baseInput,
       activePaper: {
         arxivId: "1706.03762",
         title: "Attention Is All You Need",
@@ -140,16 +117,9 @@ describe("agent host context", () => {
       },
       canvasMode: "pdf",
       paperView: "fulltext",
-      pdfPage: 1,
-      pdfPageCount: null,
       selection: "scaled dot-product attention",
       selectionSource: "paper",
-      selectionImage: {
-        source: "paper",
-        sourcePath: ".research/papers/1706.03762/paper_assets/figure-001.webp",
-        agentReadablePath: ".research/papers/1706.03762/paper_assets/figure-001-converted.png",
-        mimeType: "image/png",
-      },
+      selectionImage: { source: "paper", ...selectionImage },
       activeSurface: "paper",
     }).paper).toEqual({
       title: "Attention Is All You Need",
@@ -158,27 +128,16 @@ describe("agent host context", () => {
       path: ".research/papers/1706.03762/paper.md",
       view: "fulltext",
       selection: "scaled dot-product attention",
-      selectionImage: {
-        sourcePath: ".research/papers/1706.03762/paper_assets/figure-001.webp",
-        agentReadablePath: ".research/papers/1706.03762/paper_assets/figure-001-converted.png",
-        mimeType: "image/png",
-      },
+      selectionImage,
     });
   });
 
   it("uses the actually focused split-view surface", () => {
     expect(buildAgentHostContext({
-      workspaceRoot: "/tmp/paper",
-      activeFile: "main.tex",
-      secondaryFile: null,
+      ...baseInput,
       editorPosition: { path: "main.tex", line: 12, column: 3 },
-      activePaper: null,
-      canvasMode: "split",
-      paperView: "blog",
       pdfPage: 6,
       pdfPageCount: 9,
-      selection: "",
-      selectionSource: null,
       activeSurface: "pdf",
     })).toMatchObject({
       activeSurface: "pdf",
@@ -189,10 +148,10 @@ describe("agent host context", () => {
 
   it("reports only the omitted selection length while keeping model text at 12k", () => {
     const context = buildAgentHostContext({
-      workspaceRoot: "/tmp/paper", activeFile: "main.tex", secondaryFile: null,
-      editorPosition: { path: "main.tex", line: 1, column: 0 }, activePaper: null,
-      canvasMode: "split", paperView: "blog", pdfPage: 1, pdfPageCount: 1,
-      selection: "x".repeat(12_019), selectionSource: "editor", activeSurface: "editor",
+      ...baseInput,
+      editorPosition: { path: "main.tex", line: 1, column: 0 },
+      selection: "x".repeat(12_019),
+      selectionSource: "editor",
       now: () => new Date("2026-08-14T10:00:00Z"),
     });
     expect(context.editor?.selection).toHaveLength(12_000);

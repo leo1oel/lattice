@@ -11,14 +11,12 @@
 .modal:not(.collab-drawer-content):not(.overleaf-picker-drawer-content),
 .root-error-card,
 .settings-preview,
-.cm-latex-tooltip,
 .editor-comment-popover,
 .source-editor .cm-tooltip-lint,
 .source-editor .cm-tooltip.cm-tooltip-autocomplete,
 .source-editor .cm-tooltip-hover,
 .file-tree-context-menu,
 .venue-menu,
-.cite-command-menu,
 .compile-diagnostics,
 .latex-selection-toolbar,
 .figure-drag-ghost,
@@ -116,7 +114,6 @@
 :where(
   .ui-segmented,
   .venue-menu,
-  .cite-command-menu,
   .file-tree-context-menu,
   .agent-permission-menu,
   .quick-open-list
@@ -124,9 +121,8 @@
   --nested-radius: calc(var(--surface-radius) - var(--surface-inset));
 }
 
-/* Compact menus that open in place (not Radix portaled surfaces). */
-.venue-menu,
-.cite-command-menu {
+/* A compact menu that opens in place (not a Radix portaled surface). */
+.venue-menu {
   --surface-radius: var(--radius-control);
   --surface-inset: var(--space-2);
   padding: var(--surface-inset);

@@ -38,11 +38,12 @@ it("uses native reports instead of stale legacy data and isolates projects", asy
   expect(await loadAuditReport("/project")).toEqual(new Map());
 });
 
-it("does not restore proposals made before independent identity checks", async () => {
-  localStorage.setItem("lattice.bibliography-audit.v1:/project", JSON.stringify(report));
+// Legacy WebView reports predate independent identity checks: never restored, never rewritten.
+it.each([JSON.stringify(report), "broken JSON"])("ignores legacy browser storage %s", async legacy => {
+  localStorage.setItem("lattice.bibliography-audit.v1:/project", legacy);
   expect(await loadAuditReport("/project")).toEqual(new Map());
   expect(invoke).toHaveBeenCalledTimes(1);
-  expect(JSON.parse(localStorage.getItem("lattice.bibliography-audit.v1:/project")!)).toEqual(report);
+  expect(localStorage.getItem("lattice.bibliography-audit.v1:/project")).toBe(legacy);
 });
 
 it("rejects malformed native data without overwriting it", async () => {
@@ -78,11 +79,6 @@ it("uses the active app locale for invalid-report errors", async () => {
   } finally {
     await activateAppLocale("en");
   }
-});
-
-it("tolerates malformed legacy browser storage", async () => {
-  localStorage.setItem("lattice.bibliography-audit.v1:/project", "broken JSON");
-  expect(await loadAuditReport("/project")).toEqual(new Map());
 });
 
 it("orders pending writes and waits for them before restoring", async () => {

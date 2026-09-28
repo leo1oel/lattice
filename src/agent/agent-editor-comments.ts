@@ -2,9 +2,11 @@
 
 import type { OverleafThread } from "../app-types";
 import { invoke } from "@tauri-apps/api/core";
+import { toMessage } from "../app-utils";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import type { OverleafCommentAnchor } from "../overleaf/use-overleaf-comments";
+import { hasOnlyKeys, isNonBlankString, isRecord, isWorkspaceRelativePath, parseToolEnvelope } from "./agent-protocol";
 
 export const SYNARA_EDITOR_COMMENTS_TOOL_REQUEST = "synara:editor-comments-tool-request";
 export const LATTICE_EDITOR_COMMENTS_TOOL_RESULT = "lattice:editor-comments-tool-result";
@@ -80,9 +82,7 @@ export type BuildAgentCommentsOptions = {
 
 function normalizedPath(path: string): string | null {
   const result = path.replace(/\\/g, "/");
-  if (!result || result.startsWith("/") || /^[A-Za-z]:/.test(result)) return null;
-  if (result.split("/").some((part) => !part || part === "." || part === "..")) return null;
-  return result;
+  return isWorkspaceRelativePath(result, Infinity) ? result : null;
 }
 
 function bounded(value: string, max: number): string {
@@ -220,26 +220,16 @@ export async function readAgentCommentsSnapshot(options: BuildAgentCommentsOptio
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function onlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  return Object.keys(value).every((key) => keys.includes(key));
-}
-
 export function parseAgentEditorCommentsToolRequest(value: unknown): AgentEditorCommentsToolRequest | null {
-  if (!isRecord(value) || !onlyKeys(value, ["type", "version", "id", "workspaceRoot", "args", "expiresAt"])
-    || value.type !== SYNARA_EDITOR_COMMENTS_TOOL_REQUEST || value.version !== 1
-    || typeof value.id !== "string" || !value.id || value.id.length > 128
-    || typeof value.workspaceRoot !== "string" || !value.workspaceRoot.trim() || value.workspaceRoot.length > 4_096
-    || typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)
-    || !isRecord(value.args) || !onlyKeys(value.args, ["path", "includeResolved", "offset", "limit"])) return null;
-  const { path, includeResolved, offset, limit } = value.args;
-  if ((path !== undefined && (typeof path !== "string" || path.length > 1_024 || path.includes("\\") || normalizedPath(path) === null))
+  const request = parseToolEnvelope(value, SYNARA_EDITOR_COMMENTS_TOOL_REQUEST, ["workspaceRoot", "args"]);
+  if (!request || !isNonBlankString(request.workspaceRoot, 4_096)
+    || !isRecord(request.args) || !hasOnlyKeys(request.args, ["path", "includeResolved", "offset", "limit"])) return null;
+  const { path, includeResolved, offset, limit } = request.args;
+  if ((path !== undefined && !isWorkspaceRelativePath(path))
     || (includeResolved !== undefined && typeof includeResolved !== "boolean")
     || (offset !== undefined && (!Number.isInteger(offset) || (offset as number) < 0))
     || (limit !== undefined && (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > 100))) return null;
-  return value as AgentEditorCommentsToolRequest;
+  return request as AgentEditorCommentsToolRequest;
 }
 
 export async function executeAgentEditorCommentsToolRequest(
@@ -261,6 +251,6 @@ export async function executeAgentEditorCommentsToolRequest(
     }
     return { type: LATTICE_EDITOR_COMMENTS_TOOL_RESULT, version: 1, id: request.id, ok: true, result };
   } catch (error) {
-    return fail("editor_comments_read_failed", error instanceof Error ? error.message : String(error));
+    return fail("editor_comments_read_failed", toMessage(error));
   }
 }

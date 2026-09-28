@@ -1,15 +1,10 @@
-import {
-  type ComponentPropsWithoutRef,
-} from "react";
+import { type ComponentPropsWithoutRef } from "react";
 import { cn } from "@/lib/utils";
 import { rowClassName } from "./row";
 import { Switch } from "./switch";
 import "./chrome.css";
 
-export type SwitchFieldProps = Omit<
-  ComponentPropsWithoutRef<"div">,
-  "children" | "onChange"
-> & {
+export type SwitchFieldProps = Omit<ComponentPropsWithoutRef<"div">, "children" | "onChange"> & {
   label: string;
   description?: string;
   checked: boolean;

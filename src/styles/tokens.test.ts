@@ -5,10 +5,6 @@ import { describe, expect, it } from "vitest"
 const read = (file: string) => String(readFileSync(file, "utf8"))
 
 const foundations = read("src/styles/foundations.css")
-const dialogs = read("src/styles/dialogs.css")
-const chrome = read("src/components/ui/chrome.css")
-const workspacePanels = read("src/styles/workspace-panels.css")
-const settingsDialog = read("src/settings/settings-dialog.tsx")
 const APP_CSS_FILES = new Set([
   "src/App.css",
   "src/styles/theme.css",
@@ -19,7 +15,6 @@ const APP_CSS_FILES = new Set([
   "src/styles/adaptive-feedback.css",
 ])
 const appCss = [...APP_CSS_FILES].map(read).join("\n")
-const tailwindTheme = read("src/index.css")
 
 /** Every stylesheet and every component that declares CSS in a template literal. */
 function collectSources(dir: string, files: string[] = []): string[] {
@@ -53,16 +48,23 @@ const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "")
  * reduced motion, which is the one place `!important` is the answer — it must
  * beat animations declared on the elements themselves. Only those two rules are
  * waived; spacing and type in this file are held to the contract like anywhere
- * else. It used to be exempt from all four as `src/icon-lab/bakai-icons.css`,
- * back when it sat next to the dev playground.
+ * else.
  */
 const VENDOR_ICON_CSS = "src/animated-icons/bakai-icons.css"
 
-const sources = collectSources("src").map((file) => ({
-  file,
-  text: read(file),
-  rules: stripComments(read(file)),
-}))
+const sources = collectSources("src").map((file) => {
+  const text = read(file)
+  return { file, text, rules: stripComments(text) }
+})
+
+/** `file: declaration` for every `pattern` match whose captured value `offends`, outside `exempt` files. */
+function offenders(pattern: RegExp, offends: (value: string) => boolean, exempt: (file: string) => boolean) {
+  return sources
+    .filter(({ file }) => !exempt(file))
+    .flatMap(({ file, rules }) =>
+      [...rules.matchAll(pattern)].filter((match) => offends(match[1])).map((match) => `${file}: ${match[0].trim()}`),
+    )
+}
 
 /** Palette names are raw theme values; only the app theme and foundations may name them. */
 const PALETTE = [
@@ -132,7 +134,7 @@ describe("design token contract", () => {
     for (const { text } of sources) {
       for (const match of text.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
     }
-    for (const match of tailwindTheme.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
+    for (const match of read("src/index.css").matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
     // The vendored tree is excluded from the scan, but index.css imports the
     // seam stylesheet directly, so its declarations (e.g. --muted-foreground)
     // are live everywhere and legitimate to reference from app CSS.
@@ -177,11 +179,11 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--settings-control-font-size: var\(--type-label-size\)/)
     expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
     expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
-    expect(dialogs).toContain('[data-slot="select-content"][data-settings-control="true"]')
-    expect(settingsDialog.match(/data-settings-control="true"/g)).toHaveLength(6)
+    expect(read("src/styles/dialogs.css")).toContain('[data-slot="select-content"][data-settings-control="true"]')
   })
 
   it("shares the soft selected state across compact sidebar selectors", () => {
+    const chrome = read("src/components/ui/chrome.css")
     expect(chrome).toMatch(
       /\.ui-compact-selectable:is\([^}]+\) \{[^}]*background: var\(--control-active-soft\);[^}]*color: var\(--control-active\)/,
     )
@@ -200,15 +202,12 @@ describe("design token contract", () => {
   it("shares flat drawer-view tabs between Project history and Git workspace", () => {
     expect(read("src/app/app-history-drawers.tsx")).toContain('tabClassName="drawer-view-tab"')
     expect(read("src/history/history-drawer.tsx")).toContain('tabClassName="drawer-view-tab"')
-    expect(workspacePanels).toMatch(
+    const workspacePanels = read("src/styles/workspace-panels.css")
+    for (const rule of [
       /\.drawer-view-tab \{[^}]*border: 0;[^}]*background: transparent;/,
-    )
-    expect(workspacePanels).toMatch(
       /\.drawer-view-tab\.active \{[^}]*color: var\(--text-primary\);[^}]*background: transparent;/,
-    )
-    expect(workspacePanels).toMatch(
       /\.agent-git-workspace-header \{[^}]*padding: 0 var\(--space-4\);/,
-    )
+    ]) expect(workspacePanels).toMatch(rule)
   })
 
   it("draws keyboard focus exactly once", () => {
@@ -243,83 +242,47 @@ describe("design token contract", () => {
     const SCALE = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32]
     const SPACING =
       /\b(?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?:\s*([^;{}]+);/g
-
-    const offenders: string[] = []
-    for (const { file, rules } of sources) {
-      // The scale itself owns raw values.
-      if (file.endsWith("foundations.css")) continue
-      for (const match of rules.matchAll(SPACING)) {
-        const value = match[1]
-        // Negative values are optical nudges rather than scale steps.
-        if (/-\d/.test(value)) continue
-        for (const raw of value.matchAll(/(\d+)px/g)) {
-          if (SCALE.includes(Number(raw[1]))) offenders.push(`${file}: ${match[0].trim()}`)
-        }
-      }
-    }
-    expect(offenders).toEqual([])
+    const onScale = (value: string) =>
+      // Negative values are optical nudges rather than scale steps.
+      !/-\d/.test(value) && [...value.matchAll(/(\d+)px/g)].some((raw) => SCALE.includes(Number(raw[1])))
+    // The scale itself owns raw values.
+    expect(offenders(SPACING, onScale, (file) => file.endsWith("foundations.css"))).toEqual([])
   })
 
   it("times motion off the shared scale", () => {
     const MOTION =
       /\b(?:transition|animation)(?:-duration|-timing-function)?:\s*([^;{}"']+);/g
-
-    const offenders: string[] = []
-    for (const { file, rules } of sources) {
-      if (file.endsWith("foundations.css") || file === VENDOR_ICON_CSS) continue
-      for (const match of rules.matchAll(MOTION)) {
-        const value = match[1]
-        for (const time of value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)) {
-          const ms = Number(time[1]) * (time[2] === "s" ? 1000 : 1)
-          // Ambient loops and the reduced-motion clamp are outside the UI scale.
-          if (ms >= 10 && ms <= 400) offenders.push(`${file}: ${match[0].trim()}`)
-        }
-        if (/cubic-bezier/.test(value)) offenders.push(`${file}: ${match[0].trim()}`)
-      }
-    }
-    expect(offenders).toEqual([])
+    const offScale = (value: string) =>
+      /cubic-bezier/.test(value) ||
+      [...value.matchAll(/(\d*\.?\d+)(ms|s)\b/g)].some((time) => {
+        const ms = Number(time[1]) * (time[2] === "s" ? 1000 : 1)
+        // Ambient loops and the reduced-motion clamp are outside the UI scale.
+        return ms >= 10 && ms <= 400
+      })
+    const exempt = (file: string) => file.endsWith("foundations.css") || file === VENDOR_ICON_CSS
+    expect(offenders(MOTION, offScale, exempt)).toEqual([])
   })
 
   it("sizes interface text through the shared type scale", () => {
     const RAW_SIZE =
       /(?:font-size:\s*|font:\s*["'`]?(?:\d+\s+)?|text-\[)(\d*\.?\d+)px/g
-
-    const offenders: string[] = []
-    for (const { file, rules } of sources) {
-      if (file.endsWith("foundations.css")) continue
-      // Fluid Functionalism's installed size ladder is an upstream token
-      // definition, like foundations. App compositions
-      // still use our typography tokens rather than adding raw sizes.
-      if (file === "src/lib/size-context.ts") continue
-      for (const match of rules.matchAll(RAW_SIZE)) {
-        offenders.push(`${file}: ${match[0]}`)
-      }
-    }
-    expect(offenders).toEqual([])
+    const exempt = (file: string) => file.endsWith("foundations.css")
+    expect(offenders(RAW_SIZE, () => true, exempt)).toEqual([])
   })
 
   it("derives nested radii instead of restating them", () => {
     const surfaces = read("src/styles/surfaces.css")
-    expect(surfaces).toMatch(
-      /--nested-radius: calc\(var\(--surface-radius\) - var\(--surface-inset\)\)/,
-    )
+    expect(surfaces).toMatch(/--nested-radius: calc\(var\(--surface-radius\) - var\(--surface-inset\)\)/)
 
     // A container that declares one half of the pair must declare the other,
     // or the derived radius silently resolves to nothing.
     for (const { file, rules } of sources) {
-      const radiusScopes = [...rules.matchAll(/--surface-radius:/g)].length
-      const insetScopes = [...rules.matchAll(/--surface-inset:/g)].length
-      expect({ file, radiusScopes, insetScopes }).toEqual({
-        file,
-        radiusScopes: insetScopes,
-        insetScopes,
-      })
+      const count = (property: string) => rules.split(`${property}:`).length - 1
+      expect(count("--surface-radius"), file).toBe(count("--surface-inset"))
     }
 
     // Every consumer sits in a declared scope, or carries a fallback.
-    const scopes = [
-      ...read("src/styles/surfaces.css").matchAll(/^\s{2}\.([a-z-]+),?$/gm),
-    ].map((match) => match[1])
+    const scopes = [...surfaces.matchAll(/^\s{2}\.([a-z-]+),?$/gm)].map((match) => match[1])
     expect(scopes).toContain("ui-segmented")
     expect(scopes).toContain("quick-open-list")
   })

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -11,6 +12,7 @@ import {
   localSemanticStatusLabel,
   type LocalSemanticSearchStatus,
 } from "./project-semantic-search";
+import { useCompositionGuard } from "./use-composition-guard";
 
 export type ProjectFindHit = {
   kind: string;
@@ -22,6 +24,12 @@ export type ProjectFindHit = {
   /** True only for a vector-only result with no FTS line hit. */
   semantic?: boolean;
 };
+
+function resultType(hit: ProjectFindHit): string {
+  if (hit.kind === "paper") return hit.semantic ? "Paper · semantic" : "Paper";
+  if (hit.semantic) return "Semantic match";
+  return hit.fileKind ? `${hit.fileKind.toLocaleUpperCase()} file` : "File";
+}
 
 export function ProjectFindDialog(props: {
   open: boolean;
@@ -39,28 +47,18 @@ export function ProjectFindDialog(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const composingRef = useRef(false);
-  const compositionClearTimerRef = useRef<number | null>(null);
+  const { compositionProps, isComposing } = useCompositionGuard();
   // Kept out of the debounce effect's deps so a new callback identity does not
-  // restart the timer mid-typing. Refreshed in a layout effect rather than
-  // during render: every reader is an effect or handler, so they all run after
-  // this lands, and a render-phase write makes the React Compiler skip the
-  // whole component.
-  const onSearchRef = useRef(props.onSearch);
-  useLayoutEffect(() => {
-    onSearchRef.current = props.onSearch;
-  });
+  // restart the timer mid-typing.
+  const onSearchRef = useLatestRef(props.onSearch);
 
-  useEffect(() => () => {
-    if (compositionClearTimerRef.current !== null) {
-      window.clearTimeout(compositionClearTimerRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!props.open) return;
+  // New hits, or reopening, start again from the first hit.
+  const resetKey = props.open ? props.hits : null;
+  const [seenResetKey, setSeenResetKey] = useState(resetKey);
+  if (seenResetKey !== resetKey) {
+    setSeenResetKey(resetKey);
     setActiveIndex(0);
-  }, [props.hits, props.open]);
+  }
 
   useEffect(() => {
     if (!props.open) return;
@@ -74,16 +72,10 @@ export function ProjectFindDialog(props: {
       onSearchRef.current(trimmed);
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [props.open, query]);
+  }, [onSearchRef, props.open, query]);
 
-  const fileHits = useMemo(
-    () => props.hits.filter((hit) => hit.kind === "file"),
-    [props.hits],
-  );
-  const paperHits = useMemo(
-    () => props.hits.filter((hit) => hit.kind === "paper"),
-    [props.hits],
-  );
+  const fileHits = useMemo(() => props.hits.filter((hit) => hit.kind === "file"), [props.hits]);
+  const paperHits = useMemo(() => props.hits.filter((hit) => hit.kind === "paper"), [props.hits]);
   const selectableHits = [...fileHits, ...paperHits];
 
   const close = () => {
@@ -95,20 +87,47 @@ export function ProjectFindDialog(props: {
 
   if (!props.open) return null;
 
-  const openActive = () => {
-    if (!query.trim() || debouncing || props.busy || props.error) return;
-    const hit = selectableHits[activeIndex];
-    if (!hit) return;
-    props.onOpenHit(hit.path, hit.line ?? undefined);
+  const searching = debouncing || props.busy;
+  const showResults = Boolean(query.trim()) && !searching && !props.error;
+  const openHit = (index: number) => {
+    const hit = selectableHits[index];
+    if (hit) props.onOpenHit(hit.path, hit.line ?? undefined);
   };
   const clearSearch = () => {
     setDebouncing(false);
     setQuery("");
     inputRef.current?.focus();
   };
-  const searching = debouncing || props.busy;
-  const hasResults = fileHits.length > 0 || paperHits.length > 0;
-  const showResults = Boolean(query.trim()) && !searching && !props.error;
+  const renderHits = (hits: ProjectFindHit[], offset: number) => (
+    <ScrollArea className="project-find-results">
+      <ul className="project-replace-hits">
+        {hits.map((hit, index) => {
+          const paper = hit.kind === "paper";
+          return (
+            <li key={paper ? `paper:${hit.path}:${hit.title}` : `${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
+              <button
+                type="button"
+                className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
+                aria-label={paper ? `Open paper result: ${hit.title}` : undefined}
+                onClick={() => {
+                  setActiveIndex(offset + index);
+                  props.onOpenHit(hit.path, hit.line ?? undefined);
+                }}
+              >
+                <span className="project-find-hit-heading">
+                  <span className="project-find-result-type">{resultType(hit)}</span>
+                  <span className="project-replace-hit-path">
+                    {paper ? hit.title : <>{hit.path}{hit.line ? `:${hit.line}` : ""}</>}
+                  </span>
+                </span>
+                <span className="project-replace-hit-preview">{hit.snippet || (paper ? hit.path : hit.title)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </ScrollArea>
+  );
 
   return (
     <div className="drawer-backdrop" onMouseDown={close}>
@@ -134,64 +153,36 @@ export function ProjectFindDialog(props: {
           }}
           onClear={clearSearch}
           placeholder="Phrase or tokens"
-          onCompositionStart={() => {
-            if (compositionClearTimerRef.current !== null) {
-              window.clearTimeout(compositionClearTimerRef.current);
-            }
-            compositionClearTimerRef.current = null;
-            composingRef.current = true;
-          }}
-          onCompositionEnd={() => {
-            if (compositionClearTimerRef.current !== null) {
-              window.clearTimeout(compositionClearTimerRef.current);
-            }
-            // WebKit can emit compositionend immediately before the Enter
-            // that accepted the candidate. Keep the guard for this turn.
-            compositionClearTimerRef.current = window.setTimeout(() => {
-              composingRef.current = false;
-              compositionClearTimerRef.current = null;
-            }, 0);
-          }}
+          {...compositionProps}
           onKeyDown={(event) => {
-            if (
-              event.nativeEvent.isComposing
-              || event.keyCode === 229
-              || event.key === "Process"
-              || composingRef.current
-            ) return;
-            if (event.key === "Escape") {
-              event.preventDefault();
-              close();
-              return;
+            if (isComposing(event)) return;
+            const count = selectableHits.length;
+            switch (event.key) {
+              case "Escape":
+                close();
+                break;
+              case "ArrowDown":
+                setActiveIndex((index) => Math.min(index + 1, Math.max(count - 1, 0)));
+                break;
+              case "ArrowUp":
+                setActiveIndex((index) => Math.max(index - 1, 0));
+                break;
+              case "Enter":
+                if (event.metaKey || event.ctrlKey) return;
+                if (showResults) openHit(activeIndex);
+                break;
+              case "F3":
+                // F3 / Shift-F3 step through the hits, opening each one.
+                if (showResults && count) {
+                  const next = (activeIndex + (event.shiftKey ? count - 1 : 1)) % count;
+                  setActiveIndex(next);
+                  openHit(next);
+                }
+                break;
+              default:
+                return;
             }
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setActiveIndex((index) => Math.min(index + 1, Math.max(selectableHits.length - 1, 0)));
-              return;
-            }
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              setActiveIndex((index) => Math.max(index - 1, 0));
-              return;
-            }
-            if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
-              event.preventDefault();
-              openActive();
-              return;
-            }
-            if (event.key === "F3") {
-              event.preventDefault();
-              if (!query.trim() || searching || props.error) return;
-              setActiveIndex((index) => {
-                if (!selectableHits.length) return 0;
-                const next = event.shiftKey
-                  ? (index - 1 + selectableHits.length) % selectableHits.length
-                  : (index + 1) % selectableHits.length;
-                const hit = selectableHits[next];
-                if (hit) props.onOpenHit(hit.path, hit.line ?? undefined);
-                return next;
-              });
-            }
+            event.preventDefault();
           }}
         />
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
@@ -219,7 +210,7 @@ export function ProjectFindDialog(props: {
               </span>
             )}
           </div>
-          {query.trim() && !searching && !props.error && !hasResults && (
+          {showResults && !selectableHits.length && (
             <EmptyState
               align="start"
               density="compact"
@@ -228,69 +219,11 @@ export function ProjectFindDialog(props: {
               actions={<Button size="compact" variant="secondary" onClick={clearSearch}>Clear search</Button>}
             />
           )}
-          {showResults && fileHits.length > 0 && (
-            <ScrollArea className="project-find-results">
-              <ul className="project-replace-hits">
-                {fileHits.map((hit, index) => (
-                  <li key={`${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
-                    <button
-                      type="button"
-                      className={`project-replace-hit ${index === activeIndex ? "active" : ""}`}
-                      onClick={() => {
-                        setActiveIndex(index);
-                        props.onOpenHit(hit.path, hit.line ?? undefined);
-                      }}
-                    >
-                      <span className="project-find-hit-heading">
-                        <span className="project-find-result-type">
-                          {hit.semantic
-                            ? "Semantic match"
-                            : hit.fileKind
-                              ? `${hit.fileKind.toLocaleUpperCase()} file`
-                              : "File"}
-                        </span>
-                        <span className="project-replace-hit-path">
-                          {hit.path}{hit.line ? `:${hit.line}` : ""}
-                        </span>
-                      </span>
-                      <span className="project-replace-hit-preview">{hit.snippet || hit.title}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-          )}
+          {showResults && fileHits.length > 0 && renderHits(fileHits, 0)}
           {showResults && paperHits.length > 0 && (
             <div className="project-find-papers">
               <div className="project-replace-preview-summary">Papers</div>
-              <ScrollArea className="project-find-results">
-                <ul className="project-replace-hits">
-                  {paperHits.map((hit, index) => {
-                    const selectableIndex = fileHits.length + index;
-                    return (
-                      <li key={`paper:${hit.path}:${hit.title}`}>
-                        <button
-                          type="button"
-                          className={`project-replace-hit ${selectableIndex === activeIndex ? "active" : ""}`}
-                          aria-label={`Open paper result: ${hit.title}`}
-                          onClick={() => {
-                            setActiveIndex(selectableIndex);
-                            props.onOpenHit(hit.path, hit.line ?? undefined);
-                          }}
-                        >
-                          <span className="project-find-hit-heading">
-                            <span className="project-find-result-type">
-                              {hit.semantic ? "Paper · semantic" : "Paper"}
-                            </span>
-                            <span className="project-replace-hit-path">{hit.title}</span>
-                          </span>
-                          <span className="project-replace-hit-preview">{hit.snippet || hit.path}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </ScrollArea>
+              {renderHits(paperHits, fileHits.length)}
             </div>
           )}
         </div>

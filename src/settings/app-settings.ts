@@ -1,25 +1,10 @@
 /**
- * Settings and layout persistence for the app.
- *
- * This module owns the localStorage-backed preferences and layout state that
- * survive between sessions — recent projects, theme, build preferences,
- * split/panel ratios, remembered last-open files, panel open state, and the
- * appearance settings — along with the storage keys and the
- * small `clamp` helper they share. Everything here is pure and free of React or
- * font/panel dependencies, so it can be imported anywhere without pulling in the
- * rest of the app.
+ * The localStorage-backed preferences and layout state that survive between
+ * sessions. Pure and free of React or font/panel dependencies, so it can be
+ * imported anywhere without pulling in the rest of the app.
  */
 
-import type {
-  BoardFileViewState,
-  FileViewState,
-  HtmlFileViewState,
-  ImageFileViewState,
-  OpenSlideFileViewState,
-  PdfFileViewState,
-  ScrollFileViewState,
-  SpreadsheetFileViewState,
-} from "../app-types";
+import type { CanvasMode, DocumentViewMode, FileViewState } from "../app-types";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -42,94 +27,61 @@ const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
 const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
 const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
-const LAST_FILE_MAX = 60;
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
-const WORKSPACE_LAYOUT_MAX = 60;
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
-const FILE_VIEW_STATE_PROJECT_MAX = 60;
-const FILE_VIEW_STATE_FILE_MAX = 200;
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
 export const LOCAL_SEMANTIC_SEARCH_KEY = "lattice.local-semantic-search.v1";
+export const APPEARANCE_KEY = "lattice.appearance.v5";
+const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
+const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
+const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
+/** Per-project maps (last file, workspace layout, file views) keep this many projects. */
+const PROJECT_HISTORY_MAX = 60;
+const FILE_VIEW_STATE_FILE_MAX = 200;
+const RECENT_PROJECTS_MAX = 8;
+export const MAX_OPEN_TABS = 12;
 
-type WorkspaceCanvasMode =
-  | "source"
-  | "pdf"
-  | "split"
-  | "dual"
-  | "columns"
-  | "asset";
-
-export type WorkspaceLayout = {
-  openTabs: string[];
-  pinnedTabs?: string[];
-  activeFile: string;
-  activeTab: string;
-  secondaryFile: string | null;
-  focusedPane: "primary" | "secondary";
-  canvasMode: WorkspaceCanvasMode;
-  documentMode: Exclude<WorkspaceCanvasMode, "asset">;
-  paperView: "blog" | "fulltext";
-  tabRecency: string[];
-};
-
-const WORKSPACE_CANVAS_MODES = new Set<WorkspaceCanvasMode>([
-  "source",
-  "pdf",
-  "split",
-  "dual",
-  "columns",
-  "asset",
-]);
-
-function stringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item)))];
+// Every preference here is a convenience: when storage is unavailable or holds
+// something unreadable, reads fall back to the default and writes last only for
+// the current session.
+function safely<T>(action: () => T, fallback: T): T {
+  try {
+    return action();
+  } catch {
+    return fallback;
+  }
 }
 
-function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Partial<WorkspaceLayout>;
-  const activeFile = typeof candidate.activeFile === "string" ? candidate.activeFile : "";
-  const openTabs = stringList(candidate.openTabs);
-  const activeTab = typeof candidate.activeTab === "string" && candidate.activeTab
-    ? candidate.activeTab
-    : activeFile;
-  const secondaryFile = typeof candidate.secondaryFile === "string" && candidate.secondaryFile
-    ? candidate.secondaryFile
-    : null;
-  const storedCanvasModeValue = (candidate as { canvasMode?: unknown }).canvasMode;
-  const storedCanvasMode = typeof storedCanvasModeValue === "string" ? storedCanvasModeValue : "";
-  const canvasMode: WorkspaceCanvasMode = storedCanvasMode === "markdown-preview" || storedCanvasMode === "paper"
-    ? "pdf"
-    : storedCanvasMode === "columns"
-      ? "dual"
-    : WORKSPACE_CANVAS_MODES.has(storedCanvasMode as WorkspaceCanvasMode)
-      ? storedCanvasMode as WorkspaceCanvasMode
-      : "split";
-  const storedDocumentModeValue = (candidate as { documentMode?: unknown }).documentMode;
-  const storedDocumentMode = typeof storedDocumentModeValue === "string"
-    ? storedDocumentModeValue
-    : "";
-  const documentMode = storedDocumentMode === "columns"
-    ? "dual"
-    : WORKSPACE_CANVAS_MODES.has(storedDocumentMode as WorkspaceCanvasMode)
-    && storedDocumentMode !== "asset"
-    ? storedDocumentMode as Exclude<WorkspaceCanvasMode, "asset">
-    : canvasMode === "asset"
-      ? "split"
-      : canvasMode;
-  return {
-    openTabs,
-    pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
-    activeFile,
-    activeTab,
-    secondaryFile,
-    focusedPane: candidate.focusedPane === "secondary" ? "secondary" : "primary",
-    canvasMode,
-    documentMode,
-    paperView: candidate.paperView === "fulltext" ? "fulltext" : "blog",
-    tabRecency: stringList(candidate.tabRecency),
-  };
+export function persistSetting(key: string, value: string): void {
+  safely(() => localStorage.setItem(key, value), undefined);
+}
+
+function readNumber(key: string, fallback: number, minimum: number, maximum: number): number {
+  return safely(() => clamp(Number(localStorage.getItem(key)) || fallback, minimum, maximum), fallback);
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? value as T : fallback;
+}
+
+/** A string preference: anything unrecognized, or storage that cannot be read, yields `fallback`. */
+export function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  return safely(() => oneOf(localStorage.getItem(key), allowed, fallback), fallback);
+}
+
+function settingsRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function readProjectMap(key: string): Record<string, unknown> {
+  return settingsRecord(JSON.parse(localStorage.getItem(key) ?? "{}")) ?? {};
+}
+
+/** Re-inserts `root` last, so trimming drops the least recently written project. */
+function writeProjectEntry(key: string, root: string, value: unknown, map = readProjectMap(key)): void {
+  delete map[root];
+  const entries = [...Object.entries(map), [root, value]].slice(-PROJECT_HISTORY_MAX);
+  localStorage.setItem(key, JSON.stringify(Object.fromEntries(entries)));
 }
 
 export function clamp(value: number, minimum: number, maximum: number): number {
@@ -137,7 +89,7 @@ export function clamp(value: number, minimum: number, maximum: number): number {
 }
 
 export function loadRecentProjects(): RecentProject[] {
-  try {
+  return safely(() => {
     const value = JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? "[]") as unknown;
     if (!Array.isArray(value)) return [];
     return value
@@ -145,44 +97,34 @@ export function loadRecentProjects(): RecentProject[] {
         item && typeof item === "object" && "name" in item && typeof item.name === "string" &&
         "path" in item && typeof item.path === "string",
       ))
-      .slice(0, 8);
-  } catch {
-    return [];
-  }
-}
-
-function persistRecentProjects(projects: RecentProject[]) {
-  try {
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(projects));
-  } catch {
-    // Recent projects are a convenience; project access still works if storage is unavailable.
-  }
+      .slice(0, RECENT_PROJECTS_MAX);
+  }, []);
 }
 
 // Windows share one localStorage, so both of the writers below re-read it
 // instead of overwriting with the copy this window happened to load at startup.
 // Writing a stale copy back is how a project opened in one window disappeared
 // from the other window's list.
+function persistRecentProjects(projects: RecentProject[]): RecentProject[] {
+  persistSetting(RECENT_PROJECTS_KEY, JSON.stringify(projects));
+  return projects;
+}
 
 /// Record a project as the most recently opened one.
 export function rememberRecentProject(entry: RecentProject): RecentProject[] {
-  const next = [
+  return persistRecentProjects([
     entry,
     ...loadRecentProjects().filter((item) => item.path !== entry.path),
-  ].slice(0, 8);
-  persistRecentProjects(next);
-  return next;
+  ].slice(0, RECENT_PROJECTS_MAX));
 }
 
 /// Drop a project from the list — it could not be opened.
 export function forgetRecentProject(path: string): RecentProject[] {
-  const next = loadRecentProjects().filter((item) => item.path !== path);
-  persistRecentProjects(next);
-  return next;
+  return persistRecentProjects(loadRecentProjects().filter((item) => item.path !== path));
 }
 
 export function hasSeenTutorial(): boolean {
-  try {
+  return safely(() => {
     if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return true;
     const seenInAnEarlierVersion = loadRecentProjects().some((project) => {
       const path = project.path.replaceAll("\\", "/");
@@ -191,39 +133,20 @@ export function hasSeenTutorial(): boolean {
     });
     if (seenInAnEarlierVersion) localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
     return seenInAnEarlierVersion;
-  } catch {
-    return false;
-  }
+  }, false);
 }
 
-export function markTutorialSeen() {
-  try {
-    localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
-  } catch {
-    // The tutorial still works for this session when preferences cannot persist.
-  }
-}
+export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
 /**
  * Semantic indexing is privacy-default, not merely local-default: it remains
  * off until the user explicitly opts in. The production provider is the Mac's
  * built-in sentence model and never sends source text to a network service.
  */
-export function loadLocalSemanticSearchEnabled(): boolean {
-  try {
-    return localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function persistLocalSemanticSearchEnabled(enabled: boolean): void {
-  try {
-    localStorage.setItem(LOCAL_SEMANTIC_SEARCH_KEY, enabled ? "1" : "0");
-  } catch {
-    // The explicit choice still applies for this session without storage.
-  }
-}
+export const loadLocalSemanticSearchEnabled = () =>
+  safely(() => localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY) === "1", false);
+export const persistLocalSemanticSearchEnabled = (enabled: boolean) =>
+  persistSetting(LOCAL_SEMANTIC_SEARCH_KEY, enabled ? "1" : "0");
 
 export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -238,315 +161,210 @@ export function systemTheme(): Theme {
  * users to `system` could change the appearance they have been looking at.
  */
 export function loadThemePreference(): ThemePreference {
-  try {
-    const stored = localStorage.getItem(THEME_PREFERENCE_KEY);
-    if (stored === "system" || stored === "light" || stored === "dark") return stored;
-    const legacy = localStorage.getItem(THEME_KEY);
-    if (legacy === "light" || legacy === "dark") return legacy;
-  } catch {
-    // Fall through to the system preference when storage is unavailable.
-  }
-  return "system";
+  const legacy = loadChoice<ThemePreference>(THEME_KEY, ["light", "dark"], "system");
+  return loadChoice(THEME_PREFERENCE_KEY, ["system", "light", "dark"], legacy);
 }
+
+export const persistThemePreference = (preference: ThemePreference) =>
+  persistSetting(THEME_PREFERENCE_KEY, preference);
 
 export function loadBuildPreferences(): BuildPreferences {
-  try {
-    const value = JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null") as { autoBuildMode?: string } | null;
-    const autoBuildMode = value?.autoBuildMode;
-    return {
-      autoBuildMode: autoBuildMode === "manual" ? "manual" : "automatic",
-    };
-  } catch {
-    return { autoBuildMode: "automatic" };
-  }
+  const stored = safely(() => JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null"), null);
+  return { autoBuildMode: oneOf<AutoBuildMode>(stored?.autoBuildMode, ["manual"], "automatic") };
 }
 
-export function loadSplitRatio(): number {
-  try {
-    return clamp(Number(localStorage.getItem(SPLIT_RATIO_KEY)) || 0.46, 0.2, 0.8);
-  } catch {
-    return 0.46;
-  }
-}
+export const loadSplitRatio = () => readNumber(SPLIT_RATIO_KEY, 0.46, 0.2, 0.8);
+export const persistSplitRatio = (ratio: number) => persistSetting(SPLIT_RATIO_KEY, String(ratio));
+export const loadColumnsPdfRatio = () => readNumber(COLUMNS_PDF_RATIO_KEY, 0.38, 0.22, 0.55);
+export const persistColumnsPdfRatio = (ratio: number) => persistSetting(COLUMNS_PDF_RATIO_KEY, String(ratio));
+export const loadSidebarOpen = () => safely(() => localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0", true);
+export const persistSidebarOpen = (open: boolean) => persistSetting(SIDEBAR_OPEN_KEY, open ? "1" : "0");
+export const loadSidebarWidth = () => readNumber(SIDEBAR_WIDTH_KEY, 320, 180, 2400);
+export const persistSidebarWidth = (width: number) => persistSetting(SIDEBAR_WIDTH_KEY, String(width));
 
-export function persistSplitRatio(ratio: number) {
-  try {
-    localStorage.setItem(SPLIT_RATIO_KEY, String(ratio));
-  } catch {
-    // Split resizing remains available for the current session without storage.
-  }
-}
-
-export function loadColumnsPdfRatio(): number {
-  try {
-    return clamp(Number(localStorage.getItem(COLUMNS_PDF_RATIO_KEY)) || 0.38, 0.22, 0.55);
-  } catch {
-    return 0.38;
-  }
-}
-
-export function persistColumnsPdfRatio(ratio: number) {
-  try {
-    localStorage.setItem(COLUMNS_PDF_RATIO_KEY, String(ratio));
-  } catch {
-    // Columns PDF resizing remains available for the current session without storage.
-  }
-}
-
-function loadLastFileMap(): Record<string, string> {
-  try {
-    const value = JSON.parse(localStorage.getItem(LAST_FILE_KEY) ?? "{}") as unknown;
-    if (!value || typeof value !== "object") return {};
-    return value as Record<string, string>;
-  } catch {
-    return {};
-  }
-}
+// Unlike the other per-project maps, an unreadable last-file map is replaced
+// on the next write rather than preserved.
+const loadLastFiles = () => safely(() => readProjectMap(LAST_FILE_KEY), {});
 
 /** The file the user last had open in a given project, if remembered. */
 export function loadLastFile(root: string): string | null {
-  const value = loadLastFileMap()[root];
+  const value = loadLastFiles()[root];
   return typeof value === "string" && value ? value : null;
 }
 
 export function persistLastFile(root: string, path: string) {
-  try {
-    const map = loadLastFileMap();
-    if (map[root] === path) return;
-    // Re-insert at the end so trimming drops the least-recently-opened project.
-    delete map[root];
-    const entries = [...Object.entries(map), [root, path] as [string, string]];
-    const trimmed = entries.slice(Math.max(0, entries.length - LAST_FILE_MAX));
-    localStorage.setItem(LAST_FILE_KEY, JSON.stringify(Object.fromEntries(trimmed)));
-  } catch {
-    // Non-fatal: reopening simply falls back to the root document.
-  }
+  const map = loadLastFiles();
+  // Non-fatal: reopening simply falls back to the root document.
+  if (map[root] !== path) safely(() => writeProjectEntry(LAST_FILE_KEY, root, path, map), undefined);
+}
+
+export type WorkspaceLayout = {
+  openTabs: string[];
+  pinnedTabs?: string[];
+  activeFile: string;
+  activeTab: string;
+  secondaryFile: string | null;
+  focusedPane: "primary" | "secondary";
+  canvasMode: CanvasMode;
+  documentMode: DocumentViewMode;
+  paperView: "blog" | "fulltext";
+  tabRecency: string[];
+};
+
+const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "dual", "columns", "asset"];
+const DOCUMENT_MODES = CANVAS_MODES.filter((mode): mode is DocumentViewMode => mode !== "asset");
+// Retired modes and what replaced them: the Markdown and paper previews merged
+// into the unified preview, and the three-column layout became two editor panes.
+const RETIRED_CANVAS_MODES = new Map<unknown, CanvasMode>([
+  ["markdown-preview", "pdf"],
+  ["paper", "pdf"],
+  ["columns", "dual"],
+]);
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item)))];
+}
+
+function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const activeFile = typeof candidate.activeFile === "string" ? candidate.activeFile : "";
+  const openTabs = stringList(candidate.openTabs);
+  const canvasMode = RETIRED_CANVAS_MODES.get(candidate.canvasMode)
+    ?? oneOf(candidate.canvasMode, CANVAS_MODES, "split");
+  const documentMode = candidate.documentMode === "columns"
+    ? "dual"
+    : oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
+  return {
+    openTabs,
+    pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
+    activeFile,
+    activeTab: typeof candidate.activeTab === "string" && candidate.activeTab ? candidate.activeTab : activeFile,
+    secondaryFile: typeof candidate.secondaryFile === "string" && candidate.secondaryFile
+      ? candidate.secondaryFile
+      : null,
+    focusedPane: oneOf(candidate.focusedPane, ["secondary"], "primary"),
+    canvasMode,
+    documentMode,
+    paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),
+    tabRecency: stringList(candidate.tabRecency),
+  };
 }
 
 /** The complete editor workspace last used in a project. */
 export function loadWorkspaceLayout(root: string): WorkspaceLayout | null {
-  try {
-    const value = JSON.parse(localStorage.getItem(WORKSPACE_LAYOUT_KEY) ?? "{}") as unknown;
-    if (!value || typeof value !== "object") return null;
-    return normalizeWorkspaceLayout((value as Record<string, unknown>)[root]);
-  } catch {
-    return null;
-  }
+  return safely(() => normalizeWorkspaceLayout(readProjectMap(WORKSPACE_LAYOUT_KEY)[root]), null);
 }
 
 export function persistWorkspaceLayout(root: string, layout: WorkspaceLayout) {
   if (!root) return;
-  try {
-    const stored = JSON.parse(localStorage.getItem(WORKSPACE_LAYOUT_KEY) ?? "{}") as unknown;
-    const map = stored && typeof stored === "object"
-      ? { ...(stored as Record<string, unknown>) }
-      : {};
-    delete map[root];
-    const entries = [
-      ...Object.entries(map),
-      [root, normalizeWorkspaceLayout(layout) ?? layout] as [string, WorkspaceLayout],
-    ];
-    const trimmed = entries.slice(Math.max(0, entries.length - WORKSPACE_LAYOUT_MAX));
-    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify(Object.fromEntries(trimmed)));
-  } catch {
-    // Workspace restoration is a convenience; the current session remains usable.
+  // Workspace restoration is a convenience; the current session remains usable.
+  safely(() => writeProjectEntry(WORKSPACE_LAYOUT_KEY, root, normalizeWorkspaceLayout(layout) ?? layout), undefined);
+}
+
+/** A stored field's normalized value, or undefined when it is missing or unusable. */
+type Field = { (value: unknown): unknown; optional?: boolean };
+type Shape = Record<string, Field>;
+
+/** A field whose missing or unusable value is left out instead of rejecting the record. */
+const optional = (field: Field): Field => Object.assign((value: unknown) => field(value), { optional: true });
+
+/** Normalizes the fields in `fields` order, which is also the persisted key order. */
+const shape = (fields: Shape): Field => (value) => {
+  const candidate = settingsRecord(value);
+  if (!candidate) return undefined;
+  const result: Record<string, unknown> = {};
+  for (const [key, field] of Object.entries(fields)) {
+    const normalized = field(candidate[key]);
+    if (normalized !== undefined) result[key] = normalized;
+    else if (!field.optional) return undefined;
   }
-}
+  return result;
+};
 
-function settingsRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
+const finiteWhere = (accept: (value: number) => boolean, floor = false): Field => (value) =>
+  typeof value === "number" && Number.isFinite(value) && accept(value) ? (floor ? Math.floor(value) : value) : undefined;
+const finite = finiteWhere(() => true);
+const nonNegative = finiteWhere((value) => value >= 0);
+const positive = finiteWhere((value) => value > 0);
+const pageNumber = finiteWhere((value) => value >= 1, true);
+const text: Field = (value) => typeof value === "string" ? value : undefined;
+const nonEmptyText: Field = (value) => typeof value === "string" && value ? value : undefined;
 
-function finiteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
+const SCROLL: Shape = { scrollTop: nonNegative, scrollLeft: optional(nonNegative), scrollRange: optional(nonNegative) };
+const spreadsheetSheet = shape({ zoomRatio: positive, scrollTop: nonNegative, scrollLeft: nonNegative });
 
-function normalizeScrollFileViewState(value: unknown): ScrollFileViewState | null {
-  const candidate = settingsRecord(value);
-  const scrollTop = finiteNumber(candidate?.scrollTop);
-  if (scrollTop === null || scrollTop < 0) return null;
-  const scrollLeft = finiteNumber(candidate?.scrollLeft);
-  const scrollRange = finiteNumber(candidate?.scrollRange);
-  return {
-    scrollTop,
-    ...(scrollLeft !== null && scrollLeft >= 0 ? { scrollLeft } : {}),
-    ...(scrollRange !== null && scrollRange >= 0 ? { scrollRange } : {}),
-  };
-}
+/** Keeps the last 100 sheets that still validate. */
+const spreadsheetSheets: Field = (value) => {
+  const sheets = settingsRecord(value);
+  return sheets ? Object.fromEntries(Object.entries(sheets).flatMap(([sheetId, sheet]) => {
+    const normalized = spreadsheetSheet(sheet);
+    return sheetId && normalized ? [[sheetId, normalized]] : [];
+  }).slice(-100)) : undefined;
+};
 
-function normalizeSpreadsheetFileViewState(value: unknown): SpreadsheetFileViewState | null {
-  const candidate = settingsRecord(value);
-  if (!candidate || typeof candidate.activeSheetId !== "string" || !candidate.activeSheetId) return null;
-  const rawSheets = settingsRecord(candidate.sheets);
-  if (!rawSheets) return null;
-  const sheets = Object.fromEntries(Object.entries(rawSheets).flatMap(([sheetId, rawSheet]) => {
-    const sheet = settingsRecord(rawSheet);
-    const zoomRatio = finiteNumber(sheet?.zoomRatio);
-    const scrollTop = finiteNumber(sheet?.scrollTop);
-    const scrollLeft = finiteNumber(sheet?.scrollLeft);
-    return sheetId && zoomRatio !== null && zoomRatio > 0
-      && scrollTop !== null && scrollTop >= 0
-      && scrollLeft !== null && scrollLeft >= 0
-      ? [[sheetId, { zoomRatio, scrollTop, scrollLeft }]]
-      : [];
-  }).slice(-100));
-  return {
-    activeSheetId: candidate.activeSheetId,
-    ...(typeof candidate.activeRange === "string" ? { activeRange: candidate.activeRange } : {}),
-    ...(typeof candidate.activeCell === "string" ? { activeCell: candidate.activeCell } : {}),
-    sheets,
-  };
-}
+const FILE_VIEW_SHAPES: Record<keyof FileViewState, Field> = {
+  text: shape({ cursor: finiteWhere((value) => value >= 0, true), scrollTop: nonNegative }),
+  spreadsheet: shape({ activeSheetId: nonEmptyText, activeRange: optional(text), activeCell: optional(text), sheets: spreadsheetSheets }),
+  pdf: shape({
+    page: pageNumber,
+    scale: positive,
+    fitMode: (value) => value === "width" || value === "height" || value === null ? value : undefined,
+    scrollTop: nonNegative,
+    scrollLeft: nonNegative,
+  }),
+  board: shape({ pageId: nonEmptyText, camera: shape({ x: finite, y: finite, z: positive }) }),
+  image: shape({ ...SCROLL, scale: positive }),
+  // Older HTML views were saved before zoom existed; they open at 100%.
+  html: shape({ ...SCROLL, scale: (value) => value === undefined ? 1 : positive(value) }),
+  openSlide: shape({ page: pageNumber }),
+  visualMarkdown: shape(SCROLL),
+};
 
-function normalizePdfFileViewState(value: unknown): PdfFileViewState | null {
-  const candidate = settingsRecord(value);
-  const page = finiteNumber(candidate?.page);
-  const scale = finiteNumber(candidate?.scale);
-  const scrollTop = finiteNumber(candidate?.scrollTop);
-  const scrollLeft = finiteNumber(candidate?.scrollLeft);
-  const fitMode = candidate?.fitMode === "width" || candidate?.fitMode === "height" || candidate?.fitMode === null
-    ? candidate.fitMode
-    : undefined;
-  if (page === null || page < 1 || scale === null || scale <= 0 || fitMode === undefined
-    || scrollTop === null || scrollTop < 0 || scrollLeft === null || scrollLeft < 0) return null;
-  return { page: Math.floor(page), scale, fitMode, scrollTop, scrollLeft };
-}
-
-function normalizeBoardFileViewState(value: unknown): BoardFileViewState | null {
-  const candidate = settingsRecord(value);
-  const camera = settingsRecord(candidate?.camera);
-  const x = finiteNumber(camera?.x);
-  const y = finiteNumber(camera?.y);
-  const z = finiteNumber(camera?.z);
-  if (!candidate || typeof candidate.pageId !== "string" || !candidate.pageId
-    || x === null || y === null || z === null || z <= 0) return null;
-  return { pageId: candidate.pageId, camera: { x, y, z } };
-}
-
-function normalizeImageFileViewState(value: unknown): ImageFileViewState | null {
-  const scroll = normalizeScrollFileViewState(value);
-  const scale = finiteNumber(settingsRecord(value)?.scale);
-  return scroll && scale !== null && scale > 0 ? { ...scroll, scale } : null;
-}
-
-function normalizeHtmlFileViewState(value: unknown): HtmlFileViewState | null {
-  const scroll = normalizeScrollFileViewState(value);
-  const candidate = settingsRecord(value);
-  const scale = finiteNumber(candidate?.scale);
-  if (!scroll || (candidate?.scale !== undefined && (scale === null || scale <= 0))) return null;
-  return { ...scroll, scale: scale ?? 1 };
-}
-
-function normalizeOpenSlideFileViewState(value: unknown): OpenSlideFileViewState | null {
-  const page = finiteNumber(settingsRecord(value)?.page);
-  return page !== null && page >= 1 ? { page: Math.floor(page) } : null;
-}
-
+/** Keeps each view kind that still validates, so one corrupt field spares its siblings. */
 function normalizeFileViewState(value: unknown): FileViewState | null {
   const candidate = settingsRecord(value);
   if (!candidate) return null;
-  const text = settingsRecord(candidate.text);
-  const cursor = finiteNumber(text?.cursor);
-  const textScrollTop = finiteNumber(text?.scrollTop);
-  const spreadsheet = normalizeSpreadsheetFileViewState(candidate.spreadsheet);
-  const pdf = normalizePdfFileViewState(candidate.pdf);
-  const board = normalizeBoardFileViewState(candidate.board);
-  const image = normalizeImageFileViewState(candidate.image);
-  const html = normalizeHtmlFileViewState(candidate.html);
-  const openSlide = normalizeOpenSlideFileViewState(candidate.openSlide);
-  const visualMarkdown = normalizeScrollFileViewState(candidate.visualMarkdown);
-  const normalized: FileViewState = {
-    ...(cursor !== null && cursor >= 0 && textScrollTop !== null && textScrollTop >= 0
-      ? { text: { cursor: Math.floor(cursor), scrollTop: textScrollTop } }
-      : {}),
-    ...(spreadsheet ? { spreadsheet } : {}),
-    ...(pdf ? { pdf } : {}),
-    ...(board ? { board } : {}),
-    ...(image ? { image } : {}),
-    ...(html ? { html } : {}),
-    ...(openSlide ? { openSlide } : {}),
-    ...(visualMarkdown ? { visualMarkdown } : {}),
-  };
+  const normalized = Object.fromEntries(Object.entries(FILE_VIEW_SHAPES).flatMap(([kind, normalize]) => {
+    const state = normalize(candidate[kind]);
+    return state ? [[kind, state]] : [];
+  })) as FileViewState;
   return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+function normalizeFileViewStates(states: unknown): Record<string, FileViewState> {
+  return Object.fromEntries(Object.entries(settingsRecord(states) ?? {}).flatMap(([path, state]) => {
+    const normalized = normalizeFileViewState(state);
+    return path && normalized ? [[path, normalized]] : [];
+  }).slice(-FILE_VIEW_STATE_FILE_MAX));
 }
 
 /** Local, per-user view state for files in one project. */
 export function loadFileViewStates(root: string): Record<string, FileViewState> {
   if (!root) return {};
-  try {
-    const stored = settingsRecord(JSON.parse(localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}"));
-    const projectStates = settingsRecord(stored?.[root]);
-    if (!projectStates) return {};
-    return Object.fromEntries(Object.entries(projectStates).flatMap(([path, state]) => {
-      const normalized = normalizeFileViewState(state);
-      return path && normalized ? [[path, normalized]] : [];
-    }).slice(-FILE_VIEW_STATE_FILE_MAX));
-  } catch {
-    return {};
-  }
+  return safely(() => normalizeFileViewStates(readProjectMap(FILE_VIEW_STATES_KEY)[root]), {});
 }
 
 export function persistFileViewStates(root: string, states: Record<string, FileViewState>): void {
   if (!root) return;
-  try {
-    const stored = settingsRecord(JSON.parse(localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}")) ?? {};
-    const normalizedStates = Object.fromEntries(Object.entries(states).flatMap(([path, state]) => {
-      const normalized = normalizeFileViewState(state);
-      return path && normalized ? [[path, normalized]] : [];
-    }).slice(-FILE_VIEW_STATE_FILE_MAX));
-    delete stored[root];
-    const projects = [...Object.entries(stored), [root, normalizedStates] as [string, typeof normalizedStates]]
-      .slice(-FILE_VIEW_STATE_PROJECT_MAX);
-    localStorage.setItem(FILE_VIEW_STATES_KEY, JSON.stringify(Object.fromEntries(projects)));
-  } catch {
-    // View restoration is a convenience; editing remains available without storage.
-  }
+  // View restoration is a convenience; editing remains available without storage.
+  safely(() => writeProjectEntry(FILE_VIEW_STATES_KEY, root, normalizeFileViewStates(states)), undefined);
 }
 
-export function loadSidebarOpen(): boolean {
-  try {
-    return localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0";
-  } catch { return true; }
-}
-
-export function persistSidebarOpen(open: boolean) {
-  try { localStorage.setItem(SIDEBAR_OPEN_KEY, open ? "1" : "0"); } catch { /* session only */ }
-}
-
-export function loadSidebarWidth(): number {
-  try {
-    return clamp(Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 320, 180, 2400);
-  } catch { return 320; }
-}
-
-export function persistSidebarWidth(width: number) {
-  try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch { /* session only */ }
-}
-
-type EditorKeymap = "default" | "vim" | "emacs";
 export type AppearanceSettings = {
   interfaceLanguage: InterfaceLanguage;
   uiFont: string;
   interfaceScale: number;
   editorFont: string;
   editorFontSize: number;
-  editorKeymap: EditorKeymap;
+  editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
   interfaceSounds: boolean;
   maxOpenTabs: number;
 };
 
-export const APPEARANCE_KEY = "lattice.appearance.v5";
-const LEGACY_APPEARANCE_KEY = "lattice.appearance.v4";
-export const MAX_OPEN_TABS = 12;
-const OLDER_APPEARANCE_KEY = "lattice.appearance.v3";
-
-export function resolveAppLocale(
-  preference: InterfaceLanguage,
-  systemLanguages?: readonly string[],
-): AppLocale {
+export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?: readonly string[]): AppLocale {
   if (preference !== "system") return preference;
   const languages = systemLanguages ?? (typeof navigator === "undefined"
     ? []
@@ -557,9 +375,7 @@ export function resolveAppLocale(
   // list made a secondary Chinese input/reading language override an English
   // system language; only the system's first preference chooses the UI locale.
   const normalized = languages[0]?.toLowerCase() ?? "";
-  return normalized === "zh" || normalized.startsWith("zh-")
-    ? "zh-CN"
-    : "en";
+  return normalized === "zh" || normalized.startsWith("zh-") ? "zh-CN" : "en";
 }
 
 export function loadAppearance(): AppearanceSettings {
@@ -574,35 +390,22 @@ export function loadAppearance(): AppearanceSettings {
     interfaceSounds: true,
     maxOpenTabs: 5,
   };
-  try {
+  return safely(() => {
     const current = localStorage.getItem(APPEARANCE_KEY);
-    const legacy = localStorage.getItem(LEGACY_APPEARANCE_KEY)
-      ?? localStorage.getItem(OLDER_APPEARANCE_KEY);
+    const legacy = LEGACY_APPEARANCE_KEYS.map((key) => localStorage.getItem(key)).find((value) => value !== null);
     const value = JSON.parse(current ?? legacy ?? "null") as Partial<AppearanceSettings> | null;
-    const storedInterfaceScale = clamp(
-      Number(value?.interfaceScale) || defaults.interfaceScale,
-      0.9,
-      1.35,
-    );
+    const storedInterfaceScale = clamp(Number(value?.interfaceScale) || defaults.interfaceScale, 0.9, 1.35);
     return {
-      interfaceLanguage: value?.interfaceLanguage === "en" || value?.interfaceLanguage === "zh-CN"
-        ? value.interfaceLanguage
-        : "system",
+      interfaceLanguage: oneOf(value?.interfaceLanguage, ["en", "zh-CN"], defaults.interfaceLanguage),
       // Keep the field in the persisted shape for backwards compatibility, but
       // normalize every old preference to the bundled application UI face.
       uiFont: defaults.uiFont,
       // v4 shipped with 110% as its implicit default. Migrate that value once,
       // while preserving every other legacy choice and all future v5 choices.
-      interfaceScale: current === null && storedInterfaceScale === 1.1
-        ? defaults.interfaceScale
-        : storedInterfaceScale,
+      interfaceScale: current === null && storedInterfaceScale === 1.1 ? defaults.interfaceScale : storedInterfaceScale,
       editorFont: defaults.editorFont,
       editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
-      editorKeymap: value?.editorKeymap === "vim"
-        ? "vim"
-        : value?.editorKeymap === "emacs"
-          ? "emacs"
-          : "default",
+      editorKeymap: oneOf(value?.editorKeymap, ["vim", "emacs"], defaults.editorKeymap),
       // Absent means "never chose", which now inherits the on-by-default
       // behavior; only an explicit false keeps Harper quiet. Harper reports
       // lints on Latin-letter spans only (see harper-spellcheck.ts), so
@@ -611,10 +414,11 @@ export function loadAppearance(): AppearanceSettings {
       interfaceSounds: value?.interfaceSounds !== false,
       maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
     };
-  } catch {
-    return defaults;
-  }
+  }, defaults);
 }
+
+export const persistAppearance = (appearance: AppearanceSettings) =>
+  persistSetting(APPEARANCE_KEY, JSON.stringify(appearance));
 
 /**
  * How a project linked to Overleaf stays in step with it.
@@ -625,16 +429,6 @@ export function loadAppearance(): AppearanceSettings {
  */
 export type OverleafSyncMode = "live" | "manual";
 
-const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
-
-export function loadOverleafSyncMode(): OverleafSyncMode {
-  try {
-    return localStorage.getItem(OVERLEAF_SYNC_MODE_KEY) === "manual" ? "manual" : "live";
-  } catch {
-    return "live";
-  }
-}
-
 /**
  * What happens to a file on Overleaf when it is deleted here.
  *
@@ -644,29 +438,8 @@ export function loadOverleafSyncMode(): OverleafSyncMode {
  */
 export type OverleafRemoteDelete = "never" | "ask" | "always";
 
-const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
-
-export function loadOverleafRemoteDelete(): OverleafRemoteDelete {
-  try {
-    const stored = localStorage.getItem(OVERLEAF_REMOTE_DELETE_KEY);
-    return stored === "never" || stored === "always" ? stored : "ask";
-  } catch {
-    return "ask";
-  }
-}
-
-export function persistOverleafRemoteDelete(mode: OverleafRemoteDelete) {
-  try {
-    localStorage.setItem(OVERLEAF_REMOTE_DELETE_KEY, mode);
-  } catch {
-    // The choice still applies for this session without storage.
-  }
-}
-
-export function persistOverleafSyncMode(mode: OverleafSyncMode) {
-  try {
-    localStorage.setItem(OVERLEAF_SYNC_MODE_KEY, mode);
-  } catch {
-    // The choice still applies for this session without storage.
-  }
-}
+export const loadOverleafSyncMode = () => loadChoice<OverleafSyncMode>(OVERLEAF_SYNC_MODE_KEY, ["manual"], "live");
+export const persistOverleafSyncMode = (mode: OverleafSyncMode) => persistSetting(OVERLEAF_SYNC_MODE_KEY, mode);
+export const loadOverleafRemoteDelete = () =>
+  loadChoice<OverleafRemoteDelete>(OVERLEAF_REMOTE_DELETE_KEY, ["never", "always"], "ask");
+export const persistOverleafRemoteDelete = (mode: OverleafRemoteDelete) => persistSetting(OVERLEAF_REMOTE_DELETE_KEY, mode);

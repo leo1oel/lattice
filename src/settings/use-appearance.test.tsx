@@ -2,7 +2,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import { APPEARANCE_KEY, THEME_KEY, THEME_PREFERENCE_KEY } from "./app-settings";
+import { APPEARANCE_KEY, SYSTEM_DARK_QUERY, THEME_KEY, THEME_PREFERENCE_KEY } from "./app-settings";
 import { useAppearance } from "./use-appearance";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -10,28 +10,16 @@ vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({ setZoom: vi.fn().mockResolvedValue(undefined) }),
 }));
 
-/** Replaces the jsdom shim with a query-aware, dispatchable media list. */
+/** Replaces the jsdom shim with a dispatchable system-appearance query. */
 function mockSystemDark(dark: boolean) {
   const listeners = new Set<() => void>();
-  let matches = dark;
   window.matchMedia = ((query: string) => ({
-    get matches() {
-      return query === "(prefers-color-scheme: dark)" ? matches : false;
-    },
-    media: query,
-    onchange: null,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    addEventListener: (_: string, listener: () => void) => {
-      listeners.add(listener);
-    },
-    removeEventListener: (_: string, listener: () => void) => {
-      listeners.delete(listener);
-    },
-    dispatchEvent: () => false,
+    get matches() { return query === SYSTEM_DARK_QUERY && dark; },
+    addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
   })) as unknown as typeof window.matchMedia;
   return (next: boolean) => {
-    matches = next;
+    dark = next;
     for (const listener of listeners) listener();
   };
 }
@@ -44,8 +32,7 @@ describe("useAppearance", () => {
     window.matchMedia = baseMatchMedia;
     localStorage.clear();
     localStorage.setItem(THEME_PREFERENCE_KEY, "light");
-    vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockResolvedValue(undefined);
+    vi.mocked(invoke).mockReset().mockResolvedValue(undefined);
   });
 
   it("keeps the native resize background synchronized with the theme", async () => {

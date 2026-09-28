@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { OverlayScrollbars } from "./overlay-scrollbar";
-import { calculateOverlayAxisGeometry } from "./overlay-scrollbar-geometry";
 
 afterEach(cleanup);
 
@@ -15,11 +14,15 @@ function sizedElement(element: HTMLElement, sizes: Record<string, number>) {
   return element;
 }
 
-function renderOverlay(sizes: Record<string, number>) {
+/** A 200×400 viewport over 800px of content, `scrollWidth` wide. */
+function renderOverlay(scrollWidth = 400) {
   const viewport = sizedElement(document.createElement("div"), {
+    clientHeight: 200,
+    clientWidth: 400,
+    scrollHeight: 800,
     scrollLeft: 0,
     scrollTop: 0,
-    ...sizes,
+    scrollWidth,
   });
   const view = render(<OverlayScrollbars getViewport={() => viewport} />);
   const vertical = view.container.querySelector<HTMLElement>(
@@ -35,12 +38,7 @@ function renderOverlay(sizes: Record<string, number>) {
 
 describe("OverlayScrollbars", () => {
   it("marks only the axes that overflow", async () => {
-    const { horizontal, vertical, viewport } = renderOverlay({
-      clientHeight: 200,
-      clientWidth: 400,
-      scrollHeight: 800,
-      scrollWidth: 400,
-    });
+    const { horizontal, vertical, viewport } = renderOverlay();
 
     await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-end"));
     expect(vertical).not.toHaveAttribute("data-overflow-y-start");
@@ -58,12 +56,7 @@ describe("OverlayScrollbars", () => {
   });
 
   it("reveals while the viewport scrolls and settles again", async () => {
-    const { vertical, viewport } = renderOverlay({
-      clientHeight: 200,
-      clientWidth: 400,
-      scrollHeight: 800,
-      scrollWidth: 400,
-    });
+    const { vertical, viewport } = renderOverlay();
 
     fireEvent.scroll(viewport);
     expect(vertical).toHaveAttribute("data-scrolling");
@@ -71,12 +64,7 @@ describe("OverlayScrollbars", () => {
   });
 
   it("drags the thumb along its own axis", async () => {
-    const { horizontal, vertical, viewport } = renderOverlay({
-      clientHeight: 200,
-      clientWidth: 400,
-      scrollHeight: 800,
-      scrollWidth: 1_200,
-    });
+    const { horizontal, vertical, viewport } = renderOverlay(1_200);
     await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-end"));
 
     fireEvent.pointerDown(vertical.firstElementChild!, { clientY: 0, pointerId: 1 });
@@ -89,46 +77,5 @@ describe("OverlayScrollbars", () => {
     fireEvent.pointerMove(horizontal, { clientX: 10, pointerId: 2 });
     expect(viewport.scrollLeft).toBeGreaterThan(0);
     expect(viewport.scrollTop).toBeCloseTo(50, 5);
-  });
-});
-
-describe("calculateOverlayAxisGeometry", () => {
-  it("maps the scroll position onto the inset track", () => {
-    expect(calculateOverlayAxisGeometry({
-      content: 800,
-      offset: 0,
-      track: 200,
-      viewport: 200,
-    })).toMatchObject({ overflow: true, thumbOffset: 0, thumbSize: 48 });
-    expect(calculateOverlayAxisGeometry({
-      content: 800,
-      offset: 300,
-      track: 200,
-      viewport: 200,
-    }).thumbOffset).toBe(72);
-    expect(calculateOverlayAxisGeometry({
-      content: 800,
-      offset: 600,
-      track: 200,
-      viewport: 200,
-    }).thumbOffset).toBe(144);
-  });
-
-  it("treats a sub-pixel extent as no overflow", () => {
-    expect(calculateOverlayAxisGeometry({
-      content: 400.4,
-      offset: 0,
-      track: 400,
-      viewport: 400,
-    })).toMatchObject({ canScrollEnd: false, canScrollStart: false, overflow: false });
-  });
-
-  it("keeps a usable thumb and clamps a stale offset", () => {
-    expect(calculateOverlayAxisGeometry({
-      content: 10_000,
-      offset: 20_000,
-      track: 100,
-      viewport: 100,
-    })).toMatchObject({ overflow: true, thumbOffset: 68, thumbSize: 24 });
   });
 });

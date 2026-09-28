@@ -1,3 +1,5 @@
+import type { PdfFileViewState } from "../app-types";
+
 /** Copied from pdfjs-dist into public/pdfjs by the Vite pdfjs-assets plugin. */
 function pdfAssetUrl(relative: string): string {
   try {
@@ -26,10 +28,47 @@ export function normalizePdfSelection(raw: string): string {
 
 export const PDF_MIN_SCALE = 0.3;
 export const PDF_MAX_SCALE = 5;
+/** PDF.js's viewer renders a PDF point at one CSS pixel at 75% viewer scale. */
+const PDF_TO_CSS_UNITS = 96 / 72;
+
+export type PdfFitMode = PdfFileViewState["fitMode"];
+
+export function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+export const clampPdfScale = (scale: number) => clamp(scale, PDF_MIN_SCALE, PDF_MAX_SCALE);
+/** App scales are CSS-pixel ratios; PDF.js viewer scales are relative to its 75% baseline. */
+export const toAppScale = (viewerScale: number) => clampPdfScale(viewerScale * PDF_TO_CSS_UNITS);
+export const toViewerScale = (appScale: number) => clampPdfScale(appScale) / PDF_TO_CSS_UNITS;
+
+const FIT_SCALE_VALUES = { width: "page-width", height: "page-fit" } as const;
+
+/** PDF.js `currentScaleValue` for a fit mode, or the numeric viewer scale when not fitted. */
+export function pdfScaleValue(fitMode: PdfFitMode, scale: number): string {
+  return fitMode ? FIT_SCALE_VALUES[fitMode] : String(toViewerScale(scale));
+}
+
+export function pdfFitMode(scaleValue: unknown): PdfFitMode {
+  return scaleValue === "page-width" ? "width" : scaleValue === "page-fit" ? "height" : null;
+}
 
 /** Turn a directly entered percentage into the viewer's bounded scale. */
 export function parsePdfZoomPercent(value: string): number | null {
   const percent = Number(value.trim().replace(/%$/, ""));
   if (!Number.isFinite(percent) || percent <= 0) return null;
-  return Math.min(PDF_MAX_SCALE, Math.max(PDF_MIN_SCALE, Number((percent / 100).toFixed(3))));
+  return clampPdfScale(Number((percent / 100).toFixed(3)));
+}
+
+/** Add several listeners with one set of options; the returned call removes them all. */
+export function addListeners(
+  target: EventTarget,
+  listeners: Record<string, (event: never) => void>,
+  options: AddEventListenerOptions = {},
+): () => void {
+  const controller = new AbortController();
+  for (const [type, listener] of Object.entries(listeners)) {
+    target.addEventListener(type, listener as EventListener, { ...options, signal: controller.signal });
+  }
+  return () => controller.abort();
 }

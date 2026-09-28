@@ -23,26 +23,16 @@ let nextConfirmationId = 1;
 function firstQuestion(message: string): { title: string | null; description: string } {
   const question = message.indexOf("?");
   if (question < 0 || question > 96) return { title: null, description: message };
-  const title = message.slice(0, question + 1).trim();
-  const description = message.slice(question + 1).trim();
-  return { title, description };
+  return { title: message.slice(0, question + 1).trim(), description: message.slice(question + 1).trim() };
 }
 
-function confirmationCopy(options: ConfirmActionOptions, defaults: {
-  deleteTitle: string;
-  continueTitle: string;
-  deleteLabel: string;
-  removeLabel: string;
-  restoreLabel: string;
-  continueLabel: string;
-  destructiveDescription: string;
-  continueDescription: string;
-}): {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  destructive: boolean;
-} {
+type CopyDefaults = Record<
+  | "deleteTitle" | "continueTitle" | "deleteLabel" | "removeLabel" | "restoreLabel"
+  | "continueLabel" | "destructiveDescription" | "continueDescription",
+  string
+>;
+
+function confirmationCopy(options: ConfirmActionOptions, defaults: CopyDefaults) {
   const split = firstQuestion(options.message.trim());
   const title = options.title
     ?? split.title
@@ -57,14 +47,11 @@ function confirmationCopy(options: ConfirmActionOptions, defaults: {
         : /^restore\b/i.test(title)
           ? defaults.restoreLabel
           : defaults.continueLabel);
-  let description = split.description;
-  if (!description && options.message !== title) description = options.message;
-  if (!description) {
-    description = destructive
-      ? defaults.destructiveDescription
-      : defaults.continueDescription;
-  }
-  description = description.replace(/[.。]$/, "");
+  const description = (
+    split.description
+    || (options.message !== title ? options.message : "")
+    || (destructive ? defaults.destructiveDescription : defaults.continueDescription)
+  ).replace(/[.。]$/, "");
   return { title, description, confirmLabel, destructive };
 }
 
@@ -89,7 +76,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     ));
   }, [current]);
 
-  const copy = current ? confirmationCopy(current.options, {
+  const copy = current && confirmationCopy(current.options, {
     deleteTitle: t`Delete this item?`,
     continueTitle: t`Continue?`,
     deleteLabel: t`Delete`,
@@ -98,7 +85,12 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     continueLabel: t`Continue`,
     destructiveDescription: t`This action cannot be undone.`,
     continueDescription: t`Please confirm that you want to continue.`,
-  }) : null;
+  });
+  const dangerButton = (answer: ConfirmActionChoice, label: string) => (
+    <DestructiveButton className={buttonClassName({ variant: "danger" })} iconSize={13} onClick={() => settle(answer)}>
+      {label}
+    </DestructiveButton>
+  );
 
   return (
     <>
@@ -124,34 +116,11 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
               <Button autoFocus variant="ghost" onClick={() => settle("cancel")}>
                 {current.options.cancelLabel ?? t`Cancel`}
               </Button>
-              {current.options.alternativeLabel && (
-                current.options.alternativeDestructive ? (
-                  <DestructiveButton
-                    className={buttonClassName({ variant: "danger" })}
-                    iconSize={13}
-                    onClick={() => settle("alternative")}
-                  >
-                    {current.options.alternativeLabel}
-                  </DestructiveButton>
-                ) : (
-                  <Button variant="secondary" onClick={() => settle("alternative")}>
-                    {current.options.alternativeLabel}
-                  </Button>
-                )
-              )}
-              {copy.destructive ? (
-                <DestructiveButton
-                  className={buttonClassName({ variant: "danger" })}
-                  iconSize={13}
-                  onClick={() => settle("confirm")}
-                >
-                  {copy.confirmLabel}
-                </DestructiveButton>
-              ) : (
-                <MotionButton
-                  className={buttonClassName({ variant: "primary" })}
-                  onClick={() => settle("confirm")}
-                >
+              {current.options.alternativeLabel && (current.options.alternativeDestructive
+                ? dangerButton("alternative", current.options.alternativeLabel)
+                : <Button variant="secondary" onClick={() => settle("alternative")}>{current.options.alternativeLabel}</Button>)}
+              {copy.destructive ? dangerButton("confirm", copy.confirmLabel) : (
+                <MotionButton className={buttonClassName({ variant: "primary" })} onClick={() => settle("confirm")}>
                   {copy.confirmLabel}
                 </MotionButton>
               )}

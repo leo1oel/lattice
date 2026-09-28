@@ -9,7 +9,6 @@ import {
   isVisualPdfGlyphEvent,
   PDF_TEXT_SELECTION_CLEARED_EVENT,
   pdfSelectedOrCachedPlainText,
-  pdfSelectionOverlayRect,
   placeEndOfContentForRange,
   shouldPreventPdfSelectAll,
 } from "./pdf-text-layer-selection";
@@ -35,157 +34,144 @@ function glyphLayer(...words: string[]) {
   return { layer, spans };
 }
 
-function mockGlyphBox(span: HTMLElement, box: { left: number; top: number; right: number; bottom: number }) {
-  const rect = {
-    ...box,
-    width: box.right - box.left,
-    height: box.bottom - box.top,
-    x: box.left,
-    y: box.top,
-    toJSON() { return this; },
-  };
+type Box = { left: number; top: number; right: number; bottom: number };
+const HELLO_BOX: Box = { left: 10, top: 10, right: 40, bottom: 22 };
+const WIDE_BOX: Box = { left: 10, top: 10, right: 80, bottom: 22 };
+
+function mockGlyphBox(span: HTMLElement, box: Box) {
+  const rect = { ...box, width: box.right - box.left, height: box.bottom - box.top, x: box.left, y: box.top, toJSON() { return this; } };
   span.getBoundingClientRect = () => rect as DOMRect;
   span.getClientRects = () => [rect] as unknown as DOMRectList;
 }
 
-describe("PDF text-layer selection clipping", () => {
-  afterEach(() => {
-    document.body.replaceChildren();
-    document.getSelection()?.removeAllRanges();
-  });
+/** Install selection on `layer` for the duration of `run`. */
+async function withSelection(layer: HTMLElement, run: () => void | Promise<void>) {
+  const uninstall = installPdfTextLayerSelection(layer);
+  try {
+    await run();
+  } finally {
+    uninstall();
+  }
+}
 
-  it("installs an endOfContent sentinel and marks the layer selecting on mousedown", () => {
+/** A primary-button press inside HELLO_BOX / WIDE_BOX. */
+const pointerDown = (target: EventTarget) => target.dispatchEvent(new PointerEvent("pointerdown", {
+  bubbles: true, cancelable: true, button: 0, clientX: 20, clientY: 16,
+}));
+const pointerUp = () => document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+const modifierKey = (key: string) => new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true, cancelable: true });
+
+function selectRange(range: Range) {
+  document.getSelection()?.removeAllRanges();
+  document.getSelection()?.addRange(range);
+}
+
+function selectGlyph(span: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(span);
+  Object.defineProperty(range, "getClientRects", { value: () => [] as unknown as DOMRectList });
+  selectRange(range);
+}
+
+function sentinelLayer(...words: string[]) {
+  const { layer, spans } = glyphLayer(...words);
+  const end = document.createElement("div");
+  end.className = "endOfContent";
+  layer.append(end);
+  return { spans, end, layers: new Map<HTMLElement, HTMLElement>([[layer, end]]) };
+}
+
+afterEach(() => {
+  document.body.replaceChildren();
+  document.getSelection()?.removeAllRanges();
+  vi.mocked(invoke).mockClear();
+  vi.mocked(writeText).mockClear();
+});
+
+describe("PDF text-layer selection clipping", () => {
+  it("installs an endOfContent sentinel and marks the layer selecting on mousedown", async () => {
     const { layer, spans } = glyphLayer("Hello");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 40, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
+    mockGlyphBox(spans[0]!, HELLO_BOX);
+    await withSelection(layer, () => {
       const sentinel = layer.querySelector(".endOfContent");
       expect(sentinel).toBeInstanceOf(HTMLDivElement);
       expect(layer.lastElementChild).toBe(sentinel);
-      spans[0]!.dispatchEvent(new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-        clientX: 20,
-        clientY: 16,
-      }));
+      spans[0]!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: 20, clientY: 16 }));
       expect(layer.classList.contains("selecting")).toBe(true);
-    } finally {
-      uninstall();
-    }
+    });
     expect(layer.querySelector(".endOfContent")).toBeNull();
     expect(layer.classList.contains("selecting")).toBe(false);
   });
 
-  it("reuses and preserves PDF.js's own endOfContent sentinel", () => {
+  it("reuses and preserves PDF.js's own endOfContent sentinel", async () => {
     const { layer } = glyphLayer("Hello");
     const supplied = document.createElement("div");
     supplied.className = "endOfContent";
     layer.append(supplied);
 
-    const uninstall = installPdfTextLayerSelection(layer);
-    expect(layer.querySelectorAll(".endOfContent")).toHaveLength(1);
-    expect(layer.querySelector(".endOfContent")).toBe(supplied);
-
-    uninstall();
+    await withSelection(layer, () => {
+      expect(layer.querySelectorAll(".endOfContent")).toHaveLength(1);
+      expect(layer.querySelector(".endOfContent")).toBe(supplied);
+    });
     expect(layer.querySelector(".endOfContent")).toBe(supplied);
   });
 
-  it("parks endOfContent after the selected glyph so the range cannot cover the page", () => {
-    const { layer, spans } = glyphLayer("Hello", "world", "again");
-    const end = document.createElement("div");
-    end.className = "endOfContent";
-    layer.append(end);
-    const layers = new Map<HTMLElement, HTMLElement>([[layer, end]]);
+  it.each([
+    ["parks endOfContent after the selected glyph so the range cannot cover the page",
+      (range: Range, spans: HTMLElement[]) => range.selectNodeContents(spans[0]!)],
+    ["walks back when the range ends at the start of the next glyph", (range: Range, spans: HTMLElement[]) => {
+      range.setStart(spans[0]!.firstChild!, 0);
+      range.setEnd(spans[1]!, 0);
+    }],
+  ])("%s", (_case, select) => {
+    const { spans, end, layers } = sentinelLayer("Hello", "world", "again");
     const range = document.createRange();
-    range.selectNodeContents(spans[0]!);
+    select(range, spans);
     placeEndOfContentForRange(range, null, layers);
     expect(spans[0]!.nextSibling).toBe(end);
     expect(spans[1]!.previousSibling).toBe(end);
   });
 
-  it("walks back when the range ends at the start of the next glyph", () => {
-    const { layer, spans } = glyphLayer("Hello", "world");
-    const end = document.createElement("div");
-    end.className = "endOfContent";
-    layer.append(end);
-    const layers = new Map<HTMLElement, HTMLElement>([[layer, end]]);
-    const range = document.createRange();
-    range.setStart(spans[0]!.firstChild!, 0);
-    range.setEnd(spans[1]!, 0);
-    placeEndOfContentForRange(range, null, layers);
-    expect(spans[0]!.nextSibling).toBe(end);
-  });
-
-  it("does not paint WebKit's page-sized range rectangle as selected text", () => {
+  it("does not paint WebKit's page-sized range rectangle as selected text", async () => {
     const { layer, spans } = glyphLayer("Hello", "world");
     mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 50, bottom: 22 });
     mockGlyphBox(spans[1]!, { left: 55, top: 10, right: 95, bottom: 22 });
-    layer.getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      right: 600,
-      bottom: 800,
-      width: 600,
-      height: 800,
-      x: 0,
-      y: 0,
-      toJSON() { return this; },
-    }) as DOMRect;
+    mockGlyphBox(layer, { left: 0, top: 0, right: 600, bottom: 800 });
     const originalGetClientRects = Range.prototype.getClientRects;
     const overlaysDuringMeasurement: number[] = [];
+    const rectsByText: Record<string, object[]> = {
+      elloworl: [{ left: 0, top: 0, width: 600, height: 800 }],
+      ello: [{ left: 18, top: 10, width: 32, height: 12 }],
+      worl: [{ left: 55, top: 10, width: 32, height: 12 }],
+    };
     Object.defineProperty(Range.prototype, "getClientRects", {
       configurable: true,
       value(this: Range) {
         overlaysDuringMeasurement.push(layer.querySelectorAll(".pdf-sel-rect").length);
-        const text = this.cloneContents().textContent ?? "";
-        if (text === "elloworl") {
-          return [{ left: 0, top: 0, width: 600, height: 800 }] as unknown as DOMRectList;
-        }
-        if (text === "ello") {
-          return [{ left: 18, top: 10, width: 32, height: 12 }] as unknown as DOMRectList;
-        }
-        if (text === "worl") {
-          return [{ left: 55, top: 10, width: 32, height: 12 }] as unknown as DOMRectList;
-        }
-        return [] as unknown as DOMRectList;
+        return (rectsByText[this.cloneContents().textContent ?? ""] ?? []) as unknown as DOMRectList;
       },
     });
-    const uninstall = installPdfTextLayerSelection(layer);
     try {
-      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        clientX: 20,
-        clientY: 16,
-      }));
-      const range = document.createRange();
-      range.setStart(spans[0]!.firstChild!, 1);
-      range.setEnd(spans[1]!.firstChild!, 4);
-      document.getSelection()?.removeAllRanges();
-      document.getSelection()?.addRange(range);
-      document.dispatchEvent(new Event("selectionchange"));
+      await withSelection(layer, () => {
+        pointerDown(spans[0]!);
+        const range = document.createRange();
+        range.setStart(spans[0]!.firstChild!, 1);
+        range.setEnd(spans[1]!.firstChild!, 4);
+        selectRange(range);
+        document.dispatchEvent(new Event("selectionchange"));
 
-      const overlays = Array.from(layer.querySelectorAll<HTMLElement>(".pdf-sel-rect"));
-      // Appending each mark before measuring the next glyph forces layout for
-      // every run. All reads must precede the first connected DOM write.
-      expect(overlaysDuringMeasurement).toEqual([0, 0]);
-      expect(overlays).toHaveLength(2);
-      expect(overlays.map((overlay) => ({
-        left: overlay.style.left,
-        top: overlay.style.top,
-        width: overlay.style.width,
-        height: overlay.style.height,
-      }))).toEqual([
-        { left: "18px", top: "10px", width: "32px", height: "12px" },
-        { left: "55px", top: "10px", width: "32px", height: "12px" },
-      ]);
-    } finally {
-      uninstall();
-      Object.defineProperty(Range.prototype, "getClientRects", {
-        configurable: true,
-        value: originalGetClientRects,
+        const overlays = Array.from(layer.querySelectorAll<HTMLElement>(".pdf-sel-rect"));
+        // Appending each mark before measuring the next glyph forces layout for
+        // every run. All reads must precede the first connected DOM write.
+        expect(overlaysDuringMeasurement).toEqual([0, 0]);
+        // Each mark keeps the full scaled line box so descenders remain covered.
+        expect(overlays.map(({ style: { left, top, width, height } }) => ({ left, top, width, height }))).toEqual([
+          { left: "18px", top: "10px", width: "32px", height: "12px" },
+          { left: "55px", top: "10px", width: "32px", height: "12px" },
+        ]);
       });
+    } finally {
+      Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: originalGetClientRects });
     }
   });
 });
@@ -210,42 +196,34 @@ describe("PDF text-layer selection styles", () => {
       layer.classList.add("has-selection");
       expect(getComputedStyle(layer).pointerEvents).toBe("none");
     } finally {
-      layer.remove();
       style.remove();
     }
   });
 
   it("keeps the page box unselectable and scopes the highlight to glyph spans", () => {
-    expect(css).toContain("pointer-events: none; user-select: none;");
-    expect(css).toContain(".pdf-text-layer span::selection, .pdf-text-layer br::selection, .pdf-text-layer .endOfContent::selection");
-    expect(css).toContain(".pdf-text-layer .endOfContent {");
-    expect(css).toContain(".pdf-text-layer.selecting .endOfContent { top: 0; }");
-    expect(css).toContain(".pdf-text-layer.selecting :is(span, br),");
-    expect(css).toContain(".pdf-text-layer.has-selection :is(span, br) { user-select: text; }");
-    expect(css).toContain(".pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }");
-    expect(css).toContain(".pdf-text-layer .pdf-sel-rect {");
-    expect(css).toContain(".pdf-copy-field {");
-    expect(css).toContain(".pdf-page-content.is-selecting-text .pdf-link-annotation,");
-    expect(css).toContain(".pdfViewer .page.is-selecting-text .annotationLayer { pointer-events: none; }");
+    for (const rule of [
+      "pointer-events: none; user-select: none;",
+      ".pdf-text-layer span::selection, .pdf-text-layer br::selection, .pdf-text-layer .endOfContent::selection",
+      ".pdf-text-layer .endOfContent {",
+      ".pdf-text-layer.selecting .endOfContent { top: 0; }",
+      ".pdf-text-layer.selecting :is(span, br),",
+      ".pdf-text-layer.has-selection :is(span, br) { user-select: text; }",
+      ".pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }",
+      ".pdf-text-layer .pdf-sel-rect {",
+      ".pdf-copy-field {",
+      ".pdfViewer .page.is-selecting-text .annotationLayer { pointer-events: none; }",
+    ]) expect(css).toContain(rule);
   });
 });
 
 describe("PDF Command-A", () => {
-  afterEach(() => {
-    document.body.replaceChildren();
-    document.getSelection()?.removeAllRanges();
-  });
-
   it("treats the editor and form fields as editable select-all targets", () => {
     const editor = document.createElement("div");
     editor.className = "cm-editor";
-    const content = document.createElement("div");
-    content.className = "cm-content";
-    editor.append(content);
-    document.body.append(editor);
-    expect(isEditableSelectAllTarget(content)).toBe(true);
+    editor.innerHTML = `<div class="cm-content"></div>`;
     const input = document.createElement("input");
-    document.body.append(input);
+    document.body.append(editor, input);
+    expect(isEditableSelectAllTarget(editor.firstElementChild)).toBe(true);
     expect(isEditableSelectAllTarget(input)).toBe(true);
     expect(isEditableSelectAllTarget(document.body)).toBe(false);
   });
@@ -257,47 +235,21 @@ describe("PDF Command-A", () => {
     expect(shouldPreventPdfSelectAll(input, input, 1)).toBe(false);
   });
 
-  it("prevents document-wide Command-A once a text layer is installed", () => {
+  it("prevents document-wide Command-A once a text layer is installed", async () => {
     const { layer } = glyphLayer("Hello");
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
-      const event = new KeyboardEvent("keydown", {
-        key: "a",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
+    await withSelection(layer, () => {
+      const event = modifierKey("a");
       document.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
-    } finally {
-      uninstall();
-    }
+    });
   });
 });
 
 describe("PDF Command-C", () => {
-  afterEach(() => {
-    document.body.replaceChildren();
-    document.getSelection()?.removeAllRanges();
-    vi.mocked(invoke).mockClear();
-    vi.mocked(writeText).mockClear();
-  });
-
-  function selectGlyph(span: HTMLElement) {
-    const range = document.createRange();
-    range.selectNodeContents(span);
-    Object.defineProperty(range, "getClientRects", {
-      value: () => [] as unknown as DOMRectList,
-    });
-    document.getSelection()?.removeAllRanges();
-    document.getSelection()?.addRange(range);
-  }
-
   it("writes the PDF glyph range on copy, even if an editor still has focus", async () => {
     const { layer, spans } = glyphLayer("你好世界");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 80, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    await withSelection(layer, async () => {
       selectGlyph(spans[0]!);
       layer.classList.add("has-selection");
       const stored = new Map<string, string>();
@@ -311,153 +263,85 @@ describe("PDF Command-C", () => {
       document.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
       expect(stored.get("text/plain")).toBe("你好世界");
-      await vi.waitFor(() => {
-        expect(writeText).toHaveBeenCalledWith("你好世界");
-      });
-    } finally {
-      uninstall();
-    }
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("你好世界"));
+    });
   });
 
-  it("blurs the editor when a PDF drag starts so Command-C is not delivered to CodeMirror", () => {
+  it("blurs the editor when a PDF drag starts so Command-C is not delivered to CodeMirror", async () => {
     const { layer, spans } = glyphLayer("你好");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 40, bottom: 22 });
+    mockGlyphBox(spans[0]!, HELLO_BOX);
     const editor = document.createElement("textarea");
     document.body.append(editor);
     editor.focus();
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
+    await withSelection(layer, () => {
       expect(document.activeElement).toBe(editor);
-      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        clientX: 20,
-        clientY: 16,
-      }));
+      pointerDown(spans[0]!);
       expect(document.activeElement).not.toBe(editor);
-    } finally {
-      uninstall();
-    }
+    });
   });
 
   it("synchronizes a completed drag for the native macOS Command-C handler", async () => {
     const { layer, spans } = glyphLayer("可复制标题");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 80, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
-      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        clientX: 20,
-        clientY: 16,
-      }));
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    await withSelection(layer, async () => {
+      pointerDown(spans[0]!);
       selectGlyph(spans[0]!);
-      document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+      pointerUp();
 
-      await vi.waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith("set_pdf_copy_text", { text: "可复制标题" });
-      });
+      await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("set_pdf_copy_text", { text: "可复制标题" }));
       document.getSelection()?.removeAllRanges();
       expect(pdfSelectedOrCachedPlainText()).toBe("可复制标题");
-    } finally {
-      uninstall();
-    }
+    });
   });
 
-  it("still copies after the webview drops the native range", async () => {
+  it.each([
+    ["copies on Command-C so CodeMirror cannot steal the shortcut", false],
+    ["still copies after the webview drops the native range", true],
+  ])("%s", async (_name, dropRange) => {
     const { layer, spans } = glyphLayer("标题文字");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 80, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    await withSelection(layer, async () => {
       selectGlyph(spans[0]!);
-      document.dispatchEvent(new Event("selectionchange"));
-      document.getSelection()?.removeAllRanges();
-      const event = new KeyboardEvent("keydown", {
-        key: "c",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
+      if (dropRange) {
+        document.dispatchEvent(new Event("selectionchange"));
+        document.getSelection()?.removeAllRanges();
+      }
+      const event = modifierKey("c");
       document.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
-      await vi.waitFor(() => {
-        expect(writeText).toHaveBeenCalledWith("标题文字");
-      });
-    } finally {
-      uninstall();
-    }
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("标题文字"));
+    });
   });
 
-  it("copies on Command-C so CodeMirror cannot steal the shortcut", async () => {
-    const { layer, spans } = glyphLayer("标题文字");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 80, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
-      selectGlyph(spans[0]!);
-      const event = new KeyboardEvent("keydown", {
-        key: "c",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
-      document.dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(true);
-      await vi.waitFor(() => {
-        expect(writeText).toHaveBeenCalledWith("标题文字");
-      });
-    } finally {
-      uninstall();
-    }
-  });
-
-  it("leaves Command-C alone when a form field has its own selected text", () => {
+  it("leaves Command-C alone when a form field has its own selected text", async () => {
     const { layer, spans } = glyphLayer("PDF");
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
+    await withSelection(layer, () => {
       selectGlyph(spans[0]!);
       const input = document.createElement("input");
       input.value = "query";
       document.body.append(input);
       input.setSelectionRange(0, 5);
-      const event = new KeyboardEvent("keydown", {
-        key: "c",
-        metaKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
+      const event = modifierKey("c");
       input.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(false);
       expect(writeText).not.toHaveBeenCalled();
-    } finally {
-      uninstall();
-    }
+    });
   });
 });
 
 describe("PDF title glyph scaling", () => {
-  afterEach(() => {
-    document.body.replaceChildren();
-  });
-
-  it("replaces horizontal stretch with letter-spacing so a title can be selected across its visual width", () => {
-    const { layer, spans } = glyphLayer("深度学习研究");
-    const title = spans[0]!;
-    title.style.setProperty("--scale-x", "1.6");
-    Object.defineProperty(title, "offsetWidth", { configurable: true, value: 100 });
+  it.each([
+    ["replaces horizontal stretch with letter-spacing so a title can be selected across its visual width",
+      "深度学习研究", 100, "1", 60 / ("深度学习研究".length - 1)],
+    ["leaves single-glyph spans stretched, because letter-spacing has no gap to pad", "深", 20, "1.6", null],
+  ])("%s", (_case, text, width, scaleX, spacing) => {
+    const { layer, spans: [span] } = glyphLayer(text);
+    span!.style.setProperty("--scale-x", "1.6");
+    Object.defineProperty(span, "offsetWidth", { configurable: true, value: width });
     alignPdfTextLayerGlyphs(layer);
-    expect(title.style.getPropertyValue("--scale-x")).toBe("1");
-    expect(Number.parseFloat(title.style.letterSpacing)).toBeCloseTo(60 / ("深度学习研究".length - 1));
-  });
-
-  it("leaves single-glyph spans stretched, because letter-spacing has no gap to pad", () => {
-    const { layer, spans } = glyphLayer("深");
-    spans[0]!.style.setProperty("--scale-x", "1.6");
-    Object.defineProperty(spans[0]!, "offsetWidth", { configurable: true, value: 20 });
-    alignPdfTextLayerGlyphs(layer);
-    expect(spans[0]!.style.getPropertyValue("--scale-x")).toBe("1.6");
-    expect(spans[0]!.style.letterSpacing).toBe("");
+    expect(span!.style.getPropertyValue("--scale-x")).toBe(scaleX);
+    if (spacing === null) expect(span!.style.letterSpacing).toBe("");
+    else expect(Number.parseFloat(span!.style.letterSpacing)).toBeCloseTo(spacing);
   });
 
   it("measures every run before changing layout, including compressed and astral glyphs", () => {
@@ -479,105 +363,69 @@ describe("PDF title glyph scaling", () => {
     expect(Number.parseFloat(spans[1]!.style.letterSpacing)).toBeCloseTo(-7);
     expect(spans[2]!.style.letterSpacing).toBe("");
   });
-
-  it("keeps the full scaled line box so descenders remain covered", () => {
-    const overlay = pdfSelectionOverlayRect({ left: 10, top: 20, width: 80, height: 20 });
-    expect(overlay).toMatchObject({ left: 10, top: 20, width: 80 });
-    expect(overlay.height).toBeCloseTo(20);
-  });
 });
 
 describe("PDF empty-page clicks", () => {
-  afterEach(() => {
-    document.body.replaceChildren();
-    document.getSelection()?.removeAllRanges();
-  });
-
-  it("clears cached context when a click on another glyph collapses the selection", () => {
+  it("clears cached context when a click on another glyph collapses the selection", async () => {
     const { layer, spans } = glyphLayer("First phrase", "Another phrase");
-    for (const span of spans) {
-      mockGlyphBox(span, { left: 10, top: 10, right: 100, bottom: 22 });
-    }
-    const uninstall = installPdfTextLayerSelection(layer);
+    for (const span of spans) mockGlyphBox(span, { left: 10, top: 10, right: 100, bottom: 22 });
     const cleared = vi.fn();
     document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
-    const down = (span: HTMLElement) => span.dispatchEvent(new PointerEvent("pointerdown", {
-      bubbles: true, button: 0, clientX: 20, clientY: 16,
-    }));
-    const up = () => document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
     try {
-      down(spans[0]!);
-      const range = document.createRange();
-      range.selectNodeContents(spans[0]!);
-      document.getSelection()?.removeAllRanges();
-      document.getSelection()?.addRange(range);
-      up();
-      expect(pdfSelectedOrCachedPlainText()).toBe("First phrase");
-      expect(cleared).not.toHaveBeenCalled();
+      await withSelection(layer, () => {
+        pointerDown(spans[0]!);
+        const range = document.createRange();
+        range.selectNodeContents(spans[0]!);
+        selectRange(range);
+        pointerUp();
+        expect(pdfSelectedOrCachedPlainText()).toBe("First phrase");
+        expect(cleared).not.toHaveBeenCalled();
 
-      down(spans[1]!);
-      document.getSelection()?.collapse(spans[1]!.firstChild!, 3);
-      document.dispatchEvent(new Event("selectionchange"));
-      up();
-      expect(pdfSelectedOrCachedPlainText()).toBe("");
-      expect(cleared).toHaveBeenCalledOnce();
-      expect(layer.classList.contains("has-selection")).toBe(false);
+        pointerDown(spans[1]!);
+        document.getSelection()?.collapse(spans[1]!.firstChild!, 3);
+        document.dispatchEvent(new Event("selectionchange"));
+        pointerUp();
+        expect(pdfSelectedOrCachedPlainText()).toBe("");
+        expect(cleared).toHaveBeenCalledOnce();
+        expect(layer.classList.contains("has-selection")).toBe(false);
+      });
     } finally {
       document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
-      uninstall();
     }
   });
 
   it("treats a pointer outside a glyph's visible box as empty page, even if the span is the target", () => {
     const { spans } = glyphLayer("Hello");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 40, bottom: 22 });
+    mockGlyphBox(spans[0]!, HELLO_BOX);
     expect(isVisualPdfGlyphEvent({ target: spans[0]!, clientX: 20, clientY: 16 })).toBe(true);
     expect(isVisualPdfGlyphEvent({ target: spans[0]!, clientX: 200, clientY: 16 })).toBe(false);
   });
 
-  it("publishes the cleared selection on the first click after a completed PDF drag", () => {
+  it("publishes the cleared selection on the first click after a completed PDF drag", async () => {
     const { layer, spans } = glyphLayer("Hello");
-    mockGlyphBox(spans[0]!, { left: 10, top: 10, right: 40, bottom: 22 });
-    const uninstall = installPdfTextLayerSelection(layer);
-    try {
-      spans[0]!.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        clientX: 20,
-        clientY: 16,
-      }));
+    mockGlyphBox(spans[0]!, HELLO_BOX);
+    await withSelection(layer, () => {
+      pointerDown(spans[0]!);
       const range = document.createRange();
       range.selectNodeContents(spans[0]!);
-      document.getSelection()?.removeAllRanges();
-      document.getSelection()?.addRange(range);
-      document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+      selectRange(range);
+      pointerUp();
 
       let reportedSelection = "Hello";
       const reportSelection = () => {
         const selection = document.getSelection();
-        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-          reportedSelection = "";
-        }
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) reportedSelection = "";
       };
       document.addEventListener("selectionchange", reportSelection);
       const canvas = document.createElement("canvas");
       document.body.append(canvas);
-      canvas.dispatchEvent(new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        clientX: 8,
-        clientY: 8,
-      }));
+      canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: 8, clientY: 8 }));
       document.removeEventListener("selectionchange", reportSelection);
 
       expect(document.getSelection()?.isCollapsed).toBe(true);
       expect(reportedSelection).toBe("");
       expect(layer.classList.contains("has-selection")).toBe(false);
       expect(layer.classList.contains("selecting")).toBe(false);
-    } finally {
-      uninstall();
-    }
+    });
   });
 });

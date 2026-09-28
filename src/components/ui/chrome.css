@@ -23,11 +23,6 @@
   height: var(--control-size-icon-compact);
 }
 
-.ui-icon-button[data-size="large"] {
-  width: var(--control-size-icon-large);
-  height: var(--control-size-icon-large);
-}
-
 .ui-icon-button > svg {
   width: 16px;
   height: 16px;
@@ -47,16 +42,6 @@
 
 .ui-icon-button:active:not(:disabled) {
   background: var(--control-pressed-surface);
-}
-
-.ui-icon-button:disabled {
-  opacity: var(--control-disabled-opacity);
-  cursor: not-allowed;
-}
-
-.ui-icon-button[data-tone="danger"]:hover:not(:disabled) {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
 }
 
 .ui-icon-button[data-tone="primary"] {
@@ -147,11 +132,6 @@
   background: var(--status-danger-soft);
 }
 
-.ui-button:disabled {
-  opacity: var(--control-disabled-opacity);
-  cursor: not-allowed;
-}
-
 /* Shared visual language for dense selectors. Interaction semantics stay with
    the caller, so tabs, radio-like filters, and toggle buttons can share one
    geometry and state treatment without sharing behavior. */
@@ -189,11 +169,6 @@
   border-color: var(--control-active-border);
   background: var(--control-active-soft);
   color: var(--control-active);
-}
-
-.ui-compact-selectable:disabled {
-  opacity: var(--control-disabled-opacity);
-  cursor: not-allowed;
 }
 
 /* A switch field is one instance of the settings row, so both share the same
@@ -267,14 +242,6 @@
 }
 
 .ui-row {
-  min-height: var(--row-height-default);
-}
-
-.ui-row--compact {
-  min-height: var(--row-height-compact);
-}
-
-.ui-row--data {
   min-height: var(--row-height-default);
 }
 
@@ -378,12 +345,6 @@
   text-align: left;
 }
 
-.ui-empty-state[data-variant="outlined"] {
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--surface-panel) 55%, transparent);
-}
-
 .ui-empty-state-icon {
   color: var(--text-tertiary);
   line-height: 0;
@@ -466,11 +427,6 @@
 .ui-checkbox:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-}
-
-.ui-checkbox:disabled {
-  opacity: var(--control-disabled-opacity);
-  cursor: not-allowed;
 }
 
 label.ui-checkbox-field[data-slot="checkbox-field"] {
@@ -560,4 +516,12 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 
 .ui-segmented--accent .sliding-tab-pill {
   background: var(--control-active-soft);
+}
+
+.ui-icon-button:disabled,
+.ui-button:disabled,
+.ui-compact-selectable:disabled,
+.ui-checkbox:disabled {
+  opacity: var(--control-disabled-opacity);
+  cursor: not-allowed;
 }

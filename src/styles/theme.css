@@ -26,8 +26,8 @@ textarea {
   font-weight: var(--weight-regular);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #242426;
-  background: #f7f7f6;
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --bg: #f7f7f6;
@@ -71,15 +71,12 @@ textarea {
 }
 
 :root[data-theme="dark"] {
-  color: #e9e9e7;
-  background: #171718;
   --bg: #171718;
   --panel: #1b1b1d;
   --panel-strong: #202023;
   --chrome-surface: #141416;
   --chrome-text: #a4a4aa;
   --side-surface: #1b1b1d;
-  --sidebar: var(--chrome-surface);
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.12);
   --text: #e9e9e7;

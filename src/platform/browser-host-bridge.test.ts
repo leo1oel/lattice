@@ -1,29 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startBrowserHostBridge } from "./browser-host-bridge";
+import { FakeWebSocket, lastSocket, sockets } from "./fake-websocket";
 
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
 
-class FakeWebSocket extends EventTarget {
-  static readonly CONNECTING = 0;
-  static readonly OPEN = 1;
-  static readonly CLOSING = 2;
-  static readonly CLOSED = 3;
-  readonly url: string;
-  readyState = FakeWebSocket.OPEN;
-  send = vi.fn();
-
-  constructor(url: string | URL) {
-    super();
-    this.url = String(url);
-    sockets.push(this);
-  }
-
-  message(value: unknown): void {
-    this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(value) }));
-  }
-}
-
-const sockets: FakeWebSocket[] = [];
 const NativeWebSocket = globalThis.WebSocket;
 const nativeInternals = (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
 
@@ -61,8 +41,7 @@ describe("browser host bridge channels", () => {
     };
 
     startBrowserHostBridge({ token: "secret", port: 18_452 });
-    const socket = sockets.at(-1);
-    if (!socket) throw new Error("Browser host bridge did not open a socket");
+    const socket = lastSocket();
     socket.message({ type: "ready" });
     socket.message({
       type: "invoke",

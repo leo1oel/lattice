@@ -14,10 +14,8 @@ export type CompileDiagnostic = {
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
 /**
- * Shared empty diagnostic list. App and the shell layout both need a
- * referentially stable "nothing to report" value: a fresh `[]` per render
- * rebuilds the editor's lint pass. It lives here rather than in either caller
- * because both of them need the same array.
+ * The one referentially stable "nothing to report" shared by App and the shell
+ * layout: a fresh `[]` per render rebuilds the editor's lint pass.
  */
 export const EMPTY_DIAGNOSTICS: CompileDiagnostic[] = [];
 
@@ -28,11 +26,12 @@ export function missingTexDependencyFile(message: string): string | null {
   return MISSING_TEX_DEPENDENCY.exec(message.trim())?.[1] ?? null;
 }
 
+const SEVERITIES = new Map<string, DiagnosticSeverity>([
+  ["error", "error"], ["fatal", "error"], ["warning", "warning"], ["warn", "warning"],
+]);
+
 export function diagnosticSeverity(level: string): DiagnosticSeverity {
-  const normalized = level.trim().toLocaleLowerCase();
-  if (normalized === "error" || normalized === "fatal") return "error";
-  if (normalized === "warning" || normalized === "warn") return "warning";
-  return "info";
+  return SEVERITIES.get(level.trim().toLocaleLowerCase()) ?? "info";
 }
 
 export function normalizeDiagnosticPath(file: string | undefined): string | undefined {
@@ -61,32 +60,20 @@ export function diagnosticMatchesFile(diagnosticFile: string | undefined, active
   return diagnostic.endsWith(`/${active}`) || active.endsWith(`/${diagnostic}`);
 }
 
-export function flattenProjectPaths(nodes: { path: string; children?: { path: string; children?: unknown[] }[] }[]): string[] {
-  const paths: string[] = [];
-  const visit = (items: { path: string; children?: { path: string; children?: unknown[] }[] }[]) => {
-    for (const node of items) {
-      if (node.path) paths.push(node.path);
-      if (node.children?.length) visit(node.children as { path: string; children?: { path: string; children?: unknown[] }[] }[]);
-    }
-  };
-  visit(nodes);
-  return paths;
+type ProjectPathNode = { path: string; children?: ProjectPathNode[] };
+
+/** Every path in the project tree, parents before their children. */
+export function flattenProjectPaths(nodes: ProjectPathNode[]): string[] {
+  return nodes.flatMap((node) => [...(node.path ? [node.path] : []), ...flattenProjectPaths(node.children ?? [])]);
 }
 
-export function resolveDiagnosticPath(
-  diagnosticFile: string | undefined,
-  projectFiles: string[],
-  fallbackPath = "",
-): string {
+export function resolveDiagnosticPath(diagnosticFile: string | undefined, projectFiles: string[], fallbackPath = ""): string {
   const normalized = normalizeDiagnosticPath(diagnosticFile);
   if (!normalized) return fallbackPath;
-  const exact = projectFiles.find((path) => path.replace(/\\/g, "/") === normalized);
-  if (exact) return exact;
-  const suffix = projectFiles.find((path) => {
-    const candidate = path.replace(/\\/g, "/");
-    return candidate.endsWith(`/${normalized}`) || candidate.endsWith(normalized);
-  });
-  return suffix ?? normalized;
+  const slashed = (path: string) => path.replace(/\\/g, "/");
+  return projectFiles.find((path) => slashed(path) === normalized)
+    ?? projectFiles.find((path) => slashed(path).endsWith(normalized))
+    ?? normalized;
 }
 
 export function sortDiagnostics(diagnostics: CompileDiagnostic[]): CompileDiagnostic[] {
@@ -103,17 +90,12 @@ export function sortDiagnostics(diagnostics: CompileDiagnostic[]): CompileDiagno
 
 /**
  * Identity of a set of diagnostics, for "has this changed since you dismissed
- * it?".
- *
- * Autosave recompiles on every pause in typing, and each build used to reopen
- * the panel unconditionally — so dismissing a warning the writer had decided
- * to live with bought a second of quiet before the next keystroke brought it
- * back. Order is not identity: latexmk can emit the same set in a different
- * sequence between passes.
+ * it?": autosave recompiles on every pause in typing, and a warning the writer
+ * dismissed must stay dismissed across those rebuilds. Order is not identity:
+ * latexmk can emit the same set in a different sequence between passes.
  *
  * The separators are control characters no diagnostic can contain, written as
- * escapes on purpose: typing the bytes themselves makes git classify this file
- * as binary, and its diffs stop being reviewable.
+ * escapes on purpose: the raw bytes make git treat this file as binary.
  */
 export function diagnosticsFingerprint(diagnostics: CompileDiagnostic[]): string {
   return sortDiagnostics(diagnostics)
@@ -127,32 +109,18 @@ export function diagnosticsFingerprint(diagnostics: CompileDiagnostic[]): string
 }
 
 export function summarizeDiagnostics(diagnostics: CompileDiagnostic[]) {
-  return diagnostics.reduce(
-    (summary, diagnostic) => {
-      const severity = diagnosticSeverity(diagnostic.level);
-      summary[severity] += 1;
-      return summary;
-    },
-    { error: 0, warning: 0, info: 0 },
-  );
+  const summary = { error: 0, warning: 0, info: 0 };
+  for (const diagnostic of diagnostics) summary[diagnosticSeverity(diagnostic.level)] += 1;
+  return summary;
 }
 
-export function editorDiagnosticsForFile(
-  diagnostics: CompileDiagnostic[],
-  activeFile: string,
-  doc: Text,
-): CmDiagnostic[] {
+export function editorDiagnosticsForFile(diagnostics: CompileDiagnostic[], activeFile: string, doc: Text): CmDiagnostic[] {
   return diagnostics.flatMap((diagnostic) => {
     if (!diagnosticMatchesFile(diagnostic.file, activeFile)) return [];
     const lineNumber = Math.min(Math.max(diagnostic.line ?? 1, 1), Math.max(doc.lines, 1));
     const line = doc.line(lineNumber);
-    return [{
-      from: line.from,
-      to: line.to,
-      severity: diagnosticSeverity(diagnostic.level),
-      message: diagnostic.message,
-      source: "latexmk",
-    }];
+    const severity = diagnosticSeverity(diagnostic.level);
+    return [{ from: line.from, to: line.to, severity, message: diagnostic.message, source: "latexmk" }];
   });
 }
 

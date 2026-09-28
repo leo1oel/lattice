@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { spring, springExit } from "../components/ui/motion-values";
 import { invoke } from "@tauri-apps/api/core";
 import { CheckCircle2, ChevronRight, CircleAlert, Download, FolderOpen, Info } from "lucide-react";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { CloseButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
@@ -11,13 +12,7 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup } from "../components/ui/settings-row";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+import { SettingsSelect } from "../settings/settings-controls";
 import { CopyButton } from "../components/copy-button";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -36,50 +31,79 @@ import {
 // One silhouette for every level: a warning triangle among three circles was
 // the only thing breaking the stack's rhythm, and severity already reads from
 // the status colour. Warning and error share the glyph on purpose.
-const LOG_ICON = {
-  info: Info,
-  success: CheckCircle2,
-  warning: CircleAlert,
-  error: CircleAlert,
-};
+const LOG_ICON = { info: Info, success: CheckCircle2, warning: CircleAlert, error: CircleAlert };
 const LOG_LEVEL = { info: "INFO", success: "OK", warning: "WARN", error: "ERROR" };
+const LOG_LEVELS = ["info", "success", "warning", "error"] as const;
+/** Readable names for entry levels and for operation phases and outcomes. */
+const STATUS_LABELS = {
+  info: msg`Info`,
+  success: msg`Success`,
+  warning: msg`Warning`,
+  error: msg`Error`,
+  cancelled: msg`Cancelled`,
+  started: msg`Started`,
+  progress: msg`In progress`,
+  completed: msg`Completed`,
+};
+type LogStatus = keyof typeof STATUS_LABELS;
+
+function useStatusLabel() {
+  const { t } = useLingui();
+  return (status: string, fallback = t`Unknown`) =>
+    Object.hasOwn(STATUS_LABELS, status) ? t(STATUS_LABELS[status as LogStatus]) : fallback;
+}
+
+/** Correlation ids belong in the app log, not in user-facing notification copy. */
+function visibleToastDetail(detail: string): string {
+  return detail.replace(/(?:^|\n)#[0-9a-f]{6}$/i, "").trim();
+}
+
+/** The one-line head shared by a single entry and a whole operation. */
+function LogSummary(props: { entry: AppLogEntry; statusTitle: string; className: string; title: string; fields: string }) {
+  const { timestamp } = props.entry;
+  return (
+    <>
+      <time dateTime={timestamp} title={new Date(timestamp).toLocaleString()}><span className="app-log-date">{timestamp.slice(0, 11)}</span>{timestamp.slice(11)}</time>
+      <span className="app-log-severity" title={props.statusTitle}>{LOG_LEVEL[props.entry.level]}</span>
+      <span className={props.className}>{props.title}<span className="app-log-inline-fields">{props.fields}</span></span>
+      <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
+    </>
+  );
+}
 
 function LogEntryRow({ entry, onOperationFilter, onExport }: { entry: AppLogEntry; onOperationFilter: (id: string) => void; onExport: (entries: AppLogEntry[]) => void }) {
   const { t } = useLingui();
-  const date = new Date(entry.timestamp);
+  const statusLabel = useStatusLabel();
   const detail = entry.context ? visibleToastDetail(entry.detail) : entry.detail;
   // Console capture's event name is less useful than the actual diagnostic.
   // Keep the original event and full text in the expanded record and export.
   const summary = /^console\.(warn|error|info|log)$/.test(entry.title) && detail.trim()
     ? detail.trim().split("\n")[0] : entry.title;
-  const levels = { info: t`Info`, success: t`Success`, warning: t`Warning`, error: t`Error` };
-  const phases = { started: t`Started`, progress: t`In progress`, completed: t`Completed` };
-  const outcomes = { success: t`Success`, error: t`Error`, cancelled: t`Cancelled` };
+  const level = statusLabel(entry.level);
   return (
     <details className={`app-log-entry ${entry.level}`} data-log-entry="">
       <summary className="app-log-entry-summary" tabIndex={0}>
-        <time dateTime={entry.timestamp} title={date.toLocaleString()}><span className="app-log-date">{entry.timestamp.slice(0, 11)}</span>{entry.timestamp.slice(11)}</time>
-        <span className="app-log-severity" title={levels[entry.level] ?? t`Unknown`}>{LOG_LEVEL[entry.level]}</span>
-        <span className="app-log-entry-title">{summary}<span className="app-log-inline-fields">{` source=${entry.source}`}</span></span>
-        <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
+        <LogSummary entry={entry} statusTitle={level} className="app-log-entry-title" title={summary} fields={` source=${entry.source}`} />
       </summary>
       <div className="app-log-entry-content">
         <div className="app-log-entry-heading">
-          <span>{entry.source} · {levels[entry.level] ?? t`Unknown`} · {date.toLocaleString()}</span>
+          <span>{entry.source} · {level} · {new Date(entry.timestamp).toLocaleString()}</span>
           <Button size="compact" onClick={() => onExport([entry])}><Download size={12} />{t`Export…`}</Button>
         </div>
         <pre className="app-log-message">{[entry.title, detail].filter(Boolean).join("\n\n")}</pre>
         {entry.context && (
-          <div className="app-log-context" aria-label={t`Operation metadata`}>
-            <span>{entry.context.operation}</span>
-            <span>{entry.context.outcome ? outcomes[entry.context.outcome] ?? t`Unknown` : phases[entry.context.phase] ?? t`Unknown`}</span>
-            {entry.context.duration_ms !== undefined && <span>{entry.context.duration_ms} ms</span>}
-            <button type="button" title={entry.context.operation_id} onClick={() => onOperationFilter(entry.context!.operation_id)}>
-              {entry.context.operation_id.slice(0, 8)}
-            </button>
-          </div>
+          <>
+            <div className="app-log-context" aria-label={t`Operation metadata`}>
+              <span>{entry.context.operation}</span>
+              <span>{statusLabel(entry.context.outcome || entry.context.phase)}</span>
+              {entry.context.duration_ms !== undefined && <span>{entry.context.duration_ms} ms</span>}
+              <button type="button" title={entry.context.operation_id} onClick={() => onOperationFilter(entry.context!.operation_id)}>
+                {entry.context.operation_id.slice(0, 8)}
+              </button>
+            </div>
+            <pre className="app-log-fields">{JSON.stringify(entry.context, null, 2)}</pre>
+          </>
         )}
-        {entry.context && <pre className="app-log-fields">{JSON.stringify(entry.context, null, 2)}</pre>}
       </div>
     </details>
   );
@@ -181,11 +205,6 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
   );
 }
 
-/** Correlation ids belong in the app log, not in user-facing notification copy. */
-function visibleToastDetail(detail: string): string {
-  return detail.replace(/(?:^|\n)#[0-9a-f]{6}$/i, "").trim();
-}
-
 // Options arrive as a prop rather than being read from the store during render:
 // an in-place update (`updateAppLog`, or a `dedupeKey` repeat) keeps the entry
 // id and swaps the actions, so a memo keyed on anything derived from the id
@@ -196,28 +215,20 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
   const present = useIsPresent();
   const Icon = LOG_ICON[entry.level];
   const detail = visibleToastDetail(entry.detail);
-  const timeoutMs =
-    options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
+  const timeoutMs = options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
   useEffect(() => {
     if (timeoutMs === 0) return;
-    const timer = window.setTimeout(
-      () => dismissAppToast(entry.id),
-      Math.max(1_000, timeoutMs),
-    );
+    const timer = window.setTimeout(() => dismissAppToast(entry.id), Math.max(1_000, timeoutMs));
     return () => window.clearTimeout(timer);
     // entry.timestamp: a deduped repeat refreshes the entry in place (same id),
     // and the toast should stay visible for a full window after the refresh.
   }, [entry.id, entry.timestamp, timeoutMs]);
+  const actions = [options?.primaryAction, options?.secondaryAction].flatMap((action) => action ? [action] : []);
+  const hasActions = Boolean(options?.copyText) || actions.length > 0;
   // Messages migrated off the old one-line banners arrive as a title with no
   // detail, so length has to be judged across both — a 200-character title
   // clipped to one line is the failure this replaced.
-  const expanded = Boolean(
-    detail.length > 72 ||
-    entry.title.length > 72 ||
-    options?.copyText ||
-    options?.primaryAction ||
-    options?.secondaryAction,
-  );
+  const expanded = detail.length > 72 || entry.title.length > 72 || hasActions;
   return (
     <motion.div
       className={`app-toast ${entry.level}${expanded ? " expanded" : ""}`}
@@ -239,45 +250,22 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
       <div>
         <strong>{entry.title}</strong>
         {detail && <span title={detail}>{detail}</span>}
-        {(options?.copyText ||
-          options?.primaryAction ||
-          options?.secondaryAction) && (
+        {hasActions && (
           <div className="app-toast-actions">
-            {options.copyText && (
-              <CopyButton
-                className="app-toast-action"
-                text={options.copyText}
-                title={t`Copy notification command`}
-              >
+            {options?.copyText && (
+              <CopyButton className="app-toast-action" text={options.copyText} title={t`Copy notification command`}>
                 {t`Copy`}
               </CopyButton>
             )}
-            {options.primaryAction && (
-              <button
-                type="button"
-                className="app-toast-action"
-                onClick={() => void options.primaryAction?.onClick()}
-              >
-                {options.primaryAction.label}
+            {actions.map((action, index) => (
+              <button key={index} type="button" className="app-toast-action" onClick={() => void action.onClick()}>
+                {action.label}
               </button>
-            )}
-            {options.secondaryAction && (
-              <button
-                type="button"
-                className="app-toast-action"
-                onClick={() => void options.secondaryAction?.onClick()}
-              >
-                {options.secondaryAction.label}
-              </button>
-            )}
+            ))}
           </div>
         )}
       </div>
-      <CloseButton
-        label={t`Dismiss notification`}
-        size="compact"
-        onClick={() => dismissAppToast(entry.id)}
-      />
+      <CloseButton label={t`Dismiss notification`} size="compact" onClick={() => dismissAppToast(entry.id)} />
     </motion.div>
   );
 }
@@ -297,7 +285,7 @@ export function AppToastStack() {
 
 export function AppLogsSettings() {
   const { t } = useLingui();
-  const statuses = { success: t`Success`, error: t`Error`, cancelled: t`Cancelled`, started: t`Started`, progress: t`In progress`, completed: t`Completed` };
+  const statusLabel = useStatusLabel();
   const logs = useAppLogSnapshot();
   const [levelFilter, setLevelFilter] = useState<"all" | AppLogLevel>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -306,22 +294,17 @@ export function AppLogsSettings() {
   const logViewportRef = useRef<HTMLDivElement>(null);
   const logPositionedRef = useRef(false);
   useEffect(() => {
-    invoke<string>("get_app_log_dir")
-      .then(() => setLogFolderAvailable(true))
-      .catch(() => setLogFolderAvailable(false));
+    void invoke<string>("get_app_log_dir").then(() => true, () => false).then(setLogFolderAvailable);
   }, []);
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-  const groups = groupLogs(logs);
-  const visibleGroups = groups.filter((group) => {
-    return group.entries.some((entry) => {
-      if (levelFilter !== "all" && entry.level !== levelFilter) return false;
-      if (!normalizedQuery) return true;
-      const context = entry.context;
-      return [entry.source, entry.title, entry.detail, entry.level, context?.operation,
-        context?.operation_id, context?.phase, context?.outcome]
-        .some((value) => typeof value === "string" && value.toLocaleLowerCase().includes(normalizedQuery));
-    });
-  });
+  const visibleGroups = groupLogs(logs).filter((group) => group.entries.some((entry) => {
+    if (levelFilter !== "all" && entry.level !== levelFilter) return false;
+    if (!normalizedQuery) return true;
+    const context = entry.context;
+    return [entry.source, entry.title, entry.detail, entry.level, context?.operation,
+      context?.operation_id, context?.phase, context?.outcome]
+      .some((value) => typeof value === "string" && value.toLocaleLowerCase().includes(normalizedQuery));
+  }));
   const visible = visibleGroups.flatMap((group) => group.entries);
   // Entries are stored newest-first; the text view reads like a terminal —
   // chronological, newest at the bottom. The panel fills the settings
@@ -334,13 +317,9 @@ export function AppLogsSettings() {
     // A newly opened log starts at the newest entry. Subsequent updates keep
     // following only while the reader remains near the bottom, so inspecting
     // an older entry is not interrupted by new activity.
-    if (!logPositionedRef.current) {
-      panel.scrollTop = panel.scrollHeight;
-      logPositionedRef.current = true;
-      return;
-    }
     const nearBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 48;
-    if (nearBottom) panel.scrollTop = panel.scrollHeight;
+    if (!logPositionedRef.current || nearBottom) panel.scrollTop = panel.scrollHeight;
+    logPositionedRef.current = true;
   }, [logText]);
   const openLogFolder = () => {
     if (!logFolderAvailable) return;
@@ -348,12 +327,12 @@ export function AppLogsSettings() {
     // The backend resolves and opens only Lattice's own log directory.
     void invoke("open_app_log_dir");
   };
+  const entryRow = (entry: AppLogEntry, key: string): ReactNode => (
+    <LogEntryRow key={key} entry={entry} onOperationFilter={setSearchQuery} onExport={setExportEntries} />
+  );
   return (
     <div className="settings-section app-logs-settings">
-      <SettingsSectionHeader
-        title={t`Logs`}
-        description={t`Shows 300 recent entries; disk logs rotate`}
-      />
+      <SettingsSectionHeader title={t`Logs`} description={t`Shows 300 recent entries; disk logs rotate`} />
       <SettingsGroup title={t`Activity log`}>
         <div className="app-log-actions">
           <div className="app-log-query-row">
@@ -367,24 +346,21 @@ export function AppLogsSettings() {
               controlSize="compact"
               containerClassName="app-log-search"
             />
-            <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | AppLogLevel)}>
-              <SelectTrigger className="app-log-level-filter" size="form" aria-label={t`Log level filter`}><SelectValue /></SelectTrigger>
-              <SelectContent data-settings-control="true" position="popper" align="end">
-                <SelectItem value="all">{t`All levels`}</SelectItem>
-                <SelectItem value="info">{t`Info`}</SelectItem>
-                <SelectItem value="success">{t`Success`}</SelectItem>
-                <SelectItem value="warning">{t`Warning`}</SelectItem>
-                <SelectItem value="error">{t`Error`}</SelectItem>
-              </SelectContent>
-            </Select>
+            <SettingsSelect
+              className="app-log-level-filter"
+              label={t`Log level filter`}
+              value={levelFilter}
+              options={{
+                all: t`All levels`,
+                ...Object.fromEntries(LOG_LEVELS.map((level) => [level, statusLabel(level)])) as Record<AppLogLevel, string>,
+              }}
+              onChange={setLevelFilter}
+            />
           </div>
           <div className="app-log-action-row">
             <Button size="compact" onClick={() => setExportEntries([...visible])}><Download size={13} />{t`Export…`}</Button>
             <Button size="compact" disabled={logs.length === 0} onClick={clearAppLogs}>{t`Clear`}</Button>
-            <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}>
-              <FolderOpen size={13} />
-              {t`Open log folder`}
-            </Button>
+            <Button size="compact" disabled={!logFolderAvailable} onClick={openLogFolder}><FolderOpen size={13} />{t`Open log folder`}</Button>
           </div>
         </div>
         {visible.length === 0 ? (
@@ -395,16 +371,19 @@ export function AppLogsSettings() {
               {visibleGroups.map((group) => group.operationId ? (
                 <details className={`app-log-operation ${group.summary.level}`} key={group.key} data-log-operation="">
                   <summary tabIndex={0}>
-                    <time dateTime={group.summary.timestamp} title={new Date(group.summary.timestamp).toLocaleString()}><span className="app-log-date">{group.summary.timestamp.slice(0, 11)}</span>{group.summary.timestamp.slice(11)}</time>
-                    <span className="app-log-severity" title={statuses[group.summary.context?.outcome ?? group.summary.context?.phase ?? "progress"] ?? t`Incomplete history`}>{LOG_LEVEL[group.summary.level]}</span>
-                    <span className="app-log-operation-title">{group.summary.title}<span className="app-log-inline-fields">{`${group.summary.context?.duration_ms !== undefined ? ` duration_ms=${group.summary.context.duration_ms}` : ""} operation_id=${group.operationId}`}</span></span>
-                    <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
+                    <LogSummary
+                      entry={group.summary}
+                      statusTitle={statusLabel(group.summary.context?.outcome ?? group.summary.context?.phase ?? "progress", t`Incomplete history`)}
+                      className="app-log-operation-title"
+                      title={group.summary.title}
+                      fields={`${group.summary.context?.duration_ms !== undefined ? ` duration_ms=${group.summary.context.duration_ms}` : ""} operation_id=${group.operationId}`}
+                    />
                   </summary>
                   <div className="app-log-operation-timeline">
-                    {group.entries.map((entry) => <LogEntryRow key={entry.id} entry={entry} onOperationFilter={setSearchQuery} onExport={setExportEntries} />)}
+                    {group.entries.map((entry) => entryRow(entry, entry.id))}
                   </div>
                 </details>
-              ) : <LogEntryRow key={group.key} entry={group.summary} onOperationFilter={setSearchQuery} onExport={setExportEntries} />)}
+              ) : entryRow(group.summary, group.key))}
             </div>
           </ScrollArea>
         )}

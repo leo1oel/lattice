@@ -7,7 +7,7 @@ export function pdfBase64Fingerprint(base64: string): string {
   return `${trimmed.length}:${head}:${tail}`;
 }
 
-export function pdfBase64ToBytes(base64: string): Uint8Array {
+export function pdfBase64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(base64.trim());
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {

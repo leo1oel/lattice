@@ -17,15 +17,9 @@ function hasTextChild(node: ReactNode): boolean {
  *
  * Pass a falsy `label` to render the child untouched.
  */
-export function Tip({
-  label,
-  side = "bottom",
-  sideOffset = 6,
-  children,
-}: {
+export function Tip({ label, side = "bottom", children }: {
   label: ReactNode;
   side?: "top" | "bottom" | "left" | "right";
-  sideOffset?: number;
   children: ReactElement;
 }) {
   if (!label) return children;
@@ -48,7 +42,7 @@ export function Tip({
     <TooltipProvider delayDuration={280} skipDelayDuration={400}>
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side={side} sideOffset={sideOffset} className="font-medium">
+        <TooltipContent side={side} sideOffset={6} className="font-medium">
           {label}
         </TooltipContent>
       </Tooltip>

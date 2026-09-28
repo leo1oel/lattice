@@ -2,42 +2,28 @@ import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-li
 import { useRef, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { RadioGroup, RadioItem } from "./radio-group";
-import { SizeProvider } from "../../lib/size-provider";
-import { ShapeProvider } from "../../lib/shape-provider";
-import { useSizeContext } from "../../lib/size-context";
-import { useFluidHover } from "../../hooks/use-fluid-hover";
+import { useFluidHover } from "./use-fluid-hover";
 
 afterEach(cleanup);
 
-it("keeps the initially selected dot visible and follows keyboard selection with provider styles", () => {
+it("keeps the initially selected dot visible and follows keyboard selection", () => {
   function Example() {
     const [index, setIndex] = useState(1);
-    return <ShapeProvider defaultShape="pill"><SizeProvider size="compact">
+    return (
       <RadioGroup selectedIndex={index}>
         <RadioItem index={0} label="First" onSelect={() => setIndex(0)} />
         <RadioItem index={1} label="Second" onSelect={() => setIndex(1)} />
       </RadioGroup>
-    </SizeProvider></ShapeProvider>;
+    );
   }
   render(<Example />);
   const selected = screen.getByRole("radio", { name: "Second" });
   expect(selected).toHaveAttribute("aria-checked", "true");
-  expect(selected).toHaveClass("h-7", "rounded-[20px]");
-  expect(selected.querySelector('.bg-foreground')?.parentElement).toHaveStyle({ opacity: "1", transform: "none" });
+  expect(selected).toHaveClass("h-9", "rounded-lg");
+  expect(selected.querySelector(".bg-foreground")?.parentElement).toHaveStyle({ opacity: "1", transform: "none" });
   fireEvent.keyDown(selected, { key: "ArrowUp" });
   expect(screen.getByRole("radio", { name: "First" })).toHaveAttribute("aria-checked", "true");
   expect(selected).toHaveAttribute("aria-checked", "false");
-});
-
-it("does not leak ignored size writes when a controlled provider becomes uncontrolled", () => {
-  function Consumer() {
-    const { size, setSize } = useSizeContext();
-    return <button onClick={() => setSize("compact")}>{size}</button>;
-  }
-  const view = render(<SizeProvider size="compact"><Consumer /></SizeProvider>);
-  fireEvent.click(screen.getByRole("button", { name: "compact" }));
-  view.rerender(<SizeProvider><Consumer /></SizeProvider>);
-  expect(screen.getByRole("button", { name: "default" })).toBeInTheDocument();
 });
 
 it("routes a gap click to the committed active row and clears marks on replacement rows", () => {

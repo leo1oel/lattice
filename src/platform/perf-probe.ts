@@ -38,6 +38,10 @@ function quantile(samples: Samples, q: number): number {
   return sorted[index];
 }
 
+function percentiles(samples: Samples): string {
+  return `p50 ${quantile(samples, 0.5).toFixed(1)}ms p95 ${quantile(samples, 0.95).toFixed(1)}ms (n=${samples.length})`;
+}
+
 export function installPerfProbe(): void {
   const keystrokes: Samples = [];
   const switches: Samples = [];
@@ -81,11 +85,7 @@ export function installPerfProbe(): void {
     if (!scrollFrame) scrollFrame = requestAnimationFrame(sampleScrollFrame);
   }, { capture: true, passive: true });
 
-  const afterNextPaint = (callback: () => void) => {
-    requestAnimationFrame(() => {
-      setTimeout(callback, 0);
-    });
-  };
+  const afterNextPaint = (callback: () => void) => requestAnimationFrame(() => setTimeout(callback, 0));
 
   // --- keystroke → next paint -------------------------------------------
   document.addEventListener(
@@ -97,13 +97,7 @@ export function installPerfProbe(): void {
       const start = performance.now();
       afterNextPaint(() => {
         keystrokes.push(performance.now() - start);
-        if (keystrokes.length % 30 === 0) {
-           
-          console.log(
-            `[lattice-perf] keystroke p50 ${quantile(keystrokes, 0.5).toFixed(1)}ms ` +
-              `p95 ${quantile(keystrokes, 0.95).toFixed(1)}ms (n=${keystrokes.length})`,
-          );
-        }
+        if (keystrokes.length % 30 === 0) console.log(`[lattice-perf] keystroke ${percentiles(keystrokes)}`);
       });
     },
     { capture: true, passive: true },
@@ -131,19 +125,11 @@ export function installPerfProbe(): void {
       return result;
     };
   } else {
-     
     console.warn("[lattice-perf] __TAURI_INTERNALS__ not found; IPC timing disabled");
   }
 
   const report = () => {
-     
-    console.log(
-      `[lattice-perf] keystroke p50 ${quantile(keystrokes, 0.5).toFixed(1)}ms ` +
-        `p95 ${quantile(keystrokes, 0.95).toFixed(1)}ms (n=${keystrokes.length}) | ` +
-        `switch(read→paint) p50 ${quantile(switches, 0.5).toFixed(1)}ms ` +
-        `p95 ${quantile(switches, 0.95).toFixed(1)}ms (n=${switches.length})`,
-    );
-     
+    console.log(`[lattice-perf] keystroke ${percentiles(keystrokes)} | switch(read→paint) ${percentiles(switches)}`);
     console.table(
       [...commands.entries()]
         .map(([command, stats]) => ({
@@ -179,6 +165,5 @@ export function installPerfProbe(): void {
   };
 
   (window as unknown as Record<string, unknown>).__latticePerf = { report, reset };
-   
   console.log("[lattice-perf] probe installed — __latticePerf.report() / .reset()");
 }

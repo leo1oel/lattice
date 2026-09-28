@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { toMessage } from "../app-utils";
 import {
   EMPTY_SYNARA_RUNTIME,
   normalizeSynaraOrigin,
@@ -10,32 +11,14 @@ const DEVELOPMENT_ORIGIN = normalizeSynaraOrigin(
   import.meta.env.VITE_SYNARA_EMBED_URL?.trim(),
 );
 
-function developmentRuntime(): SynaraRuntimeInfo | null {
-  if (!DEVELOPMENT_ORIGIN) return null;
-  return {
-    state: "ready",
-    origin: DEVELOPMENT_ORIGIN,
-    authToken: null,
-    message: null,
-    startupMs: 0,
-    version: null,
-    revision: null,
-  };
-}
-
-const DEVELOPMENT_RUNTIME = developmentRuntime();
+const DEVELOPMENT_RUNTIME: SynaraRuntimeInfo | null = DEVELOPMENT_ORIGIN
+  ? { ...EMPTY_SYNARA_RUNTIME, state: "ready", origin: DEVELOPMENT_ORIGIN, startupMs: 0 }
+  : null;
 
 function normalizeRuntime(info: SynaraRuntimeInfo): SynaraRuntimeInfo {
   const origin = normalizeSynaraOrigin(info.origin);
-  return {
-    ...info,
-    state: info.state === "ready" && !origin ? "stopped" : info.state,
-    origin,
-    message:
-      info.state === "ready" && !origin
-        ? "The bundled Agent service did not report a valid local address."
-        : info.message,
-  };
+  if (info.state !== "ready" || origin) return { ...info, origin };
+  return { ...info, state: "stopped", origin, message: "The bundled Agent service did not report a valid local address." };
 }
 
 /**
@@ -59,11 +42,7 @@ export function useSynaraRuntime(enabled: boolean) {
       })
       .catch((reason) => {
         if (disposed) return;
-        setRuntime({
-          ...EMPTY_SYNARA_RUNTIME,
-          state: "stopped",
-          message: reason instanceof Error ? reason.message : String(reason),
-        });
+        setRuntime({ ...EMPTY_SYNARA_RUNTIME, state: "stopped", message: toMessage(reason) });
       });
     return () => {
       disposed = true;

@@ -1,33 +1,44 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { CircleHelp, Settings } from "lucide-react";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { buttonClassName } from "./button-styles";
-import {
-  floatingSurfaceClassName,
-  menuItemClassName,
-  menuViewportClassName,
-} from "./menu-surface";
+import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface";
 import { Checkbox } from "./checkbox";
 import { CheckboxField } from "./checkbox-field";
+import { DestructiveButton } from "./destructive-button";
+import { EmptyState } from "./empty-state";
+import { CloseButton, IconButton } from "./icon-button";
 import { InlineMessage } from "./inline-message";
 import { Input } from "./input";
+import { PanelHeader } from "./panel-header";
 import { rowClassName } from "./row";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { SegmentedControl } from "./segmented-control";
 import { SettingsGroup, SettingsRow } from "./settings-row";
+import { SettingsSectionHeader } from "./settings-section-header";
 import { Switch } from "./switch";
 import { SwitchField } from "./switch-field";
 import { Textarea } from "./textarea";
 
 afterEach(cleanup);
+
+function renderRuntimeSelect(size?: "form") {
+  render(
+    <Select defaultValue="local">
+      <SelectTrigger aria-label="Runtime" size={size}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="local">Local</SelectItem>
+        <SelectItem value="remote">Remote</SelectItem>
+      </SelectContent>
+    </Select>,
+  );
+  return screen.getByRole("combobox", { name: "Runtime" });
+}
 
 describe("shared chrome primitives", () => {
   it("applies semantic button variants and sizes", () => {
@@ -66,7 +77,7 @@ describe("shared chrome primitives", () => {
     expect(badge.classList.length).toBeGreaterThan(1);
   });
 
-  it("exposes switch state and reports the requested next value", () => {
+  it("exposes switch state, reports the requested next value, and stays inert while disabled", () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <Switch checked={false} label="Enable server" onChange={onChange} />,
@@ -82,6 +93,10 @@ describe("shared chrome primitives", () => {
     expect(control.className).not.toBe(uncheckedClasses);
     expect(control.querySelector(".ui-switch-thumb")?.classList.length)
       .toBeGreaterThan(1);
+
+    rerender(<Switch checked disabled label="Enable server" onChange={onChange} />);
+    fireEvent.click(control);
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("keeps inline-message levels semantic while styling each owned element", () => {
@@ -97,11 +112,7 @@ describe("shared chrome primitives", () => {
   it("keeps checked, mixed, and labelled checkbox states in one native control", () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <CheckboxField
-        checked={false}
-        label="Match case"
-        onChange={onChange}
-      />,
+      <CheckboxField checked={false} label="Match case" onChange={onChange} />,
     );
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Match case" }));
@@ -113,65 +124,30 @@ describe("shared chrome primitives", () => {
     expect((mixed as HTMLInputElement).indeterminate).toBe(true);
   });
 
-  it("exposes shared form sizing and validation state on text controls", () => {
+  it("exposes the shared form size on text controls and select triggers", () => {
     render(
       <>
-        <Input
-          aria-label="Project name"
-          controlSize="form"
-          invalid
-        />
-        <Textarea aria-label="System prompt" font="mono" />
+        <Input aria-label="Project name" controlSize="form" />
+        <Textarea aria-label="System prompt" />
       </>,
     );
+    const trigger = renderRuntimeSelect("form");
 
     expect(screen.getByRole("textbox", { name: "Project name" }))
       .toHaveAttribute("data-control-size", "form");
-    expect(screen.getByRole("textbox", { name: "Project name" }))
-      .toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("textbox", { name: "System prompt" }))
-      .toHaveAttribute("data-font", "mono");
-  });
-
-  it("uses the same semantic form size for select triggers", () => {
-    render(
-      <Select defaultValue="local">
-        <SelectTrigger aria-label="Runtime" size="form">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="local">Local</SelectItem>
-        </SelectContent>
-      </Select>,
-    );
-
-    expect(screen.getByRole("combobox", { name: "Runtime" }))
-      .toHaveAttribute("data-control-size", "form");
+      .toHaveAttribute("data-slot", "textarea");
+    expect(trigger).toHaveAttribute("data-control-size", "form");
   });
 
   it("opens selects from the keyboard and restores focus on Escape", async () => {
-    render(
-      <Select defaultValue="local">
-        <SelectTrigger aria-label="Runtime">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="local">Local</SelectItem>
-          <SelectItem value="remote">Remote</SelectItem>
-        </SelectContent>
-      </Select>,
-    );
-
-    const trigger = screen.getByRole("combobox", { name: "Runtime" });
+    const trigger = renderRuntimeSelect();
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
 
     const listbox = await screen.findByRole("listbox");
     const selectedOption = screen.getByRole("option", { name: "Local" });
-    expect(selectedOption).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(selectedOption).toHaveAttribute("aria-selected", "true");
     expect(selectedOption.querySelector('[data-slot="select-item-indicator"] svg'))
       .toBeInTheDocument();
     fireEvent.keyDown(listbox, { key: "Escape" });
@@ -200,13 +176,7 @@ describe("shared chrome primitives", () => {
   });
 
   it("keeps a persistent toggle in the data-row density contract", () => {
-    render(
-      <SwitchField
-        checked
-        label="Spellcheck prose"
-        onChange={() => undefined}
-      />,
-    );
+    render(<SwitchField checked label="Spellcheck prose" onChange={() => undefined} />);
 
     expect(screen.getByText("Spellcheck prose").closest("[data-slot='switch-field']"))
       .toHaveClass("ui-row--data");
@@ -224,6 +194,7 @@ describe("shared chrome primitives", () => {
         >
           <input id="interface-size" type="range" />
         </SettingsRow>
+        <SettingsRow label="Version" description="You’re on the latest version" />
       </SettingsGroup>,
     );
 
@@ -234,12 +205,73 @@ describe("shared chrome primitives", () => {
       .toHaveClass("ui-settings-group-title");
     expect(row?.querySelector(".ui-settings-row-control")?.firstElementChild)
       .toHaveAttribute("id", "interface-size");
-  });
-
-  it("omits the control slot for a settings row that has no control", () => {
-    render(<SettingsRow label="Version" description="You’re on the latest version" />);
-
+    // A row with no control omits the control slot.
     expect(screen.getByText("Version").closest("[data-slot='settings-row']")
       ?.querySelector(".ui-settings-row-control")).toBeNull();
+  });
+});
+
+describe("shared action and layout patterns", () => {
+  it("gives icon buttons one accessible label, size metadata, and a primary tone", () => {
+    render(
+      <>
+        <IconButton label="Help" size="compact"><CircleHelp /></IconButton>
+        <IconButton label="Send message" tone="primary" tooltip={false}><CircleHelp /></IconButton>
+      </>,
+    );
+
+    const help = screen.getByRole("button", { name: "Help" });
+    expect(help).toHaveAttribute("data-slot", "icon-button");
+    expect(help).toHaveAttribute("data-size", "compact");
+    expect(screen.getByRole("button", { name: "Send message" })).toHaveAttribute("data-tone", "primary");
+  });
+
+  it("renders the shared close action and forwards clicks", () => {
+    const onClick = vi.fn();
+    render(<CloseButton label="Close settings" onClick={onClick} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("derives a panel's accessible close label from a string title", () => {
+    render(<PanelHeader title="Settings" icon={<Settings />} onClose={() => {}} />);
+
+    expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Settings" }))
+      .not.toHaveAttribute("data-state");
+  });
+
+  it("keeps destructive buttons real buttons with the shared trash animation", () => {
+    const { rerender } = render(
+      <DestructiveButton aria-label="Delete file" iconSize={12}>Delete</DestructiveButton>,
+    );
+
+    const button = screen.getByRole("button", { name: "Delete file" });
+    expect(button).toHaveAttribute("type", "button");
+    expect(button.querySelector(".destructive-button-icon svg")).toBeInTheDocument();
+    expect(button).toHaveTextContent("Delete");
+    rerender(<DestructiveButton aria-label="Delete file" disabled />);
+    expect(screen.getByRole("button", { name: "Delete file" })).toBeDisabled();
+  });
+
+  it("renders a Settings heading and aligned action", () => {
+    render(
+      <SettingsSectionHeader
+        title="Appearance"
+        description="Preferences for this Mac"
+        actions={<button type="button">Reset</button>}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
+  });
+
+  it("renders an empty state without imposing a heading when none is needed", () => {
+    render(<EmptyState description="No results" density="compact" />);
+
+    expect(screen.getByText("No results")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 });

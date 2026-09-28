@@ -2,7 +2,7 @@
 // spirit of Amicro, tuned to stay light: only transform/opacity animate (GPU
 // composited) and springs are short, so they hold up on weak WebKit (the macOS
 // VM). Reach for these instead of hand-rolling motion props per call site.
-import { forwardRef, useId, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useId, useState, type ReactNode } from "react";
 import {
   AnimatePresence,
   motion,
@@ -11,21 +11,16 @@ import {
   useSpring,
   type HTMLMotionProps,
 } from "motion/react";
-import {
-  MAGNET_SPRING,
-  POP_SPRING,
-  PRESS_SPRING,
-  spring,
-  springExit,
-} from "./motion-values";
+import { MAGNET_SPRING, POP_SPRING, PRESS_SPRING, spring, springExit } from "./motion-values";
 import "./motion.css";
 
 type MotionButtonProps = HTMLMotionProps<"button"> & {
   /** Gently pull the button toward the cursor while hovering (Amicro-style). */
   magnetic?: boolean;
-  /** How far it pulls, as a fraction of the cursor offset from center. */
-  magnetStrength?: number;
 };
+
+/** How far a magnetic button pulls, as a fraction of the cursor offset from center. */
+const MAGNET_STRENGTH = 0.3;
 
 /**
  * Drop-in replacement for `<button>` that adds a subtle hover lift and an
@@ -34,10 +29,9 @@ type MotionButtonProps = HTMLMotionProps<"button"> & {
  */
 export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
   function MotionButton(
-    { magnetic = false, magnetStrength = 0.3, disabled, style, onMouseMove, onMouseLeave, children, ...rest },
+    { magnetic = false, disabled, style, onMouseMove, onMouseLeave, children, ...rest },
     forwardedRef,
   ) {
-    const localRef = useRef<HTMLButtonElement | null>(null);
     const reduceMotion = useReducedMotion();
     const x = useMotionValue(0);
     const y = useMotionValue(0);
@@ -47,20 +41,16 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
 
     return (
       <motion.button
-        ref={(node) => {
-          localRef.current = node;
-          if (typeof forwardedRef === "function") forwardedRef(node);
-          else if (forwardedRef) forwardedRef.current = node;
-        }}
+        ref={forwardedRef}
         disabled={disabled}
         style={active ? { ...style, x: springX, y: springY } : style}
         whileHover={disabled || reduceMotion ? undefined : { scale: 1.03 }}
         transition={PRESS_SPRING}
         onMouseMove={(event) => {
-          if (active && localRef.current) {
-            const rect = localRef.current.getBoundingClientRect();
-            x.set((event.clientX - rect.left - rect.width / 2) * magnetStrength);
-            y.set((event.clientY - rect.top - rect.height / 2) * magnetStrength);
+          if (active) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            x.set((event.clientX - rect.left - rect.width / 2) * MAGNET_STRENGTH);
+            y.set((event.clientY - rect.top - rect.height / 2) * MAGNET_STRENGTH);
           }
           onMouseMove?.(event);
         }}
@@ -197,12 +187,9 @@ export function SlidingTabs(props: {
   ariaLabel: string;
   /**
    * What slides. "pill" is a filled background, for strips that sit on a
-   * panel; "underline" is a rule along the bottom, for strips that head a
-   * section; "none" leaves selection styling to the tab itself. Each place
-   * keeps the shape it already had — only the way the indicator gets from one
-   * tab to the next changes.
+   * panel; "none" leaves selection styling to the tab itself.
    */
-  variant?: "pill" | "underline" | "none";
+  variant?: "pill" | "none";
   /** The strip's own class, so each place keeps its existing styling. */
   className?: string;
   /** Class for each tab, for the same reason. */
@@ -226,13 +213,14 @@ export function SlidingTabs(props: {
             className={`sliding-tab${selected ? " active" : ""}${props.tabClassName ? ` ${props.tabClassName}` : ""}`}
             onClick={() => props.onChange(item.value)}
             onKeyDown={(event) => {
-              let nextIndex: number | null = null;
-              if (event.key === "ArrowRight") nextIndex = (index + 1) % props.items.length;
-              if (event.key === "ArrowLeft") nextIndex = (index - 1 + props.items.length) % props.items.length;
-              if (event.key === "Home") nextIndex = 0;
-              if (event.key === "End") nextIndex = props.items.length - 1;
-              if (nextIndex == null) return;
-
+              const count = props.items.length;
+              const nextIndex = ({
+                ArrowRight: (index + 1) % count,
+                ArrowLeft: (index - 1 + count) % count,
+                Home: 0,
+                End: count - 1,
+              } as Record<string, number>)[event.key];
+              if (nextIndex === undefined) return;
               event.preventDefault();
               props.onChange(props.items[nextIndex].value);
               const tabs = event.currentTarget.parentElement
@@ -243,7 +231,7 @@ export function SlidingTabs(props: {
             {selected && props.variant !== "none" && (
               <motion.span
                 aria-hidden
-                className={props.variant === "underline" ? "sliding-tab-underline" : "sliding-tab-pill"}
+                className="sliding-tab-pill"
                 layoutId={reduceMotion ? undefined : `${pillId}-pill`}
                 transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26, mass: 1 }}
               />

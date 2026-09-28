@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GitFileStatus } from "../app-types";
-import { toPierreGitStatus } from "./project-tree-git";
+import { toPierreGitStatus } from "./project-tree-files";
 
 describe("project tree Git status", () => {
   it("uses Pierre statuses and maps backend-only states conservatively", () => {

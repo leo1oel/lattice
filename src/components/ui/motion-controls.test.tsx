@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { SlidingTabs, StateSwap } from "./motion";
-import { Switch } from "./switch";
 
 afterEach(cleanup);
 
@@ -19,30 +18,16 @@ describe("StateSwap", () => {
   });
 });
 
-describe("Switch", () => {
-  it("reports the new state and stays a real switch for assistive tech", () => {
-    const onChange = vi.fn();
-    render(<Switch checked={false} label="Enable docs" onChange={onChange} />);
-    const control = screen.getByRole("switch", { name: "Enable docs" });
-    expect(control).toHaveAttribute("aria-checked", "false");
-
-    fireEvent.click(control);
-    expect(onChange).toHaveBeenCalledWith(true);
-  });
-
-  it("does not fire while disabled", () => {
-    const onChange = vi.fn();
-    render(<Switch checked disabled label="Enable docs" onChange={onChange} />);
-    fireEvent.click(screen.getByRole("switch", { name: "Enable docs" }));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-});
-
 describe("SlidingTabs", () => {
   const items = [
     { value: "a", label: "First" },
     { value: "b", label: "Second" },
   ];
+
+  function Harness() {
+    const [value, setValue] = useState("a");
+    return <SlidingTabs value={value} onChange={setValue} items={items} ariaLabel="Views" />;
+  }
 
   it("marks one tab selected and reports a change", () => {
     const onChange = vi.fn();
@@ -55,10 +40,6 @@ describe("SlidingTabs", () => {
   });
 
   it("keeps exactly one indicator, so it moves rather than multiplies", () => {
-    function Harness() {
-      const [value, setValue] = useState("a");
-      return <SlidingTabs value={value} onChange={setValue} items={items} ariaLabel="Views" />;
-    }
     const { container } = render(<Harness />);
     expect(container.querySelectorAll(".sliding-tab-pill")).toHaveLength(1);
 
@@ -69,20 +50,15 @@ describe("SlidingTabs", () => {
     ).not.toBeNull();
   });
 
-  it("draws an underline instead of a pill when asked", () => {
+  it("leaves selection styling to the tab when asked for no indicator", () => {
     const { container } = render(
-      <SlidingTabs value="a" onChange={() => {}} items={items} ariaLabel="Views" variant="underline" />,
+      <SlidingTabs value="a" onChange={() => {}} items={items} ariaLabel="Views" variant="none" />,
     );
-    expect(container.querySelector(".sliding-tab-underline")).not.toBeNull();
     expect(container.querySelector(".sliding-tab-pill")).toBeNull();
+    expect(screen.getByRole("tab", { name: "First" })).toHaveClass("active");
   });
 
   it("moves selection and focus with tab-list arrow keys", () => {
-    function Harness() {
-      const [value, setValue] = useState("a");
-      return <SlidingTabs value={value} onChange={setValue} items={items} ariaLabel="Views" />;
-    }
-
     render(<Harness />);
     const first = screen.getByRole("tab", { name: "First" });
     const second = screen.getByRole("tab", { name: "Second" });

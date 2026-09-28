@@ -38,6 +38,12 @@ function fakeEditor() {
   return { editor, shapes };
 }
 
+function listRequest(id: string) {
+  return parseAgentCanvasToolRequest({
+    type: SYNARA_CANVAS_TOOL_REQUEST, version: 1, id, action: "list", args: {}, expiresAt: Date.now() + 1_000,
+  });
+}
+
 describe("agent canvas tools", () => {
   it("creates, lists, updates, and deletes model-friendly shapes", () => {
     const { editor } = fakeEditor();
@@ -73,15 +79,7 @@ describe("agent canvas tools", () => {
     const unregisterOld = registerAgentCanvasAdapter("old.tldr", { execute: () => ({ board: "old" }) });
     const unregisterCurrent = registerAgentCanvasAdapter("current.tldr", { execute: () => ({ board: "current" }) });
     unregisterOld();
-    const request = parseAgentCanvasToolRequest({
-      type: SYNARA_CANVAS_TOOL_REQUEST,
-      version: 1,
-      id: "request-current",
-      action: "list",
-      args: {},
-      expiresAt: Date.now() + 1_000,
-    })!;
-    await expect(executeAgentCanvasToolRequest(request)).resolves.toMatchObject({
+    await expect(executeAgentCanvasToolRequest(listRequest("request-current")!)).resolves.toMatchObject({
       ok: true,
       result: { board: "current" },
     });
@@ -89,14 +87,7 @@ describe("agent canvas tools", () => {
   });
 
   it("parses the correlated protocol and reports when no canvas is open", async () => {
-    const request = parseAgentCanvasToolRequest({
-      type: SYNARA_CANVAS_TOOL_REQUEST,
-      version: 1,
-      id: "request-1",
-      action: "list",
-      args: {},
-      expiresAt: Date.now() + 1_000,
-    });
+    const request = listRequest("request-1");
     expect(request).not.toBeNull();
     const unregister = registerAgentCanvasAdapter("shapes.tldr", { execute: () => ({ shapes: [] }) });
     unregister();

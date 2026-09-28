@@ -38,16 +38,6 @@
   background: var(--surface-panel-raised);
 }
 
-.sliding-tab-underline {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  z-index: 0;
-  height: 2px;
-  background: var(--control-active);
-}
-
 .sliding-tab-label {
   position: relative;
   z-index: 1;

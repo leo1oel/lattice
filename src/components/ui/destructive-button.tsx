@@ -1,20 +1,11 @@
-import {
-  forwardRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { forwardRef, useState, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
-import {
-  motion,
-  useReducedMotion,
-  type HTMLMotionProps,
-} from "motion/react";
+import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { PRESS_SPRING } from "./motion-values";
 
 export type DestructiveButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
   children?: ReactNode;
   iconSize?: number;
-  iconClassName?: string;
 };
 
 /**
@@ -27,7 +18,6 @@ export const DestructiveButton = forwardRef<HTMLButtonElement, DestructiveButton
       children,
       disabled,
       iconSize = 14,
-      iconClassName,
       onHoverStart,
       onHoverEnd,
       ...props
@@ -67,7 +57,7 @@ export const DestructiveButton = forwardRef<HTMLButtonElement, DestructiveButton
             : { y: 0, rotate: 0 }}
           transition={animate ? { duration: 0.4 } : { duration: 0.12 }}
         >
-          <Trash2 size={iconSize} className={iconClassName} />
+          <Trash2 size={iconSize} />
         </motion.span>
         {children}
       </motion.button>

@@ -22,6 +22,9 @@ import {
   resolveAppLocale,
   type WorkspaceLayout,
 } from "./app-settings";
+import type { FileViewState } from "../app-types";
+
+beforeEach(() => localStorage.clear());
 
 const layout: WorkspaceLayout = {
   openTabs: ["main.tex", "sections/method.tex", "figures/model.png"],
@@ -37,40 +40,25 @@ const layout: WorkspaceLayout = {
 };
 
 describe("interface language persistence", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("defaults to the system and restores explicit overrides", () => {
-    expect(loadAppearance().interfaceLanguage).toBe("system");
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    expect(loadAppearance().interfaceLanguage).toBe("zh-CN");
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "en" }));
-    expect(loadAppearance().interfaceLanguage).toBe("en");
+  // An unsupported stored locale returns to following the system.
+  it.each([[undefined, "system"], ["zh-CN", "zh-CN"], ["en", "en"], ["fr", "system"]])("loads a stored language of %s as %s", (stored, language) => {
+    if (stored) localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: stored }));
+    expect(loadAppearance().interfaceLanguage).toBe(language);
   });
 
-  it("follows Chinese system locales and falls back to English", () => {
-    expect(resolveAppLocale("system", ["zh-CN"])).toBe("zh-CN");
-    expect(resolveAppLocale("system", ["zh-Hans"])).toBe("zh-CN");
-    expect(resolveAppLocale("system", ["zh-TW"])).toBe("zh-CN");
-    expect(resolveAppLocale("system", ["en-US", "zh-CN"])).toBe("en");
-    expect(resolveAppLocale("system", ["fr-FR", "zh-HK"])).toBe("en");
-    expect(resolveAppLocale("system", ["en-US"])).toBe("en");
-    expect(resolveAppLocale("system", ["fr-FR"])).toBe("en");
-  });
-
-  it("keeps explicit choices when they differ from the system language", () => {
-    expect(resolveAppLocale("en", ["zh-CN"])).toBe("en");
-    expect(resolveAppLocale("zh-CN", ["en-US"])).toBe("zh-CN");
-  });
-
-  it("returns to following the system for unsupported stored locales", () => {
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: "fr" }));
-    expect(loadAppearance().interfaceLanguage).toBe("system");
+  it.each([
+    ["system", ["zh-CN"], "zh-CN"], ["system", ["zh-Hans"], "zh-CN"], ["system", ["zh-TW"], "zh-CN"],
+    // Only the system's first preference chooses; everything else is English.
+    ["system", ["en-US", "zh-CN"], "en"], ["system", ["fr-FR", "zh-HK"], "en"],
+    ["system", ["en-US"], "en"], ["system", ["fr-FR"], "en"],
+    // Explicit choices hold even when they differ from the system language.
+    ["en", ["zh-CN"], "en"], ["zh-CN", ["en-US"], "zh-CN"],
+  ] as const)("resolves %s with system languages %j to %s", (preference, languages, locale) => {
+    expect(resolveAppLocale(preference, languages)).toBe(locale);
   });
 });
 
 describe("fixed application fonts", () => {
-  beforeEach(() => localStorage.clear());
-
   it.each([APPEARANCE_KEY, "lattice.appearance.v4", "lattice.appearance.v3"])(
     "normalizes old font choices from %s without losing other preferences",
     (key) => {
@@ -78,12 +66,7 @@ describe("fixed application fonts", () => {
       expect(defaults.uiFont).toBe('"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif');
       expect(defaults.editorFont).toBe('"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace');
       for (const editorFont of ['"MonoLisa", Menlo, monospace', defaults.editorFont, null]) {
-        localStorage.setItem(key, JSON.stringify({
-          uiFont: "-apple-system",
-          editorFont,
-          editorFontSize: 18,
-          editorKeymap: "vim",
-        }));
+        localStorage.setItem(key, JSON.stringify({ uiFont: "-apple-system", editorFont, editorFontSize: 18, editorKeymap: "vim" }));
         expect(loadAppearance()).toEqual({ ...defaults, editorFontSize: 18, editorKeymap: "vim" });
       }
     },
@@ -91,23 +74,18 @@ describe("fixed application fonts", () => {
 });
 
 describe("prose spellcheck default", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("is on for fresh installs and for settings saved before the toggle existed", () => {
-    expect(loadAppearance().editorSpellcheck).toBe(true);
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ editorFontSize: 16 }));
-    expect(loadAppearance().editorSpellcheck).toBe(true);
-  });
-
-  it("respects an explicit opt-out", () => {
-    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ editorSpellcheck: false }));
-    expect(loadAppearance().editorSpellcheck).toBe(false);
-  });
+  // On for fresh installs and for settings saved before the toggle existed;
+  // only an explicit opt-out turns it off.
+  it.each([[null, true], [{ editorFontSize: 16 }, true], [{ editorSpellcheck: false }, false]])(
+    "loads %j as %s",
+    (stored, enabled) => {
+      if (stored) localStorage.setItem(APPEARANCE_KEY, JSON.stringify(stored));
+      expect(loadAppearance().editorSpellcheck).toBe(enabled);
+    },
+  );
 });
 
 describe("workspace layout persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("round-trips tab order, active tab, and split layout per project", () => {
     persistWorkspaceLayout("/papers/alpha", layout);
     expect(loadWorkspaceLayout("/papers/alpha")).toEqual(layout);
@@ -149,26 +127,15 @@ describe("workspace layout persistence", () => {
     });
   });
 
-  it("migrates legacy Markdown and paper preview modes to unified preview", () => {
-    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
-      "/papers/markdown": { ...layout, canvasMode: "markdown-preview" },
-      "/papers/imported": { ...layout, canvasMode: "paper" },
-    }));
-
-    expect(loadWorkspaceLayout("/papers/markdown")?.canvasMode).toBe("pdf");
-    expect(loadWorkspaceLayout("/papers/imported")?.canvasMode).toBe("pdf");
-  });
-
-  it("migrates the former three-column layout to two editor panes", () => {
-    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
-      "/papers/alpha": { ...layout, canvasMode: "columns", documentMode: "columns" },
-    }));
-
-    expect(loadWorkspaceLayout("/papers/alpha")).toEqual({
-      ...layout,
-      canvasMode: "dual",
-      documentMode: "dual",
-    });
+  // The Markdown and paper previews merged into the unified preview, and the
+  // three-column layout became two editor panes.
+  it.each([
+    [{ canvasMode: "markdown-preview" }, { canvasMode: "pdf" }],
+    [{ canvasMode: "paper" }, { canvasMode: "pdf" }],
+    [{ canvasMode: "columns", documentMode: "columns" }, { canvasMode: "dual", documentMode: "dual" }],
+  ])("migrates the retired layout %j", (retired, migrated) => {
+    localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({ "/papers/alpha": { ...layout, ...retired } }));
+    expect(loadWorkspaceLayout("/papers/alpha")).toEqual({ ...layout, ...migrated });
   });
 
   it("treats corrupt storage as an empty workspace history", () => {
@@ -179,10 +146,8 @@ describe("workspace layout persistence", () => {
 });
 
 describe("local file view state persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("round-trips each file's local view without mixing projects", () => {
-    persistFileViewStates("/papers/alpha", {
+    const views = {
       "main.tex": { text: { cursor: 42, scrollTop: 320 } },
       "data.lattice-sheet": {
         spreadsheet: {
@@ -195,58 +160,16 @@ describe("local file view state persistence", () => {
           },
         },
       },
-      "figures/model.png": {
-        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
-      },
-      "paper.pdf": {
-        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
-      },
-      "sketch.tldr": {
-        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
-      },
-      "slides/talk/index.tsx": {
-        openSlide: { page: 3 },
-      },
-      "report.html": {
-        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
-      },
-      "notes.md": {
-        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
-      },
-    });
+      "figures/model.png": { image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 } },
+      "paper.pdf": { pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 } },
+      "sketch.tldr": { board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } } },
+      "slides/talk/index.tsx": { openSlide: { page: 3 } },
+      "report.html": { html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 } },
+      "notes.md": { visualMarkdown: { scrollTop: 460, scrollRange: 1800 } },
+    } satisfies Record<string, FileViewState>;
+    persistFileViewStates("/papers/alpha", views);
 
-    expect(loadFileViewStates("/papers/alpha")).toEqual({
-      "main.tex": { text: { cursor: 42, scrollTop: 320 } },
-      "data.lattice-sheet": {
-        spreadsheet: {
-          activeSheetId: "sheet-2",
-          activeRange: "B4:D8",
-          activeCell: "B4",
-          sheets: {
-            "sheet-1": { zoomRatio: 1, scrollTop: 0, scrollLeft: 0 },
-            "sheet-2": { zoomRatio: 1.4, scrollTop: 240, scrollLeft: 80 },
-          },
-        },
-      },
-      "figures/model.png": {
-        image: { scale: 1.6, scrollTop: 120, scrollLeft: 45 },
-      },
-      "paper.pdf": {
-        pdf: { page: 7, scale: 1.25, fitMode: "width", scrollTop: 720, scrollLeft: 12 },
-      },
-      "sketch.tldr": {
-        board: { pageId: "page:ideas", camera: { x: -120, y: 64, z: 1.8 } },
-      },
-      "slides/talk/index.tsx": {
-        openSlide: { page: 3 },
-      },
-      "report.html": {
-        html: { scale: 1.25, scrollTop: 840, scrollRange: 3200 },
-      },
-      "notes.md": {
-        visualMarkdown: { scrollTop: 460, scrollRange: 1800 },
-      },
-    });
+    expect(loadFileViewStates("/papers/alpha")).toEqual(views);
     expect(loadFileViewStates("/papers/beta")).toEqual({});
   });
 
@@ -270,10 +193,7 @@ describe("local file view state persistence", () => {
 
   it("bounds local view history by recent files and projects", () => {
     persistFileViewStates("/papers/large", Object.fromEntries(
-      Array.from({ length: 205 }, (_, index) => [
-        `file-${index}.tex`,
-        { text: { cursor: index, scrollTop: index } },
-      ]),
+      Array.from({ length: 205 }, (_, index) => [`file-${index}.tex`, { text: { cursor: index, scrollTop: index } }]),
     ));
     const files = loadFileViewStates("/papers/large");
     expect(Object.keys(files)).toHaveLength(200);
@@ -281,13 +201,9 @@ describe("local file view state persistence", () => {
     expect(files["file-5.tex"]).toBeDefined();
 
     for (let index = 0; index < 60; index += 1) {
-      persistFileViewStates(`/papers/project-${index}`, {
-        "main.tex": { text: { cursor: index, scrollTop: 0 } },
-      });
+      persistFileViewStates(`/papers/project-${index}`, { "main.tex": { text: { cursor: index, scrollTop: 0 } } });
     }
-    const projects = JSON.parse(
-      localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}",
-    ) as Record<string, unknown>;
+    const projects = JSON.parse(localStorage.getItem(FILE_VIEW_STATES_KEY) ?? "{}") as Record<string, unknown>;
     expect(Object.keys(projects)).toHaveLength(60);
     expect(projects["/papers/large"]).toBeUndefined();
     expect(projects["/papers/project-59"]).toBeDefined();
@@ -295,8 +211,6 @@ describe("local file view state persistence", () => {
 });
 
 describe("tutorial persistence", () => {
-  beforeEach(() => localStorage.clear());
-
   it("remembers that the tutorial has been shown across app versions", () => {
     expect(hasSeenTutorial()).toBe(false);
     markTutorialSeen();
@@ -305,18 +219,14 @@ describe("tutorial persistence", () => {
   });
 
   it("recognizes tutorial projects opened by an earlier version", () => {
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([{
-      name: "Understanding Attention",
-      path: "/Users/ada/Documents/Lattice Tutorials/Understanding Attention",
-    }]));
+    const path = "/Users/ada/Documents/Lattice Tutorials/Understanding Attention";
+    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([{ name: "Understanding Attention", path }]));
     expect(hasSeenTutorial()).toBe(true);
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
   });
 });
 
 describe("local semantic search opt-in", () => {
-  beforeEach(() => localStorage.clear());
-
   it("is disabled until the user explicitly enables it", () => {
     expect(loadLocalSemanticSearchEnabled()).toBe(false);
     expect(localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY)).toBeNull();
@@ -330,8 +240,6 @@ describe("local semantic search opt-in", () => {
 });
 
 describe("recent projects across windows", () => {
-  beforeEach(() => localStorage.clear());
-
   it("keeps what another window recorded while this one was open", () => {
     // Both windows share one localStorage. This window loaded its copy before
     // the other window opened "Notes"; writing that stale copy back is what

@@ -117,7 +117,7 @@ in Playwright's WebKit 26.6 against the same backend.
 
 | Cause | Evidence | Fix |
 | --- | --- | --- |
-| Replaced PDF.js viewers were never detached | 3,860 detached PDF pages (ten viewers) after five cycles, retained by each viewer's document `copy` listener and PDF.js's static `TextLayerBuilder` map; PDF scroll CPU per burst grew 438 → 1,752 ms | `destroyViewerRecord` calls `PDFViewer.setDocument(null)` and zeroes canvases (`pdf/pdf-viewer.tsx`) |
+| Replaced PDF.js viewers were never detached | 3,860 detached PDF pages (ten viewers) after five cycles, retained by each viewer's document `copy` listener and PDF.js's static `TextLayerBuilder` map; PDF scroll CPU per burst grew 438 → 1,752 ms | `destroyViewerRecord` calls `PDFViewer.setDocument(null)` and zeroes canvases (`pdf/pdf-slick.ts`) |
 | Frozen table-header scroll animations outlived their cells | Scroll-driven `Animation`s stay in effect while the scroller is connected. Each file switch kept the replaced document alive through its header cells: +6.6k DOM nodes and +3.2 MB heap per `large.md` ⇄ note switch, with split-preview fps falling as stale animations piled up | the plugin view tracks animated cells and releases dropped ones (`open-knowledge-app/editor/extensions/frozen-table-headers.ts`) |
 | DocumentCanvas render scopes chained replaced editors | DocumentCanvas is not compiled, so every closure captures its render scope. CodeMirror keeps extension closures for the view's life, and the scope held the previous `EditorView` and preview element in state, so each switch retained the previous editor and its whole document | that state holds `WeakRef`s (`canvas/document-canvas.tsx`) |
 | Base UI ScrollArea restyled the whole document on every scroll event in WebKit | Base UI writes four `--scroll-area-overflow-*` properties on the viewport per scroll event and registers them as non-inherited everywhere except WebKit. Same page, split preview of `large.md`: 2.1–2.2 fps (p95 frame ≈ 1.09 s) as shipped; 14.8–15.5 fps (p95 ≈ 0.13 s) with the properties registered | registered in `components/ui/scroll-area.tsx` |
@@ -191,10 +191,10 @@ in order of value:
    Note a wrong fix cannot land silently: moving the write to an effect while
    leaving a `useMemo` that reads `.current` is still rejected, so the bailout
    guard catches it.
-3. `pdf-viewer.tsx` — 5 bailouts, all `tagged template with interpolations`
-   (L673, L695, L1295, L1306, L1591), *not* ref writes. Its three ref sites are
-   invisible to the compiler until these clear, so fixing them first unlocks
-   nothing.
+3. The PDF viewer — split into `pdf-viewer.tsx` and the `use-pdf-*` hooks, it
+   is down from 5 bailouts to 3: a `tagged template with interpolations` in
+   `pdf-viewer.tsx` and in `use-pdf-document.ts`, and one preserved memo in
+   `use-pdf-view.ts`. None is a ref write.
 4. `DocumentCanvas` is skipped wholesale because its extension memos carry
    intentional `react-hooks/exhaustive-deps` disables (identity stability the
    compiler cannot express yet). Resolving this needs a design, not an edit.

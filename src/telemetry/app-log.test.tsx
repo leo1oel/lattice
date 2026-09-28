@@ -8,11 +8,58 @@ import {
   formatAppLogs,
   updateAppLog,
   useAppToastsSnapshot,
+  type AppLogEntry,
 } from "./app-log-store";
 import { AppLogsSettings, AppToastStack } from "./app-log";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
+
+type LogInput = Parameters<typeof addAppLog>[0];
+
+function show(entry: LogInput) {
+  let created!: AppLogEntry;
+  act(() => { created = addAppLog(entry); });
+  return created;
+}
+
+/** A log-only entry: the Logs pane reads these without any toast on screen. */
+const record = (entry: Partial<LogInput>) => show({ level: "info", source: "Build", title: "Built", toast: false, ...entry });
+
+/** A bridged Synara notification whose Cancel is later swapped for Retry. */
+const updatingPi = (onClick: () => void): LogInput => ({
+  level: "info", source: "Synara settings", title: "Updating Pi…",
+  toastOptions: { timeoutMs: 0, primaryAction: { label: "Cancel", onClick } },
+});
+const failPiUpdate = (id: string, patch: Parameters<typeof updateAppLog>[1], onClick: () => void) =>
+  act(() => { updateAppLog(id, { level: "error", ...patch }, { timeoutMs: 0, primaryAction: { label: "Retry", onClick } }); });
+
+const searchLogs = (value: string) =>
+  fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value } });
+
+const actionRow = () => within(document.querySelector<HTMLElement>(".app-log-action-row")!);
+
+function mockClipboard() {
+  const writeText = vi.fn(async () => undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  return writeText;
+}
+
+/** Holds `collect_diagnostic_logs` open until the test settles it. */
+function deferRuntimeLogs() {
+  const pending = {} as { resolve: (value: unknown) => void; reject: (error: Error) => void };
+  vi.mocked(invoke).mockImplementation(async (command) => command === "collect_diagnostic_logs"
+    ? new Promise((resolve, reject) => Object.assign(pending, { resolve, reject }))
+    : "/tmp/lattice-logs");
+  return pending;
+}
+
+/** Open the export dialog for every visible entry and return its runtime-log consent box. */
+function openRuntimeExport() {
+  render(<AppLogsSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  return screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
+}
 
 describe("AppToastStack", () => {
   beforeEach(() => {
@@ -30,34 +77,10 @@ describe("AppToastStack", () => {
   it("updates a bridged notification in place and keeps its actions", () => {
     const onAction = vi.fn();
     render(<AppToastStack />);
-    let entry!: ReturnType<typeof addAppLog>;
-    act(() => {
-      entry = addAppLog({
-        level: "info",
-        source: "Synara settings",
-        title: "Updating Pi…",
-        toastOptions: {
-          timeoutMs: 0,
-          primaryAction: { label: "Cancel", onClick: onAction },
-        },
-      });
-    });
+    const entry = show(updatingPi(onAction));
 
     expect(screen.getByText("Updating Pi…")).toBeInTheDocument();
-    act(() => {
-      updateAppLog(
-        entry.id,
-        {
-          level: "error",
-          title: "Could not update Pi",
-          detail: "NotFound: ChildProcess.spawn (pi update)",
-        },
-        {
-          timeoutMs: 0,
-          primaryAction: { label: "Retry", onClick: onAction },
-        },
-      );
-    });
+    failPiUpdate(entry.id, { title: "Could not update Pi", detail: "NotFound: ChildProcess.spawn (pi update)" }, onAction);
 
     expect(screen.queryByText("Updating Pi…")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("Could not update Pi");
@@ -68,26 +91,10 @@ describe("AppToastStack", () => {
   it("rewires a deduped repeat's buttons and not only its text", () => {
     const showLog = vi.fn();
     const retry = vi.fn();
+    const failure = { level: "error", source: "Build", title: "Build failed", dedupeKey: "build" } as const;
     render(<AppToastStack />);
-    act(() => {
-      addAppLog({
-        level: "error",
-        source: "Build",
-        title: "Build failed",
-        dedupeKey: "build",
-        toastOptions: { timeoutMs: 0, primaryAction: { label: "Show log", onClick: showLog } },
-      });
-    });
-    act(() => {
-      addAppLog({
-        level: "error",
-        source: "Build",
-        title: "Build failed",
-        detail: "Undefined control sequence",
-        dedupeKey: "build",
-        toastOptions: { timeoutMs: 0, primaryAction: { label: "Retry", onClick: retry } },
-      });
-    });
+    show({ ...failure, toastOptions: { timeoutMs: 0, primaryAction: { label: "Show log", onClick: showLog } } });
+    show({ ...failure, detail: "Undefined control sequence", toastOptions: { timeoutMs: 0, primaryAction: { label: "Retry", onClick: retry } } });
 
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Show log" })).toBeNull();
@@ -102,25 +109,11 @@ describe("AppToastStack", () => {
   // actions are replaced, so any memo keyed on the entry keeps the old buttons.
   it("moves the toast snapshot when only the actions change", () => {
     const { result } = renderHook(() => useAppToastsSnapshot());
-    let entry!: ReturnType<typeof addAppLog>;
-    act(() => {
-      entry = addAppLog({
-        level: "info",
-        source: "Synara settings",
-        title: "Updating Pi…",
-        toastOptions: { timeoutMs: 0, primaryAction: { label: "Cancel", onClick: vi.fn() } },
-      });
-    });
+    const entry = show(updatingPi(vi.fn()));
     const first = result.current;
     expect(first.map((toast) => toast.options?.primaryAction?.label)).toEqual(["Cancel"]);
 
-    act(() => {
-      updateAppLog(
-        entry.id,
-        { level: "error", title: "Could not update Pi" },
-        { timeoutMs: 0, primaryAction: { label: "Retry", onClick: vi.fn() } },
-      );
-    });
+    failPiUpdate(entry.id, { title: "Could not update Pi" }, vi.fn());
 
     expect(result.current[0].entry.id).toBe(entry.id);
     expect(result.current).not.toBe(first);
@@ -129,22 +122,16 @@ describe("AppToastStack", () => {
 
   it("holds the toast snapshot still for an entry nobody is shown", () => {
     const { result } = renderHook(() => useAppToastsSnapshot());
-    act(() => {
-      addAppLog({ level: "info", source: "Build", title: "Built", toastOptions: { timeoutMs: 0 } });
-    });
+    show({ level: "info", source: "Build", title: "Built", toastOptions: { timeoutMs: 0 } });
     const first = result.current;
-    act(() => {
-      addAppLog({ level: "info", source: "Build", title: "Cached", toast: false });
-    });
+    record({ title: "Cached" });
 
     expect(result.current).toBe(first);
   });
 
   it("refuses focus and makes a dismissed toast inert before its exit finishes", async () => {
     render(<AppToastStack />);
-    act(() => {
-      addAppLog({ level: "warning", source: "PDF", title: "No matching position in the PDF." });
-    });
+    show({ level: "warning", source: "PDF", title: "No matching position in the PDF." });
 
     const toast = screen.getByRole("status");
     // preventDefault on mousedown reports back as a `false` return, which is
@@ -160,9 +147,9 @@ describe("AppToastStack", () => {
   it("collapses a repeat into the toast already showing it", () => {
     render(<AppToastStack />);
     act(() => {
-      addAppLog({ level: "error", source: "Build", title: "Build failed", detail: "first", dedupeKey: "build" });
-      addAppLog({ level: "error", source: "Build", title: "Build failed", detail: "second", dedupeKey: "build" });
-      addAppLog({ level: "error", source: "Build", title: "Build failed", detail: "third", dedupeKey: "build" });
+      for (const detail of ["first", "second", "third"]) {
+        addAppLog({ level: "error", source: "Build", title: "Build failed", detail, dedupeKey: "build" });
+      }
     });
 
     expect(screen.getAllByRole("alert")).toHaveLength(1);
@@ -174,14 +161,7 @@ describe("AppToastStack", () => {
 
   it("keeps action correlation ids in the log without showing them to the user", () => {
     render(<AppToastStack />);
-    act(() => {
-      addAppLog({
-        level: "error",
-        source: "Build",
-        title: "Build failed",
-        detail: "Undefined control sequence\n#8c4c85",
-      });
-    });
+    show({ level: "error", source: "Build", title: "Build failed", detail: "Undefined control sequence\n#8c4c85" });
 
     expect(screen.getByRole("alert")).toHaveTextContent("Undefined control sequence");
     expect(screen.getByRole("alert")).not.toHaveTextContent("#8c4c85");
@@ -189,49 +169,35 @@ describe("AppToastStack", () => {
   });
 
   it("stops collapsing once the toast it was folding into is gone", () => {
+    const synced = { level: "info", source: "Overleaf", title: "Synced", dedupeKey: "sync" } as const;
     render(<AppToastStack />);
-    let first!: ReturnType<typeof addAppLog>;
-    act(() => {
-      first = addAppLog({ level: "info", source: "Overleaf", title: "Synced", dedupeKey: "sync" });
-    });
+    const first = show(synced);
     act(() => dismissAppToast(first.id));
-    act(() => {
-      addAppLog({ level: "info", source: "Overleaf", title: "Synced", dedupeKey: "sync" });
-    });
+    show(synced);
 
     expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 
   it("keeps aligned search and action rows without optional failure or slow filters", async () => {
-    act(() => {
-      addAppLog({ level: "info", source: "Build", title: "Built", toast: false });
-    });
+    record({});
     render(<AppLogsSettings />);
 
     const filter = screen.getByRole("combobox", { name: "Log level filter" });
-    expect(within(document.querySelector(".app-log-action-row")! as HTMLElement).getByRole("button", { name: "Export…" })).toBeEnabled();
-    expect(document.querySelector(".app-log-query-row")).toContainElement(screen.getByRole("searchbox", { name: "Search logs" }));
-    expect(document.querySelector(".app-log-query-row")).toContainElement(filter);
+    const queryRow = document.querySelector(".app-log-query-row");
+    expect(actionRow().getByRole("button", { name: "Export…" })).toBeEnabled();
+    expect(queryRow).toContainElement(screen.getByRole("searchbox", { name: "Search logs" }));
+    expect(queryRow).toContainElement(filter);
     expect(screen.queryByLabelText("Only failures")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Only slow (over 2000 ms)")).not.toBeInTheDocument();
     expect(filter).toHaveClass("app-log-level-filter");
     expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
-    expect(screen.getByText("Shows 300 recent entries; disk logs rotate"))
-      .toBeInTheDocument();
+    expect(screen.getByText("Shows 300 recent entries; disk logs rotate")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
   });
 
   it("renders chronological event rows with expandable details and search", () => {
-    act(() => {
-      addAppLog({
-        level: "warning",
-        source: "PDF",
-        title: "First event",
-        detail: "Line one\nLine two",
-        toast: false,
-      });
-      addAppLog({ level: "success", source: "Build", title: "Second event", toast: false });
-    });
+    record({ level: "warning", source: "PDF", title: "First event", detail: "Line one\nLine two" });
+    record({ level: "success", title: "Second event" });
     render(<AppLogsSettings />);
 
     const rows = [...document.querySelectorAll("[data-log-entry]")];
@@ -242,33 +208,28 @@ describe("AppToastStack", () => {
     expect(rows[1].querySelector(".app-log-severity")).toHaveTextContent("OK");
     expect(rows[0].querySelector("summary time")?.textContent).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
     expect(rows[0].querySelector("summary .app-log-inline-fields")).toHaveTextContent("source=PDF");
-    const details = rows[0];
-    expect(details).not.toHaveAttribute("open");
-    fireEvent.click(details.querySelector("summary")!);
-    expect(details).toHaveAttribute("open");
-    expect(details).toHaveTextContent("Line one Line two");
+    expect(rows[0]).not.toHaveAttribute("open");
+    fireEvent.click(rows[0].querySelector("summary")!);
+    expect(rows[0]).toHaveAttribute("open");
+    expect(rows[0]).toHaveTextContent("Line one Line two");
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), {
-      target: { value: "build" },
-    });
+    searchLogs("build");
     expect(screen.queryByText("First event")).toBeNull();
     expect(screen.getAllByText("Second event")[0]).toBeInTheDocument();
   });
 
   it("surfaces the captured diagnostic while preserving the original console event", () => {
-    addAppLog({ level: "warning", source: "App", title: "console.warn", detail: "Preview unavailable\nRetry scheduled", toast: false });
+    record({ level: "warning", source: "App", title: "console.warn", detail: "Preview unavailable\nRetry scheduled" });
     render(<AppLogsSettings />);
-    const row = document.querySelector("[data-log-entry]")!;
-    expect(row.querySelector("summary")).toHaveTextContent("Preview unavailable");
-    expect(row.querySelector("summary")).not.toHaveTextContent("console.warn");
-    fireEvent.click(row.querySelector("summary")!);
-    expect(row.querySelector(".app-log-message")).toHaveTextContent("console.warn Preview unavailable Retry scheduled");
+    const summary = document.querySelector("[data-log-entry] summary")!;
+    expect(summary).toHaveTextContent("Preview unavailable");
+    expect(summary).not.toHaveTextContent("console.warn");
+    fireEvent.click(summary);
+    expect(document.querySelector(".app-log-message")).toHaveTextContent("console.warn Preview unavailable Retry scheduled");
   });
 
   it("keeps per-entry export inside details and previews exactly the selected entry", () => {
-    act(() => {
-      addAppLog({ level: "error", source: "private source", title: "secret title", detail: "secret detail", toast: false });
-    });
+    record({ level: "error", source: "private source", title: "secret title", detail: "secret detail" });
     render(<AppLogsSettings />);
 
     expect(screen.queryByRole("button", { name: "Copy redacted log" })).not.toBeInTheDocument();
@@ -285,8 +246,8 @@ describe("AppToastStack", () => {
   });
 
   it("searches full operation ids and shows readable metadata without duplicate tags", () => {
-    addAppLog({
-      level: "success", source: "Build", title: "Compiled", detail: "#abcdef", toast: false,
+    record({
+      level: "success", title: "Compiled", detail: "#abcdef",
       context: {
         operation_id: "abcdef12-3456-7890-abcd-123456789012", operation: "Build",
         phase: "completed", outcome: "success", duration_ms: 1200, metrics: { diagnostics: 0 },
@@ -296,9 +257,9 @@ describe("AppToastStack", () => {
     expect(screen.getAllByText("1200 ms")[0]).toBeInTheDocument();
     expect(screen.getAllByTitle("abcdef12-3456-7890-abcd-123456789012")[0]).toHaveTextContent("abcdef12");
     expect(screen.queryByText("#abcdef")).toBeNull();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value: "123456789012" } });
+    searchLogs("123456789012");
     expect(screen.getAllByText("Compiled")[0]).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value: "missing-operation" } });
+    searchLogs("missing-operation");
     expect(screen.getByText("No matching logs")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Clear log search" }));
     expect(screen.getAllByText("Compiled")[0]).toBeInTheDocument();
@@ -307,53 +268,35 @@ describe("AppToastStack", () => {
   });
 
   it("opens at the newest entry without interrupting someone reading older logs", () => {
-    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
     let scrollHeight = 600;
-    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
-      configurable: true,
-      get() {
-        return this instanceof HTMLElement && this.matches("[data-slot='scroll-area-viewport']")
-          ? scrollHeight
-          : 0;
-      },
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.matches("[data-slot='scroll-area-viewport']") ? scrollHeight : 0;
     });
     try {
-      act(() => {
-        addAppLog({ level: "info", source: "Build", title: "Built", toast: false });
-      });
+      record({});
       render(<AppLogsSettings />);
 
-      const viewport = document.querySelector(".app-log-scroll [data-slot='scroll-area-viewport']") as HTMLDivElement;
+      const viewport = document.querySelector<HTMLDivElement>(".app-log-scroll [data-slot='scroll-area-viewport']")!;
       expect(viewport.scrollTop).toBe(600);
 
       Object.defineProperty(viewport, "clientHeight", { configurable: true, value: 200 });
       viewport.scrollTop = 100;
       scrollHeight = 700;
-      act(() => {
-        addAppLog({ level: "info", source: "Build", title: "Built again", toast: false });
-      });
+      record({ title: "Built again" });
       expect(viewport.scrollTop).toBe(100);
     } finally {
-      if (originalScrollHeight) {
-        Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
-      } else {
-        delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
-      }
+      height.mockRestore();
     }
   });
 
   it("groups an operation around its terminal summary and expands the complete timeline", () => {
-    const operationId = "123e4567-e89b-42d3-a456-426614174000";
-    const context = { operation_id: operationId, operation: "Build", metrics: {} } as const;
-    act(() => {
-      addAppLog({ level: "info", source: "Build", title: "Started build", toast: false,
-        context: { ...context, phase: "started" } });
-      addAppLog({ level: "error", source: "Build", title: "Build failed", toast: false,
-        context: { ...context, phase: "completed", outcome: "error", duration_ms: 2501 } });
-      addAppLog({ level: "info", source: "Build", title: "Cleanup breadcrumb", toast: false,
-        context: { ...context, phase: "progress" } });
-      addAppLog({ level: "success", source: "Diagnostics", title: "Late request succeeded", toast: false,
-        context: { ...context, request_id: crypto.randomUUID(), phase: "completed", outcome: "success" } });
+    const context = { operation_id: "123e4567-e89b-42d3-a456-426614174000", operation: "Build", metrics: {} } as const;
+    record({ title: "Started build", context: { ...context, phase: "started" } });
+    record({ level: "error", title: "Build failed", context: { ...context, phase: "completed", outcome: "error", duration_ms: 2501 } });
+    record({ title: "Cleanup breadcrumb", context: { ...context, phase: "progress" } });
+    record({
+      level: "success", source: "Diagnostics", title: "Late request succeeded",
+      context: { ...context, request_id: crypto.randomUUID(), phase: "completed", outcome: "success" },
     });
     render(<AppLogsSettings />);
 
@@ -371,26 +314,19 @@ describe("AppToastStack", () => {
   });
 
   it("exports backend logs without frontend entries, only after consent, and copies the preview", async () => {
-    let resolveLogs!: (value: unknown) => void;
     const bundle = { platform: "macos", arch: "aarch64", files: [
       { name: "sidecar-error.log", content: "sandbox-exec: sandbox_apply: Operation not permitted", truncated: true },
       { name: "server.log", content: "", truncated: false, error: "not found" },
     ] };
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "collect_diagnostic_logs") return new Promise((resolve) => { resolveLogs = resolve; });
-      return "/tmp/lattice-logs";
-    });
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    render(<AppLogsSettings />);
-    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
-    const consent = screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
+    const runtimeLogs = deferRuntimeLogs();
+    const writeText = mockClipboard();
+    const consent = openRuntimeExport();
     expect(consent).not.toBeChecked();
     expect(invoke).not.toHaveBeenCalledWith("collect_diagnostic_logs");
     fireEvent.click(consent);
     expect(screen.getByRole("button", { name: "Copy JSON" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Download JSON" })).toBeDisabled();
-    await act(async () => resolveLogs(bundle));
+    await act(async () => runtimeLogs.resolve(bundle));
     const preview = screen.getByLabelText("Export preview");
     expect(JSON.parse(preview.textContent!).runtime_logs).toEqual(bundle);
     fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
@@ -400,38 +336,30 @@ describe("AppToastStack", () => {
   });
 
   it("does not include a late collection after consent is withdrawn and can retry failures", async () => {
-    let rejectLogs!: (error: Error) => void;
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "collect_diagnostic_logs") return new Promise((_, reject) => { rejectLogs = reject; });
-      return "/tmp/lattice-logs";
-    });
-    render(<AppLogsSettings />);
-    fireEvent.click(screen.getByRole("button", { name: "Export…" }));
-    const consent = screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
+    const failed = deferRuntimeLogs();
+    const consent = openRuntimeExport();
     fireEvent.click(consent);
-    await act(async () => rejectLogs(new Error("Unavailable")));
+    await act(async () => failed.reject(new Error("Unavailable")));
     expect(screen.getByRole("alert")).toHaveTextContent("Unavailable");
     expect(screen.getByRole("button", { name: "Copy JSON" })).toBeDisabled();
-    let resolveLogs!: (value: unknown) => void;
-    vi.mocked(invoke).mockImplementation(async () => new Promise((resolve) => { resolveLogs = resolve; }));
+    const retried = deferRuntimeLogs();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     fireEvent.click(consent);
-    await act(async () => resolveLogs({ files: [{ name: "server.log", content: "late diagnostic" }] }));
+    await act(async () => retried.resolve({ files: [{ name: "server.log", content: "late diagnostic" }] }));
     expect(screen.getByLabelText("Export preview")).not.toHaveTextContent("late diagnostic");
     expect(screen.getByRole("button", { name: "Copy JSON" })).toBeEnabled();
   });
 
   it("previews and copies a safe stable export, requiring consent for raw text", () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    act(() => { addAppLog({ level: "error", source: "/private/alice", title: "secret title", detail: "document body", toast: false }); });
+    const writeText = mockClipboard();
+    record({ level: "error", source: "/private/alice", title: "secret title", detail: "document body" });
     render(<AppLogsSettings />);
-    const exportButton = within(document.querySelector(".app-log-action-row")! as HTMLElement).getByRole("button", { name: "Export…" });
+    const exportButton = actionRow().getByRole("button", { name: "Export…" });
     fireEvent.click(exportButton);
     const preview = screen.getByLabelText("Export preview");
     expect(preview).not.toHaveTextContent("document body");
     const original = preview.textContent;
-    act(() => { addAppLog({ level: "info", source: "App", title: "New event", toast: false }); });
+    record({ source: "App", title: "New event" });
     expect(preview.textContent).toBe(original);
     fireEvent.click(screen.getByRole("checkbox", { name: /Include raw diagnostic text/ }));
     expect(preview).toHaveTextContent("document body");

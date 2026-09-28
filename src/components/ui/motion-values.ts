@@ -27,6 +27,3 @@ export const MAGNET_SPRING: Transition = {
 
 /** Entrance spring for popovers/menus/cards, with no overshoot. */
 export const POP_SPRING = spring.moderate;
-
-/** Tabs and switch thumbs share the same short, non-overshooting travel. */
-export const SETTLE_SPRING = spring.moderate;

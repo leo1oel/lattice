@@ -34,23 +34,20 @@ export function RootErrorFallback({
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState("");
   const details = error.stack || error.message;
-  const restart = async () => {
+  /** Runs one recovery action, explaining the manual fallback when it fails. */
+  const attempt = async (action: () => Promise<void> | void, failure: string) => {
     setActionError("");
     try {
-      await onRestart();
+      await action();
     } catch {
-      setActionError("Lattice couldn’t restart automatically. Quit and reopen it manually.");
+      setActionError(failure);
     }
   };
-  const copyDetails = async () => {
-    setActionError("");
-    try {
-      await onCopyDetails(details);
-      setCopied(true);
-    } catch {
-      setActionError("Couldn’t copy the details. Expand Technical details and copy them manually.");
-    }
-  };
+  const restart = () => attempt(onRestart, "Lattice couldn’t restart automatically. Quit and reopen it manually.");
+  const copyDetails = () => attempt(async () => {
+    await onCopyDetails(details);
+    setCopied(true);
+  }, "Couldn’t copy the details. Expand Technical details and copy them manually.");
 
   return (
     <main className="root-error-page">
@@ -79,10 +76,7 @@ export function RootErrorFallback({
   );
 }
 
-export class RootErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
+export class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -102,9 +96,6 @@ export class RootErrorBoundary extends Component<
   }
 
   render() {
-    if (this.state.error) {
-      return <RootErrorFallback error={this.state.error} />;
-    }
-    return this.props.children;
+    return this.state.error ? <RootErrorFallback error={this.state.error} /> : this.props.children;
   }
 }

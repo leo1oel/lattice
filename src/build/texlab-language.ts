@@ -1,20 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import type { EditorState } from "@codemirror/state";
 import { hoverTooltip } from "@codemirror/view";
 
 const OPEN_CITATION = /\\(?:cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite)\*?(?:\[[^\]]*\]){0,2}\{([^}]*)$/;
 const OPEN_REFERENCE = /\\(?:ref|eqref|pageref|autoref|cref|Cref)\*?\{([^}]*)$/;
 
-export type TexlabCompletionItem = {
+type TexlabCompletionItem = {
   label: string;
   detail?: string | null;
   kind?: string | null;
   insertText?: string | null;
   documentation?: string | null;
-};
-
-export type TexlabHover = {
-  contents: string;
 };
 
 export type TexlabLocation = {
@@ -27,22 +24,34 @@ export function isCiteOrRefCompletionContext(textBefore: string): boolean {
   return OPEN_CITATION.test(textBefore) || OPEN_REFERENCE.test(textBefore);
 }
 
+/**
+ * The TexLab request position in a `.tex` file, or null when TexLab should not
+ * answer: citation and reference arguments belong to the bibliography sources.
+ */
+function texlabPosition(path: string, state: EditorState, pos: number) {
+  if (!path.endsWith(".tex")) return null;
+  if (isCiteOrRefCompletionContext(state.sliceDoc(Math.max(0, pos - 160), pos))) return null;
+  const line = state.doc.lineAt(pos);
+  return { line, request: { path, text: state.doc.toString(), line: line.number, character: pos - line.from + 1 } };
+}
+
+/** TexLab is optional help: any failure, in the request or its reply, means no answer. */
+async function quietly<T>(answer: () => Promise<T | null>): Promise<T | null> {
+  try {
+    return await answer();
+  } catch {
+    return null;
+  }
+}
+
 export function texlabCompletionSource(getPath: () => string) {
   return async (context: CompletionContext): Promise<CompletionResult | null> => {
-    const path = getPath();
-    if (!path.endsWith(".tex")) return null;
-    const textBefore = context.state.sliceDoc(Math.max(0, context.pos - 160), context.pos);
-    if (isCiteOrRefCompletionContext(textBefore)) return null;
     const word = context.matchBefore(/\\?[A-Za-z@*]*/);
     if (!word || (word.from === word.to && !context.explicit)) return null;
-    const docLine = context.state.doc.lineAt(context.pos);
-    try {
-      const items = await invoke<TexlabCompletionItem[]>("texlab_completion", {
-        path,
-        text: context.state.doc.toString(),
-        line: docLine.number,
-        character: context.pos - docLine.from + 1,
-      });
+    const position = texlabPosition(getPath(), context.state, context.pos);
+    if (!position) return null;
+    return quietly(async () => {
+      const items = await invoke<TexlabCompletionItem[]>("texlab_completion", position.request);
       if (!items.length) return null;
       return {
         from: word.from,
@@ -56,32 +65,20 @@ export function texlabCompletionSource(getPath: () => string) {
         })),
         validFor: /^\\?[A-Za-z@*]*$/,
       };
-    } catch {
-      return null;
-    }
+    });
   };
 }
 
 export function texlabHoverTooltip(getPath: () => string) {
-  return hoverTooltip(async (view, position) => {
-    const path = getPath();
-    if (!path.endsWith(".tex")) return null;
-    const textBefore = view.state.sliceDoc(Math.max(0, position - 160), position);
-    if (isCiteOrRefCompletionContext(textBefore)) return null;
-    const line = view.state.doc.lineAt(position);
-    try {
-      const hover = await invoke<TexlabHover | null>("texlab_hover", {
-        path,
-        text: view.state.doc.toString(),
-        line: line.number,
-        character: position - line.from + 1,
-      });
+  return hoverTooltip(async (view, pos) => {
+    const position = texlabPosition(getPath(), view.state, pos);
+    if (!position) return null;
+    return quietly(async () => {
+      const hover = await invoke<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
-      const start = Math.max(line.from, position - 40);
-      const end = Math.min(line.to, position + 40);
       return {
-        pos: start,
-        end,
+        pos: Math.max(position.line.from, pos - 40),
+        end: Math.min(position.line.to, pos + 40),
         above: true,
         create() {
           const dom = document.createElement("div");
@@ -90,29 +87,13 @@ export function texlabHoverTooltip(getPath: () => string) {
           return { dom };
         },
       };
-    } catch {
-      return null;
-    }
+    });
   }, { hoverTime: 420 });
 }
 
-export async function resolveTexlabDefinition(
-  path: string,
-  text: string,
-  line: number,
-  character: number,
-): Promise<TexlabLocation | null> {
+export async function resolveTexlabDefinition(path: string, text: string, line: number, character: number): Promise<TexlabLocation | null> {
   if (!path.endsWith(".tex")) return null;
-  try {
-    return await invoke<TexlabLocation | null>("texlab_definition", {
-      path,
-      text,
-      line,
-      character,
-    });
-  } catch {
-    return null;
-  }
+  return quietly(() => invoke<TexlabLocation | null>("texlab_definition", { path, text, line, character }));
 }
 
 export async function formatLatexDocument(path: string, text: string): Promise<string> {

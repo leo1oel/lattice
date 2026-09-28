@@ -53,10 +53,7 @@ export function startBrowserHostBridge(config: HostConfig): void {
     eventCallbacks.clear();
     for (const [eventId, listener] of listeners) {
       internals.unregisterCallback(listener.callbackId);
-      void internals.invoke("plugin:event|unlisten", {
-        event: listener.event,
-        eventId,
-      }).catch(() => undefined);
+      void internals.invoke("plugin:event|unlisten", { event: listener.event, eventId }).catch(() => undefined);
     }
   };
   const reviveChannels = (value: unknown, callbackIds: Set<number>): unknown => {
@@ -78,10 +75,7 @@ export function startBrowserHostBridge(config: HostConfig): void {
       });
       callbackIds.add(hostCallbackId);
       const serialize = () => `${CHANNEL_PREFIX}${hostCallbackId}`;
-      return {
-        [IPC_SERIALIZE_KEY]: serialize,
-        toJSON: serialize,
-      };
+      return { [IPC_SERIALIZE_KEY]: serialize, toJSON: serialize };
     }
     if (Array.isArray(value)) return value.map((child) => reviveChannels(child, callbackIds));
     if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return value;
@@ -95,42 +89,25 @@ export function startBrowserHostBridge(config: HostConfig): void {
 
   const handleInvoke = async (message: InvokeMessage) => {
     const channelCallbackIds = new Set<number>();
-    const args = reviveChannels(
-      decodeBridgeValue(message.args as never),
-      channelCallbackIds,
-    ) as Record<string, unknown>;
+    const args = reviveChannels(decodeBridgeValue(message.args as never), channelCallbackIds) as Record<string, unknown>;
     const options = decodeBridgeValue(message.options as never);
     const generation = browserGeneration;
     let hostEventCallback: number | undefined;
     try {
-      if (
-        message.command === "plugin:event|listen"
-        && typeof args.handler === "number"
-      ) {
+      if (message.command === "plugin:event|listen" && typeof args.handler === "number") {
         const browserCallback = args.handler;
-        hostEventCallback = internals.transformCallback((payload) => {
-          forwardCallback(browserCallback, payload);
-        });
+        hostEventCallback = internals.transformCallback((payload) => forwardCallback(browserCallback, payload));
         args.handler = hostEventCallback;
       }
       const value = await internals.invoke(message.command, args, options);
-      if (
-        message.command === "plugin:event|listen"
-        && typeof value === "number"
-        && hostEventCallback !== undefined
-      ) {
+      if (message.command === "plugin:event|listen" && typeof value === "number" && hostEventCallback !== undefined) {
         if (generation === browserGeneration) {
-          eventCallbacks.set(value, {
-            callbackId: hostEventCallback,
-            event: String(args.event),
-          });
+          eventCallbacks.set(value, { callbackId: hostEventCallback, event: String(args.event) });
         } else {
+          // The browser page reset while this listen was in flight.
           internals.unregisterCallback(hostEventCallback);
           hostEventCallback = undefined;
-          await internals.invoke("plugin:event|unlisten", {
-            event: args.event,
-            eventId: value,
-          });
+          await internals.invoke("plugin:event|unlisten", { event: args.event, eventId: value });
         }
       }
       if (message.command === "plugin:event|unlisten" && typeof args.eventId === "number") {
@@ -150,12 +127,8 @@ export function startBrowserHostBridge(config: HostConfig): void {
     } catch (error) {
       if (hostEventCallback !== undefined) internals.unregisterCallback(hostEventCallback);
       for (const callbackId of channelCallbackIds) internals.unregisterCallback(callbackId);
-      send({
-        type: "response",
-        id: message.id,
-        ok: false,
-        error: encodeBridgeValue(error instanceof Error ? error.message : error),
-      });
+      const reason = error instanceof Error ? error.message : error;
+      send({ type: "response", id: message.id, ok: false, error: encodeBridgeValue(reason) });
     }
   };
 
@@ -167,18 +140,25 @@ export function startBrowserHostBridge(config: HostConfig): void {
     } catch {
       return;
     }
-    if (message.type === "ready") {
-      send({ type: "storage", entries: Object.entries(localStorage) });
-    }
-    if (message.type === "browser-reset") resetEventCallbacks();
-    if (message.type === "storage-update") {
-      localStorage.clear();
-      for (const [key, value] of message.entries) localStorage.setItem(key, value);
-    }
-    if (message.type === "invoke") void handleInvoke(message);
-    if (message.type === "peer-disconnected") void getCurrentWindow().destroy();
-    if (message.type === "error") {
-      console.error(`[Lattice browser host] ${message.message}`);
+    switch (message.type) {
+      case "ready":
+        send({ type: "storage", entries: Object.entries(localStorage) });
+        break;
+      case "browser-reset":
+        resetEventCallbacks();
+        break;
+      case "storage-update":
+        localStorage.clear();
+        for (const [key, value] of message.entries) localStorage.setItem(key, value);
+        break;
+      case "invoke":
+        void handleInvoke(message);
+        break;
+      case "peer-disconnected":
+        void getCurrentWindow().destroy();
+        break;
+      case "error":
+        console.error(`[Lattice browser host] ${message.message}`);
     }
   });
   socket.addEventListener("error", () => {

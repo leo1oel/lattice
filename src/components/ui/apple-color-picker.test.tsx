@@ -4,27 +4,16 @@ import { AppleColorPicker } from "./apple-color-picker";
 
 afterEach(cleanup);
 
-describe("AppleColorPicker", () => {
-  function ControlledPicker({ initial = "#112233" }: { initial?: string }) {
-    return (
-      <AppleColorPicker
-        value={initial}
-        opacity={100}
-        onConfirm={vi.fn()}
-        onCancel={vi.fn()}
-      />
-    );
-  }
+function renderPicker(value = "#112233", opacity?: number) {
+  const onConfirm = vi.fn();
+  const onCancel = vi.fn();
+  render(<AppleColorPicker value={value} opacity={opacity} onConfirm={onConfirm} onCancel={onCancel} />);
+  return { onConfirm, onCancel };
+}
 
+describe("AppleColorPicker", () => {
   it("keeps a partial hex draft without committing it", () => {
-    const onConfirm = vi.fn();
-    render(
-      <AppleColorPicker
-        value="#112233"
-        onConfirm={onConfirm}
-        onCancel={vi.fn()}
-      />,
-    );
+    const { onConfirm } = renderPicker();
 
     fireEvent.click(screen.getByRole("tab", { name: "Slider" }));
     const hex = screen.getByRole("textbox", { name: "Hex color" });
@@ -34,7 +23,7 @@ describe("AppleColorPicker", () => {
   });
 
   it("uses the shared sliding tabs and animates the selected grid swatch", () => {
-    render(<ControlledPicker initial="#FFFF00" />);
+    renderPicker("#FFFF00", 100);
 
     expect(document.querySelector(".sliding-tab-pill")).not.toBeNull();
     const nextSwatch = screen.getByRole("button", { name: "Select #BE123C" });
@@ -51,15 +40,7 @@ describe("AppleColorPicker", () => {
   });
 
   it("keeps percentage decoration outside the value and supports wheel stepping", () => {
-    const onConfirm = vi.fn();
-    render(
-      <AppleColorPicker
-        value="#112233"
-        opacity={50}
-        onConfirm={onConfirm}
-        onCancel={vi.fn()}
-      />,
-    );
+    const { onConfirm } = renderPicker("#112233", 50);
 
     const opacity = screen.getByRole("spinbutton", { name: "Opacity value" });
     expect(opacity).toHaveValue(50);
@@ -70,15 +51,7 @@ describe("AppleColorPicker", () => {
   });
 
   it("steps RGB values with the wheel and keeps slider thumbs inside their tracks", () => {
-    const onConfirm = vi.fn();
-    render(
-      <AppleColorPicker
-        value="#112233"
-        opacity={0}
-        onConfirm={onConfirm}
-        onCancel={vi.fn()}
-      />,
-    );
+    renderPicker("#112233", 0);
 
     const opacityThumb = document.querySelector<HTMLElement>(".highlight-opacity-thumb");
     expect(opacityThumb?.style.getPropertyValue("--slider-position")).toBe("0%");
@@ -92,7 +65,7 @@ describe("AppleColorPicker", () => {
   });
 
   it("caps recent colors at eight while moving additions to the front", () => {
-    render(<ControlledPicker />);
+    renderPicker("#112233", 100);
 
     expect(screen.getAllByRole("button", { name: /^Recent color/ })).toHaveLength(8);
     fireEvent.click(screen.getByRole("button", { name: "Add current color" }));
@@ -103,9 +76,7 @@ describe("AppleColorPicker", () => {
   });
 
   it("shows a useful color name and keeps cancel separate from confirm", () => {
-    const onConfirm = vi.fn();
-    const onCancel = vi.fn();
-    render(<AppleColorPicker value="#FFFF00" onConfirm={onConfirm} onCancel={onCancel} />);
+    const { onConfirm, onCancel } = renderPicker("#FFFF00");
 
     expect(screen.getByText("Yellow")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Select #FFCC00" }));

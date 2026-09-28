@@ -4,9 +4,9 @@ import {
   isConferenceFontsMissing,
   isMissingTexBuildError,
   isRequiredSetupMissing,
-  isTexToolchainMissing,
   missingRequiredToolNames,
   missingTexToolNames,
+  type DoctorReportLike,
 } from "./tex-setup";
 import { TexSetupWizard } from "./tex-setup-wizard";
 
@@ -25,44 +25,34 @@ vi.mock("@tauri-apps/api/core", () => ({
   },
 }));
 
+const check = (name: string, ok = true, detail = ok ? "ok" : "missing") => ({ name, detail, ok });
+const report = (...checks: DoctorReportLike["checks"]): DoctorReportLike => ({
+  ok: checks.every((item) => item.ok),
+  summary: "doctor",
+  checks,
+});
+const TEX_TOOLS = ["latexmk", "pdflatex", "synctex", "bibtex"].map((name) => check(name));
+const READY = [...TEX_TOOLS, check("conference-fonts"), check("uv"), check("uvx")];
+
+function renderWizard(initial: DoctorReportLike, onRecheck = vi.fn(async (): Promise<DoctorReportLike | null> => null)) {
+  const onClose = vi.fn();
+  render(<TexSetupWizard open report={initial} checking={false} onClose={onClose} onRecheck={onRecheck} />);
+  return { onClose, onRecheck };
+}
+
 describe("tex setup wizard helpers", () => {
   beforeEach(() => {
-    localStorage.clear();
     tauri.invoke.mockReset();
     tauri.channel = null;
   });
 
-  it("detects a missing TeX toolchain from doctor checks", () => {
-    expect(isTexToolchainMissing({
-      ok: false,
-      summary: "missing",
-      checks: [
-        { name: "latexmk", detail: "missing", ok: false },
-        { name: "pdflatex", detail: "missing", ok: false },
-      ],
-    })).toBe(true);
-    expect(isTexToolchainMissing({
-      ok: false,
-      summary: "agent missing but TeX ok",
-      checks: [
-        { name: "latexmk", detail: "ok", ok: true },
-        { name: "pdflatex", detail: "ok", ok: true },
-        { name: "synctex", detail: "ok", ok: true },
-        { name: "bibtex", detail: "ok", ok: true },
-        { name: "xelatex", detail: "missing", ok: false },
-        { name: "lualatex", detail: "missing", ok: false },
-      ],
-    })).toBe(false);
-    expect(missingTexToolNames({
-      ok: false,
-      summary: "missing",
-      checks: [
-        { name: "latexmk", detail: "ok", ok: true },
-        { name: "pdflatex", detail: "ok", ok: true },
-        { name: "synctex", detail: "missing", ok: false },
-        { name: "bibtex", detail: "ok", ok: true },
-      ],
-    })).toEqual(["synctex"]);
+  it("detects a missing TeX toolchain from doctor checks, accepting any one engine", () => {
+    expect(missingTexToolNames(report(check("latexmk", false), check("pdflatex", false))))
+      .toEqual(["latexmk", "synctex", "bibtex", "pdflatex"]);
+    expect(missingTexToolNames(report(...TEX_TOOLS, check("xelatex", false), check("lualatex", false)))).toEqual([]);
+    expect(missingTexToolNames(report(...TEX_TOOLS.filter(({ name }) => name !== "synctex"), check("synctex", false))))
+      .toEqual(["synctex"]);
+    expect(missingTexToolNames(null)).toEqual([]);
   });
 
   it("recognizes build errors that mean TeX is not installed", () => {
@@ -75,83 +65,30 @@ describe("tex setup wizard helpers", () => {
   });
 
   it("reports conference font status separately from compile tools", () => {
-    const report = {
-      ok: true,
-      summary: "ready tools, missing fonts",
-      checks: [
-        { name: "latexmk", detail: "ok", ok: true },
-        { name: "pdflatex", detail: "ok", ok: true },
-        { name: "synctex", detail: "ok", ok: true },
-        { name: "bibtex", detail: "ok", ok: true },
-        { name: "conference-fonts", detail: "Missing t1ptm.fd", ok: false },
-      ],
-    };
-    expect(isTexToolchainMissing(report)).toBe(false);
-    expect(isConferenceFontsMissing(report)).toBe(true);
-    expect(isConferenceFontsMissing({
-      ok: false,
-      summary: "font check absent",
-      checks: [],
-    })).toBe(true);
+    const fontsMissing = report(...TEX_TOOLS, check("conference-fonts", false, "Missing t1ptm.fd"));
+    expect(missingTexToolNames(fontsMissing)).toEqual([]);
+    expect(isConferenceFontsMissing(fontsMissing)).toBe(true);
+    expect(isConferenceFontsMissing(report())).toBe(true);
   });
 
   it("offers one managed install action when only uv is missing", () => {
-    const onClose = vi.fn();
-    render(
-      <TexSetupWizard
-        open
-        report={{
-          ok: false,
-          summary: "missing",
-          checks: [
-            { name: "latexmk", detail: "ok", ok: true },
-            { name: "pdflatex", detail: "ok", ok: true },
-            { name: "synctex", detail: "ok", ok: true },
-            { name: "bibtex", detail: "ok", ok: true },
-            { name: "conference-fonts", detail: "ok", ok: true },
-            { name: "uv", detail: "missing", ok: false },
-            { name: "uvx", detail: "missing", ok: false },
-          ],
-        }}
-        checking={false}
-        onClose={onClose}
-        onRecheck={vi.fn(async () => null)}
-      />,
-    );
+    const { onClose } = renderWizard(report(...TEX_TOOLS, check("conference-fonts"), check("uv", false), check("uvx", false)));
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Install required tools" })).toBeEnabled();
-    expect(screen.getByText(/verified download uses about 45 MB/))
-      .toBeInTheDocument();
-    expect(isRequiredSetupMissing({
-      ok: false,
-      summary: "uv missing",
-      checks: [
-        { name: "uv", detail: "missing", ok: false },
-        { name: "uvx", detail: "missing", ok: false },
-      ],
-    })).toBe(true);
-    expect(missingRequiredToolNames({
-      ok: false,
-      summary: "uv missing",
-      checks: [
-        { name: "uv", detail: "missing", ok: false },
-        { name: "uvx", detail: "missing", ok: false },
-      ],
-    })).toEqual(["uv", "uvx"]);
-    expect(screen.queryByText("Install MacTeX (full)")).not.toBeInTheDocument();
-    expect(screen.queryByText("Skip for now")).not.toBeInTheDocument();
-    expect(screen.queryByText("Recheck")).not.toBeInTheDocument();
-    expect(screen.queryByText("Close")).not.toBeInTheDocument();
+    expect(screen.getByText(/verified download uses about 45 MB/)).toBeInTheDocument();
+    const uvMissing = report(check("uv", false), check("uvx", false));
+    expect(isRequiredSetupMissing(uvMissing)).toBe(true);
+    expect(missingRequiredToolNames(uvMissing)).toEqual(["uv", "uvx"]);
+    for (const retired of ["Install MacTeX (full)", "Skip for now", "Recheck", "Close"]) {
+      expect(screen.queryByText(retired)).not.toBeInTheDocument();
+    }
 
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Install required tools" }));
-    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", {
-      mode: "toolsOnly",
-      onProgress: expect.anything(),
-    });
+    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", { mode: "toolsOnly", onProgress: expect.anything() });
   });
 
   it("renders backend installation progress and closes only after verification", async () => {
@@ -159,54 +96,20 @@ describe("tex setup wizard helpers", () => {
     tauri.invoke.mockReturnValue(new Promise<void>((resolve) => {
       finishInstall = resolve;
     }));
-    const onClose = vi.fn();
-    const onRecheck = vi.fn(async () => ({
-      ok: true,
-      summary: "ready",
-      checks: [
-        { name: "latexmk", detail: "ok", ok: true },
-        { name: "pdflatex", detail: "ok", ok: true },
-        { name: "synctex", detail: "ok", ok: true },
-        { name: "bibtex", detail: "ok", ok: true },
-        { name: "conference-fonts", detail: "ok", ok: true },
-        { name: "uv", detail: "ok", ok: true },
-        { name: "uvx", detail: "ok", ok: true },
-      ],
-    }));
-    render(
-      <TexSetupWizard
-        open
-        report={{
-          ok: false,
-          summary: "missing",
-          checks: [{ name: "latexmk", detail: "missing", ok: false }],
-        }}
-        checking={false}
-        onClose={onClose}
-        onRecheck={onRecheck}
-      />,
-    );
+    const { onClose, onRecheck } = renderWizard(report(check("latexmk", false)), vi.fn(async () => report(...READY)));
 
     fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX" }));
-    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", {
-      mode: "full",
-      onProgress: expect.anything(),
-    });
+    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", { mode: "full", onProgress: expect.anything() });
     expect(document.querySelector(".tex-setup-install-loader")).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
 
-    act(() => {
-      tauri.channel?.onmessage?.({ stage: "downloading", progress: 0.37 });
-    });
+    act(() => tauri.channel?.onmessage?.({ stage: "downloading", progress: 0.37 }));
     expect(screen.getByRole("progressbar", { name: "BasicTeX installation progress" }))
       .toHaveAttribute("aria-valuenow", "37");
     expect(document.querySelector(".tex-setup-progress-fill")).toHaveStyle({ width: "37%" });
 
-    act(() => {
-      tauri.channel?.onmessage?.({ stage: "installing-packages", progress: 0.82 });
-    });
-    expect(screen.getByText("This is the longest step and can take up to 15 minutes"))
-      .toBeInTheDocument();
+    act(() => tauri.channel?.onmessage?.({ stage: "installing-packages", progress: 0.82 }));
+    expect(screen.getByText("This is the longest step and can take up to 15 minutes")).toBeInTheDocument();
 
     await act(async () => finishInstall());
     expect(onRecheck).toHaveBeenCalledOnce();
@@ -215,26 +118,10 @@ describe("tex setup wizard helpers", () => {
 
   it("shows the concrete doctor failure and keeps install available", async () => {
     tauri.invoke.mockResolvedValue(undefined);
-    render(
-      <TexSetupWizard
-        open
-        report={{
-          ok: false,
-          summary: "missing",
-          checks: [{ name: "latexmk", detail: "missing", ok: false }],
-        }}
-        checking={false}
-        onClose={vi.fn()}
-        onRecheck={vi.fn(async () => ({
-          ok: false,
-          summary: "permissions",
-          checks: [
-            { name: "latexmk", detail: "Permission denied", ok: false },
-            { name: "conference-fonts", detail: "Missing uhvr8a.pfb — Permission denied", ok: false },
-          ],
-        }))}
-      />,
-    );
+    renderWizard(report(check("latexmk", false)), vi.fn(async () => report(
+      check("latexmk", false, "Permission denied"),
+      check("conference-fonts", false, "Missing uhvr8a.pfb — Permission denied"),
+    )));
 
     fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX" }));
 

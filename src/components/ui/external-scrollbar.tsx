@@ -1,33 +1,18 @@
+import { type WheelEvent as ReactWheelEvent, useCallback, useRef, useState } from "react";
 import {
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import {
-  calculateVerticalScrollGeometry,
-  EXTERNAL_SCROLLBAR_TRACK_INSET,
-  type VerticalScrollGeometry,
+  calculateScrollAxisGeometry,
+  EXTERNAL_THUMB,
+  type ScrollAxisGeometry,
 } from "./external-scrollbar-geometry";
+import { useScrollbarViewport } from "./scrollbar-track";
 import "./scroll-area.css";
 
-type ExternalScrollbarProps = {
-  getViewport: () => HTMLElement | null;
-};
-
 const SCROLLING_HIDE_DELAY_MS = 500;
-const MAX_VIEWPORT_ATTACH_FRAMES = 60;
 
-const EMPTY_GEOMETRY: VerticalScrollGeometry = {
-  height: 0,
-  maxScrollTop: 0,
-  overflow: false,
-  scrollTop: 0,
-  thumbHeight: 0,
-  thumbOffset: 0,
+const EMPTY_TRACK: { top: number; height: number; axis: ScrollAxisGeometry } = {
   top: 0,
+  height: 0,
+  axis: calculateScrollAxisGeometry({ content: 0, offset: 0, track: 0, viewport: 0 }, EXTERNAL_THUMB),
 };
 
 /**
@@ -35,195 +20,65 @@ const EMPTY_GEOMETRY: VerticalScrollGeometry = {
  * regular ScrollArea (for example, a virtualized viewport inside shadow DOM).
  * The native scrollbar must be hidden by the owner-specific stylesheet.
  */
-export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
+export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElement | null }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLElement | null>(null);
-  const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    scrollPerPixel: number;
-    startClientY: number;
-    startScrollTop: number;
-  } | null>(null);
-  const [geometry, setGeometry] = useState(EMPTY_GEOMETRY);
+  const [track, setTrack] = useState(EMPTY_TRACK);
   const [hovering, setHovering] = useState(false);
-  const [scrolling, setScrolling] = useState(false);
+  const { axis } = track;
 
-  const measure = useCallback(() => {
-    const viewport = viewportRef.current;
-    const track = trackRef.current;
-    const surface = track?.parentElement;
+  const measure = useCallback((viewport: HTMLElement | null) => {
+    const surface = trackRef.current?.parentElement;
     if (!viewport || !surface) {
-      setGeometry(EMPTY_GEOMETRY);
+      setTrack(EMPTY_TRACK);
       return;
     }
-    const viewportRect = viewport.getBoundingClientRect();
-    const surfaceRect = surface.getBoundingClientRect();
-    setGeometry(calculateVerticalScrollGeometry(
-      viewport,
-      viewportRect.top - surfaceRect.top,
-    ));
+    const height = Math.max(0, viewport.clientHeight);
+    setTrack({
+      top: viewport.getBoundingClientRect().top - surface.getBoundingClientRect().top,
+      height,
+      axis: calculateScrollAxisGeometry(
+        { content: viewport.scrollHeight, offset: viewport.scrollTop, track: height, viewport: height },
+        EXTERNAL_THUMB,
+      ),
+    });
   }, []);
 
-  const scheduleMeasure = useCallback(() => {
-    if (frameRef.current != null) return;
-    frameRef.current = requestAnimationFrame(() => {
-      frameRef.current = null;
-      measure();
-    });
-  }, [measure]);
-
-  // Layout, not paint: this scrollbar often mounts because its viewport is
-  // already in the DOM (Univer's All Functions list). A useEffect attach would
-  // leave a committed node that does not yet listen for pointerenter, so the
-  // first hover can miss — especially when jsdom's 16 ms rAF retry is delayed
-  // behind other frames.
-  useLayoutEffect(() => {
-    let cancelled = false;
-    let retryFrame: number | null = null;
-    let attachAttempts = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    let mutationObserver: MutationObserver | null = null;
-    let viewport: HTMLElement | null = null;
-
-    const markScrolling = () => {
-      scheduleMeasure();
-      setScrolling(true);
-      if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
-      scrollingTimerRef.current = setTimeout(() => {
-        scrollingTimerRef.current = null;
-        setScrolling(false);
-      }, SCROLLING_HIDE_DELAY_MS);
-    };
+  const watch = useCallback((viewport: HTMLElement, scheduleMeasure: () => void) => {
     const markHovering = () => setHovering(true);
     const clearHovering = () => setHovering(false);
-
-    const attach = () => {
-      if (cancelled) return;
-      viewport = getViewport();
-      if (!viewport) {
-        // Tests polyfill rAF as setTimeout(0). An uncapped retry would spin
-        // the Univer sidebar lookup (which never appears under the mock).
-        attachAttempts += 1;
-        if (attachAttempts < MAX_VIEWPORT_ATTACH_FRAMES) {
-          retryFrame = requestAnimationFrame(attach);
-        }
-        return;
-      }
-
-      viewportRef.current = viewport;
-      viewport.addEventListener("scroll", markScrolling, { passive: true });
-      viewport.addEventListener("pointerenter", markHovering);
-      viewport.addEventListener("pointerleave", clearHovering);
-      const root = viewport.getRootNode();
-      if (typeof ResizeObserver !== "undefined") {
-        resizeObserver = new ResizeObserver(scheduleMeasure);
-        resizeObserver.observe(viewport);
-        for (const child of viewport.children) {
-          if (child instanceof HTMLElement) resizeObserver.observe(child);
-        }
-        const content = viewport.querySelector<HTMLElement>("[data-file-tree-virtualized-list]");
-        if (content) resizeObserver.observe(content);
-        const surface = trackRef.current?.parentElement;
-        if (surface) resizeObserver.observe(surface);
-      }
-      if (root instanceof ShadowRoot) {
-        mutationObserver = new MutationObserver(scheduleMeasure);
-        mutationObserver.observe(root, {
-          attributes: true,
-          attributeFilter: ["style"],
-          childList: true,
-          subtree: true,
-        });
-      }
-      scheduleMeasure();
-    };
-
-    attach();
+    viewport.addEventListener("pointerenter", markHovering);
+    viewport.addEventListener("pointerleave", clearHovering);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
+    const observed = [
+      viewport,
+      ...viewport.children,
+      viewport.querySelector("[data-file-tree-virtualized-list]"),
+      trackRef.current?.parentElement,
+    ];
+    for (const element of observed) {
+      if (element instanceof HTMLElement) resizeObserver?.observe(element);
+    }
+    const root = viewport.getRootNode();
+    const mutationObserver = root instanceof ShadowRoot ? new MutationObserver(scheduleMeasure) : null;
+    mutationObserver?.observe(root, { attributes: true, attributeFilter: ["style"], childList: true, subtree: true });
     return () => {
-      cancelled = true;
-      if (retryFrame != null) cancelAnimationFrame(retryFrame);
-      if (frameRef.current != null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
-      if (scrollingTimerRef.current != null) {
-        clearTimeout(scrollingTimerRef.current);
-        scrollingTimerRef.current = null;
-      }
-      viewport?.removeEventListener("scroll", markScrolling);
-      viewport?.removeEventListener("pointerenter", markHovering);
-      viewport?.removeEventListener("pointerleave", clearHovering);
+      viewport.removeEventListener("pointerenter", markHovering);
+      viewport.removeEventListener("pointerleave", clearHovering);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
-      viewportRef.current = null;
     };
-  }, [getViewport, scheduleMeasure]);
+  }, []);
 
-  const scrollToThumbOffset = (thumbOffset: number) => {
-    const viewport = viewportRef.current;
-    const availableTrack = Math.max(
-      0,
-      geometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2,
-    );
-    const travel = Math.max(0, availableTrack - geometry.thumbHeight);
-    if (!viewport || travel <= 0) return;
-    viewport.scrollTop = geometry.maxScrollTop
-      * (Math.min(Math.max(0, thumbOffset), travel) / travel);
-  };
-
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const viewport = viewportRef.current;
-    if (!viewport || !geometry.overflow) return;
-    event.preventDefault();
-    const track = event.currentTarget;
-    const isThumb = event.target instanceof HTMLElement
-      && event.target.dataset.slot === "scroll-area-thumb";
-    const availableTrack = Math.max(
-      0,
-      geometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2,
-    );
-    const travel = Math.max(0, availableTrack - geometry.thumbHeight);
-    if (!isThumb) {
-      const rect = track.getBoundingClientRect();
-      scrollToThumbOffset(
-        event.clientY
-          - rect.top
-          - EXTERNAL_SCROLLBAR_TRACK_INSET
-          - geometry.thumbHeight / 2,
-      );
-    }
-    dragRef.current = {
-      pointerId: event.pointerId,
-      scrollPerPixel: travel > 0 ? geometry.maxScrollTop / travel : 0,
-      startClientY: event.clientY,
-      startScrollTop: viewport.scrollTop,
-    };
-    track.setPointerCapture(event.pointerId);
-    setScrolling(true);
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const viewport = viewportRef.current;
-    const drag = dragRef.current;
-    if (!viewport || !drag || drag.pointerId !== event.pointerId) return;
-    viewport.scrollTop = drag.startScrollTop
-      + (event.clientY - drag.startClientY) * drag.scrollPerPixel;
-  };
-
-  const endPointerDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) return;
-    dragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    setScrolling(false);
-  };
+  const { viewportRef, scrolling, setScrolling, drag } = useScrollbarViewport(
+    getViewport,
+    measure,
+    SCROLLING_HIDE_DELAY_MS,
+    watch,
+  );
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;
-    if (!viewport || !geometry.overflow) return;
+    if (!viewport || !axis.overflow) return;
     event.preventDefault();
     viewport.scrollTop += event.deltaY;
   };
@@ -235,32 +90,29 @@ export function ExternalScrollbar({ getViewport }: ExternalScrollbarProps) {
       className="lattice-scrollbar external-scrollbar"
       data-hovering={hovering ? "" : undefined}
       data-orientation="vertical"
-      data-overflow-y-end={
-        geometry.overflow && geometry.scrollTop < geometry.maxScrollTop ? "" : undefined
-      }
-      data-overflow-y-start={geometry.overflow && geometry.scrollTop > 0 ? "" : undefined}
+      data-overflow-y-end={axis.canScrollEnd ? "" : undefined}
+      data-overflow-y-start={axis.canScrollStart ? "" : undefined}
       data-scrolling={scrolling ? "" : undefined}
-      onPointerCancel={endPointerDrag}
-      onPointerDown={handlePointerDown}
+      onPointerCancel={drag.end}
+      onPointerDown={(event) => {
+        if (axis.overflow) drag.begin(event, "y", axis);
+      }}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
         setHovering(false);
-        if (!dragRef.current) setScrolling(false);
+        if (!drag.dragRef.current) setScrolling(false);
       }}
-      onPointerMove={handlePointerMove}
-      onPointerUp={endPointerDrag}
+      onPointerMove={drag.move}
+      onPointerUp={drag.end}
       onWheel={handleWheel}
-      style={{
-        height: geometry.height,
-        top: geometry.top,
-      }}
+      style={{ height: track.height, top: track.top }}
     >
       <div
         className="lattice-scrollbar-thumb"
         data-slot="scroll-area-thumb"
         style={{
-          height: geometry.thumbHeight,
-          transform: `translate3d(-2px, ${geometry.thumbOffset}px, 0)`,
+          height: axis.thumbSize,
+          transform: `translate3d(-2px, ${axis.thumbOffset}px, 0)`,
         }}
       />
     </div>

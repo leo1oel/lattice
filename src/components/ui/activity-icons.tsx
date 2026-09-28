@@ -1,8 +1,4 @@
-import {
-  useState,
-  type MouseEventHandler,
-  type ReactNode,
-} from "react";
+import { useState, type MouseEventHandler, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import infinityLoaderUrl from "../../../infinity-loader.svg";
 import { cn } from "@/lib/utils";

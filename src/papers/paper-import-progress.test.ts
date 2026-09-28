@@ -2,15 +2,13 @@ import { describe, expect, it } from "vitest";
 import { paperImportProgressAt, paperImportStageLabel } from "./paper-import-progress";
 
 describe("paperImportStageLabel", () => {
-  it("names every stage the Rust pipeline emits", () => {
-    expect(paperImportStageLabel("resolving")).toBe("Resolving citation metadata…");
-    expect(paperImportStageLabel("fulltext")).toBe("Downloading full text and figures…");
-    expect(paperImportStageLabel("overview")).toBe("Fetching the paper overview…");
-  });
-
-  it("degrades an unknown stage to a generic label, not silence", () => {
-    expect(paperImportStageLabel("something-new")).toBe("Working…");
-  });
+  it.each([
+    ["resolving", "Resolving citation metadata…"],
+    ["fulltext", "Downloading full text and figures…"],
+    ["overview", "Fetching the paper overview…"],
+    // An unknown stage degrades to a generic label, not silence.
+    ["something-new", "Working…"],
+  ])("labels the %s stage", (stage, label) => expect(paperImportStageLabel(stage)).toBe(label));
 });
 
 describe("estimated import motion", () => {

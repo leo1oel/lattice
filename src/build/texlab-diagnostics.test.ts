@@ -6,8 +6,7 @@ import { editorTexlabDiagnosticsForFile } from "./texlab-diagnostics";
 
 describe("editorTexlabDiagnosticsForFile", () => {
   const boxWarning = {
-    file: "main.tex", line: 1, column: 1, endLine: 1, endColumn: 1,
-    level: "warning",
+    file: "main.tex", line: 1, column: 1, endLine: 1, endColumn: 1, level: "warning",
     message: "Underfull \\hbox (badness 1953) in paragraph at lines 157--160",
   };
 
@@ -22,13 +21,9 @@ describe("editorTexlabDiagnosticsForFile", () => {
     try {
       // Start with the old, misleading mark so this also checks its removal
       // from an already mounted editor when fresh diagnostics arrive.
-      view.dispatch(setDiagnostics(view.state, [{
-        from: 0, to: 12, severity: "warning", message,
-      }]));
+      view.dispatch(setDiagnostics(view.state, [{ from: 0, to: 12, severity: "warning", message }]));
       expect(view.dom.querySelector(".cm-lintRange-warning")?.textContent).toBe("\\documentcla");
-      view.dispatch(setDiagnostics(view.state, editorTexlabDiagnosticsForFile(
-        [...input], "main.tex", view.state.doc,
-      )));
+      view.dispatch(setDiagnostics(view.state, editorTexlabDiagnosticsForFile([...input], "main.tex", view.state.doc)));
       expect(view.dom.querySelector(".cm-lintRange")).toBeNull();
       expect(input[0].message).toBe(message);
     } finally {
@@ -52,39 +47,20 @@ describe("editorTexlabDiagnosticsForFile", () => {
 
   it("maps TexLab diagnostics onto the active file with texlab source", () => {
     const doc = EditorState.create({ doc: "one\ntwo\nthree\nfour\n" }).doc;
-    const diagnostics = editorTexlabDiagnosticsForFile(
-      [
-        { file: "main.tex", line: 2, level: "error", message: "Undefined control sequence." },
-        { file: "other.tex", line: 1, level: "warning", message: "Ignored." },
-      ],
-      "main.tex",
-      doc,
-    );
-    expect(diagnostics).toEqual([{
-      from: doc.line(2).from,
-      to: doc.line(2).to,
-      severity: "error",
-      message: "Undefined control sequence.",
-      source: "texlab",
-    }]);
+    const diagnostics = editorTexlabDiagnosticsForFile([
+      { file: "main.tex", line: 2, level: "error", message: "Undefined control sequence." },
+      { file: "other.tex", line: 1, level: "warning", message: "Ignored." },
+    ], "main.tex", doc);
+    expect(diagnostics).toEqual([
+      { from: doc.line(2).from, to: doc.line(2).to, severity: "error", message: "Undefined control sequence.", source: "texlab" },
+    ]);
   });
 
   it("uses column ranges when TexLab provides them", () => {
     const doc = EditorState.create({ doc: "abcdef\n" }).doc;
-    const diagnostics = editorTexlabDiagnosticsForFile(
-      [{
-        file: "main.tex",
-        line: 1,
-        column: 2,
-        endLine: 1,
-        endColumn: 5,
-        level: "warning",
-        message: "Span",
-      }],
-      "main.tex",
-      doc,
-    );
-    expect(diagnostics[0]?.from).toBe(doc.line(1).from + 1);
-    expect(diagnostics[0]?.to).toBe(doc.line(1).from + 4);
+    const [diagnostic] = editorTexlabDiagnosticsForFile([
+      { file: "main.tex", line: 1, column: 2, endLine: 1, endColumn: 5, level: "warning", message: "Span" },
+    ], "main.tex", doc);
+    expect([diagnostic?.from, diagnostic?.to]).toEqual([doc.line(1).from + 1, doc.line(1).from + 4]);
   });
 });

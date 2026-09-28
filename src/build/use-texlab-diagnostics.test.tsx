@@ -23,12 +23,12 @@ function requestId() {
   return (vi.mocked(invoke).mock.calls.at(-1)![1] as { requestId: string }).requestId;
 }
 
-function publish(id: string, diagnostics: CompileDiagnostic[]) {
-  act(() => {
-    // Include disposed handlers deliberately: late deliveries must be harmless.
-    for (const handler of handlers) handler({ event: "texlab-diagnostics", id: 1, payload: { requestId: id, diagnostics } });
-  });
+function deliver(id: string, diagnostics: CompileDiagnostic[]) {
+  // Include disposed handlers deliberately: late deliveries must be harmless.
+  for (const handler of handlers) handler({ event: "texlab-diagnostics", id: 1, payload: { requestId: id, diagnostics } });
 }
+
+const publish = (id: string, diagnostics: CompileDiagnostic[]) => act(() => deliver(id, diagnostics));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -50,12 +50,7 @@ afterEach(() => {
 });
 
 it("renders later publications and clears warnings while idle, without another sync", async () => {
-  vi.mocked(invoke).mockImplementationOnce(async (_command, args) => {
-    const { requestId: id } = args as { requestId: string };
-    for (const handler of handlers) {
-      handler({ event: "texlab-diagnostics", id: 1, payload: { requestId: id, diagnostics: [warning] } });
-    }
-  });
+  vi.mocked(invoke).mockImplementationOnce(async (_command, args) => deliver((args as { requestId: string }).requestId, [warning]));
   render(<Surface {...initial} />);
   await act(() => vi.advanceTimersByTimeAsync(699));
   expect(invoke).not.toHaveBeenCalled();

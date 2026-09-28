@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  dropTargetDirectory,
   fromPierrePath,
   normalizePointerDraggedPaths,
   pointerDragBasename,
@@ -56,100 +57,56 @@ function tree() {
     },
   }) as unknown as PointerEvent;
 
-  return { addRow, host, pointerOver, root, surface };
+  return { addRow, pointerOver, root, surface };
 }
+
+const directoryTarget = (directoryPath: string, hoveredPath: string, flattenedSegmentPath: string | null = null) => ({
+  directoryPath,
+  flattenedSegmentPath,
+  hoveredPath,
+  kind: "directory" as const,
+});
+const rootTarget = (hoveredPath: string | null) => ({
+  directoryPath: null,
+  flattenedSegmentPath: null,
+  hoveredPath,
+  kind: "root" as const,
+});
 
 afterEach(() => {
   document.body.replaceChildren();
 });
 
 describe("pointerDropTarget", () => {
-  it("drops into the folder under the pointer", () => {
-    const { addRow, pointerOver, root } = tree();
-    const folder = addRow({ path: "sections/", type: "folder" });
-
-    const location = pointerDropTarget(root, pointerOver(folder.label));
-
-    expect(location?.target).toEqual({
-      directoryPath: "sections/",
-      flattenedSegmentPath: null,
-      hoveredPath: "sections/",
-      kind: "directory",
-    });
-    expect(location?.row).toBe(folder.row);
-  });
-
-  it("drops beside a file, into the folder holding it", () => {
-    const { addRow, pointerOver, root } = tree();
-    const file = addRow({ path: "sections/intro.tex", parentPath: "sections/" });
-
-    expect(pointerDropTarget(root, pointerOver(file.label))?.target).toEqual({
-      directoryPath: "sections/",
-      flattenedSegmentPath: null,
-      hoveredPath: "sections/intro.tex",
-      kind: "directory",
-    });
-  });
-
-  it("treats a top-level file as the project root", () => {
-    const { addRow, pointerOver, root } = tree();
-    const file = addRow({ path: "main.tex" });
-
-    expect(pointerDropTarget(root, pointerOver(file.label))?.target).toMatchObject({
-      directoryPath: null,
-      kind: "root",
-    });
-  });
-
-  it("treats empty space below the rows as the project root", () => {
-    const { pointerOver, root, surface } = tree();
-
-    expect(pointerDropTarget(root, pointerOver(surface))?.target).toEqual({
-      directoryPath: null,
-      flattenedSegmentPath: null,
-      hoveredPath: null,
-      kind: "root",
-    });
-  });
-
-  it("aims at the collapsed segment the pointer is actually over", () => {
+  type Row = Parameters<ReturnType<typeof tree>["addRow"]>[0];
+  it.each<[string, Row | null, "label" | "segment" | "surface", ReturnType<typeof directoryTarget | typeof rootTarget>]>([
+    ["drops into the folder under the pointer",
+      { path: "sections/", type: "folder" }, "label", directoryTarget("sections/", "sections/")],
+    ["drops beside a file, into the folder holding it",
+      { path: "sections/intro.tex", parentPath: "sections/" }, "label", directoryTarget("sections/", "sections/intro.tex")],
+    ["treats a top-level file as the project root", { path: "main.tex" }, "label", rootTarget("main.tex")],
+    ["treats empty space below the rows as the project root", null, "surface", rootTarget(null)],
     // A folder chain with one child each renders as a single row
     // ("sections/method/"), and each segment of it is its own drop target.
-    const { addRow, pointerOver, root } = tree();
-    const folder = addRow({
-      path: "sections/method/",
-      type: "folder",
-      flattenedSegments: ["sections/", "sections/method/"],
-    });
-    const [firstSegment] = Array.from(folder.row.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]"));
-
-    const location = pointerDropTarget(root, pointerOver(firstSegment));
-
-    expect(location?.target).toEqual({
-      directoryPath: "sections/",
-      flattenedSegmentPath: "sections/",
-      hoveredPath: "sections/method/",
-      kind: "directory",
-    });
-    expect(location?.flattenedSegment).toBe(firstSegment);
-  });
-
-  it("ignores a segment that names a file rather than a folder", () => {
+    ["aims at the collapsed segment the pointer is actually over",
+      { path: "sections/method/", type: "folder", flattenedSegments: ["sections/", "sections/method/"] }, "segment",
+      directoryTarget("sections/", "sections/method/", "sections/")],
     // Only a trailing slash makes a segment a directory; the file at the end of
     // a flattened chain must fall through to the row's own rules.
-    const { addRow, pointerOver, root } = tree();
-    const row = addRow({
-      path: "sections/intro.tex",
-      parentPath: "sections/",
-      flattenedSegments: ["sections/intro.tex"],
-    });
-    const [segment] = Array.from(row.row.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]"));
+    ["ignores a segment that names a file rather than a folder",
+      { path: "sections/intro.tex", parentPath: "sections/", flattenedSegments: ["sections/intro.tex"] }, "segment",
+      directoryTarget("sections/", "sections/intro.tex")],
+  ])("%s", (_case, options, over, expected) => {
+    const { addRow, pointerOver, root, surface } = tree();
+    const added = options && addRow(options);
+    const segment = added?.row.querySelector<HTMLElement>("[data-item-flattened-subitem]") ?? null;
+    const target = { label: added?.label ?? null, segment, surface }[over];
 
-    expect(pointerDropTarget(root, pointerOver(segment))?.target).toMatchObject({
-      directoryPath: "sections/",
-      flattenedSegmentPath: null,
-      kind: "directory",
-    });
+    const location = pointerDropTarget(root, pointerOver(target));
+
+    expect(location?.target).toEqual(expected);
+    expect(location?.row).toBe(added?.row ?? null);
+    expect(location?.flattenedSegment).toBe(expected.flattenedSegmentPath ? segment : null);
   });
 
   it("declines a pointer that never reached the tree", () => {
@@ -162,94 +119,55 @@ describe("pointerDropTarget", () => {
 });
 
 describe("normalizePointerDraggedPaths", () => {
-  it("drops what a dragged folder already carries", () => {
+  it.each([
     // Moving the folder moves its contents; sending the children too asks the
     // backend to move files out from under themselves.
-    expect(normalizePointerDraggedPaths([
-      "sections/",
-      "sections/intro.tex",
-      "sections/parts/",
-      "sections/parts/a.tex",
-      "main.tex",
-    ])).toEqual(["sections/", "main.tex"]);
-  });
-
-  it("keeps a file whose name merely starts like a dragged folder", () => {
-    expect(normalizePointerDraggedPaths(["sections/", "sections-old.tex"]))
-      .toEqual(["sections/", "sections-old.tex"]);
-  });
-
-  it("collapses duplicates", () => {
-    expect(normalizePointerDraggedPaths(["main.tex", "main.tex"])).toEqual(["main.tex"]);
+    ["drops what a dragged folder already carries",
+      ["sections/", "sections/intro.tex", "sections/parts/", "sections/parts/a.tex", "main.tex"],
+      ["sections/", "main.tex"]],
+    ["keeps a file whose name merely starts like a dragged folder",
+      ["sections/", "sections-old.tex"], ["sections/", "sections-old.tex"]],
+    ["collapses duplicates", ["main.tex", "main.tex"], ["main.tex"]],
+  ])("%s", (_case, paths, expected) => {
+    expect(normalizePointerDraggedPaths(paths)).toEqual(expected);
   });
 });
 
 describe("pointerDropOperations", () => {
-  const intoDirectory = (directoryPath: string) => ({
-    directoryPath,
-    flattenedSegmentPath: null,
-    hoveredPath: directoryPath,
-    kind: "directory" as const,
-  });
-  const ontoRoot = {
-    directoryPath: null,
-    flattenedSegmentPath: null,
-    hoveredPath: null,
-    kind: "root" as const,
-  };
+  const intoDirectory = (directoryPath: string) => directoryTarget(directoryPath, directoryPath);
+  const ontoRoot = rootTarget(null);
+  const move = (from: string, to: string) => ({ from, to, type: "move" });
 
-  it("moves each dragged path into the target folder", () => {
-    expect(pointerDropOperations(["main.tex", "figures/"], intoDirectory("sections/"))).toEqual([
-      { from: "main.tex", to: "sections/", type: "move" },
-      { from: "figures/", to: "sections/", type: "move" },
-    ]);
-  });
-
-  it("moves to the project root by basename", () => {
-    expect(pointerDropOperations(["sections/intro.tex", "sections/parts/"], ontoRoot)).toEqual([
-      { from: "sections/intro.tex", to: "intro.tex", type: "move" },
-      { from: "sections/parts/", to: "parts/", type: "move" },
-    ]);
-  });
-
-  it("refuses to drop a folder into itself", () => {
-    expect(pointerDropOperations(["sections/"], intoDirectory("sections/"))).toEqual([]);
-  });
-
-  it("refuses to drop a folder into its own descendant", () => {
+  it.each([
+    ["moves each dragged path into the target folder", ["main.tex", "figures/"], intoDirectory("sections/"),
+      [move("main.tex", "sections/"), move("figures/", "sections/")]],
+    ["moves to the project root by basename", ["sections/intro.tex", "sections/parts/"], ontoRoot,
+      [move("sections/intro.tex", "intro.tex"), move("sections/parts/", "parts/")]],
+    ["refuses to drop a folder into itself", ["sections/"], intoDirectory("sections/"), []],
     // The move would delete the folder into a directory that is about to stop
     // existing; nothing in the UI could explain the result afterwards.
-    expect(pointerDropOperations(["sections/"], intoDirectory("sections/parts/"))).toEqual([]);
-  });
-
-  it("refuses the whole batch when one folder is an ancestor of the target", () => {
+    ["refuses to drop a folder into its own descendant", ["sections/"], intoDirectory("sections/parts/"), []],
     // A partially applied multi-drag is worse than a refused one: the rest has
     // already moved by the time the impossible one is discovered.
-    expect(pointerDropOperations(["main.tex", "sections/"], intoDirectory("sections/parts/"))).toEqual([]);
-  });
-
-  it("allows a folder onto a sibling that shares its name prefix", () => {
-    expect(pointerDropOperations(["sections/"], intoDirectory("sections-old/"))).toEqual([
-      { from: "sections/", to: "sections-old/", type: "move" },
-    ]);
-  });
-
-  it("skips a path that is already where it was dropped", () => {
-    expect(pointerDropOperations(["sections/intro.tex", "main.tex"], intoDirectory("sections/"))).toEqual([
-      { from: "main.tex", to: "sections/", type: "move" },
-    ]);
-  });
-
-  it("skips a root-level path dropped on the root", () => {
-    expect(pointerDropOperations(["main.tex"], ontoRoot)).toEqual([]);
+    ["refuses the whole batch when one folder is an ancestor of the target",
+      ["main.tex", "sections/"], intoDirectory("sections/parts/"), []],
+    ["allows a folder onto a sibling that shares its name prefix", ["sections/"], intoDirectory("sections-old/"),
+      [move("sections/", "sections-old/")]],
+    ["skips a path that is already where it was dropped", ["sections/intro.tex", "main.tex"], intoDirectory("sections/"),
+      [move("main.tex", "sections/")]],
+    ["skips a root-level path dropped on the root", ["main.tex"], ontoRoot, []],
+  ])("%s", (_case, dragged, target, expected) => {
+    expect(pointerDropOperations(dragged, target)).toEqual(expected);
   });
 });
 
 describe("Pierre path shapes", () => {
-  it("keeps the trailing slash a directory basename needs", () => {
-    expect(pointerDragBasename("sections/parts/")).toBe("parts/");
-    expect(pointerDragBasename("sections/intro.tex")).toBe("intro.tex");
-    expect(pointerDragBasename("main.tex")).toBe("main.tex");
+  it.each([
+    ["sections/parts/", "parts/"],
+    ["sections/intro.tex", "intro.tex"],
+    ["main.tex", "main.tex"],
+  ])("keeps the trailing slash a directory basename needs: %s", (path, basename) => {
+    expect(pointerDragBasename(path)).toBe(basename);
   });
 
   it("converts between the app's paths and Pierre's", () => {
@@ -257,5 +175,13 @@ describe("Pierre path shapes", () => {
     expect(fromPierrePath("main.tex")).toBe("main.tex");
     expect(toPierreDirectoryPath("sections")).toBe("sections/");
     expect(toPierreDirectoryPath("sections/")).toBe("sections/");
+  });
+
+  it.each([
+    [directoryTarget("sections/", "sections/"), "sections"],
+    [directoryTarget("sections/method/", "sections/method/", "sections/"), "sections"],
+    [rootTarget(null), ""],
+  ])("resolves the directory a drop lands in: %o", (target, directory) => {
+    expect(dropTargetDirectory(target)).toBe(directory);
   });
 });

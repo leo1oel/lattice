@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from "react";
 import { confirmAction } from "../app-utils";
+import { boundedString, isRecord, listenToSynaraFrame } from "./agent-protocol";
 
 export const SYNARA_CONFIRMATION_REQUEST = "synara:confirmation-request";
 export const LATTICE_CONFIRMATION_ACK = "lattice:confirmation-ack";
@@ -11,25 +12,12 @@ export type SynaraConfirmationRequest = {
   message: string;
 };
 
-function boundedString(
-  value: unknown,
-  maximum: number,
-  allowEmpty = false,
-): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().slice(0, maximum);
-  if (normalized) return normalized;
-  return allowEmpty ? "" : null;
-}
-
 export function parseSynaraConfirmationRequest(
   value: unknown,
 ): SynaraConfirmationRequest | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Record<string, unknown>;
-  if (candidate.type !== SYNARA_CONFIRMATION_REQUEST) return null;
-  const id = boundedString(candidate.id, 128);
-  const message = boundedString(candidate.message, 4_096);
+  if (!isRecord(value) || value.type !== SYNARA_CONFIRMATION_REQUEST) return null;
+  const id = boundedString(value.id, 128);
+  const message = boundedString(value.message, 4_096);
   if (!id || !message) return null;
   return { type: SYNARA_CONFIRMATION_REQUEST, id, message };
 }
@@ -47,37 +35,18 @@ export function useSynaraConfirmationBridge(options: {
   useEffect(() => {
     if (!origin) return;
     const pendingIds = new Set<string>();
-    const receiveConfirmation = (event: MessageEvent) => {
-      if (
-        event.source !== frameRef.current?.contentWindow ||
-        event.origin !== origin
-      ) {
-        return;
-      }
-      const request = parseSynaraConfirmationRequest(event.data);
+    return listenToSynaraFrame(frameRef, origin, (data, sourceWindow) => {
+      const request = parseSynaraConfirmationRequest(data);
       if (!request) return;
-      const sourceWindow = event.source as Window;
-      sourceWindow.postMessage(
-        { type: LATTICE_CONFIRMATION_ACK, id: request.id },
-        origin,
-      );
+      sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_ACK, id: request.id }, origin);
       if (pendingIds.has(request.id)) return;
       pendingIds.add(request.id);
       void confirmAction(request.message)
         .catch(() => false)
         .then((confirmed) => {
-          sourceWindow.postMessage(
-            {
-              type: LATTICE_CONFIRMATION_RESPONSE,
-              id: request.id,
-              confirmed,
-            },
-            origin,
-          );
+          sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_RESPONSE, id: request.id, confirmed }, origin);
         })
         .finally(() => pendingIds.delete(request.id));
-    };
-    window.addEventListener("message", receiveConfirmation);
-    return () => window.removeEventListener("message", receiveConfirmation);
+    });
   }, [frameRef, origin]);
 }

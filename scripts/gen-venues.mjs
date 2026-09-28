@@ -64,6 +64,10 @@ const venues = [...byName.values()]
   .map((v) => ({ name: v.name, entryType: v.entryType, search: norm(v.parts.join(" ")) }))
   .sort((a, b) => a.name.localeCompare(b.name));
 
+// One venue per line keeps the snapshot compact and its diffs one line per venue.
+const rows = venues.map(({ name, entryType, search }) =>
+  `  { name: ${JSON.stringify(name)}, entryType: ${JSON.stringify(entryType)}, search: ${JSON.stringify(search)} },`);
+
 const out = `// Snapshot of bibcite's canonical venues (${venues.length} entries), used by the
 // bibliography-entry editor's venue autocomplete. The category from bibcite sets
 // the entry type: journal -> @article, conference/workshop -> @inproceedings.
@@ -74,7 +78,9 @@ const out = `// Snapshot of bibcite's canonical venues (${venues.length} entries
 
 export type Venue = { name: string; entryType: "article" | "inproceedings"; search: string };
 
-export const VENUES: Venue[] = ${JSON.stringify(venues, null, 2)};
+export const VENUES: Venue[] = [
+${rows.join("\n")}
+];
 `;
 
 writeFileSync(resolve(root, "src", "papers", "venues.ts"), out);

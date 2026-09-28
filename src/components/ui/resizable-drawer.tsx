@@ -43,13 +43,14 @@ export function ResizableDrawer(props: {
     window.addEventListener("resize", fitToWindow);
     return () => window.removeEventListener("resize", fitToWindow);
   }, [fitToWindow]);
+  const { closeDisabled, onClose } = props;
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !props.closeDisabled) props.onClose();
+      if (event.key === "Escape" && !closeDisabled) onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [props.closeDisabled, props.onClose]);
+  }, [closeDisabled, onClose]);
   useEffect(() => () => finishResizeRef.current?.(), []);
 
   const beginResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -60,37 +61,29 @@ export function ResizableDrawer(props: {
     const pointerId = event.pointerId;
     const startX = event.clientX;
     const startWidth = width;
-    let latest = width;
-    let finished = false;
+    const listening = new AbortController();
+    const { signal } = listening;
 
     setResizing(true);
     document.body.classList.add("resizing-panels");
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
-      latest = clampDrawerWidth(startWidth - (moveEvent.clientX - startX));
-      setWidth(latest);
+      setWidth(clampDrawerWidth(startWidth - (moveEvent.clientX - startX)));
     };
     const finish = () => {
-      if (finished) return;
-      finished = true;
+      if (signal.aborted) return;
+      listening.abort();
       setResizing(false);
       document.body.classList.remove("resizing-panels");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", finish);
-      window.removeEventListener("blur", finish);
-      target.removeEventListener("lostpointercapture", finish);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
       if (finishResizeRef.current === finish) finishResizeRef.current = null;
     };
 
     finishResizeRef.current = finish;
     target.setPointerCapture(pointerId);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", finish);
-    window.addEventListener("blur", finish);
-    target.addEventListener("lostpointercapture", finish);
+    window.addEventListener("pointermove", move, { signal });
+    for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, finish, { signal });
+    target.addEventListener("lostpointercapture", finish, { signal });
   }, [width]);
 
   return (

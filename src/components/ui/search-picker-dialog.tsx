@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
 import { SearchField } from "./search-field";
 import { FluidHoverSurface } from "./fluid-hover-surface";
+import { rankMatches, subsequenceScore } from "./picker-ranking";
 
 export type SearchPickerItem = {
   id: string;
@@ -19,102 +20,78 @@ function scoreItem(item: SearchPickerItem, query: string): number {
   if (item.label.toLocaleLowerCase() === needle) return 1000;
   if (hay.startsWith(needle)) return 900;
   if (hay.includes(needle)) return 500 - hay.indexOf(needle);
-  let score = 0;
-  let index = 0;
-  for (const character of needle) {
-    const next = hay.indexOf(character, index);
-    if (next < 0) return 0;
-    score += 10 - Math.min(9, next - index);
-    index = next + 1;
-  }
-  return score;
+  return subsequenceScore(hay, needle);
 }
 
-export function SearchPickerDialog(props: {
-  open: boolean;
-  title: string;
+/**
+ * The keyboard-driven modal list behind quick open and the command pickers:
+ * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
+ * list. Mount it only while open, so each opening starts from an empty query.
+ */
+export function PickerDialog<T>(props: {
+  label: string;
+  searchLabel: string;
   placeholder: string;
-  items: SearchPickerItem[];
+  closeLabel: string;
+  compactClose?: boolean;
+  emptyText: string;
+  rank: (query: string) => T[];
+  itemKey: (item: T) => string;
+  renderItem: (item: T) => ReactNode;
   onClose: () => void;
-  onSelect: (item: SearchPickerItem) => void;
+  onSelect: (item: T) => void;
+  /** The highlighted item, whenever it changes (for prefetching). */
+  onIntent?: (item: T) => void;
 }) {
-  if (!props.open) return null;
-  return (
-    <SearchPickerDialogForm
-      key={`${props.title}-${props.items.length}`}
-      title={props.title}
-      placeholder={props.placeholder}
-      items={props.items}
-      onClose={props.onClose}
-      onSelect={props.onSelect}
-    />
-  );
-}
-
-function SearchPickerDialogForm(props: {
-  title: string;
-  placeholder: string;
-  items: SearchPickerItem[];
-  onClose: () => void;
-  onSelect: (item: SearchPickerItem) => void;
-}) {
+  const { rank, onIntent } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const results = useMemo(() => {
-    const ranked = props.items
-      .map((item) => ({ item, score: scoreItem(item, query.trim()) }))
-      .filter((entry) => entry.score > 0)
-      .sort((left, right) =>
-        right.score - left.score
-        || (left.item.group ?? "").localeCompare(right.item.group ?? "")
-        || left.item.label.localeCompare(right.item.label));
-    return ranked.slice(0, 60).map((entry) => entry.item);
-  }, [props.items, query]);
-  const selected = results[clamp(active, 0, Math.max(0, results.length - 1))] ?? null;
+  const results = useMemo(() => rank(query.trim()), [rank, query]);
+  const lastIndex = Math.max(0, results.length - 1);
+  const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
+  useEffect(() => {
+    if (selected !== null) onIntent?.(selected);
+  }, [onIntent, selected]);
+  const search = (value: string) => {
+    setQuery(value);
+    setActive(0);
+  };
 
   return (
-    <ModalDialog label={props.title} onClose={props.onClose}>
-      <div
-        className="modal quick-open-modal"
-      >
+    <ModalDialog label={props.label} onClose={props.onClose}>
+      <div className="modal quick-open-modal">
         <div className="quick-open-header">
           <SearchField
             autoFocus
-            aria-label={props.title}
+            aria-label={props.searchLabel}
             placeholder={props.placeholder}
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setActive(0);
-            }}
-            onClear={() => {
-              setQuery("");
-              setActive(0);
-            }}
+            onChange={(event) => search(event.target.value)}
+            onClear={() => search("")}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setActive((value) => Math.min(value + 1, Math.max(0, results.length - 1)));
+                setActive((value) => Math.min(value + 1, lastIndex));
               }
               if (event.key === "ArrowUp") {
                 event.preventDefault();
                 setActive((value) => Math.max(0, value - 1));
               }
-              if (event.key === "Enter" && selected) {
+              if (event.key === "Enter" && selected !== null) {
                 event.preventDefault();
                 props.onSelect(selected);
               }
             }}
-            trailing={
-              <CloseButton label={`Close ${props.title}`} onClick={props.onClose} />
-            }
+            trailing={props.compactClose
+              ? <CloseButton label={props.closeLabel} size="compact" data-hit-area onClick={props.onClose} />
+              : <CloseButton label={props.closeLabel} onClick={props.onClose} />}
           />
         </div>
         <div className="quick-open-list fluid-hover-surface" role="listbox">
           <FluidHoverSurface />
           {results.map((item, index) => (
             <button
-              key={item.id}
+              key={props.itemKey(item)}
               type="button"
               role="option"
               aria-selected={index === active}
@@ -122,20 +99,52 @@ function SearchPickerDialogForm(props: {
               onMouseEnter={() => setActive(index)}
               onClick={() => props.onSelect(item)}
             >
-              <span className="picker-label">
-                {item.group && <small className="picker-group">{item.group}</small>}
-                {item.label}
-              </span>
-              {item.detail && <em className="picker-detail">{item.detail}</em>}
+              {props.renderItem(item)}
             </button>
           ))}
-          {!results.length && <EmptyState density="compact" description="No matches" />}
+          {!results.length && <EmptyState density="compact" description={props.emptyText} />}
         </div>
       </div>
     </ModalDialog>
   );
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
+type SearchPickerProps = {
+  title: string;
+  placeholder: string;
+  items: SearchPickerItem[];
+  onClose: () => void;
+  onSelect: (item: SearchPickerItem) => void;
+};
+
+export function SearchPickerDialog({ open, ...props }: SearchPickerProps & { open: boolean }) {
+  // Re-keyed so a new title or item set starts from an empty query.
+  return open ? <SearchPickerDialogForm key={`${props.title}-${props.items.length}`} {...props} /> : null;
+}
+
+function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
+  const rank = useMemo(() => (query: string) => rankMatches(
+    items,
+    (item) => scoreItem(item, query),
+    (left, right) => (left.group ?? "").localeCompare(right.group ?? "") || left.label.localeCompare(right.label),
+    60,
+  ), [items]);
+  return (
+    <PickerDialog
+      {...props}
+      label={title}
+      searchLabel={title}
+      closeLabel={`Close ${title}`}
+      emptyText="No matches"
+      rank={rank}
+      itemKey={(item) => item.id}
+      renderItem={(item) => <>
+        <span className="picker-label">
+          {item.group && <small className="picker-group">{item.group}</small>}
+          {item.label}
+        </span>
+        {item.detail && <em className="picker-detail">{item.detail}</em>}
+      </>}
+    />
+  );
 }

@@ -20,6 +20,11 @@ export interface AgentPaperLibrarySnapshot {
   papers: AgentPaperLibraryEntry[];
 }
 
+/** The locally cached Markdown view of a paper the Agent can read. */
+export function agentPaperPath(arxivId: string, view: "blog" | "fulltext"): string {
+  return `.research/papers/${arxivId}/${view === "blog" ? "blog.md" : "paper.md"}`;
+}
+
 export function buildAgentPaperLibrary(input: {
   workspaceRoot: string;
   papers: readonly PaperSummary[];
@@ -33,7 +38,7 @@ export function buildAgentPaperLibrary(input: {
         title: paper.title,
         arxivId: paper.arxivId,
         ...(paper.citationKey ? { citationKey: paper.citationKey } : {}),
-        path: `.research/papers/${paper.arxivId}/${view === "fulltext" ? "paper.md" : "blog.md"}`,
+        path: agentPaperPath(paper.arxivId, view),
         view,
       };
     });

@@ -139,6 +139,8 @@
   height: 0 !important;
 }
 
+/* Each mask is declared once, on the viewport itself, so its offsets resolve
+   against the edge flags that ScrollArea writes onto the same element. */
 .scroll-fade,
 .scroll-fade-x,
 .scroll-fade-both {
@@ -147,6 +149,8 @@
   --scroll-fade-bottom: 0px;
   --scroll-fade-left: 0px;
   --scroll-fade-right: 0px;
+  --scroll-fade-mask-y: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+  --scroll-fade-mask-x: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
 }
 
 .scroll-fade[data-can-scroll-up="true"],
@@ -159,11 +163,6 @@
   --scroll-fade-bottom: var(--scroll-fade-size);
 }
 
-.scroll-fade {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
-}
-
 .scroll-fade-x[data-can-scroll-left="true"],
 .scroll-fade-both[data-can-scroll-left="true"] {
   --scroll-fade-left: var(--scroll-fade-size);
@@ -174,19 +173,20 @@
   --scroll-fade-right: var(--scroll-fade-size);
 }
 
+.scroll-fade {
+  -webkit-mask-image: var(--scroll-fade-mask-y);
+  mask-image: var(--scroll-fade-mask-y);
+}
+
 .scroll-fade-x {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  -webkit-mask-image: var(--scroll-fade-mask-x);
+  mask-image: var(--scroll-fade-mask-x);
 }
 
 .scroll-fade-both {
-  -webkit-mask-image:
-    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
-    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  -webkit-mask-image: var(--scroll-fade-mask-y), var(--scroll-fade-mask-x);
   -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
-    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  mask-image: var(--scroll-fade-mask-y), var(--scroll-fade-mask-x);
   mask-composite: intersect;
 }
 
@@ -195,11 +195,10 @@
  * observes that exact element (for example, an infinite-loading drawer). Give
  * those exceptional surfaces the same quiet, hover-revealed scrollbar without
  * changing their DOM or event target.
- */
-/*
- * Declared only for engines without `::-webkit-scrollbar`: setting these makes
- * WebKit and Blink ignore every pseudo-element rule below, which is what kept
- * this class from ever rendering its 4px hover-reveal thumb.
+ *
+ * The standard properties are declared only for engines without
+ * `::-webkit-scrollbar`: setting them makes WebKit and Blink ignore every
+ * pseudo-element rule below.
  */
 @supports not selector(::-webkit-scrollbar) {
   .native-hover-scrollbar {

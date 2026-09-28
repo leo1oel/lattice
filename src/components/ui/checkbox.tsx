@@ -1,30 +1,13 @@
-import {
-  forwardRef,
-  useCallback,
-  type ForwardedRef,
-  type InputHTMLAttributes,
-} from "react";
+import { forwardRef, useCallback, type InputHTMLAttributes } from "react";
+import { assignRef } from "@/lib/utils";
 import "./chrome.css";
 
 export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   indeterminate?: boolean;
 };
 
-function assignRef<T>(ref: ForwardedRef<T>, value: T | null) {
-  if (typeof ref === "function") {
-    ref(value);
-    return;
-  }
-  if (ref) ref.current = value;
-}
-
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
-  {
-    className,
-    indeterminate = false,
-    disabled,
-    ...props
-  },
+  { className, indeterminate = false, ...props },
   forwardedRef,
 ) {
   const setRef = useCallback((node: HTMLInputElement | null) => {
@@ -37,7 +20,6 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
       {...props}
       ref={setRef}
       type="checkbox"
-      disabled={disabled}
       aria-checked={indeterminate ? "mixed" : props["aria-checked"]}
       data-slot="checkbox"
       data-state={indeterminate ? "indeterminate" : props.checked ? "checked" : "unchecked"}

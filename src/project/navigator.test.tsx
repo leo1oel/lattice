@@ -99,12 +99,21 @@ function renderNavigator(overrides?: Partial<NavigatorProps>) {
     props,
     rerenderWith,
     search: (query: string) => {
-      fireEvent.change(screen.getByRole("searchbox", { name: "Search or import papers" }), {
-        target: { value: query },
-      });
+      fireEvent.change(searchbox(), { target: { value: query } });
       rerenderWith({ importInput: query });
     },
   };
+}
+
+const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });
+
+/** While an import or fetch runs, the search box is the read-only progress surface. */
+function expectImportProgress(active: boolean) {
+  const input = searchbox();
+  expect(input).toHaveAttribute("aria-busy", String(active));
+  expect(input.hasAttribute("readonly")).toBe(active);
+  expect(input.getAttribute("aria-describedby")).toBe(active ? "paper-import-status" : null);
+  expect(document.querySelector(".paper-import-track > span") !== null).toBe(active);
 }
 
 function paperTitles() {
@@ -112,7 +121,14 @@ function paperTitles() {
     .map((button) => button.querySelector("strong")?.textContent ?? "");
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+/** Lets the debounced full-text search run and settle. */
+const settleTextSearch = () => act(async () => { await vi.advanceTimersByTimeAsync(200); });
 
 beforeEach(() => {
   localStorage.clear();
@@ -122,18 +138,18 @@ beforeEach(() => {
 });
 
 describe("Navigator / papers", () => {
-  it("opens an existing arXiv PDF immediately instead of reimporting it", () => {
-    const { props } = renderNavigator({ importInput: "https://arxiv.org/pdf/1706.03762v3" });
-    fireEvent.click(screen.getByTitle("Import paper"));
-    expect(props.onPaper).toHaveBeenCalledWith(attention);
-    expect(props.onImport).not.toHaveBeenCalled();
-  });
-
-  it.each(["https://arxiv.org/pdf/2010.11929", "https://example.org/1706.03762", "A study of 1706.03762"])("does not skip import or missing-text repair for %s", input => {
+  // Only a paper already held with full text opens instead; every other
+  // submission imports, which also repairs a missing full text.
+  it.each([
+    ["https://arxiv.org/pdf/1706.03762v3", true],
+    ["https://arxiv.org/pdf/2010.11929", false],
+    ["https://example.org/1706.03762", false],
+    ["A study of 1706.03762", false],
+  ])("opens rather than reimports %s only when it is readable (%s)", (input, opens) => {
     const { props } = renderNavigator({ importInput: input });
     fireEvent.click(screen.getByTitle("Import paper"));
-    expect(props.onImport).toHaveBeenCalledOnce();
-    expect(props.onPaper).not.toHaveBeenCalled();
+    expect(vi.mocked(props.onPaper).mock.calls).toEqual(opens ? [[attention]] : []);
+    expect(props.onImport).toHaveBeenCalledTimes(opens ? 0 : 1);
   });
 
   it("lists the whole library until something is typed", () => {
@@ -143,45 +159,23 @@ describe("Navigator / papers", () => {
     expect(screen.getByText("2 papers")).toBeInTheDocument();
   });
 
-  it("narrows on every word, not just the first", () => {
-    // Each token has to match somewhere in the entry, so a second word can only
-    // ever shorten the list — that is what makes typing feel like searching.
-    const { search } = renderNavigator();
+  // Each token has to match somewhere in the entry, so a second word can only
+  // ever shorten the list — that is what makes typing feel like searching.
+  // Pasting a link is how a paper is imported, so the same paste has to find
+  // the copy already in the library instead of offering to fetch it again.
+  it.each([
+    ["a single word", "image", [vit.title]],
+    ["every word, not just the first", "image vaswani", []],
+    ["authors the row never shows", "dosovitskiy", [vit.title]],
+    ["citation keys the row never shows", "vaswani2017", [attention.title]],
+    ["a pasted arXiv URL with a versioned id", "https://arxiv.org/abs/2010.11929v3", [vit.title]],
+    ["a pasted DOI URL against the normalized DOI", "https://doi.org/10.48550/arXiv.1706.03762", [attention.title]],
+  ])("filters the library by %s", (_case, query, titles) => {
+    const { search } = renderNavigator({ papers: [{ ...attention, doi: "10.48550/arXiv.1706.03762" }, vit] });
 
-    search("image");
-    expect(paperTitles()).toEqual(["An Image Is Worth 16x16 Words"]);
-
-    search("image vaswani");
-    expect(paperTitles()).toEqual([]);
-    expect(screen.getByText("No matching papers")).toBeInTheDocument();
-  });
-
-  it("searches metadata the row never shows", () => {
-    const { search } = renderNavigator();
-
-    search("dosovitskiy");
-    expect(paperTitles()).toEqual(["An Image Is Worth 16x16 Words"]);
-
-    search("vaswani2017");
-    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
-  });
-
-  it("finds a paper from a pasted arXiv URL or a versioned id", () => {
-    // Pasting a link is how a paper is imported, so the same paste has to find
-    // the copy already in the library instead of offering to fetch it again.
-    const { search } = renderNavigator();
-
-    search("https://arxiv.org/abs/2010.11929v3");
-    expect(paperTitles()).toEqual(["An Image Is Worth 16x16 Words"]);
-    expect(screen.getByText("1 of 2 papers")).toBeInTheDocument();
-  });
-
-  it("finds a normalized DOI from a pasted DOI URL", () => {
-    const doiPaper = { ...attention, doi: "10.48550/arXiv.1706.03762" };
-    const { search } = renderNavigator({ papers: [doiPaper] });
-
-    search("https://doi.org/10.48550/arXiv.1706.03762");
-    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+    search(query);
+    expect(paperTitles()).toEqual(titles);
+    expect(screen.getByText(titles.length ? "1 of 2 papers" : "No matching papers")).toBeInTheDocument();
   });
 
   it("starts empty and shows pipeline stages without changing the submitted query", () => {
@@ -194,12 +188,10 @@ describe("Navigator / papers", () => {
 
     const fill = () => document.querySelector(".paper-import-track > span");
     expect(fill()).toHaveStyle({ width: "0%" });
-    const input = screen.getByRole("searchbox", { name: "Search or import papers" });
-    expect(input).toHaveAttribute("aria-busy", "true");
-    expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
+    const input = searchbox();
+    expectImportProgress(true);
     expect(screen.getByRole("status")).toHaveTextContent("Resolving citation metadata…");
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
-    expect(input).toHaveAttribute("readonly");
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onCancelImport).toHaveBeenCalledOnce();
@@ -219,9 +211,7 @@ describe("Navigator / papers", () => {
     expect(document.querySelector(".paper-import-step")).toBeNull();
     rerenderWith({ importing: false });
     expect(screen.queryByRole("status")).toBeNull();
-    expect(fill()).toBeNull();
-    expect(input).not.toHaveAttribute("readonly");
-    expect(input).not.toHaveAttribute("aria-describedby");
+    expectImportProgress(false);
     expect(input).toHaveValue("graph transformers");
   });
 
@@ -241,29 +231,24 @@ describe("Navigator / papers", () => {
       frames.clear();
       pending.forEach((callback) => callback(time));
     });
-    try {
-      const { rerenderWith } = renderNavigator({ importing: true, importStageId: "resolving" });
-      const width = () => parseFloat(document.querySelector<HTMLElement>(".paper-import-track > span")!.style.width);
-      tick(2000);
-      expect(width()).toBeCloseTo(14.85);
-      // App maps both Project and Agent to Navigator's project mode.
-      rerenderWith({ mode: "project" });
-      tick(3000);
-      rerenderWith({ mode: "papers" });
-      expect(width()).toBeCloseTo(22.275);
-      rerenderWith({ mode: "project", importStageId: "fulltext" });
-      tick(9000);
-      rerenderWith({ mode: "papers" });
-      expect(width()).toBeCloseTo(41.95125);
-      rerenderWith({ mode: "project", importing: false });
-      rerenderWith({ importing: true, importStageId: "resolving" });
-      tick(10000);
-      rerenderWith({ mode: "papers" });
-      expect(width()).toBeCloseTo(7.425);
-    } finally {
-      cleanup();
-      vi.restoreAllMocks();
-    }
+    const { rerenderWith } = renderNavigator({ importing: true, importStageId: "resolving" });
+    const width = () => parseFloat(document.querySelector<HTMLElement>(".paper-import-track > span")!.style.width);
+    tick(2000);
+    expect(width()).toBeCloseTo(14.85);
+    // App maps both Project and Agent to Navigator's project mode.
+    rerenderWith({ mode: "project" });
+    tick(3000);
+    rerenderWith({ mode: "papers" });
+    expect(width()).toBeCloseTo(22.275);
+    rerenderWith({ mode: "project", importStageId: "fulltext" });
+    tick(9000);
+    rerenderWith({ mode: "papers" });
+    expect(width()).toBeCloseTo(41.95125);
+    rerenderWith({ mode: "project", importing: false });
+    rerenderWith({ importing: true, importStageId: "resolving" });
+    tick(10000);
+    rerenderWith({ mode: "papers" });
+    expect(width()).toBeCloseTo(7.425);
   });
 
   it("shows download progress until the last loading paper finishes without enabling import cancellation", () => {
@@ -273,46 +258,35 @@ describe("Navigator / papers", () => {
       importStageId: "fulltext",
       importStage: "Downloading full text and figures…",
     });
-    const input = screen.getByRole("searchbox", { name: "Search or import papers" });
-    expect(input).toHaveAttribute("aria-busy", "true");
-    expect(input).toHaveAttribute("aria-describedby", "paper-import-status");
-    expect(input).toHaveAttribute("readonly");
+    expectImportProgress(true);
     expect(screen.getByTitle("Import paper")).toBeDisabled();
-    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.keyDown(searchbox(), { key: "Enter" });
     expect(props.onImport).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("Downloading full text and figures…");
-    expect(document.querySelector(".paper-import-track > span")).toBeInTheDocument();
     rerenderWith({ paperFetchStates: { first: "success", second: "loading" }, importStageId: "overview", importStage: "Fetching the paper overview…" });
     expect(screen.getByRole("status")).toHaveTextContent("Fetching the paper overview…");
     // Failed fetches are removed; successful ones linger briefly for the row checkmark.
     rerenderWith({ paperFetchStates: { first: "success" } });
     expect(screen.queryByRole("status")).toBeNull();
-    expect(document.querySelector(".paper-import-track")).toBeNull();
-    expect(input).toHaveAttribute("aria-busy", "false");
-    expect(input).not.toHaveAttribute("aria-describedby");
-    expect(input).not.toHaveAttribute("readonly");
-    expect(input).toHaveValue("Adam");
+    expectImportProgress(false);
+    expect(searchbox()).toHaveValue("Adam");
     expect(screen.getByTitle("Import paper")).toBeEnabled();
   });
 
   it("ranks a title prefix ahead of metadata and full-text matches", async () => {
     vi.useFakeTimers();
-    try {
-      const spatial = { ...attention, citationKey: "spatial", arxivId: "2501.00001", title: "S-Space: Exploring Spatial Workspace in Multimodal Models" };
-      const metadata = { ...vit, authors: "The S-Space Consortium" };
-      const titleMatch = { ...vit, citationKey: "evaluating", arxivId: "2501.00002", title: "Evaluating S-Space representations" };
-      const exact = { ...vit, citationKey: "exact", arxivId: "2501.00003", title: "S-Space" };
-      vi.mocked(invoke).mockResolvedValue([
-        { arxivId: attention.arxivId, title: attention.title, snippet: "We evaluate s-space representations." },
-      ]);
-      const { search } = renderNavigator({ papers: [attention, metadata, titleMatch, spatial, exact] });
-      search("s-space");
-      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
-      expect(paperTitles()).toEqual([exact.title, spatial.title, titleMatch.title, metadata.title, attention.title]);
-    } finally {
-      vi.useRealTimers();
-    }
+    const spatial = { ...attention, citationKey: "spatial", arxivId: "2501.00001", title: "S-Space: Exploring Spatial Workspace in Multimodal Models" };
+    const metadata = { ...vit, authors: "The S-Space Consortium" };
+    const titleMatch = { ...vit, citationKey: "evaluating", arxivId: "2501.00002", title: "Evaluating S-Space representations" };
+    const exact = { ...vit, citationKey: "exact", arxivId: "2501.00003", title: "S-Space" };
+    vi.mocked(invoke).mockResolvedValue([
+      { arxivId: attention.arxivId, title: attention.title, snippet: "We evaluate s-space representations." },
+    ]);
+    const { search } = renderNavigator({ papers: [attention, metadata, titleMatch, spatial, exact] });
+    search("s-space");
+    await settleTextSearch();
+    expect(paperTitles()).toEqual([exact.title, spatial.title, titleMatch.title, metadata.title, attention.title]);
   });
 
   it("keeps a freshly imported paper visible under its retained raw URL query", () => {
@@ -329,7 +303,7 @@ describe("Navigator / papers", () => {
     rerenderWith({ papers: [vit, imported] });
     rerenderWith({ importing: false, recentImport: { query: rawUrl, citationKey: imported.citationKey, arxivId: "" } });
 
-    expect(screen.getByRole("searchbox", { name: "Search or import papers" })).toHaveValue(rawUrl);
+    expect(searchbox()).toHaveValue(rawUrl);
     expect(paperTitles()).toEqual(["Resolved Publisher Title"]);
   });
 
@@ -346,40 +320,35 @@ describe("Navigator / papers", () => {
 
   it.each(["open", "fetch", "import"])("does not %s a paper when Enter confirms an IME candidate", (action) => {
     vi.useFakeTimers();
-    try {
-      const paper = { ...attention, title: "中文论文", hasFullText: action === "open" };
-      const { props } = renderNavigator({ importInput: "中文", papers: action === "import" ? [] : [paper] });
-      const input = screen.getByRole("searchbox", { name: "Search or import papers" });
-      const expectNoAction = () => {
-        expect(props.onPaper).not.toHaveBeenCalled();
-        expect(props.onFetchFullText).not.toHaveBeenCalled();
-        expect(props.onImport).not.toHaveBeenCalled();
-      };
+    const paper = { ...attention, title: "中文论文", hasFullText: action === "open" };
+    const { props } = renderNavigator({ importInput: "中文", papers: action === "import" ? [] : [paper] });
+    const input = searchbox();
+    const expectNoAction = () => {
+      expect(props.onPaper).not.toHaveBeenCalled();
+      expect(props.onFetchFullText).not.toHaveBeenCalled();
+      expect(props.onImport).not.toHaveBeenCalled();
+    };
 
-      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
-      expectNoAction();
-      fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
-      expectNoAction();
-      fireEvent.compositionStart(input);
-      fireEvent.keyDown(input, { key: "Enter", isComposing: false });
-      expectNoAction();
-      // WebKit can finish composition before dispatching the accepting Enter.
-      fireEvent.compositionEnd(input);
-      fireEvent.keyDown(input, { key: "Enter", keyCode: 13, isComposing: false });
-      expectNoAction();
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expectNoAction();
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expectNoAction();
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: "Enter", isComposing: false });
+    expectNoAction();
+    // WebKit can finish composition before dispatching the accepting Enter.
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 13, isComposing: false });
+    expectNoAction();
 
-      act(() => vi.advanceTimersByTime(0));
-      fireEvent.keyDown(input, { key: "Enter" });
-      const callback = action === "open" ? props.onPaper : action === "fetch" ? props.onFetchFullText : props.onImport;
-      expect(callback).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    act(() => vi.advanceTimersByTime(0));
+    fireEvent.keyDown(input, { key: "Enter" });
+    const callback = action === "open" ? props.onPaper : action === "fetch" ? props.onFetchFullText : props.onImport;
+    expect(callback).toHaveBeenCalledOnce();
   });
 
   it("opens the top match on Enter, and imports when there is none", () => {
     const { props, search } = renderNavigator();
-    const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });
 
     search("attention");
     fireEvent.keyDown(searchbox(), { key: "Enter" });
@@ -397,56 +366,44 @@ describe("Navigator / papers", () => {
 
   it("adds papers whose text matched even when their metadata did not", async () => {
     vi.useFakeTimers();
-    try {
-      vi.mocked(invoke).mockResolvedValue([
-        { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "  scaled dot-product  " },
-      ]);
-      const { search } = renderNavigator();
+    vi.mocked(invoke).mockResolvedValue([
+      { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "  scaled dot-product  " },
+    ]);
+    const { search } = renderNavigator();
 
-      search("dot-product");
-      expect(paperTitles()).toEqual([]);
+    search("dot-product");
+    expect(paperTitles()).toEqual([]);
 
-      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    await settleTextSearch();
 
-      expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "dot-product" });
-      expect(paperTitles()).toEqual(["Attention Is All You Need"]);
-      // The matching line replaces the usual subtitle, so the hit is visible.
-      expect(screen.getByText("scaled dot-product")).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "dot-product" });
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+    // The matching line replaces the usual subtitle, so the hit is visible.
+    expect(screen.getByText("scaled dot-product")).toBeInTheDocument();
   });
 
   it("keeps filtering by metadata when the full-text index cannot be read", async () => {
     vi.useFakeTimers();
-    try {
-      vi.mocked(invoke).mockRejectedValue(new Error("index missing"));
-      const { search } = renderNavigator();
+    vi.mocked(invoke).mockRejectedValue(new Error("index missing"));
+    const { search } = renderNavigator();
 
-      search("attention");
-      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    search("attention");
+    await settleTextSearch();
 
-      expect(paperTitles()).toEqual(["Attention Is All You Need"]);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
   });
 
   it("waits for a pause in typing before asking the backend", async () => {
     vi.useFakeTimers();
-    try {
-      const { search } = renderNavigator();
+    const { search } = renderNavigator();
 
-      search("a");
-      search("at");
-      search("att");
-      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    search("a");
+    search("at");
+    search("att");
+    await settleTextSearch();
 
-      expect(invoke).toHaveBeenCalledOnce();
-      expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "att" });
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "att" });
   });
 
   it("says the library is empty rather than showing nothing at all", () => {
@@ -459,6 +416,7 @@ describe("Navigator / papers", () => {
 
 describe("Navigator / project tree", () => {
   const expansionKey = (projectKey: string) => `lattice:expanded-directories:${projectKey}`;
+  const expandSections = () => localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
 
   function treeRoot(): ShadowRoot | null {
     return document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot ?? null;
@@ -469,38 +427,43 @@ describe("Navigator / project tree", () => {
       .find((item) => item.dataset.itemPath === path) ?? null;
   }
 
+  const findTreeItem = (path: string) => waitFor(() => {
+    const item = treeItem(path);
+    expect(item).not.toBeNull();
+    return item!;
+  });
+
+  const textFile = (name: string) => ({ name, path: name, kind: "text", children: [] });
+
+  async function hiddenFilesToggle(checked: boolean) {
+    const toggle = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
+    expect(toggle).toHaveAttribute("aria-checked", String(checked));
+    expect(toggle.querySelector("svg")).toHaveClass(checked ? "lucide-check" : "lucide-eye");
+    return toggle;
+  }
+
   it("reopens the folders the last session left open", async () => {
     // Stored without Pierre's trailing slash, which is the form the tree wants
     // back — a mismatch here silently collapses everyone's tree on restart.
-    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    expandSections();
     renderNavigator({ mode: "project" });
 
     await waitFor(() => expect(treeItem("sections/intro.tex")).not.toBeNull());
   });
 
   it("hides template files by default without hiding similarly named sources", async () => {
-    renderNavigator({ mode: "project", files: [
-      ...files,
-      ...["journal.sty", "refs.BST", "journal.sty.tex"].map((name) => ({
-        name, path: name, kind: "text", children: [],
-      })),
-    ] });
+    renderNavigator({ mode: "project", files: [...files, ...["journal.sty", "refs.BST", "journal.sty.tex"].map(textFile)] });
     await waitFor(() => expect(treeItem("journal.sty.tex")).not.toBeNull());
     expect(treeItem("journal.sty")).toBeNull();
     expect(treeItem("refs.BST")).toBeNull();
   });
 
   it("toggles hidden files from both menus and remembers the choice", async () => {
-    const hidden = ["journal.sty", "refs.bst", "main.fls", ".env.example"].map((name) => ({
-      name, path: name, kind: "text", children: [],
-    }));
+    const hidden = ["journal.sty", "refs.bst", "main.fls", ".env.example"].map(textFile);
     vi.mocked(invoke).mockResolvedValue([...files, ...hidden]);
     const view = renderNavigator({ mode: "project" });
     fireEvent.contextMenu(screen.getByLabelText("Project files"));
-    const toggle = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(toggle.querySelector("svg")).toHaveClass("lucide-eye");
-    fireEvent.click(toggle);
+    fireEvent.click(await hiddenFilesToggle(false));
     await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
     expect(invoke).toHaveBeenCalledWith("list_project_tree_with_hidden", { projectRoot: "/tmp/paper" });
     for (const file of hidden) expect(treeItem(file.path)).not.toBeNull();
@@ -509,16 +472,11 @@ describe("Navigator / project tree", () => {
     renderNavigator({ mode: "project" });
     await waitFor(() => expect(treeItem("main.fls")).not.toBeNull());
     fireEvent.contextMenu(treeItem("sections/")!);
-    const checked = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
-    expect(checked).toHaveAttribute("aria-checked", "true");
-    expect(checked.querySelector("svg")).toHaveClass("lucide-check");
-    fireEvent.click(checked);
+    fireEvent.click(await hiddenFilesToggle(true));
     await waitFor(() => expect(treeItem("main.fls")).toBeNull());
     expect(localStorage.getItem("lattice:show-hidden-files")).toBe("false");
     fireEvent.contextMenu(treeItem("sections/")!);
-    const unchecked = await screen.findByRole("menuitemcheckbox", { name: "Show hidden files" });
-    expect(unchecked).toHaveAttribute("aria-checked", "false");
-    expect(unchecked.querySelector("svg")).toHaveClass("lucide-eye");
+    await hiddenFilesToggle(false);
   });
 
   it("ignores a hidden tree response from the previous project", async () => {
@@ -536,7 +494,7 @@ describe("Navigator / project tree", () => {
   });
 
   it("keeps each project's folders to itself", async () => {
-    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    expandSections();
     const { rerenderWith } = renderNavigator({ mode: "project" });
     await waitFor(() => expect(treeItem("sections/intro.tex")).not.toBeNull());
 
@@ -556,22 +514,14 @@ describe("Navigator / project tree", () => {
     expect(treeItem("sections/intro.tex")).toBeNull();
   });
 
-  it("keeps a command-clicked multi-selection when the newest file opens", async () => {
-    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+  it("keeps a command-clicked multi-selection when the newest file opens, and deletes it as one action", async () => {
+    expandSections();
     let rerenderWith: (next: Partial<NavigatorProps>) => void = () => undefined;
-    const onFile = vi.fn((path: string) => rerenderWith({ activeFile: path }));
-    ({ rerenderWith } = renderNavigator({ mode: "project", onFile }));
-    const main = await waitFor(() => {
-      const item = treeItem("main.tex");
-      expect(item).not.toBeNull();
-      return item!;
-    });
-    const intro = await waitFor(() => {
-      const item = treeItem("sections/intro.tex");
-      expect(item).not.toBeNull();
-      return item!;
-    });
-
+    // Opening a file re-renders with it active, the way App does.
+    const view = renderNavigator({ mode: "project", onFile: vi.fn((path: string) => rerenderWith({ activeFile: path })) });
+    rerenderWith = view.rerenderWith;
+    const main = await findTreeItem("main.tex");
+    const intro = await findTreeItem("sections/intro.tex");
     fireEvent.click(main);
     fireEvent.click(intro, { metaKey: true });
 
@@ -579,42 +529,14 @@ describe("Navigator / project tree", () => {
       expect(main).toHaveAttribute("data-item-selected", "true");
       expect(intro).toHaveAttribute("data-item-selected", "true");
     });
-  });
-
-  it("deletes the selected files as one action", async () => {
-    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
-    let rerenderWith: (next: Partial<NavigatorProps>) => void = () => undefined;
-    const onFile = vi.fn((path: string) => rerenderWith({ activeFile: path }));
-    const onDeleteEntries = vi.fn();
-    ({ rerenderWith } = renderNavigator({ mode: "project", onFile, onDeleteEntries }));
-    const main = await waitFor(() => {
-      const item = treeItem("main.tex");
-      expect(item).not.toBeNull();
-      return item!;
-    });
-    const intro = await waitFor(() => {
-      const item = treeItem("sections/intro.tex");
-      expect(item).not.toBeNull();
-      return item!;
-    });
-    fireEvent.click(main);
-    fireEvent.click(intro, { metaKey: true });
-
     fireEvent.contextMenu(intro);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-
-    await waitFor(() => expect(onDeleteEntries).toHaveBeenCalledWith([
-      "main.tex",
-      "sections/intro.tex",
-    ]));
+    await waitFor(() => expect(view.props.onDeleteEntries).toHaveBeenCalledWith(["main.tex", "sections/intro.tex"]));
   });
 
   it("copies a project file with Command-C/V instead of reading an image", async () => {
     const { props } = renderNavigator({ mode: "project" });
-    const main = await waitFor(() => {
-      expect(treeItem("main.tex")).not.toBeNull();
-      return treeItem("main.tex")!;
-    });
+    const main = await findTreeItem("main.tex");
     fireEvent.click(main);
     fireEvent.keyDown(main, { key: "c", metaKey: true });
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/paper/main.tex"));
@@ -632,13 +554,9 @@ describe("Navigator / project tree", () => {
   });
 
   it("copies a folder only once when its child is also selected", async () => {
-    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["sections"]));
+    expandSections();
     const { props } = renderNavigator({ mode: "project" });
-    const intro = await waitFor(() => {
-      expect(treeItem("sections/intro.tex")).not.toBeNull();
-      return treeItem("sections/intro.tex")!;
-    });
-    fireEvent.click(intro);
+    fireEvent.click(await findTreeItem("sections/intro.tex"));
     fireEvent.click(treeItem("sections/")!, { metaKey: true });
     fireEvent.keyDown(treeItem("sections/")!, { key: "c", metaKey: true });
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/paper/sections"));
@@ -651,10 +569,7 @@ describe("Navigator / project tree", () => {
 
   it("renames the selected file with Enter and confirms from the rename input", async () => {
     const { props } = renderNavigator({ mode: "project" });
-    const main = await waitFor(() => {
-      expect(treeItem("main.tex")).not.toBeNull();
-      return treeItem("main.tex")!;
-    });
+    const main = await findTreeItem("main.tex");
     fireEvent.click(main);
     fireEvent.keyDown(main, { key: "Enter" });
     const input = await waitFor(() => {
@@ -672,35 +587,19 @@ describe("Navigator / project tree", () => {
     await waitFor(() => expect(props.onRenameEntry).toHaveBeenCalledWith("main.tex", "renamed.tex"));
   });
 
-  it("pastes a clipboard image into the directory chosen in the context menu", async () => {
-    const onPasteImage = vi.fn();
-    renderNavigator({ mode: "project", onPasteImage });
-    const folder = await waitFor(() => {
-      const item = treeItem("sections/");
-      expect(item).not.toBeNull();
-      return item!;
-    });
+  it.each([
+    ["the directory chosen in the context menu", async (folder: HTMLElement) => {
+      fireEvent.contextMenu(folder);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Paste clipboard image as figure" }));
+    }],
+    ["the selected directory with Command-V", async (folder: HTMLElement) => {
+      fireEvent.click(folder);
+      fireEvent.keyDown(folder, { key: "v", metaKey: true });
+    }],
+  ])("pastes a clipboard image into %s", async (_case, paste) => {
+    const { props } = renderNavigator({ mode: "project" });
+    await paste(await findTreeItem("sections/"));
 
-    fireEvent.contextMenu(folder);
-    fireEvent.click(await screen.findByRole("menuitem", {
-      name: "Paste clipboard image as figure",
-    }));
-
-    await waitFor(() => expect(onPasteImage).toHaveBeenCalledWith("sections"));
-  });
-
-  it("pastes a clipboard image into the selected directory with Command-V", async () => {
-    const onPasteImage = vi.fn();
-    renderNavigator({ mode: "project", onPasteImage });
-    const folder = await waitFor(() => {
-      const item = treeItem("sections/");
-      expect(item).not.toBeNull();
-      return item!;
-    });
-
-    fireEvent.click(folder);
-    fireEvent.keyDown(folder, { key: "v", metaKey: true });
-
-    await waitFor(() => expect(onPasteImage).toHaveBeenCalledWith("sections"));
+    await waitFor(() => expect(props.onPasteImage).toHaveBeenCalledWith("sections"));
   });
 });

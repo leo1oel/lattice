@@ -5,11 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popove
 import { RadioGroup, RadioItem } from "../components/ui/radio-group";
 import type { SynaraPermissionMode } from "../app/app-synara-embed";
 
-function SynaraPermissionIcon({ mode }: { mode: SynaraPermissionMode }) {
-  if (mode === "full-access") return <ShieldCheck size={14} />;
-  if (mode === "auto") return <Shield size={14} />;
-  return <Hand size={14} />;
-}
+const MODE_ICONS = { "full-access": ShieldCheck, auto: Shield, "approval-required": Hand } as const;
 
 export default function SynaraPermissionPicker(props: {
   value: SynaraPermissionMode;
@@ -35,6 +31,7 @@ export default function SynaraPermissionPicker(props: {
     },
   };
   const { label } = presentations[props.value];
+  const ModeIcon = MODE_ICONS[props.value];
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -44,7 +41,7 @@ export default function SynaraPermissionPicker(props: {
           aria-label={t`Agent permissions: ${label}`}
           title={t`Agent permissions: ${label}`}
         >
-          <SynaraPermissionIcon mode={props.value} />
+          <ModeIcon size={14} />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -66,7 +63,6 @@ export default function SynaraPermissionPicker(props: {
                 <RadioItem
                   index={index}
                   label={option.label}
-                  selected={props.value === mode}
                   onSelect={() => { if (!disabled) props.onChange(mode); }}
                   aria-disabled={disabled || undefined}
                   aria-describedby={`${descriptionId}-${mode}`}

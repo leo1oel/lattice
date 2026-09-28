@@ -59,14 +59,9 @@ describe("bibliography entry drafting", () => {
       },
     });
 
-    expect(formatted).toContain("title = {Edited title}");
-    expect(formatted).toContain("eprint = {2601.01234}");
-    expect(formatted).toContain("archiveprefix = {arXiv}");
-    expect(formatted).toContain("pages = {1--10}");
-    expect(formatted).toContain("note = {Keep {NASA}}");
-    expect(formatted).toContain("howpublished = {\\url{https://example.org}}");
-    expect(formatted).not.toContain("Stale title");
-    expect(formatted).not.toContain("Removed journal");
+    for (const field of ["title = {Edited title}", "eprint = {2601.01234}", "archiveprefix = {arXiv}", "pages = {1--10}",
+      "note = {Keep {NASA}}", "howpublished = {\\url{https://example.org}}"]) expect(formatted).toContain(field);
+    for (const stale of ["Stale title", "Removed journal"]) expect(formatted).not.toContain(stale);
   });
 
   it("appends an entry with a blank line separator", () => {

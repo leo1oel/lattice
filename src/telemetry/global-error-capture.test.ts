@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Keep the file-log mock inert so forwarding from captured entries is a no-op.
-vi.mock("@tauri-apps/plugin-log", () => ({
-  info: vi.fn().mockResolvedValue(undefined),
-  warn: vi.fn().mockResolvedValue(undefined),
-  error: vi.fn().mockResolvedValue(undefined),
-}));
-
 async function loadCapture() {
   vi.resetModules();
   const store = await import("./app-log-store");
@@ -31,14 +24,10 @@ describe("installGlobalErrorCapture", () => {
     console.warn("be careful");
 
     const text = store.formatAppLogs();
-    expect(text).toContain("Unexpected error");
-    expect(text).toContain("kaboom");
-    expect(text).toContain("Unhandled promise rejection");
-    expect(text).toContain("broken promise");
-    expect(text).toContain("console.error");
-    expect(text).toContain("something failed");
-    expect(text).toContain("console.warn");
-    expect(text).toContain("be careful");
+    for (const fragment of ["Unexpected error", "kaboom", "Unhandled promise rejection", "broken promise",
+      "console.error", "something failed", "console.warn", "be careful"]) {
+      expect(text).toContain(fragment);
+    }
   });
 
   it("is idempotent — installing twice does not double-report", async () => {
@@ -72,9 +61,7 @@ describe("installGlobalErrorCapture", () => {
     capture.installGlobalErrorCapture();
 
     // Force addAppLog to throw mid-report by breaking UUID generation once.
-    const uuid = vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
-      throw new Error("uuid broken");
-    });
+    const uuid = vi.spyOn(crypto, "randomUUID").mockImplementation(() => { throw new Error("uuid broken"); });
     expect(() => console.error("trigger while broken")).not.toThrow();
     uuid.mockRestore();
 

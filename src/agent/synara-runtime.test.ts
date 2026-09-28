@@ -6,8 +6,6 @@ import {
   normalizeSynaraOrigin,
   parseAgentProjectHistorySnapshot,
   parseAgentCompileResultMessage,
-  parseCodexFileCitation,
-  formatCodexFileCitation,
   synaraFrameUrl,
   synaraProjectRelativeFilePath,
 } from "./synara-runtime";
@@ -102,52 +100,16 @@ describe("Synara runtime URLs", () => {
     };
 
     expect(parseAgentProjectHistorySnapshot(snapshot)).toEqual(snapshot);
-    expect(parseAgentProjectHistorySnapshot({
-      ...snapshot,
-      entries: [{ ...snapshot.entries[0], turnCount: -1 }],
-    })).toBeNull();
-    expect(parseAgentProjectHistorySnapshot({
-      ...snapshot,
-      entries: [{ ...snapshot.entries[0], threadId: "thread\0other" }],
-    })).toBeNull();
-    expect(parseAgentProjectHistorySnapshot({
-      ...snapshot,
-      entries: [{ ...snapshot.entries[0], timestamp: "2026-02-30T12:00:00Z" }],
-    })).toBeNull();
-    for (const path of ["../outside.tex", "/tmp/main.tex", "C:/private/main.tex", "file:main.tex", "notes\\main.tex"]) {
-      expect(parseAgentProjectHistorySnapshot({
-        ...snapshot,
-        entries: [{
-          ...snapshot.entries[0],
-          files: [{ ...snapshot.entries[0].files[0], path }],
-        }],
-      })).toBeNull();
+    const [entry] = snapshot.entries;
+    const invalidEntries = [
+      { turnCount: -1 },
+      { threadId: "thread\0other" },
+      { timestamp: "2026-02-30T12:00:00Z" },
+      ...["../outside.tex", "/tmp/main.tex", "C:/private/main.tex", "file:main.tex", "notes\\main.tex"]
+        .map((path) => ({ files: [{ ...entry.files[0], path }] })),
+    ];
+    for (const override of invalidEntries) {
+      expect(parseAgentProjectHistorySnapshot({ ...snapshot, entries: [{ ...entry, ...override }] })).toBeNull();
     }
-  });
-
-  it("parses and formats structured Codex file citation directives into clean links", () => {
-    const raw = ':codex-file-citation{path="/Users/leonardo/Documents/research/Native VLM/results.lattice-sheet" purpose="source" artifact_kind="workbook" sheet="Results" range="A20"}';
-    const parsed = parseCodexFileCitation(raw);
-    expect(parsed).toEqual({
-      path: "/Users/leonardo/Documents/research/Native VLM/results.lattice-sheet",
-      purpose: "source",
-      artifactKind: "workbook",
-      sheet: "Results",
-      range: "A20",
-      line: undefined,
-      raw,
-    });
-
-    const root = "/Users/leonardo/Documents/research/Native VLM";
-    const text = `刚才 Lattice 表格接口连续超时，A20 背景尚未写入；你确认排序口径后，我会把背景和排序一起完成。${raw}`;
-    const formatted = formatCodexFileCitation(text, root);
-    expect(formatted).toBe(
-      "刚才 Lattice 表格接口连续超时，A20 背景尚未写入；你确认排序口径后，我会把背景和排序一起完成。 [results.lattice-sheet • Results!A20](results.lattice-sheet)",
-    );
-
-    const codeCitation = ':codex-file-citation{path="main.tex" line=42}';
-    expect(formatCodexFileCitation(`See ${codeCitation} for details.`, root)).toBe(
-      "See  [main.tex:L42](main.tex) for details.",
-    );
   });
 });

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export type RowDensity = "compact" | "data" | "store";
+export type RowDensity = "data" | "store";
 
 /**
  * Shared row-height contract without imposing a DOM element.

@@ -1,29 +1,15 @@
-"use client"
-
 import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import {
-  floatingSurfaceClassName,
-  menuItemClassName,
-  menuViewportClassName,
-} from "./menu-surface"
+import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import { FluidHoverSurface } from "./fluid-hover-surface"
 
-function ContextMenu({
-  ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
-}
+const ContextMenu = ContextMenuPrimitive.Root
 
-function ContextMenuTrigger({
-  ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Trigger>) {
-  return (
-    <ContextMenuPrimitive.Trigger data-slot="context-menu-trigger" {...props} />
-  )
+function ContextMenuTrigger(props: React.ComponentProps<typeof ContextMenuPrimitive.Trigger>) {
+  return <ContextMenuPrimitive.Trigger data-slot="context-menu-trigger" {...props} />
 }
 
 function ContextMenuContent({
@@ -54,22 +40,16 @@ function ContextMenuContent({
 
 function ContextMenuItem({
   className,
-  inset,
   variant = "default",
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
-  inset?: boolean
   variant?: "default" | "destructive"
 }) {
   return (
     <ContextMenuPrimitive.Item
       data-slot="context-menu-item"
-      data-inset={inset}
       data-variant={variant}
-      className={cn(
-        menuItemClassName,
-        className
-      )}
+      className={cn(menuItemClassName, className)}
       {...props}
     />
   )

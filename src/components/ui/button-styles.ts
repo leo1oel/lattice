@@ -17,10 +17,5 @@ export function buttonClassName({
   size = "default",
   className,
 }: ButtonClassOptions = {}) {
-  return cn(
-    "ui-button",
-    `ui-button--${variant}`,
-    `ui-button--${size}`,
-    className,
-  );
+  return cn("ui-button", `ui-button--${variant}`, `ui-button--${size}`, className);
 }

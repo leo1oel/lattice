@@ -12,12 +12,22 @@ import {
 } from "./agent-spreadsheet-tools";
 import { applySpreadsheetBatch, readSpreadsheet } from "../editor/spreadsheet/spreadsheet-operations";
 import { seedSpreadsheetDoc } from "../editor/spreadsheet/spreadsheet-yjs";
+import type { SpreadsheetCellValue } from "../editor/spreadsheet/spreadsheet-types";
 
 const cleanups: Array<() => void> = [];
 
 afterEach(() => {
   while (cleanups.length) cleanups.pop()?.();
 });
+
+/** A seeded workbook, destroyed after the test. */
+function seededDoc(values?: SpreadsheetCellValue[][]): Y.Doc {
+  const doc = new Y.Doc();
+  seedSpreadsheetDoc(doc);
+  if (values) applySpreadsheetBatch(doc, { operations: [{ type: "set_values", range: "A1", values }] });
+  cleanups.push(() => doc.destroy());
+  return doc;
+}
 
 function request(
   action: AgentSpreadsheetToolRequest["action"],
@@ -33,6 +43,8 @@ function request(
   };
 }
 
+const readA1 = (path: string) => executeAgentSpreadsheetToolRequest(request("read", { path, range: "A1" }));
+
 describe("agent spreadsheet host protocol", () => {
   it("strictly parses bounded, versioned request envelopes", () => {
     const valid = request("read", { path: "tables/data.lattice-sheet", range: "A1" });
@@ -47,8 +59,7 @@ describe("agent spreadsheet host protocol", () => {
   });
 
   it("applies one semantic batch, commits it, and publishes bounded Agent presence", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const awareness = new Awareness(doc);
     awareness.setLocalState({ user: { id: "ada", name: "Ada", color: "#3366ff" } });
     let finishCommit!: () => void;
@@ -79,12 +90,10 @@ describe("agent spreadsheet host protocol", () => {
     expect(awareness.getLocalState()?.spreadsheetAgentPresence).toBeNull();
     expect(readSpreadsheet(doc, { range: "A1:B1", include: ["values"] }).values).toEqual([[7, "result"]]);
     awareness.destroy();
-    doc.destroy();
   });
 
   it("stores quoted plain numbers from the Agent as numeric cells", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", { doc, canWrite: true }));
 
     await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
@@ -93,12 +102,10 @@ describe("agent spreadsheet host protocol", () => {
       operations: [{ type: "set_values", range: "A1:B1", values: [["0.764", "780"]] }],
     }))).resolves.toMatchObject({ ok: true });
     expect(readSpreadsheet(doc, { range: "A1:B1", include: ["values"] }).values).toEqual([[0.764, 780]]);
-    doc.destroy();
   });
 
   it("rejects expired, invalid, and read-only updates without partial writes", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("readonly.lattice-sheet", { doc, canWrite: false }));
 
     await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
@@ -113,64 +120,32 @@ describe("agent spreadsheet host protocol", () => {
       ok: false,
       error: { code: "spreadsheet_tool_expired" },
     });
-    doc.destroy();
   });
 
   it("sideloads an unopened document and disposes the resolver-owned Y.Doc", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
-    const dispose = vi.fn(() => doc.destroy());
+    const doc = seededDoc();
+    const dispose = vi.fn();
     cleanups.push(registerAgentSpreadsheetDocumentResolver(async (path) => (
       path === "unopened.lattice-sheet" ? { doc, canWrite: true, dispose } : null
     )));
 
-    await expect(executeAgentSpreadsheetToolRequest(request("read", {
-      path: "unopened.lattice-sheet",
-      range: "A1",
-    }))).resolves.toMatchObject({ ok: true });
+    await expect(readA1("unopened.lattice-sheet")).resolves.toMatchObject({ ok: true });
     expect(dispose).toHaveBeenCalledOnce();
   });
 
   it("keeps unfocused open sheets registered and prefers the focused pane", async () => {
-    const unfocusedDoc = new Y.Doc();
-    const focusedDoc = new Y.Doc();
-    seedSpreadsheetDoc(unfocusedDoc);
-    seedSpreadsheetDoc(focusedDoc);
-    applySpreadsheetBatch(unfocusedDoc, {
-      operations: [{ type: "set_values", range: "A1", values: [["unfocused"]] }],
-    });
-    applySpreadsheetBatch(focusedDoc, {
-      operations: [{ type: "set_values", range: "A1", values: [["focused"]] }],
-    });
-    cleanups.push(registerAgentSpreadsheetDocument(
-      "two-pane.lattice-sheet",
-      { doc: unfocusedDoc, canWrite: true },
-      false,
-    ));
-    const unregisterFocused = registerAgentSpreadsheetDocument(
-      "two-pane.lattice-sheet",
-      { doc: focusedDoc, canWrite: true },
-      true,
-    );
+    const path = "two-pane.lattice-sheet";
+    cleanups.push(registerAgentSpreadsheetDocument(path, { doc: seededDoc([["unfocused"]]), canWrite: true }, false));
+    const unregisterFocused = registerAgentSpreadsheetDocument(path, { doc: seededDoc([["focused"]]), canWrite: true }, true);
     cleanups.push(unregisterFocused);
 
-    await expect(executeAgentSpreadsheetToolRequest(request("read", {
-      path: "two-pane.lattice-sheet",
-      range: "A1",
-    }))).resolves.toMatchObject({ ok: true, result: { values: [["focused"]] } });
-
+    await expect(readA1(path)).resolves.toMatchObject({ ok: true, result: { values: [["focused"]] } });
     unregisterFocused();
-    await expect(executeAgentSpreadsheetToolRequest(request("read", {
-      path: "two-pane.lattice-sheet",
-      range: "A1",
-    }))).resolves.toMatchObject({ ok: true, result: { values: [["unfocused"]] } });
-    focusedDoc.destroy();
-    unfocusedDoc.destroy();
+    await expect(readA1(path)).resolves.toMatchObject({ ok: true, result: { values: [["unfocused"]] } });
   });
 
   it("waits until the requested spreadsheet editor registers its live document", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     let settled = false;
     const waiting = waitForAgentSpreadsheetDocument("new.lattice-sheet", 1_000)
       .then(() => { settled = true; });
@@ -179,12 +154,10 @@ describe("agent spreadsheet host protocol", () => {
     cleanups.push(registerAgentSpreadsheetDocument("new.lattice-sheet", { doc, canWrite: true }));
     await waiting;
     expect(settled).toBe(true);
-    doc.destroy();
   });
 
   it("does not invite a duplicate structural update when persistence is unconfirmed", async () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const commit = vi.fn()
       .mockRejectedValueOnce(new Error("disk unavailable"))
       .mockResolvedValueOnce(undefined);
@@ -211,6 +184,5 @@ describe("agent spreadsheet host protocol", () => {
     });
     expect(readSpreadsheet(doc, { range: "A1" }).sheet).toMatchObject({ rows: 101 });
     expect(commit).toHaveBeenCalledTimes(2);
-    doc.destroy();
   });
 });

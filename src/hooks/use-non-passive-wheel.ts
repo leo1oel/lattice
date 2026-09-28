@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useEffect, type RefObject } from "react";
+import { useLatestRef } from "./use-latest-ref";
 
 /**
  * Attach a wheel handler that can actually call `preventDefault()`.
@@ -16,15 +17,12 @@ export function useNonPassiveWheel(
   ref: RefObject<HTMLElement | null>,
   handler: (event: WheelEvent) => void,
 ): void {
-  const handlerRef = useRef(handler);
-  useLayoutEffect(() => {
-    handlerRef.current = handler;
-  }, [handler]);
+  const handlerRef = useLatestRef(handler);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     const onWheel = (event: WheelEvent) => handlerRef.current(event);
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [ref]);
+  }, [handlerRef, ref]);
 }

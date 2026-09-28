@@ -1,17 +1,26 @@
-import { createRef } from "react";
+import { createRef, type ComponentProps } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ScrollArea } from "./scroll-area";
 
-function setScrollGeometry(element: HTMLElement, geometry: {
-  clientHeight: number;
-  clientWidth: number;
-  scrollHeight: number;
-  scrollWidth: number;
-}) {
+type ScrollGeometry = { clientHeight: number; clientWidth: number; scrollHeight: number; scrollWidth: number };
+
+/** jsdom has no layout, so declare the viewport's extent. */
+function setScrollGeometry(element: HTMLElement, geometry: ScrollGeometry = {} as ScrollGeometry) {
   for (const [name, value] of Object.entries(geometry)) {
     Object.defineProperty(element, name, { configurable: true, value });
   }
+}
+
+function renderViewport(
+  label: string,
+  props: Omit<ComponentProps<typeof ScrollArea>, "viewportProps">,
+  geometry?: ScrollGeometry,
+) {
+  render(<ScrollArea {...props} viewportProps={{ "aria-label": label }}><p>Result</p></ScrollArea>);
+  const viewport = screen.getByLabelText(label);
+  setScrollGeometry(viewport, geometry);
+  return viewport;
 }
 
 describe("ScrollArea", () => {
@@ -55,10 +64,7 @@ describe("ScrollArea", () => {
     const viewportRef = createRef<HTMLDivElement>();
     const onScroll = vi.fn();
     render(
-      <ScrollArea
-        viewportRef={viewportRef}
-        viewportProps={{ "aria-label": "Results", onScroll }}
-      >
+      <ScrollArea viewportRef={viewportRef} viewportProps={{ "aria-label": "Results", onScroll }}>
         <p>Result</p>
       </ScrollArea>,
     );
@@ -72,23 +78,13 @@ describe("ScrollArea", () => {
   });
 
   it("disables both edge masks and their scroll measurements", async () => {
-    render(
-      <ScrollArea
-        fadeEdges={false}
-        viewportProps={{ "aria-label": "Unmasked content" }}
-      >
-        <p>Result</p>
-      </ScrollArea>,
-    );
-
-    const viewport = screen.getByLabelText("Unmasked content");
-    expect(viewport).not.toHaveClass("scroll-fade");
-    setScrollGeometry(viewport, {
+    const viewport = renderViewport("Unmasked content", { fadeEdges: false }, {
       clientHeight: 100,
       clientWidth: 100,
       scrollHeight: 300,
       scrollWidth: 100,
     });
+    expect(viewport).not.toHaveClass("scroll-fade");
     fireEvent.scroll(viewport);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(viewport).not.toHaveAttribute("data-has-vertical-overflow");
@@ -96,23 +92,13 @@ describe("ScrollArea", () => {
   });
 
   it("tracks which edges still have content to reveal", async () => {
-    render(
-      <ScrollArea
-        orientation="both"
-        viewportClassName="scroll-fade-both"
-        viewportProps={{ "aria-label": "Scrollable content" }}
-      >
-        <div>Large content</div>
-      </ScrollArea>,
-    );
-
-    const viewport = screen.getByLabelText("Scrollable content");
-    setScrollGeometry(viewport, {
+    const viewport = renderViewport("Scrollable content", { orientation: "both" }, {
       clientHeight: 100,
       clientWidth: 100,
       scrollHeight: 300,
       scrollWidth: 250,
     });
+    expect(viewport).toHaveClass("scroll-fade-both");
     Object.defineProperty(viewport, "scrollTop", { configurable: true, writable: true, value: 0 });
     Object.defineProperty(viewport, "scrollLeft", { configurable: true, writable: true, value: 0 });
     fireEvent.scroll(viewport);
@@ -138,17 +124,7 @@ describe("ScrollArea", () => {
   });
 
   it("marks both axes as non-scrollable when all content fits", async () => {
-    render(
-      <ScrollArea
-        orientation="both"
-        viewportProps={{ "aria-label": "Fitting content" }}
-      >
-        <div>Small content</div>
-      </ScrollArea>,
-    );
-
-    const viewport = screen.getByLabelText("Fitting content");
-    setScrollGeometry(viewport, {
+    const viewport = renderViewport("Fitting content", { orientation: "both" }, {
       clientHeight: 100,
       clientWidth: 100,
       scrollHeight: 100,

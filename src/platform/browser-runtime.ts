@@ -4,13 +4,7 @@ const LOCAL_EVENT_START = -1;
 
 type Callback = (payload: unknown) => void;
 
-type BridgeValue =
-  | null
-  | boolean
-  | number
-  | string
-  | BridgeValue[]
-  | { [key: string]: BridgeValue };
+type BridgeValue = null | boolean | number | string | BridgeValue[] | { [key: string]: BridgeValue };
 
 type BrowserMessage =
   | { type: "ready"; label: string }
@@ -18,11 +12,7 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
-  | { type: "desktop-suspended" }
-  | { type: "desktop-resumed" }
-  | { type: "browser-replaced" }
-  | { type: "desktop-returned" }
-  | { type: "host-disconnected" }
+  | { type: "desktop-suspended" | "desktop-resumed" | "browser-replaced" | "desktop-returned" | "host-disconnected" }
   | { type: "error"; message: string };
 
 type BrowserPeerRole = "browser" | "desktop";
@@ -76,9 +66,20 @@ function detachRuntime(): void {
   for (const listener of [...detachListeners]) listener();
 }
 
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<void>((settle, fail) => {
+    resolve = settle;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+const isChromiumPeer = () => new URLSearchParams(window.location.search).get("latticeChromium") === "1";
+
 export class BrowserRelay {
   private readonly socket: WebSocket;
-  private readonly callbacks: Map<number, Callback>;
   private readonly pending = new Map<number, {
     resolve: (value: unknown) => void;
     reject: (reason: unknown) => void;
@@ -88,34 +89,22 @@ export class BrowserRelay {
   // request whose counter happened to restart at the same number.
   private nextRequestId = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   private ready = false;
-  private readyResolve!: () => void;
-  private readyReject!: (reason: unknown) => void;
-  private readonly readyPromise: Promise<void>;
-  private storageResolve!: () => void;
-  private storageReject!: (reason: unknown) => void;
+  private readonly readyGate = deferred();
+  private readonly storageGate = deferred();
   private storageHydrated = false;
   private pageLeaving = false;
   private terminal = false;
   private recovering = false;
   private standby = false;
-  readonly storageReady: Promise<void>;
+  readonly storageReady = this.storageGate.promise;
 
   constructor(
     config: BrowserRuntimeConfig,
-    callbacks: Map<number, Callback>,
+    private readonly callbacks: Map<number, Callback>,
     private readonly reloadPage: () => void = () => window.location.reload(),
-    private readonly role: BrowserPeerRole = browserPeerRole(),
+    private readonly role: BrowserPeerRole = isChromiumPeer() ? "desktop" : "browser",
     private readonly closePage: () => void = () => window.close(),
   ) {
-    this.callbacks = callbacks;
-    this.readyPromise = new Promise<void>((resolve, reject) => {
-      this.readyResolve = resolve;
-      this.readyReject = reject;
-    });
-    this.storageReady = new Promise<void>((resolve, reject) => {
-      this.storageResolve = resolve;
-      this.storageReject = reject;
-    });
     const socketUrl = new URL(`ws://127.0.0.1:${config.bridgePort}/__lattice_bridge`);
     socketUrl.searchParams.set("token", config.token);
     socketUrl.searchParams.set("role", role);
@@ -138,9 +127,7 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready && !this.standby) {
-        this.fail(new Error(runtimeMessage("handoff-timeout")));
-      }
+      if (!this.ready && !this.standby) this.fail(new Error(runtimeMessage("handoff-timeout")));
     }, 20_000);
   }
 
@@ -148,18 +135,13 @@ export class BrowserRelay {
     // Once the handoff is ready, send before yielding to a microtask. This is
     // what lets a beforeunload save place its write on the socket while the
     // document is still alive.
-    if (!this.ready) await this.readyPromise;
+    if (!this.ready) await this.readyGate.promise;
     const id = this.nextRequestId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       try {
-        this.socket.send(JSON.stringify({
-          type: "invoke",
-          id,
-          command,
-          args: encodeBridgeValue(args),
-          options: encodeBridgeValue(options),
-        }));
+        const message = { type: "invoke", id, command, args: encodeBridgeValue(args), options: encodeBridgeValue(options) };
+        this.socket.send(JSON.stringify(message));
       } catch (reason) {
         this.pending.delete(id);
         reject(reason);
@@ -169,10 +151,7 @@ export class BrowserRelay {
 
   syncStorage(): void {
     if (!this.storageHydrated || this.socket.readyState !== WebSocket.OPEN) return;
-    this.socket.send(JSON.stringify({
-      type: "storage-update",
-      entries: Object.entries(localStorage),
-    }));
+    this.socket.send(JSON.stringify({ type: "storage-update", entries: Object.entries(localStorage) }));
   }
 
   private receive(event: MessageEvent): void {
@@ -183,109 +162,90 @@ export class BrowserRelay {
     } catch {
       return;
     }
-    if (message.type === "ready") {
-      if (this.role === "desktop") sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
-      if (!this.ready) {
-        this.ready = true;
-        this.readyResolve();
+    switch (message.type) {
+      case "ready":
+        if (this.role === "desktop") sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
+        if (!this.ready) {
+          this.ready = true;
+          this.readyGate.resolve();
+        }
+        break;
+      case "callback":
+        this.callbacks.get(message.id)?.(decodeBridgeValue(message.payload));
+        break;
+      case "storage":
+        localStorage.clear();
+        for (const [key, value] of message.entries) localStorage.setItem(key, value);
+        this.storageHydrated = true;
+        this.storageGate.resolve();
+        break;
+      case "response": {
+        const pending = this.pending.get(message.id);
+        if (!pending) return;
+        this.pending.delete(message.id);
+        if (message.ok) pending.resolve(decodeBridgeValue(message.value));
+        else pending.reject(decodeBridgeValue(message.error));
+        break;
       }
-      return;
-    }
-    if (message.type === "callback") {
-      this.callbacks.get(message.id)?.(decodeBridgeValue(message.payload));
-      return;
-    }
-    if (message.type === "storage") {
-      localStorage.clear();
-      for (const [key, value] of message.entries) localStorage.setItem(key, value);
-      this.storageHydrated = true;
-      this.storageResolve();
-      return;
-    }
-    if (message.type === "response") {
-      const pending = this.pending.get(message.id);
-      if (!pending) return;
-      this.pending.delete(message.id);
-      if (message.ok) pending.resolve(decodeBridgeValue(message.value));
-      else pending.reject(decodeBridgeValue(message.error));
-      return;
-    }
-    if (message.type === "host-disconnected") {
-      this.disconnect(new Error(runtimeMessage("app-disconnected")));
-      return;
-    }
-    if (message.type === "desktop-suspended") {
-      this.standby = true;
-      detachRuntime();
-      const reason = new Error(runtimeMessage("desktop-suspended"));
-      showRuntimeFailure(reason);
-      for (const pending of this.pending.values()) pending.reject(reason);
-      this.pending.clear();
-      if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
-        sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
-        this.recovering = true;
+      case "host-disconnected":
+        this.disconnect(new Error(runtimeMessage("app-disconnected")));
+        break;
+      case "desktop-suspended": {
+        this.standby = true;
+        detachRuntime();
+        const reason = new Error(runtimeMessage("desktop-suspended"));
+        showRuntimeFailure(reason);
+        this.rejectPending(reason);
+        if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
+          sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
+          // If the reload is refused, the status remains visible and the server
+          // will resume this peer when the external browser closes.
+          this.reloadToRecover();
+        }
+        break;
+      }
+      case "desktop-resumed":
+        sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
         try {
           this.reloadPage();
-        } catch {
-          this.recovering = false;
-          // The status remains visible and the server will resume this peer
-          // when the external browser closes.
+        } catch (reason) {
+          this.fail(reason instanceof Error ? reason : new Error(String(reason)));
         }
-      }
-      return;
-    }
-    if (message.type === "desktop-resumed") {
-      sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
-      try {
-        this.reloadPage();
-      } catch (reason) {
-        this.fail(reason instanceof Error ? reason : new Error(String(reason)));
-      }
-      return;
-    }
-    if (message.type === "browser-replaced") {
-      this.terminal = true;
-      this.fail(new Error(runtimeMessage("browser-replaced")));
-      return;
-    }
-    if (message.type === "desktop-returned") {
-      this.terminal = true;
-      this.syncStorage();
-      try {
-        this.closePage();
-      } catch {
-        // Browsers may reject window.close() for a tab opened by another app.
-      }
-      // If the browser permits the close, this document disappears before the
-      // fallback paints. Otherwise, leave an explicit completion message.
-      this.fail(new Error(runtimeMessage("desktop-returned")));
-      return;
-    }
-    if (message.type === "error") {
-      this.terminal = true;
-      this.fail(new Error(message.message));
+        break;
+      case "browser-replaced":
+        this.terminal = true;
+        this.fail(new Error(runtimeMessage("browser-replaced")));
+        break;
+      case "desktop-returned":
+        this.terminal = true;
+        this.syncStorage();
+        try {
+          this.closePage();
+        } catch {
+          // Browsers may reject window.close() for a tab opened by another app.
+        }
+        // If the browser permits the close, this document disappears before the
+        // fallback paints. Otherwise, leave an explicit completion message.
+        this.fail(new Error(runtimeMessage("desktop-returned")));
+        break;
+      case "error":
+        this.terminal = true;
+        this.fail(new Error(message.message));
+        break;
     }
   }
 
   private disconnect(reason: Error): void {
     if (this.terminal || this.pageLeaving || this.recovering) return;
     if (this.standby) {
-      this.recovering = true;
-      try {
-        this.reloadPage();
-      } catch {
-        this.recovering = false;
-        this.fail(reason);
-      }
+      this.reloadToRecover(() => this.fail(reason));
       return;
     }
     if (!this.ready) {
       this.fail(reason);
       return;
     }
-    this.recovering = true;
-    for (const pending of this.pending.values()) pending.reject(reason);
-    this.pending.clear();
+    this.rejectPending(reason);
     // Browser memory savers and laptop sleep can tear down an idle WebSocket
     // while leaving the document alive. Reload through the fixed entry so it
     // can reuse the five-second session grace period or create a fresh host
@@ -298,79 +258,75 @@ export class BrowserRelay {
       this.recovering = false;
       this.fail(reason);
     }, 1_000);
+    this.reloadToRecover(() => {
+      window.clearTimeout(recoveryFallback);
+      this.fail(reason);
+    });
+  }
+
+  private reloadToRecover(onFailure?: () => void): void {
+    this.recovering = true;
     try {
       this.reloadPage();
     } catch {
-      window.clearTimeout(recoveryFallback);
       this.recovering = false;
-      this.fail(reason);
+      onFailure?.();
     }
+  }
+
+  private rejectPending(reason: Error): void {
+    for (const pending of this.pending.values()) pending.reject(reason);
+    this.pending.clear();
   }
 
   private fail(reason: Error): void {
     detachRuntime();
-    if (!this.ready) this.readyReject(reason);
+    if (!this.ready) this.readyGate.reject(reason);
     else showRuntimeFailure(reason);
-    this.storageReject(reason);
-    for (const pending of this.pending.values()) pending.reject(reason);
-    this.pending.clear();
+    this.storageGate.reject(reason);
+    this.rejectPending(reason);
   }
 }
 
-type RuntimeMessage =
-  | "app-disconnected"
-  | "handoff-timeout"
-  | "desktop-suspended"
-  | "browser-replaced"
-  | "desktop-returned";
+// Shown before a saved locale is loaded (or after the app has gone), so these
+// bootstrap messages carry their own English and Chinese text.
+const RUNTIME_MESSAGES = {
+  "app-disconnected": [
+    "The local Lattice app disconnected.",
+    "与本地 Lattice 应用的连接已断开。",
+  ],
+  "handoff-timeout": [
+    "The local Lattice app did not finish the browser handoff.",
+    "本地 Lattice 应用未能完成浏览器切换。",
+  ],
+  "desktop-suspended": [
+    "This workspace is open in your browser. It will return here when that browser tab closes.",
+    "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
+  ],
+  "browser-replaced": [
+    "This Lattice workspace is open in another browser tab.",
+    "此 Lattice 工作区已在另一个浏览器标签页中打开。",
+  ],
+  "desktop-returned": [
+    "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
+    "此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。",
+  ],
+} satisfies Record<string, [english: string, chinese: string]>;
 
-function runtimeMessage(message: RuntimeMessage): string {
-  let configuredLanguage = "system";
+function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES): string {
+  let configuredLanguage: unknown;
   try {
-    const appearance = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}") as {
+    configuredLanguage = (JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}") as {
       interfaceLanguage?: unknown;
-    };
-    if (appearance.interfaceLanguage === "en" || appearance.interfaceLanguage === "zh-CN") {
-      configuredLanguage = appearance.interfaceLanguage;
-    }
+    }).interfaceLanguage;
   } catch {
     // A malformed preference falls back to the browser language, just as the
     // main settings loader does.
   }
-  const chinese = configuredLanguage === "zh-CN"
-    || (
-      configuredLanguage === "system"
-      && navigator.languages[0]?.toLocaleLowerCase().startsWith("zh")
-    );
-  const messages: Record<RuntimeMessage, [english: string, chinese: string]> = {
-    "app-disconnected": [
-      "The local Lattice app disconnected.",
-      "与本地 Lattice 应用的连接已断开。",
-    ],
-    "handoff-timeout": [
-      "The local Lattice app did not finish the browser handoff.",
-      "本地 Lattice 应用未能完成浏览器切换。",
-    ],
-    "desktop-suspended": [
-      "This workspace is open in your browser. It will return here when that browser tab closes.",
-      "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
-    ],
-    "browser-replaced": [
-      "This Lattice workspace is open in another browser tab.",
-      "此 Lattice 工作区已在另一个浏览器标签页中打开。",
-    ],
-    "desktop-returned": [
-      "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
-      "此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。",
-    ],
-  };
-  return messages[message][chinese ? 1 : 0];
-}
-
-function browserPeerRole(): BrowserPeerRole {
-  return new URLSearchParams(window.location.search).get("latticeChromium") === "1"
-    ? "desktop"
-    : "browser";
+  const chinese = configuredLanguage === "en" || configuredLanguage === "zh-CN"
+    ? configuredLanguage === "zh-CN"
+    : navigator.languages[0]?.toLocaleLowerCase().startsWith("zh");
+  return RUNTIME_MESSAGES[message][chinese ? 1 : 0];
 }
 
 function showRuntimeFailure(reason: Error): void {
@@ -383,6 +339,21 @@ function showRuntimeFailure(reason: Error): void {
   document.body.append(overlay);
 }
 
+function physicalWindowSize() {
+  return {
+    width: Math.round(window.innerWidth * window.devicePixelRatio),
+    height: Math.round(window.innerHeight * window.devicePixelRatio),
+  };
+}
+
+const DRAG_EVENTS = new Map([
+  ["tauri://drag-enter", "dragenter"],
+  ["tauri://drag-over", "dragover"],
+  ["tauri://drag-drop", "drop"],
+  ["tauri://drag-leave", "dragleave"],
+]);
+const WINDOW_EVENTS = new Map([["tauri://resize", "resize"], ["tauri://focus", "focus"], ["tauri://blur", "blur"]]);
+
 export class BrowserEventRegistry {
   private nextLocalId = LOCAL_EVENT_START;
   private readonly entries = new Map<string, {
@@ -394,15 +365,9 @@ export class BrowserEventRegistry {
 
   listen(event: string, callbackId: number): number | null {
     const desktop = (window as unknown as RuntimeWindow).latticeDesktop;
-    const dragEvent = ({
-      "tauri://drag-enter": "dragenter",
-      "tauri://drag-over": "dragover",
-      "tauri://drag-drop": "drop",
-      "tauri://drag-leave": "dragleave",
-    } as Record<string, string>)[event];
+    const dragEvent = DRAG_EVENTS.get(event);
     if (desktop && dragEvent) {
-      const eventId = this.nextLocalId--;
-      const notify = (raw: Event) => {
+      return this.subscribe(event, callbackId, dragEvent, true, (raw, emit) => {
         const drag = raw as DragEvent;
         if (!drag.dataTransfer?.types.includes("Files")) return;
         // Internal tree drags use text data. Only consume OS file drops, and
@@ -414,49 +379,19 @@ export class BrowserEventRegistry {
         drag.stopPropagation();
         if (dragEvent === "dragleave" && drag.relatedTarget) return;
         const scale = window.devicePixelRatio || 1;
-        this.runCallback(callbackId, {
-          event,
-          id: eventId,
-          payload: {
-            // Chromium protects the file list until drop. Tree hover still
-            // works by position; classification becomes available on drop.
-            paths: Array.from(drag.dataTransfer.files, (file) => desktop.getPathForFile(file)).filter(Boolean),
-            position: { x: drag.clientX * scale, y: drag.clientY * scale },
-          },
+        emit({
+          // Chromium protects the file list until drop. Tree hover still
+          // works by position; classification becomes available on drop.
+          paths: Array.from(drag.dataTransfer.files, (file) => desktop.getPathForFile(file)).filter(Boolean),
+          position: { x: drag.clientX * scale, y: drag.clientY * scale },
         });
-      };
-      window.addEventListener(dragEvent, notify, true);
-      this.entries.set(this.key(event, eventId), {
-        callbackId,
-        cleanup: () => window.removeEventListener(dragEvent, notify, true),
       });
-      return eventId;
     }
-    const domEvent = event === "tauri://resize"
-      ? "resize"
-      : event === "tauri://focus"
-        ? "focus"
-        : event === "tauri://blur"
-          ? "blur"
-          : null;
+    const domEvent = WINDOW_EVENTS.get(event);
     if (!domEvent) return null;
-    const eventId = this.nextLocalId--;
-    const notify = () => this.runCallback(callbackId, {
-      event,
-      id: eventId,
-      payload: event === "tauri://resize"
-        ? {
-            width: Math.round(window.innerWidth * window.devicePixelRatio),
-            height: Math.round(window.innerHeight * window.devicePixelRatio),
-          }
-        : event === "tauri://focus",
+    return this.subscribe(event, callbackId, domEvent, false, (_raw, emit) => {
+      emit(event === "tauri://resize" ? physicalWindowSize() : event === "tauri://focus");
     });
-    window.addEventListener(domEvent, notify);
-    this.entries.set(this.key(event, eventId), {
-      callbackId,
-      cleanup: () => window.removeEventListener(domEvent, notify),
-    });
-    return eventId;
   }
 
   track(event: string, eventId: number, callbackId: number): void {
@@ -470,6 +405,25 @@ export class BrowserEventRegistry {
     entry.cleanup?.();
     unregisterCallback(entry.callbackId);
     this.entries.delete(key);
+  }
+
+  /** Emulates a Tauri event with a window DOM event under a negative local id. */
+  private subscribe(
+    event: string,
+    callbackId: number,
+    domEvent: string,
+    capture: boolean,
+    handle: (raw: Event, emit: (payload: unknown) => void) => void,
+  ): number {
+    const eventId = this.nextLocalId--;
+    const emit = (payload: unknown) => this.runCallback(callbackId, { event, id: eventId, payload });
+    const listener = (raw: Event) => handle(raw, emit);
+    window.addEventListener(domEvent, listener, capture);
+    this.entries.set(this.key(event, eventId), {
+      callbackId,
+      cleanup: () => window.removeEventListener(domEvent, listener, capture),
+    });
+    return eventId;
   }
 
   private key(event: string, eventId: number): string {
@@ -498,18 +452,10 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
   mirrorLocalStorage(relay);
 
   const invoke = async (command: string, args: unknown = {}, options?: unknown) => {
-    const local = handleBrowserCommand(command, args);
-    if (local.handled) return local.value;
-    // Tauri's dialog plugin parents native panels to the invoking WebView.
-    // That parent is the hidden bridge in browser mode, which leaves the panel
-    // behind the browser. The browser-specific commands use an unparented
-    // system panel while preserving the plugin's request and return shapes.
-    if (command === "plugin:dialog|open") {
-      return relay.invoke("browser_dialog_open", args, options);
-    }
-    if (command === "plugin:dialog|save") {
-      return relay.invoke("browser_dialog_save", args, options);
-    }
+    const local = LOCAL_COMMANDS.get(command);
+    if (local) return local(args as { value?: unknown });
+    const dialog = BROWSER_DIALOG_COMMANDS.get(command);
+    if (dialog) return relay.invoke(dialog, args, options);
     if (command === "plugin:event|listen") {
       const eventArgs = args as { event: string; handler: number };
       const localEventId = events.listen(eventArgs.event, eventArgs.handler);
@@ -518,10 +464,7 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
       events.track(eventArgs.event, eventId, eventArgs.handler);
       return eventId;
     }
-    if (command === "plugin:event|unlisten") {
-      const eventArgs = args as { eventId: number };
-      if (eventArgs.eventId < 0) return undefined;
-    }
+    if (command === "plugin:event|unlisten" && (args as { eventId: number }).eventId < 0) return undefined;
     return relay.invoke(command, args, options);
   };
 
@@ -548,61 +491,47 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
 }
 
 function mirrorLocalStorage(relay: BrowserRelay): void {
-  const setItem = Storage.prototype.setItem;
-  const removeItem = Storage.prototype.removeItem;
-  const clear = Storage.prototype.clear;
-  Storage.prototype.setItem = function (key: string, value: string) {
-    setItem.call(this, key, value);
-    if (this === localStorage) relay.syncStorage();
-  };
-  Storage.prototype.removeItem = function (key: string) {
-    removeItem.call(this, key);
-    if (this === localStorage) relay.syncStorage();
-  };
-  Storage.prototype.clear = function () {
-    clear.call(this);
-    if (this === localStorage) relay.syncStorage();
-  };
-}
-
-function handleBrowserCommand(command: string, args: unknown): { handled: boolean; value?: unknown } {
-  const payload = args as { value?: unknown; label?: string };
-  switch (command) {
-    case "set_window_background":
-    case "plugin:window|set_min_size":
-    case "plugin:window|start_dragging":
-      return { handled: true };
-    case "align_traffic_lights":
-      return { handled: true, value: null };
-    case "plugin:window|scale_factor":
-      return { handled: true, value: window.devicePixelRatio };
-    case "plugin:window|inner_size":
-    case "plugin:window|outer_size":
-      return {
-        handled: true,
-        value: {
-          width: Math.round(window.innerWidth * window.devicePixelRatio),
-          height: Math.round(window.innerHeight * window.devicePixelRatio),
-        },
-      };
-    case "plugin:window|is_focused":
-      return { handled: true, value: document.hasFocus() };
-    case "plugin:window|is_fullscreen":
-      return { handled: true, value: Boolean(document.fullscreenElement) };
-    case "plugin:window|set_fullscreen":
-      if (payload.value && !document.fullscreenElement) void document.documentElement.requestFullscreen();
-      else if (!payload.value && document.fullscreenElement) void document.exitFullscreen();
-      return { handled: true };
-    case "plugin:window|set_title":
-      if (typeof payload.value === "string") document.title = payload.value;
-      return { handled: true };
-    case "plugin:webview|set_webview_zoom":
-      if (typeof payload.value === "number") document.documentElement.style.zoom = String(payload.value);
-      return { handled: true };
-    default:
-      return { handled: false };
+  for (const method of ["setItem", "removeItem", "clear"] as const) {
+    const original: (this: Storage, ...args: string[]) => void = Storage.prototype[method];
+    Storage.prototype[method] = function (this: Storage, ...args: string[]) {
+      original.apply(this, args);
+      if (this === localStorage) relay.syncStorage();
+    };
   }
 }
+
+// Window commands the page answers itself. Anything else goes to the native host.
+const ignored = () => undefined;
+const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown>([
+  ["set_window_background", ignored],
+  ["plugin:window|set_min_size", ignored],
+  ["plugin:window|start_dragging", ignored],
+  ["align_traffic_lights", () => null],
+  ["plugin:window|scale_factor", () => window.devicePixelRatio],
+  ["plugin:window|inner_size", physicalWindowSize],
+  ["plugin:window|outer_size", physicalWindowSize],
+  ["plugin:window|is_focused", () => document.hasFocus()],
+  ["plugin:window|is_fullscreen", () => Boolean(document.fullscreenElement)],
+  ["plugin:window|set_fullscreen", ({ value }) => {
+    if (value && !document.fullscreenElement) void document.documentElement.requestFullscreen();
+    else if (!value && document.fullscreenElement) void document.exitFullscreen();
+  }],
+  ["plugin:window|set_title", ({ value }) => {
+    if (typeof value === "string") document.title = value;
+  }],
+  ["plugin:webview|set_webview_zoom", ({ value }) => {
+    if (typeof value === "number") document.documentElement.style.zoom = String(value);
+  }],
+]);
+
+// Tauri's dialog plugin parents native panels to the invoking WebView. That
+// parent is the hidden bridge in browser mode, which leaves the panel behind
+// the browser. The browser-specific commands use an unparented system panel
+// while preserving the plugin's request and return shapes.
+const BROWSER_DIALOG_COMMANDS = new Map([
+  ["plugin:dialog|open", "browser_dialog_open"],
+  ["plugin:dialog|save", "browser_dialog_save"],
+]);
 
 function validBrowserConfig(
   token: string | null,
@@ -650,10 +579,7 @@ async function requestBrowserSession(
 ): Promise<BrowserRuntimeConfig> {
   const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
-  const response = await fetch(endpoint, {
-    cache: "no-store",
-    mode: "cors",
-  });
+  const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   if (!response.ok) {
     throw new Error(`The local Lattice entry returned ${response.status}.`);
   }
@@ -691,23 +617,16 @@ async function initializeBrowserRuntime(): Promise<void> {
   await installBrowserRuntime(config);
 }
 
-function encodeBridgeValue(value: unknown): BridgeValue {
+export function encodeBridgeValue(value: unknown): BridgeValue {
   const encoded = JSON.stringify(value ?? null, (_key, current: unknown) => {
-    if (current instanceof ArrayBuffer) {
-      return { [BINARY_MARKER]: bytesToBase64(new Uint8Array(current)) };
-    }
-    if (ArrayBuffer.isView(current)) {
-      return {
-        [BINARY_MARKER]: bytesToBase64(new Uint8Array(
-          current.buffer,
-          current.byteOffset,
-          current.byteLength,
-        )),
-      };
+    if (current instanceof ArrayBuffer || ArrayBuffer.isView(current)) {
+      const bytes = current instanceof ArrayBuffer
+        ? new Uint8Array(current)
+        : new Uint8Array(current.buffer, current.byteOffset, current.byteLength);
+      return { [BINARY_MARKER]: bytesToBase64(bytes) };
     }
     if (current && typeof current === "object") {
-      const serializable = current as Record<string, unknown>;
-      const serialize = serializable[IPC_SERIALIZE_KEY];
+      const serialize = (current as Record<string, unknown>)[IPC_SERIALIZE_KEY];
       if (typeof serialize === "function") return serialize.call(current);
     }
     return current;
@@ -715,11 +634,11 @@ function encodeBridgeValue(value: unknown): BridgeValue {
   return JSON.parse(encoded) as BridgeValue;
 }
 
-function decodeBridgeValue(value: BridgeValue): unknown {
+export function decodeBridgeValue(value: BridgeValue): unknown {
   if (Array.isArray(value)) return value.map(decodeBridgeValue);
   if (value && typeof value === "object") {
     if (BINARY_MARKER in value && typeof value[BINARY_MARKER] === "string") {
-      return base64ToBytes(value[BINARY_MARKER]).buffer;
+      return Uint8Array.from(atob(value[BINARY_MARKER]), (character) => character.charCodeAt(0)).buffer;
     }
     return Object.fromEntries(
       Object.entries(value).map(([key, child]) => [key, decodeBridgeValue(child)]),
@@ -740,13 +659,6 @@ function bytesToBase64(bytes: Uint8Array): string {
   return encoded;
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
-}
-
 function isLoopbackPage(): boolean {
   return window.location.protocol === "http:"
     && (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost");
@@ -762,8 +674,7 @@ export function isBrowserHosted(): boolean {
 }
 
 export function isBundledChromium(): boolean {
-  return browserRuntime
-    && new URLSearchParams(window.location.search).get("latticeChromium") === "1";
+  return browserRuntime && isChromiumPeer();
 }
 
 export function browserRuntimeError(): string | null {
@@ -782,5 +693,3 @@ export function subscribeBrowserRuntimeDetached(listener: () => void): () => voi
   detachListeners.add(listener);
   return () => detachListeners.delete(listener);
 }
-
-export { decodeBridgeValue, encodeBridgeValue };

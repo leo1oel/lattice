@@ -10,26 +10,31 @@ type Row = {
   picture: HTMLElement;
 };
 
-/** Pierre mounts its Shadow DOM after the owning component's layout pass. */
+/**
+ * Pierre mounts its Shadow DOM after the owning component's layout pass, so
+ * poll for the scroll viewport (up to ~60 frames) before attaching.
+ */
+export function attachToTreeViewport(
+  getViewport: () => HTMLElement | null,
+  attach: (viewport: HTMLElement) => () => void,
+): () => void {
+  let frame = 0;
+  let attempts = 0;
+  let detach: (() => void) | undefined;
+  const poll = () => {
+    const viewport = getViewport();
+    if (viewport) detach = attach(viewport);
+    else if (++attempts < 60) frame = requestAnimationFrame(poll);
+  };
+  poll();
+  return () => {
+    cancelAnimationFrame(frame);
+    detach?.();
+  };
+}
+
 export function useProjectTreeMotion(getViewport: () => HTMLElement | null) {
-  useLayoutEffect(() => {
-    let frame = 0;
-    let attempts = 0;
-    let stopMotion: (() => void) | undefined;
-    const attach = () => {
-      const scroller = getViewport();
-      if (!scroller) {
-        if (++attempts < 60) frame = requestAnimationFrame(attach);
-        return;
-      }
-      stopMotion = attachProjectTreeMotion(scroller);
-    };
-    attach();
-    return () => {
-      cancelAnimationFrame(frame);
-      stopMotion?.();
-    };
-  }, [getViewport]);
+  useLayoutEffect(() => attachToTreeViewport(getViewport, attachProjectTreeMotion), [getViewport]);
 }
 
 /** Animate the mounted window, never the virtualizer's fixed-height geometry.
@@ -44,6 +49,11 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
   const pictures = new Set<HTMLElement>();
   let scrollTop = scroller.scrollTop;
   let scrollLeft = scroller.scrollLeft;
+  const markScroll = () => {
+    scrollTop = scroller.scrollTop;
+    scrollLeft = scroller.scrollLeft;
+  };
+  const scrolled = () => scrollTop !== scroller.scrollTop || scrollLeft !== scroller.scrollLeft;
   const snapshot = () => new Map(Array.from(scroller.querySelectorAll<HTMLElement>(rowsSelector), (element) => [
     element.dataset.itemPath!,
     {
@@ -63,8 +73,7 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
   };
   const reset = () => {
     cancel();
-    scrollTop = scroller.scrollTop;
-    scrollLeft = scroller.scrollLeft;
+    markScroll();
     previous = snapshot();
   };
   const onScroll = () => {
@@ -72,8 +81,7 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
     // A new input gesture establishes the next stationary baseline; recycling
     // rows during scrolling must not measure and clone the window again.
     previous.clear();
-    scrollTop = scroller.scrollTop;
-    scrollLeft = scroller.scrollLeft;
+    markScroll();
   };
   const animate = (element: Element, frames: Keyframe[]) => {
     const animation = element.animate(frames, {
@@ -90,7 +98,7 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
   const observer = new MutationObserver(() => {
     // A virtualizer mutation can arrive before the scroll event. Check the
     // live offset too, before any layout reads or deep row clones.
-    if (!previous.size || scrollTop !== scroller.scrollTop || scrollLeft !== scroller.scrollLeft) {
+    if (!previous.size || scrolled()) {
       onScroll();
       return;
     }
@@ -105,10 +113,9 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
     if (!toggled && !pathsChanged) return;
     cancel();
     const next = snapshot();
-    if (!toggled || reduced.matches || scrollTop !== scroller.scrollTop || scrollLeft !== scroller.scrollLeft) {
+    if (!toggled || reduced.matches || scrolled()) {
       previous = next;
-      scrollTop = scroller.scrollTop;
-      scrollLeft = scroller.scrollLeft;
+      markScroll();
       return;
     }
     const parent = next.values().next().value?.element.parentElement;
@@ -200,18 +207,16 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
     previous = next;
   });
   observer.observe(scroller, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-expanded", "data-item-path"] });
+  // Any input gesture re-establishes the stationary baseline.
+  const inputs = ["pointerdown", "keydown", "dragstart"];
   scroller.addEventListener("scroll", onScroll, { passive: true });
-  scroller.addEventListener("pointerdown", reset, true);
-  scroller.addEventListener("keydown", reset, true);
-  scroller.addEventListener("dragstart", reset, true);
+  for (const type of inputs) scroller.addEventListener(type, reset, true);
   reduced.addEventListener("change", reset);
   return () => {
     observer.disconnect();
     cancel();
     scroller.removeEventListener("scroll", onScroll);
-    scroller.removeEventListener("pointerdown", reset, true);
-    scroller.removeEventListener("keydown", reset, true);
-    scroller.removeEventListener("dragstart", reset, true);
+    for (const type of inputs) scroller.removeEventListener(type, reset, true);
     reduced.removeEventListener("change", reset);
   };
 }

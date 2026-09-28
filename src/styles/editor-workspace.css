@@ -1,9 +1,8 @@
-.split-canvas { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.split-canvas { --split-resizer-offset: 0px; --split-pdf-offset: 0px; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-column, .split-canvas > .markdown-preview, .split-canvas > .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .dual-pane-preview { min-width: 0; min-height: 0; display: flex; overflow: hidden; }
 .dual-pane-preview > .pdf-column, .dual-pane-preview > .markdown-preview, .dual-pane-preview > .html-preview { flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; }
 .source-workspace, .source-editor, .pdf-preview, .pdf-column, .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
-.canvas-panel > .source-workspace, .canvas-panel > .source-editor, .canvas-panel > .pdf-preview, .canvas-panel > .pdf-column, .canvas-panel > .split-canvas, .canvas-panel > .markdown-preview, .canvas-panel > .html-preview, .canvas-panel > .asset-preview, .canvas-panel > .paper-reader-shell,
 .canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .html-preview, .canvas-body > .asset-preview, .canvas-body > .paper-reader-shell { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }
 .pdf-column { position: relative; display: flex; flex-direction: column; }
 .pdf-column > .compile-diagnostics { flex: none; }
@@ -16,15 +15,10 @@
 .pdf-preview { position: relative; isolation: isolate; padding: 0; display: flex; flex-direction: column; background: var(--pdf-bg); }
 .pdf-placeholder { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); }
 .source-workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: 100%; max-width: 100%; height: 100%; background: var(--editor-bg); }
-.source-workspace > .document-outline,
-.source-workspace > .document-outline-rail { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
 .source-workspace > .source-main { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
 .source-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .document-outline-popover { width: 190px; max-height: min(420px, 65vh); padding: var(--space-2); overflow: hidden; }
 .document-outline-header { flex: none; height: 30px; padding: 0 var(--pad-inline-control-tight); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 650; }
-.document-outline-close { width: 26px; height: 26px; border: 0; border-radius: var(--radius-compact); padding: 0; background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; }
-.document-outline-close span { display: none; }
-.document-outline-close:hover { background: var(--control-active-soft); color: var(--control-active); }
 .document-outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: min(372px, 57vh); overflow: auto; }
 .document-outline-list ul { list-style: none; margin: 0; padding: 0 0 0 var(--space-3); }
 .document-outline-list button { width: 100%; min-height: 26px; border: 0; border-radius: var(--radius-compact); padding: var(--space-2) 7px; background: transparent; color: var(--text-primary); display: flex; align-items: center; gap: var(--space-3); text-align: left; font-size: var(--type-micro-size); }
@@ -136,8 +130,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .highlight-recent-swatch svg { color: white; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 70%)); }
 .highlight-spectrum { --spectrum-value: 100%; position: relative; width: 100%; height: 100%; border: 0; border-radius: var(--radius-control); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%); touch-action: none; cursor: crosshair; overflow: hidden; }
 .highlight-spectrum::before { position: absolute; inset: 0; background: linear-gradient(to bottom, white, transparent), linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%); filter: brightness(var(--spectrum-value)); content: ""; }
-.highlight-spectrum-thumb { position: absolute; z-index: 1; width: 20px; height: 20px; border: 2px solid white; border-radius: var(--radius-pill); box-shadow: 0 1px 4px rgb(0 0 0 / 38%); pointer-events: none; translate: -50% -50%; }
-.highlight-spectrum-thumb { --spectrum-x: 0%; --spectrum-y: 0%; left: clamp(10px, var(--spectrum-x), calc(100% - 10px)); top: clamp(10px, var(--spectrum-y), calc(100% - 10px)); }
+.highlight-spectrum-thumb { --spectrum-x: 0%; --spectrum-y: 0%; position: absolute; z-index: 1; left: clamp(10px, var(--spectrum-x), calc(100% - 10px)); top: clamp(10px, var(--spectrum-y), calc(100% - 10px)); width: 20px; height: 20px; border: 2px solid white; border-radius: var(--radius-pill); box-shadow: 0 1px 4px rgb(0 0 0 / 38%); pointer-events: none; translate: -50% -50%; }
 .highlight-slider-panel { height: 100%; padding: var(--space-2) 0; display: flex; flex-direction: column; justify-content: space-between; }
 .highlight-slider-row,
 .highlight-hex-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; column-gap: var(--space-4); }
@@ -245,11 +238,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 .editor-comment-popover-actions button.primary:disabled { opacity: .45; }
 .editor-comments-drawer { width: min(420px, 100%); }
-.editor-comments-content .pdf-marks-toolbar {
-  gap: var(--drawer-section-gap);
-  margin-top: var(--drawer-content-inset);
-  margin-bottom: var(--drawer-section-gap);
-}
+.editor-comments-content .pdf-marks-toolbar { margin-top: var(--drawer-content-inset); }
 .editor-comments-content .ui-empty-state[data-density="compact"] {
   padding-top: 0;
 }
@@ -261,52 +250,72 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   -webkit-box-decoration-break: clone;
   cursor: help;
 }
-/* Hover card shown when the pointer rests on a suggestion.
-   CodeMirror's own tooltip chrome is stripped the same way the comment card
-   strips it, because both draw their own. Without a card of its own this had
-   none at all: the default tooltip is see-through, so the document showed
-   straight through the text and the buttons, and it was sized to the bare
-   minimum so Accept and Reject spilled past its edges. */
-.cm-tooltip.cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
+/* Hover cards shown when the pointer rests on a suggestion or a comment mark.
+   Both draw their own card over CodeMirror's see-through tooltip, so its chrome
+   is stripped; the suggestion card's minimum width keeps Accept and Reject
+   inside its edges. */
+.cm-tooltip.cm-tooltip-hover:has(.cm-tracked-change-tooltip),
+.cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-tooltip) {
   border: none;
   background: transparent;
 }
-.cm-tracked-change-tooltip {
+.cm-tracked-change-tooltip,
+.cm-editor-comment-tooltip {
   @apply smooth-shadow-ring-md;
   /* Prose in the UI face, not the editor's monospace, which .cm-editor would
      otherwise impose on everything inside it. */
   font-family: var(--ui-font);
-  min-width: 220px;
-  max-width: 340px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-surface);
   /* Opaque on purpose. A translucent card over body text is unreadable, and
-     this one sits directly on the line it describes. */
+     these sit directly on the line they describe. */
   background: var(--surface-panel);
   color: var(--text-primary);
   font-size: var(--type-label-size);
   line-height: 1.45;
 }
+.cm-tracked-change-tooltip { min-width: 220px; max-width: 340px; }
+.cm-editor-comment-tooltip { max-width: 320px; }
+.visual-editor-comment-tooltip {
+  position: fixed;
+  z-index: var(--z-editor-popover);
+  max-width: min(320px, calc(100vw - var(--space-8)));
+  max-height: calc(100vh - var(--space-8));
+  overflow: auto;
+}
 .cm-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: var(--space-2); }
-.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item {
+.cm-editor-comment-tooltip-item,
+.cm-editor-comment-tooltip-main { display: flex; flex-direction: column; gap: var(--gap-tight); }
+.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item,
+.cm-editor-comment-tooltip-item + .cm-editor-comment-tooltip-item {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
-.cm-tracked-change-tooltip-head { display: flex; align-items: center; gap: var(--space-3); }
-.cm-tracked-change-tooltip-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: 0 0 auto;
+.cm-tracked-change-tooltip-head,
+.cm-editor-comment-tooltip-head { display: flex; align-items: center; gap: var(--space-3); }
+.cm-tracked-change-tooltip-dot,
+.cm-editor-comment-tooltip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.cm-tracked-change-tooltip-author,
+.cm-editor-comment-tooltip-author { font-weight: 600; }
+.cm-tracked-change-tooltip-time,
+.cm-editor-comment-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
+.cm-tracked-change-tooltip-body,
+.cm-editor-comment-tooltip-body { white-space: pre-wrap; word-break: break-word; }
+.cm-editor-comment-tooltip-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tight);
+  margin-top: var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border-subtle);
 }
-.cm-tracked-change-tooltip-author { font-weight: 600; }
-.cm-tracked-change-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
-.cm-tracked-change-tooltip-body { white-space: pre-wrap; word-break: break-word; }
 .cm-tracked-change-tooltip-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); }
-.cm-tracked-change-tooltip-actions button {
+.cm-editor-comment-tooltip-actions { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
+.cm-tracked-change-tooltip-actions button,
+.cm-editor-comment-tooltip-actions button {
   flex: 0 0 auto;
   padding: 3px var(--space-6);
   border: 1px solid var(--border-strong);
@@ -317,88 +326,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   font-weight: 600;
   cursor: pointer;
 }
-.cm-tracked-change-tooltip-actions button:hover:not(:disabled) {
-  background: var(--control-active-soft);
-  border-color: var(--control-active);
-}
-.cm-tracked-change-tooltip-actions button:disabled { opacity: .5; cursor: default; }
-
-/* Hover card shown when the pointer rests on a comment mark. */
-.cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-tooltip) {
-  border: none;
-  background: transparent;
-}
-.cm-editor-comment-tooltip {
-  @apply smooth-shadow-ring-md;
-  /* The card lives inside .cm-editor, which forces the monospace editor face
-     on everything under it; comments are prose and belong in the UI face. */
-  font-family: var(--ui-font);
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-surface);
-  background: var(--surface-panel);
-  color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: 1.45;
-}
-.visual-editor-comment-tooltip {
-  position: fixed;
-  z-index: var(--z-editor-popover);
-  max-width: min(320px, calc(100vw - var(--space-8)));
-  max-height: calc(100vh - var(--space-8));
-  overflow: auto;
-}
-.cm-editor-comment-tooltip-item { display: flex; flex-direction: column; gap: var(--gap-tight); }
-.cm-editor-comment-tooltip-item + .cm-editor-comment-tooltip-item {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-}
-.cm-editor-comment-tooltip-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.cm-editor-comment-tooltip-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-.cm-editor-comment-tooltip-author { font-weight: 600; }
-.cm-editor-comment-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
-.cm-editor-comment-tooltip-body { white-space: pre-wrap; word-break: break-word; }
-.cm-editor-comment-tooltip-main { display: flex; flex-direction: column; gap: var(--gap-tight); }
-.cm-editor-comment-tooltip-reply {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-tight);
-  margin-top: var(--space-3);
-  padding-left: var(--space-5);
-  border-left: 2px solid var(--border-subtle);
-}
-.cm-editor-comment-tooltip-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-.cm-editor-comment-tooltip-actions button {
-  flex: 0 0 auto;
-  padding: 3px var(--space-5);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-icon);
-  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
-  color: inherit;
-  font-size: var(--type-caption-size);
-  font-weight: 600;
-  cursor: pointer;
-}
+.cm-editor-comment-tooltip-actions button { padding-inline: var(--space-5); }
+.cm-tracked-change-tooltip-actions button:hover:not(:disabled),
 .cm-editor-comment-tooltip-actions button:hover {
   background: var(--control-active-soft);
   border-color: var(--control-active);
 }
+.cm-tracked-change-tooltip-actions button:disabled { opacity: .5; cursor: default; }
 /* Reply thread inside the comments panel. */
 .editor-comment-replies {
   display: flex;
@@ -416,8 +350,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   opacity: .7;
 }
 .editor-comment-reply-meta span:first-child { font-weight: 600; }
-/* Sized to the comment body above it (.pdf-mark-body p), which a reply
-   continues — it used to render larger than the comment it answered. */
+/* Sized to the comment body above it (.pdf-mark-body p), which a reply continues. */
 .editor-comment-reply p {
   margin: 0;
   font-size: var(--type-caption-size);
@@ -484,7 +417,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   border-radius: var(--radius-control);
 }
 .source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
-.source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; }
+.source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; background: var(--editor-bg); }
 .source-editor .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none; }
 .source-editor .cm-scroller::-webkit-scrollbar { display: none; }
 .cm-overlay-scrollbar {
@@ -514,7 +447,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
 .cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
-.source-editor .cm-content { min-width: 0; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }
+/* Keep content transparent so CM's selection layer stays visible under collab. */
+.source-editor .cm-content { min-width: 0; background: transparent; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }
 .source-editor .cm-cursor,
 .source-editor .cm-dropCursor {
   border-left: var(--editor-caret-width) solid var(--control-active);
@@ -523,20 +457,12 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 /* CodeMirror's base theme sets `.cm-scroller { font-family: monospace }`, which
    overrides inheritance from `.cm-editor`. Set the face on scroller + content. */
 .source-editor .cm-editor,
-.source-editor .cm-scroller {
-  background: var(--editor-bg);
+.source-editor .cm-scroller,
+.source-editor .cm-content {
   color: var(--text-primary);
   font-family: var(--editor-font) !important;
   font-size: var(--editor-font-size) !important;
   /* Override CodeMirror's base-theme 1.4 so source matches reading density. */
-  line-height: 1.6 !important;
-}
-/* Keep content transparent so CM's selection layer stays visible under collab. */
-.source-editor .cm-content {
-  background: transparent;
-  color: var(--text-primary);
-  font-family: var(--editor-font) !important;
-  font-size: var(--editor-font-size) !important;
   line-height: 1.6 !important;
 }
 .source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 1px solid var(--border-subtle); }
@@ -694,19 +620,15 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .source-editor .cm-citation-icon { grid-column: 1; grid-row: 1 / span 2; width: 14px; height: 14px; margin-top: var(--space-1); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; color: var(--text-secondary); }
 .source-editor .cm-citation-option .cm-completionLabel { grid-column: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 .source-editor .cm-citation-option .cm-completionDetail { grid-column: 2; margin-left: 0; max-width: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-/* Readable by default. This host used to be transparent on the grounds that
-   every card inside it brings its own background — which is true right up
-   until one does not, and then its text sits directly on the document with
-   the prose showing through. That has now happened twice (lint diagnostics,
-   then the suggestion card), so the default is the safe one and the cards
-   that genuinely draw their own chrome strip it below. */
+/* Readable by default: a transparent host leaves any card without its own
+   background sitting directly on the document, with the prose showing through.
+   The cards that genuinely draw their own chrome strip it below. */
 .source-editor .cm-tooltip-hover {
   border-radius: var(--radius-panel);
   overflow: hidden;
 }
-/* These four draw their own card, so the host must not draw a second one
+/* These three draw their own card, so the host must not draw a second one
    around it. */
-.source-editor .cm-tooltip-hover:has(.cm-latex-tooltip),
 .source-editor .cm-tooltip-hover:has(.cm-tooltip-lint),
 .source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip),
 .source-editor .cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
@@ -716,19 +638,17 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 /* Keep the hover arrow outside the host, but scroll the card within the
    available height CodeMirror measures above or below the anchor. */
-.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; box-shadow: none; }
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; }
 .source-editor .cm-tooltip-hover .cm-editor-comment-tooltip {
   max-height: 100%;
   overflow-y: auto;
 }
-/* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that also carries
-   .cm-tooltip-lint. The shared .cm-tooltip-hover above is transparent because
-   the comment/texlab cards bring their own background — but a lint diagnostic
-   has none, so without this its text sits on nothing and is unreadable.
-   Match .cm-tooltip-lint on its own (not only combined with .cm-tooltip-hover):
-   hovering the gutter marker puts both classes on one element, but hovering the
-   underline nests the lint tooltip as a *child* of the shared hover host (next
-   to the texlab card), where it carries only .cm-tooltip-lint. */
+/* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that carries
+   .cm-tooltip-lint. Match it on its own (not only combined with
+   .cm-tooltip-hover): hovering the gutter marker puts both classes on one
+   element, but hovering the underline nests the lint tooltip as a *child* of
+   the shared hover host (next to the texlab card), where it carries only
+   .cm-tooltip-lint. */
 .source-editor .cm-tooltip-lint {
   border-radius: var(--radius-control);
   overflow: hidden;
@@ -824,7 +744,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .figure-drag-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Keep the saved grid proportions intact, but resize the adjacent pane boxes
    with the grip. All three surfaces return on the same curve, without a gap. */
-.split-canvas { --split-resizer-offset: 0px; --split-pdf-offset: 0px; }
 .split-canvas > :nth-child(1), .split-canvas > :nth-child(3), .split-canvas > :nth-child(5) { min-width: 0; max-width: none; transition: width var(--duration-disclosure) var(--ease-emphasized), margin-left var(--duration-disclosure) var(--ease-emphasized); }
 .split-canvas > :nth-child(1) { width: calc(100% + var(--split-resizer-offset)); }
 .split-canvas > :nth-child(3) { margin-left: var(--split-resizer-offset); width: calc(100% - var(--split-resizer-offset) + var(--split-pdf-offset)); }
@@ -973,58 +892,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
    into the document's top padding. Without that offset the banner sat below
    the padding and left a blank strip above itself. */
 .visual-markdown-eligibility { margin-top: calc(-1 * var(--space-16)); margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
-.visual-markdown-fidelity-note { margin: calc(-1 * var(--space-8)) 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.45; }
-.visual-code-block { margin-block: var(--space-6); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); background: var(--surface-panel); }
-.visual-code-block-controls { display: flex; min-width: 0; align-items: end; gap: var(--space-2); padding: var(--space-2); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); font-family: var(--ui-font); }
-.visual-code-block-controls label { display: flex; min-width: 0; flex-direction: column; gap: var(--space-1); color: var(--text-tertiary); font-size: var(--type-nano-size); }
-.visual-code-block-controls label span { padding-inline: var(--space-2); }
-.visual-code-block-controls input { width: 110px; height: 30px; padding-inline: var(--space-2); border: 1px solid transparent; border-radius: var(--radius-compact); outline: none; background: transparent; color: var(--text-secondary); font: var(--type-micro-size)/1 var(--ui-font); }
-.visual-code-block-controls .visual-code-block-title { flex: 1; }
-.visual-code-block-controls .visual-code-block-title input { width: 100%; }
-.visual-code-block-controls input:hover, .visual-code-block-controls input:focus-visible { border-color: var(--border-subtle); background: var(--editor-bg); }
-.visual-code-block-controls input:focus-visible, .visual-code-block-controls button:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.visual-code-block-controls button { display: inline-flex; min-height: 30px; align-items: center; gap: var(--space-2); padding-inline: var(--space-3); border: 0; border-radius: var(--radius-compact); background: transparent; color: var(--text-secondary); font-size: var(--type-nano-size); }
-.visual-code-block-controls button:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.visual-code-block-controls button:active { scale: .96; }
-.visual-code-block-controls button.danger:hover { color: var(--status-danger); }
-.visual-code-block-controls button svg { width: 13px; height: 13px; stroke-width: 1.8; }
-.tiptap-editor .tiptap .visual-code-block-source { min-height: 120px; margin: 0; padding: var(--space-5); overflow: auto; border-radius: 0; outline: none; background: var(--surface-panel); color: var(--text-primary); font: var(--type-caption-size)/1.55 var(--editor-font); tab-size: 2; white-space: pre; }
-.visual-code-block-source > code { display: block; outline: none; background: transparent; color: inherit; font: inherit; white-space: pre; }
-.visual-code-block-source:focus-within { box-shadow: inset 0 0 0 2px var(--control-active); }
-.visual-code-block-source[hidden], .visual-code-preview[hidden] { display: none; }
-.visual-code-preview { display: block; width: 100%; min-height: 260px; border: 0; background: var(--editor-bg); }
-.visual-component-block { margin-block: var(--space-6); padding: var(--space-4); border-inline-start: 4px solid var(--control-active-border); border-radius: var(--radius-chrome); background: var(--surface-panel); }
-.visual-component-empty { display: none; }
-.visual-component-block > header { margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 650; text-transform: uppercase; }
-.visual-component-block input:not([type="range"]), .visual-component-block textarea { width: 100%; margin-block: 2px var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); background: var(--surface-panel-raised); color: var(--text-primary); font: inherit; }
-.visual-component-block textarea { min-height: 72px; resize: vertical; }
-.visual-component-block video, .visual-component-block object, .visual-component-block iframe { width: 100%; min-height: 180px; border: 0; border-radius: var(--radius-compact); background: white; }
-.visual-component-block audio { width: 100%; }
-.visual-component-content { min-height: 28px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-compact); background: var(--surface-panel-raised); }
-.visual-component-content > :last-child { margin-bottom: 0; }
-.visual-component-tabs { display: flex; align-items: center; gap: var(--space-1); margin-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
-.visual-component-tabs button { min-height: 30px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-compact) var(--radius-compact) 0 0; background: transparent; color: var(--text-secondary); }
-.visual-component-tabs button[aria-selected="true"] { box-shadow: inset 0 -2px var(--control-active); color: var(--text-primary); }
-.visual-component-tabs button:hover { background: var(--control-hover-surface); }
-.visual-component-tabs .visual-component-add-tab { display: grid; width: 30px; padding: 0; place-items: center; }
-.visual-component-add-tab svg { width: 14px; height: 14px; }
-.visual-tabs-content > .node-jsxComponent { display: none; }
-.visual-tabs-content[data-active-tab="0"] > .node-jsxComponent:nth-child(1),
-.visual-tabs-content[data-active-tab="1"] > .node-jsxComponent:nth-child(2),
-.visual-tabs-content[data-active-tab="2"] > .node-jsxComponent:nth-child(3),
-.visual-tabs-content[data-active-tab="3"] > .node-jsxComponent:nth-child(4),
-.visual-tabs-content[data-active-tab="4"] > .node-jsxComponent:nth-child(5),
-.visual-tabs-content[data-active-tab="5"] > .node-jsxComponent:nth-child(6),
-.visual-tabs-content[data-active-tab="6"] > .node-jsxComponent:nth-child(7),
-.visual-tabs-content[data-active-tab="7"] > .node-jsxComponent:nth-child(8) { display: block; }
-.visual-component-block.is-mirror, .visual-component-block.is-mirror-source { border-inline-start-color: var(--status-info, var(--control-active)); }
-.visual-tabs { display: flex; gap: var(--space-1); margin-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
-.visual-tabs button { padding: var(--space-2) var(--space-3); color: var(--text-secondary); }
-.visual-tabs button[aria-pressed="true"] { border-bottom: 2px solid var(--control-active); color: var(--text-primary); }
-.visual-chart { display: flex; height: 120px; align-items: end; gap: var(--space-3); padding: var(--space-3); }
-.visual-chart span { min-width: 36px; padding: 3px; border-radius: 4px 4px 0 0; background: var(--control-active); color: var(--surface-panel-raised); font-size: var(--type-nano-size); text-align: center; }
-.visual-stat { display: flex; flex-direction: column; padding: var(--space-4); border-radius: var(--radius-compact); background: var(--surface-panel-raised); }
-.visual-stat strong { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
 /* Chromium can paint an empty native selection for AllSelection when the
    document ends in selectable contenteditable=false chrome. Exclude only
    these controls, not the editable body or rendered document content. */
@@ -1032,12 +899,9 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-markdown-editor .ok-codeblock-chrome { user-select: none; }
 /* Host skin (explicit request): the code block Title field and the language
    filter box follow the host's field-control look. Structure and behavior
-   stay upstream; only the input chrome is restyled. */
-[data-ok-vendor] [data-testid="ok-codeblock-title-input"] {
-  height: 28px; border: 1px solid var(--field-control-border-color); border-radius: var(--field-control-radius);
-  padding: 0 var(--field-control-padding-inline); background: var(--field-control-background);
-  color: var(--text-primary); font-size: var(--type-micro-size); outline: none; box-shadow: none;
-}
+   stay upstream; only the input chrome is restyled. The Title field's box,
+   border and type come from the shared search-field rule further down. */
+[data-ok-vendor] [data-testid="ok-codeblock-title-input"] { padding: 0 var(--field-control-padding-inline); outline: none; }
 [data-ok-vendor] [data-testid="ok-codeblock-title-input"]:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
 [data-ok-vendor] [data-slot="command-input-wrapper"] {
   height: var(--search-control-height-compact); margin: var(--space-2); padding: 0 var(--search-control-padding-inline);
@@ -1053,24 +917,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 [data-ok-vendor] [data-slot="command-input"]:focus,
 [data-ok-vendor] [data-slot="command-input"]:focus-visible { border: 0; outline: 0; box-shadow: none; }
-[data-ok-vendor] [data-slot="command-list"] {
-  font-family: var(--ui-font);
-  font-size: var(--type-micro-size);
-  line-height: var(--type-micro-line-height);
-}
+[data-ok-vendor] [data-slot="command-list"],
 [data-ok-vendor] [data-slot="command-item"] {
-  min-height: var(--control-height-compact);
-  padding-block: var(--space-2);
   font-family: var(--ui-font);
   font-size: var(--type-micro-size);
   line-height: var(--type-micro-line-height);
 }
+[data-ok-vendor] [data-slot="command-item"] { min-height: var(--control-height-compact); padding-block: var(--space-2); }
 
 /* Open Knowledge host skin: keep editor chrome on the same typography,
    compact-control geometry, neutral surfaces, and scrollbar language as the
    Project/PDF tools. The parsing and interaction logic stays upstream. */
 .tiptap-editor,
-[data-tippy-root],
 [data-testid="bubble-menu-bar"],
 [data-suggestion-popup],
 [data-ok-layer-spawned],
@@ -1294,28 +1152,24 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 
 /* Same reason as theme.css: these would disable the pseudo-element rules below. */
 @supports not selector(::-webkit-scrollbar) {
-  .visual-slash-menu,
   [data-ok-vendor] [data-slot="command-list"],
   [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport] {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
   }
 
-  .visual-slash-menu:hover,
   [data-ok-vendor] [data-slot="command-list"]:hover,
   [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover {
     scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
   }
 }
 
-.visual-slash-menu::-webkit-scrollbar,
 [data-ok-vendor] [data-slot="command-list"]::-webkit-scrollbar,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.visual-slash-menu::-webkit-scrollbar-thumb,
 [data-ok-vendor] [data-slot="command-list"]::-webkit-scrollbar-thumb,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
@@ -1323,23 +1177,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   background: transparent;
   background-clip: content-box;
 }
-.visual-slash-menu:hover::-webkit-scrollbar-thumb,
 [data-ok-vendor] [data-slot="command-list"]:hover::-webkit-scrollbar-thumb,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text-primary) 12%, transparent);
   background-clip: content-box;
 }
-.visual-markdown-raw-block { margin-block: var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); background: var(--surface-panel); overflow: hidden; }
-.visual-markdown-empty-raw-block { display: none; }
-.visual-markdown-raw-label { padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary); font-size: var(--type-caption-size); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.visual-markdown-raw-block pre { margin: 0; border: 0; border-radius: 0; background: transparent; white-space: pre-wrap; }
-.visual-markdown-raw-inline { padding: .08em .28em; border-radius: 4px; background: var(--surface-panel); color: var(--text-secondary); font-family: var(--font-mono); font-size: .9em; }
-.visual-markdown-math-node,
-.visual-markdown-mermaid-node { cursor: default; }
-.visual-markdown-math-node-block,
-.visual-markdown-mermaid-node { margin-block: var(--space-6); }
-.tiptap-editor .tiptap .visual-markdown-raw-inline.ProseMirror-selectednode,
-.tiptap-editor .tiptap .visual-markdown-math-node.ProseMirror-selectednode { background: var(--control-active-soft); }
 .tiptap-editor .tiptap > .ProseMirror-selectednode:not(.react-renderer) { border-radius: var(--radius-compact); background: var(--control-active-soft); outline: 1px solid var(--control-active-border); outline-offset: 4px; }
 /* A NodeSelection already has the local block surface above. WebKit also
    paints its DOM range over the trailing block boundary as a full-width blue
@@ -1350,16 +1192,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .tiptap-editor .tiptap li.ProseMirror-selectednode::after { content: none; }
 .tiptap-editor .tiptap > .tableWrapper.ProseMirror-selectednode { position: relative; }
 .tiptap-editor .tiptap > .tableWrapper.ProseMirror-selectednode::after { position: absolute; z-index: 4; inset: 0; border-radius: var(--radius-compact); background: var(--control-active-soft); content: ""; pointer-events: none; }
-.visual-table-cell-controls { @apply smooth-shadow-ring-sm; position: sticky; top: var(--space-3); z-index: var(--z-editor-popover); display: flex; flex-wrap: wrap; gap: 3px; width: max-content; max-width: 100%; margin: 0 0 var(--space-3); padding: 3px; border-radius: var(--radius-panel); background: var(--surface-panel-raised); }
-.visual-table-cell-controls > div { display: flex; align-items: center; gap: var(--space-1); }
-.visual-table-cell-controls > div + div { padding-inline-start: 5px; border-inline-start: 1px solid var(--border-subtle); }
-.visual-table-cell-controls > div > svg { width: 14px; color: var(--text-tertiary); }
-.visual-table-cell-controls button { display: flex; align-items: center; gap: 3px; min-height: 28px; padding: 0 7px; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font: var(--type-micro-size)/1 var(--ui-font); }
-.visual-table-cell-controls button:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
-.visual-table-cell-controls button:disabled { opacity: .38; }
-.visual-table-cell-controls button:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.visual-table-cell-controls button svg { width: 13px; height: 13px; }
-.visual-table-span-controls { @apply smooth-shadow-ring-md; z-index: var(--z-selection-toolbar); display: flex; align-items: center; gap: var(--space-1); padding: 3px; border: 0; border-radius: var(--radius-panel); background: var(--surface-panel-raised); color: var(--text-secondary); }
 .visual-table-span-controls [data-slot="button"] { min-height: 28px; gap: var(--space-2); padding: 0 7px; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font: var(--type-micro-size)/1 var(--ui-font); transform: none; }
 .visual-table-span-controls [data-slot="button"]:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
 .visual-table-span-controls [data-slot="button"]:active:not(:disabled) { scale: .96; }
@@ -1378,15 +1210,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-block-drop-line::before, .visual-block-drop-line::after { position: absolute; top: 50%; width: 5px; height: 5px; border-radius: var(--radius-pill); background: var(--control-active); content: ""; translate: 0 -50%; }
 .visual-block-drop-line::before { left: -2px; }
 .visual-block-drop-line::after { right: -2px; }
-.visual-block-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-height: 180px; overflow: hidden; opacity: .72; pointer-events: none; }
 /* Entry fade stays unconditional: the shared policy in adaptive-feedback.css
    clamps every transition to ~0ms when the user asks for reduced motion, so
    gating this transition locally would be dead weight (and is test-forbidden). */
-.visual-block-drag-ghost { transition: opacity var(--duration-quick) var(--ease-out); }
+.visual-block-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-height: 180px; overflow: hidden; opacity: .72; pointer-events: none; transition: opacity var(--duration-quick) var(--ease-out); }
 @starting-style { .visual-block-drag-ghost { opacity: 0; } }
 :root[data-theme="dark"] .visual-add-block-button, :root[data-theme="dark"] .visual-drag-grip { color: oklch(.5 0 0); }
 .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.visual-slash-menu-popup, .visual-wiki-link-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
+.visual-wiki-link-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
 /* These portaled buttons sit outside the editor. Explicit UI typography and
    transparent idle fills keep global button defaults out of the completion list. */
 .visual-paper-citation-menu { width: min(420px, calc(100vw - 16px)); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
@@ -1410,8 +1241,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 
 /* TipTap v3 appends BubbleMenuBar itself directly to body; it does not create
    the [data-tippy-root] wrapper used by older TipTap versions. Target the
-   unique toolbar node directly so the host skin actually reaches production. */
-[data-testid="bubble-menu-bar"] {
+   unique toolbar node directly so the host skin actually reaches production.
+   The table span controls float over the document in the same shell. */
+[data-testid="bubble-menu-bar"],
+.visual-table-span-controls {
   @apply smooth-shadow-ring-md;
   z-index: var(--z-selection-toolbar);
   display: flex;
@@ -1513,12 +1346,15 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .tiptap-editor .ProseMirror em { font-style: italic; font-synthesis: style; }
 
 /* The slash menu keeps its upstream appearance. Hide only its native scrollbar;
-   ExternalScrollbar paints the exact Lattice track used by Markdown Preview. */
-.slash-command-scroll-viewport {
+   ExternalScrollbar paints the exact Lattice track used by Markdown Preview.
+   The preview source dialog's editor below hides its native bar the same way. */
+.slash-command-scroll-viewport,
+[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.slash-command-scroll-viewport::-webkit-scrollbar {
+.slash-command-scroll-viewport::-webkit-scrollbar,
+[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
@@ -1569,15 +1405,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 [data-testid="ok-code-preview-edit-modal-source"] .cm-activeLine,
 [data-testid="ok-code-preview-edit-modal-source"] .cm-activeLineGutter { background: var(--control-active-soft); }
 [data-testid="ok-code-preview-edit-modal-source"] .cm-content { caret-color: var(--control-active); }
-[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
 [data-testid="ok-code-preview-edit-modal-preview"] {
   border-color: var(--border-subtle);
   border-radius: var(--radius-compact);
@@ -1591,43 +1418,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   border-radius: 0 0 var(--radius-chrome) var(--radius-chrome);
   background: var(--surface-panel);
 }
-.visual-slash-menu-layout { display: flex; align-items: flex-start; gap: var(--space-4); max-width: calc(100vw - 16px); }
-.visual-slash-menu { width: min(300px, calc(100vw - 16px)); max-height: var(--visual-menu-height, 50vh); padding: var(--space-3); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); color: var(--text-primary); box-shadow: 0 12px 32px oklch(0 0 0 / .16); }
-.visual-slash-menu-heading { padding: 7px var(--space-4) 5px; color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 650; }
-.visual-slash-menu [role="group"] + [role="group"] { margin-top: var(--space-2); }
-.visual-slash-menu button { display: flex; align-items: center; gap: var(--space-5); width: 100%; min-height: 48px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; text-align: start; }
-.visual-slash-menu button[aria-selected="true"] { background: var(--control-active-soft); }
-.visual-slash-menu button:active { scale: .98; }
-.visual-slash-menu button > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
-.visual-slash-menu strong { font-size: var(--type-caption-size); font-weight: 620; }
-.visual-slash-menu small { overflow: hidden; color: var(--text-tertiary); font-size: var(--type-nano-size); text-overflow: ellipsis; white-space: nowrap; }
-.visual-slash-menu-icon { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border-radius: var(--radius-compact); background: var(--surface-panel); color: var(--text-secondary); }
-.visual-slash-menu-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
-.visual-slash-menu-empty { padding: var(--space-5); color: var(--text-tertiary); font-size: var(--type-caption-size); }
-.visual-slash-menu-preview { width: 256px; flex: 0 0 256px; padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); box-shadow: 0 12px 32px oklch(0 0 0 / .16); }
-.visual-slash-menu-preview.is-hidden { visibility: hidden; }
-.visual-slash-menu-preview-frame { display: flex; aspect-ratio: 5 / 3; align-items: center; justify-content: center; overflow: hidden; padding: var(--space-6); border-radius: var(--radius-compact); background: var(--surface-panel); }
-.visual-slash-menu-preview-frame > * { max-width: 100%; max-height: 100%; }
-.visual-slash-menu-preview-frame code { overflow: hidden; font-family: var(--font-mono); font-size: var(--type-nano-size); white-space: pre-wrap; }
-.visual-slash-menu-preview p { display: -webkit-box; margin: var(--space-4) var(--space-2) var(--space-2); overflow: hidden; color: var(--text-tertiary); font-size: var(--type-nano-size); -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-
-@media (max-width: 620px) {
-  .visual-slash-menu-layout.has-preview .visual-slash-menu { width: min(300px, calc(100vw - 16px)); }
-  .visual-slash-menu-preview { display: none; }
-}
-.visual-node-edit-button { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-compact); background: var(--surface-panel-raised); color: var(--text-secondary); font-size: var(--type-nano-size); }
-.visual-node-edit-button:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.visual-node-edit-button svg { width: 13px; height: 13px; }
-.visual-node-source-editor { display: flex; width: min(420px, 100%); min-width: 0; max-width: 100%; flex-direction: column; gap: var(--space-3); margin-block: var(--space-3); padding: var(--space-4); border-radius: var(--radius-chrome); background: var(--surface-panel); }
-.visual-node-source-editor label { color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 620; }
-.visual-node-source-editor input, .visual-node-source-editor textarea { width: 100%; min-height: 34px; padding: var(--space-3); resize: vertical; border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); outline: none; background: var(--editor-bg); color: var(--text-primary); font: var(--type-caption-size)/1.55 var(--font-mono); }
-.visual-node-source-editor input:focus-visible, .visual-node-source-editor textarea:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
 .visual-node-source-error { color: var(--status-danger); font-size: var(--type-nano-size); line-height: 1.45; }
-.visual-node-source-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
-.visual-node-source-actions button { display: inline-flex; min-height: 30px; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); border-radius: var(--radius-compact); color: var(--text-secondary); font-size: var(--type-nano-size); }
-.visual-node-source-actions button.primary { background: var(--control-active); color: var(--control-active-contrast); }
-.visual-node-source-actions svg { width: 13px; height: 13px; }
-.visual-node-source-hint { color: var(--text-tertiary); font-size: var(--type-nano-size); text-align: end; }
 .visual-find-anchor { position: sticky; z-index: 12; top: var(--space-3); width: 100%; height: 0; pointer-events: none; }
 .visual-find-panel { @apply smooth-shadow-ring-md; position: relative; inset-inline-end: var(--space-4); display: flex; width: min(440px, calc(100% - 2 * var(--space-4))); margin-inline-start: auto; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); color: var(--text-primary); pointer-events: auto; }
 .visual-find-row { display: flex; min-width: 0; align-items: center; gap: var(--space-2); }
@@ -1641,8 +1432,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .visual-find-panel button:focus-visible { outline: 2px solid var(--control-active-border-strong); outline-offset: 1px; }
 @media (pointer: coarse) {
   .tiptap-editor .tiptap ul[data-type="taskList"] label { min-width: 44px; min-height: 44px; }
-  .visual-node-edit-button, .visual-node-source-actions button { min-height: 44px; }
-  .visual-code-block-controls input, .visual-code-block-controls button { min-height: 44px; }
   .visual-block-controls { display: none; }
 }
 @media (forced-colors: active) {
@@ -1652,8 +1441,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   .visual-heading-rail-item:focus-visible { outline-color: Highlight; }
   .visual-heading-rail-preview-card { border: 1px solid CanvasText; }
   .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline-color: Highlight; }
-  .visual-slash-menu button[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
-  .visual-node-source-editor input:focus-visible, .visual-node-source-editor textarea:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 .html-preview { position: relative; height: 100%; background: white; }
 .html-preview-frame { display: block; width: 100%; height: 100%; border: 0; background: white; }
@@ -1764,10 +1551,15 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18 6 6 18M6 6l12 12' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
+/* The sidebar and the function picker's second scroll viewport inside it hide
+   their native bars; ExternalScrollbar draws the same 4px-to-6px overlay used
+   by the rest of Lattice. */
+.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto,
 .spreadsheet-univer-host [data-u-comp="sidebar"] > section {
   -ms-overflow-style: none;
   scrollbar-width: none !important;
 }
+.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto::-webkit-scrollbar,
 .spreadsheet-univer-host [data-u-comp="sidebar"] > section::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
@@ -1791,22 +1583,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   font-size: var(--type-body-size);
   font-weight: var(--weight-medium);
 }
-/* Univer's function picker owns a second scroll viewport inside the sidebar.
-   Keep its track aligned with the picker's inset while ExternalScrollbar draws
-   the same 4px-to-6px overlay used by the rest of Lattice. */
+/* Keep the function picker's replacement track aligned with the picker's inset. */
 .spreadsheet-functions-scrollbar-surface {
   position: absolute;
   inset: 0 var(--space-8) 0 0;
   pointer-events: none;
-}
-.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto {
-  -ms-overflow-style: none;
-  scrollbar-width: none !important;
-}
-.spreadsheet-univer-host [data-u-comp="sheets-formula-functions-panel"] ul.univer-overflow-y-auto::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 
 /* Sidebar form controls come from Univer, but their geometry and states should
@@ -1886,18 +1667,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
 .spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a > svg.univer-absolute {
   display: none;
 }
-.spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a:has(> svg.univer-absolute)::after {
-  position: absolute;
-  top: 50%;
-  right: var(--gap-inline);
-  width: 14px;
-  height: 14px;
-  background: var(--control-active);
-  content: "";
-  transform: translateY(-50%);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}
 
 /* Univer portals dropdowns to an anonymous body child, outside the sheet host.
    Its data slots and prefixed utility classes provide the stable ownership
@@ -1961,26 +1730,17 @@ body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-men
 body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex > svg.univer-absolute {
   display: none;
 }
-body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex:has(> svg.univer-absolute)::after {
-  position: absolute;
-  top: 50% !important;
-  right: 0;
-  width: 14px;
-  height: 14px;
-  background: var(--control-active);
-  content: "";
-  transform: translateY(-50%);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}
 /* Univer's Select hides its own radio indicator, so recreate the exact 14px,
-   1.5-stroke check used by Lattice SelectItem in the same trailing gutter. */
+   1.5-stroke check used by Lattice SelectItem in the same trailing gutter.
+   Number Formats rows and checked menu rows draw the same mark. */
 body [data-slot="dropdown-menu-content"].univer-text-sm :is(
   [data-slot="dropdown-menu-radio-item"],
   [data-slot="dropdown-menu-checkbox-item"]
 ) > span.univer-absolute {
   display: none;
 }
+.spreadsheet-univer-host [data-u-comp="sidebar"] ul.univer-grid.univer-list-none > li > a:has(> svg.univer-absolute)::after,
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex:has(> svg.univer-absolute)::after,
 body [data-slot="dropdown-menu-content"].univer-text-sm :is(
   [data-slot="dropdown-menu-radio-item"],
   [data-slot="dropdown-menu-checkbox-item"]
@@ -1995,6 +1755,10 @@ body [data-slot="dropdown-menu-content"].univer-text-sm :is(
   transform: translateY(-50%);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.9 7.55 5.6 10.25 11.1 3.9' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] > .univer-relative.univer-flex:has(> svg.univer-absolute)::after {
+  top: 50% !important;
+  right: 0;
 }
 /* Font Family is a complete list nested inside one non-selectable Radix item.
    Make the wrapper inert and give each actual font row the menu hover state;
