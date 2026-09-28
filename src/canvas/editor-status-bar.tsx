@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ListTodo, MessageSquareText } from "lucide-react";
-import { countWords, textStats } from "../editor/latex/latex-editor";
+import { countWords, textStats } from "../editor/latex/latex-edits";
 import type { OutlineNode } from "../editor/latex/latex-outline";
-import type { EditorComment } from "../editor/comments/editor-comments";
+import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorKeymap, WordCount } from "../app-types";
 
 /** Caret position, Vim mode, section breadcrumb, shortcuts, comments/TODOs, and word counts for the focused editor. */

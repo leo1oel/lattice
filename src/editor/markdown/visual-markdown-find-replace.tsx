@@ -10,6 +10,11 @@ function liveCommands(editor: Editor): Editor["commands"] | null {
   return editor.isDestroyed ? null : editor.commands;
 }
 
+const selectMatch = (editor: Editor, previous: boolean) =>
+  previous ? liveCommands(editor)?.selectPreviousFindMatch() : liveCommands(editor)?.selectNextFindMatch();
+
+const FIND_OPTIONS = [["caseSensitive", "Match case", CaseSensitive], ["wholeWord", "Whole word", WholeWord]] as const;
+
 function selectedSingleLineText(editor: Editor): string {
   const { from, to, empty } = editor.state.selection;
   if (empty) return "";
@@ -36,9 +41,7 @@ export function VisualMarkdownFindReplace({
   useEffect(() => {
     const update = () => setSnapshot(getFindReplaceState(editor.state));
     editor.on("transaction", update);
-    return () => {
-      editor.off("transaction", update);
-    };
+    return () => void editor.off("transaction", update);
   }, [editor]);
 
   const show = useCallback((withReplace: boolean) => {
@@ -71,20 +74,14 @@ export function VisualMarkdownFindReplace({
       const openReplace = (event.metaKey && event.altKey && key === "f" && !event.shiftKey)
         || (!macOS && event.ctrlKey && !event.metaKey && !event.altKey && key === "h" && !event.shiftKey);
       const navigate = open && ((primary && key === "g" && !event.altKey) || event.key === "F3");
-      if (openFind || openReplace) {
-        event.preventDefault();
-        event.stopPropagation();
-        show(openReplace);
-      } else if (navigate) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.shiftKey) liveCommands(editor)?.selectPreviousFindMatch();
-        else liveCommands(editor)?.selectNextFindMatch();
-      } else if (open && event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        close();
-      }
+      const action = openFind || openReplace ? () => show(openReplace)
+        : navigate ? () => selectMatch(editor, event.shiftKey)
+          : open && event.key === "Escape" ? close
+            : null;
+      if (!action) return;
+      event.preventDefault();
+      event.stopPropagation();
+      action();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
@@ -93,9 +90,6 @@ export function VisualMarkdownFindReplace({
   if (!open) return null;
   const count = snapshot.matches.length;
   const resultLabel = count ? `${snapshot.activeIndex + 1} of ${count}` : snapshot.query ? "No matches" : "0 matches";
-  const navigate = (previous: boolean) => previous
-    ? liveCommands(editor)?.selectPreviousFindMatch()
-    : liveCommands(editor)?.selectNextFindMatch();
 
   return (
     <div className="visual-find-anchor">
@@ -112,28 +106,25 @@ export function VisualMarkdownFindReplace({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                navigate(event.shiftKey);
+                selectMatch(editor, event.shiftKey);
               }
             }}
           />
           <span className="visual-find-count" role="status" aria-live="polite">{resultLabel}</span>
-          <IconButton size="compact" label="Previous match" onClick={() => navigate(true)} disabled={!count}><ChevronUp aria-hidden="true" /></IconButton>
-          <IconButton size="compact" label="Next match" onClick={() => navigate(false)} disabled={!count}><ChevronDown aria-hidden="true" /></IconButton>
+          <IconButton size="compact" label="Previous match" onClick={() => selectMatch(editor, true)} disabled={!count}><ChevronUp aria-hidden="true" /></IconButton>
+          <IconButton size="compact" label="Next match" onClick={() => selectMatch(editor, false)} disabled={!count}><ChevronDown aria-hidden="true" /></IconButton>
           <IconButton size="compact" label="Close find" onClick={close}><X aria-hidden="true" /></IconButton>
         </div>
         <div className="visual-find-options">
-          <IconButton
-            size="compact"
-            label="Match case"
-            aria-pressed={snapshot.options.caseSensitive}
-            onClick={() => liveCommands(editor)?.setFindOptions({ caseSensitive: !snapshot.options.caseSensitive }, 0)}
-          ><CaseSensitive aria-hidden="true" /></IconButton>
-          <IconButton
-            size="compact"
-            label="Whole word"
-            aria-pressed={snapshot.options.wholeWord}
-            onClick={() => liveCommands(editor)?.setFindOptions({ wholeWord: !snapshot.options.wholeWord }, 0)}
-          ><WholeWord aria-hidden="true" /></IconButton>
+          {FIND_OPTIONS.map(([option, label, Icon]) => (
+            <IconButton
+              key={option}
+              size="compact"
+              label={label}
+              aria-pressed={snapshot.options[option]}
+              onClick={() => liveCommands(editor)?.setFindOptions({ [option]: !snapshot.options[option] }, 0)}
+            ><Icon aria-hidden="true" /></IconButton>
+          ))}
           {!replaceOpen && (
             <IconButton size="compact" label="Show replace" onClick={() => setReplaceOpen(true)}>
               <Replace aria-hidden="true" />

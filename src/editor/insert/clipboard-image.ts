@@ -11,9 +11,8 @@ export async function fileToBase64(file: File | Blob): Promise<string> {
 
 export function clipboardImageFileName(mimeType: string): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) return `clipboard-${stamp}.jpg`;
-  if (mimeType.includes("webp")) return `clipboard-${stamp}.webp`;
-  return `clipboard-${stamp}.png`;
+  const extension = /jpe?g/.test(mimeType) ? "jpg" : mimeType.includes("webp") ? "webp" : "png";
+  return `clipboard-${stamp}.${extension}`;
 }
 
 /** Encode a Tauri clipboard Image (RGBA) into a PNG data URL via canvas. */

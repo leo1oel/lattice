@@ -1,5 +1,6 @@
-import { forceLinting, type Action, type Diagnostic } from "@codemirror/lint";
-import { StateEffect } from "@codemirror/state";
+import { forceLinting, linter, type Action, type Diagnostic } from "@codemirror/lint";
+import { StateEffect, type Extension } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 
 type HarperSuggestionSnapshot = {
@@ -16,77 +17,35 @@ type HarperLintResult = {
   suggestions: HarperSuggestionSnapshot[];
 };
 
-export type HarperDiagnosticOptions = {
+type AddProjectWord = (word: string) => boolean | Promise<boolean>;
+
+type HarperDiagnosticOptions = {
   projectWords?: string[];
-  onAddProjectWord?: (word: string) => boolean | Promise<boolean>;
+  onAddProjectWord?: AddProjectWord;
 };
 
 export const harperDictionaryChanged = StateEffect.define<null>();
 
-const OPAQUE_COMMANDS = new Set([
-  "addbibresource",
-  "author",
-  "autocite",
-  "begin",
-  "bibliography",
-  "bibliographystyle",
-  "cite",
-  "citealp",
-  "citealt",
-  "citeauthor",
-  "citep",
-  "citet",
-  "cref",
-  "Cref",
-  "documentclass",
-  "end",
-  "eqref",
-  "footcite",
-  "graphicspath",
-  "include",
-  "includegraphics",
-  "input",
-  "label",
-  "newcommand",
-  "newenvironment",
-  "pageref",
-  "parencite",
-  "path",
-  "providecommand",
-  "ref",
-  "renewcommand",
-  "renewenvironment",
-  "textcite",
-  "url",
-  "usepackage",
-]);
+const words = (list: string) => list.trim().split(/\s+/);
 
+/** Every argument of these commands is an identifier, path, or key rather than prose. */
+const OPAQUE_COMMANDS = new Set(words(`
+  addbibresource author autocite begin bibliography bibliographystyle cite citealp citealt citeauthor citep citet
+  cref Cref documentclass end eqref footcite graphicspath include includegraphics input label newcommand
+  newenvironment pageref parencite path providecommand ref renewcommand renewenvironment textcite url usepackage
+`));
+
+/** How many leading arguments of these commands are colors or URLs; the rest is prose. */
 const NON_PROSE_ARGUMENTS = new Map([
-  ["color", 1],
-  ["colorbox", 1],
-  ["fcolorbox", 2],
-  ["href", 1],
-  ["pagecolor", 1],
-  ["textcolor", 1],
+  ["color", 1], ["colorbox", 1], ["fcolorbox", 2], ["href", 1], ["pagecolor", 1], ["textcolor", 1],
 ]);
 
-const NON_PROSE_ENVIRONMENTS = new Set([
-  "align",
-  "align*",
-  "displaymath",
-  "equation",
-  "equation*",
-  "gather",
-  "gather*",
-  "lstlisting",
-  "math",
-  "minted",
-  "multline",
-  "multline*",
-  "tikzpicture",
-  "verbatim",
-  "verbatim*",
-]);
+const NON_PROSE_ENVIRONMENTS = new Set(words(`
+  align align* displaymath equation equation* gather gather* lstlisting math minted multline multline*
+  tikzpicture verbatim verbatim*
+`));
+
+const COMMAND = /\\([A-Za-z@]+|.)/y;
 
 function isEscaped(source: string, index: number): boolean {
   let slashes = 0;
@@ -108,33 +67,23 @@ function balancedGroupEnd(source: string, start: number, open: string, close: st
   return source.length;
 }
 
-function maskMarkdownTables(
-  source: string,
-  blank: (from: number, to: number) => void,
-): void {
+function maskMarkdownTables(source: string, blank: (from: number, to: number) => void): void {
   const lines: Array<{ from: number; to: number; text: string }> = [];
-  for (let from = 0; from <= source.length;) {
-    const newline = source.indexOf("\n", from);
-    const to = newline === -1 ? source.length : newline;
-    lines.push({ from, to, text: source.slice(from, to).replace(/\r$/, "") });
-    if (newline === -1) break;
-    from = newline + 1;
+  let from = 0;
+  for (const text of source.split("\n")) {
+    lines.push({ from, to: from + text.length, text: text.replace(/\r$/, "") });
+    from += text.length + 1;
   }
-
   const isDelimiter = (line: string) => {
     const trimmed = line.trim();
-    if (!trimmed.includes("|")) return false;
-    const cells = trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|");
-    return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+    return trimmed.includes("|")
+      && trimmed.replace(/^\||\|$/g, "").split("|").every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
   };
-
   for (let index = 1; index < lines.length; index += 1) {
     if (!isDelimiter(lines[index].text) || !lines[index - 1].text.includes("|")) continue;
     let end = index + 1;
     while (end < lines.length && lines[end].text.includes("|")) end += 1;
-    for (let row = index - 1; row < end; row += 1) {
-      blank(lines[row].from, lines[row].to);
-    }
+    for (let row = index - 1; row < end; row += 1) blank(lines[row].from, lines[row].to);
     index = end - 1;
   }
 }
@@ -144,16 +93,16 @@ function maskMarkdownTables(
  * Harper can then lint ordinary prose and its spans still map directly back
  * into CodeMirror's document positions.
  */
-function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolean[] } {
-  const masked = Array.from({ length: source.length }, (_, index) => source[index]);
-  const syntaxMask = Array.from({ length: source.length }, () => false);
+export function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolean[] } {
+  const masked = source.split("");
+  const syntaxMask = new Array<boolean>(source.length).fill(false);
   const preambleProseRanges: Array<{ from: number; to: number }> = [];
+  const isLineBreak = (index: number) => masked[index] === "\n" || masked[index] === "\r";
   const blank = (from: number, to: number) => {
     for (let index = from; index < Math.min(to, masked.length); index += 1) {
-      if (masked[index] !== "\n" && masked[index] !== "\r") {
-        masked[index] = " ";
-        syntaxMask[index] = true;
-      }
+      if (isLineBreak(index)) continue;
+      masked[index] = " ";
+      syntaxMask[index] = true;
     }
   };
   const maskMath = (from: number, to: number) => {
@@ -161,39 +110,36 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
     // Preserve a neutral subject for Harper while keeping every source offset.
     // If math opens a sentence, the following prose is not itself the sentence
     // start (`$g$ shares`, for example), so it should not be forced uppercase.
-    for (let cursor = from; cursor < Math.min(to, masked.length); cursor += 1) {
-      if (masked[cursor] !== "\n" && masked[cursor] !== "\r") {
-        masked[cursor] = "X";
-        break;
-      }
-    }
+    let cursor = from;
+    while (cursor < Math.min(to, masked.length) && isLineBreak(cursor)) cursor += 1;
+    if (cursor < Math.min(to, masked.length)) masked[cursor] = "X";
+  };
+  const skipSpace = (from: number) => {
+    while (/\s/.test(source[from] ?? "")) from += 1;
+    return from;
+  };
+  /** Offset just past the first `closer` at or after `from`, or the end of the source. */
+  const endAfter = (closer: string, from: number) => {
+    const close = source.indexOf(closer, from);
+    return close === -1 ? source.length : close + closer.length;
   };
   maskMarkdownTables(source, blank);
 
   let index = 0;
   while (index < source.length) {
     if (source[index] === "%" && !isEscaped(source, index)) {
-      const end = source.indexOf("\n", index);
-      blank(index, end === -1 ? source.length : end);
-      index = end === -1 ? source.length : end;
+      const newline = source.indexOf("\n", index);
+      const end = newline === -1 ? source.length : newline;
+      blank(index, end);
+      index = end;
       continue;
     }
 
     if (source[index] === "$" && !isEscaped(source, index)) {
       const marker = source[index + 1] === "$" ? "$$" : "$";
-      let end = index + marker.length;
-      while (end < source.length) {
-        const match = source.indexOf(marker, end);
-        if (match === -1) {
-          end = source.length;
-          break;
-        }
-        if (!isEscaped(source, match)) {
-          end = match + marker.length;
-          break;
-        }
-        end = match + marker.length;
-      }
+      let close = source.indexOf(marker, index + marker.length);
+      while (close !== -1 && isEscaped(source, close)) close = source.indexOf(marker, close + marker.length);
+      const end = close === -1 ? source.length : close + marker.length;
       maskMath(index, end);
       index = end;
       continue;
@@ -206,14 +152,14 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
 
     const mathCloser = source[index + 1] === "(" ? "\\)" : source[index + 1] === "[" ? "\\]" : null;
     if (mathCloser) {
-      const close = source.indexOf(mathCloser, index + 2);
-      const end = close === -1 ? source.length : close + mathCloser.length;
+      const end = endAfter(mathCloser, index + 2);
       maskMath(index, end);
       index = end;
       continue;
     }
 
-    const commandMatch = /^\\([A-Za-z@]+|.)/.exec(source.slice(index));
+    COMMAND.lastIndex = index;
+    const commandMatch = COMMAND.exec(source);
     if (!commandMatch) {
       index += 1;
       continue;
@@ -223,32 +169,24 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
     if (source[cursor] === "*") cursor += 1;
 
     if (command === "begin") {
-      while (/\s/.test(source[cursor] ?? "")) cursor += 1;
+      cursor = skipSpace(cursor);
       const groupEnd = balancedGroupEnd(source, cursor, "{", "}");
       const environment = source.slice(cursor + 1, Math.max(cursor + 1, groupEnd - 1));
       if (environment === "document") {
         // Package options, font declarations, color names, and macro bodies
-        // are configuration rather than prose. Preserve the rendered title,
-        // which is the one preamble field authors still expect Harper to lint.
-        const prose = preambleProseRanges.map(({ from, to }) => ({
-          from,
-          text: masked.slice(from, to),
-          mask: syntaxMask.slice(from, to),
-        }));
-        blank(0, groupEnd);
-        for (const range of prose) {
-          for (let offset = 0; offset < range.text.length; offset += 1) {
-            masked[range.from + offset] = range.text[offset];
-            syntaxMask[range.from + offset] = range.mask[offset];
-          }
+        // are configuration rather than prose. Keep the rendered title, which
+        // is the one preamble field authors still expect Harper to lint.
+        let from = 0;
+        for (const title of preambleProseRanges) {
+          blank(from, title.from);
+          from = Math.max(from, title.to);
         }
+        blank(from, groupEnd);
         index = groupEnd;
         continue;
       }
       if (NON_PROSE_ENVIRONMENTS.has(environment)) {
-        const closer = `\\end{${environment}}`;
-        const close = source.indexOf(closer, groupEnd);
-        const end = close === -1 ? source.length : close + closer.length;
+        const end = endAfter(`\\end{${environment}}`, groupEnd);
         blank(index, end);
         index = end;
         continue;
@@ -256,8 +194,7 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
     }
 
     if (command === "title") {
-      let argument = cursor;
-      while (/\s/.test(source[argument] ?? "")) argument += 1;
+      const argument = skipSpace(cursor);
       if (source[argument] === "{") {
         const end = balancedGroupEnd(source, argument, "{", "}");
         preambleProseRanges.push({ from: argument + 1, to: Math.max(argument + 1, end - 1) });
@@ -269,41 +206,27 @@ function maskLatexForHarper(source: string): { prose: string; syntaxMask: boolea
     const opaqueArguments = OPAQUE_COMMANDS.has(command)
       ? Number.POSITIVE_INFINITY
       : NON_PROSE_ARGUMENTS.get(command) ?? 0;
-    if (opaqueArguments > 0) {
-      let groupsMasked = 0;
-      while (cursor < source.length) {
-        while (/\s/.test(source[cursor] ?? "")) cursor += 1;
-        if (source[cursor] === "[") {
-          const end = balancedGroupEnd(source, cursor, "[", "]");
-          blank(cursor, end);
-          cursor = end;
-          continue;
-        }
-        if (source[cursor] === "{" && groupsMasked < opaqueArguments) {
-          const end = balancedGroupEnd(source, cursor, "{", "}");
-          blank(cursor, end);
-          cursor = end;
-          groupsMasked += 1;
-          continue;
-        }
-        break;
-      }
+    for (let groupsMasked = 0; opaqueArguments > 0 && cursor < source.length;) {
+      cursor = skipSpace(cursor);
+      const bracket = source[cursor] === "[" ? "]" : source[cursor] === "{" && groupsMasked < opaqueArguments ? "}" : null;
+      if (!bracket) break;
+      const end = balancedGroupEnd(source, cursor, source[cursor], bracket);
+      blank(cursor, end);
+      cursor = end;
+      if (bracket === "}") groupsMasked += 1;
     }
     index = Math.max(cursor, index + 1);
   }
 
-  for (let cursor = 0; cursor < masked.length; cursor += 1) {
-    if (masked[cursor] === "{" || masked[cursor] === "}") {
-      masked[cursor] = " ";
-      syntaxMask[cursor] = true;
-    }
-  }
+  masked.forEach((character, cursor) => {
+    if (character !== "{" && character !== "}") return;
+    masked[cursor] = " ";
+    syntaxMask[cursor] = true;
+  });
   return { prose: masked.join(""), syntaxMask };
 }
 
-export function maskLatexForProse(source: string): string {
-  return maskLatexForHarper(source).prose;
-}
+const isSpellingKind = (kind: string) => kind === "Spelling" || kind === "Typo";
 
 export function createHarperDiagnostic(input: {
   from: number;
@@ -312,32 +235,25 @@ export function createHarperDiagnostic(input: {
   kind: string;
   suggestions: HarperSuggestionSnapshot[];
   projectWord?: string;
-  onAddProjectWord?: (word: string) => boolean | Promise<boolean>;
+  onAddProjectWord?: AddProjectWord;
 }): Diagnostic {
-  const actions: Action[] = input.suggestions.slice(0, 1).map((suggestion) => ({
-    name: suggestion.kind === "remove"
+  const actions: Action[] = input.suggestions.slice(0, 1).map(({ kind, replacement }) => ({
+    name: kind === "remove"
       ? "Remove"
-      : suggestion.kind === "insert-after"
-        ? `Insert “${suggestion.replacement}”`
-        : `Replace with “${suggestion.replacement}”`,
+      : kind === "insert-after" ? `Insert “${replacement}”` : `Replace with “${replacement}”`,
     apply(view, from, to) {
-      view.dispatch({
-        changes: suggestion.kind === "insert-after"
-          ? { from: to, to, insert: suggestion.replacement }
-          : { from, to, insert: suggestion.replacement },
-      });
+      view.dispatch({ changes: kind === "insert-after" ? { from: to, insert: replacement } : { from, to, insert: replacement } });
     },
   }));
-  if (input.projectWord && input.onAddProjectWord) {
-    const projectWord = input.projectWord;
+  const { projectWord, onAddProjectWord } = input;
+  if (projectWord && onAddProjectWord) {
     actions.push({
       name: `Add “${projectWord}” to project dictionary`,
       apply(view) {
-        void Promise.resolve(input.onAddProjectWord?.(projectWord)).then((accepted) => {
-          if (accepted !== false) {
-            view.dispatch({ effects: harperDictionaryChanged.of(null) });
-            forceLinting(view);
-          }
+        void Promise.resolve(onAddProjectWord(projectWord)).then((accepted) => {
+          if (accepted === false) return;
+          view.dispatch({ effects: harperDictionaryChanged.of(null) });
+          forceLinting(view);
         });
       },
     });
@@ -345,7 +261,7 @@ export function createHarperDiagnostic(input: {
   return {
     from: input.from,
     to: input.to,
-    severity: input.kind === "Spelling" || input.kind === "Typo" ? "error" : "warning",
+    severity: isSpellingKind(input.kind) ? "error" : "warning",
     source: "Harper",
     message: input.message,
     actions,
@@ -360,25 +276,18 @@ let harperLintQueue: Promise<void> = Promise.resolve();
  * key stable across callers, so the lint group only rebuilds when the
  * dictionary genuinely changes.
  */
-function normalizeProjectWords(words: string[]): string[] {
-  return [...new Map(words
-    .map((word) => word.trim())
-    .filter(Boolean)
-    .map((word) => [word.toLocaleLowerCase(), word])).values()]
-    .sort((left, right) => left.localeCompare(right));
+function normalizeProjectWords(list: string[]): string[] {
+  const unique = new Map(list.map((word) => word.trim()).filter(Boolean).map((word) => [word.toLocaleLowerCase(), word]));
+  return [...unique.values()].sort((left, right) => left.localeCompare(right));
 }
 
-async function computeHarperDiagnostics(
-  source: string,
-  options: HarperDiagnosticOptions,
-): Promise<Diagnostic[]> {
+async function computeHarperDiagnostics(source: string, options: HarperDiagnosticOptions): Promise<Diagnostic[]> {
   if (source.trim().length === 0) return [];
   try {
     const { prose, syntaxMask } = maskLatexForHarper(source);
     // The engine is harper-core on the Rust side (src-tauri/src/harper.rs) —
     // the same engine harper.js wrapped, but off the WebView thread entirely.
-    // The WKWebView Worker limitation that forced main-thread WASM linting no
-    // longer applies. Masking stays here so spans keep matching the document.
+    // Masking stays here so spans keep matching the document.
     const lints = await invoke<HarperLintResult[]>("harper_lint", {
       text: prose,
       projectWords: normalizeProjectWords(options.projectWords ?? []),
@@ -387,23 +296,20 @@ async function computeHarperDiagnostics(
       const from = Math.max(0, Math.min(source.length, lint.start));
       const to = Math.max(from, Math.min(source.length, lint.end));
       const problem = source.slice(from, to);
-      const diagnostic = createHarperDiagnostic({
+      // Masking commands with spaces preserves CodeMirror offsets, but Harper
+      // can interpret a long masked command as excessive whitespace. Ignore
+      // every lint that touches hidden LaTeX syntax; prose-only spans still map
+      // directly to the original document.
+      if (to <= from || !/[A-Za-z]/.test(problem) || syntaxMask.slice(from, to).some(Boolean)) return [];
+      return [createHarperDiagnostic({
         from,
         to,
         message: lint.message,
         kind: lint.kind,
         suggestions: lint.suggestions,
-        projectWord: (lint.kind === "Spelling" || lint.kind === "Typo") && /^[A-Za-z][A-Za-z'’-]*$/.test(problem)
-          ? problem
-          : undefined,
+        projectWord: isSpellingKind(lint.kind) && /^[A-Za-z][A-Za-z'’-]*$/.test(problem) ? problem : undefined,
         onAddProjectWord: options.onAddProjectWord,
-      });
-      // Masking commands with spaces preserves CodeMirror offsets, but Harper
-      // can interpret a long masked command as excessive whitespace. Ignore
-      // every lint that touches hidden LaTeX syntax; prose-only spans still map
-      // directly to the original document.
-      const touchesLatexSyntax = syntaxMask.slice(from, to).some(Boolean);
-      return !touchesLatexSyntax && /[A-Za-z]/.test(problem) && to > from ? [diagnostic] : [];
+      })];
     });
   } catch (error) {
     if (!loadFailureReported) {
@@ -421,4 +327,69 @@ export async function harperDiagnostics(
   const run = harperLintQueue.then(() => computeHarperDiagnostics(source, options));
   harperLintQueue = run.then(() => undefined, () => undefined);
   return run;
+}
+
+/**
+ * Above this size, Harper lints only the visible ranges (plus margin) instead
+ * of the whole document. Linting itself runs in the backend, but every pass
+ * still masks the whole source here, ships it across IPC, and reparses it on a
+ * 350 ms typing cadence, so a 2 MB document is paid for on each keystroke burst.
+ * Typora-style guardrail: degrade the feature by size rather than pay for it
+ * everywhere.
+ */
+export const HARPER_WINDOW_THRESHOLD = 120_000;
+const HARPER_WINDOW_MARGIN = 2_000;
+
+/**
+ * Null → lint the whole document (small doc). Otherwise the union of visible
+ * ranges expanded by the margin and snapped outward to line boundaries.
+ * Known limitation: masking is approximate at window edges — an environment
+ * opened above the window is not seen — a bounded false-positive trade
+ * against whole-document lint cost.
+ */
+export function harperLintWindow(view: EditorView): { from: number; to: number } | null {
+  const doc = view.state.doc;
+  if (doc.length <= HARPER_WINDOW_THRESHOLD) return null;
+  const from = Math.min(doc.length, ...view.visibleRanges.map((range) => range.from));
+  const to = Math.max(0, ...view.visibleRanges.map((range) => range.to));
+  if (to <= from) return { from: 0, to: 0 };
+  return {
+    from: doc.lineAt(Math.max(0, from - HARPER_WINDOW_MARGIN)).from,
+    to: doc.lineAt(Math.min(doc.length, to + HARPER_WINDOW_MARGIN)).to,
+  };
+}
+
+/** Harper prose diagnostics for an editor, reading the project dictionary live. */
+export function harperSpellcheck(live?: {
+  current: { spellingWords: string[]; onAddSpellingWord?: AddProjectWord };
+}): Extension {
+  return linter(async (view) => {
+    const data = live?.current;
+    const onAdd = data?.onAddSpellingWord;
+    const window = harperLintWindow(view) ?? { from: 0, to: view.state.doc.length };
+    if (window.to <= window.from) return [];
+    const diagnostics = await harperDiagnostics(view.state.sliceDoc(window.from, window.to), {
+      projectWords: data?.spellingWords ?? [],
+      onAddProjectWord: onAdd && (async (word: string) => {
+        if (await onAdd(word) === false) return false;
+        const current = live?.current;
+        const known = current?.spellingWords.some((existing) => existing.toLocaleLowerCase() === word.toLocaleLowerCase());
+        if (current && !known) current.spellingWords = [...current.spellingWords, word];
+        return true;
+      }),
+    });
+    return diagnostics.map((diagnostic) => ({
+      ...diagnostic,
+      from: diagnostic.from + window.from,
+      to: diagnostic.to + window.from,
+    }));
+  }, {
+    delay: 350,
+    needsRefresh: (update) => (
+      // Windowed docs re-lint as new content scrolls into the window.
+      (update.viewportChanged && update.state.doc.length > HARPER_WINDOW_THRESHOLD)
+      || update.transactions.some((transaction) =>
+        transaction.effects.some((effect) => effect.is(harperDictionaryChanged)))
+    ),
+  });
 }

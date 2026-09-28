@@ -1,6 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { createEditorComment, editorCommentsExtension } from "../src/editor/comments/editor-comments";
+import { createEditorComment } from "../src/editor/comments/editor-comment-data";
+import { editorCommentsExtension } from "../src/editor/comments/editor-comments";
 import "../src/index.css";
 import "../src/App.css";
 

@@ -8,6 +8,8 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
 import {
   bibliographyEntryLine,
+  findAppendixMarker,
+  katexMacrosFromSources,
   mergeReferences,
   parseGraphicsPaths,
   parseLocalLabels,
@@ -156,7 +158,6 @@ import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
 import { TUTORIAL_STEPS } from "./onboarding/onboarding-steps";
 import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "./editor/latex/latex-outline";
-import { katexMacrosFromSources } from "./editor/latex/katex-macros";
 import {
   editorDropPreviewAt,
   EditorDropPreviewPortal,
@@ -166,7 +167,6 @@ import {
 } from "./canvas/editor-tabs";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
-import { findAppendixMarker } from "./editor/latex/appendix-pages";
 import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import type {
   ProjectManifest,

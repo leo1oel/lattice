@@ -36,7 +36,7 @@ export type LatexSelectionToolbarPosition = {
   maxWidth: number;
 };
 
-const actions: { action: LatexSelectionAction; label: string; tooltip?: string; icon: typeof Bold; separated?: boolean }[] = [
+const actions: { action: LatexSelectionAction; label: string; icon: typeof Bold; separated?: boolean }[] = [
   { action: "bold", label: "Bold", icon: Bold },
   { action: "italic", label: "Italic", icon: Italic },
   { action: "underline", label: "Underline", icon: Underline },
@@ -45,13 +45,7 @@ const actions: { action: LatexSelectionAction; label: string; tooltip?: string; 
   { action: "comment", label: "Comment", icon: MessageSquareText, separated: true },
 ];
 
-const headingLevels = [
-  ["Part", "part"],
-  ["Chapter", "chapter"],
-  ["Section", "section"],
-  ["Subsection", "subsection"],
-  ["Subsubsection", "subsubsection"],
-] as const;
+const headingLevels = ["part", "chapter", "section", "subsection", "subsubsection"] as const;
 
 export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
@@ -65,6 +59,10 @@ export function LatexSelectionToolbar(props: {
   const [highlightColor, setHighlightColor] = useState("#FFFF00");
   const [highlightOpacity, setHighlightOpacity] = useState(100);
   const [highlightOpen, setHighlightOpen] = useState(false);
+  const applyLink = () => {
+    props.onAction("link", linkUrl.trim());
+    setLinkOpen(false);
+  };
   const applyHighlight = (color: string, opacityPercent: number) => {
     setHighlightColor(color);
     setHighlightOpacity(opacityPercent);
@@ -76,11 +74,7 @@ export function LatexSelectionToolbar(props: {
     props.onAction("highlight", `#${channels.join("")}`.toUpperCase());
     setHighlightOpen(false);
   };
-  const visibleActions = props.commentOnly
-    ? actions.filter(({ action }) => action === "comment" && props.canComment)
-    : props.canComment
-      ? actions
-      : actions.filter(({ action }) => action !== "comment");
+  const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment : !props.commentOnly);
   const onDismiss = props.onDismiss;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
@@ -107,9 +101,9 @@ export function LatexSelectionToolbar(props: {
       }}
     >
       <PopIn className="latex-selection-toolbar">
-        {visibleActions.map(({ action, label, tooltip, icon: Icon, separated }, index) => (
+        {visibleActions.map(({ action, label, icon: Icon, separated }, index) => (
           <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
-            <Tip label={tooltip ?? label} side="top">
+            <Tip label={label} side="top">
               <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
                 <Icon size={14} strokeWidth={1.8} />
               </button>
@@ -124,12 +118,9 @@ export function LatexSelectionToolbar(props: {
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu link-menu">
               <label>Link URL<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
-                if (event.key === "Enter" && linkUrl.trim()) {
-                  props.onAction("link", linkUrl.trim());
-                  setLinkOpen(false);
-                }
+                if (event.key === "Enter" && linkUrl.trim()) applyLink();
               }} /></label>
-              <button type="button" aria-label="Apply link" disabled={!linkUrl.trim()} onClick={() => { props.onAction("link", linkUrl.trim()); setLinkOpen(false); }}>Apply</button>
+              <button type="button" aria-label="Apply link" disabled={!linkUrl.trim()} onClick={applyLink}>Apply</button>
             </PopoverContent>
           </Popover>
         </span>
@@ -140,7 +131,7 @@ export function LatexSelectionToolbar(props: {
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu fluid-hover-surface">
               <FluidHoverSurface selector=".heading-menu > button" />
-              {headingLevels.map(([label, command]) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{label}</span><code>\{command}</code></button>)}
+              {headingLevels.map((command) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{command[0].toUpperCase()}{command.slice(1)}</span><code>\{command}</code></button>)}
             </PopoverContent>
           </Popover>
         </span>

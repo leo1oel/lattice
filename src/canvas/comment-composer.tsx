@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
 import { Textarea } from "../components/ui/textarea";
-import { resolveCommentAnchor } from "../editor/comments/editor-comments";
+import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import { clamp } from "../settings/app-settings";
 import { onLayoutChange, useLatest } from "../app/effect-helpers";
 

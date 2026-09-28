@@ -12,79 +12,39 @@ export type ExpandedSnippet = {
 export function expandSnippetPlaceholders(insert: string): ExpandedSnippet {
   const stops = new Map<number, SnippetStop>();
   let text = "";
-  let index = 0;
-  while (index < insert.length) {
-    if (insert[index] !== "$") {
-      text += insert[index];
-      index += 1;
+  let cursor = 0;
+  for (const match of insert.matchAll(/\$\{([^}]*)\}|\$(\d+)/g)) {
+    text += insert.slice(cursor, match.index);
+    cursor = match.index + match[0].length;
+    const body = match[1] ?? match[2];
+    const colon = match[1] === undefined ? -1 : body.indexOf(":");
+    const stop = Number(colon < 0 ? body : body.slice(0, colon));
+    if (!Number.isInteger(stop) || stop < 0) {
+      text += match[0];
       continue;
     }
-    if (insert[index + 1] === "{") {
-      const close = insert.indexOf("}", index + 2);
-      if (close < 0) {
-        text += "$";
-        index += 1;
-        continue;
-      }
-      const body = insert.slice(index + 2, close);
-      const colon = body.indexOf(":");
-      const numberPart = colon >= 0 ? body.slice(0, colon) : body;
-      const placeholder = colon >= 0 ? body.slice(colon + 1) : "";
-      const stopIndex = Number(numberPart);
-      if (!Number.isInteger(stopIndex) || stopIndex < 0) {
-        text += insert.slice(index, close + 1);
-        index = close + 1;
-        continue;
-      }
-      const from = text.length;
-      text += placeholder;
-      if (!stops.has(stopIndex)) stops.set(stopIndex, { from, to: text.length });
-      index = close + 1;
-      continue;
-    }
-    const digits = insert.slice(index + 1).match(/^\d+/);
-    if (digits) {
-      const stopIndex = Number(digits[0]);
-      const from = text.length;
-      if (!stops.has(stopIndex)) stops.set(stopIndex, { from, to: from });
-      index += 1 + digits[0].length;
-      continue;
-    }
-    text += "$";
-    index += 1;
+    const from = text.length;
+    text += colon < 0 ? "" : body.slice(colon + 1);
+    if (!stops.has(stop)) stops.set(stop, { from, to: text.length });
   }
+  text += insert.slice(cursor);
   const ordered = [...stops.entries()]
     .sort((left, right) => left[0] - right[0])
     .map(([, stop]) => stop);
   return { text, stops: ordered };
 }
 
-export function nextSnippetStop(
-  stops: SnippetStop[],
-  cursor: number,
-  baseOffset: number,
-): SnippetStop | null {
-  const absolute = stops.map((stop) => ({
-    from: baseOffset + stop.from,
-    to: baseOffset + stop.to,
-  }));
+const shifted = (stops: SnippetStop[], baseOffset: number): SnippetStop[] =>
+  stops.map((stop) => ({ from: baseOffset + stop.from, to: baseOffset + stop.to }));
+
+export function nextSnippetStop(stops: SnippetStop[], cursor: number, baseOffset: number): SnippetStop | null {
+  const absolute = shifted(stops, baseOffset);
   return absolute.find((stop) => cursor < stop.to || (cursor === stop.from && stop.from === stop.to))
     ?? absolute[0]
     ?? null;
 }
 
-export function previousSnippetStop(
-  stops: SnippetStop[],
-  cursor: number,
-  baseOffset: number,
-): SnippetStop | null {
-  const absolute = stops.map((stop) => ({
-    from: baseOffset + stop.from,
-    to: baseOffset + stop.to,
-  }));
-  for (let index = absolute.length - 1; index >= 0; index -= 1) {
-    const stop = absolute[index];
-    if (cursor > stop.to) return stop;
-  }
-  return absolute[0] ?? null;
+export function previousSnippetStop(stops: SnippetStop[], cursor: number, baseOffset: number): SnippetStop | null {
+  const absolute = shifted(stops, baseOffset);
+  return [...absolute].reverse().find((stop) => cursor > stop.to) ?? absolute[0] ?? null;
 }

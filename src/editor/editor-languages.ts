@@ -27,10 +27,7 @@ const BIBTEX_EXTENSIONS: Extension[] = [bibtex({
   enableAutocomplete: true,
   autoCloseBrackets: true,
 })];
-interface GitignoreParserState {
-  atLineStart: boolean;
-}
-const gitignoreParser: StreamParser<GitignoreParserState> = {
+const gitignoreParser: StreamParser<{ atLineStart: boolean }> = {
   startState: () => ({ atLineStart: true }),
   token(stream, state) {
     if (stream.sol()) state.atLineStart = true;
@@ -83,25 +80,21 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.emphasis, fontStyle: "italic" },
 ]);
 /* eslint-enable lingui/no-unlocalized-strings */
-let markdownExtensionsPromise: Promise<Extension[]> | null = null;
-let htmlExtensionsPromise: Promise<Extension[]> | null = null;
-
-function loadMarkdownExtensions(): Promise<Extension[]> {
-  markdownExtensionsPromise ??= Promise.all([
-    import("@codemirror/lang-markdown"),
-    import("@codemirror/language-data"),
-  ]).then(([{ markdown }, { languages }]) => [
-    markdown({ codeLanguages: languages }),
-    syntaxHighlighting(markdownHighlightStyle),
-  ]);
-  return markdownExtensionsPromise;
+/** Starts `load` on first call and shares its promise afterwards. */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let promise: Promise<T> | null = null;
+  return () => (promise ??= load());
 }
 
-function loadHtmlExtensions(): Promise<Extension[]> {
-  htmlExtensionsPromise ??= import("@codemirror/lang-html")
-    .then(({ html }) => [html()]);
-  return htmlExtensionsPromise;
-}
+const loadMarkdownExtensions = once(() => Promise.all([
+  import("@codemirror/lang-markdown"),
+  import("@codemirror/language-data"),
+]).then(([{ markdown }, { languages }]): Extension[] => [
+  markdown({ codeLanguages: languages }),
+  syntaxHighlighting(markdownHighlightStyle),
+]));
+
+const loadHtmlExtensions = once(() => import("@codemirror/lang-html").then(({ html }): Extension[] => [html()]));
 
 /**
  * Languages already resolved this session, keyed by file extension.

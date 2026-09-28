@@ -26,20 +26,34 @@ export type EditorComment = {
   updatedAt: string;
 };
 
-type EditorCommentsFile = {
-  schemaVersion: number;
-  comments: EditorComment[];
+type FieldTypes = Record<string, "string" | "number" | "boolean">;
+const REPLY_FIELDS: FieldTypes = { id: "string", authorId: "string", authorName: "string", body: "string", createdAt: "string" };
+const COMMENT_FIELDS: FieldTypes = {
+  ...REPLY_FIELDS,
+  path: "string",
+  from: "number",
+  to: "number",
+  quote: "string",
+  resolved: "boolean",
+  updatedAt: "string",
 };
+
+function hasFields<T>(fields: FieldTypes) {
+  return (value: unknown): value is T => Boolean(value) && typeof value === "object"
+    && Object.entries(fields).every(([key, type]) => typeof (value as Record<string, unknown>)[key] === type);
+}
+const isEditorComment = hasFields<EditorComment>(COMMENT_FIELDS);
+const isEditorCommentReply = hasFields<EditorCommentReply>(REPLY_FIELDS);
+
+const byCreation = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
+  a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 
 export function serializeEditorComments(comments: EditorComment[]): string {
   return `${JSON.stringify({ schemaVersion: 1, comments }, null, 2)}\n`;
 }
 
 /** Merge independently saved comment files without dropping either author. */
-export function mergeEditorComments(
-  first: EditorComment[],
-  second: EditorComment[],
-): EditorComment[] {
+export function mergeEditorComments(first: EditorComment[], second: EditorComment[]): EditorComment[] {
   const merged = new Map<string, EditorComment>();
   for (const comment of [...first, ...second]) {
     const previous = merged.get(comment.id);
@@ -50,68 +64,24 @@ export function mergeEditorComments(
     const latest = comment.updatedAt >= previous.updatedAt ? comment : previous;
     const replies = new Map(previous.replies.map((reply) => [reply.id, reply]));
     for (const reply of comment.replies) replies.set(reply.id, reply);
-    merged.set(comment.id, {
-      ...latest,
-      replies: [...replies.values()].sort((a, b) =>
-        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
-    });
+    merged.set(comment.id, { ...latest, replies: [...replies.values()].sort(byCreation) });
   }
-  return [...merged.values()].sort((a, b) =>
-    a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  return [...merged.values()].sort(byCreation);
 }
 
+/** Null distinguishes a corrupt payload from a legitimately empty list. */
 export function tryParseEditorComments(raw: string): EditorComment[] | null {
-  let parsed: unknown;
+  let comments: unknown;
   try {
-    parsed = JSON.parse(raw);
+    comments = (JSON.parse(raw) as { comments?: unknown } | null)?.comments;
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object") return null;
-  const comments = (parsed as Partial<EditorCommentsFile>).comments;
   if (!Array.isArray(comments)) return null;
-  return comments.filter(isEditorComment).map(normalizeComment);
-}
-
-export function parseEditorComments(raw: string): EditorComment[] {
-  return tryParseEditorComments(raw) ?? [];
-}
-
-function normalizeComment(comment: EditorComment): EditorComment {
-  const replies = Array.isArray(comment.replies)
-    ? comment.replies.filter(isEditorCommentReply)
-    : [];
-  return replies === comment.replies ? comment : { ...comment, replies };
-}
-
-function isEditorCommentReply(value: unknown): value is EditorCommentReply {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<EditorCommentReply>;
-  return Boolean(
-    typeof item.id === "string"
-    && typeof item.authorId === "string"
-    && typeof item.authorName === "string"
-    && typeof item.body === "string"
-    && typeof item.createdAt === "string",
-  );
-}
-
-function isEditorComment(value: unknown): value is EditorComment {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<EditorComment>;
-  return Boolean(
-    typeof item.id === "string"
-    && typeof item.path === "string"
-    && typeof item.from === "number"
-    && typeof item.to === "number"
-    && typeof item.quote === "string"
-    && typeof item.body === "string"
-    && typeof item.authorId === "string"
-    && typeof item.authorName === "string"
-    && typeof item.resolved === "boolean"
-    && typeof item.createdAt === "string"
-    && typeof item.updatedAt === "string",
-  );
+  return comments.filter(isEditorComment).map((comment) => {
+    const replies = Array.isArray(comment.replies) ? comment.replies.filter(isEditorCommentReply) : [];
+    return replies === comment.replies ? comment : { ...comment, replies };
+  });
 }
 
 export function loadEditorCommentAuthorId(): string {
@@ -126,28 +96,23 @@ export function loadEditorCommentAuthorId(): string {
   }
 }
 
-export function editorCommentAuthorDisplayName(
-  authorName: string,
-  anonymousLabel: string,
-): string {
+export function editorCommentAuthorDisplayName(authorName: string, anonymousLabel: string): string {
   const trimmed = authorName.trim();
   return !trimmed || trimmed === "Anonymous" ? anonymousLabel : trimmed;
 }
 
-export function createEditorComment(options: {
+type Authored = { body: string; authorId: string; authorName: string };
+
+export function createEditorComment(options: Authored & {
   path: string;
   source: string;
   from: number;
   to: number;
-  body: string;
-  authorId: string;
-  authorName: string;
 }): EditorComment | null {
   const from = Math.max(0, Math.min(options.from, options.to));
   const to = Math.min(options.source.length, Math.max(options.from, options.to));
-  if (to <= from) return null;
   const quote = options.source.slice(from, to);
-  if (!quote.trim()) return null;
+  if (to <= from || !quote.trim()) return null;
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -156,7 +121,7 @@ export function createEditorComment(options: {
     to,
     quote,
     prefix: options.source.slice(Math.max(0, from - 32), from),
-    suffix: options.source.slice(to, Math.min(options.source.length, to + 32)),
+    suffix: options.source.slice(to, to + 32),
     body: options.body.trim(),
     authorId: options.authorId,
     authorName: options.authorName.trim() || "Anonymous",
@@ -167,11 +132,7 @@ export function createEditorComment(options: {
   };
 }
 
-export function createEditorCommentReply(options: {
-  body: string;
-  authorId: string;
-  authorName: string;
-}): EditorCommentReply | null {
+export function createEditorCommentReply(options: Authored): EditorCommentReply | null {
   const body = options.body.trim();
   if (!body) return null;
   return {
@@ -181,13 +142,6 @@ export function createEditorCommentReply(options: {
     body,
     createdAt: new Date().toISOString(),
   };
-}
-
-export function resolveCommentRange(
-  source: string,
-  comment: EditorComment,
-): { from: number; to: number } | null {
-  return resolveCommentAnchor(source, comment);
 }
 
 export function resolveCommentAnchor(

@@ -179,8 +179,9 @@ in order of value:
    inside try. Recipe: hoist each body to a module-level function taking a
    deps object, leave the `useCallback` as a thin arrow; per-file commits so
    regressions bisect. This is the single biggest render-cost win left.
-2. Render-phase ref access in `visual-markdown-editor.tsx` — all 3 of its
-   bailouts, in the L2302 editor core, on the typing hot path. They are the
+2. Render-phase ref access in `visual-markdown-editor.tsx` — its one
+   remaining bailout, in `CompleteVisualMarkdownEditor`, on the typing hot
+   path: the refs handed to `hostExtensions` during render. It is the
    ref-passed-as-argument shape, so the fix is to wrap in a closure
    (`() => ref.current`) rather than to move a write. Cheaper wins of the same
    kind, each the *sole* bailout of its function: `app/use-panel-layout.ts`,
@@ -264,5 +265,5 @@ Two items that used to sit in this list have **shipped** and are described under
   (`src-tauri/src/fs_watch.rs`, the `watch_project` command, the
   `project-fs-changed` event).
 - The incremental BM25 workspace index. `updateWorkspaceSearchCorpus` is no
-  longer unused: `src/editor/markdown/markdown-workspace-index.ts:338` calls it on every
+  longer unused: `src/editor/markdown/markdown-workspace-index.ts:143` calls it on every
   corpus update.

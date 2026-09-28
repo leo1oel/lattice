@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button";
 import { CheckboxField } from "../../components/ui/checkbox-field";
 import { Input } from "../../components/ui/input";
 import { PanelHeader } from "../../components/ui/panel-header";
-import { buildTabularSnippet, clampTableSize, type TableGeneratorOptions } from "./table-generator";
+import { buildTabularSnippet } from "./table-generator";
 
 export function TableGeneratorDialog(props: {
   open: boolean;
@@ -20,15 +20,7 @@ export function TableGeneratorDialog(props: {
 
   if (!props.open) return null;
 
-  const options: TableGeneratorOptions = {
-    rows: clampTableSize(rows),
-    cols: clampTableSize(cols),
-    booktabs,
-    float,
-    caption,
-    label,
-  };
-  const preview = buildTabularSnippet(options);
+  const preview = buildTabularSnippet({ rows, cols, booktabs, float, caption, label });
 
   return (
     <div className="drawer-backdrop" onMouseDown={props.onClose}>
@@ -42,34 +34,14 @@ export function TableGeneratorDialog(props: {
         <div className="table-generator-form">
           <label>
             Rows
-            <Input
-              type="number"
-              min={1}
-              max={20}
-              value={rows}
-              onChange={(event) => setRows(Number(event.target.value))}
-            />
+            <Input type="number" min={1} max={20} value={rows} onChange={(event) => setRows(Number(event.target.value))} />
           </label>
           <label>
             Columns
-            <Input
-              type="number"
-              min={1}
-              max={20}
-              value={cols}
-              onChange={(event) => setCols(Number(event.target.value))}
-            />
+            <Input type="number" min={1} max={20} value={cols} onChange={(event) => setCols(Number(event.target.value))} />
           </label>
-          <CheckboxField
-            checked={booktabs}
-            label="Booktabs rules"
-            onChange={(event) => setBooktabs(event.target.checked)}
-          />
-          <CheckboxField
-            checked={float}
-            label="Wrap in table float"
-            onChange={(event) => setFloat(event.target.checked)}
-          />
+          <CheckboxField checked={booktabs} label="Booktabs rules" onChange={(event) => setBooktabs(event.target.checked)} />
+          <CheckboxField checked={float} label="Wrap in table float" onChange={(event) => setFloat(event.target.checked)} />
           {float && (
             <>
               <label>

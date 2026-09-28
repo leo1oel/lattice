@@ -1,21 +1,22 @@
 import { motion, useReducedMotion } from "motion/react";
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MAGNET_SPRING } from "../../components/ui/motion-values";
 
 const MAX_DETAILED_HEADINGS = 28;
 const MIN_RAIL_VIEWPORT_WIDTH = 480;
-const RAIL_WAVE = {
-  radius: 2.75,
-  activeRestingScale: 0.66,
-  primaryRestingScale: 0.4,
-  secondaryRestingScale: 0.27,
-  tertiaryRestingScale: 0.18,
+const WAVE_RADIUS = 2.75;
+const ACTIVE_RESTING_SCALE = 0.66;
+/** Resting tick scale by heading depth below the shallowest level. */
+const RESTING_SCALES = [0.4, 0.27, 0.18];
+const next = (index: number, length: number) => (index + 1) % length;
+const previous = (index: number, length: number) => (index - 1 + length) % length;
+const KEYBOARD_STEPS: Record<string, (index: number, length: number) => number> = {
+  ArrowDown: next,
+  ArrowRight: next,
+  ArrowUp: previous,
+  ArrowLeft: previous,
+  Home: () => 0,
+  End: (_index, length) => length - 1,
 };
 
 export type DocumentHeadingItem = {
@@ -46,38 +47,13 @@ function headingTarget(root: HTMLElement, id: string): HTMLElement | null {
     .find((heading) => heading.id === id) ?? null;
 }
 
-function nextKeyboardIndex(
-  event: KeyboardEvent<HTMLButtonElement>,
-  index: number,
-  length: number,
-): number | null {
-  if (event.key === "ArrowDown" || event.key === "ArrowRight") return (index + 1) % length;
-  if (event.key === "ArrowUp" || event.key === "ArrowLeft") return (index - 1 + length) % length;
-  if (event.key === "Home") return 0;
-  if (event.key === "End") return length - 1;
-  return null;
-}
-
-function restingScaleForDepth(depth: number): number {
-  if (depth === 0) return RAIL_WAVE.primaryRestingScale;
-  if (depth === 1) return RAIL_WAVE.secondaryRestingScale;
-  return RAIL_WAVE.tertiaryRestingScale;
-}
-
 function scaleForPointer(restingScale: number, index: number, pointerPosition: number): number {
-  const linearInfluence = Math.max(
-    0,
-    1 - Math.abs(index - pointerPosition) / RAIL_WAVE.radius,
-  );
+  const linearInfluence = Math.max(0, 1 - Math.abs(index - pointerPosition) / WAVE_RADIUS);
   const smoothInfluence = linearInfluence * linearInfluence * (3 - 2 * linearInfluence);
   return restingScale + (1 - restingScale) * smoothInfluence;
 }
 
-export function DocumentHeadingRail({
-  items: rawItems,
-  virtualized = false,
-  onSelect,
-}: {
+export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSelect }: {
   items: DocumentHeadingItem[];
   virtualized?: boolean;
   onSelect: (item: DocumentHeadingItem) => void;
@@ -91,17 +67,12 @@ export function DocumentHeadingRail({
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [fitsViewport, setFitsViewport] = useState(true);
 
-  const selectedId = items.some((item) => item.id === activeId)
-    ? activeId
-    : (items[0]?.id ?? "");
-  const hoveredIndex = pointerPosition == null
-    ? -1
-    : Math.max(0, Math.min(items.length - 1, Math.round(pointerPosition)));
-  const hoveredId = hoveredIndex >= 0 ? (items[hoveredIndex]?.id ?? null) : null;
+  const selectedId = items.some((item) => item.id === activeId) ? activeId : (items[0]?.id ?? "");
+  const hoveredId = pointerPosition == null
+    ? null
+    : (items[Math.max(0, Math.min(items.length - 1, Math.round(pointerPosition)))]?.id ?? null);
   const displayedId = hoveredId ?? focusedId;
-  const displayedIndex = displayedId
-    ? items.findIndex((item) => item.id === displayedId)
-    : -1;
+  const displayedIndex = displayedId ? items.findIndex((item) => item.id === displayedId) : -1;
   const baseLevel = items.length ? Math.min(...items.map((item) => item.level)) : 1;
   const wavePosition = pointerPosition ?? (focusedId && displayedIndex >= 0 ? displayedIndex : null);
 
@@ -115,19 +86,15 @@ export function DocumentHeadingRail({
     let offsets: Array<{ id: string; top: number }> = [];
     const updateActive = () => {
       const readingLine = scroller.scrollTop + Math.min(scroller.clientHeight * 0.22, 160);
+      // Without every heading mounted, estimate from scroll progress instead.
+      const measured = !virtualized && offsets.length >= items.length;
+      const reached = measured
+        ? readingLine
+        : Math.min(1, Math.max(0, readingLine / Math.max(1, scroller.scrollHeight - scroller.clientHeight)));
       let nextId = items[0]?.id ?? "";
-      if (virtualized || offsets.length < items.length) {
-        const range = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
-        const progress = Math.min(1, Math.max(0, readingLine / range));
-        for (const item of items) {
-          if (item.position > progress) break;
-          nextId = item.id;
-        }
-      } else {
-        for (const offset of offsets) {
-          if (offset.top > readingLine) break;
-          nextId = offset.id;
-        }
+      for (const mark of measured ? offsets : items.map(({ id, position }) => ({ id, top: position }))) {
+        if (mark.top > reached) break;
+        nextId = mark.id;
       }
       setActiveId((current) => current === nextId ? current : nextId);
     };
@@ -136,19 +103,13 @@ export function DocumentHeadingRail({
       const viewportRect = scroller.getBoundingClientRect();
       offsets = items.flatMap((item) => {
         const target = headingTarget(root, item.id);
-        return target ? [{
-          id: item.id,
-          top: target.getBoundingClientRect().top - viewportRect.top + scroller.scrollTop,
-        }] : [];
+        return target ? [{ id: item.id, top: target.getBoundingClientRect().top - viewportRect.top + scroller.scrollTop }] : [];
       });
-      setFitsViewport(
-        scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH,
-      );
+      setFitsViewport(scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH);
       updateActive();
     };
     const scheduleMeasure = () => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(measure);
+      frame ??= window.requestAnimationFrame(measure);
     };
     const onScroll = () => updateActive();
     const resizeObserver = new ResizeObserver(scheduleMeasure);
@@ -157,13 +118,7 @@ export function DocumentHeadingRail({
     const proseMirror = root.querySelector<HTMLElement>(".ProseMirror");
     const mutationObserver = new MutationObserver(scheduleMeasure);
     if (proseMirror) {
-      mutationObserver.observe(proseMirror, {
-        attributes: true,
-        attributeFilter: ["id"],
-        characterData: true,
-        childList: true,
-        subtree: true,
-      });
+      mutationObserver.observe(proseMirror, { attributes: true, attributeFilter: ["id"], characterData: true, childList: true, subtree: true });
     }
     scroller.addEventListener("scroll", onScroll, { passive: true });
     measure();
@@ -200,9 +155,9 @@ export function DocumentHeadingRail({
           const selected = item.id === selectedId;
           const highlighted = item.id === displayedId;
           const depth = Math.min(2, Math.max(0, item.level - baseLevel));
-          const restingScale = restingScaleForDepth(depth);
+          const restingScale = RESTING_SCALES[depth]!;
           const scale = wavePosition == null
-            ? (selected ? RAIL_WAVE.activeRestingScale : restingScale)
+            ? (selected ? ACTIVE_RESTING_SCALE : restingScale)
             : scaleForPointer(restingScale, index, wavePosition);
 
           return (
@@ -226,13 +181,12 @@ export function DocumentHeadingRail({
                 if (event.currentTarget.matches(":focus-visible")) setFocusedId(item.id);
               }}
               onKeyDown={(event) => {
-                const nextIndex = nextKeyboardIndex(event, index, items.length);
-                if (nextIndex == null) return;
+                const step = KEYBOARD_STEPS[event.key];
+                if (!step) return;
                 event.preventDefault();
-                const next = items[nextIndex];
-                if (!next) return;
-                setFocusedId(next.id);
-                buttonRefs.current.get(next.id)?.focus();
+                const target = items[step(index, items.length)]!;
+                setFocusedId(target.id);
+                buttonRefs.current.get(target.id)?.focus();
               }}
               onClick={() => onSelect(item)}
             >
@@ -257,9 +211,7 @@ export function DocumentHeadingRail({
                   animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
                   transition={{ duration: reduceMotion ? 0 : 0.12, ease: "easeOut" }}
                 >
-                  <div className="visual-heading-rail-preview-card">
-                    {item.label}
-                  </div>
+                  <div className="visual-heading-rail-preview-card">{item.label}</div>
                 </motion.div>
               )}
             </div>

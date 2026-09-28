@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useRef, type ComponentProps } from "react";
 import { ScrollArea } from "../components/ui/scroll-area";
-import type { EditorComment } from "../editor/comments/editor-comments";
+import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { markdownFrontmatterEnd } from "../app-utils";
 import { useLatest } from "../app/effect-helpers";
 import { DeferredVisualMarkdownEditor, MarkdownPreviewLoading } from "./canvas-lazy-editors";

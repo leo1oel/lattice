@@ -52,7 +52,7 @@ msgid "(empty span)"
 msgstr "（空选区）"
 
 #: src/canvas/document-canvas.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "(no comment text)"
 msgstr "（无评论内容）"
 
@@ -293,7 +293,7 @@ msgstr "访问被拒绝，请检查密钥及其权限。"
 msgid "Access forbidden by provider"
 msgstr "提供商拒绝访问"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Accordion"
 msgstr "折叠面板"
 
@@ -329,7 +329,7 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Add comment"
 msgstr "添加评论"
 
@@ -402,11 +402,11 @@ msgstr "算法块（需要 algorithm 与 algpseudocode）"
 msgid "Align"
 msgstr "对齐公式"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Align a group of blocks to the left, center, or right."
 msgstr "将一组内容块左对齐、居中或右对齐。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Align block"
 msgstr "对齐块"
 
@@ -419,7 +419,7 @@ msgstr "对齐公式*"
 msgid "All"
 msgstr "全部"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "所有函数…"
 
@@ -487,6 +487,7 @@ msgstr "角"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Anonymous"
 msgstr "匿名"
 
@@ -651,7 +652,7 @@ msgstr "横线符示例"
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "基础块"
 
@@ -691,7 +692,7 @@ msgstr "文献引用（需要 natbib 或兼容宏包）"
 msgid "BibTeX preview"
 msgstr "BibTeX 预览"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Big section heading."
 msgstr "用于主要章节的大标题。"
 
@@ -725,7 +726,7 @@ msgstr "二项式系数"
 msgid "Blackboard bold"
 msgstr "黑板粗体"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "使用 KaTeX 渲染 LaTeX 源字符串的块级数学公式。"
 
@@ -837,7 +838,7 @@ msgstr "构建"
 msgid "Bullet"
 msgstr "实心圆点"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Bullet List"
 msgstr "无序列表"
@@ -854,7 +855,7 @@ msgstr "缓存"
 msgid "Calligraphic"
 msgstr "花体"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Callout"
 msgstr "提示框"
 
@@ -863,8 +864,8 @@ msgstr "提示框"
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -1055,7 +1056,7 @@ msgstr "正在检查你的 Overleaf 连接…"
 msgid "Checking…"
 msgstr "正在检查…"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "带复选框的任务清单。"
 
@@ -1236,7 +1237,7 @@ msgstr "闭路积分"
 msgid "Club suit"
 msgstr "梅花"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Code Block"
 msgstr "代码块"
@@ -1269,11 +1270,11 @@ msgstr "协作为只读"
 msgid "Collaboration, Overleaf, and history"
 msgstr "协作、Overleaf 与版本历史"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible content block (Notion-style toggle)."
 msgstr "可折叠内容块（类似 Notion 的折叠块）。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible section with a clickable summary."
 msgstr "带可点击摘要的折叠章节。"
 
@@ -1294,6 +1295,7 @@ msgid "comment"
 msgstr "评论"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "评论"
@@ -1340,7 +1342,7 @@ msgstr "请先补全未完成的参考文献条目，再添加其他文献。"
 msgid "Completed"
 msgstr "已完成"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "组件"
 
@@ -1431,13 +1433,13 @@ msgid "Contains as member"
 msgstr "包含元素"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Continue"
 msgstr "继续"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue?"
 msgstr "要继续吗？"
 
@@ -1616,7 +1618,7 @@ msgstr "当前 BibTeX"
 msgid "Current reference"
 msgstr "当前参考文献"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "带实时预览窗格的自定义 HTML（在沙盒 iframe 中运行）。"
 
@@ -1636,7 +1638,7 @@ msgstr "达列特"
 msgid "Dark"
 msgstr "深色"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Data"
 msgstr "数据"
 
@@ -1663,7 +1665,7 @@ msgstr "度"
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
@@ -1714,7 +1716,7 @@ msgstr "要删除此消息吗？"
 msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
 msgstr "要删除此消息吗？这是讨论中的唯一一条消息，因此会删除整个讨论。"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Delete worksheet?"
 msgstr "要删除工作表吗？"
 
@@ -1747,7 +1749,7 @@ msgstr "行列式样式的矩阵"
 msgid "Diagnostics"
 msgstr "诊断"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "根据 Mermaid 源码生成的图表——支持流程图、时序图、类图、状态图、ER 图、甘特图和饼图。"
 
@@ -2031,15 +2033,15 @@ msgstr "编辑内容会与 Overleaf 实时同步"
 msgid "Element of"
 msgstr "属于"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Embed an image with optional alt text."
 msgstr "嵌入图片，并可添加替代文本。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Embeds"
 msgstr "嵌入内容"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Emoji"
 msgstr "表情符号"
 
@@ -2166,7 +2168,7 @@ msgstr "论文所需的一切都在一个文件夹中"
 msgid "Exact title match"
 msgstr "标题完全匹配"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Excel workbook"
 msgstr "Excel 工作簿"
 
@@ -2174,11 +2176,11 @@ msgstr "Excel 工作簿"
 msgid "Export diagnostic log"
 msgstr "导出诊断日志"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel"
 msgstr "导出 Excel"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel workbook"
 msgstr "导出 Excel 工作簿"
 
@@ -2206,7 +2208,7 @@ msgstr "关注声明"
 msgid "Feedback"
 msgstr "反馈"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fenced code block with monospace text."
 msgstr "使用等宽字体显示的围栏代码块。"
 
@@ -2214,7 +2216,7 @@ msgstr "使用等宽字体显示的围栏代码块。"
 msgid "Fetching the paper overview…"
 msgstr "正在获取论文概览…"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fifth-level heading."
 msgstr "五级标题。"
 
@@ -2323,7 +2325,7 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Footnote"
 msgstr "脚注"
 
@@ -2343,7 +2345,7 @@ msgstr "任意"
 msgid "Format document"
 msgstr "格式化文档"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Formulas"
 msgstr "公式"
 
@@ -2351,7 +2353,7 @@ msgstr "公式"
 msgid "Formulas and Excel export"
 msgstr "公式与 Excel 导出"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fourth-level heading."
 msgstr "四级标题。"
 
@@ -2465,7 +2467,7 @@ msgstr "希腊字母"
 msgid "Grid generator"
 msgstr "网格生成器"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头行的行列网格。"
 
@@ -2489,32 +2491,32 @@ msgstr "帽号记号"
 msgid "Hat accent example"
 msgstr "帽号示例"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 1"
 msgstr "一级标题"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 2"
 msgstr "二级标题"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 3"
 msgstr "三级标题"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 4"
 msgstr "四级标题"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 5"
 msgstr "五级标题"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 6"
 msgstr "六级标题"
@@ -2539,7 +2541,7 @@ msgstr "隐藏侧边栏"
 msgid "Highlight"
 msgstr "高亮"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Highlight tips, warnings, and notes."
 msgstr "突出显示提示、警告和注释内容。"
 
@@ -2555,11 +2557,11 @@ msgstr "带钩左箭头"
 msgid "Hook right arrow"
 msgstr "带钩右箭头"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
 msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切换面板。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal rule that divides sections."
 msgstr "用于分隔章节的水平线。"
 
@@ -2567,7 +2569,7 @@ msgstr "用于分隔章节的水平线。"
 msgid "host"
 msgstr "主持人"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
 msgstr "HTML"
 
@@ -2591,7 +2593,7 @@ msgstr "HTML 缩放百分比"
 msgid "If and only if"
 msgstr "当且仅当"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Image"
 msgstr "图片"
 
@@ -2705,7 +2707,7 @@ msgstr "历史记录不完整"
 msgid "Increment year"
 msgstr "年份加一"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Indented blockquote for citations."
 msgstr "用于引用内容的缩进块。"
 
@@ -2734,7 +2736,7 @@ msgstr "就地嵌入另一个 TeX 文件"
 msgid "Inline code"
 msgstr "行内代码"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
 
@@ -2742,7 +2744,7 @@ msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
 msgid "Inline math"
 msgstr "行内公式"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Inline Math"
 msgstr "行内公式"
 
@@ -2755,7 +2757,7 @@ msgid "insert"
 msgstr "插入"
 
 #: src/editor/insert/insert-palette.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "插入"
 
@@ -2767,11 +2769,11 @@ msgstr "插入 \\cite{…}"
 msgid "Insert \\ref{…}"
 msgstr "插入 \\ref{…}"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert a footnote reference + matching definition stub."
 msgstr "插入脚注引用及与之匹配的定义占位符。"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "插入公式"
 
@@ -3120,7 +3122,7 @@ msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Layout"
 msgstr "布局"
 
@@ -3129,7 +3131,7 @@ msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
 
@@ -3217,12 +3219,12 @@ msgstr "极限表达式"
 msgid "Line under an expression"
 msgstr "表达式下方加横线"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link"
 msgstr "链接"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Link to a page or external URL."
 msgstr "链接到页面或外部 URL。"
 
@@ -3395,7 +3397,7 @@ msgstr "手稿待办事项"
 msgid "Maps to"
 msgstr "映射到"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 msgstr "将内容块设为唯一源；在此编辑时，其他位置的镜像会同步更新。"
 
@@ -3404,7 +3406,7 @@ msgid "Match case"
 msgstr "区分大小写"
 
 #: src/editor/insert/insert-palette.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Math"
 msgstr "数学"
 
@@ -3436,15 +3438,15 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "媒体"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Medium section heading."
 msgstr "用于次级章节的中标题。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mermaid"
 msgstr "Mermaid 图表"
 
@@ -3484,11 +3486,11 @@ msgstr "小页"
 msgid "Minus-plus"
 msgstr "负正号"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mirror"
 msgstr "镜像"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mirror Source"
 msgstr "镜像源"
 
@@ -3878,7 +3880,7 @@ msgstr "数集，如 R、N"
 msgid "Numbered list"
 msgstr "带编号的列表"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Numbered list of items."
 msgstr "有序编号项目列表。"
 
@@ -4103,7 +4105,7 @@ msgstr "操作信息"
 msgid "Operators"
 msgstr "运算符"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Ordered List"
 msgstr "有序列表"
@@ -4332,7 +4334,7 @@ msgstr "派"
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Pick an emoji to insert at the cursor."
 msgstr "选择一个表情符号并插入光标位置。"
 
@@ -4357,7 +4359,7 @@ msgid "Plays quiet cues when a requested build or collaboration setup finishes"
 msgstr "请求的构建或协作设置完成时播放轻微提示音"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Please confirm that you want to continue."
 msgstr "请确认你要继续。"
 
@@ -4577,7 +4579,7 @@ msgid "Quick open file"
 msgstr "快速打开文件"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Quote"
 msgstr "引文"
@@ -4598,7 +4600,7 @@ msgstr "请求受到速率限制；已跳过后续 Semantic Scholar 查询"
 msgid "Read the full paper here"
 msgstr "在此阅读全文"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 msgstr "来自其他文档中“镜像源”内容块的只读副本；在源处编辑后，此处会实时更新。"
 
@@ -4826,7 +4828,7 @@ msgstr "正在渲染首页…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "重新打开"
@@ -4865,7 +4867,7 @@ msgstr "替代版本/新版本"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
@@ -4953,7 +4955,7 @@ msgstr "解决 {path} 的更改"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Resolve comment"
 msgstr "解决评论"
 
@@ -5425,7 +5427,7 @@ msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Separator"
 msgstr "分隔线"
 
@@ -5556,7 +5558,7 @@ msgstr "相似"
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Sixth-level heading."
 msgstr "六级标题。"
 
@@ -5568,7 +5570,7 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "跳过教程"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Small section heading."
 msgstr "用于小节的小标题。"
 
@@ -5921,15 +5923,15 @@ msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Table"
 msgstr "表格"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Tabs"
 msgstr "标签页"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Task List"
 msgstr "任务列表"
@@ -6059,11 +6061,11 @@ msgstr "服务正在限流，未自动重试。"
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
 msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed."
 msgstr "该工作表及其所有内容都将被删除。"
 
@@ -6250,7 +6252,7 @@ msgstr "今天"
 msgid "TODOs"
 msgstr "待办"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Toggle"
 msgstr "折叠块"
 
@@ -6362,7 +6364,7 @@ msgstr "不编号的居中公式"
 msgid "Unnumbered single-line equation"
 msgstr "不编号的单行公式"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Unordered list of items."
 msgstr "无序项目列表。"
 
