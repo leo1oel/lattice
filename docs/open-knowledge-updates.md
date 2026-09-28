@@ -45,8 +45,9 @@ Ported files that do not exist at the pin (`jsx-node-target.ts`, `escape-provena
 - #4510: upstream records an empty escape when an escaped `<` opens HTML or JSX, such as `a \<u>x\</u> b`, and the editor then duplicates the surrounding text.
   Lattice records the escape only when the `<` is still in the same text, which keeps the previous result.
   The Lattice-only `\(…\)` math promoter now keeps escape provenance on the text it splits.
-- #4638: the target helpers are a local seam beside `JsxComponentView`, notices go through the app-log toast shim, and the strings stay English like the rest of the vendored UI.
+- #4638: the target helpers are a local seam beside `JsxComponentView`, and notices go through the app-log toast shim.
   Lattice's own image-alignment control goes through the same property-edit guard.
+  Vendored UI text now goes through Lingui into the app catalogs (see [`codebase-map.md`](codebase-map.md#4-vendored-code--read-before-editing)).
 - #4350: Lattice's block controls do not use upstream's bubble-menu plugin key, so only the drag check was taken.
 
 ### Reviewed and declined
