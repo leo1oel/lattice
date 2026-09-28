@@ -41,9 +41,9 @@
       "mutations": 14062
     },
     "code-highlight": {
-      "commits": 52,
-      "renders": 16192,
-      "hooks": 74364,
+      "commits": 111,
+      "renders": 22859,
+      "hooks": 153807,
       "recalcs": 140,
       "layouts": 78,
       "mutations": 6057

@@ -186,7 +186,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 | `markdown-source-typing` | 40 characters into the 400 KB Markdown document's source |
 | `markdown-visual-typing` | 24 characters into it in the visual editor (one publication) |
 | `file-switch` | tab switches between `main.tex`, `large.md`, a note and a chapter |
-| `code-highlight` | switch to a document of 150 highlighted code blocks, type 20 characters in one |
+| `code-highlight` | switch to a document of 150 highlighted code blocks, type 20 characters in one (each after the 200 ms publication idle, so each publishes) |
 | `pdf-open` | open a 200-page PDF from the navigator |
 | `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | 40 wheel notches each |
 | `compile` | build, then expand the diagnostics and show the 4,000-line log |

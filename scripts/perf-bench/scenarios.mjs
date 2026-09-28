@@ -12,6 +12,13 @@
 
 /** Pause after each keystroke: a quick typist, and longer than any per-keystroke debounce. */
 const KEY_PAUSE_MS = 120;
+/**
+ * A pause that clears the visual editor's 200 ms publication idle for a small
+ * document (markdown-preview-sync-policy.ts), so every keystroke publishes
+ * once. KEY_PAUSE_MS plus a keystroke's round trip lands on that boundary and
+ * publishes a different number of times from run to run.
+ */
+const PUBLISH_PAUSE_MS = 400;
 const WHEEL_PAUSE_MS = 60;
 
 const KEY_CODES = {
@@ -146,11 +153,11 @@ export class BenchDriver {
   }
 
   /** Types `text` one key at a time at a fixed cadence. */
-  async type(text) {
+  async type(text, { pauseMs = KEY_PAUSE_MS } = {}) {
     for (const character of text) {
       await this.key(character);
       await this.nextFrame();
-      await sleep(KEY_PAUSE_MS);
+      await sleep(pauseMs);
     }
   }
 
@@ -346,7 +353,7 @@ export const SCENARIOS = [
       await driver.rect(`${VISUAL} pre code`);
       await driver.settle({ quietMs: 400 });
       await driver.click(`${VISUAL} pre code`, { offsetX: 0.9, offsetY: 0.1 });
-      await driver.type("x = 1; y = 2; z = 34");
+      await driver.type("x = 1; y = 2; z = 34", { pauseMs: PUBLISH_PAUSE_MS });
     },
   },
   {
