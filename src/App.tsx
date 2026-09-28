@@ -4811,6 +4811,11 @@ function App() {
   const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
     ?? project?.manifest.rootDocuments[0]?.path
     ?? "";
+  const primaryBibliography = project?.manifest.primaryBibliography ?? "";
+  const protectedProjectPaths = useMemo(
+    () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
+    [primaryBibliography, rootDocumentPath],
+  );
   // Live buffers participate in the project-wide TeX derivations below
   // (outline, macros, labels, appendix) only for .tex files. Deriving the
   // nullable scalars here keeps every downstream memo inert while typing
@@ -4953,6 +4958,22 @@ function App() {
   const activeTabKey = isTwoPane(canvasMode) && focusedPane === "secondary"
     ? secondaryAsset?.path ?? secondaryFile ?? primaryTabKey
     : primaryTabKey;
+  // Memoized so the compiled titlebar's tab strip skips the renders that do not
+  // change a tab — every keystroke re-rendered it through a fresh object.
+  const titlebarTabs = useMemo(() => ({
+    tabs: editorTabItems,
+    activePath: activeTabKey,
+    animateLayout: !sidebarResizing,
+    canCloseLast: canvasMode === "pdf",
+    onDropTab: dropProjectPath,
+    onSelect: selectEditorTab,
+    onClose: requestCloseEditorTab,
+    onSetPinned: setEditorTabPinned,
+    onReorder: setOpenTabs,
+  }), [
+    activeTabKey, canvasMode, dropProjectPath, editorTabItems, requestCloseEditorTab, selectEditorTab,
+    setEditorTabPinned, sidebarResizing,
+  ]);
   // Whatever is on screen is the most-recently-used tab; the split's other pane
   // counts too. Tracking recency here covers every path that opens a tab.
   useEffect(() => {
@@ -5268,17 +5289,7 @@ function App() {
         buildPipeline={buildPipeline}
         buildPreferences={buildPreferences}
         compile={compile}
-        tabs={{
-          tabs: editorTabItems,
-          activePath: activeTabKey,
-          animateLayout: !sidebarResizing,
-          canCloseLast: canvasMode === "pdf",
-          onDropTab: dropProjectPath,
-          onSelect: selectEditorTab,
-          onClose: requestCloseEditorTab,
-          onSetPinned: setEditorTabPinned,
-          onReorder: setOpenTabs,
-        }}
+        tabs={titlebarTabs}
         projectMenu={{
           open: projectMenuOpen,
           setOpen: setProjectMenuOpen,
@@ -5442,10 +5453,7 @@ function App() {
               gitStatus={projectGit.gitFiles}
               activeFile={activeAsset || activePaper ? "" : activeFile}
               activeAssetPath={activeAsset?.path ?? ""}
-              protectedPaths={[
-                ...(rootDocumentPath ? [rootDocumentPath] : []),
-                project.manifest.primaryBibliography,
-              ]}
+              protectedPaths={protectedProjectPaths}
               papers={papers}
               activePaper={activePaper}
               onFile={openProjectFileFromClick}
