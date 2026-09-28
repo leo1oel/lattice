@@ -128,7 +128,7 @@ cookie-domain matching in `cookie_domain_matches`/`store_session_cookie`.
 Known and documented, not a new report: the cookie is stored **unencrypted**
 rather than in the Keychain; the `0600` mode limits accidental disclosure but is
 not encryption. See
-[`docs/overleaf-integration-baseline.md`](../docs/overleaf-integration-baseline.md).
+[`docs/overleaf-protocol.md`](../docs/overleaf-protocol.md).
 Moving it into the Keychain is tracked hardening work.
 
 ### 3. The AI agent sidecar: permission model and boundary
