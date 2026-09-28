@@ -8,8 +8,8 @@ import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { markTutorialSeen } from "../settings/app-settings";
 import { TUTORIAL_STEPS } from "../onboarding/onboarding-steps";
 import { setNotice } from "./notify";
-import { isOpenSlideDeckPath } from "../app-utils";
-import type { CanvasMode, EditorPaneId } from "../app-types";
+import { isHtmlFilePath, isWholeFileEditorPath } from "../app-utils";
+import type { CanvasMode, OpenProjectFile } from "../app-types";
 
 const OnboardingTour = lazy(() =>
   import("../onboarding/onboarding-tour").then((module) => ({ default: module.OnboardingTour })),
@@ -20,7 +20,7 @@ export type AppOnboardingTourProps = {
   activePaperPath: string | null;
   canvasMode: CanvasMode;
   changePaperView: (view: "blog" | "fulltext") => void;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
+  openProjectFile: OpenProjectFile;
   setCanvasMode: Dispatch<SetStateAction<CanvasMode>>;
   setCollabOpen: Dispatch<SetStateAction<boolean>>;
   setGitOpen: Dispatch<SetStateAction<boolean>>;
@@ -33,117 +33,81 @@ export type AppOnboardingTourProps = {
   tutorialStep: number;
 };
 
+/** The tutorial document each step is about; `tutorialModeFor` picks the canvas mode that shows it. */
+const STEP_DOCUMENTS = new Map<number, string>([
+  [TUTORIAL_STEPS.latex, "main.tex"],
+  [TUTORIAL_STEPS.presentation, "slides/understanding-attention/index.tsx"],
+  [TUTORIAL_STEPS.viewModes, "main.tex"],
+  [TUTORIAL_STEPS.markdown, "notes.md"],
+  [TUTORIAL_STEPS.markdownVisual, "notes.md"],
+  [TUTORIAL_STEPS.html, "attention-demo.html"],
+  [TUTORIAL_STEPS.board, "attention-map.tldr"],
+  [TUTORIAL_STEPS.spreadsheet, "attention-results.lattice-sheet"],
+  [TUTORIAL_STEPS.spreadsheetTools, "attention-results.lattice-sheet"],
+  [TUTORIAL_STEPS.workspaceActions, "main.tex"],
+]);
+const STEP_PAPER_VIEWS = new Map<number, "blog" | "fulltext">([
+  [TUTORIAL_STEPS.paperBlog, "blog"],
+  [TUTORIAL_STEPS.paperFullText, "fulltext"],
+]);
+
+/** Whole-document editors own the canvas; HTML reads best as its preview. */
+function tutorialModeFor(path: string): CanvasMode {
+  return isWholeFileEditorPath(path) ? "source" : isHtmlFilePath(path) ? "pdf" : "split";
+}
+
 export function AppOnboardingTour(props: AppOnboardingTourProps) {
-  const {
-    activeFile,
-    activePaperPath,
-    canvasMode,
-    changePaperView,
-    openProjectFile,
-    setCanvasMode,
-    setCollabOpen,
-    setGitOpen,
-    setOverleafPickerOpen,
-    setSidebarMode,
-    setSidebarOpen,
-    setTutorialActive,
-    setTutorialStep,
-    tutorialActive,
-    tutorialStep,
-  } = props;
+  const { canvasMode, openProjectFile, setCanvasMode, setTutorialStep } = props;
+  if (!props.tutorialActive) return null;
+  const openAndAdvance = (path: string, nextStep: number) => openProjectFile(path).then(() => {
+    setCanvasMode(tutorialModeFor(path));
+    setTutorialStep(nextStep);
+  });
+  const endTutorial = () => {
+    markTutorialSeen();
+    props.setCollabOpen(false);
+    props.setOverleafPickerOpen(false);
+    props.setGitOpen(false);
+    props.setTutorialActive(false);
+  };
   return (
-    <>
-      {tutorialActive && (
-        <Suspense fallback={null}>
-          <OnboardingTour
-            // Only the canvas mode remounts the tour. Remounting per step made
-            // every advance re-resolve the step's target from cold, which is a
-            // race against the canvas that the step is pointing at; Joyride
-            // takes `stepIndex` as a controlled prop and moves itself.
-            key={`tutorial:${canvasMode}`}
-            active
-            stepIndex={tutorialStep}
-            onSelectTutorialFile={(path, nextStep) => {
-              let mode: CanvasMode = "split";
-              if (
-                isOpenSlideDeckPath(path)
-                || path.endsWith(".tldr")
-                || path.endsWith(".lattice-sheet")
-              ) {
-                mode = "source";
-              } else if (path.endsWith(".html")) {
-                mode = "pdf";
-              }
-              void openProjectFile(path).then(() => {
-                setCanvasMode(mode);
-                setTutorialStep(nextStep);
-              });
-            }}
-            onStepIndexChange={(nextStep) => {
-              const openTutorialDocument = async (path: string, mode: CanvasMode) => {
-                // Re-opening the document a step already shows tears the canvas
-                // down and rebuilds it — including the element that step
-                // spotlights — while Joyride is measuring it, which parks the
-                // tour on a full-screen overlay with no cutout and no card.
-                // Going forward always arrives with the right document open;
-                // only Back returns from a different file.
-                if (!activePaperPath && activeFile === path && canvasMode === mode) {
-                  setTutorialStep(nextStep);
-                  return;
-                }
-                await openProjectFile(path);
-                setCanvasMode(mode);
-                setTutorialStep(nextStep);
-              };
-              if (nextStep === TUTORIAL_STEPS.latex) {
-                void openTutorialDocument("main.tex", "split");
-              } else if (nextStep === TUTORIAL_STEPS.presentation) {
-                void openTutorialDocument("slides/understanding-attention/index.tsx", "source");
-              } else if (nextStep === TUTORIAL_STEPS.viewModes) {
-                void openTutorialDocument("main.tex", "split");
-              } else if (nextStep === TUTORIAL_STEPS.markdown || nextStep === TUTORIAL_STEPS.markdownVisual) {
-                void openTutorialDocument("notes.md", "split");
-              } else if (nextStep === TUTORIAL_STEPS.html) {
-                void openTutorialDocument("attention-demo.html", "pdf");
-              } else if (nextStep === TUTORIAL_STEPS.board) {
-                void openTutorialDocument("attention-map.tldr", "source");
-              } else if (nextStep === TUTORIAL_STEPS.spreadsheet || nextStep === TUTORIAL_STEPS.spreadsheetTools) {
-                void openTutorialDocument("attention-results.lattice-sheet", "source");
-              } else if (nextStep === TUTORIAL_STEPS.workspaceActions) {
-                void openTutorialDocument("main.tex", "split");
-              } else if (nextStep === TUTORIAL_STEPS.paperBlog) {
-                changePaperView("blog");
-                setTutorialStep(nextStep);
-              } else if (nextStep === TUTORIAL_STEPS.paperFullText) {
-                changePaperView("fulltext");
-                setTutorialStep(nextStep);
-              } else {
-                setTutorialStep(nextStep);
-              }
-            }}
-            onSkip={() => {
-              markTutorialSeen();
-              setCollabOpen(false);
-              setOverleafPickerOpen(false);
-              setGitOpen(false);
-              setTutorialActive(false);
-            }}
-            onComplete={() => {
-              markTutorialSeen();
-              setCollabOpen(false);
-              setOverleafPickerOpen(false);
-              setGitOpen(false);
-              setTutorialActive(false);
-              setSidebarMode("project");
-              setSidebarOpen(true);
-              void openProjectFile("main.tex").then(() => {
-                setCanvasMode("split");
-                setNotice("Tutorial finished · keep poking around this project, or start one of your own.");
-              });
-            }}
-          />
-        </Suspense>
-      )}
-    </>
+    <Suspense fallback={null}>
+      <OnboardingTour
+        // Only the canvas mode remounts the tour. Remounting per step made
+        // every advance re-resolve the step's target from cold, which is a
+        // race against the canvas that the step is pointing at; Joyride
+        // takes `stepIndex` as a controlled prop and moves itself.
+        key={`tutorial:${canvasMode}`}
+        active
+        stepIndex={props.tutorialStep}
+        onSelectTutorialFile={(path, nextStep) => void openAndAdvance(path, nextStep)}
+        onStepIndexChange={(nextStep) => {
+          const stepDocument = STEP_DOCUMENTS.get(nextStep);
+          const paperView = STEP_PAPER_VIEWS.get(nextStep);
+          if (paperView) props.changePaperView(paperView);
+          // Re-opening the document a step already shows tears the canvas
+          // down and rebuilds it — including the element that step
+          // spotlights — while Joyride is measuring it, which parks the
+          // tour on a full-screen overlay with no cutout and no card.
+          // Going forward always arrives with the right document open;
+          // only Back returns from a different file.
+          if (!stepDocument || (!props.activePaperPath && props.activeFile === stepDocument && canvasMode === tutorialModeFor(stepDocument))) {
+            setTutorialStep(nextStep);
+            return;
+          }
+          void openAndAdvance(stepDocument, nextStep);
+        }}
+        onSkip={endTutorial}
+        onComplete={() => {
+          endTutorial();
+          props.setSidebarMode("project");
+          props.setSidebarOpen(true);
+          void openProjectFile("main.tex").then(() => {
+            setCanvasMode("split");
+            setNotice("Tutorial finished · keep poking around this project, or start one of your own.");
+          });
+        }}
+      />
+    </Suspense>
   );
 }

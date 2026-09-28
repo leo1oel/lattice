@@ -1,9 +1,7 @@
 /**
- * Chunk prewarming for the document canvas.
- *
- * Separate from `document-canvas.tsx` so that file exports components only and
- * keeps Fast Refresh. App drives the timing (idle-gated); this module only
- * decides which chunks a given project needs.
+ * Chunk prewarming for the document canvas, kept out of `document-canvas.tsx`
+ * for Fast Refresh. App drives the (idle-gated) timing; this module decides
+ * which chunks a given project needs.
  */
 import {
   loadBoardEditorModule,
@@ -25,25 +23,16 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
     if (!representativeLanguages.has(extension)) representativeLanguages.set(extension, path);
   }
   const work: Promise<unknown>[] = [...representativeLanguages.values()].map(loadTextLanguageExtensions);
-  if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) {
-    work.push(loadVisualMarkdownEditorModule());
-  }
-  if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) {
-    work.push(loadPdfPreviewModule());
-  }
+  if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) work.push(loadVisualMarkdownEditorModule());
+  if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) work.push(loadPdfPreviewModule());
   if (normalized.some((path) => path.endsWith(".tldr"))) {
-    work.push(Promise.all([
-      loadBoardEditorModule(),
-      import("../editor/board/board-yjs-bridge"),
-    ]).then(([, board]) => {
+    work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-yjs-bridge")]).then(([, board]) => {
       // Initialize tldraw's schema/store machinery without mounting a canvas
       // or attaching a writable collaboration bridge.
       board.createBoardStore("");
     }));
   }
-  if (normalized.some(isSpreadsheetPath)) {
-    work.push(loadSpreadsheetEditorModule());
-  }
+  if (normalized.some(isSpreadsheetPath)) work.push(loadSpreadsheetEditorModule());
   await Promise.allSettled(work);
 }
 

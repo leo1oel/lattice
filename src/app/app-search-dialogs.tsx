@@ -7,7 +7,7 @@
  * whole project on the Rust side, find and replace, which need the project
  * generation refs to discard results from a project that has moved on.
  */
-import { type Dispatch, type RefObject, type SetStateAction } from "react";
+import type { RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { GotoLineDialog } from "../editor/goto-line-dialog";
@@ -20,97 +20,102 @@ import {
   fuseProjectSearchHits,
   semanticQueryEligible,
   type LocalSemanticSearchResponse,
-  type LocalSemanticSearchStatus,
 } from "../project/project-semantic-search";
+import type { useLocalSemanticSearch } from "./use-local-semantic-search";
+import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
-import { type ReferenceInfo } from "../editor/latex/latex-text";
+import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
-import { setError, setNotice } from "./notify";
-import type { CollabProjectControllerV2 } from "../collab/collab-project-v2";
+import { setNotice } from "./notify";
+import { collectFilePaths } from "./workspace-restore";
 import type {
-  CanvasMode,
-  EditorNavigation,
-  EditorPaneId,
-  EditorPosition,
-  InsertSymbolCommand,
-  ProjectSnapshot,
-  ReplaceResult,
+  EditorPosition, FileNode, OpenProjectFile, ProjectSnapshot, RefreshProject, ReplaceResult,
 } from "../app-types";
 
-export type AppSearchDialogsProps = {
-  activeFile: string;
-  citePickerItems: SearchPickerItem[];
-  editorPosition: EditorPosition | null;
-  gotoLineOpen: boolean;
-  goToSymbolItems: SearchPickerItem[];
-  goToSymbolOpen: boolean;
-  liveReferences: ReferenceInfo[];
-  openProjectAsset: (path: string) => Promise<boolean>;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
-  outlineNodes: OutlineNode[];
-  prewarmLikelyProjectFile: (path: string) => void;
-  quickOpenOpen: boolean;
-  quickOpenPaths: string[];
-  refCitePicker: "ref" | "cite" | null;
-  refPickerItems: SearchPickerItem[];
-  setCanvasMode: Dispatch<SetStateAction<CanvasMode>>;
-  setCiteInsertRequest: Dispatch<SetStateAction<{ key: string; command: InsertSymbolCommand; id: string; } | null>>;
-  setEditorNavigation: Dispatch<SetStateAction<EditorNavigation | null>>;
-  setGotoLineOpen: Dispatch<SetStateAction<boolean>>;
-  setGoToSymbolOpen: Dispatch<SetStateAction<boolean>>;
-  setQuickOpenOpen: Dispatch<SetStateAction<boolean>>;
-  setRefCitePicker: Dispatch<SetStateAction<"ref" | "cite" | null>>;
-  source: string;
-};
+/** The navigation dialogs; at most one is open at a time. */
+export type SearchDialog = "quick-open" | "goto-symbol" | "goto-line" | "cite" | "ref";
 
-export function AppSearchDialogs(props: AppSearchDialogsProps) {
+export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, outlineNodes, liveReferences, ...props }: {
+  open: SearchDialog | null;
+  setOpen: (dialog: SearchDialog | null) => void;
+  activeFile: string;
+  files: FileNode[];
+  citations: CitationInfo[];
+  citationKeys: string[];
+  editorPosition: EditorPosition | null;
+  liveReferences: ReferenceInfo[];
+  outlineNodes: OutlineNode[];
+  source: string;
+  openProjectAsset: (path: string) => Promise<boolean>;
+  openProjectFile: OpenProjectFile;
+  prewarmLikelyProjectFile: (path: string) => void;
+  /** Insert `\cite{key}` or `\ref{key}` at the editor caret. */
+  insertReference: (key: string, command: "cite" | "ref") => void;
+  goToLine: (line: number) => void;
+}) {
   const { t } = useLingui();
-  const {
-    activeFile,
-    citePickerItems,
-    editorPosition,
-    gotoLineOpen,
-    goToSymbolItems,
-    goToSymbolOpen,
-    liveReferences,
-    openProjectAsset,
-    openProjectFile,
-    outlineNodes,
-    prewarmLikelyProjectFile,
-    quickOpenOpen,
-    quickOpenPaths,
-    refCitePicker,
-    refPickerItems,
-    setCanvasMode,
-    setCiteInsertRequest,
-    setEditorNavigation,
-    setGotoLineOpen,
-    setGoToSymbolOpen,
-    setQuickOpenOpen,
-    setRefCitePicker,
-    source,
-  } = props;
+  const close = () => setOpen(null);
+  /** Every pick closes the dialog on screen before acting on it. */
+  const closeThen = <A extends unknown[]>(act: (...args: A) => void) => (...args: A) => {
+    close();
+    act(...args);
+  };
+  // Items are derived only for the dialog on screen.
+  const symbolItems = (): SearchPickerItem[] => [
+    ...flattenOutline(outlineNodes).filter((node) => node.kind !== "input").map((node) => ({
+      id: `section:${node.id}`,
+      label: node.title,
+      detail: `${node.path || activeFile}:${node.line}`,
+      group: "Section",
+    })),
+    ...liveReferences.map((reference) => ({
+      id: `label:${reference.path}:${reference.label}`,
+      label: reference.label,
+      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
+      group: "Label",
+    })),
+  ];
+  const insertPickers = [
+    {
+      command: "cite", title: t`Insert citation`, placeholder: t({ message: "Insert \\cite{…}" }),
+      items: (): SearchPickerItem[] => props.citations.length
+        ? props.citations.map((citation) => ({
+          id: `cite:${citation.key}`,
+          label: citation.key,
+          detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
+          group: "Citation",
+        }))
+        : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: "Citation" })),
+    },
+    {
+      command: "ref", title: t`Insert reference`, placeholder: t({ message: "Insert \\ref{…}" }),
+      items: (): SearchPickerItem[] => liveReferences.map((reference) => ({
+        id: `ref:${reference.path}:${reference.label}`,
+        label: reference.label,
+        detail: `${reference.path}:${reference.line}`,
+        group: "Reference",
+      })),
+    },
+  ] as const;
   return (
     <>
       <QuickOpenDialog
-        open={quickOpenOpen}
-        paths={quickOpenPaths}
-        onClose={() => setQuickOpenOpen(false)}
-        onIntent={prewarmLikelyProjectFile}
-        onOpen={(path) => {
-          setQuickOpenOpen(false);
-          if (isProjectAssetFilePath(path)) void openProjectAsset(path);
+        open={open === "quick-open"}
+        paths={open === "quick-open" ? collectFilePaths(props.files, (node) => Boolean(node.path)) : []}
+        onClose={close}
+        onIntent={props.prewarmLikelyProjectFile}
+        onOpen={closeThen((path) => {
+          if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
           else void openProjectFile(path);
-        }}
+        })}
       />
       <SearchPickerDialog
-        open={goToSymbolOpen}
+        open={open === "goto-symbol"}
         title={t`Go to symbol`}
         placeholder={t`Go to section or label…`}
-        items={goToSymbolItems}
-        onClose={() => setGoToSymbolOpen(false)}
-        onSelect={(item) => {
-          setGoToSymbolOpen(false);
+        items={open === "goto-symbol" ? symbolItems() : []}
+        onClose={close}
+        onSelect={closeThen((item) => {
           if (item.id.startsWith("section:")) {
             const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
             if (node) void openProjectFile(node.path || activeFile, node.line);
@@ -118,260 +123,127 @@ export function AppSearchDialogs(props: AppSearchDialogsProps) {
           }
           const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
           if (reference) void openProjectFile(reference.path, reference.line);
-        }}
+        })}
       />
-      <SearchPickerDialog
-        open={refCitePicker === "cite"}
-        title={t`Insert citation`}
-        placeholder={t({ message: "Insert \\cite{…}" })}
-        items={citePickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "cite", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
-      />
-      <SearchPickerDialog
-        open={refCitePicker === "ref"}
-        title={t`Insert reference`}
-        placeholder={t({ message: "Insert \\ref{…}" })}
-        items={refPickerItems}
-        onClose={() => setRefCitePicker(null)}
-        onSelect={(item) => {
-          setRefCitePicker(null);
-          setCiteInsertRequest({ key: item.label, command: "ref", id: crypto.randomUUID() });
-          setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
-        }}
-      />
+      {insertPickers.map((picker) => (
+        <SearchPickerDialog
+          key={picker.command}
+          open={open === picker.command}
+          title={picker.title}
+          placeholder={picker.placeholder}
+          items={open === picker.command ? picker.items() : []}
+          onClose={close}
+          onSelect={closeThen((item) => props.insertReference(item.label, picker.command))}
+        />
+      ))}
       <GotoLineDialog
-        open={gotoLineOpen}
-        line={editorPosition?.line ?? 1}
-        maxLine={Math.max(1, source.split("\n").length)}
-        onClose={() => setGotoLineOpen(false)}
-        onGoto={(line) => {
-          setGotoLineOpen(false);
-          if (activeFile) {
-            setEditorNavigation({ path: activeFile, line, id: crypto.randomUUID() });
-          }
-        }}
+        open={open === "goto-line"}
+        line={props.editorPosition?.line ?? 1}
+        maxLine={Math.max(1, props.source.split("\n").length)}
+        onClose={close}
+        onGoto={closeThen(props.goToLine)}
       />
     </>
   );
 }
 
-export type AppProjectSearchDialogsProps = {
-  activeFile: string;
-  loadFile: (path: string, options?: { restoreView?: boolean; revealSource?: boolean; expectedProjectRoot?: string; projectGeneration?: number; collabController?: CollabProjectControllerV2; gate?: Promise<boolean>; loadGeneration?: number; canCommit?: () => boolean; navigateToLine?: number; }) => Promise<boolean>;
-  localSemanticSearchEnabled: boolean;
-  localSemanticSearchStatus: LocalSemanticSearchStatus;
-  openMarkdownProjectPath: (path: string) => void;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
-  projectFindBusy: boolean;
-  projectFindError: string | null;
-  projectFindHits: ProjectFindHit[];
-  projectFindOpen: boolean;
-  projectFindSearchGenerationRef: RefObject<number>;
-  projectOperationGenerationRef: RefObject<number>;
+export function AppProjectSearchDialogs({ search, semanticSearch, captureProjectScope, projectRef, dirty, ...props }: {
+  search: ProjectSearch;
+  semanticSearch: ReturnType<typeof useLocalSemanticSearch>;
+  captureProjectScope: () => () => boolean;
   projectRef: RefObject<ProjectSnapshot | null>;
-  projectReplaceBusy: boolean;
-  projectReplaceError: string | null;
-  projectReplaceOpen: boolean;
-  projectReplacePreview: ReplacePreviewResult | null;
+  /** Whether the open editor holds unsaved edits a replace must write first. */
+  dirty: boolean;
+  activeFile: string;
+  loadFile: (path: string) => Promise<boolean>;
+  openMarkdownProjectPath: (path: string) => void;
+  openProjectFile: OpenProjectFile;
   refreshHistory: () => Promise<void>;
-  refreshProject: (scope?: { expectedRoot: string; generation: number; }) => Promise<ProjectSnapshot>;
+  refreshProject: RefreshProject;
   save: () => Promise<boolean>;
-  savedSource: string;
-  setLocalSemanticSearchStatus: Dispatch<SetStateAction<LocalSemanticSearchStatus>>;
-  setProjectFindBusy: Dispatch<SetStateAction<boolean>>;
-  setProjectFindError: Dispatch<SetStateAction<string | null>>;
-  setProjectFindHits: Dispatch<SetStateAction<ProjectFindHit[]>>;
-  setProjectFindOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectReplaceBusy: Dispatch<SetStateAction<boolean>>;
-  setProjectReplaceError: Dispatch<SetStateAction<string | null>>;
-  setProjectReplaceOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectReplacePreview: Dispatch<SetStateAction<ReplacePreviewResult | null>>;
-  source: string;
-};
-
-export function AppProjectSearchDialogs(props: AppProjectSearchDialogsProps) {
-  const {
-    activeFile,
-    loadFile,
-    localSemanticSearchEnabled,
-    localSemanticSearchStatus,
-    openMarkdownProjectPath,
-    openProjectFile,
-    projectFindBusy,
-    projectFindError,
-    projectFindHits,
-    projectFindOpen,
-    projectFindSearchGenerationRef,
-    projectOperationGenerationRef,
-    projectRef,
-    projectReplaceBusy,
-    projectReplaceError,
-    projectReplaceOpen,
-    projectReplacePreview,
-    refreshHistory,
-    refreshProject,
-    save,
-    savedSource,
-    setLocalSemanticSearchStatus,
-    setProjectFindBusy,
-    setProjectFindError,
-    setProjectFindHits,
-    setProjectFindOpen,
-    setProjectReplaceBusy,
-    setProjectReplaceError,
-    setProjectReplaceOpen,
-    setProjectReplacePreview,
-    source,
-  } = props;
+}) {
+  const { find, setFind, replace, setReplace, searchGenerationRef } = search;
+  /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
+  const runReplaceStep = async (step: () => Promise<void>, onError?: () => void) => {
+    setReplace({ busy: true, error: null });
+    try {
+      if (dirty && !(await props.save())) return;
+      await step();
+    } catch (reason) {
+      onError?.();
+      setReplace({ error: toMessage(reason) });
+    } finally {
+      setReplace({ busy: false });
+    }
+  };
   return (
     <>
       <ProjectFindDialog
-        open={projectFindOpen}
-        busy={projectFindBusy}
-        error={projectFindError}
-        hits={projectFindHits}
-        semanticEnabled={localSemanticSearchEnabled}
-        semanticStatus={localSemanticSearchStatus}
+        open={find.open}
+        busy={find.busy}
+        error={find.error}
+        hits={find.hits}
+        semanticEnabled={semanticSearch.enabled}
+        semanticStatus={semanticSearch.status}
         onClose={() => {
-          projectFindSearchGenerationRef.current += 1;
-          setProjectFindOpen(false);
-          setProjectFindBusy(false);
-          setProjectFindError(null);
-          setProjectFindHits([]);
+          searchGenerationRef.current += 1;
+          setFind({ open: false, busy: false, error: null, hits: [] });
         }}
-        onSearch={(query) => {
-          const generation = ++projectFindSearchGenerationRef.current;
-          void (async () => {
-            if (!query.trim()) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
-              setProjectFindError(null);
-              return;
-            }
-            setProjectFindBusy(true);
-            setProjectFindError(null);
-            const projectRoot = projectRef.current?.root;
-            const projectGeneration = projectOperationGenerationRef.current;
-            if (!projectRoot) {
-              setProjectFindHits([]);
-              setProjectFindBusy(false);
-              return;
-            }
-            try {
-              const semanticPromise = localSemanticSearchEnabled
-                && semanticQueryEligible(query)
-                ? invoke<LocalSemanticSearchResponse>("semantic_search_project", {
-                    projectRoot,
-                    query,
-                  }).catch(() => null)
-                : Promise.resolve(null);
-              const [results, semantic] = await Promise.all([
-                invoke<ProjectFindHit[]>("search_project", { query }),
-                semanticPromise,
-              ]);
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
-              if (semantic) setLocalSemanticSearchStatus(semantic.status);
-              setProjectFindHits(fuseProjectSearchHits(results, query, semantic));
-            } catch (reason) {
-              if (
-                generation !== projectFindSearchGenerationRef.current
-                || projectGeneration !== projectOperationGenerationRef.current
-                || projectRef.current?.root !== projectRoot
-              ) return;
-              setProjectFindHits([]);
-              setProjectFindError(toMessage(reason));
-            } finally {
-              if (generation === projectFindSearchGenerationRef.current) {
-                setProjectFindBusy(false);
-              }
-            }
-          })();
-        }}
-        onOpenHit={(path, line) => {
-          if (parsePaperLinkPath(path)) {
-            openMarkdownProjectPath(path);
+        onSearch={async (query) => {
+          const generation = ++searchGenerationRef.current;
+          const projectRoot = projectRef.current?.root;
+          if (!query.trim() || !projectRoot) {
+            setFind({ hits: [], busy: false, error: null });
             return;
           }
-          void openProjectFile(path, line);
+          setFind({ busy: true, error: null });
+          const ownsProject = captureProjectScope();
+          const superseded = () => generation !== searchGenerationRef.current || !ownsProject();
+          try {
+            const semanticPromise = semanticSearch.enabled && semanticQueryEligible(query)
+              ? invoke<LocalSemanticSearchResponse>("semantic_search_project", { projectRoot, query }).catch(() => null)
+              : Promise.resolve(null);
+            const [results, semantic] = await Promise.all([
+              invoke<ProjectFindHit[]>("search_project", { query }),
+              semanticPromise,
+            ]);
+            if (superseded()) return;
+            if (semantic) semanticSearch.setStatus(semantic.status);
+            setFind({ hits: fuseProjectSearchHits(results, query, semantic) });
+          } catch (reason) {
+            if (superseded()) return;
+            setFind({ hits: [], error: toMessage(reason) });
+          } finally {
+            if (generation === searchGenerationRef.current) setFind({ busy: false });
+          }
+        }}
+        onOpenHit={(path, line) => {
+          if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
+          else void props.openProjectFile(path, line);
         }}
       />
       <ProjectReplaceDialog
-        open={projectReplaceOpen}
-        busy={projectReplaceBusy}
-        error={projectReplaceError}
-        preview={projectReplacePreview}
-        onClose={() => {
-          setProjectReplaceOpen(false);
-          setProjectReplacePreview(null);
-        }}
+        open={replace.open}
+        busy={replace.busy}
+        error={replace.error}
+        preview={replace.preview}
+        onClose={() => setReplace({ open: false, preview: null })}
         onOpenMatch={(path, line) => {
-          void openProjectFile(path, line);
+          void props.openProjectFile(path, line);
         }}
-        onPreview={(query, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const preview = await invoke<ReplacePreviewResult>("preview_replace_in_project", {
-                query,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              setProjectReplacePreview(preview);
-            } catch (reason) {
-              setProjectReplacePreview(null);
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
-        onReplace={(query, replacement, options) => {
-          void (async () => {
-            setProjectReplaceBusy(true);
-            setProjectReplaceError(null);
-            try {
-              if (source !== savedSource) {
-                const saved = await save();
-                if (!saved) return;
-              }
-              const result = await invoke<ReplaceResult>("replace_in_project", {
-                query,
-                replacement,
-                paths: null,
-                matchCase: options.matchCase,
-                useRegex: options.useRegex,
-              });
-              if (activeFile) await loadFile(activeFile);
-              await refreshProject();
-              await refreshHistory();
-              setProjectReplaceOpen(false);
-              setProjectReplacePreview(null);
-              setError(null);
-              setNotice(result.replacements
-                ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
-                : "No matches found.");
-            } catch (reason) {
-              setProjectReplaceError(toMessage(reason));
-            } finally {
-              setProjectReplaceBusy(false);
-            }
-          })();
-        }}
+        onPreview={(query, options) => void runReplaceStep(async () => {
+          setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options }) });
+        }, () => setReplace({ preview: null }))}
+        onReplace={(query, replacement, options) => void runReplaceStep(async () => {
+          const result = await invoke<ReplaceResult>("replace_in_project", { query, replacement, paths: null, ...options });
+          if (props.activeFile) await props.loadFile(props.activeFile);
+          await props.refreshProject();
+          await props.refreshHistory();
+          setReplace({ open: false, preview: null });
+          setNotice(result.replacements
+            ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
+            : "No matches found.");
+        })}
       />
     </>
   );

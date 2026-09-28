@@ -1,24 +1,20 @@
 /* eslint lingui/no-unlocalized-strings: "off" -- Geometry uses DOM selectors and storage keys, not UI copy. */
-import { useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useLayoutEffect, useRef, type PointerEvent, type RefObject } from "react";
+import { useStoredState } from "./use-workspace-sidebar";
 
 const RATIO_KEY = "lattice.agent-dock-ratio.v1";
 const constrain = (value: number) => Math.min(0.65, Math.max(0.2, value));
+const readRatio = (raw: string | null) => {
+  const saved = Number(raw);
+  return saved > 0 && Number.isFinite(saved) ? constrain(saved) : 0.35;
+};
 
 /** Keep the iframe in one DOM location: reparenting it reloads its browsing context. */
 export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: RefObject<HTMLDivElement | null>) {
   const panelRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLElement | null>(null);
-  const [ratio, setRatio] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem(RATIO_KEY));
-      return saved > 0 && Number.isFinite(saved) ? constrain(saved) : 0.35;
-    } catch { return 0.35; }
-  });
-  const resize = (next: number) => {
-    const value = constrain(next);
-    setRatio(value);
-    try { localStorage.setItem(RATIO_KEY, String(value)); } catch { /* Session-only preference. */ }
-  };
+  const [ratio, setRatio] = useStoredState(RATIO_KEY, readRatio, String);
+  const resize = (next: number) => setRatio(constrain(next));
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -30,6 +26,8 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
       host?.classList.remove("agent-dock-host");
       host?.style.removeProperty("--agent-dock-height");
     };
+    // In dual mode the primary column owns the dock whether it holds an editor
+    // or a preview; only single-pane previews fall back to the canvas.
     const findHost = () => docked && visible
       ? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary .source-workspace")
         ?? workspace.querySelector<HTMLElement>(".canvas-body .dual-primary")
@@ -37,8 +35,6 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
         ?? workspace.querySelector<HTMLElement>(".canvas-body")
       : null;
     const update = () => {
-      // In dual mode the primary column owns the dock whether it contains an
-      // editor or a preview. Only single-pane previews fall back to the canvas.
       const next = findHost();
       if (next !== host) {
         if (host) observer.unobserve(host);
@@ -56,8 +52,7 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
       // Keep some writing space even in a short window; the panel scrolls.
       const headerHeight = slotRef.current?.offsetTop ?? 0;
       const height = docked ? Math.min(rect.height * ratio, Math.max(0, rect.height - 120)) : rect.height - headerHeight;
-      // Match the sidebar's clipping animation without squeezing the live
-      // iframe's controls through every intermediate column width.
+      // Match the sidebar's clipping animation without squeezing the live iframe.
       const width = docked ? rect.width : slotRef.current?.offsetWidth || rect.width;
       if (host) {
         host.classList.add("agent-dock-host");
@@ -74,8 +69,8 @@ export function useAgentPanelLayout(docked: boolean, visible: boolean, slotRef: 
     observer.observe(workspace);
     if (sidebar) observer.observe(sidebar);
     if (slotRef.current) observer.observe(slotRef.current);
-    // Lazy editors and document-mode changes can replace the docking anchor.
-    // Ordinary editor mutations must not force a layout read on every keystroke.
+    // Lazy editors and mode changes can replace the docking anchor; ordinary
+    // editor mutations must not force a layout read per keystroke.
     const mutations = new MutationObserver(() => {
       if (findHost() !== host) update();
     });

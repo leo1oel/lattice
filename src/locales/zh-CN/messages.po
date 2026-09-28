@@ -131,7 +131,7 @@ msgstr "{collabPeers} 人已连接 · {0}"
 msgid "{completed} of {progressTotal} references checked"
 msgstr "已检查 {completed} / {progressTotal} 条引用"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comments"
 msgstr "{count} 条评论"
 
@@ -144,7 +144,7 @@ msgstr "{count} 行"
 msgid "{count} papers"
 msgstr "{count} 篇论文"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} 项待办"
 
@@ -191,11 +191,11 @@ msgstr "{roleLabel} · 所有项目文件 · {fileCountLabel} · {othersLabel} �
 msgid "{title} — no local reading available"
 msgstr "{title} — 暂无本地可读内容"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "{title} paper reader"
 msgstr "{title} 论文阅读器"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
 
@@ -328,7 +328,7 @@ msgstr "添加参考文献条目"
 msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Add comment"
 msgstr "添加评论"
@@ -631,7 +631,7 @@ msgstr "返回"
 msgid "Back prime"
 msgstr "反撇号"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Back to {view}"
 msgstr "返回{view}"
 
@@ -734,7 +734,7 @@ msgid "Block quotation"
 msgstr "独立成段的引文"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Blog"
 msgstr "概览"
 
@@ -746,15 +746,15 @@ msgstr "博客视图提供带插图的论文概览，帮助你在阅读全文前
 msgid "Bmatrix"
 msgstr "方括号矩阵"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
 msgstr "正文 {body} · 原始 {raw} · {chars} 字符"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body word count unavailable"
 msgstr "正文词数不可用"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
 
@@ -821,7 +821,7 @@ msgstr "仅在请求时构建 · Command-S 立即构建。按住 Shift 点击可
 msgid "Build project"
 msgstr "构建项目"
 
-#: src/App.tsx
+#: src/app/use-build-pipeline.ts
 msgid "Build superseded"
 msgstr "构建已被新操作取代"
 
@@ -859,7 +859,7 @@ msgid "Callout"
 msgstr "提示框"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -890,7 +890,7 @@ msgid "Cancel repair"
 msgstr "取消修正"
 
 #. placeholder {0}: result.title
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing."
 msgstr "收到取消请求时，《{0}》及其全文已导入完成。可使用 {citationCommand} 引用。"
 
@@ -1289,7 +1289,7 @@ msgstr "颜色主题"
 msgid "Command palette"
 msgstr "命令面板"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "comment"
 msgstr "评论"
 
@@ -1311,7 +1311,7 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论显示范围"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "评论"
@@ -1509,12 +1509,12 @@ msgstr "无法断开与 Overleaf 的连接"
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 msgstr "无法将此文件交回常规 Overleaf 同步（{detail}）。此文件的同步仍处于暂停状态。"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Could not load PDF"
 msgstr "无法加载 PDF"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/use-paper-pdf.ts
 msgid "Could not open the article in your browser"
 msgstr "无法在浏览器中打开文章"
 
@@ -1858,7 +1858,7 @@ msgstr "下载 arXiv {id}"
 msgid "Download JSON"
 msgstr "下载 JSON"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
 
@@ -1896,7 +1896,7 @@ msgstr "拖入正文引用 · 点击阅读"
 msgid "Drag to resize"
 msgstr "拖拽调整宽度"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入"
 
@@ -2002,7 +2002,7 @@ msgid "Editor & builds"
 msgstr "编辑器与构建"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Editor comments"
 msgstr "编辑器评论"
@@ -2015,11 +2015,11 @@ msgstr "编辑器字号"
 msgid "Editor keymap"
 msgstr "编辑器键位"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Editor shortcuts"
 msgstr "编辑器快捷键"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
 
@@ -2088,7 +2088,7 @@ msgstr "输入页码"
 msgid "Enter a replacement key"
 msgstr "输入新密钥以替换"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "输入缩放百分比或滚动缩放"
@@ -2142,7 +2142,7 @@ msgstr "恒等 / 同余"
 msgid "Error"
 msgstr "错误"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "estimate"
 msgstr "估算"
 
@@ -2262,7 +2262,7 @@ msgstr "筛选代码片段"
 msgid "Final sigma"
 msgstr "词尾西格马"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "find"
 msgstr "查找"
 
@@ -2419,7 +2419,7 @@ msgstr "Git 状态与提交"
 msgid "Git workspace"
 msgstr "Git 工作区"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Go to {title}"
 msgstr "前往 {title}"
 
@@ -2427,7 +2427,7 @@ msgstr "前往 {title}"
 msgid "Go to line"
 msgstr "跳转到行"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Go to line (⌘G)"
 msgstr "前往行 (⌘G)"
 
@@ -2575,15 +2575,15 @@ msgstr "HTML"
 msgid "HTML files render live here, so you can build interactive demos and figures"
 msgstr "HTML 文件会在这里实时渲染，可用于制作交互式演示和图表"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
 msgstr "{path} 的 HTML 预览"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML zoom controls"
 msgstr "HTML 缩放控件"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML 缩放百分比"
 
@@ -2595,7 +2595,7 @@ msgstr "当且仅当"
 msgid "Image"
 msgstr "图片"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
 msgstr "图像缩放百分比"
 
@@ -2608,7 +2608,7 @@ msgid "Implies"
 msgstr "蕴含"
 
 #. placeholder {0}: result.title
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "已取消导入。《{0}》仍保留在参考文献中，可使用 {citationCommand} 引用；已停止获取全文。"
 
@@ -2750,7 +2750,7 @@ msgstr "行内公式"
 msgid "Input file"
 msgstr "输入文件"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "insert"
 msgstr "插入"
 
@@ -2846,7 +2846,7 @@ msgstr "安装 LaTeX 工具"
 msgid "Install LaTeX tools (needed to compile PDFs)"
 msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 #: src/build/tex-dependency-installer.tsx
 msgid "Install missing package"
 msgstr "安装缺失的软件包"
@@ -3079,11 +3079,11 @@ msgstr "姓, 名 and 姓, 名"
 msgid "LaTeX package installation progress"
 msgstr "LaTeX 软件包安装进度"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 msgid "LaTeX package installed"
 msgstr "LaTeX 软件包已安装"
 
-#: src/App.tsx
+#: src/app/use-tex-setup.ts
 msgid "LaTeX setup"
 msgstr "LaTeX 配置"
 
@@ -3128,7 +3128,7 @@ msgstr "布局"
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
@@ -3288,7 +3288,7 @@ msgstr "实时共享…"
 msgid "Live sync"
 msgstr "实时同步"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
 msgstr "第 {line} 行，第 {column} 列"
 
@@ -3315,7 +3315,7 @@ msgstr "正在加载文件…"
 msgid "Loading Overleaf's history…"
 msgstr "正在加载 Overleaf 的历史记录…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Loading PDF…"
 msgstr "正在加载 PDF…"
@@ -3387,7 +3387,7 @@ msgid "Manual only"
 msgstr "仅手动"
 
 #: src/App.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Manuscript TODOs"
 msgstr "手稿待办事项"
 
@@ -3645,7 +3645,7 @@ msgstr "新建电子表格"
 msgid "New versions install automatically"
 msgstr "新版本会自动安装"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "下一个"
 
@@ -3927,7 +3927,7 @@ msgstr "打开其他文件夹"
 msgid "Open another Overleaf project"
 msgstr "打开另一个 Overleaf 项目"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Open article in browser"
 msgstr "在浏览器中打开文章"
 
@@ -3996,7 +3996,7 @@ msgstr "在此打开或拖入文件"
 msgid "Open Papers to see the sources cited by this manuscript"
 msgstr "打开“论文”，查看这份稿件引用的来源"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Open PDF in browser"
 msgstr "在浏览器中打开 PDF"
 
@@ -4182,11 +4182,11 @@ msgid "Pages"
 msgstr "页码"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Paper"
 msgstr "论文"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "Paper actions"
 msgstr "论文操作"
 
@@ -4194,11 +4194,11 @@ msgstr "论文操作"
 msgid "Paper content"
 msgstr "论文内容"
 
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
 msgstr "已取消论文导入，参考文献未修改；已下载的全文仍可使用。"
 
-#: src/App.tsx
+#: src/app/use-reference-import.ts
 msgid "Paper import cancelled before making changes."
 msgstr "已取消论文导入，未作任何修改。"
 
@@ -4213,7 +4213,7 @@ msgid "Paper view shows the complete text, sections, equations, and figures as s
 msgstr "论文视图以可搜索的 Markdown 显示完整文本、章节、公式和图片，并与草稿并排呈现"
 
 #: src/app/app-workspace-sidebar.tsx
-#: src/canvas/document-canvas.tsx
+#: src/canvas/use-paper-pdf.ts
 #: src/papers/paper-lookup.tsx
 #: src/project/navigator.tsx
 msgid "Papers"
@@ -4276,7 +4276,7 @@ msgstr "要暂停与 Overleaf 的同步吗？\n"
 "\n"
 "恢复后会从中断处继续：暂停期间任一侧的编辑都会被合并，而不会被覆盖。"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "PDF"
 msgstr "PDF"
 
@@ -4390,15 +4390,15 @@ msgstr "正在准备白板编辑器"
 msgid "Preparing editor"
 msgstr "正在准备编辑器"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing HTML preview…"
 msgstr "正在准备 HTML 预览…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing Markdown editor"
 msgstr "正在准备 Markdown 编辑器"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing preview…"
 msgstr "正在准备预览…"
 
@@ -4431,7 +4431,7 @@ msgstr "预览交互式 HTML"
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "Preview of {path}"
 msgstr "{path} 的预览"
 
@@ -4439,7 +4439,7 @@ msgstr "{path} 的预览"
 msgid "Preview PDF"
 msgstr "预览 PDF"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "previous"
 msgstr "上一个"
 
@@ -4686,7 +4686,7 @@ msgstr "重新加入 {0}"
 msgid "Relations"
 msgstr "关系符"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "此预览中无法使用项目相对链接"
 
@@ -5355,7 +5355,7 @@ msgstr "节"
 msgid "Section sign"
 msgstr "节标记"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
 
@@ -5735,6 +5735,7 @@ msgid "Starting Agent"
 msgstr "正在启动智能助手"
 
 #: src/canvas/document-canvas.tsx
+#: src/canvas/open-slide-tab-pool.tsx
 msgid "Starting Open Slide"
 msgstr "正在启动 Open Slide"
 
@@ -5997,7 +5998,7 @@ msgstr "关联的 Overleaf 项目已更改。请重新添加评论。"
 msgid "The local model is unavailable."
 msgstr "本地模型不可用。"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
 
@@ -6155,7 +6156,7 @@ msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，
 msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
 msgstr "这个文件夹包含稿件、笔记、图片、画板、电子表格和引用的论文。点击文件即可打开"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "此格式无法在预览中渲染"
 
@@ -6245,7 +6246,7 @@ msgstr "to（短右箭头）"
 msgid "Today"
 msgstr "今天"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "TODOs"
 msgstr "待办"
 
@@ -6620,7 +6621,7 @@ msgstr "视图"
 msgid "View in source Markdown"
 msgstr "在 Markdown 源码中查看"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/paper-reader.tsx
 msgid "View original PDF"
 msgstr "查看原始 PDF"
 
@@ -6632,7 +6633,7 @@ msgstr "查看修正任务"
 msgid "Vim and Emacs keep their modal bindings inside the editor only"
 msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/editor-status-bar.tsx
 msgid "Vim mode"
 msgstr "Vim 模式"
 
@@ -6798,12 +6799,12 @@ msgstr "泽塔"
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "放大"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"

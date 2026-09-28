@@ -90,17 +90,19 @@ application, loaded into a cross-origin `<iframe>`:
   `hostOrigin` and `section` as query params, and puts the auth token in the
   URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:278`) so it never
   reaches a server log.
-- Mount points: three `<iframe>` elements — the agent sidebar and the
-  source-control / review drawer in `src/App.tsx`, and the agent settings pane
-  in `src/settings/settings-dialog.tsx`. All three use
+- Mount points: three `<iframe>` elements — the agent sidebar
+  (`src/app/app-agent-panel.tsx`), the source-control / review drawer
+  (`src/app/app-history-drawers.tsx`), and the agent settings pane in
+  `src/settings/settings-dialog.tsx`. The first two get their URLs from
+  `src/app/app-synara-embed.ts`. All three use
   `sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"`.
   Grep for `synaraFrameUrl`.
-- Receiving: the `receiveSynaraMessage` handler in `src/App.tsx`. Every inbound
-  message is checked against **both**
-  `event.source === synaraIframeRef.current?.contentWindow` **and**
-  `event.origin === synaraOrigin` before being dispatched.
-- Sending: `postSynaraMessage` in `src/App.tsx`, which is
-  `synaraIframeRef.current?.contentWindow?.postMessage(...)`.
+- Receiving: the `receive` handler in `useSynaraHost`
+  (`src/app/use-synara-host.ts`). Every inbound message is checked against
+  **both** `event.source === frameRef.current?.contentWindow` **and**
+  `event.origin === origin` before being dispatched.
+- Sending: `postMessage` from the same hook (App destructures it as
+  `postSynaraMessage`), which is `frameRef.current?.contentWindow?.postMessage(...)`.
 
 Because it is a separate origin in a separate process, agent token streaming
 costs the React tree nothing — this is deliberate and is noted as a
@@ -119,7 +121,7 @@ file:
 | `src/agent/agent-canvas-tools.ts:8` | `lattice:canvas-tool-result` |
 | `src/agent/agent-spreadsheet-tools.ts:13` | `lattice:spreadsheet-tool-result` |
 | `src/agent/agent-composer-files.ts:1` | `lattice:composer-files` |
-| `src/App.tsx` (module scope) | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
+| `src/app/use-synara-host.ts:22-25` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
 | `src/settings/settings-dialog.tsx:81` | `lattice:set-settings-section` |
 
 `rg '"lattice:' src` enumerates the whole protocol in one pass.
@@ -402,8 +404,8 @@ trusting it, and note that the same command also matches the unrelated
 
 | Kind | Sites |
 | --- | --- |
-| **Non-sideload (activating)** — 2 | `src/App.tsx:2563` (the primary editor's file load, which additionally passes an `activateIf` guard) and `src/app/use-collab-v2-session.ts:601` (the host's share start) |
-| Sideloaded, app code — 7 | six in `src/App.tsx` (secondary pane, saves, rename/move mirroring, external-change reload) and one in `src/app/use-collab-v2-session.ts:469`. Line numbers are omitted here on purpose: `App.tsx` is being actively refactored and they move constantly. |
+| **Non-sideload (activating)** — 2 | `loadFile` in `src/App.tsx` (the primary editor's file load, which additionally passes an `activateIf` guard) and `src/app/use-collab-v2-session.ts:473` (the host's share start) |
+| Sideloaded, app code — 7 | six in `src/App.tsx` (the Agent's spreadsheet resolver, the secondary pane, pane drops and restores, move mirroring, the removed-reference conflict check) and one in `src/app/use-collab-v2-session.ts:353`. `App.tsx` line numbers are omitted on purpose: they move with every edit. |
 | Sideloaded, internal to the controller — 4 | `src/collab/collab-project-v2.ts:275` (chat), `:324` (comments), `:483`, `:941` |
 
 Both activating sites now live in different files: the `App.tsx` → `src/app/`
@@ -419,7 +421,7 @@ previous one, sets `activeClient`/`activePin`/`activePath`, repoints
 `awarenessVersion`, announces presence and re-emits `canWrite`.
 
 **Why a stray activation silently breaks the editor.** The primary editor's
-yCollab extension set is a `useMemo` at `src/canvas/document-canvas.tsx:1651-1663`.
+yCollab extension set is the `collabExtensions` `useMemo` at `src/canvas/document-canvas.tsx:452-463`.
 It returns `EMPTY_EXTENSIONS` when `collabSession.activePath !== activeFile`,
 and `awarenessVersion` is one of its dependencies. A foreign activation both
 moves `activePath` *and* bumps `awarenessVersion`, so the memo re-runs, sees a
@@ -644,7 +646,7 @@ site, or that site gets its own copy of the module graph in a second chunk.
 
 `tldraw`'s barrel has no `sideEffects` flag, so a single value import drags
 ~1.5 MB plus prosemirror into the startup chunk. The whiteboard lives behind
-`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:31`), and the
+`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:28`), and the
 agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` so that
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
