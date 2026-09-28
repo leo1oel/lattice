@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { applyBudgets, ceilingFor, GATED } from "./budgets.mjs";
+import { applyBudgets, ceilingFor, COUNTS, gatedCounts } from "./budgets.mjs";
 
-const counts = (value) => Object.fromEntries(GATED.map((key) => [key, value]));
+const counts = (value) => Object.fromEntries(COUNTS.map((key) => [key, value]));
+const ceilings = (value, scenario = "typing") => Object.fromEntries(gatedCounts(scenario).map((key) => [key, value]));
 
 describe("perf bench budgets", () => {
   it("gives new scenarios a ceiling with headroom", () => {
     const { budgets, failures, changed } = applyBudgets({ scenarios: {} }, [{ name: "typing", result: counts(100) }], "check");
     expect(failures).toEqual([]);
     expect(changed).toBe(true);
-    expect(budgets.scenarios.typing.renders).toBe(ceilingFor(100));
+    expect(budgets.scenarios.typing).toEqual(ceilings(ceilingFor(100)));
     expect(ceilingFor(100)).toBe(120);
     expect(ceilingFor(2)).toBe(7);
   });
 
   it("fails a count over its ceiling in check and ratchet mode alike", () => {
-    const budgets = { scenarios: { typing: counts(120) } };
+    const budgets = { scenarios: { typing: ceilings(120) } };
     const result = { ...counts(100), renders: 121 };
     for (const mode of ["check", "ratchet"]) {
       const outcome = applyBudgets(budgets, [{ name: "typing", result }], mode);
@@ -24,7 +25,7 @@ describe("perf bench budgets", () => {
   });
 
   it("ratchets ceilings down but never up", () => {
-    const budgets = { scenarios: { typing: { ...counts(120), commits: 10 } } };
+    const budgets = { scenarios: { typing: { ...ceilings(120), commits: 10 } } };
     const { budgets: next, changed } = applyBudgets(budgets, [{ name: "typing", result: { ...counts(50), commits: 9 } }], "ratchet");
     expect(changed).toBe(true);
     expect(next.scenarios.typing.renders).toBe(ceilingFor(50));
@@ -33,15 +34,43 @@ describe("perf bench budgets", () => {
   });
 
   it("only reports slack in check mode", () => {
-    const budgets = { scenarios: { typing: counts(120) } };
+    const budgets = { scenarios: { typing: ceilings(120) } };
     const outcome = applyBudgets(budgets, [{ name: "typing", result: counts(50) }], "check");
     expect(outcome.changed).toBe(false);
-    expect(outcome.slack).toHaveLength(GATED.length);
-    expect(outcome.budgets.scenarios.typing).toEqual(counts(120));
+    expect(outcome.slack).toHaveLength(gatedCounts("typing").length);
+    expect(outcome.budgets.scenarios.typing).toEqual(ceilings(120));
   });
 
   it("update sets every ceiling from the run, raising included", () => {
-    const { budgets } = applyBudgets({ scenarios: { typing: counts(10) } }, [{ name: "typing", result: counts(100) }], "update");
-    expect(budgets.scenarios.typing).toEqual(counts(ceilingFor(100)));
+    const { budgets } = applyBudgets({ scenarios: { typing: ceilings(10) } }, [{ name: "typing", result: counts(100) }], "update");
+    expect(budgets.scenarios.typing).toEqual(ceilings(ceilingFor(100)));
+  });
+
+  it("gates React and DOM counts but only reports frame-timing-dependent ones", () => {
+    expect(gatedCounts("typing")).toEqual(["commits", "renders", "hooks", "mutations"]);
+    expect(gatedCounts("pdf-scroll")).toEqual(["commits", "renders", "hooks"]);
+    expect(gatedCounts("markdown-visual-typing")).toEqual(["commits", "mutations"]);
+
+    const budgets = { scenarios: { typing: ceilings(10), "pdf-scroll": ceilings(10, "pdf-scroll") } };
+    const results = [
+      { name: "typing", result: { ...counts(1), recalcs: 500, layouts: 500 } },
+      { name: "pdf-scroll", result: { ...counts(1), recalcs: 500, layouts: 500, mutations: 500 } },
+    ];
+    for (const mode of ["check", "ratchet", "update"]) {
+      const outcome = applyBudgets(budgets, results, mode);
+      expect(outcome.failures).toEqual([]);
+      expect(Object.keys(outcome.budgets.scenarios.typing)).toEqual(gatedCounts("typing"));
+      expect(Object.keys(outcome.budgets.scenarios["pdf-scroll"])).toEqual(gatedCounts("pdf-scroll"));
+    }
+    const over = applyBudgets(budgets, [{ name: "pdf-scroll", result: { ...counts(1), hooks: 11 } }], "check");
+    expect(over.failures).toEqual([{ scenario: "pdf-scroll", key: "hooks", value: 11, ceiling: 10 }]);
+  });
+
+  it("drops ceilings left on counts that are now report-only", () => {
+    const budgets = { scenarios: { typing: { ...ceilings(120), recalcs: 5, layouts: 5 } } };
+    const { budgets: next, failures, changed } = applyBudgets(budgets, [{ name: "typing", result: counts(100) }], "check");
+    expect(failures).toEqual([]);
+    expect(changed).toBe(true);
+    expect(next.scenarios.typing).toEqual(ceilings(120));
   });
 });

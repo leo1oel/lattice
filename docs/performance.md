@@ -152,7 +152,7 @@ Still open, and bounded rather than growing:
 ## Interaction benchmark and CI gate (September 2026)
 
 `pnpm perf:bench` measures Lattice's hot interactions deterministically, and CI
-fails a pull request that makes one of them do more work. It builds
+fails a pull request that makes one of them do more React or DOM work. It builds
 `tools/perf-bench/` with the production config. That page is the real app, with
 an in-memory backend holding the fixture project from `scripts/perf-fixture.mjs`
 (the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes). The
@@ -194,7 +194,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 ### Running it
 
 - `pnpm perf:bench` measures and prints a table. `--check` also exits 1 when a
-  count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
+  gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
   `mise run perf-bench` locally).
 - `--only a,b` limits scenarios. `--runs N` repeats each scenario and keeps the
   run with the fewest counts, because noise only ever adds work. The default is
@@ -211,16 +211,26 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 
 ### Ceilings and the ratchet
 
-`scripts/perf-bench/budgets.json` holds a ceiling per scenario and count. A
-ceiling sits 20% (at least 5) above the measurement that set it. Commits,
-renders and hooks repeat exactly from run to run. Recalculations and layouts
-move a few percent with frame alignment and differ between the laptop that set
-a ceiling and the CI runner, and so do mutations in the scroll scenarios: a
-Lattice scrollbar fades out 180 ms after the last scroll event, and how many of
-40 notches that falls between depends on the machine (each fade is about six
-recalculations, which is why `pdf-scroll`'s recalculation ceiling was set from
-a slower machine's 131). The reveal is written to the DOM, not React state, so
-it adds no commits. A regression worth catching multiplies a count.
+`scripts/perf-bench/budgets.json` holds a ceiling per scenario and gated
+count. A ceiling sits 20% (at least 5) above the measurement that set it.
+
+Only counts that repeat from run to run are gated; a flaky gate is worse than
+none. The rest depend on frame timing, so the same build measures them
+differently on each run and more so on a busy machine. They are still measured
+and printed, and `--json` keeps them, but no ceiling holds them
+(`REPORT_ONLY` and `REPORT_ONLY_BY_SCENARIO` in `scripts/perf-bench/budgets.mjs`):
+
+| Scenario | Gated | Report-only | Why report-only |
+| --- | --- | --- | --- |
+| every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
+| `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
+| `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
+| `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
+| all others | `commits`, `renders`, `hooks`, `mutations` | | |
+
+The gated counts repeat exactly or move by a commit or two when an async load
+lands before or after a step, well inside the headroom. A regression worth
+catching multiplies a count.
 
 - `pnpm perf:bench --ratchet` lowers every ceiling the counts now beat, and
   never raises one. Run it after a speedup lands and commit the new

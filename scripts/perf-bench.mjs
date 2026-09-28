@@ -17,7 +17,8 @@
  *
  * Usage (pnpm perf:bench …):
  *   (no flag)   measure and print; scenarios without a ceiling get one
- *   --check     also exit 1 when a count exceeds its ceiling (CI)
+ *   --check     also exit 1 when a gated count exceeds its ceiling (CI); the
+ *               frame-timing-dependent counts are reported only (budgets.mjs)
  *   --ratchet   lower the ceilings these counts beat; never raises one
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
@@ -35,7 +36,7 @@ import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { applyBudgets, GATED } from "./perf-bench/budgets.mjs";
+import { applyBudgets, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 
@@ -211,17 +212,17 @@ async function measure(page, driver, scenario, profileTo) {
 /** The run with the fewest total counts: noise only ever adds work. */
 function bestOf(runs) {
   return runs.reduce((best, run) => (
-    GATED.reduce((sum, key) => sum + run[key], 0) < GATED.reduce((sum, key) => sum + best[key], 0) ? run : best
+    COUNTS.reduce((sum, key) => sum + run[key], 0) < COUNTS.reduce((sum, key) => sum + best[key], 0) ? run : best
   ));
 }
 
 function formatTable(results) {
-  const rows = [["scenario", "unit", ...GATED.map((key) => `${key}/unit`), "long tasks", "task ms"]];
+  const rows = [["scenario", "unit", ...COUNTS.map((key) => `${key}/unit`), "long tasks", "task ms"]];
   for (const { scenario, result } of results) {
     rows.push([
       scenario.name,
       `${scenario.steps} ${scenario.unit}`,
-      ...GATED.map((key) => (result[key] / scenario.steps).toFixed(1)),
+      ...COUNTS.map((key) => (result[key] / scenario.steps).toFixed(1)),
       String(result.info.longTasks),
       String(result.info.taskMs),
     ]);
@@ -282,7 +283,7 @@ async function main() {
       }
       const result = bestOf(runs);
       results.push({ scenario, result, runs });
-      console.error(`${scenario.name}: ${GATED.map((key) => `${key} ${result[key]}`).join(", ")} (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)`);
+      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key]}`).join(", ")} (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)`);
     }
   } finally {
     if (!options.keepOpen) {
