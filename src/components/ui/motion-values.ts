@@ -1,6 +1,8 @@
 import type { Transition } from "motion/react";
 
 // Installed from https://www.fluidfunctionalism.com/r/springs.json.
+// Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+// Full license text: THIRD_PARTY_NOTICES.md.
 // Keep the three speeds beside the app's existing motion contracts.
 export const spring = {
   fast: { type: "spring", duration: 0.08, bounce: 0 },

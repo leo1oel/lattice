@@ -51,6 +51,8 @@ export type SwitchProps = {
  * and controlled API. Keep click/keyboard activation native rather than adding
  * drag-to-toggle or a second clickable label around settings rows.
  * Source: https://www.fluidfunctionalism.com/r/base/switch.json
+ * Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+ * Full license text: THIRD_PARTY_NOTICES.md.
  */
 export function Switch({ checked, disabled, id, label, onChange }: SwitchProps) {
   const reduceMotion = useReducedMotion();

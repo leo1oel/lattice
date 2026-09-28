@@ -1,4 +1,6 @@
 // Adapted from https://www.fluidfunctionalism.com/r/use-fluid-hover.json.
+// Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+// Full license text: THIRD_PARTY_NOTICES.md.
 // Lattice only highlights vertical lists, so the upstream x / xy axes,
 // per-item disabling and distance-capped gap clicks are not carried.
 

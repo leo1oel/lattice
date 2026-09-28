@@ -221,8 +221,8 @@ carry that inheritance, and each has rules:
 | Tree | What it is | Rule |
 | --- | --- | --- |
 | `src/open-knowledge-app/` | Vendored verbatim from upstream `packages/app/src` | Regenerate with `node scripts/vendor-open-knowledge.mjs`; `open-knowledge-app.lock.json` is the manifest. Do not hand-edit vendored files — local changes belong in the seam files, which carry a `Local seam — not upstream code` header. |
-| `src/open-knowledge-core/` | Vendored subset of upstream `packages/core/src` | Not auto-synced. Any intentional change must keep its `Local deviation from upstream` comment. |
-| `src/visual-*` | Lattice code adapted from upstream | Each file's adaptation header names the upstream file and commit. **Preserve those headers** — they are the per-file attribution GPLv3 §5 requires. |
+| `src/open-knowledge-core/` | Vendored subset of upstream `packages/core/src` | Not auto-synced. `open-knowledge-core.lock.json` records the upstream and reviewed Lattice blob for every file; after an intentional change, re-review and refresh it (`node scripts/lock-open-knowledge-core.mjs --check` verifies it). |
+| Adapted files in `src/editor/markdown/` | Lattice code adapted from upstream | Each file's adaptation header names the upstream file and commit. **Preserve those headers** — they are the per-file attribution GPLv3 §5 requires. |
 
 Both vendored trees also carry a copy of the GPL at
 `src/open-knowledge-{app,core}/LICENSE`. Do not remove them.
