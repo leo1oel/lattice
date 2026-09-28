@@ -160,7 +160,7 @@
     "editor/table-controls/TableCellHandles.tsx": "a2be113609d2d7f8",
     "editor/table-controls/useTableDragReorder.tsx": "f8bf7f1451220c4a",
     "editor/extensions/table-insert-controls.ts": "fa56bf35f685550b",
-    "editor/extensions/frozen-table-headers.ts": "724f4564114fe70b",
+    "editor/extensions/frozen-table-headers.ts": "3803d85fc30f4882",
     "editor/extensions/suggestion-allow.ts": "08be8c34a4a30539",
     "editor/slash-command/items.tsx": "55ba345d5eee2073",
     "editor/slash-command/component-items.tsx": "5681153c4834a458",

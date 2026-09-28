@@ -1757,9 +1757,17 @@ export function DocumentCanvas(props: {
   const primaryViewRef = useRef<EditorView | null>(null);
   const primaryViewPathRef = useRef("");
   const secondaryViewRef = useRef<EditorView | null>(null);
-  const [primaryScrollbarView, setPrimaryScrollbarView] = useState<EditorView | null>(null);
-  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<EditorView | null>(null);
-  const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<HTMLDivElement | null>(null);
+  // Weak on purpose; deref at the point of use and never keep the result in a
+  // render-scope variable. Every closure created while rendering captures this
+  // render's scope, and a CodeMirror view keeps its extensions' closures alive
+  // for its whole life. A strong reference here chained each editor to the one
+  // before it (new view → extension closure → render scope → previous view),
+  // so every file switch retained the previous editor and its whole document.
+  const [primaryScrollbarView, setPrimaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
+  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
+  // Weak for the same reason as the scrollbar views above: a retained render
+  // scope must not pin a replaced preview and its whole rendered document.
+  const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<WeakRef<HTMLDivElement> | null>(null);
   useEffect(() => {
     const viewport = markdownPreviewViewportRef.current;
     if (!paperQuoteFallback || paperQuoteFallback.paperId !== activePaperId
@@ -2903,7 +2911,7 @@ export function DocumentCanvas(props: {
     // missed because the later ref attachment does not itself rerun this effect.
     const view = candidateView;
     const preview = request.path === activeFile && markdownDocument
-      ? markdownPreviewViewport
+      ? markdownPreviewViewport?.deref() ?? null
       : null;
     if (!view && !preview) return;
     let frame: number | null = null;
@@ -3235,7 +3243,9 @@ export function DocumentCanvas(props: {
     markdownPreviewPersistenceCleanupRef.current?.();
     markdownPreviewPersistenceCleanupRef.current = null;
     markdownPreviewViewportRef.current = viewport;
-    setMarkdownPreviewViewport(viewport);
+    setMarkdownPreviewViewport((current) => (
+      current?.deref() === viewport ? current : viewport ? new WeakRef(viewport) : null
+    ));
     if (!viewport) return;
     const path = activeFile;
     const returnViewport = paperReturnViewportRef.current;
@@ -3443,8 +3453,8 @@ export function DocumentCanvas(props: {
   }, [activeFile, collabReady, collabSession]);
 
   useEffect(() => {
-    const view = primaryScrollbarView;
-    const preview = markdownPreviewViewport;
+    const view = primaryScrollbarView?.deref();
+    const preview = markdownPreviewViewport?.deref();
     if (!view || !preview || !markdownDocument || props.mode !== "split") return;
 
     let ignoreEditorScroll = false;
@@ -4095,7 +4105,7 @@ export function DocumentCanvas(props: {
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
-              setPrimaryScrollbarView(view);
+              setPrimaryScrollbarView(new WeakRef(view));
               if (focusedPaneRef.current === "primary") editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
               reportEditorPositionRef.current(view, activeFile);
@@ -4104,7 +4114,7 @@ export function DocumentCanvas(props: {
             onChange={onPrimaryChange}
             onUpdate={onPrimaryUpdate}
           />
-          <CodeMirrorScrollbar view={primaryScrollbarView} />
+          <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
           {figureDropMarker && (
             <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
               <span>{t({ message: `Insert above line ${{ line: figureDropMarker.line }}` })}</span>
@@ -4332,7 +4342,7 @@ export function DocumentCanvas(props: {
           path={activeFile}
           source={props.source}
           assetRevision={props.referenceImageGeneration ?? 0}
-          sourceEditorView={props.mode === "split" ? primaryScrollbarView : null}
+          sourceEditorView={props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null}
           initialViewState={props.getFileViewState?.(activeFile)?.html}
           onViewState={(html) => props.onFileViewState?.(activeFile, { html })}
           onLoadAsset={props.onLoadReferenceImage}
@@ -4592,14 +4602,14 @@ export function DocumentCanvas(props: {
             extensions={secondaryEditorExtensions}
             onCreateEditor={(view) => {
               secondaryViewRef.current = view;
-              setSecondaryScrollbarView(view);
+              setSecondaryScrollbarView(new WeakRef(view));
               view.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFileRef.current) });
               if (focusedPane === "secondary") editorViewRef.current = view;
             }}
             onChange={onSecondaryChange}
             onUpdate={onSecondaryUpdate}
           />
-          <CodeMirrorScrollbar view={secondaryScrollbarView} />
+          <CodeMirrorScrollbar view={secondaryScrollbarView?.deref() ?? null} />
         </div>
       </div>
     ) : (

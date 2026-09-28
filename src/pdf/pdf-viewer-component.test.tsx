@@ -20,13 +20,16 @@ type MockPdfSlick = {
   linkService: {
     page: number;
     goToDestination: (destination: MockPdfDestination) => Promise<void>;
+    setDocument: ReturnType<typeof vi.fn>;
   };
   loadDocument: ReturnType<typeof vi.fn>;
   unbindEvents: ReturnType<typeof vi.fn>;
   finishReady: () => void;
   emit: (name: string, event: object) => void;
+  document: { loadingTask: { destroy: ReturnType<typeof vi.fn> } } | null;
   viewer: {
     cleanup: ReturnType<typeof vi.fn>;
+    setDocument: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     currentScale: number;
     currentScaleValue: string;
@@ -110,6 +113,10 @@ vi.mock("@pdfslick/core", () => ({
       const emit = (name: string, event: object) => this.emit(name, event);
       this.viewer = {
         cleanup: vi.fn(),
+        // PDF.js empties the viewer element when the document is detached.
+        setDocument: vi.fn((pdfDocument: unknown) => {
+          if (pdfDocument === null) args.viewer.textContent = "";
+        }),
         update: vi.fn(),
         get currentScale() {
           return currentScale;
@@ -141,6 +148,7 @@ vi.mock("@pdfslick/core", () => ({
           args.container.scrollLeft = destination.scrollLeft;
           this.emit("pagechanging", { pageNumber: destination.page });
         }),
+        setDocument: vi.fn(),
       };
       this.gotoPage = vi.fn((page: number) => {
         this.linkService.page = page;
@@ -868,6 +876,35 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => expect(replacement.gotoPage).toHaveBeenCalledWith(2));
   });
 
+  it("tears down each replaced viewer so rebuilds do not accumulate PDF.js pages", async () => {
+    // Regression: destroying only the loading task left PDF.js's static
+    // text-layer map, the viewer's document listeners and every rendered
+    // canvas of the previous build reachable, so each rebuild leaked a viewer.
+    const view = render(<PdfPreview url="https://example.test/build-1.pdf" pdfBase64={null} />);
+    await view.findByLabelText("PDF page 3");
+    const first = pdfSlickMock.instances[0];
+    const canvases = [...first.args.viewer.querySelectorAll("canvas")];
+    for (const canvas of canvases) {
+      canvas.width = 800;
+      canvas.height = 1_000;
+    }
+    const firstTask = first.document!.loadingTask;
+
+    view.rerender(<PdfPreview url="https://example.test/build-2.pdf" pdfBase64={null} />);
+    await waitFor(() => expect(pdfSlickMock.instances).toHaveLength(2), { timeout: 2_500 });
+    await waitFor(() => expect(first.args.container.isConnected).toBe(false));
+    await act(async () => undefined);
+
+    expect(first.viewer.setDocument).toHaveBeenCalledWith(null);
+    expect(first.linkService.setDocument).toHaveBeenCalledWith(null);
+    expect(firstTask.destroy).toHaveBeenCalledOnce();
+    expect(canvases.map((canvas) => [canvas.width, canvas.height])).toEqual(
+      canvases.map(() => [0, 0]),
+    );
+    const replacement = pdfSlickMock.instances[1];
+    expect(replacement.viewer.setDocument).not.toHaveBeenCalledWith(null);
+  });
+
   it("does not promote a staged viewer after unmount", async () => {
     pdfSlickMock.deferReady = true;
     const view = render(<PdfPreview url="https://example.test/paper.pdf" pdfBase64={null} />);
@@ -898,7 +935,7 @@ describe("PDFSlick viewer integration", () => {
     view.unmount();
     await act(async () => undefined);
     expect(instance.unbindEvents).toHaveBeenCalledOnce();
-    expect(instance.viewer.cleanup).toHaveBeenCalledOnce();
+    expect(instance.viewer.setDocument).toHaveBeenCalledWith(null);
     expect(document.querySelectorAll(".pdfViewer .page")).toHaveLength(0);
     expect(onViewState).toHaveBeenCalledWith(expect.objectContaining({ page: 2, scale: 1.5 }));
   });

@@ -1,3 +1,5 @@
+import v8 from "node:v8";
+import vm from "node:vm";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -240,7 +242,7 @@ vi.mock("@pdfslick/core", () => ({
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
-    linkService = { page: 1, goToDestination: vi.fn(async () => undefined) };
+    linkService = { page: 1, goToDestination: vi.fn(async () => undefined), setDocument: vi.fn() };
     l10n = { get: vi.fn(async (id: string) => id) };
     unbindEvents = vi.fn();
     pagesReady = false;
@@ -254,6 +256,7 @@ vi.mock("@pdfslick/core", () => ({
     };
     viewer: {
       cleanup: ReturnType<typeof vi.fn>;
+      setDocument: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
       currentScale: number;
       currentScaleValue: string;
@@ -271,6 +274,7 @@ vi.mock("@pdfslick/core", () => ({
       let currentScaleValue = args.options?.scaleValue ?? "page-width";
       this.viewer = {
         cleanup: vi.fn(),
+        setDocument: vi.fn(),
         update: vi.fn(),
         get currentScale() {
           return currentScale;
@@ -512,6 +516,16 @@ afterEach(() => {
 
 function renderApp() {
   return render(<App />);
+}
+
+/** A full GC for retention tests; WeakRef targets survive until the job ends. */
+function exposeGarbageCollector(): () => Promise<void> {
+  v8.setFlagsFromString("--expose-gc");
+  const gc = vm.runInNewContext("gc") as () => void;
+  return async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    gc();
+  };
 }
 
 describe("collaboration status mapping", () => {
@@ -1486,6 +1500,56 @@ describe("project workspace", () => {
     await waitFor(() => expect(document.querySelector(
       ".source-editor[data-editor-pane='secondary'] .cm-content",
     )).toHaveTextContent("content:recent.md"));
+  });
+
+  it("releases the previous source editor after switching files", async () => {
+    // Regression: DocumentCanvas closures capture their whole render scope and
+    // CodeMirror keeps its extensions' closures alive, so an editor view held
+    // strongly in that scope chained every replaced editor (and its document)
+    // to its successor for the rest of the session.
+    const collectGarbage = exposeGarbageCollector();
+    const snapshot = {
+      root: "/tmp/lattice-paper",
+      manifest: {
+        schemaVersion: 1,
+        projectId: "paper-id",
+        name: "Lattice paper",
+        rootDocuments: [],
+        primaryBibliography: "references.bib",
+        trusted: false,
+      },
+      files: ["a.txt", "b.txt", "c.txt"].map((path) => ({ name: path, path, kind: "text", children: [] })),
+    };
+    persistWorkspaceLayout(snapshot.root, {
+      openTabs: ["a.txt", "b.txt", "c.txt"],
+      activeFile: "a.txt",
+      activeTab: "a.txt",
+      secondaryFile: null,
+      focusedPane: "primary",
+      canvasMode: "source",
+      documentMode: "source",
+      paperView: "blog",
+      tabRecency: ["a.txt", "b.txt", "c.txt"],
+    });
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "initial_project") return snapshot;
+      if (command === "read_project_file") return `content:${(args as { path: string }).path}`;
+      if (command === "list_papers" || command === "list_history" || command === "harper_lint") return [];
+      return mockAppCommand(command, args as Record<string, unknown> | undefined);
+    });
+
+    renderApp();
+    const primaryContent = () => document.querySelector(".source-editor[data-editor-pane='primary'] .cm-content");
+    await waitFor(() => expect(primaryContent()).toHaveTextContent("content:a.txt"));
+    const firstView = new WeakRef(EditorView.findFromDOM(primaryContent() as HTMLElement)!);
+    for (const path of ["b.txt", "c.txt", "b.txt", "c.txt"]) {
+      fireEvent.click(await screen.findByRole("tab", { name: path }));
+      await waitFor(() => expect(primaryContent()).toHaveTextContent(`content:${path}`));
+    }
+    await waitFor(async () => {
+      await collectGarbage();
+      expect(firstView.deref()).toBeUndefined();
+    }, { timeout: 5_000 });
   });
 
   it("uses document modes for previewable files and accepts a tab on the canvas edge", async () => {
