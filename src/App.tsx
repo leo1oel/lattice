@@ -56,7 +56,7 @@ import {
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
-import { afterNextPaintOpportunity } from "./app/effect-helpers";
+import { afterNextPaintOpportunity, disposeWhenSettled } from "./app/effect-helpers";
 import { useCollabChat } from "./collab/use-collab-chat";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import {
@@ -1694,13 +1694,8 @@ function App() {
       }
       if (!collab && secondaryFile && secondarySource !== secondarySavedSource) {
         try {
-          const published = await publishTextToCollabV2(secondaryFile, secondarySource);
-          if (!published) {
-            await invoke("write_project_file", {
-              path: secondaryFile,
-              content: secondarySource,
-              projectRoot: project?.root,
-            });
+          if (!(await publishTextToCollabV2(secondaryFile, secondarySource))) {
+            await invoke("write_project_file", { path: secondaryFile, content: secondarySource, projectRoot: project?.root });
           }
           setSecondarySavedSource(secondarySource);
         } catch (reason) {
@@ -4221,17 +4216,19 @@ function App() {
 
   useEffect(() => {
     if (!project) return;
-    let dispose: (() => void) | undefined;
     let active = true;
-    void import("@tauri-apps/api/webview")
+    const clearDropHighlights = () => {
+      nativeDragPathsRef.current = [];
+      setAssetDropTarget(null);
+      setNativeEditorDropActive(false);
+      setFileDropTargetPane(null);
+      setAgentPanelDropActive(false);
+    };
+    const dispose = disposeWhenSettled(import("@tauri-apps/api/webview")
       .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
         if (!active) return;
         if (event.payload.type === "leave") {
-          nativeDragPathsRef.current = [];
-          setAssetDropTarget(null);
-          setNativeEditorDropActive(false);
-          setFileDropTargetPane(null);
-          setAgentPanelDropActive(false);
+          clearDropHighlights();
           return;
         }
         if (event.payload.type === "enter") {
@@ -4267,11 +4264,7 @@ function App() {
             : null,
         );
         if (event.payload.type === "drop") {
-          setAssetDropTarget(null);
-          setNativeEditorDropActive(false);
-          setFileDropTargetPane(null);
-          setAgentPanelDropActive(false);
-          nativeDragPathsRef.current = [];
+          clearDropHighlights();
           if (!event.payload.paths.length) return;
           if (agentPanelTarget && dropKind !== "unsupported") {
             // The agent iframe never sees native drops (Tauri intercepts
@@ -4284,13 +4277,7 @@ function App() {
               .catch((error) => setError(toMessage(error)));
           } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
             void importProjectSources(event.payload.paths).then(async (paths) => {
-              for (const path of paths) {
-                await openProjectFileRef.current(
-                  path,
-                  undefined,
-                  editorPosition?.pane ?? "primary",
-                );
-              }
+              for (const path of paths) await openProjectFileRef.current(path, undefined, editorPosition?.pane ?? "primary");
             });
           } else if (targetDirectory !== null) {
             // The Project tree takes any mix, Finder-style, into the folder
@@ -4305,15 +4292,10 @@ function App() {
             setError("Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor.");
           } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
-              if (paths.length) {
-                setFigureDropRequest({
-                  id: crypto.randomUUID(),
-                  paths,
-                  clientX: editorPosition.x,
-                  clientY: editorPosition.y,
-                  pane: editorPosition.pane,
-                });
-              }
+              if (!paths.length) return;
+              setFigureDropRequest({
+                id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y, pane: editorPosition.pane,
+              });
             });
           } else if (canvasTarget) {
             void importProjectAssets(event.payload.paths, "figures").then(async (paths) => {
@@ -4324,16 +4306,11 @@ function App() {
           }
         }
       }))
-      .then((unlisten) => {
-        if (active) dispose = unlisten;
-        else unlisten();
-      })
-      .catch(() => {
-        // Browser-based tests and previews do not expose native file paths.
-      });
+      // Browser-based tests and previews do not expose native file paths.
+      .catch(() => () => undefined));
     return () => {
       active = false;
-      dispose?.();
+      dispose();
     };
   }, [importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset, synara.postMessage, project]);
 
@@ -4683,13 +4660,8 @@ function App() {
             if (rewritten !== content) {
               if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
               if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
-              const published = await publishTextToCollabV2(movedPath, rewritten);
-              if (!published) {
-                await invoke("write_project_file", {
-                  path: movedPath,
-                  content: rewritten,
-                  projectRoot: project?.root,
-                });
+              if (!(await publishTextToCollabV2(movedPath, rewritten))) {
+                await invoke("write_project_file", { path: movedPath, content: rewritten, projectRoot: project?.root });
               }
               if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) {
                 savedSourceRef.current = rewritten;
