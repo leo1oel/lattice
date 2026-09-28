@@ -27,7 +27,7 @@ A local-first LaTeX workspace for macOS.
 - LaTeX completion, diagnostics, and SyncTeX navigation between source and PDF.
 - Literature search, arXiv imports, and citation insertion.
 - Markdown notes, whiteboards, diagrams, and spreadsheets.
-- Shared cursors, comments, chat, and Git history.
+- Comments, Git history, and Overleaf sync with shared cursors and chat.
 - An AI agent that can read your papers, help with build errors, and make edits for you to review.
 
 ## Get started
@@ -43,10 +43,6 @@ Official builds are signed and notarized by Apple.
 
 Your project is a folder of ordinary files on your Mac, so you can use another editor or Git without exporting anything.
 Keep `.research/` alongside your files to preserve imported papers and agent sessions.
-
-Lattice Shares sends shared document text, file names and paths, assets, chat, comments, and presence through `lattice-collab.paperlattice.workers.dev`.
-This maintainer-run service has no uptime or privacy guarantee; unshared projects don't use it.
-You can [host your own server](collab-server/README.md) and choose it in **Live collaboration → Advanced (sync host)**.
 
 ## Contributing
 

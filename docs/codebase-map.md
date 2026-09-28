@@ -17,11 +17,10 @@ description.
 
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
-| `src/` | 808 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `collab/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `onboarding/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `locales/`, and two vendored trees. See §3. |
-| `src-tauri/` | 189 | The Rust host: 123 `.rs` files (~43.4k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
-| `collab-server/` | 24 | The Cloudflare Worker (Durable Objects + R2) behind Lattice Shares. Own `package.json`, own vitest config (shared `test/harness.ts`); deploy with `pnpm collab:deploy`. |
-| `protocol/` | 3 | Code shared between the frontend and `collab-server/`. `collab-v2.ts` (159 lines) is the wire contract — changing it is a wire-protocol change; `encoding.ts` holds the base64url, SHA-256 and canonical-JSON helpers both sides must compute identically. |
-| `scripts/` | 46 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, open-knowledge vendoring, perf fixtures, manual Electron regressions (`electron-regressions.mjs`), dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
+| `src/` | 930 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `onboarding/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `locales/`, and two vendored trees. See §3. |
+| `src-tauri/` | 183 | The Rust host: 117 `.rs` files (~40.2k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
+| `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
+| `scripts/` | 45 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, open-knowledge vendoring, perf fixtures, manual Electron regressions (`electron-regressions.mjs`), dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
 | `tools/` | 2 | Development-only pages. `tools/icon-lab/` is the animated-icon playground behind the root `icon-lab.html`; it is served by `pnpm dev` and is deliberately **not** a build input, so it never ships. Typechecked and linted with the app. |
 | `docs/` | 10 | This directory. See [`README.md`](README.md). |
 | `evals/` | 2 | JSON fixtures for `scripts/agent-quality-eval.mjs` — pass/fail transcripts for the agent's research behaviour. |
@@ -37,22 +36,21 @@ description.
 | You want to change… | Start here |
 | --- | --- |
 | **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-document-buffers.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (433 lines of shared shapes), `src/app-utils.ts`, `src/app/use-panel-layout.ts`, `src/app/window-layout.ts`, `src/app/sidebar-mode-layout.ts` |
-| **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (390 — assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (1,752 — the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
+| **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (390 — assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (1,609 — the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
 | **The visual Markdown (TipTap) editor** | `src/editor/markdown/visual-markdown-editor.tsx` (1,272 — publication, path swaps, eligibility), `src/editor/markdown/visual-source-map.ts` (source ↔ ProseMirror offsets), `src/editor/markdown/visual-markdown-serialization.ts`, `src/editor/markdown/visual-source-decorations.ts` (presence, tracked-change and comment overlays), `src/editor/markdown/visual-passive-viewport.tsx` (large read-only documents), `src/editor/markdown/visual-markdown-schema.ts`, `src/editor/markdown/visual-markdown-block-model.ts`, plus the **vendored** `src/open-knowledge-app/editor/` (extensions, bubble menu, slash commands, table controls) and `src/open-knowledge-core/markdown/` (the Markdown ↔ ProseMirror bridge). Read §4 before editing either vendored tree. |
-| **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (613, the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-presence.ts`, `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (523 — CRDT bridge), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
-| **The whiteboard** | `src/editor/board/board-editor.tsx` (tldraw 5), `src/editor/board/board-yjs-bridge.ts` (517 — store ↔ Y.Doc + presence), `src/agent/agent-canvas-tldraw-adapter.ts`. Loaded only via `loadBoardEditorModule()` — never import tldraw eagerly. |
+| **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (495, the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (523 — the local Y.Doc model), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
+| **The whiteboard** | `src/editor/board/board-editor.tsx` (tldraw 5), `src/editor/board/board-store.ts` (112 — the standalone tldraw store: load, serialize, replace), `src/agent/agent-canvas-tldraw-adapter.ts`. Loaded only via `loadBoardEditorModule()` — never import tldraw eagerly. |
 | **The PDF viewer** | `src/pdf/pdf-viewer.tsx` (415 — the toolbar and surface), which composes `src/pdf/use-pdf-document.ts` (building, swapping and tearing down PDFSlick viewers), `use-pdf-view.ts` (saved view state, link history), `use-pdf-zoom.ts`, `use-pdf-search.ts` and `pdf-source-targets.ts` (SyncTeX/quote highlights); `src/pdf/pdf-slick.ts` owns the PDF.js/PDFSlick plumbing. Also `src/pdf/pdf-viewer-utils.ts`, `src/pdf/pdf-bytes.ts`, `src-tauri/src/pdf_fonts.rs`, `public/pdfjs/` |
 | **Compiling LaTeX and surfacing errors** | `src-tauri/src/latex.rs` + `latex/` (1,510 — latexmk orchestration in `build.rs`, log parsing in `build_log.rs`, SyncTeX) → commands `build_project` / `abort_build` / `clean_project` in `src-tauri/src/ipc/build.rs`; `src/build/compile-diagnostics.ts` (log lines → CodeMirror lint diagnostics), `src/build/compile-diagnostics-panel.tsx`. Missing-package flow: `src-tauri/src/tex_setup.rs` + `tex_setup/` (1,251 incl. the privileged installer scripts) + `src/build/tex-setup-wizard.tsx`; environment health: `src-tauri/src/doctor.rs` |
-| **The file tree and project search** | `src/project/navigator.tsx` (the sidebar: file tree or paper library), `src/project/project-file-tree.tsx` (wraps `@pierre/trees`) and its `project-tree-*` modules (files and Git decorations, clipboard, context menu, inline create, pointer drag, motion, the shadow-DOM CSS), `src/project/paper-library.tsx`, `src/project/project-file-icons.ts`; search backends `src-tauri/src/fts.rs` (641, SQLite FTS; `project/search.rs` falls back to a linear scan) and `src-tauri/src/semantic_search.rs` + `semantic_search/` (1,419, self-contained); UI `src/editor/latex/search-panel.ts`, `src/project/project-find-dialog.tsx`, `src/project/project-replace-dialog.tsx`, `src/project/quick-open-dialog.tsx`, `src/project/project-semantic-search.ts` |
+| **The file tree and project search** | `src/project/navigator.tsx` (the sidebar: file tree or paper library), `src/project/project-file-tree.tsx` (wraps `@pierre/trees`) and its `project-tree-*` modules (files and Git decorations, clipboard, context menu, inline create, pointer drag, motion, the shadow-DOM CSS), `src/project/paper-library.tsx`, `src/project/project-file-icons.ts`; search backend `src-tauri/src/fts.rs` (641, SQLite FTS; `project/search.rs` falls back to a linear scan); UI `src/editor/latex/search-panel.ts`, `src/project/project-find-dialog.tsx`, `src/project/project-replace-dialog.tsx`, `src/project/quick-open-dialog.tsx` |
 | **The paper library, literature search, bibliography** | `src-tauri/src/papers.rs` + `papers/` (4,846 — import, bundles, markdown conversion, citation), `citation_audit.rs` + `citation_audit/` (the bibliography audit), `openalex.rs`, `alphaxiv.rs`, `literature.rs`, `citation_health.rs`, `firecrawl.rs`; UI `src/papers/literature-discovery-panel.tsx`, `src/project/references-panel.tsx`, `src/papers/bib-entry.ts` + `src/papers/bib-entry-dialog.tsx`, `src/papers/arxiv-id.ts`, `src/papers/paper-link.ts`, `src/papers/venues.ts` (generated by `scripts/gen-venues.mjs`, one venue per line) |
 | **Version history and diffs** | Transactions: `src-tauri/src/project/history.rs` (`apply_transaction`, `.research/history/`) + commands `list_history` / `revert_transaction` in `ipc/history.rs`; git: `src-tauri/src/git.rs` + `git/parse.rs` (805). UI: `src/history/history-drawer.tsx`, `src/history/versions-timeline.tsx`, `src/history/file-diff-view.tsx` and `src/history/pierre-diff.ts` (`@pierre/diffs` + shiki). Design rationale: [`project-history-architecture.md`](project-history-architecture.md) |
-| **Live collaboration (Lattice Shares)** | `src/app/use-collab-v2-session.ts` (647 — the React-side session lifecycle: start, join, resume, disk mirroring; **this is where App.tsx's collab state now lives**), `src/collab/collab-project-v2.ts` (1,078 — the controller; its disk mirror, presence and catalog diff are `collab-disk-mirror-v2.ts`, `collab-presence-v2.ts`, `collab-catalog-delta-v2.ts`), `src/collab/collab-text-v2.ts` (the client + pool), `src/collab/collab-session.ts`, `src/collab/collab-editor.ts` (yCollab binding), `src/collab/collab-dialog.tsx`; contract `protocol/collab-v2.ts`; server `collab-server/src/{index,project-coordinator-v2,coordinator-model,text-file-v2}.ts`. **Read [`architecture.md` §3](architecture.md#3-the-collaboration-model-lattice-shares) first** — the `sideload` rule is not obvious and breaking it fails silently. |
-| **Overleaf sync** | `src/app/use-overleaf-workspace.ts` (944 — the React-side workspace state, extracted from `App.tsx`), `src-tauri/src/overleaf.rs` + `overleaf/` (5,038 — session, linking, REST, review, three-way merge) and `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` (3,060 — a hand-written Socket.IO 0.9 client; read the module header of `overleaf_rt.rs` first); handlers in `src-tauri/src/ipc/overleaf.rs` and `ipc/overleaf_realtime.rs`. Frontend: everything else is in `src/overleaf/` — `use-overleaf-realtime.ts` (1,013; its wire types and pure rules are `overleaf-realtime-model.ts`) and the other `use-overleaf-*` hooks, which all subscribe through the window-scoped `overleaf-realtime-listen.ts`; `overleaf-connect.tsx`; `ot.ts` (the OT transform). Live verification: `scripts/verify-overleaf.mjs` |
+| **Overleaf sync** | `src/app/use-overleaf-workspace.ts` (934 — the React-side workspace state, extracted from `App.tsx`), `src-tauri/src/overleaf.rs` + `overleaf/` (4,167 — session, linking, REST, review, three-way merge) and `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` (3,060 — a hand-written Socket.IO 0.9 client; read the module header of `overleaf_rt.rs` first); handlers in `src-tauri/src/ipc/overleaf.rs` and `ipc/overleaf_realtime.rs`. Frontend: everything else is in `src/overleaf/` — `use-overleaf-realtime.ts` (1,013; its wire types and pure rules are `overleaf-realtime-model.ts`) and the other `use-overleaf-*` hooks, which all subscribe through the window-scoped `overleaf-realtime-listen.ts`; `overleaf-connect.tsx`; `ot.ts` (the OT transform). Live verification: `scripts/verify-overleaf.mjs` |
 | **The AI agent integration** | `src-tauri/src/synara.rs` (sidecar supervision), `src/agent/synara-runtime.ts` (iframe URL + inbound message parsers), `src/agent/agent-host-context.ts` (the context snapshot pushed to the agent), `useSynaraHost` in `src/app/use-synara-host.ts` (the `postMessage` bridge; the iframes mount in `src/app/app-agent-panel.tsx` and `src/app/app-history-drawers.tsx`), `src/agent/agent-*.ts` (canvas/spreadsheet/paper-library tool bridges), `run_cli()` in `src-tauri/src/agent_literature.rs` (the literature gateway the sidecar shells out to), `scripts/prepare-synara-sidecar.mjs` (staging + pruning). Runtime doc: [`synara-runtime.md`](synara-runtime.md) |
 | **Settings** | `src/settings/settings-dialog.tsx` (the dialog and its navigation), with panes in `doctor-settings.tsx`, `literature-settings.tsx` and `synara-settings-pane.tsx` and the shared rows in `settings-controls.tsx`; `src/settings/app-settings.ts` (localStorage-backed preferences and fixed font stacks), `src/settings/use-appearance.ts`, `src/telemetry/interface-sounds.ts`. Per-project settings go through `update_project_manifest` into `.research/project.json`. |
 | **i18n** | `src/i18n.ts`, `lingui.config.ts`, `src/locales/{en,zh-CN}/messages.po`, `scripts/check-i18n-coverage.mjs`. Use the `useLingui` macro. Run `pnpm i18n:check` — it extracts, fails on catalog drift (`git diff --exit-code -- src/locales`), compiles strictly, then runs the coverage guard. Nine files listed in `eslint.config.js:66-76` additionally enforce `lingui/no-unlocalized-strings` as an **error**. |
 | **The design system** | `src/styles/foundations.css` (the token scale), `src/styles/theme.css` (the palette), `src/styles/tokens.test.ts` + `surfaces.test.ts` (the enforcement), `src/components/ui/` (52 shadcn-style primitives), `src/index.css` (Tailwind v4 without preflight). Decisions: [`design-system.md`](design-system.md) |
-| **Bundle size / startup** | `vite.config.ts` (`shikiTrimPlugin`, `manualChunkName`), `scripts/app-size-report.mjs` (the budgets), `src/canvas/canvas-lazy-modules.ts` (how to add a lazy chunk correctly). See [`architecture.md` §5](architecture.md#5-performance-and-bundle-constraints). |
+| **Bundle size / startup** | `vite.config.ts` (`shikiTrimPlugin`, `manualChunkName`), `scripts/app-size-report.mjs` (the budgets), `src/canvas/canvas-lazy-modules.ts` (how to add a lazy chunk correctly). See [`architecture.md` §4](architecture.md#4-performance-and-bundle-constraints). |
 | **The release** | `node scripts/bump-version.mjs patch` — bumps `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and the `research-writer` entry in `src-tauri/Cargo.lock` in lockstep. It **only edits files**; it then prints the exact `git commit` / `git tag` / `git push` commands, and pushing the tag triggers `.github/workflows/release.yml`. Never edit the version numbers by hand. Full procedure: [`release-process.md`](release-process.md) |
 
 ---
@@ -74,8 +72,8 @@ Two rules govern the layout, and both are deliberate:
   in `editor/spreadsheet/` despite 9 importers, why `references-panel.tsx` (a
   *symbol*-reference panel, not a bibliography one) sits in `project/`, and why
   the peer-colour palette moved out of `collab/` into `components/ui/`.
-- **Filenames keep their prefix** — `src/collab/collab-session.ts`, not
-  `src/collab/session.ts`. Dropping the prefix would rewrite every intra-domain
+- **Filenames keep their prefix** — `src/overleaf/overleaf-presence.tsx`, not
+  `src/overleaf/presence.tsx`. Dropping the prefix would rewrite every intra-domain
   import and turn a reviewable pure-rename diff into a content diff.
   Prefix-stripping is a separate pass.
 
@@ -104,10 +102,9 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | --- | --- | --- | --- | --- |
 | `src/components/ui/` | 76 | 17 | 6,236 | Shared presentation primitives: the shadcn-style set (button, dialog, scroll-area, …) plus the app-level ones — `motion.tsx`/`motion-values.ts`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx` (the `PickerDialog` quick open also uses), `chat-panel.tsx` (the shared chat surface), `collab-colors.ts`, the fluid hover (`use-fluid-hover.ts`, `fluid-hover-*`) and the drawn scrollbars (`scrollbar-track.ts` behind `external-scrollbar.tsx` and `overlay-scrollbar.tsx`). Deliberately one UI home, not a `ui/` rival to `components/`. |
 | `src/overleaf/` | 39 | 16 | 7,756 | Overleaf sync: OT engine `ot.ts`, hooks `use-overleaf-*`, panels `overleaf-*`, and `overleaf-editor-extensions.ts` (remote carets and tracked changes in CodeMirror). Its React-side workspace state is the odd one out — `src/app/use-overleaf-workspace.ts`. |
-| `src/collab/` | 45 | 20 | 6,534 | Lattice Shares: controller (plus its disk mirror, presence and catalog-delta modules), text/binary clients, session, credentials, chat, dialog. Its session lifecycle hook lives in `src/app/use-collab-v2-session.ts`. |
 | `src/editor/markdown/` | 42 | 15 | 11,062 | The TipTap visual Markdown editor and everything only it uses: schema, block model, source mapping and serialization, overlays, the passive viewport, link previews, wiki-link and citation suggestions, the workspace index, the project image host. |
 | `src/agent/` | 30 | 12 | 3,204 | The Synara sidecar bridge: `synara-runtime.ts` (URL + message parsers), `agent-host-context.ts`, and the `agent-*` tool bridges (canvas, spreadsheet, paper library, composer files), which share validation and reply plumbing through `agent-protocol.ts`. |
-| `src/project/` | 37 | 10 | 4,955 | The sidebar (`navigator.tsx`): the file tree (`project-file-tree.tsx` + `project-tree-*`) and the paper library (`paper-library.tsx`, `paper-library-search.ts`, `citation-health.ts`); project-wide search and replace, quick-open, semantic search, TODO scavenger, project dialogs, asset preview, the symbol-references panel, the manuscript checklist. |
+| `src/project/` | 35 | 9 | 4,648 | The sidebar (`navigator.tsx`): the file tree (`project-file-tree.tsx` + `project-tree-*`) and the paper library (`paper-library.tsx`, `paper-library-search.ts`, `citation-health.ts`); project-wide search and replace, quick-open, TODO scavenger, project dialogs, asset preview, the symbol-references panel, the manuscript checklist. |
 | `src/editor/latex/` | 22 | 9 | 2,552 | The CM6 LaTeX extension set and its parts (completions, diagnostics, hover cards, environments, edits, symbols), outline, selection toolbar, math regions/preview, project text helpers (`latex-text.ts`: labels, macros, KaTeX macro extraction, `\appendix` location), the search-panel relabelling. |
 | `src/telemetry/` | 21 | 10 | 3,113 | Everything the app says about itself: the log store and log panel, toast notifications, the updater banner, global error capture, the root error boundary, interface sounds. |
 | `src/history/` | 14 | 5 | 2,608 | Version history and diffs: the history drawer, the versions timeline, `file-diff-view.tsx` and `pierre-diff.ts` (`@pierre/diffs` + shiki), conflict markers and the conflict resolver. |
@@ -116,15 +113,15 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/build/` | 18 | 8 | 1,718 | Compiling LaTeX and the tooling around it: log-line diagnostics, the TexLab language client and its diagnostics, the TeX-install wizard. |
 | `src/papers/` | 28 | 11 | 3,466 | The paper library and bibliography: literature discovery, `bib-entry`, `venues.ts`, arXiv ids, paper links, import progress, the reference check (`bibliography-audit*`). |
 | `src/canvas/` | 27 | 3 | 5,734 | The editing surface shell: `document-canvas.tsx` and the modules it was broken into (editor extensions, HTML preview, Paper reader, asset preview, Markdown split-scroll and mode handoff, split layout, zoom), editor tabs, the canvas toolbar, the document outline, and the lazy-chunk registry (`canvas-lazy-modules.ts`). |
-| `src/editor/spreadsheet/` | 10 | 3 | 3,361 | The Univer-backed `.lattice-sheet` editor, its Univer setup and presence, format types, operations, CRDT bridge and XLSX import/export. |
-| `src/app/` | 48 | 9 | 7,786 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, collab session, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, sidebar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. |
+| `src/editor/spreadsheet/` | 9 | 3 | 3,075 | The Univer-backed `.lattice-sheet` editor, its Univer setup, format types, operations, local Y.Doc model and XLSX import/export. |
+| `src/app/` | 46 | 9 | 6,474 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, sidebar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. |
 | `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
 | `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (element, listener and idle-callback helpers for hand-built editor chrome). |
 | `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). Exercised by the playground in `tools/icon-lab/`. |
 | `src/editor/comments/` | 4 | 1 | 898 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel. |
-| `src/editor/board/` | 3 | 1 | 1,176 | The tldraw whiteboard and its Y.Doc bridge. Loaded only via `loadBoardEditorModule()`. |
+| `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |
 | `src/editor/presentation/` | 6 | 3 | 931 | The embedded Open Slide workspace and its loopback bridge. |
 | `src/onboarding/` | 3 | 1 | 628 | The first-run tour and its step definitions. |
 | `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
@@ -154,12 +151,8 @@ rather than a fact:
 - **`interface-sounds.ts` in `telemetry/`** is the audio channel of the same
   notification layer as `app-notify.ts`, not instrumentation. The directory is
   "what the app says about itself", which also covers the updater banner.
-- **Yjs leaks outside `collab/`** by design: `editor/board/board-yjs-bridge.ts`,
-  `editor/spreadsheet/spreadsheet-yjs.ts`, `editor/markdown/markdown-collab.ts`.
-  Each is the CRDT bridge for its own editor, not collaboration plumbing.
-- **Chat has no domain of its own.** Both backends render the one
-  `components/ui/chat-panel.tsx`; the data side is split by backend:
-  `collab/use-collab-chat.ts` (a Y.Array) vs `overleaf/use-overleaf-chat.ts`.
+- **Yjs remains only for the spreadsheet**: `editor/spreadsheet/spreadsheet-yjs.ts`
+  is its local Y.Doc model, not collaboration plumbing.
 - **`reference-preview.ts` is in `project/`, not `pdf/`.** It renders a project
   *asset* (image or first PDF page) read through `read_project_asset`; it
   imports `pdf/pdf-viewer-utils.ts` but is not part of the viewer.
@@ -230,28 +223,24 @@ a discrepancy:
 
 ---
 
-## 5. The ~17 files that actually matter
+## 5. The ~13 files that actually matter
 
 | File | LOC | Role |
 | --- | --- | --- |
-| `src/App.tsx` | ~5,930 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
+| `src/App.tsx` | ~5,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
 | `src-tauri/src/project.rs` + `project/` | 6,421 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
-| `src-tauri/src/overleaf.rs` + `overleaf/` | 5,038 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
-| `src/canvas/document-canvas.tsx` | 1,752 | The editing surface: source pane, preview pane, split/dual/columns layouts, and the mount points for every lazy editor. Hosts the yCollab binding. |
+| `src-tauri/src/overleaf.rs` + `overleaf/` | 4,167 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
+| `src/canvas/document-canvas.tsx` | 1,609 | The editing surface: source pane, preview pane, split/dual layouts, and the mount points for every lazy editor. |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | 3,060 | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
-| `src-tauri/src/lib.rs` + `ipc/` | 501 + 2,815 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the 176-command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
+| `src-tauri/src/lib.rs` + `ipc/` | 484 + 2,596 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the 163-command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
 | `src/editor/markdown/visual-markdown-editor.tsx` | 1,272 | The TipTap 3 / ProseMirror visual Markdown editor: canonical publication, path swaps, round-trip eligibility. Source mapping, serialization, overlays and the passive viewport live in sibling `visual-*` modules. |
 | `src-tauri/src/papers.rs` + `papers/` | 4,846 | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
 | `src/editor/latex/latex-editor.ts` | 390 | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, `src/canvas/editor-extensions.ts:60-62`.) |
-| `src/editor/spreadsheet/spreadsheet-editor.tsx` | 613 | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
+| `src/editor/spreadsheet/spreadsheet-editor.tsx` | 495 | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
 | `src/overleaf/use-overleaf-realtime.ts` | 1,013 | The frontend half of the Overleaf realtime bridge: op queue, versions, tracked changes. |
-| `src/collab/collab-project-v2.ts` | 1,078 | The collaboration controller: client pool, activation, catalog, invitations; presence and the disk mirror are delegated. |
-| `src/app/use-overleaf-workspace.ts` | 944 | The Overleaf workspace state extracted from `App.tsx`. |
-| `collab-server/src/project-coordinator-v2.ts` | 763 | The per-project Durable Object: catalog, grants, tickets, binary GC, lifecycle. |
-| `src/app/use-collab-v2-session.ts` | 647 | The collaboration session lifecycle extracted from `App.tsx`. |
+| `src/app/use-overleaf-workspace.ts` | 934 | The Overleaf workspace state extracted from `App.tsx`. |
 
-Honourable mentions: `src-tauri/src/semantic_search.rs` (1,419 with its
-submodules, self-contained) and `src-tauri/src/git.rs` (805 with `git/parse.rs`). The PDF viewer, the project
+Honourable mention: `src-tauri/src/git.rs` (805 with `git/parse.rs`). The PDF viewer, the project
 sidebar and the settings dialog, once 1,788, 1,736 and 861 lines, are now split
 into cohesive modules (see §2).
 
@@ -261,7 +250,7 @@ into cohesive modules (see §2).
 
 Stated plainly so you are not surprised.
 
-### `App.tsx` is still the hub, at ~5,930 lines
+### `App.tsx` is still the hub, at ~5,100 lines
 
 It was 10,891 lines before the simplification pass that split it up. Most
 self-contained state now lives in hooks under `src/app/`, and App composes
@@ -269,8 +258,8 @@ them:
 
 - **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-library.ts` (papers, citations, history, TODOs), `use-document-buffers.ts` (every editor buffer and its ref twin), `use-file-view-states.ts`, `workspace-restore.ts` (a pure restore plan).
 - **Build and agent:** `use-build-pipeline.ts`, `use-tex-setup.ts`, `use-agent-checkpoints.ts`, `use-agent-context.ts`, `use-synara-host.ts`.
-- **Collaboration and Overleaf:** `use-collab-v2-session.ts`, `use-overleaf-workspace.ts`, and `shared-document-sync.ts` (shared-project Overleaf sync and Open Slide writes).
-- **Surfaces:** `app-titlebar.tsx`, `app-workspace-sidebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-collab-surfaces.tsx`, `app-editor-panels.tsx`, `app-agent-panel.tsx`, each handed the hook object it renders rather than dozens of loose props.
+- **Overleaf and Open Slide:** `use-overleaf-workspace.ts` and `open-slide-writes.ts` (Open Slide writes).
+- **Surfaces:** `app-titlebar.tsx`, `app-workspace-sidebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, `app-agent-panel.tsx`, each handed the hook object it renders rather than dozens of loose props.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useLatest`, `useRefState`).
 
 What remains in App is the logic that genuinely spans those hooks: opening
@@ -285,7 +274,7 @@ If you add a feature here, put its state in a hook under `src/app/` and keep
 `App.tsx` as the composition point. `src/platform/react-compiler-guard.test.ts`
 caps React Compiler bailouts per file, App.tsx and the extracted hooks included.
 
-### `document-canvas.tsx` is 1,752 lines
+### `document-canvas.tsx` is 1,609 lines
 
 It was 5,319. The editor extension set, HTML preview, Paper reader, asset
 preview, Markdown split-scroll and mode handoff, split layout and zoom
@@ -315,12 +304,11 @@ Git decorations, so the then 1,736-line `navigator.tsx` looked covered while
 having no test at all. It is now `project-tree-files.test.ts` (the decorations
 live in `project-tree-files.ts`), and `navigator.test.tsx` plus
 `navigator-drag.test.ts` cover the sidebar itself.
-The others became `collab-session-peers.test.ts` (since merged into `collab-session.test.ts`) and `app-utils-confirm.test.ts`;
+The others became `collab-session-peers.test.ts` (since removed with Lattice Shares) and `app-utils-confirm.test.ts`;
 `latex-outline-breadcrumb.test.ts` was merged into `latex-outline.test.ts`.
 
 Some test files still have no same-named source module, and those are fine —
 they assert across several modules or on files rather than testing one export:
-`src/collab/collab-live.integration.test.ts`,
 `src/styles/editor-selection-styles.test.ts`,
 `src/platform/polyfills.test.ts`,
 `src/platform/react-compiler-guard.test.ts`,
@@ -336,15 +324,6 @@ The three that assert on *files* rather than exercise a module —
 feature. The fourth of that shape, `editor-selection-styles`, sits in
 `src/styles/` because its subject is a stylesheet there.
 
-### The `v2` suffix on `collab-*` is vestigial
-
-v2 is the only room type; there is no v1 code path left (see
-[`architecture.md` §3.9](architecture.md#39-the-v2-suffix-is-vestigial)). The
-suffix survives because renaming touches 28 filenames and 62 files that
-reference a `v2` identifier, plus the `protocol/` module name, the Durable
-Object binding names, and the `/v2/` HTTP prefix — i.e. it is a
-wire-compatible-migration problem, not a rename.
-
 ### Other things worth knowing
 
 - **`src/` has no `@types/node` by design** — it is browser-only by convention.
@@ -355,6 +334,3 @@ wire-compatible-migration problem, not a rename.
   `process` reference in it at all.
 - **`src/styles/editor-workspace.css` is 1,916 lines**, the largest stylesheet;
   `src/App.css` is a 10-line import manifest, so don't look for CSS there.
-- **`src-tauri/src/semantic_search.rs`** (1,419 lines with `semantic_search/`)
-  has no incoming intra-crate dependencies and depends only on `util`. It is
-  reachable only through its four commands and can be read in isolation.
