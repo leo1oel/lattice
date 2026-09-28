@@ -323,19 +323,24 @@ export const SCENARIOS = [
   },
   {
     name: "code-highlight",
-    description: "Open a document of 150 highlighted code blocks in the visual editor, then type into one.",
+    // The first open also loads the visual editor's modules and grammars, and
+    // when that lands varies from run to run; setup pays it, so the measured
+    // switch renders and highlights the document with everything loaded.
+    description: "Switch to a document of 150 highlighted code blocks in the visual editor, then type 20 characters into one.",
     unit: "action",
     steps: 21,
     async setup(driver) {
-      await driver.openFile("main.tex");
-    },
-    async run(driver) {
       await driver.openFile("code.md");
       await driver.selectView("Preview");
       await driver.rect(`${VISUAL} pre code`);
+      await driver.openFile("main.tex");
+    },
+    async run(driver) {
+      await driver.switchTab("code.md");
+      await driver.rect(`${VISUAL} pre code`);
       await driver.settle({ quietMs: 400 });
       await driver.click(`${VISUAL} pre code`, { offsetX: 0.9, offsetY: 0.1 });
-      await driver.type("x = 1; ".repeat(3) + "y = 2 ");
+      await driver.type("x = 1; y = 2; z = 34");
     },
   },
   {

@@ -196,6 +196,13 @@ sources = [
   "THIRD_PARTY_NOTICES.md",
 ]
 
+# The interaction benchmark CI gates on (docs/performance.md). Not part of
+# `check`: it drives a local Chrome for a few minutes, and its counts are
+# meant to be read on an otherwise idle machine.
+[tasks.perf-bench]
+description = "Interaction benchmark: fail when a count exceeds its ceiling in scripts/perf-bench/budgets.json"
+run = "pnpm perf:bench --check"
+
 [tasks.check]
 description = "THE gate: everything CI runs, in parallel, skipping unchanged stages"
 depends = [

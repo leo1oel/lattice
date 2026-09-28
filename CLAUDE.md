@@ -34,7 +34,8 @@ with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md an
 `build`, `collab-server`, `cargo-fmt`, `cargo-test`, `clippy`) in parallel,
 skipping any whose declared `sources` have not changed. Needs
 [mise](https://mise.jdx.dev). It runs the *same commands* as
-`.github/workflows/ci.yml`, not the same way: CI is a clean checkout with
+`.github/workflows/ci.yml` (except CI's interaction benchmark,
+`pnpm perf:bench --check`, which locally is `mise run perf-bench`), not the same way: CI is a clean checkout with
 nothing skipped, on Node 22, Rust on macOS and everything else on Ubuntu, while
 mise pins Node 26.5.0 / pnpm 10.13.1 and caches stage freshness. A green local
 check with a red CI is usually the freshness cache — `mise run --force check`.

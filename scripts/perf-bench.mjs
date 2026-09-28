@@ -3,10 +3,10 @@
  * Deterministic performance benchmark for Lattice's hot interactions
  * (docs/performance.md, "Benchmark and CI gate").
  *
- * Starts the Vite dev server, opens tools/perf-bench/ (the real app against an
- * in-memory backend holding the fixture project) in headless Chrome, and runs
- * each scenario in scripts/perf-bench/scenarios.mjs on a fresh page. For every
- * scenario it reports, per interaction:
+ * Builds tools/perf-bench/ (the real app against an in-memory backend holding
+ * the fixture project) with the production config, opens it in headless
+ * Chrome, and runs each scenario in scripts/perf-bench/scenarios.mjs on a
+ * fresh page. For every scenario it reports, per interaction:
  *   commits   React commits
  *   renders   component renders (React DevTools' definition) and the hooks they ran
  *   recalcs   style recalculations, as Chromium counts them
@@ -15,21 +15,27 @@
  * plus long tasks, layout shifts and main-thread durations, which are
  * wall-clock facts: reported, never gated.
  *
- * Usage:
- *   node scripts/perf-bench.mjs                 measure and print
- *   node scripts/perf-bench.mjs --check         also fail when a count exceeds its ceiling (CI)
- *   node scripts/perf-bench.mjs --ratchet       lower ceilings the measurements now beat
- *   node scripts/perf-bench.mjs --update        set every ceiling from this run (review the diff)
- * Options: --only a,b  --runs N  --json FILE  --headful  --keep-open
- *          --profile DIR  save a CPU profile of each scenario's first run (open in DevTools)
- *          --prod     measure a production build (realistic durations, minified names)
- *          --url URL   measure an already running app instead (no ceilings)
+ * Usage (pnpm perf:bench …):
+ *   (no flag)   measure and print; scenarios without a ceiling get one
+ *   --check     also exit 1 when a count exceeds its ceiling (CI)
+ *   --ratchet   lower the ceilings these counts beat; never raises one
+ *   --update    set every ceiling from this run, up or down (review the diff)
+ * Options:
+ *   --only a,b      run only these scenarios
+ *   --runs N        runs per scenario; the run with the fewest counts is kept (default 2)
+ *   --json FILE     write every run, with the components that rendered and why
+ *   --dev           use the Vite dev server: readable component names and
+ *                   profiles, and counts equal to production's (not gated)
+ *   --profile DIR   save a CPU profile of each scenario's first run
+ *   --url URL       measure an already running app instead (no ceilings)
+ *   --headful, --keep-open   watch it run
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyBudgets, GATED } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 
@@ -51,27 +57,15 @@ const BENCH_FIXTURE = {
   logLines: 4_000,
 };
 
-/** The gated counts. Everything else in a result is informational. */
-export const GATED = ["commits", "renders", "hooks", "recalcs", "layouts", "mutations"];
-
-/**
- * Ceilings sit this far above the measurement that set them. Counts are
- * deterministic up to frame alignment (two DOM changes landing in one frame
- * share a style recalculation), so a small margin absorbs runner differences
- * while a real regression, which multiplies a count, still fails.
- */
-const HEADROOM = 0.15;
-const HEADROOM_MIN = 3;
-
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, prod: false };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
     else if (arg === "--ratchet") options.ratchet = true;
     else if (arg === "--update") options.update = true;
     else if (arg === "--headful") options.headful = true;
-    else if (arg === "--prod") options.prod = true;
+    else if (arg === "--dev") options.dev = true;
     else if (arg === "--keep-open") options.keepOpen = true;
     else if (arg === "--runs") options.runs = Number(argv[++index]);
     else if (arg === "--only") options.only = argv[++index].split(",");
@@ -95,9 +89,9 @@ function freePort() {
 }
 
 /**
- * The dev server by default: component names stay readable in the report, and
- * the counts are the same as in production. `--prod` builds the bench page
- * with the production config instead, for realistic durations.
+ * A production build by default: it is what ships, its durations are
+ * realistic, and its pages load in a fraction of the dev server's time. The
+ * dev server (`--dev`) keeps component names readable for finding causes.
  */
 async function startVite(production) {
   const { build, createServer, preview } = await import("vite");
@@ -221,8 +215,6 @@ function bestOf(runs) {
   ));
 }
 
-const ceilingFor = (value) => Math.ceil(value + Math.max(HEADROOM_MIN, value * HEADROOM));
-
 function formatTable(results) {
   const rows = [["scenario", "unit", ...GATED.map((key) => `${key}/unit`), "long tasks", "task ms"]];
   for (const { scenario, result } of results) {
@@ -242,7 +234,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
   if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
-  const vite = options.url ? null : await startVite(options.prod);
+  const vite = options.url ? null : await startVite(!options.dev);
   const chrome = await launchChrome({ headless: !options.headful });
   const results = [];
   try {
@@ -307,31 +299,28 @@ async function main() {
   }
   if (options.url) return;
 
-  const budgets = JSON.parse(readFileSync(BUDGETS, "utf8"));
-  const failures = [];
-  const slack = [];
-  for (const { scenario, result } of results) {
-    const ceilings = budgets.scenarios[scenario.name] ??= {};
-    for (const key of GATED) {
-      const value = result[key];
-      const ceiling = ceilings[key];
-      if (options.update || ceiling === undefined) ceilings[key] = ceilingFor(value);
-      else if (options.ratchet && ceilingFor(value) < ceiling) ceilings[key] = ceilingFor(value);
-      else if (value > ceiling) failures.push(`${scenario.name} ${key}: ${value} exceeds ceiling ${ceiling}`);
-      else if (ceilingFor(value) < ceiling * 0.8) slack.push(`${scenario.name} ${key}: ${value} is well under ceiling ${ceiling}`);
-    }
-  }
-  if (options.update || options.ratchet) {
+  const mode = options.update ? "update" : options.ratchet ? "ratchet" : "check";
+  const { budgets, failures, slack, changed } = applyBudgets(
+    JSON.parse(readFileSync(BUDGETS, "utf8")),
+    results.map(({ scenario, result }) => ({ name: scenario.name, result })),
+    mode,
+  );
+  if (changed && !options.dev && !options.only) {
     writeFileSync(BUDGETS, `${JSON.stringify(budgets, null, 2)}\n`);
     console.log(`\nWrote ${path.relative(repo, BUDGETS)}.`);
+  } else if (changed) {
+    console.log("\nCeilings are only written from a full production run (no --dev or --only).");
   }
-  if (slack.length && !options.ratchet && !options.update) {
-    console.log(`\nRoom to ratchet (run with --ratchet to lower these ceilings):\n  ${slack.join("\n  ")}`);
+  if (slack.length) {
+    console.log(`\nRoom to ratchet (pnpm perf:bench --ratchet lowers these ceilings):`);
+    for (const { scenario, key, value, ceiling } of slack) console.log(`  ${scenario} ${key}: ${value}, ceiling ${ceiling}`);
   }
   if (failures.length) {
-    console.log(`\nOver budget:\n  ${failures.join("\n  ")}`);
-    console.log("\nFind the cause with the per-scenario component table (--json), fix it, or, if the extra work is");
-    console.log("intended, raise the ceiling in scripts/perf-bench/budgets.json and say why in the pull request.");
+    console.log("\nOver budget:");
+    for (const { scenario, key, value, ceiling } of failures) console.log(`  ${scenario} ${key}: ${value} exceeds ceiling ${ceiling}`);
+    console.log("\nFind the cause with `pnpm perf:bench --dev --only <scenario> --json out.json`: each run lists the");
+    console.log("components that rendered and the state hooks that started each update. Fix it, or, if the extra");
+    console.log("work is intended, raise the ceiling in scripts/perf-bench/budgets.json and say why in the pull request.");
     if (options.check) process.exitCode = 1;
   }
 }
