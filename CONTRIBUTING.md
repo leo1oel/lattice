@@ -189,6 +189,8 @@ Node and pnpm versions `mise.toml` pins and skips stages it considers fresh. If
 a stage passes locally and fails in CI, suspect the freshness cache first —
 `mise run --force check` re-runs everything.
 
+[`.no-mistakes.yaml`](.no-mistakes.yaml) configures the no-mistakes pipeline's test and lint commands and forbids its test step from launching the desktop app.
+
 ## Work in the right area
 
 | Path | What belongs there |
