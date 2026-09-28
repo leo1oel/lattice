@@ -63,7 +63,6 @@ export default function SynaraPermissionPicker(props: {
                 <RadioItem
                   index={index}
                   label={option.label}
-                  selected={props.value === mode}
                   onSelect={() => { if (!disabled) props.onChange(mode); }}
                   aria-disabled={disabled || undefined}
                   aria-describedby={`${descriptionId}-${mode}`}

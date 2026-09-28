@@ -1,14 +1,4 @@
-import {
-  Children,
-  createContext,
-  forwardRef,
-  isValidElement,
-  useContext,
-  useRef,
-  useState,
-  type HTMLAttributes,
-  type ReactNode,
-} from "react";
+import { createContext, forwardRef, useContext, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { assignRef, cn } from "@/lib/utils";
 import { spring, springExit } from "./motion-values";
@@ -27,10 +17,6 @@ interface RadioGroupContextValue {
   registerItem: (index: number, element: HTMLElement | null) => void;
   activeIndex: number | null;
   selectedIndex: number | null;
-  /** Whether any item in the group is currently selected. Drives the roving
-   *  tabindex fallback: with no selection, the first item must stay tabbable
-   *  or the whole group becomes unreachable by keyboard. */
-  hasSelection: boolean;
 }
 
 const RadioGroupContext = createContext<RadioGroupContextValue | null>(null);
@@ -47,23 +33,18 @@ interface RadioGroupProps extends Omit<HTMLAttributes<HTMLDivElement>, "onSelect
 }
 
 const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(
-  function RadioGroup({ children, selectedIndex, className, ...props }, ref) {
+  function RadioGroup({ children, selectedIndex: requestedIndex, className, ...props }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const hover = useFluidHover(containerRef);
     const { activeIndex, setActiveIndex, itemRects, handlers, registerItem } = hover;
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-    // Covers both selection APIs: the group's selectedIndex, per-item selected.
-    const hasSelection =
-      (selectedIndex ?? -1) >= 0 ||
-      Children.toArray(children).some(
-        (child) => isValidElement<{ selected?: boolean }>(child) && child.props.selected === true,
-      );
     const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
-    const selectedRect = selectedIndex !== undefined && selectedIndex >= 0 ? itemRects[selectedIndex] : null;
+    const selectedIndex = requestedIndex !== undefined && requestedIndex >= 0 ? requestedIndex : null;
+    const selectedRect = selectedIndex === null ? null : itemRects[selectedIndex];
 
     return (
       <RadioGroupContext.Provider
-        value={{ registerItem, activeIndex, selectedIndex: selectedIndex ?? null, hasSelection }}
+        value={{ registerItem, activeIndex, selectedIndex }}
       >
         <div
           ref={(node) => {
@@ -149,18 +130,17 @@ const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(
 interface RadioItemProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
   index: number;
-  selected?: boolean;
   onSelect?: () => void;
 }
 
 const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
-  function RadioItem({ label, index, selected, onSelect, className, ...props }, ref) {
+  function RadioItem({ label, index, onSelect, className, ...props }, ref) {
     const internalRef = useRef<HTMLDivElement>(null);
-    const { registerItem, activeIndex, selectedIndex, hasSelection } = useRadioGroupContext();
+    const { registerItem, activeIndex, selectedIndex } = useRadioGroupContext();
     useRegisterFluidHoverItem(registerItem, index, internalRef);
 
     const isActive = activeIndex === index;
-    const isSelected = selected ?? selectedIndex === index;
+    const isSelected = selectedIndex === index;
 
     return (
       <div
@@ -171,7 +151,7 @@ const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
         data-fluid-hover-index={index}
         // Roving tabindex: selected item is the tab stop; with no selection the
         // first item takes it so the group stays keyboard-reachable.
-        tabIndex={isSelected ? 0 : !hasSelection && index === 0 ? 0 : -1}
+        tabIndex={isSelected || (selectedIndex === null && index === 0) ? 0 : -1}
         role="radio"
         aria-checked={isSelected}
         aria-label={label}

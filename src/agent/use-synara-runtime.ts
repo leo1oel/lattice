@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { toMessage } from "../app-utils";
 import {
   EMPTY_SYNARA_RUNTIME,
   normalizeSynaraOrigin,
@@ -41,11 +42,7 @@ export function useSynaraRuntime(enabled: boolean) {
       })
       .catch((reason) => {
         if (disposed) return;
-        setRuntime({
-          ...EMPTY_SYNARA_RUNTIME,
-          state: "stopped",
-          message: reason instanceof Error ? reason.message : String(reason),
-        });
+        setRuntime({ ...EMPTY_SYNARA_RUNTIME, state: "stopped", message: toMessage(reason) });
       });
     return () => {
       disposed = true;

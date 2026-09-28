@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { EXTERNAL_SCROLLBAR_TRACK_INSET, type ScrollAxisGeometry } from "./external-scrollbar-geometry";
 
 // Behaviour shared by the scrollbars drawn over a scroller Lattice cannot wrap
@@ -103,4 +103,66 @@ export function useScrollbarDrag(
   };
 
   return { begin, move, end, dragRef };
+}
+
+/**
+ * The scroll owner a drawn scrollbar follows. Attaches to it once it exists,
+ * coalesces re-measures into one per frame, and reports `scrolling` from each
+ * scroll until `idleMs` after the last one; a drag in progress holds it.
+ * `watch` adds the owner-specific listeners and observers and returns their
+ * teardown. Attached in a layout effect: a scrollbar often mounts because its
+ * viewport is already in the DOM (Univer's All Functions list), and a later
+ * attach would leave a committed bar that misses the first hover.
+ */
+export function useScrollbarViewport(
+  getViewport: () => HTMLElement | null,
+  measure: (viewport: HTMLElement | null) => void,
+  idleMs: number,
+  watch: (viewport: HTMLElement, scheduleMeasure: () => void) => () => void,
+) {
+  const viewportRef = useRef<HTMLElement | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scrolling, setScrolling] = useState(false);
+  const drag = useScrollbarDrag(viewportRef, setScrolling);
+  const { dragRef } = drag;
+
+  const scheduleMeasure = useCallback(() => {
+    if (frameRef.current != null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      measure(viewportRef.current);
+    });
+  }, [measure]);
+
+  useLayoutEffect(() => {
+    const markScrolling = () => {
+      scheduleMeasure();
+      setScrolling(true);
+      if (idleTimerRef.current != null) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        idleTimerRef.current = null;
+        if (!dragRef.current) setScrolling(false);
+      }, idleMs);
+    };
+    const detach = attachToViewport(getViewport, (viewport) => {
+      viewportRef.current = viewport;
+      viewport.addEventListener("scroll", markScrolling, { passive: true });
+      const unwatch = watch(viewport, scheduleMeasure);
+      scheduleMeasure();
+      return () => {
+        viewport.removeEventListener("scroll", markScrolling);
+        unwatch();
+      };
+    });
+    return () => {
+      detach();
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      if (idleTimerRef.current != null) clearTimeout(idleTimerRef.current);
+      frameRef.current = idleTimerRef.current = null;
+      viewportRef.current = null;
+    };
+  }, [dragRef, getViewport, idleMs, scheduleMeasure, watch]);
+
+  return { viewportRef, scrolling, setScrolling, drag };
 }

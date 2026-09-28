@@ -3,6 +3,7 @@
 // the field names, error codes, and size bounds here are part of that wire
 // contract. Kept free of heavy imports: App.tsx loads the bridges eagerly.
 import type { RefObject } from "react";
+import { toMessage } from "../app-utils";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -91,7 +92,7 @@ export async function runAgentTool<Type extends string, Result>(
     return { type, version: 1, id, ok: true, result: await run() };
   } catch (error) {
     const code = isRecord(error) && typeof error.code === "string" ? error.code : fallbackCode;
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toMessage(error);
     return {
       type,
       version: 1,

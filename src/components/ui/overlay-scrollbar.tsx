@@ -2,13 +2,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { calculateScrollAxisGeometry, type ScrollAxisGeometry } from "./external-scrollbar-geometry";
-import { attachToViewport, useScrollbarDrag, type Axis } from "./scrollbar-track";
+import { useScrollbarViewport, type Axis } from "./scrollbar-track";
 import "./scroll-area.css";
 
 type AxisFlags = { canScrollEnd: boolean; canScrollStart: boolean };
@@ -60,6 +59,17 @@ function overflowAttributes(axis: Axis, flags: AxisFlags) {
   };
 }
 
+function watchContent(viewport: HTMLElement, scheduleMeasure: () => void) {
+  const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
+  resizeObserver?.observe(viewport);
+  // The scrolled content: a PDF's page column resizes on every zoom or
+  // refit without the viewport itself changing size.
+  for (const child of viewport.children) {
+    if (child instanceof HTMLElement) resizeObserver?.observe(child);
+  }
+  return () => resizeObserver?.disconnect();
+}
+
 /**
  * Draws the Lattice hover-reveal scrollbars over a scroller that owns its own
  * native viewport, on both axes. Unlike `ExternalScrollbar` this reveals on the
@@ -75,17 +85,10 @@ function overflowAttributes(axis: Axis, flags: AxisFlags) {
 export function OverlayScrollbars({ getViewport }: { getViewport: () => HTMLElement | null }) {
   const verticalRef = useRef<HTMLDivElement | null>(null);
   const horizontalRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLElement | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const idleTimerRef = useRef<number | null>(null);
   const [vertical, setVertical] = useState(NO_OVERFLOW);
   const [horizontal, setHorizontal] = useState(NO_OVERFLOW);
-  const [scrolling, setScrolling] = useState(false);
-  const drag = useScrollbarDrag(viewportRef, setScrolling);
-  const { dragRef } = drag;
 
-  const measure = useCallback(() => {
-    const viewport = viewportRef.current;
+  const measure = useCallback((viewport: HTMLElement | null) => {
     if (!viewport) {
       setVertical(NO_OVERFLOW);
       setHorizontal(NO_OVERFLOW);
@@ -99,61 +102,15 @@ export function OverlayScrollbars({ getViewport }: { getViewport: () => HTMLElem
     setHorizontal((current) => updateFlags(current, x));
   }, []);
 
-  const scheduleMeasure = useCallback(() => {
-    if (frameRef.current != null) return;
-    frameRef.current = requestAnimationFrame(() => {
-      frameRef.current = null;
-      measure();
-    });
-  }, [measure]);
+  const { viewportRef, scrolling, drag } = useScrollbarViewport(getViewport, measure, SCROLL_IDLE_MS, watchContent);
 
   // A track with no overflow is `display: none`, so it measures as zero length
   // and the thumb it would need cannot be sized until it is laid out again.
   // Re-measure once the flags have committed; the guards above make this settle
   // after one pass instead of looping.
   useLayoutEffect(() => {
-    measure();
-  }, [horizontal, measure, vertical]);
-
-  useEffect(() => {
-    const markScrolling = () => {
-      scheduleMeasure();
-      setScrolling(true);
-      if (idleTimerRef.current != null) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = window.setTimeout(() => {
-        idleTimerRef.current = null;
-        if (!dragRef.current) setScrolling(false);
-      }, SCROLL_IDLE_MS);
-    };
-    const detach = attachToViewport(getViewport, (viewport) => {
-      viewportRef.current = viewport;
-      viewport.addEventListener("scroll", markScrolling, { passive: true });
-      const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
-      resizeObserver?.observe(viewport);
-      // The scrolled content: a PDF's page column resizes on every zoom or
-      // refit without the viewport itself changing size.
-      for (const child of viewport.children) {
-        if (child instanceof HTMLElement) resizeObserver?.observe(child);
-      }
-      scheduleMeasure();
-      return () => {
-        viewport.removeEventListener("scroll", markScrolling);
-        resizeObserver?.disconnect();
-      };
-    });
-    return () => {
-      detach();
-      if (frameRef.current != null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
-      if (idleTimerRef.current != null) {
-        clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      viewportRef.current = null;
-    };
-  }, [dragRef, getViewport, scheduleMeasure]);
+    measure(viewportRef.current);
+  }, [horizontal, measure, vertical, viewportRef]);
 
   const handlePointerDown = (axis: Axis, event: ReactPointerEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;

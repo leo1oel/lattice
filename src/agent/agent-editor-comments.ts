@@ -2,6 +2,7 @@
 
 import type { OverleafThread } from "../app-types";
 import { invoke } from "@tauri-apps/api/core";
+import { toMessage } from "../app-utils";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import type { OverleafCommentAnchor } from "../overleaf/use-overleaf-comments";
@@ -250,6 +251,6 @@ export async function executeAgentEditorCommentsToolRequest(
     }
     return { type: LATTICE_EDITOR_COMMENTS_TOOL_RESULT, version: 1, id: request.id, ok: true, result };
   } catch (error) {
-    return fail("editor_comments_read_failed", error instanceof Error ? error.message : String(error));
+    return fail("editor_comments_read_failed", toMessage(error));
   }
 }

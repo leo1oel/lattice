@@ -1,16 +1,10 @@
-import {
-  type WheelEvent as ReactWheelEvent,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type WheelEvent as ReactWheelEvent, useCallback, useRef, useState } from "react";
 import {
   calculateScrollAxisGeometry,
   EXTERNAL_THUMB,
   type ScrollAxisGeometry,
 } from "./external-scrollbar-geometry";
-import { attachToViewport, useScrollbarDrag } from "./scrollbar-track";
+import { useScrollbarViewport } from "./scrollbar-track";
 import "./scroll-area.css";
 
 const SCROLLING_HIDE_DELAY_MS = 500;
@@ -28,17 +22,11 @@ const EMPTY_TRACK: { top: number; height: number; axis: ScrollAxisGeometry } = {
  */
 export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElement | null }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLElement | null>(null);
-  const scrollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const frameRef = useRef<number | null>(null);
   const [track, setTrack] = useState(EMPTY_TRACK);
   const [hovering, setHovering] = useState(false);
-  const [scrolling, setScrolling] = useState(false);
-  const drag = useScrollbarDrag(viewportRef, setScrolling);
   const { axis } = track;
 
-  const measure = useCallback(() => {
-    const viewport = viewportRef.current;
+  const measure = useCallback((viewport: HTMLElement | null) => {
     const surface = trackRef.current?.parentElement;
     if (!viewport || !surface) {
       setTrack(EMPTY_TRACK);
@@ -55,74 +43,38 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
     });
   }, []);
 
-  const scheduleMeasure = useCallback(() => {
-    if (frameRef.current != null) return;
-    frameRef.current = requestAnimationFrame(() => {
-      frameRef.current = null;
-      measure();
-    });
-  }, [measure]);
-
-  // Layout, not paint: this scrollbar often mounts because its viewport is
-  // already in the DOM (Univer's All Functions list). A useEffect attach would
-  // leave a committed node that does not yet listen for pointerenter, so the
-  // first hover can miss — especially when jsdom's 16 ms rAF retry is delayed
-  // behind other frames.
-  useLayoutEffect(() => {
-    const markScrolling = () => {
-      scheduleMeasure();
-      setScrolling(true);
-      if (scrollingTimerRef.current != null) clearTimeout(scrollingTimerRef.current);
-      scrollingTimerRef.current = setTimeout(() => {
-        scrollingTimerRef.current = null;
-        setScrolling(false);
-      }, SCROLLING_HIDE_DELAY_MS);
-    };
+  const watch = useCallback((viewport: HTMLElement, scheduleMeasure: () => void) => {
     const markHovering = () => setHovering(true);
     const clearHovering = () => setHovering(false);
-
-    const detach = attachToViewport(getViewport, (viewport) => {
-      viewportRef.current = viewport;
-      viewport.addEventListener("scroll", markScrolling, { passive: true });
-      viewport.addEventListener("pointerenter", markHovering);
-      viewport.addEventListener("pointerleave", clearHovering);
-      const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
-      const observed = [
-        viewport,
-        ...viewport.children,
-        viewport.querySelector("[data-file-tree-virtualized-list]"),
-        trackRef.current?.parentElement,
-      ];
-      for (const element of observed) {
-        if (element instanceof HTMLElement) resizeObserver?.observe(element);
-      }
-      const root = viewport.getRootNode();
-      const mutationObserver = root instanceof ShadowRoot ? new MutationObserver(scheduleMeasure) : null;
-      if (mutationObserver) {
-        mutationObserver.observe(root, { attributes: true, attributeFilter: ["style"], childList: true, subtree: true });
-      }
-      scheduleMeasure();
-      return () => {
-        viewport.removeEventListener("scroll", markScrolling);
-        viewport.removeEventListener("pointerenter", markHovering);
-        viewport.removeEventListener("pointerleave", clearHovering);
-        resizeObserver?.disconnect();
-        mutationObserver?.disconnect();
-      };
-    });
+    viewport.addEventListener("pointerenter", markHovering);
+    viewport.addEventListener("pointerleave", clearHovering);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
+    const observed = [
+      viewport,
+      ...viewport.children,
+      viewport.querySelector("[data-file-tree-virtualized-list]"),
+      trackRef.current?.parentElement,
+    ];
+    for (const element of observed) {
+      if (element instanceof HTMLElement) resizeObserver?.observe(element);
+    }
+    const root = viewport.getRootNode();
+    const mutationObserver = root instanceof ShadowRoot ? new MutationObserver(scheduleMeasure) : null;
+    mutationObserver?.observe(root, { attributes: true, attributeFilter: ["style"], childList: true, subtree: true });
     return () => {
-      detach();
-      if (frameRef.current != null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
-      if (scrollingTimerRef.current != null) {
-        clearTimeout(scrollingTimerRef.current);
-        scrollingTimerRef.current = null;
-      }
-      viewportRef.current = null;
+      viewport.removeEventListener("pointerenter", markHovering);
+      viewport.removeEventListener("pointerleave", clearHovering);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
     };
-  }, [getViewport, scheduleMeasure]);
+  }, []);
+
+  const { viewportRef, scrolling, setScrolling, drag } = useScrollbarViewport(
+    getViewport,
+    measure,
+    SCROLLING_HIDE_DELAY_MS,
+    watch,
+  );
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;

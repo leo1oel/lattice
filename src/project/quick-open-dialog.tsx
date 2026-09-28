@@ -1,9 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { CloseButton } from "../components/ui/icon-button";
-import { EmptyState } from "../components/ui/empty-state";
-import { ModalDialog } from "../components/ui/modal-dialog";
-import { SearchField } from "../components/ui/search-field";
-import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { useMemo } from "react";
+import { PickerDialog, rankMatches, subsequenceScore } from "../components/ui/search-picker-dialog";
 
 function scorePath(path: string, query: string): number {
   const hay = path.toLocaleLowerCase();
@@ -12,15 +8,7 @@ function scorePath(path: string, query: string): number {
   if (hay === needle) return 1000;
   if (hay.endsWith(`/${needle}`)) return 900;
   if (hay.includes(needle)) return 500 - hay.indexOf(needle);
-  let score = 0;
-  let index = 0;
-  for (const character of needle) {
-    const next = hay.indexOf(character, index);
-    if (next < 0) return 0;
-    score += 10 - Math.min(9, next - index);
-    index = next + 1;
-  }
-  return score;
+  return subsequenceScore(hay, needle);
 }
 
 type QuickOpenProps = {
@@ -35,81 +23,26 @@ export function QuickOpenDialog({ open, ...props }: QuickOpenProps & { open: boo
   return open ? <QuickOpenDialogForm {...props} /> : null;
 }
 
-function QuickOpenDialogForm(props: QuickOpenProps) {
-  const { onIntent } = props;
-  const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
-  const results = useMemo(() => props.paths
-    .map((path) => ({ path, score: scorePath(path, query.trim()) }))
-    .filter((item) => item.score > 0)
-    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
-    .slice(0, 40)
-    .map((item) => item.path), [props.paths, query]);
-  const lastIndex = Math.max(0, results.length - 1);
-  const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
-  useEffect(() => {
-    if (selected) onIntent?.(selected);
-  }, [onIntent, selected]);
-  const search = (value: string) => {
-    setQuery(value);
-    setActive(0);
-  };
-
+function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
+  const rank = useMemo(() => (query: string) => rankMatches(
+    paths,
+    (path) => scorePath(path, query),
+    (left, right) => left.localeCompare(right),
+    40,
+  ), [paths]);
   return (
-    <ModalDialog label="Quick open file" onClose={props.onClose}>
-      <div className="modal quick-open-modal">
-        <div className="quick-open-header">
-          <SearchField
-            autoFocus
-            aria-label="Quick open search"
-            placeholder="Open file…"
-            value={query}
-            onChange={(event) => search(event.target.value)}
-            onClear={() => search("")}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setActive((value) => Math.min(value + 1, lastIndex));
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setActive((value) => Math.max(0, value - 1));
-              }
-              if (event.key === "Enter" && selected) {
-                event.preventDefault();
-                props.onOpen(selected);
-              }
-            }}
-            trailing={
-              <CloseButton
-                label="Close quick search"
-                size="compact"
-                data-hit-area
-                onClick={props.onClose}
-              />
-            }
-          />
-        </div>
-        <div className="quick-open-list fluid-hover-surface" role="listbox">
-          <FluidHoverSurface />
-          {results.map((path, index) => (
-            <button
-              key={path}
-              type="button"
-              role="option"
-              aria-selected={index === active}
-              className={index === active ? "active" : ""}
-              onMouseEnter={() => setActive(index)}
-              onClick={() => props.onOpen(path)}
-            >
-              {path}
-            </button>
-          ))}
-          {!results.length && (
-            <EmptyState density="compact" description="No matching files" />
-          )}
-        </div>
-      </div>
-    </ModalDialog>
+    <PickerDialog
+      {...props}
+      label="Quick open file"
+      searchLabel="Quick open search"
+      placeholder="Open file…"
+      closeLabel="Close quick search"
+      compactClose
+      emptyText="No matching files"
+      rank={rank}
+      itemKey={(path) => path}
+      renderItem={(path) => path}
+      onSelect={onOpen}
+    />
   );
 }

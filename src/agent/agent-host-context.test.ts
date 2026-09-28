@@ -6,29 +6,18 @@ import {
 } from "./agent-host-context";
 
 describe("selected Markdown image context", () => {
-  it("resolves Markdown and HTML image blocks relative to their document", () => {
-    expect(selectedMarkdownImageProjectPath(
-      "![Figure](paper_assets/figure-001.webp)",
-      ".research/papers/2010.11929/paper.md",
-    )).toBe(".research/papers/2010.11929/paper_assets/figure-001.webp");
-    expect(selectedMarkdownImageProjectPath(
-      '<img src="../figures/My%20Plot.png" alt="Plot" width={223} />',
-      "notes/method.md",
-    )).toBe("figures/My Plot.png");
-  });
-
-  it("ignores prose, remote images, and paths outside the project", () => {
-    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(selectedMarkdownImageProjectPath("A paragraph", "notes.md")).toBeNull();
-    expect(selectedMarkdownImageProjectPath(
-      "![Remote](https://example.com/figure.png)",
-      "notes.md",
-    )).toBeNull();
-    expect(selectedMarkdownImageProjectPath(
-      "![Outside](../../figure.png)",
-      "notes/method.md",
-    )).toBeNull();
-    warning.mockRestore();
+  // Markdown and HTML image blocks resolve relative to their document; prose,
+  // remote images, and paths outside the project do not resolve.
+  it.each([
+    ["![Figure](paper_assets/figure-001.webp)", ".research/papers/2010.11929/paper.md", ".research/papers/2010.11929/paper_assets/figure-001.webp"],
+    ['<img src="../figures/My%20Plot.png" alt="Plot" width={223} />', "notes/method.md", "figures/My Plot.png"],
+    ["A paragraph", "notes.md", null],
+    ["![Remote](https://example.com/figure.png)", "notes.md", null],
+    ["![Outside](../../figure.png)", "notes/method.md", null],
+  ])("resolves %s in %s to %s", (block, documentPath, expected) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(selectedMarkdownImageProjectPath(block, documentPath)).toBe(expected);
+    vi.restoreAllMocks();
   });
 });
 

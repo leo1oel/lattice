@@ -122,37 +122,22 @@ afterEach(() => {
 });
 
 describe("browser bridge serialization", () => {
-  it("round-trips binary command bodies across more than one base64 chunk", () => {
-    const bytes = Uint8Array.from({ length: 70_000 }, (_, index) => index % 251);
-
-    const decoded = decodeBridgeValue(encodeBridgeValue(bytes)) as ArrayBuffer;
-
-    expect(new Uint8Array(decoded)).toEqual(bytes);
-  });
-
-  it("preserves binary values nested in ordinary invoke arguments", () => {
-    const value = {
-      path: "figures/result.png",
-      payload: new Uint8Array([0, 1, 2, 253, 254, 255]).buffer,
-    };
-
-    const decoded = decodeBridgeValue(encodeBridgeValue(value)) as {
-      path: string;
-      payload: ArrayBuffer;
-    };
-
-    expect(decoded.path).toBe(value.path);
-    expect([...new Uint8Array(decoded.payload)]).toEqual([0, 1, 2, 253, 254, 255]);
-  });
-
-  it("uses Tauri's custom IPC serializer when a value supplies one", () => {
-    const value = {
-      __TAURI_TO_IPC_KEY__: () => ({ Logical: { width: 1200, height: 680 } }),
-    };
-
-    expect(decodeBridgeValue(encodeBridgeValue(value))).toEqual({
-      Logical: { width: 1200, height: 680 },
-    });
+  const bytes = Uint8Array.from({ length: 70_000 }, (_, index) => index % 251);
+  const payload = new Uint8Array([0, 1, 2, 253, 254, 255]);
+  it.each([
+    ["round-trips binary command bodies across more than one base64 chunk", bytes, bytes.buffer],
+    [
+      "preserves binary values nested in ordinary invoke arguments",
+      { path: "figures/result.png", payload: payload.buffer },
+      { path: "figures/result.png", payload: payload.buffer },
+    ],
+    [
+      "uses Tauri's custom IPC serializer when a value supplies one",
+      { __TAURI_TO_IPC_KEY__: () => ({ Logical: { width: 1200, height: 680 } }) },
+      { Logical: { width: 1200, height: 680 } },
+    ],
+  ])("%s", (_, value, expected) => {
+    expect(decodeBridgeValue(encodeBridgeValue(value))).toEqual(expected);
   });
 });
 
@@ -162,67 +147,45 @@ describe("browser bridge recovery", () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
   });
 
-  it("reloads a live page when its idle WebSocket is disconnected", () => {
-    const { socket, reload } = connectedRelay();
-
+  const message = (type: string) => (socket: FakeWebSocket) => socket.message({ type });
+  const disconnect = (socket: FakeWebSocket) => socket.disconnect();
+  const disconnectedAfter = (ms: number) => (socket: FakeWebSocket) => {
     socket.disconnect();
-    socket.dispatchEvent(new Event("error"));
-
-    expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it("reloads when the native half of the browser bridge restarts", () => {
-    const { socket, reload } = connectedRelay();
-
-    socket.message({ type: "host-disconnected" });
-
-    expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it("shows the failure if an unsaved edit prevents the recovery reload", () => {
-    const { socket } = connectedRelay();
-
-    socket.disconnect();
-    vi.advanceTimersByTime(1_000);
-
-    expect(runtimeError()).toHaveTextContent(
-      "The local Lattice app disconnected.",
-    );
+    vi.advanceTimersByTime(ms);
+  };
+  it.each([
+    ["reloads a live page when its idle WebSocket is disconnected", [disconnect, (socket: FakeWebSocket) => {
+      socket.dispatchEvent(new Event("error"));
+    }], { reloads: 1 }],
+    ["reloads when the native half of the browser bridge restarts", [message("host-disconnected")], { reloads: 1 }],
+    ["shows the failure if an unsaved edit prevents the recovery reload", [disconnectedAfter(1_000)], {
+      error: "The local Lattice app disconnected.",
+    }],
+    ["does not reopen a tab that is intentionally closing", [() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide"));
+    }, disconnect], { reloads: 0 }],
+    ["does not fight a second tab that took over the workspace", [message("browser-replaced"), disconnect], {
+      reloads: 0,
+      error: "This Lattice workspace is open in another browser tab.",
+    }],
+    ["stays closed after returning the workspace to the desktop app", [message("desktop-returned"), disconnect], {
+      reloads: 0,
+      closes: 1,
+      error: "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
+    }],
+  ])("%s", (_, steps, expected: { reloads?: number; closes?: number; error?: string }) => {
+    const { socket, reload, closePage } = connectedRelay();
+    for (const step of steps) step(socket);
+    if (expected.reloads !== undefined) expect(reload).toHaveBeenCalledTimes(expected.reloads);
+    if (expected.closes !== undefined) expect(closePage).toHaveBeenCalledTimes(expected.closes);
+    if (expected.error) expect(runtimeError()).toHaveTextContent(expected.error);
   });
 
   it("uses only the primary system language for recovery messages", () => {
-    const languages = vi.spyOn(window.navigator, "languages", "get")
-      .mockReturnValue(["en-US", "zh-CN"]);
+    vi.spyOn(window.navigator, "languages", "get").mockReturnValue(["en-US", "zh-CN"]);
     const { socket } = connectedRelay();
-
-    socket.disconnect();
-    vi.advanceTimersByTime(1_000);
-
-    expect(runtimeError()).toHaveTextContent(
-      "The local Lattice app disconnected.",
-    );
-    languages.mockRestore();
-  });
-
-  it("does not reopen a tab that is intentionally closing", () => {
-    const { socket, reload } = connectedRelay();
-
-    window.dispatchEvent(new PageTransitionEvent("pagehide"));
-    socket.disconnect();
-
-    expect(reload).not.toHaveBeenCalled();
-  });
-
-  it("does not fight a second tab that took over the workspace", () => {
-    const { socket, reload } = connectedRelay();
-
-    socket.message({ type: "browser-replaced" });
-    socket.disconnect();
-
-    expect(reload).not.toHaveBeenCalled();
-    expect(runtimeError()).toHaveTextContent(
-      "This Lattice workspace is open in another browser tab.",
-    );
+    disconnectedAfter(1_000)(socket);
+    expect(runtimeError()).toHaveTextContent("The local Lattice app disconnected.");
   });
 
   it.each(["browser-replaced", "desktop-suspended"])(
@@ -274,9 +237,8 @@ describe("browser bridge recovery", () => {
     sessionStorage.setItem("lattice.desktop-browser-standby", "1");
     const reload = vi.fn();
     new BrowserRelay(config, new Map(), reload, "desktop");
-    const socket = lastSocket();
 
-    socket.message({ type: "desktop-suspended" });
+    lastSocket().message({ type: "desktop-suspended" });
 
     expect(reload).not.toHaveBeenCalled();
     expect(runtimeError()).toHaveTextContent(
@@ -286,25 +248,11 @@ describe("browser bridge recovery", () => {
 
   it("reconnects a parked desktop if its standby socket is discarded", () => {
     sessionStorage.setItem("lattice.desktop-browser-standby", "1");
-    const reload = vi.fn();
-    const { socket } = connectedRelay(reload, "desktop");
+    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
     socket.message({ type: "desktop-suspended" });
 
     socket.disconnect();
 
     expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it("stays closed after returning the workspace to the desktop app", () => {
-    const { socket, reload, closePage } = connectedRelay();
-
-    socket.message({ type: "desktop-returned" });
-    socket.disconnect();
-
-    expect(closePage).toHaveBeenCalledOnce();
-    expect(reload).not.toHaveBeenCalled();
-    expect(runtimeError()).toHaveTextContent(
-      "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
-    );
   });
 });

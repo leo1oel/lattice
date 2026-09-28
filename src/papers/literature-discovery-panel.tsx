@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { BookOpen, Check, ExternalLink, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
+import { toMessage } from "../app-utils";
 import { baseArxivId } from "./arxiv-id";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -40,10 +41,6 @@ function searchLiterature(search: LiteratureSearch, page: number): Promise<Liter
 const INITIAL_VISIBLE = 10;
 const REVEAL_STEP = 10;
 const SCROLL_THRESHOLD_PX = 160;
-
-function message(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
-}
 
 /** Identity across pages/sources, so the same paper is shown once. */
 function dedupKey(work: LiteratureHit): string {
@@ -137,7 +134,7 @@ export function LiteratureDiscoveryPanel(props: {
     } catch (reason) {
       setResults([]);
       setHasMore(false);
-      setError(message(reason));
+      setError(toMessage(reason));
     } finally {
       setLoading(false);
     }
@@ -167,7 +164,7 @@ export function LiteratureDiscoveryPanel(props: {
       setVisible((current) => current + REVEAL_STEP);
     } catch (reason) {
       if (searchedRef.current !== searched) return;
-      setError(message(reason));
+      setError(toMessage(reason));
       setHasMore(false);
     } finally {
       loadingMoreRef.current = false;
@@ -183,7 +180,7 @@ export function LiteratureDiscoveryPanel(props: {
         notifySuccess(LITERATURE_SOURCE, t`Imported arXiv:${work.arxivId}`);
         setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
       })
-      .catch((reason) => setError(message(reason)))
+      .catch((reason) => setError(toMessage(reason)))
       .finally(() => setBusyId(null));
   };
 
