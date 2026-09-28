@@ -54,7 +54,7 @@ import {
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
-import { afterNextPaintOpportunity, disposeWhenSettled } from "./app/effect-helpers";
+import { afterNextPaintOpportunity, disposeWhenSettled, useLatest } from "./app/effect-helpers";
 import { useCollabChat } from "./collab/use-collab-chat";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import {
@@ -558,7 +558,7 @@ function App() {
     drop: dropViewState, forget: forgetViewStates, remap: remapViewStates, loadForProject: loadViewStatesForProject,
   } = useFileViewStates(project?.root ?? null, projectRef, projectBeforeTransitionRef);
   const [canvasRequests, setCanvasRequests] = useState<CanvasRequests>({
-    navigation: null, viewRestore: null, envRename: null, wrapEnv: null, citeInsert: null, figureDrop: null,
+    navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null,
   });
   /** Post, clear or rewrite one pending canvas request (a value or an updater, like a state setter). */
   const updateCanvasRequest = useCallback(<K extends keyof CanvasRequests>(
@@ -573,7 +573,7 @@ function App() {
     return kind ? { ...requests, [kind]: null } : requests;
   }), []);
   const setViewRestore = useCallback((update: SetStateAction<ViewRestoreRequest | null>) => {
-    updateCanvasRequest("viewRestore", update);
+    updateCanvasRequest("restore", update);
   }, [updateCanvasRequest]);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
   const projectSearch = useProjectSearch();
@@ -799,7 +799,7 @@ function App() {
   }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
-    updateCanvasRequest("citeInsert", { key, command, id: crypto.randomUUID() });
+    updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
     setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
   }, [updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
@@ -821,7 +821,7 @@ function App() {
     setOpenTabs(tabs);
     setPinnedTabs((pinned) => pinned.filter((tab) => !gone(tab)));
     setNavStack((entries) => entries.filter((entry) => !gone(entry.path)));
-    updateCanvasRequest("viewRestore", (request) => request && gone(request.path) ? null : request);
+    updateCanvasRequest("restore", (request) => request && gone(request.path) ? null : request);
     updateCanvasRequest("navigation", (request) => request && gone(request.path) ? null : request);
     return { tabs, recency };
   }, [updateCanvasRequest]);
@@ -879,10 +879,7 @@ function App() {
     requestRuntime: requestSynaraRuntime,
   } = synara;
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
-  const autoBuildModeRef = useRef(buildPreferences.autoBuildMode);
-  useEffect(() => {
-    autoBuildModeRef.current = buildPreferences.autoBuildMode;
-  }, [buildPreferences.autoBuildMode]);
+  const autoBuildModeRef = useLatest(buildPreferences.autoBuildMode);
   const agentCheckpoints = useAgentCheckpoints({
     project,
     projectRef,
@@ -3090,7 +3087,9 @@ function App() {
     paperLoadGenerationRef.current = loadGeneration;
     setPrimaryOpening(null);
     const key = paperKey(paper);
-    const clearFetchState = () => setPaperFetchStates(({ [key]: _cleared, ...rest }) => rest);
+    const clearFetchState = () => setPaperFetchStates((current) => (
+      Object.fromEntries(Object.entries(current).filter(([fetching]) => fetching !== key))
+    ));
     setPaperFetchStates((current) => ({ ...current, [key]: "loading" }));
     try {
       // Two fetchable shapes: an arXiv id (HTML or PDF route) and a cited
@@ -4089,7 +4088,7 @@ function App() {
           } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (!paths.length) return;
-              updateCanvasRequest("figureDrop", {
+              updateCanvasRequest("figure", {
                 id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y, pane: editorPosition.pane,
               });
             });
@@ -4467,9 +4466,9 @@ function App() {
         setReferenceHits((current) => current && { kind: renameTarget.kind, symbol: name, occurrences: [] });
         await showSymbolReferences(renameTarget.kind, name);
       } else if (renameTarget.kind === "environment") {
-        updateCanvasRequest("envRename", { newName: name, id: crypto.randomUUID() });
+        updateCanvasRequest("rename", { newName: name, id: crypto.randomUUID() });
       } else if (renameTarget.kind === "wrap-environment") {
-        updateCanvasRequest("wrapEnv", { name, id: crypto.randomUUID() });
+        updateCanvasRequest("wrap", { name, id: crypto.randomUUID() });
       }
       setRenameError(null);
       setRenameTarget(null);
@@ -4540,7 +4539,7 @@ function App() {
   }, targetDirectory, "No image found on the clipboard.") : null, [importImageBytes, project]);
   /** Insert an imported figure at the editor caret. */
   const insertFigureAtCaret = useCallback((path: string | null) => {
-    if (path) updateCanvasRequest("figureDrop", { id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
+    if (path) updateCanvasRequest("figure", { id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
   }, [updateCanvasRequest]);
   const handlePasteImageFile = useCallback((file: File) => {
     void importClipboardImageFile(file).then(insertFigureAtCaret);
@@ -5227,10 +5226,7 @@ function App() {
     if (command && command.when !== false) command.run();
   };
   // Read at keypress, so a shortcut always runs the current render's closures.
-  const commandsRef = useRef<typeof commands>([]);
-  useLayoutEffect(() => {
-    commandsRef.current = commands;
-  });
+  const commandsRef = useLatest(commands);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {
@@ -5247,7 +5243,7 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cycleDiagnostic]);
+  }, [cycleDiagnostic, commandsRef]);
 
   if (!project) {
     return (

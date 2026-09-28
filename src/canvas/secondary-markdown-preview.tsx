@@ -1,7 +1,8 @@
-import { Suspense, useCallback, useLayoutEffect, useRef, type ComponentProps } from "react";
+import { Suspense, useCallback, useRef, type ComponentProps } from "react";
 import { ScrollArea } from "../components/ui/scroll-area";
 import type { EditorComment } from "../editor/comments/editor-comments";
 import { markdownFrontmatterEnd } from "../app-utils";
+import { useLatest } from "../app/effect-helpers";
 import { DeferredVisualMarkdownEditor, MarkdownPreviewLoading } from "./canvas-lazy-editors";
 import { rangesWithinPreview, spliceMarkdownBody, useSettledPreviewText } from "./markdown-preview-sync";
 
@@ -28,13 +29,9 @@ export function SecondaryMarkdownPreview({
   editorComments: EditorComment[];
   onCreateComment: (from: number, to: number, body: string) => void;
 }) {
-  const sourceRef = useRef(source);
-  const onChangeRef = useRef(onChange);
+  const sourceRef = useLatest(source);
+  const onChangeRef = useLatest(onChange);
   const historyRef = useRef<{ undo: string[]; redo: string[] }>({ undo: [], redo: [] });
-  useLayoutEffect(() => {
-    sourceRef.current = source;
-    onChangeRef.current = onChange;
-  }, [onChange, source]);
 
   const previewStart = markdownFrontmatterEnd(source);
   const { settled: settledText, markEcho } = useSettledPreviewText(source, source.slice(previewStart), path);
@@ -44,7 +41,7 @@ export function SecondaryMarkdownPreview({
     sourceRef.current = nextSource;
     markEcho(nextSource);
     onChangeRef.current(nextSource);
-  }, [markEcho]);
+  }, [markEcho, onChangeRef, sourceRef]);
   const replaceMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     const current = sourceRef.current;
     const splice = spliceMarkdownBody(current, markdownFrontmatterEnd(current), expectedBody, nextBody);
@@ -53,14 +50,14 @@ export function SecondaryMarkdownPreview({
     historyRef.current.redo = [];
     publishSource(`${splice.prefix}${splice.inserted}`);
     return true;
-  }, [publishSource]);
+  }, [publishSource, sourceRef]);
   const step = useCallback((from: "undo" | "redo", to: "undo" | "redo") => {
     const target = historyRef.current[from].pop();
     if (target === undefined) return false;
     historyRef.current[to].push(sourceRef.current);
     publishSource(target);
     return true;
-  }, [publishSource]);
+  }, [publishSource, sourceRef]);
   const undo = useCallback(() => step("undo", "redo"), [step]);
   const redo = useCallback(() => step("redo", "undo"), [step]);
 

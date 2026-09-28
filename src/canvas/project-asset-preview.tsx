@@ -5,6 +5,7 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { pdfBase64ToBytes } from "../pdf/pdf-bytes";
 import type { AssetPreview, FileViewState, ImageFileViewState } from "../app-types";
+import { useLatest } from "../app/effect-helpers";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { useZoomScale } from "./use-zoom-scale";
 import { ZoomControls } from "./zoom-controls";
@@ -26,15 +27,11 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
   const [initialImageViewState] = useState(viewState?.image);
   const [scale, updateScale] = useZoomScale(initialImageViewState?.scale ?? 1, IMAGE_MIN_SCALE, IMAGE_MAX_SCALE);
-  const scaleRef = useRef(scale);
-  const onViewStateRef = useRef(onViewState);
+  const scaleRef = useLatest(scale);
+  const onViewStateRef = useLatest(onViewState);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
   const imageViewRestoredRef = useRef(false);
   const isPdf = asset.mimeType === "application/pdf";
-  useLayoutEffect(() => {
-    scaleRef.current = scale;
-    onViewStateRef.current = onViewState;
-  }, [onViewState, scale]);
   useLayoutEffect(() => {
     if (isPdf) return;
     const viewport = stageViewportRef.current;
@@ -51,12 +48,12 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
   useEffect(() => {
     if (!imageViewRestoredRef.current || isPdf) return;
     onViewStateRef.current?.({ image: imageViewState(stageViewportRef.current, scale) });
-  }, [isPdf, scale]);
+  }, [isPdf, onViewStateRef, scale]);
   useEffect(() => () => {
     const viewport = stageViewportRef.current;
     if (!imageViewRestoredRef.current || isPdf) return;
     onViewStateRef.current?.({ image: imageViewState(viewport, scaleRef.current) });
-  }, [isPdf]);
+  }, [isPdf, onViewStateRef, scaleRef]);
   useNonPassiveWheel(stageViewportRef, (event) => {
     if (!(event.metaKey || event.ctrlKey) || !event.deltaY) return;
     event.preventDefault();

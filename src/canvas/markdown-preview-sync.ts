@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";
 import { clamp } from "../settings/app-settings";
+import { clearTimer } from "../app/effect-helpers";
 import type { CanvasMode } from "../app-types";
 
 /**
@@ -26,7 +27,7 @@ export function useSettledPreviewText(source: string, text: string, resetKey: st
   const [settled, setSettled] = useState(text);
   const [settledKey, setSettledKey] = useState(resetKey);
   const latestTextRef = useRef(text);
-  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxTimerRef = useRef<number | null>(null);
 
   // Another file, or the preview's own echo, lands in the same commit as its
   // source: adjusting state during render keeps any frame from seeing stale text.
@@ -38,27 +39,21 @@ export function useSettledPreviewText(source: string, text: string, resetKey: st
   useEffect(() => {
     // The max timer outlives the commit that armed it and publishes the newest document.
     latestTextRef.current = text;
-    const clearMaxTimer = () => {
-      if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
-      maxTimerRef.current = null;
-    };
     if (settled === text) {
-      clearMaxTimer();
+      clearTimer(maxTimerRef);
       return;
     }
     const publish = () => {
-      clearMaxTimer();
+      clearTimer(maxTimerRef);
       setSettled(latestTextRef.current);
     };
     // Armed once per burst so continuous typing cannot starve the preview.
-    if (maxTimerRef.current == null) maxTimerRef.current = setTimeout(publish, maxMs);
+    if (maxTimerRef.current == null) maxTimerRef.current = window.setTimeout(publish, maxMs);
     const idle = setTimeout(publish, idleMs);
     return () => clearTimeout(idle);
   }, [idleMs, maxMs, settled, text]);
 
-  useEffect(() => () => {
-    if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
-  }, []);
+  useEffect(() => () => clearTimer(maxTimerRef), []);
 
   return { settled, markEcho, policy };
 }

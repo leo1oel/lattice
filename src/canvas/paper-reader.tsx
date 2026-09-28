@@ -2,7 +2,6 @@ import { Suspense, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 import { Tip } from "../components/icon-tip";
-import { PdfLoading } from "../pdf/pdf-loading";
 import type { AgentHostSurface } from "../agent/agent-host-context";
 import type { FileViewState, PaperSummary } from "../app-types";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
@@ -77,19 +76,18 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
           onFocusCapture={() => props.onContextSurfaceActivate("paper")}
         >
           {!view.previewUrl && !view.bytes ? (
-            <div className="pdf-preview">
-              <div className="pdf-toolbar">
+            <PdfPreviewLoading toolbar={(
+              <>
                 <div className="pdf-navigation-controls">{toolbarStart}</div>
                 <div className="pdf-zoom-controls">{toolbarEnd}</div>
-              </div>
-              <div className="pdf-scroll-area">
-                {view.error ? (
-                  <div className="pdf-placeholder" role="status" aria-live="polite">
-                    <FileText size={28} /><p>{t`Could not load PDF`}</p>
-                  </div>
-                ) : <PdfLoading label={t`Loading PDF…`} />}
-              </div>
-            </div>
+              </>
+            )}>
+              {view.error ? (
+                <div className="pdf-placeholder" role="status" aria-live="polite">
+                  <FileText size={28} /><p>{t`Could not load PDF`}</p>
+                </div>
+              ) : undefined}
+            </PdfPreviewLoading>
           ) : <Suspense fallback={<PdfPreviewLoading />}>
             <PdfPreview
               key={`paper-pdf:${view.key}`}

@@ -4,6 +4,7 @@ import type { EditorView } from "@codemirror/view";
 import { Textarea } from "../components/ui/textarea";
 import { resolveCommentAnchor } from "../editor/comments/editor-comments";
 import { clamp } from "../settings/app-settings";
+import { useLatest } from "../app/effect-helpers";
 
 export type CommentDraft = {
   path: string;
@@ -30,10 +31,7 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
 }) {
   const { t } = useLingui();
   const popupRef = useRef<HTMLDivElement | null>(null);
-  const draftRef = useRef(draft);
-  useLayoutEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
+  const draftRef = useLatest(draft);
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");
@@ -82,7 +80,7 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
       observer.disconnect();
       listening.abort();
     };
-  }, [anchorKey, view]);
+  }, [anchorKey, draftRef, view]);
   return (
     <div
       ref={popupRef}
@@ -100,14 +98,10 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
         value={draft.body}
         onChange={(event) => onBodyChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          }
+          const action = event.key === "Escape" ? onCancel : (event.metaKey || event.ctrlKey) && event.key === "Enter" ? onSave : null;
+          if (!action) return;
+          event.preventDefault();
+          action();
         }}
       />
       {draft.error && <p role="alert" className="visual-node-source-error">{draft.error}</p>}

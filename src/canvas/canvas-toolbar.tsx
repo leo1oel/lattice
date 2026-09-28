@@ -1,8 +1,9 @@
 import { BookOpen, ChevronDown, Cloud, Columns2, ExternalLink, FileCode2, Image, MessagesSquare, Omega, PanelRightClose } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "../app-types";
+import { useLatest } from "../app/effect-helpers";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { InfinityLoader } from "../components/ui/activity-icons";
@@ -63,6 +64,11 @@ type CanvasToolbarProps = {
   /** Slot for the Overleaf presence avatars. */
   overleafPresence?: ReactNode;
 };
+
+/** A toolbar button named and described by its tooltip. */
+function ToolbarButton({ label, ...button }: ButtonHTMLAttributes<HTMLButtonElement> & { label: ReactNode }) {
+  return <Tip label={label}><button type="button" {...button} /></Tip>;
+}
 
 const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarProps) {
   const { t } = useLingui();
@@ -129,27 +135,17 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
       </div>
       <div className="canvas-actions" data-tour="workspace-actions">
-        {props.onSplit && (
-          <Tip label={t`Split editor right`}>
-            <button type="button" onClick={props.onSplit}><Columns2 size={14} /></button>
-          </Tip>
-        )}
-        {props.onCloseSplit && (
-          <Tip label={t`Close split`}>
-            <button type="button" onClick={props.onCloseSplit}><PanelRightClose size={14} /></button>
-          </Tip>
-        )}
+        {props.onSplit && <ToolbarButton label={t`Split editor right`} onClick={props.onSplit}><Columns2 size={14} /></ToolbarButton>}
+        {props.onCloseSplit && <ToolbarButton label={t`Close split`} onClick={props.onCloseSplit}><PanelRightClose size={14} /></ToolbarButton>}
         {props.activeKind === "document" && (
           <>
-            {props.canInsert && <Tip label={t`Insert snippet or symbol (⌘⇧I)`}>
-              <button type="button" onClick={props.onInsert}><Omega size={14} /></button>
-            </Tip>}
-            {!props.overleafLinked && <Tip label={t`Editor comments`}>
-              <button type="button" className={props.commentCount ? "active" : ""} onClick={props.onComments}>
+            {props.canInsert && <ToolbarButton label={t`Insert snippet or symbol (⌘⇧I)`} onClick={props.onInsert}><Omega size={14} /></ToolbarButton>}
+            {!props.overleafLinked && (
+              <ToolbarButton label={t`Editor comments`} className={props.commentCount ? "active" : ""} onClick={props.onComments}>
                 <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
-              </button>
-            </Tip>}
+              </ToolbarButton>
+            )}
             {isCollabEnabled() && <Tip label={props.collabLive
               ? (props.collabPeers > 0
                 ? props.collabPeers === 1
@@ -244,21 +240,15 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </Tip>
         )}
         {props.overleafPresence}
-        {props.onPaperLookup && <Tip label={t`Paper lookup`}>
-          <button className="history-button" aria-label={t`Paper lookup`} onClick={props.onPaperLookup}>
-            <BookOpen size={15} />
-          </button>
-        </Tip>}
-        <Tip label={t`Git status and commit`}>
-          <button className="history-button" data-tour="git" onClick={props.onGit}>
-            <AnimatedProductIcon kind="git-branch" size={15} />
-          </button>
-        </Tip>
-        <Tip label={t`Project history`}>
-          <button className="history-button" onClick={props.onHistory}>
-            <AnimatedProductIcon kind="clock-back" size={15} />
-          </button>
-        </Tip>
+        {props.onPaperLookup && (
+          <ToolbarButton label={t`Paper lookup`} className="history-button" onClick={props.onPaperLookup}><BookOpen size={15} /></ToolbarButton>
+        )}
+        <ToolbarButton label={t`Git status and commit`} className="history-button" data-tour="git" onClick={props.onGit}>
+          <AnimatedProductIcon kind="git-branch" size={15} />
+        </ToolbarButton>
+        <ToolbarButton label={t`Project history`} className="history-button" onClick={props.onHistory}>
+          <AnimatedProductIcon kind="clock-back" size={15} />
+        </ToolbarButton>
       </div>
     </div>
   );
@@ -278,14 +268,11 @@ const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandler
  * draws. Optional handlers stay optional: their presence decides what renders.
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
-  const latest = useRef(props);
-  useEffect(() => {
-    latest.current = props;
-  });
+  const latest = useLatest(props);
   const stable = useMemo(() => Object.fromEntries(HANDLER_NAMES.map((name) => [
     name,
     (...args: unknown[]) => (latest.current[name] as ((...args: unknown[]) => void) | undefined)?.(...args),
-  ])) as Required<ForwardedHandlers>, []);
+  ])) as Required<ForwardedHandlers>, [latest]);
   const forwarded = Object.fromEntries(HANDLER_NAMES.map((name) => [name, props[name] ? stable[name] : undefined])) as ForwardedHandlers;
   return <CanvasToolbarView {...props} {...forwarded} />;
 }

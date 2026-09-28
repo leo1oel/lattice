@@ -68,10 +68,7 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
       const edge = clamp(latest * editorsWidth, minimumWidth, Math.max(minimumWidth, editorsWidth - minimumWidth));
       setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
       setSplitRatio(latest);
-    }, () => {
-      preferredSplitRatioRef.current = latest;
-      persistSplitRatio(latest);
-    });
+    }, () => commitSplitRatio(latest));
   };
   const beginColumnsPdfResize = (event: PointerEvent<HTMLDivElement>) => {
     let latest = columnsPdfRatio;

@@ -19,7 +19,7 @@ const isMarkdownMode = (mode: CanvasMode) => mode === "source" || mode === "spli
  */
 export function useMarkdownModeHandoff({
   activeFile, mode, markdownDocument, previewStart, primaryViewRef, primaryViewPathRef, previewViewportRef,
-  previewViewport, primaryView, activeFileRef, scrollSyncSuppressedRef, reconcileFromSourceRef, onViewMarkdownSource,
+  previewViewport, primaryView, latestRef, scrollSyncSuppressedRef, reconcileFromSourceRef, onViewMarkdownSource,
 }: {
   activeFile: string;
   mode: CanvasMode;
@@ -32,16 +32,16 @@ export function useMarkdownModeHandoff({
   /** State mirrors of the two viewports, so a remount re-runs the restore. */
   previewViewport: HTMLDivElement | null;
   primaryView: EditorView | null;
-  activeFileRef: RefObject<string>;
+  /** The canvas's newest props: a reveal is dropped once another file is open. */
+  latestRef: RefObject<{ activeFile: string }>;
   scrollSyncSuppressedRef: RefObject<boolean>;
   reconcileFromSourceRef: RefObject<(() => void) | null>;
   onViewMarkdownSource: () => void;
 }) {
   const handoffRef = useRef<MarkdownModeViewportHandoff | null>(null);
-  const restoreGenerationRef = useRef(0);
   const explicitViewInSourceTransitionRef = useRef(false);
-  const explicitViewInSourceGenerationRef = useRef(0);
-  const explicitViewInSourcePendingGenerationRef = useRef<number | null>(null);
+  /** The explicit reveal still in progress; a newer reveal or a mode/file change replaces it. */
+  const pendingRevealRef = useRef<object | null>(null);
   const identityRef = useRef({ path: activeFile, mode });
 
   /** The primary source view, when it is connected and showing this file. */
@@ -63,17 +63,13 @@ export function useMarkdownModeHandoff({
   }, [activeFile, livePrimaryView, markdownDocument, mode, previewViewportRef]);
 
   useLayoutEffect(() => {
-    const restoreGeneration = ++restoreGenerationRef.current;
     const markdownMode = isMarkdownMode(mode);
     const explicitViewInSource = Boolean(markdownDocument && markdownMode && explicitViewInSourceTransitionRef.current);
     const previousIdentity = identityRef.current;
     const modeOrPathChanged = previousIdentity.path !== activeFile || previousIdentity.mode !== mode;
     identityRef.current = { path: activeFile, mode };
     explicitViewInSourceTransitionRef.current = false;
-    if (modeOrPathChanged && !explicitViewInSource) {
-      explicitViewInSourceGenerationRef.current += 1;
-      explicitViewInSourcePendingGenerationRef.current = null;
-    }
+    if (modeOrPathChanged && !explicitViewInSource) pendingRevealRef.current = null;
     if (!markdownDocument || !markdownMode) {
       handoffRef.current = null;
       scrollSyncSuppressedRef.current = false;
@@ -87,7 +83,6 @@ export function useMarkdownModeHandoff({
     if (handoff && handoff.path === activeFile && handoff.mode !== mode && !explicitViewInSource) {
       scrollSyncSuppressedRef.current = true;
       const restore = () => {
-        if (restoreGenerationRef.current !== restoreGeneration) return false;
         const sourceView = livePrimaryView();
         const preview = previewViewportRef.current;
         const sourceSnapshot = handoff.source ?? handoff.preview;
@@ -112,12 +107,12 @@ export function useMarkdownModeHandoff({
         restoreFrame = window.requestAnimationFrame(restoreWhenReady);
       };
       restoreWhenReady();
-    } else if (!explicitViewInSource && explicitViewInSourcePendingGenerationRef.current == null) {
+    } else if (!explicitViewInSource && pendingRevealRef.current == null) {
       scrollSyncSuppressedRef.current = false;
     }
 
+    // Cancelling the pending frame ends this restore: nothing else schedules one.
     return () => {
-      restoreGenerationRef.current += 1;
       if (restoreFrame != null) window.cancelAnimationFrame(restoreFrame);
     };
     // The viewport states re-run the restore once a remounted pane exists.
@@ -128,15 +123,11 @@ export function useMarkdownModeHandoff({
     // differently, so once both panes exist, centre the same source-backed
     // block in each rather than carrying coordinates across.
     if (mode !== "split") explicitViewInSourceTransitionRef.current = true;
-    const revealGeneration = ++explicitViewInSourceGenerationRef.current;
-    explicitViewInSourcePendingGenerationRef.current = revealGeneration;
-    const revealIsCurrent = () => (
-      explicitViewInSourceGenerationRef.current === revealGeneration
-      && explicitViewInSourcePendingGenerationRef.current === revealGeneration
-      && activeFileRef.current === activeFile
-    );
+    const reveal = {};
+    pendingRevealRef.current = reveal;
+    const revealIsCurrent = () => pendingRevealRef.current === reveal && latestRef.current.activeFile === activeFile;
     const endReveal = () => {
-      explicitViewInSourcePendingGenerationRef.current = null;
+      pendingRevealRef.current = null;
       scrollSyncSuppressedRef.current = false;
     };
     scrollSyncSuppressedRef.current = true;
@@ -182,7 +173,7 @@ export function useMarkdownModeHandoff({
     };
     window.requestAnimationFrame(focusSource);
   }, [
-    activeFile, activeFileRef, mode, onViewMarkdownSource, previewStart, previewViewportRef, primaryViewRef,
+    activeFile, latestRef, mode, onViewMarkdownSource, previewStart, previewViewportRef, primaryViewRef,
     reconcileFromSourceRef, scrollSyncSuppressedRef,
   ]);
 

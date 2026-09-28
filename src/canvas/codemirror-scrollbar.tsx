@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 
 function thumbGeometry(scroller: HTMLElement) {
@@ -18,26 +18,24 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
   const [hasOverflow, setHasOverflow] = useState(false);
   const [scrolling, setScrolling] = useState(false);
 
-  const updateThumb = useCallback(() => {
-    const scroller = view?.scrollDOM;
-    const thumb = thumbRef.current;
-    if (!scroller || !thumb) return;
-    const { thumbHeight, travel, maxScroll } = thumbGeometry(scroller);
-    const overflow = maxScroll > 1;
-    setHasOverflow((current) => current === overflow ? current : overflow);
-    if (!overflow) return;
-    const top = 4 + Math.max(0, travel) * (scroller.scrollTop / maxScroll);
-    const nextHeight = `${thumbHeight}px`;
-    // The -2px keeps this thumb on the same line as every other Lattice
-    // scrollbar, which the shared stylesheet insets from the track's edge.
-    const nextTransform = `translate3d(-2px, ${top}px, 0)`;
-    if (thumb.style.height !== nextHeight) thumb.style.height = nextHeight;
-    if (thumb.style.transform !== nextTransform) thumb.style.transform = nextTransform;
-  }, [view]);
-
   useEffect(() => {
     const scroller = view?.scrollDOM;
     if (!scroller) return;
+    const updateThumb = () => {
+      const thumb = thumbRef.current;
+      if (!thumb) return;
+      const { thumbHeight, travel, maxScroll } = thumbGeometry(scroller);
+      const overflow = maxScroll > 1;
+      setHasOverflow((current) => current === overflow ? current : overflow);
+      if (!overflow) return;
+      const top = 4 + Math.max(0, travel) * (scroller.scrollTop / maxScroll);
+      const nextHeight = `${thumbHeight}px`;
+      // The -2px keeps this thumb on the same line as every other Lattice
+      // scrollbar, which the shared stylesheet insets from the track's edge.
+      const nextTransform = `translate3d(-2px, ${top}px, 0)`;
+      if (thumb.style.height !== nextHeight) thumb.style.height = nextHeight;
+      if (thumb.style.transform !== nextTransform) thumb.style.transform = nextTransform;
+    };
     let thumbFrame: number | null = null;
     let scrollingTimer: number | null = null;
     let lastScrollAt = 0;
@@ -79,7 +77,7 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
       if (scrollingTimer != null) window.clearTimeout(scrollingTimer);
       scrollingActiveRef.current = false;
     };
-  }, [updateThumb, view]);
+  }, [view]);
 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     dragRef.current = null;

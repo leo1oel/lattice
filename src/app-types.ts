@@ -246,12 +246,18 @@ export type CompileProject = (force?: boolean, sound?: boolean, options?: { cons
 export type ViewRestoreRequest = { path: string; cursor: number; scrollTop: number; id: string };
 /** One-shot requests App hands the canvas; each is answered once and settled by its id. */
 export type CanvasRequests = {
+  /** Jump the editor holding `path` to a line. */
   navigation: EditorNavigation | null;
-  viewRestore: ViewRestoreRequest | null;
-  envRename: { newName: string; id: string } | null;
-  wrapEnv: { name: string; id: string } | null;
-  citeInsert: { key: string; command: InsertSymbolCommand; id: string } | null;
-  figureDrop: FigureDropRequest | null;
+  /** Put a reopened file's cursor and scroll back where they were. */
+  restore: ViewRestoreRequest | null;
+  /** Rename the environment around the caret. */
+  rename: { newName: string; id: string } | null;
+  /** Wrap the selection in a new environment. */
+  wrap: { name: string; id: string } | null;
+  /** Insert `\cite{key}`-style commands at the caret. */
+  cite: { key: string; command: InsertSymbolCommand; id: string } | null;
+  /** Insert imported figures where they were dropped (or at the caret). */
+  figure: FigureDropRequest | null;
 };
 
 // ---- Overleaf bridge ----------------------------------------------------

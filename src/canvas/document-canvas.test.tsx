@@ -105,7 +105,7 @@ const HANDLERS = [
 
 /** The canvas request bundle with only `pending` set. */
 function pending(requests: Partial<CanvasProps["requests"]> = {}): CanvasProps["requests"] {
-  return { navigation: null, viewRestore: null, envRename: null, wrapEnv: null, citeInsert: null, figureDrop: null, ...requests };
+  return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, ...requests };
 }
 
 function baseProps(): CanvasProps {
@@ -188,16 +188,16 @@ describe("DocumentCanvas / mode", () => {
     const { container, props, rerenderWith } = renderCanvas({
       mode: "pdf",
       source: "first\nsecond\ntarget\nlast\n",
-      requests: pending({ viewRestore }),
+      requests: pending({ restore: viewRestore }),
     });
-    rerenderWith({ mode: "split", requests: pending({ viewRestore, navigation: { path: "main.tex", line: 3, id: "jump" } }) });
+    rerenderWith({ mode: "split", requests: pending({ restore: viewRestore, navigation: { path: "main.tex", line: 3, id: "jump" } }) });
     await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("jump"));
     const view = await primarySourceView(container);
     expect(view.state.selection.main.head).toBe(13);
     // App settles requests and may supply a new settle callback on its next
     // render. An unconsumed restore must not move the cursor then.
     const restoreSettled = vi.mocked(props.onRequestHandled).mock.calls.some(([id]) => id === "saved");
-    rerenderWith({ mode: "split", requests: pending({ viewRestore: restoreSettled ? null : viewRestore }), onRequestHandled: vi.fn() });
+    rerenderWith({ mode: "split", requests: pending({ restore: restoreSettled ? null : viewRestore }), onRequestHandled: vi.fn() });
     await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
     expect(view.state.selection.main.head).toBe(13);
     expect(view.scrollDOM.scrollTop).not.toBe(450);
@@ -209,7 +209,7 @@ describe("DocumentCanvas / mode", () => {
     async (navigation) => {
       const { container, props, rerenderWith } = renderCanvas({ source: "first\nsecond\ntarget\n" });
       const view = await primarySourceView(container);
-      rerenderWith({ requests: pending({ navigation, viewRestore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" } }) });
+      rerenderWith({ requests: pending({ navigation, restore: { path: "main.tex", cursor: 8, scrollTop: 120, id: "saved" } }) });
       await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("saved"));
       expect(view.state.selection.main.head).toBe(8);
       expect(view.scrollDOM.scrollTop).toBe(120);
@@ -311,11 +311,15 @@ describe("DocumentCanvas / mode", () => {
     { mode: "source", editors: 1, pdf: false, separators: [] },
     { mode: "pdf", editors: 0, pdf: true, separators: [] },
     { mode: "split", editors: 1, pdf: true, separators: ["Resize editor and PDF preview"] },
+    // The separator is the only label a screen reader gets for the pane it moves,
+    // so it names whatever the open document actually previews.
+    { mode: "split", editors: 1, pdf: false, separators: ["Resize editor and Markdown preview"], activeFile: "notes.md" },
+    { mode: "split", editors: 1, pdf: false, separators: ["Resize editor and asset preview"], activeFile: "notes.md", activeAsset: imageAsset },
     // Two editors and no project preview, until columns adds it with its own resizer.
     { mode: "dual", editors: 2, pdf: false, separators: ["Resize dual source panes"] },
     { mode: "columns", editors: 2, pdf: true, separators: ["Resize dual source panes", "Resize PDF pane"] },
-  ] as const)("lays out $mode mode with $editors editors, PDF: $pdf", async ({ mode, editors, pdf, separators }) => {
-    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "\\section{Appendix}\n" });
+  ] as const)("lays out $mode mode with $editors editors, PDF: $pdf, separators: $separators", async ({ mode, editors, pdf, separators, ...document }) => {
+    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "\\section{Appendix}\n", ...document });
 
     await waitFor(() => expect(container.querySelectorAll(".cm-editor")).toHaveLength(editors));
     await waitFor(() => expect(Boolean(screen.queryByTestId("pdf-preview"))).toBe(pdf));
@@ -337,17 +341,6 @@ describe("DocumentCanvas / mode", () => {
     expect(preview.getAttribute("srcdoc")).not.toContain("data:text/html");
     expect(preview.getAttribute("srcdoc")).toContain("window.inlinePlotReady=true");
     expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
-  });
-
-  it("names the resizer after whatever is actually being previewed", async () => {
-    // The separator is the only label a screen reader gets for the pane it
-    // moves, and the pane's contents depend on the open document's kind.
-    const { rerenderWith } = renderCanvas({ mode: "split", activeFile: "notes.md" });
-
-    expect(screen.getByRole("separator", { name: "Resize editor and Markdown preview" })).toBeInTheDocument();
-
-    rerenderWith({ activeAsset: imageAsset });
-    expect(screen.getByRole("separator", { name: "Resize editor and asset preview" })).toBeInTheDocument();
   });
 
   it("places a Paper beside an editor on either side", async () => {
@@ -380,24 +373,20 @@ describe("DocumentCanvas / mode", () => {
 });
 
 describe("DocumentCanvas / editor for the open document", () => {
+  const surfaces = ["board-editor", "spreadsheet-editor", "visual-markdown-editor", "pdf-preview"];
+
   it.each([
-    { activeFile: "diagram.tldr", testId: "board-editor" },
-    { activeFile: "data.lattice-sheet", testId: "spreadsheet-editor" },
-  ])("mounts the $testId for $activeFile", async ({ activeFile, testId }) => {
-    const { container } = renderCanvas({ activeFile, source: "{}" });
+    // Whole-file editors are handed their document; plain LaTeX previews the project's compiled PDF.
+    { mode: "source", activeFile: "diagram.tldr", testId: "board-editor", beside: false, data: { path: "diagram.tldr", source: "{}" } },
+    { mode: "source", activeFile: "data.lattice-sheet", testId: "spreadsheet-editor", beside: false, data: { path: "data.lattice-sheet", source: "{}" } },
+    { mode: "split", activeFile: "notes.md", testId: "visual-markdown-editor", beside: true, data: {} },
+    { mode: "pdf", activeFile: "main.tex", testId: "pdf-preview", beside: false, data: { url: "blob:project.pdf" } },
+  ] as const)("mounts only the $testId for $activeFile in $mode mode, source editor beside: $beside", async ({ mode, activeFile, testId, beside, data }) => {
+    const { container } = renderCanvas({ mode, activeFile, source: "{}", pdfUrl: "blob:project.pdf" });
 
-    const editor = await screen.findByTestId(testId);
-    expect(editor.dataset.path).toBe(activeFile);
-    expect(editor.dataset.source).toBe("{}");
-    expect(sourceEditor(container)).toBeNull();
-  });
-
-  it("mounts the visual Markdown editor for a .md file, beside its source", async () => {
-    const { container } = renderCanvas({ mode: "split", activeFile: "notes.md", source: "# Notes\n" });
-
-    expect(await screen.findByTestId("visual-markdown-editor")).toBeInTheDocument();
-    await waitFor(() => expect(sourceEditor(container)).not.toBeNull());
-    expect(screen.queryByTestId("pdf-preview")).toBeNull();
+    expect({ ...(await screen.findByTestId(testId)).dataset }).toMatchObject(data);
+    await waitFor(() => expect(Boolean(sourceEditor(container))).toBe(beside));
+    for (const other of surfaces.filter((id) => id !== testId)) expect(screen.queryByTestId(other)).toBeNull();
   });
 
   it("places a paper's visual editing warning above its generated title", async () => {
@@ -469,17 +458,20 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(container.querySelector("[data-editor-pane='primary'] [data-testid='board-editor']")).not.toBeNull();
     await waitFor(() => expect(container.querySelector(".cm-editor")).not.toBeNull());
   });
-
-  it("previews the compiled project PDF for a plain LaTeX file", async () => {
-    renderCanvas({ mode: "pdf", activeFile: "main.tex", pdfUrl: "blob:project.pdf" });
-
-    expect((await screen.findByTestId("pdf-preview")).dataset.url).toBe("blob:project.pdf");
-    expect(screen.queryByTestId("visual-markdown-editor")).toBeNull();
-  });
 });
 
 describe("DocumentCanvas / split ratio", () => {
   const separator = () => screen.getByRole("separator", { name: "Resize editor and PDF preview" });
+
+  /** Render `mode` with a second file open and the split measuring `bounds`; `offset` reads `label`'s boundary resistance. */
+  function renderGrip(mode: CanvasProps["mode"], label: string, bounds: Partial<DOMRect>) {
+    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
+    const split = container.querySelector<HTMLElement>(".split-canvas")!;
+    vi.spyOn(split, "getBoundingClientRect").mockReturnValue(bounds as DOMRect);
+    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
+    const offset = () => Number.parseFloat(split.style.getPropertyValue(property));
+    return { split, property, offset, grip: screen.getByRole("separator", { name: label }) };
+  }
 
   it.each([
     { mode: "split", label: "Resize editor and PDF preview", inside: 700, saved: 1099 / 1599, key: SPLIT_RATIO_KEY },
@@ -487,12 +479,7 @@ describe("DocumentCanvas / split ratio", () => {
     { mode: "columns", label: "Resize dual source panes", inside: 600, saved: 0.75, key: SPLIT_RATIO_KEY },
     { mode: "columns", label: "Resize PDF pane", inside: 1100, saved: 0.22, key: "lattice.columns-pdf-ratio.v1" },
   ] as const)("adds boundary-only resistance to $mode / $label without saving the offset", ({ mode, label, inside, saved, key }) => {
-    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
-    const split = container.querySelector<HTMLElement>(".split-canvas")!;
-    vi.spyOn(split, "getBoundingClientRect").mockReturnValue({ left: 100, right: 1700, width: 1600 } as DOMRect);
-    const grip = screen.getByRole("separator", { name: label });
-    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
-    const offset = () => Number.parseFloat(split.style.getPropertyValue(property));
+    const { property, offset, grip } = renderGrip(mode, label, { left: 100, right: 1700, width: 1600 });
     fireEvent.pointerDown(grip, { clientX: inside });
     fireEvent.pointerMove(window, { clientX: inside });
     expect(offset()).toBeCloseTo(0);
@@ -554,14 +541,10 @@ describe("DocumentCanvas / split ratio", () => {
     { mode: "dual", label: "Resize dual source panes", width: 800, x: 200, direction: -1 },
     { mode: "columns", label: "Resize PDF pane", width: 1200, x: 760, direction: 1 },
   ] as const)("respects pixel minimums before ratio limits in $mode", ({ mode, label, width, x, direction }) => {
-    const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
-    const split = container.querySelector<HTMLElement>(".split-canvas")!;
-    vi.spyOn(split, "getBoundingClientRect").mockReturnValue({ left: 0, right: width, width } as DOMRect);
-    const grip = screen.getByRole("separator", { name: label });
+    const { split, property, offset, grip } = renderGrip(mode, label, { left: 0, right: width, width });
     fireEvent.pointerDown(grip, { clientX: width / 2 });
     fireEvent.pointerMove(window, { clientX: x });
-    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
-    expect(Number.parseFloat(split.style.getPropertyValue(property)) * direction).toBeGreaterThan(0);
+    expect(offset() * direction).toBeGreaterThan(0);
     fireEvent.blur(window);
     expect(split.style.getPropertyValue(property)).toBe("0px");
     expect(document.body).not.toHaveClass("resizing-split");

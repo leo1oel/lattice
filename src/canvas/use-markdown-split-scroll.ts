@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
-import { whenIdle } from "../app/effect-helpers";
+import { clearTimer, restartTimer, whenIdle, type TimerRef } from "../app/effect-helpers";
 import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, type SourceAnchor } from "./markdown-preview-sync";
 
 type Side = "editor" | "preview";
@@ -37,23 +37,22 @@ export function useMarkdownSplitScroll({
       editor: { scroller: view.scrollDOM, ignore: false, frame: null as number | null, frameMeasure: false },
       preview: { scroller: preview as HTMLElement, ignore: false, frame: null as number | null, frameMeasure: false },
     };
-    let settledSyncTimer: number | null = null;
-    let settledSyncOwner: Side = "editor";
+    const settledSyncTimer: TimerRef = { current: null };
     let activeScrollOwner: Side | null = null;
-    let scrollOwnerTimer: number | null = null;
+    const scrollOwnerTimer: TimerRef = { current: null };
     let anchorsDirty = true;
     const anchorMaps: Record<Side, Array<{ from: number; to: number }>> = { editor: [], preview: [] };
     let cachedAnchorRanges: SourceAnchor[] = [];
     const scrollSyncBlocked = () => suppressedRef.current || viewportLockRef.current !== 0;
     const holdScrollOwnership = (owner: Side) => {
       activeScrollOwner = owner;
-      if (scrollOwnerTimer != null) window.clearTimeout(scrollOwnerTimer);
-      scrollOwnerTimer = window.setTimeout(() => {
-        scrollOwnerTimer = null;
+      restartTimer(scrollOwnerTimer, 200, () => {
         activeScrollOwner = null;
-      }, 200);
+      });
     };
-    const rebuildAnchorPairs = () => {
+    /** Remeasure the anchor maps if the preview changed since they were built. */
+    const refreshAnchors = () => {
+      if (!anchorsDirty) return;
       const previewTop = preview.getBoundingClientRect().top;
       const pairs: Array<{ editor: number; preview: number }> = [];
       cachedAnchorRanges = sourceAnchors(preview);
@@ -70,17 +69,7 @@ export function useMarkdownSplitScroll({
       anchorMaps.preview = pairs.map((pair) => ({ from: pair.preview, to: pair.editor }));
       anchorsDirty = false;
     };
-    const refreshAnchorsIfNeeded = () => {
-      if (anchorsDirty) rebuildAnchorPairs();
-    };
-    // Measuring every anchor is O(document): a dropped frame on the scroll
-    // path. Rebuild the map in idle time once the DOM quiets after a
-    // publication, so follows interpolate from a fresh cache.
     let cancelAnchorPrebuild = () => {};
-    const scheduleAnchorPrebuild = () => {
-      cancelAnchorPrebuild();
-      cancelAnchorPrebuild = whenIdle(refreshAnchorsIfNeeded, 1_000, 200);
-    };
     /** Move the other pane so the block centred in `source` is centred there too. */
     const follow = (source: Side, measureAnchors = true) => {
       const from = panes[source];
@@ -90,7 +79,7 @@ export function useMarkdownSplitScroll({
         return;
       }
       if (scrollSyncBlocked() || activeScrollOwner === otherSide(source)) return;
-      if (measureAnchors) refreshAnchorsIfNeeded();
+      if (measureAnchors) refreshAnchors();
       const fromHalf = from.scroller.clientHeight / 2;
       const toHalf = to.scroller.clientHeight / 2;
       const targetCenter = interpolateScrollAnchors(
@@ -114,10 +103,10 @@ export function useMarkdownSplitScroll({
     // partially visible block is left alone, so this never fights the user's
     // own preview scrolling.
     let lastRevealHead = view.state.selection.main.head;
-    let revealTimer: number | null = null;
+    const revealTimer: TimerRef = { current: null };
     const revealPreviewAtCursor = () => {
       if (scrollSyncBlocked()) return;
-      refreshAnchorsIfNeeded();
+      refreshAnchors();
       const offset = view.state.selection.main.head - previewStart;
       let best: SourceAnchor | null = null;
       for (const range of cachedAnchorRanges) {
@@ -141,8 +130,7 @@ export function useMarkdownSplitScroll({
       lastRevealHead = head;
       // Only the user's own cursor motion reveals, not restores on an unfocused editor.
       if (!view.hasFocus) return;
-      if (revealTimer != null) window.clearTimeout(revealTimer);
-      revealTimer = window.setTimeout(revealPreviewAtCursor, 80);
+      restartTimer(revealTimer, 80, revealPreviewAtCursor);
     };
 
     // Trackpad input can deliver several scroll events per paint: coalesce each
@@ -166,13 +154,8 @@ export function useMarkdownSplitScroll({
     // one freshly measured reconciliation runs after the gesture settles.
     // Smaller documents may measure lazily on the scroll path itself.
     const followPeer = (owner: Side) => {
-      settledSyncOwner = owner;
       scheduleFollow(owner, false);
-      if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
-      settledSyncTimer = window.setTimeout(() => {
-        settledSyncTimer = null;
-        follow(settledSyncOwner);
-      }, peerScrollSettleMs);
+      restartTimer(settledSyncTimer, peerScrollSettleMs, () => follow(owner));
     };
 
     // The one-shot ignore flag absorbs the normal reciprocal event; ownership
@@ -209,9 +192,12 @@ export function useMarkdownSplitScroll({
     ];
     for (const [target, type, listener, options] of listeners) target?.addEventListener(type, listener, options);
     const markAnchorsDirty = () => {
-      // Labels change after every settled visual edit; remeasure once mutations stop.
+      // Labels change after every settled visual edit. Measuring every anchor is
+      // O(document), a dropped frame on the scroll path: rebuild the map in idle
+      // time once mutations stop, so follows interpolate from a fresh cache.
       anchorsDirty = true;
-      scheduleAnchorPrebuild();
+      cancelAnchorPrebuild();
+      cancelAnchorPrebuild = whenIdle(refreshAnchors, 1_000, 200);
     };
     const observer = new MutationObserver(markAnchorsDirty);
     observer.observe(preview, { attributes: true, attributeFilter: ["data-source-offset", "data-source-end-offset"], childList: true, subtree: true });
@@ -224,12 +210,12 @@ export function useMarkdownSplitScroll({
     return () => {
       cursorRevealRef.current = null;
       if (reconcileRef.current === reconcilePreviewFromSource) reconcileRef.current = null;
-      if (revealTimer != null) window.clearTimeout(revealTimer);
+      clearTimer(revealTimer);
       for (const pane of Object.values(panes)) {
         if (pane.frame != null) window.cancelAnimationFrame(pane.frame);
       }
-      if (settledSyncTimer != null) window.clearTimeout(settledSyncTimer);
-      if (scrollOwnerTimer != null) window.clearTimeout(scrollOwnerTimer);
+      clearTimer(settledSyncTimer);
+      clearTimer(scrollOwnerTimer);
       cancelAnchorPrebuild();
       observer.disconnect();
       resizeObserver.disconnect();

@@ -252,10 +252,6 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
 
   // The track insets both ends, and the thumb travels what remains of it.
   const thumbTravel = Math.max(0, Math.max(0, scrollGeometry.height - EXTERNAL_SCROLLBAR_TRACK_INSET * 2) - scrollGeometry.thumbHeight);
-  const scrollToThumbOffset = (thumbOffset: number) => {
-    if (thumbTravel <= 0) return;
-    setScrollTop(scrollGeometry.maxScrollTop * (Math.min(Math.max(0, thumbOffset), thumbTravel) / thumbTravel));
-  };
   const endScrollbarDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current?.pointerId !== event.pointerId) return;
     dragRef.current = null;
@@ -306,9 +302,10 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
           if (!scrollGeometry.overflow) return;
           event.preventDefault();
           const isThumb = event.target instanceof HTMLElement && event.target.dataset.slot === "scroll-area-thumb";
-          if (!isThumb) {
+          if (!isThumb && thumbTravel > 0) {
             const rect = event.currentTarget.getBoundingClientRect();
-            scrollToThumbOffset(event.clientY - rect.top - EXTERNAL_SCROLLBAR_TRACK_INSET - scrollGeometry.thumbHeight / 2);
+            const thumbOffset = clamp(event.clientY - rect.top - EXTERNAL_SCROLLBAR_TRACK_INSET - scrollGeometry.thumbHeight / 2, 0, thumbTravel);
+            setScrollTop(scrollGeometry.maxScrollTop * (thumbOffset / thumbTravel));
           }
           dragRef.current = {
             pointerId: event.pointerId,

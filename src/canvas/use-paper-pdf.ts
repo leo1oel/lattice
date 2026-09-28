@@ -24,11 +24,6 @@ type PaperPdfView = PaperPdfSource & {
 
 type PaperLink = Pick<PaperSummary, "arxivId" | "url">;
 
-function normalizedArxivId(value: string): string {
-  const candidate = value.trim();
-  return /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(candidate) ? candidate : "";
-}
-
 /** `value` as an http(s) URL; anything malformed or unsafe to hand the OS opener is null. */
 function httpUrl(value: string | null | undefined): URL | null {
   try {
@@ -40,11 +35,10 @@ function httpUrl(value: string | null | undefined): URL | null {
 }
 
 function paperPdfSource(paper: PaperLink): PaperPdfSource | null {
-  const arxivId = normalizedArxivId(paper.arxivId);
-  if (arxivId) {
-    const url = `https://arxiv.org/pdf/${arxivId.split("/").map(encodeURIComponent).join("/")}`;
-    return { key: url, url, fileName: `${arxivId.replace("/", "-")}.pdf`, generic: false };
-  }
+  // With no URL beside it, paperPdfUrl answers only for a well-formed arXiv id.
+  const arxivId = paper.arxivId.trim();
+  const arxivUrl = paperPdfUrl({ arxivId });
+  if (arxivUrl) return { key: arxivUrl, url: arxivUrl, fileName: `${arxivId.replace("/", "-")}.pdf`, generic: false };
   const parsed = httpUrl(paperPdfUrl(paper));
   if (!parsed?.pathname.toLocaleLowerCase().endsWith(".pdf")) return null;
   let fileName = parsed.pathname.split("/").at(-1) || "paper.pdf";
@@ -115,13 +109,11 @@ export function usePaperPdf({
     const viewport = previewViewportRef.current;
     if (!quoteFallback || quoteFallback.paperId !== activePaperId || quoteFallback.path !== activeFile || !viewport) return;
     let frame = 0;
-    let matched = false;
     const locate = () => {
-      if (matched) return;
       const root = viewport.querySelector<HTMLElement>(".ProseMirror") ?? viewport;
       const range = sourceQuoteDomRange(root, quoteFallback.quote.first, quoteFallback.quote.last);
       if (!range) return;
-      matched = true;
+      // Disconnecting also drops queued records, so a match runs this at most once.
       observer.disconnect();
       frame = requestAnimationFrame(() => {
         range.startContainer.parentElement?.scrollIntoView({ block: "center" });

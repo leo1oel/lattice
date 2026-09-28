@@ -8,8 +8,8 @@ import { paperDropExtension } from "../editor/paper-drop";
 import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
-import type { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import type { Extension, TransactionSpec } from "@codemirror/state";
+import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperSourceCitation } from "../papers/paper-source";
 import { latex } from "codemirror-lang-latex";
 import { hueFromColorHex, overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor } from "../overleaf/overleaf-cursors";
@@ -53,6 +53,7 @@ import {
   PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
+import { useLatest } from "../app/effect-helpers";
 import type { CollabPeer, EditorCollabBinding, EditorCollabSession } from "../collab/collab-session";
 import { mergeTextIntoYText, peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
 import { collabEditorExtensions } from "../collab/collab-editor";
@@ -116,6 +117,12 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
   } catch {
     return null;
   }
+}
+
+/** Apply `spec` to `view`, scrolling the result into view, and hand the editor focus back. */
+function editAndFocus(view: EditorView, spec: TransactionSpec) {
+  view.dispatch({ ...spec, scrollIntoView: true });
+  view.focus();
 }
 
 /** Hand App `value` through `register` while this canvas is mounted with both. */
@@ -285,18 +292,15 @@ export function DocumentCanvas(props: {
     onRequestHandled,
   } = props;
   const {
-    navigation: editorNavigation, viewRestore, envRename: envRenameRequest, wrapEnv: wrapEnvRequest,
-    citeInsert: citeInsertRequest, figureDrop: figureDropRequest,
+    navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
+    cite: citeInsertRequest, figure: figureDropRequest,
   } = props.requests;
   const { i18n, t } = useLingui();
   const editorCommentLocalization = useMemo<EditorCommentLocalization>(() => ({
     locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
     reopen: t`Reopen`, resolve: t`Resolve comment`, reply: t`Reply`,
   }), [i18n.locale, t]);
-  const editorCommentLocalizationRef = useRef(editorCommentLocalization);
-  useEffect(() => {
-    editorCommentLocalizationRef.current = editorCommentLocalization;
-  }, [editorCommentLocalization]);
+  const editorCommentLocalizationRef = useLatest(editorCommentLocalization);
   // The newest props for CodeMirror extensions and window listeners, so those
   // never rebuild for them; also the LaTeX editors' live data (citations, macros).
   const latestRef = useRef(props);
@@ -395,10 +399,7 @@ export function DocumentCanvas(props: {
   const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number; pane: EditorPaneId } | null>(null);
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
-  const commentComposerRef = useRef(commentComposer);
-  useLayoutEffect(() => {
-    commentComposerRef.current = commentComposer;
-  }, [commentComposer]);
+  const commentComposerRef = useLatest(commentComposer);
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
@@ -407,8 +408,6 @@ export function DocumentCanvas(props: {
   const previewOwner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
   if (previewOwner && previewOwner !== previewIdentity) setPreviewIdentity(previewOwner);
 
-  const activeFileRef = useRef(activeFile);
-  activeFileRef.current = activeFile;
   const { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView } = useMarkdownModeHandoff({
     activeFile,
     mode: props.mode,
@@ -419,7 +418,7 @@ export function DocumentCanvas(props: {
     previewViewportRef: markdownPreviewViewportRef,
     previewViewport: markdownPreviewViewport,
     primaryView: primaryScrollbarView,
-    activeFileRef,
+    latestRef,
     scrollSyncSuppressedRef: markdownScrollSyncSuppressedRef,
     reconcileFromSourceRef: markdownPreviewReconcileFromSourceRef,
     onViewMarkdownSource: props.onViewMarkdownSource,
@@ -434,10 +433,7 @@ export function DocumentCanvas(props: {
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
   const commentsForSecondaryFile = useMemo(() => editorComments.filter((comment) => comment.path === secondaryFile), [secondaryFile, editorComments]);
-  const commentsForSecondaryFileRef = useRef(commentsForSecondaryFile);
-  useLayoutEffect(() => {
-    commentsForSecondaryFileRef.current = commentsForSecondaryFile;
-  }, [commentsForSecondaryFile]);
+  const commentsForSecondaryFileRef = useLatest(commentsForSecondaryFile);
 
   // Comments rebased into the preview's own coordinates: it may render a slice
   // of the file, and resolves anchors against the text it was given.
@@ -489,15 +485,12 @@ export function DocumentCanvas(props: {
   const [secondaryBindingVersion, setSecondaryBindingVersion] = useState(0);
   useEffect(() => collabSession?.subscribeSecondaryBindingChanges?.(() => setSecondaryBindingVersion((version) => version + 1)), [collabSession]);
   useEffect(() => {
+    if (!secondaryFile) collabSession?.releaseSecondaryPath?.();
+    if (!collabSession || !collabReady || !secondaryFile || !collabSession.openSecondaryPath) return;
     let disposed = false;
-    if (!collabSession || !collabReady || !secondaryFile || !collabSession.openSecondaryPath) {
-      if (!secondaryFile) collabSession?.releaseSecondaryPath?.();
-      return () => { disposed = true; };
-    }
-    void collabSession.openSecondaryPath(secondaryFile).then((binding) => {
+    // A failed open leaves the pane unbound, exactly like a session with no binding for it.
+    void collabSession.openSecondaryPath(secondaryFile).catch(() => null).then((binding) => {
       if (!disposed) setSecondaryCollabBinding(binding ? { session: collabSession, path: secondaryFile, binding } : null);
-    }).catch(() => {
-      if (!disposed) setSecondaryCollabBinding(null);
     });
     return () => { disposed = true; };
   }, [collabReady, collabSession, secondaryBindingVersion, secondaryFile]);
@@ -606,28 +599,30 @@ export function DocumentCanvas(props: {
     latestRef.current.onViewState(path, { cursor: head, scrollTop: view.scrollDOM.scrollTop });
   }, []);
   const onPrimaryChange = useCallback((value: string) => latestRef.current.setSource(value), []);
-  /** Publish the focused pane's selection and caret after an editor update. */
-  const reportPaneUpdate = useCallback((pane: EditorPaneId, viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
+  /** Publish the focused pane's selection, caret and selection toolbar after an editor update of `path`. */
+  const reportPaneUpdate = useCallback((pane: EditorPaneId, { state, view }: ViewUpdate, path: string | null) => {
     if (focusedPaneRef.current !== pane) return false;
-    const range = viewUpdate.state.selection.main;
+    const range = state.selection.main;
     lastInsertionPositionRef.current = range.head;
-    const nextSelection = range.empty ? "" : viewUpdate.state.sliceDoc(range.from, range.to);
+    const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
     latestRef.current.setSelection(nextSelection);
     setSelectedText(nextSelection);
+    if (path) {
+      updateSelectionToolbar(view, path);
+      reportEditorPosition(view, path);
+    }
     return true;
-  }, []);
-  const onPrimaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
+  }, [reportEditorPosition, updateSelectionToolbar]);
+  const onPrimaryUpdate = useCallback((viewUpdate: ViewUpdate) => {
     const completionActive = completionStatus(viewUpdate.state) !== null;
     if (completionActiveRef.current !== completionActive) {
       completionActiveRef.current = completionActive;
       latestRef.current.onCompletionActiveChange(completionActive);
     }
-    if (!reportPaneUpdate("primary", viewUpdate)) return;
+    if (!reportPaneUpdate("primary", viewUpdate, latestRef.current.activeFile)) return;
     if (viewUpdate.state.selection.main.empty) setCommentComposer(null);
-    updateSelectionToolbar(viewUpdate.view, latestRef.current.activeFile);
-    reportEditorPosition(viewUpdate.view, latestRef.current.activeFile);
     markdownCursorRevealRef.current?.();
-  }, [reportEditorPosition, reportPaneUpdate, updateSelectionToolbar]);
+  }, [reportPaneUpdate]);
   useEffect(() => () => {
     if (completionActiveRef.current) latestRef.current.onCompletionActiveChange(false);
   }, []);
@@ -644,14 +639,10 @@ export function DocumentCanvas(props: {
     }
     latestRef.current.setSecondarySource(value);
   }, [secondaryCollabBinding, secondarySource]);
-  const onSecondaryUpdate = useCallback((viewUpdate: { state: EditorView["state"]; view: EditorView }) => {
-    if (!reportPaneUpdate("secondary", viewUpdate)) return;
-    const path = latestRef.current.secondaryFile;
-    if (path) {
-      updateSelectionToolbar(viewUpdate.view, path);
-      reportEditorPosition(viewUpdate.view, path);
-    }
-  }, [reportEditorPosition, reportPaneUpdate, updateSelectionToolbar]);
+  const onSecondaryUpdate = useCallback(
+    (viewUpdate: ViewUpdate) => reportPaneUpdate("secondary", viewUpdate, latestRef.current.secondaryFile),
+    [reportPaneUpdate],
+  );
 
   useEffect(() => {
     let frame: number | null = null;
@@ -746,12 +737,7 @@ export function DocumentCanvas(props: {
     const wrap = SELECTION_WRAPS[action](value);
     if (!wrap) return;
     const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
-    view.dispatch({
-      changes: { from: edit.from, to: edit.to, insert: edit.insert },
-      selection: { anchor: edit.cursorFrom, head: edit.cursorTo },
-      scrollIntoView: true,
-    });
-    view.focus();
+    editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
     updateSelectionToolbar(view, owner.path);
   }, [activeFile, dismissSelectionToolbar, props.editorEditable, props.secondaryEditorEditable, updateSelectionToolbar]);
 
@@ -871,13 +857,8 @@ export function DocumentCanvas(props: {
     const from = view.state.selection.main.head;
     const { text, stops } = expandSnippetPlaceholders(insert);
     const anchor = from + (stops[0] ? stops[0].from : Math.min(cursorOffset, text.length));
-    view.dispatch({
-      changes: { from, insert: text },
-      selection: { anchor, head: stops[0] ? from + stops[0].to : anchor },
-      scrollIntoView: true,
-    });
     setSnippetStops(stops.length > 1 ? { base: from, stops } : null);
-    view.focus();
+    editAndFocus(view, { changes: { from, insert: text }, selection: { anchor, head: stops[0] ? from + stops[0].to : anchor } });
   }, []);
   const insertSnippet = useCallback((snippet: InsertSnippet) => insertTextAtCursor(snippet.insert, snippet.cursorOffset), [insertTextAtCursor]);
   const insertFigures = useCallback(async (
@@ -893,14 +874,9 @@ export function DocumentCanvas(props: {
     const position = view.state.doc.lineAt(clamp(cursor, 0, view.state.doc.length)).from;
     if (targetPath.toLocaleLowerCase().endsWith(".md")) {
       const edit = markdownAssetInsertion(view.state.doc.toString(), position, paths, targetPath);
-      view.dispatch({
-        changes: { from: position, insert: edit.text },
-        selection: { anchor: position + edit.cursorOffset },
-        scrollIntoView: true,
-      });
       editorViewRef.current = view;
       onFocusPane(pane);
-      view.focus();
+      editAndFocus(view, { changes: { from: position, insert: edit.text }, selection: { anchor: position + edit.cursorOffset } });
       return;
     }
     if (!targetPath.toLocaleLowerCase().endsWith(".tex")) return;
@@ -919,8 +895,7 @@ export function DocumentCanvas(props: {
     const edit = latexFigureInsertion(source, pending.position, pending.paths, options);
     pendingFigureCursorRef.current = { pane: pending.pane, cursor: pending.position + edit.cursorOffset };
     const nextSource = `${source.slice(0, pending.position)}${edit.text}${source.slice(pending.position)}`;
-    if (pending.pane === "secondary") setSecondarySource(nextSource);
-    else setSource(nextSource);
+    (pending.pane === "secondary" ? setSecondarySource : setSource)(nextSource);
     setFigureInsertPending(null);
   }, [editorSource, figureInsertPending, secondarySource, setSecondarySource, setSource]);
   useEffect(() => {
@@ -932,8 +907,7 @@ export function DocumentCanvas(props: {
     pendingFigureCursorRef.current = null;
     editorViewRef.current = view;
     onFocusPane(pendingCursor.pane);
-    view.dispatch({ selection: { anchor: pendingCursor.cursor }, scrollIntoView: true });
-    view.focus();
+    editAndFocus(view, { selection: { anchor: pendingCursor.cursor } });
   }, [editorSource, onFocusPane, secondarySource]);
   useEffect(() => {
     const request = editorNavigation;
@@ -1023,16 +997,28 @@ export function DocumentCanvas(props: {
     if (!request) return;
     void insertFigures(request.paths, { x: request.clientX, y: request.clientY }, request.pane).finally(() => onRequestHandled(request.id));
   }, [figureDropRequest, insertFigures, onRequestHandled]);
+  // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
   useEffect(() => {
-    const request = citeInsertRequest;
     const view = editorViewRef.current;
-    if (!request || !view) return;
-    const from = view.state.selection.main.head;
-    const insert = `\\${request.command}{${request.key}}`;
-    view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true });
-    view.focus();
-    onRequestHandled(request.id);
-  }, [citeInsertRequest, editorSource, onRequestHandled]);
+    if (!view) return;
+    if (citeInsertRequest) {
+      const from = view.state.selection.main.head;
+      const insert = `\\${citeInsertRequest.command}{${citeInsertRequest.key}}`;
+      editAndFocus(view, { changes: { from, insert }, selection: { anchor: from + insert.length } });
+      onRequestHandled(citeInsertRequest.id);
+    }
+    if (envRenameRequest) {
+      const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, envRenameRequest.newName);
+      if (edits) editAndFocus(view, { changes: edits });
+      onRequestHandled(envRenameRequest.id);
+    }
+    if (wrapEnvRequest) {
+      const { from, to } = view.state.selection.main;
+      const edit = wrapEnvironment(view.state.doc.toString(), from, to, wrapEnvRequest.name);
+      editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+      onRequestHandled(wrapEnvRequest.id);
+    }
+  }, [citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, wrapEnvRequest]);
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
@@ -1054,31 +1040,6 @@ export function DocumentCanvas(props: {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [activeFile, onRequestHandled, viewRestore, editorSource, editorNavigation]);
-  useEffect(() => {
-    const request = envRenameRequest;
-    const view = editorViewRef.current;
-    if (!request || !view) return;
-    const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, request.newName);
-    if (edits) {
-      view.dispatch({ changes: edits, scrollIntoView: true });
-      view.focus();
-    }
-    onRequestHandled(request.id);
-  }, [editorSource, envRenameRequest, onRequestHandled]);
-  useEffect(() => {
-    const request = wrapEnvRequest;
-    const view = editorViewRef.current;
-    if (!request || !view) return;
-    const range = view.state.selection.main;
-    const edit = wrapEnvironment(view.state.doc.toString(), range.from, range.to, request.name);
-    view.dispatch({
-      changes: { from: edit.from, to: edit.to, insert: edit.insert },
-      selection: edit.cursorFrom === edit.cursorTo ? { anchor: edit.cursorFrom } : { anchor: edit.cursorFrom, head: edit.cursorTo },
-      scrollIntoView: true,
-    });
-    view.focus();
-    onRequestHandled(request.id);
-  }, [editorSource, onRequestHandled, wrapEnvRequest]);
   useEffect(() => {
     if (!snippetStops) return;
     const { base, stops } = snippetStops;
@@ -1103,7 +1064,7 @@ export function DocumentCanvas(props: {
   const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     // VisualMarkdownEditor retains the previous publisher until its layout
     // flush: a late callback must not write once another document owns the canvas.
-    if (activeFileRef.current !== activeFile) return false;
+    if (latestRef.current.activeFile !== activeFile) return false;
     const view = livePrimaryView();
     const ytext = collabReady && collabSession?.activePath === activeFile ? collabSession.ytext : null;
     const source = view?.state.doc.toString() ?? ytext?.toString() ?? mountSourceRef.current;
@@ -1545,7 +1506,6 @@ export function DocumentCanvas(props: {
               if (focusedPaneRef.current === "primary") editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
               reportEditorPosition(view, activeFile);
-              view.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFileRef.current) });
             }}
             onChange={onPrimaryChange}
             onUpdate={onPrimaryUpdate}
@@ -1680,57 +1640,70 @@ export function DocumentCanvas(props: {
   if (props.mode === "source") return editor;
   if (props.mode === "pdf") return preview;
   if (twoPane) {
-    const focusPrimary = () => focusPane("primary", "editor");
-    const focusSecondary = () => focusPane("secondary", "editor", { claim: true });
-    const secondaryKind = secondaryFile ? structuredDocumentKind(secondaryFile) : null;
-    const secondaryPane = props.secondaryAsset ? (
-      <PaneCell pane="secondary" focusedPane={focusedPane} classes={["dual-pane", "asset-pane"]} onEnter={focusSecondary}>
-        {assetPreview(props.secondaryAsset)}
-      </PaneCell>
-    ) : secondaryKind ? (
-      <PaneCell pane="secondary" focusedPane={focusedPane} classes={["dual-pane"]} onEnter={focusSecondary}>
-        {structuredEditor(secondaryKind, "secondary", focusedPane === "secondary")}
-      </PaneCell>
-    ) : secondaryFile ? (
-      <div
-        className={`source-main dual-pane ${focusedPane === "secondary" ? "focused" : ""}`}
-        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
-        onFocusCapture={() => focusPane("secondary", "editor", { claim: true, view: true })}
-      >
-        <div
-          className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
-          data-editor-pane="secondary"
-          {...leaveHandlers}
-        >
-          <CodeMirror
-            className="code-editor-root"
-            value={secondarySource}
-            editable={props.secondaryEditorEditable}
-            extensions={secondaryEditorExtensions}
-            onCreateEditor={(view) => {
-              secondaryViewRef.current = view;
-              setSecondaryScrollbarView(view);
-              view.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFileRef.current) });
-              if (focusedPane === "secondary") editorViewRef.current = view;
-            }}
-            onChange={onSecondaryChange}
-            onUpdate={onSecondaryUpdate}
-          />
-          <CodeMirrorScrollbar view={secondaryScrollbarView} />
-        </div>
-      </div>
-    ) : (
+    /**
+     * A focusable cell of `pane`. Entering it offers the agent `surface`, and the
+     * secondary pane's cells also take over the selection toolbar.
+     */
+    const cell = (pane: EditorPaneId, classes: string[], content: ReactNode, {
+      surface = "editor", ...attributes
+    }: HTMLAttributes<HTMLDivElement> & { surface?: AgentHostSurface | null; "data-paper-side"?: string } = {}) => (
       <PaneCell
-        pane="secondary"
+        pane={pane}
         focusedPane={focusedPane}
-        classes={["dual-empty"]}
-        onEnter={focusSecondary}
-        aria-label={t`Empty secondary editor`}
+        classes={classes}
+        onEnter={() => focusPane(pane, surface, { claim: pane === "secondary" })}
+        {...attributes}
       >
-        <Columns2 size={18} />
-        <p>{t`Open or drag a file here`}</p>
+        {content}
       </PaneCell>
     );
+    /** An asset, board, sheet or deck fills its pane by itself; null for a text file. */
+    const documentCell = (pane: EditorPaneId, paneClass: string, asset: AssetPreview | null, kind: StructuredDocumentKind | null) => (
+      asset ? cell(pane, [paneClass, "asset-pane"], assetPreview(asset))
+        : kind ? cell(pane, [paneClass], structuredEditor(kind, pane, focusedPane === pane)) : null
+    );
+    /** A source editor's pane: entering it also makes that pane's view the insertion target. */
+    const sourceCell = (pane: EditorPaneId, classes: string[], content: ReactNode) => (
+      <div
+        className={[...classes, focusedPane === pane ? "focused" : ""].join(" ")}
+        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
+        onFocusCapture={() => focusPane(pane, "editor", { claim: pane === "secondary", view: true })}
+      >
+        {content}
+      </div>
+    );
+    const secondaryEditor = secondaryFile && (
+      <div
+        className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
+        data-editor-pane="secondary"
+        {...leaveHandlers}
+      >
+        <CodeMirror
+          className="code-editor-root"
+          value={secondarySource}
+          editable={props.secondaryEditorEditable}
+          extensions={secondaryEditorExtensions}
+          onCreateEditor={(view) => {
+            secondaryViewRef.current = view;
+            setSecondaryScrollbarView(view);
+            if (focusedPane === "secondary") editorViewRef.current = view;
+          }}
+          onChange={onSecondaryChange}
+          onUpdate={onSecondaryUpdate}
+        />
+        <CodeMirrorScrollbar view={secondaryScrollbarView} />
+      </div>
+    );
+    const secondaryKind = secondaryFile ? structuredDocumentKind(secondaryFile) : null;
+    const emptySecondary = (
+      <>
+        <Columns2 size={18} />
+        <p>{t`Open or drag a file here`}</p>
+      </>
+    );
+    const secondaryPane = documentCell("secondary", "dual-pane", props.secondaryAsset, secondaryKind)
+      ?? (secondaryEditor ? sourceCell("secondary", ["source-main", "dual-pane"], secondaryEditor)
+        : cell("secondary", ["dual-empty"], emptySecondary, { "aria-label": t`Empty secondary editor` }));
     const secondaryPreview = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
       <SecondaryMarkdownPreview
         {...visualEditorProps}
@@ -1753,44 +1726,14 @@ export function DocumentCanvas(props: {
     ) : secondaryFile && isHtmlFilePath(secondaryFile)
       ? htmlPreview(secondaryFile, secondarySource)
       : projectPdfPreview(secondaryFile ?? activeFile);
-    const primaryPane = props.activeAsset ? (
-      <PaneCell pane="primary" focusedPane={focusedPane} classes={["dual-primary", "asset-pane"]} onEnter={focusPrimary}>
-        {assetPreview(props.activeAsset)}
-      </PaneCell>
-    ) : primaryKind ? (
-      <PaneCell pane="primary" focusedPane={focusedPane} classes={["dual-primary"]} onEnter={focusPrimary}>
-        {structuredEditor(primaryKind, "primary", focusedPane === "primary")}
-      </PaneCell>
-    ) : (
-      <div
-        className={`dual-primary ${focusedPane === "primary" ? "focused" : ""}`}
-        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
-        onFocusCapture={() => focusPane("primary", "editor", { view: true })}
-      >
-        {editor}
-      </div>
-    );
-    const paperPane = props.activePaper ? (
-      <PaneCell
-        pane="primary"
-        focusedPane={focusedPane}
-        classes={["dual-pane", "dual-primary", "paper-pane"]}
-        onEnter={() => focusPane("primary", "paper")}
-        data-paper-side={props.paperSide}
-      >
-        {paperPreview}
-      </PaneCell>
-    ) : null;
-    const visiblePrimaryPane = paperPane ?? (props.dualPreviewPanes?.primary ? (
-      <PaneCell pane="primary" focusedPane={focusedPane} classes={["dual-pane-preview", "dual-primary"]} onEnter={() => focusPane("primary", null)}>
-        {preview}
-      </PaneCell>
-    ) : primaryPane);
-    const visibleSecondaryPane = props.dualPreviewPanes?.secondary ? (
-      <PaneCell pane="secondary" focusedPane={focusedPane} classes={["dual-pane-preview", "dual-pane"]} onEnter={focusSecondary} {...leaveHandlers}>
-        {secondaryPreview}
-      </PaneCell>
-    ) : secondaryPane;
+    const primaryPane = documentCell("primary", "dual-primary", props.activeAsset, primaryKind) ?? sourceCell("primary", ["dual-primary"], editor);
+    const paperPane = props.activePaper
+      && cell("primary", ["dual-pane", "dual-primary", "paper-pane"], paperPreview, { surface: "paper", "data-paper-side": props.paperSide });
+    const visiblePrimaryPane = paperPane
+      ?? (props.dualPreviewPanes?.primary ? cell("primary", ["dual-pane-preview", "dual-primary"], preview, { surface: null }) : primaryPane);
+    const visibleSecondaryPane = props.dualPreviewPanes?.secondary
+      ? cell("secondary", ["dual-pane-preview", "dual-pane"], secondaryPreview, leaveHandlers)
+      : secondaryPane;
     const paperOnRight = Boolean(paperPane) && props.paperSide === "right";
     const leftPane = paperOnRight ? visibleSecondaryPane : visiblePrimaryPane;
     const rightPane = paperOnRight ? visiblePrimaryPane : visibleSecondaryPane;

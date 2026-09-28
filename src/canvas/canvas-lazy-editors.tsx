@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState, type ComponentProps } from "react";
+import { lazy, useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { FileCode2 } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
@@ -32,13 +32,14 @@ export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof Visual
   return <VisualMarkdownEditor {...props} />;
 }
 
-export function PdfPreviewLoading() {
+/** The PDF viewer's frame before a document shows: `toolbar` fills its bar, `children` replaces the spinner. */
+export function PdfPreviewLoading({ toolbar, children }: { toolbar?: ReactNode; children?: ReactNode }) {
   const { t } = useLingui();
   return (
     <div className="pdf-preview">
-      <div className="pdf-toolbar" />
+      <div className="pdf-toolbar">{toolbar}</div>
       <div className="pdf-scroll-area">
-        <PdfLoading label={t`Loading PDF…`} />
+        {children ?? <PdfLoading label={t`Loading PDF…`} />}
       </div>
     </div>
   );

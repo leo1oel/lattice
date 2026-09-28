@@ -6,6 +6,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tip } from "@/components/icon-tip";
+import { useLatest } from "../app/effect-helpers";
 
 export type EditorTab = {
   path: string;
@@ -18,10 +19,6 @@ export type EditorTab = {
 
 function tabLabel(tab: EditorTab): string {
   return tab.label || tab.path.split("/").at(-1) || tab.path;
-}
-
-function sameOrder(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 function sameDropPreview(a: EditorDropPreview | null, b: EditorDropPreview | null): boolean {
@@ -141,30 +138,25 @@ export const EditorTabs = memo(function EditorTabs(props: {
   const { t } = useLingui();
   const [dragPath, setDragPath] = useState<string | null>(null);
   const [splitDropPreview, setSplitDropPreview] = useState<EditorDropPreview | null>(null);
-  const activeTabRef = useRef<HTMLDivElement | null>(null);
   const tabsViewportRef = useRef<HTMLDivElement | null>(null);
 
   // The window-level pointer handlers read the latest props through these while
   // the drag reorders the list mid-gesture. Written after commit, not during
   // render, which would make the React Compiler bail out of the component.
-  const tabsRef = useRef(props.tabs);
-  const onReorderRef = useRef(props.onReorder);
-  const onDropTabRef = useRef(props.onDropTab);
+  const tabsRef = useLatest(props.tabs);
+  const onReorderRef = useLatest(props.onReorder);
+  const onDropTabRef = useLatest(props.onDropTab);
   const splitDropPreviewRef = useRef<EditorDropPreview | null>(null);
-  useEffect(() => {
-    tabsRef.current = props.tabs;
-    onReorderRef.current = props.onReorder;
-    onDropTabRef.current = props.onDropTab;
-  });
   const tabEls = useRef(new Map<string, HTMLElement>());
   const dragRef = useRef<{ path: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
-  const dragCleanupRef = useRef<(() => void) | null>(null);
+  /** The window listeners of the drag in progress; aborting an ended drag's is a no-op. */
+  const dragListeningRef = useRef<AbortController | null>(null);
   const suppressClick = useRef(false);
 
   // Keep the active tab visible when the bar overflows.
   useLayoutEffect(() => {
     const frame = requestAnimationFrame(() => {
-      const activeTab = activeTabRef.current;
+      const activeTab = tabEls.current.get(props.activePath);
       const viewport = tabsViewportRef.current;
       if (!activeTab || !viewport) return;
       const tabRect = activeTab.getBoundingClientRect();
@@ -177,25 +169,6 @@ export const EditorTabs = memo(function EditorTabs(props: {
     });
     return () => cancelAnimationFrame(frame);
   }, [props.activePath, props.tabs.length]);
-
-  // The insertion gap (0..len) for the cursor: how many tabs sit left of it,
-  // measured against each tab's horizontal midpoint in the current order.
-  const gapIndexForX = useCallback((clientX: number): number => {
-    let gap = 0;
-    tabsRef.current.forEach((tab, index) => {
-      const el = tabEls.current.get(tab.path);
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      if (clientX > rect.left + rect.width / 2) gap = index + 1;
-    });
-    return gap;
-  }, []);
-
-  const splitTargetAt = useCallback((path: string, clientX: number, clientY: number): EditorDropPreview | null => (
-    onDropTabRef.current && tabsRef.current.some((item) => item.path === path)
-      ? editorDropPreviewAt(path, clientX, clientY)
-      : null
-  ), []);
 
   const updateSplitDropPreview = useCallback((next: EditorDropPreview | null) => {
     splitDropPreviewRef.current = next;
@@ -215,21 +188,28 @@ export const EditorTabs = memo(function EditorTabs(props: {
       document.body.classList.add("reordering-tabs");
     }
     event.preventDefault();
-    const splitTarget = splitTargetAt(state.path, event.clientX, event.clientY);
-    updateSplitDropPreview(splitTarget);
-    if (splitTarget) return;
-    const paths = tabsRef.current.map((tab) => tab.path);
+    const tabs = tabsRef.current;
+    const paths = tabs.map((tab) => tab.path);
     const from = paths.indexOf(state.path);
-    if (from < 0) return;
-    const gap = gapIndexForX(event.clientX);
+    const splitTarget = onDropTabRef.current && from >= 0 ? editorDropPreviewAt(state.path, event.clientX, event.clientY) : null;
+    updateSplitDropPreview(splitTarget);
+    if (splitTarget || from < 0) return;
+    // The insertion gap (0..len) for the cursor: how many tabs sit left of it,
+    // measured against each tab's horizontal midpoint in the current order.
+    let gap = 0;
+    tabs.forEach((tab, index) => {
+      const rect = tabEls.current.get(tab.path)?.getBoundingClientRect();
+      if (rect && event.clientX > rect.left + rect.width / 2) gap = index + 1;
+    });
     const without = paths.filter((path) => path !== state.path);
     const requestedIndex = Math.max(0, Math.min(without.length, gap > from ? gap - 1 : gap));
-    const draggedPinned = tabsRef.current[from]?.pinned === true;
-    const pinnedCount = tabsRef.current.filter((tab) => tab.pinned && tab.path !== state.path).length;
+    const draggedPinned = tabs[from].pinned === true;
+    const pinnedCount = tabs.filter((tab) => tab.pinned && tab.path !== state.path).length;
     const insertAt = draggedPinned ? Math.min(requestedIndex, pinnedCount) : Math.max(requestedIndex, pinnedCount);
     without.splice(insertAt, 0, state.path);
-    if (!sameOrder(without, paths)) onReorderRef.current(without);
-  }, [gapIndexForX, splitTargetAt, updateSplitDropPreview]);
+    // Same length as `paths`: the dragged tab only moved.
+    if (without.some((path, index) => path !== paths[index])) onReorderRef.current(without);
+  }, [onDropTabRef, onReorderRef, tabsRef, updateSplitDropPreview]);
 
   const completeDrag = useCallback((commitSplit: boolean) => {
     document.body.classList.remove("reordering-tabs");
@@ -241,24 +221,20 @@ export const EditorTabs = memo(function EditorTabs(props: {
     suppressClick.current = Boolean(state?.active);
     setDragPath(null);
     if (commitSplit && state?.active && splitTarget) onDropTabRef.current?.(state.path, splitTarget.zone);
-  }, [updateSplitDropPreview]);
+  }, [onDropTabRef, updateSplitDropPreview]);
 
   const startDrag = useCallback((path: string, event: React.PointerEvent<HTMLDivElement>) => {
+    // The close button stops its own pointerdown, so a press there never starts a drag.
     if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest(".editor-tab-close")) return;
-    dragCleanupRef.current?.();
+    dragListeningRef.current?.abort();
     const pointerId = event.pointerId;
     dragRef.current = { path, pointerId, startX: event.clientX, startY: event.clientY, active: false };
     const listening = new AbortController();
-    const cleanup = () => {
-      listening.abort();
-      if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
-    };
+    dragListeningRef.current = listening;
     const end = (commitSplit: boolean) => {
-      cleanup();
+      listening.abort();
       completeDrag(commitSplit);
     };
-    dragCleanupRef.current = cleanup;
     const { signal } = listening;
     window.addEventListener("pointermove", moveDrag, { passive: false, signal });
     window.addEventListener("pointerup", (pointerEvent) => pointerEvent.pointerId === pointerId && end(true), { signal });
@@ -268,10 +244,8 @@ export const EditorTabs = memo(function EditorTabs(props: {
 
   // Clean up window listeners if unmounted mid-drag.
   useEffect(() => () => {
-    dragCleanupRef.current?.();
+    dragListeningRef.current?.abort();
     document.body.classList.remove("reordering-tabs");
-    dragRef.current = null;
-    splitDropPreviewRef.current = null;
   }, []);
 
   return (
@@ -307,7 +281,6 @@ export const EditorTabs = memo(function EditorTabs(props: {
                   ref={(el) => {
                     if (el) tabEls.current.set(tab.path, el);
                     else tabEls.current.delete(tab.path);
-                    if (active) activeTabRef.current = el;
                   }}
                   className={`editor-tab ${active ? "active" : ""}${canClose ? " closable" : ""}${tab.beside ? " beside" : ""}${dragPath === tab.path ? " dragging" : ""}`}
                   role="presentation"
