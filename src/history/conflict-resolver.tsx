@@ -31,7 +31,7 @@ import { conflictHunks, resolveConflicts, type ConflictChoice, type ConflictHunk
 import { toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
 import { logAction } from "../telemetry/app-notify";
-import { PIERRE_UNSAFE_CSS, usePierreResources } from "./file-diff-view";
+import { PIERRE_UNSAFE_CSS, usePierreResources } from "./pierre-diff";
 import "./conflict-resolver.css";
 
 /** Notification source label for conflict resolution. */

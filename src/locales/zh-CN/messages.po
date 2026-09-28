@@ -703,13 +703,11 @@ msgstr "大三角形（向下）"
 msgid "Big triangle up"
 msgstr "大三角形（向上）"
 
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
+#: src/history/file-diff-view.tsx
 msgid "binary"
 msgstr "二进制"
 
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
+#: src/history/file-diff-view.tsx
 msgid "Binary file changed"
 msgstr "二进制文件已更改"
 
@@ -1372,7 +1370,7 @@ msgstr "全等"
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
 
-#. placeholder {0}: status.email ?? status.name ?? fallbackAccountName
+#. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "已登录为 {0}"
@@ -1570,8 +1568,7 @@ msgstr "创建研究项目"
 msgid "Create with the + menu"
 msgstr "用 + 创建内容"
 
-#: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 msgid "created"
 msgstr "已创建"
 
@@ -1718,7 +1715,7 @@ msgstr "要删除此消息吗？这是讨论中的唯一一条消息，因此会
 msgid "Delete worksheet?"
 msgstr "要删除工作表吗？"
 
-#: src/history/history-drawer.tsx
+#: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "已删除"
@@ -1760,7 +1757,7 @@ msgid "Diamond suit"
 msgstr "方块"
 
 #. placeholder {0}: props.change.path
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "{0} 的差异"
 
@@ -1983,8 +1980,7 @@ msgstr "如仍需修改，请编辑合并后的文件，然后保存。"
 msgid "Edit this message"
 msgstr "编辑此消息"
 
-#: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "edited"
 msgstr "已编辑"
@@ -3062,7 +3058,7 @@ msgstr "上次检查"
 msgid "Last stop: your writing agent"
 msgstr "最后一站：你的写作 Agent"
 
-#. placeholder {0}: relativeTime(link.lastSync)
+#. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
 msgid "Last synced {0}"
 msgstr "上次同步于 {0}"
@@ -3324,7 +3320,7 @@ msgstr "正在加载 PDF…"
 msgid "Loading settings…"
 msgstr "正在加载设置…"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Loading the conversation…"
 msgstr "正在加载对话…"
 
@@ -3448,11 +3444,11 @@ msgstr "用于次级章节的中标题。"
 msgid "Mermaid"
 msgstr "Mermaid 图表"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "Message"
 msgstr "消息"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Message your collaborators…"
 msgstr "给协作者发送消息…"
 
@@ -3613,11 +3609,11 @@ msgstr "新建文件"
 msgid "New folder"
 msgstr "新建文件夹"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "New messages · Jump to latest"
 msgstr "有新消息 · 跳到最新消息"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "New messages are available."
 msgstr "有新消息。"
 
@@ -3742,7 +3738,7 @@ msgstr "在已检查的来源中未找到匹配的出版物。"
 msgid "No matching snippets. Try fraction, implies, align*, or eqref"
 msgstr "没有匹配的片段。试试 fraction、implies、align* 或 eqref"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "还没有消息。发送一条消息，项目中的所有人都能看到"
 
@@ -4125,7 +4121,7 @@ msgstr "Overleaf / arXiv 源文件包"
 msgid "Overleaf and history"
 msgstr "Overleaf 与历史"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf 聊天消息"
 
@@ -5012,8 +5008,8 @@ msgstr "恢复草稿并重试"
 msgid "Restore file"
 msgstr "恢复文件"
 
-#. placeholder {0}: activeChange.path
 #. placeholder {0}: change.path
+#. placeholder {0}: single.path
 #: src/history/history-drawer.tsx
 msgid "Restore only {0}"
 msgstr "仅恢复 {0}"
@@ -5413,7 +5409,7 @@ msgstr "Semantic Scholar 返回了无效响应；已跳过后续查询"
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar 暂时不可用；已跳过后续查询"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "Send message"
 msgstr "发送消息"
 
@@ -6037,7 +6033,7 @@ msgstr "安全导出仅包含经过验证的操作元数据和已知计数。在
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
 msgstr "这里显示与 Overleaf 审阅面板相同的评论。回复、解决和删除操作会立即同步到两端"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
 msgstr "这里显示与 Overleaf 中 {projectName} 项目的聊天面板相同的对话。消息发送后会立即显示在两端"
 
@@ -6179,7 +6175,7 @@ msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段
 msgid "This paper has no local reading or downloadable source."
 msgstr "这篇论文没有本地全文或可下载的来源。"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "this project"
 msgstr "此项目"
 
@@ -6740,8 +6736,8 @@ msgid "Yesterday"
 msgstr "昨天"
 
 #: src/collab/collab-dialog.tsx
+#: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx
-#: src/overleaf/overleaf-chat.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "你"

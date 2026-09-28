@@ -12,6 +12,7 @@
 import { peerInitials } from "../collab/collab-session";
 import type { PresenceUser } from "./use-overleaf-presence";
 import { AvatarGroup } from "../components/ui/avatar-group";
+import { hueColor } from "../components/ui/collab-colors";
 import "./overleaf-presence.css";
 
 const MAX_AVATARS = 5;
@@ -39,7 +40,7 @@ export function OverleafPresenceAvatars(props: {
             key={peer.id}
             type="button"
             className="overleaf-presence-avatar"
-            style={{ background: `hsl(${peer.hue}, 70%, 50%)` }}
+            style={{ background: hueColor(peer.hue) }}
             title={title}
             onClick={() => props.onJump(peer)}
           >

@@ -4,7 +4,8 @@ import { Check, Copy, Radio, X } from "lucide-react";
 import { IconSwap, MotionButton } from "../components/ui/motion";
 import { confirmAction } from "../app-utils";
 import { isLocalCollabHost } from "./collab-config";
-import type { CollabChatMessage, CollabPeer, CollabStatus } from "./collab-session";
+import type { CollabPeer, CollabStatus } from "./collab-session";
+import type { CollabChatMessage } from "./use-collab-chat";
 import type { CollabProjectRecordV2 } from "./collab-rooms";
 import { CollabChatPanel } from "./collab-chat";
 import { Button } from "../components/ui/button";
@@ -23,15 +24,14 @@ export type CollabDialogMode = "start" | "join";
 /** Which half of the live card is showing. Chat only exists once a room is live. */
 type CollabLiveTab = "status" | "chat";
 
+const DAY = 86_400_000;
+/** Largest unit first; anything under a minute reads as "now". */
+const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [["year", 365 * DAY], ["month", 30 * DAY], ["day", DAY], ["hour", 3_600_000], ["minute", 60_000]];
+
 function roomRelativeTime(timestamp: number, locale: string, now = Date.now()): string {
   const elapsed = Math.max(0, now - timestamp);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  if (elapsed < 60_000) return formatter.format(0, "second");
-  if (elapsed < 3_600_000) return formatter.format(-Math.floor(elapsed / 60_000), "minute");
-  if (elapsed < 86_400_000) return formatter.format(-Math.floor(elapsed / 3_600_000), "hour");
-  if (elapsed < 30 * 86_400_000) return formatter.format(-Math.floor(elapsed / 86_400_000), "day");
-  if (elapsed < 365 * 86_400_000) return formatter.format(-Math.floor(elapsed / (30 * 86_400_000)), "month");
-  return formatter.format(-Math.floor(elapsed / (365 * 86_400_000)), "year");
+  const [unit, size] = RELATIVE_UNITS.find(([, size]) => elapsed >= size) ?? ["second", Infinity];
+  return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-Math.floor(elapsed / size), unit);
 }
 
 export function CollabDialog(props: {
@@ -87,8 +87,7 @@ export function CollabDialog(props: {
   const [copied, setCopied] = useState(false);
   const [removingPeer, setRemovingPeer] = useState<string | null>(null);
   const [liveTab, setLiveTab] = useState<CollabLiveTab>("status");
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null);
   const sendChat = props.onChatSend;
   const chatEnabled = Boolean(sendChat);
   // Destructured so the effect below depends on the specific values it reads
@@ -148,22 +147,12 @@ export function CollabDialog(props: {
    * room stays live for everyone else, so it needs no confirmation — nothing
    * is destroyed and Your shared rooms can take them back in.
    */
-  const leaveShare = () => {
-    if (props.role === "host" && props.onLeaveShare) {
-      props.onLeaveShare();
-      return;
-    }
-    props.onDisconnect();
-  };
+  const leaveShare = () => (props.role === "host" && props.onLeaveShare ? props.onLeaveShare : props.onDisconnect)();
 
   const stopSharing = async () => {
-    const ok = await confirmAction(
-      t({
-        message: "Stop sharing for everyone?\n\nCollaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite.",
-      }),
-    );
-    if (!ok) return;
-    props.onDisconnect();
+    if (await confirmAction(t({
+      message: "Stop sharing for everyone?\n\nCollaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite.",
+    }))) props.onDisconnect();
   };
 
   const removePeer = async (peer: CollabPeer) => {
@@ -180,24 +169,11 @@ export function CollabDialog(props: {
     }
   };
 
-  const beginRename = (record: CollabProjectRecordV2) => {
-    setRenamingId(record.projectInstanceId);
-    setRenameDraft(record.title);
-  };
-
-  const cancelRename = () => {
-    setRenamingId(null);
-    setRenameDraft("");
-  };
-
+  const cancelRename = () => setRenaming(null);
   const commitRename = (record: CollabProjectRecordV2) => {
-    const name = renameDraft.trim();
-    if (!name || name === record.title) {
-      cancelRename();
-      return;
-    }
-    props.onRenameProjectV2?.(record, name);
-    cancelRename();
+    const name = renaming?.draft.trim();
+    if (name && name !== record.title) props.onRenameProjectV2?.(record, name);
+    setRenaming(null);
   };
 
   return (
@@ -278,11 +254,10 @@ export function CollabDialog(props: {
             >
               <ul className="collab-recent-list">
                 {recentRooms.map((record) => {
-                  const renaming = renamingId === record.projectInstanceId;
                   const createdAt = record.createdAt ?? record.lastUsed;
                   return (
                     <li key={`v2:${record.host}:${record.projectInstanceId}`} className="collab-recent-row">
-                      {renaming ? (
+                      {renaming?.id === record.projectInstanceId ? (
                         <form
                           className="collab-recent-rename"
                           onSubmit={(event) => {
@@ -293,10 +268,10 @@ export function CollabDialog(props: {
                           <Input
                             controlSize="compact"
                             aria-label={t`Rename ${record.title}`}
-                            value={renameDraft}
+                            value={renaming.draft}
                             maxLength={80}
                             autoFocus
-                            onChange={(event) => setRenameDraft(event.target.value)}
+                            onChange={(event) => setRenaming({ id: record.projectInstanceId, draft: event.target.value })}
                             onKeyDown={(event) => {
                               if (event.key === "Escape") {
                                 event.preventDefault();
@@ -323,7 +298,7 @@ export function CollabDialog(props: {
                           </button>
                           {record.permission === "host" ? (
                             <>
-                              <Button size="compact" variant="ghost" onClick={() => beginRename(record)}>{t`Rename`}</Button>
+                              <Button size="compact" variant="ghost" onClick={() => setRenaming({ id: record.projectInstanceId, draft: record.title })}>{t`Rename`}</Button>
                               {/* The only way to end a room you left. Styled as the destructive action it is. */}
                               <Button
                                 size="compact"
@@ -334,8 +309,7 @@ export function CollabDialog(props: {
                                 {t`Close for everyone`}
                               </Button>
                             </>
-                          ) : null}
-                          {record.permission === "host" ? null : (
+                          ) : (
                             <IconButton size="compact" tooltip={false} className="collab-recent-forget" label={t`Remove ${record.projectInstanceId} from recent shares`} onClick={() => props.onForgetProjectV2?.(record)}><X size={12} /></IconButton>
                           )}
                         </>

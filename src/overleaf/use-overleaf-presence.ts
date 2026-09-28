@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listenOverleafRealtime } from "./overleaf-realtime-listen";
+import { onOverleafEvent } from "./overleaf-realtime-listen";
 
 /** Someone else in the project, and where they are — the backend's own shape. */
 export type PresenceUser = {
@@ -44,6 +44,11 @@ const KEEPALIVE_MS = 4 * 60 * 1000;
 /** One empty roster, so "nobody else is here" keeps a stable identity. */
 const NO_PEERS: PresenceUser[] = [];
 
+/** Tell Overleaf where our caret is; best effort, like every presence write. */
+function sendPosition(projectRoot: string, docId: string, caret: { row: number; column: number }) {
+  void invoke("overleaf_rt_update_position", { projectRoot, docId, row: caret.row, column: caret.column }).catch(() => {});
+}
+
 export type OverleafPresence = {
   /** Everyone else in the project. Our own entry is never in here. */
   peers: PresenceUser[];
@@ -61,22 +66,15 @@ export function useOverleafPresence(options: {
   /** Where our caret is right now, for the keepalive to re-publish without a fresh move. */
   readCaret: () => { row: number; column: number };
 }): OverleafPresence {
-  const [roster, setRoster] = useState<{
-    projectRoot: string | null;
-    users: Map<string, PresenceUser>;
-  }>({ projectRoot: null, users: new Map() });
+  const [roster, setRoster] = useState<{ projectRoot: string | null; users: Map<string, PresenceUser> }>(
+    { projectRoot: null, users: new Map() },
+  );
 
   // The persistent listener below is registered once and outlives every prop
-  // change, so it reads through refs rather than closing over stale values.
-  const projectRootRef = useRef(options.projectRoot);
-  const selfIdRef = useRef(options.selfId);
-  const docIdRef = useRef(options.docId);
-  const readCaretRef = useRef(options.readCaret);
+  // change, so it reads through a ref rather than closing over stale values.
+  const latest = useRef(options);
   useEffect(() => {
-    projectRootRef.current = options.projectRoot;
-    selfIdRef.current = options.selfId;
-    docIdRef.current = options.docId;
-    readCaretRef.current = options.readCaret;
+    latest.current = options;
   });
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,53 +83,36 @@ export function useOverleafPresence(options: {
   // One listener for the life of the hook: presence events can arrive at any
   // time, including while the seed call below is still in flight, and a
   // listener that came and went with `selfId` could miss one in that window.
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void listenOverleafRealtime<PresenceEvent>((event) => {
-      const payload = event.payload;
-      // Backend cancellation cannot retract an event already queued for this
-      // window. Never relabel an old project's event with the current root.
-      const projectRoot = projectRootRef.current;
-      if (disposed || !projectRoot || payload.projectRoot !== projectRoot) return;
-      if (payload.type === "presenceUpdated" && payload.user) {
-        const user = payload.user;
-        // Our own move is echoed back like anyone else's; showing it would
-        // make the roster claim we are our own collaborator.
-        if (selfIdRef.current && user.id === selfIdRef.current) return;
-        setRoster((current) => {
-          const next = current.projectRoot === projectRoot
-            ? new Map(current.users)
-            : new Map<string, PresenceUser>();
-          next.set(user.id, user);
-          return { projectRoot, users: next };
-        });
-        return;
-      }
-      if (payload.type === "presenceLeft" && payload.id) {
-        const id = payload.id;
-        setRoster((current) => {
-          if (current.projectRoot !== projectRootRef.current || !current.users.has(id)) return current;
-          const next = new Map(current.users);
-          next.delete(id);
-          return { ...current, users: next };
-        });
-        return;
-      }
-      if (payload.type === "disconnected") {
-        // A dropped socket takes everyone with it at once; a roster left over
-        // from before it dropped would claim people are here who are not.
-        setRoster({ projectRoot: null, users: new Map() });
-      }
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
+  useEffect(() => onOverleafEvent<PresenceEvent>((payload) => {
+    // Backend cancellation cannot retract an event already queued for this
+    // window. Never relabel an old project's event with the current root.
+    const projectRoot = latest.current.projectRoot;
+    if (!projectRoot || payload.projectRoot !== projectRoot) return;
+    if (payload.type === "presenceUpdated" && payload.user) {
+      const user = payload.user;
+      // Our own move is echoed back like anyone else's; showing it would
+      // make the roster claim we are our own collaborator.
+      const selfId = latest.current.selfId;
+      if (selfId && user.id === selfId) return;
+      setRoster((current) => {
+        const next = current.projectRoot === projectRoot ? new Map(current.users) : new Map<string, PresenceUser>();
+        next.set(user.id, user);
+        return { projectRoot, users: next };
+      });
+    } else if (payload.type === "presenceLeft" && payload.id) {
+      const id = payload.id;
+      setRoster((current) => {
+        if (current.projectRoot !== latest.current.projectRoot || !current.users.has(id)) return current;
+        const next = new Map(current.users);
+        next.delete(id);
+        return { ...current, users: next };
+      });
+    } else if (payload.type === "disconnected") {
+      // A dropped socket takes everyone with it at once; a roster left over
+      // from before it dropped would claim people are here who are not.
+      setRoster({ projectRoot: null, users: new Map() });
+    }
+  }), []);
 
   // ---- seed the roster once we know who we are -------------------------
   // `selfId` only becomes non-null once the channel has told us so, which
@@ -161,49 +142,26 @@ export function useOverleafPresence(options: {
     };
   }, [options.projectRoot, options.selfId]);
 
-  // ---- announce ourselves the moment a document is joined ---------------
+  // ---- announce ourselves, and keep doing so -------------------------------
   // Joining announces nothing on its own — only a position broadcast makes us
   // visible to a browser that is already open — so this fires once immediately
   // rather than waiting for the first debounced move, even at row 0 column 0.
+  // The server also expires a presence entry after 15 minutes of silence, so
+  // the keepalive keeps us listed through a long stretch of not moving.
   useEffect(() => {
-    if (!options.docId || !options.projectRoot) return;
     const docId = options.docId;
     const projectRoot = options.projectRoot;
-    const caret = readCaretRef.current();
-    void invoke("overleaf_rt_update_position", {
-      projectRoot,
-      docId,
-      row: caret.row,
-      column: caret.column,
-    }).catch(() => {});
+    if (!docId || !projectRoot) return;
+    const announce = () => sendPosition(projectRoot, docId, latest.current.readCaret());
+    announce();
+    const keepalive = setInterval(announce, KEEPALIVE_MS);
     return () => {
+      clearInterval(keepalive);
       // A stale debounce aimed at the document we are leaving must never fire
       // against whatever document replaces it.
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-        debounceTimer.current = null;
-      }
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
     };
-  }, [options.docId, options.projectRoot]);
-
-  // ---- keepalive ---------------------------------------------------------
-  // The server expires a presence entry after 15 minutes of silence, which
-  // would make us vanish even with a healthy socket; re-publishing well inside
-  // that window keeps us listed through a long stretch of not touching the caret.
-  useEffect(() => {
-    if (!options.docId || !options.projectRoot) return;
-    const docId = options.docId;
-    const projectRoot = options.projectRoot;
-    const timer = setInterval(() => {
-      const caret = readCaretRef.current();
-      void invoke("overleaf_rt_update_position", {
-        projectRoot,
-        docId,
-        row: caret.row,
-        column: caret.column,
-      }).catch(() => {});
-    }, KEEPALIVE_MS);
-    return () => clearInterval(timer);
   }, [options.docId, options.projectRoot]);
 
   // ---- publish -------------------------------------------------------------
@@ -214,14 +172,8 @@ export function useOverleafPresence(options: {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       debounceTimer.current = null;
-      const docId = docIdRef.current;
-      if (!docId) return;
-      void invoke("overleaf_rt_update_position", {
-        projectRoot,
-        docId,
-        row,
-        column,
-      }).catch(() => {});
+      const docId = latest.current.docId;
+      if (docId) sendPosition(projectRoot, docId, { row, column });
     }, alone ? DEBOUNCE_ALONE_MS : DEBOUNCE_WITH_OTHERS_MS);
   }, [options.docId, options.projectRoot, roster]);
 

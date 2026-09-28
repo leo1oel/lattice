@@ -30,3 +30,12 @@ export function peerColorForKey(key: string): PeerColor {
 export function peerColorForName(name: string): PeerColor {
   return peerColorForKey(name);
 }
+
+/**
+ * Overleaf's author colour for a hue: `hsl(hue, 70%, 50%)`, optionally softened
+ * into a tint. Lives here rather than beside the CodeMirror extensions that
+ * draw with it so eager UI (the presence avatars) never pulls in CodeMirror.
+ */
+export function hueColor(hue: number, alpha?: number): string {
+  return alpha === undefined ? `hsl(${hue}, 70%, 50%)` : `hsl(${hue} 70% 50% / ${alpha})`;
+}

@@ -1,5 +1,9 @@
 /**
- * Subscribe to this window's Overleaf live channel.
+ * This window's Overleaf live channel.
+ *
+ * Every Overleaf realtime event reaches the app on one Tauri channel,
+ * `overleaf-realtime`, tagged by `type` and stamped with the project root that
+ * produced it (`RealtimeEvent` in src-tauri/src/overleaf_rt.rs lists them all).
  *
  * Every window runs its own live connection, and the backend addresses each
  * connection's events to the window that opened it (`emit_to(label, …)`). That
@@ -30,4 +34,23 @@ export function listenOverleafRealtime<T>(handler: EventCallback<T>): Promise<Un
   return label === null
     ? listen<T>(OVERLEAF_REALTIME_EVENT, handler)
     : listen<T>(OVERLEAF_REALTIME_EVENT, handler, { target: label });
+}
+
+/**
+ * Deliver each event payload to `handler` until the returned cleanup runs,
+ * including when the subscription itself only resolves after that.
+ */
+export function onOverleafEvent<T extends { type: string }>(handler: (event: T) => void): () => void {
+  let disposed = false;
+  let unlisten: (() => void) | undefined;
+  void listenOverleafRealtime<T>((event) => {
+    if (!disposed) handler(event.payload);
+  }).then((dispose) => {
+    if (disposed) dispose();
+    else unlisten = dispose;
+  });
+  return () => {
+    disposed = true;
+    unlisten?.();
+  };
 }

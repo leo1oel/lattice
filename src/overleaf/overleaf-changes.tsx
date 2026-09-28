@@ -11,11 +11,11 @@
 import { Check, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { InfinityLoader } from "../components/ui/activity-icons";
-import { trackedChangeContext } from "./overleaf-track-changes";
-import type { TrackedChange } from "./use-overleaf-realtime";
-import { formatCommentTimestamp } from "../editor/comments/editor-comments";
-import "./overleaf-changes.css";
 import { InlineMessage } from "../components/ui/inline-message";
+import { formatCommentTimestamp } from "../editor/comments/editor-comments";
+import { hueColor } from "../components/ui/collab-colors";
+import { trackedChangeContext } from "./overleaf-editor-extensions";
+import type { TrackedChange } from "./use-overleaf-realtime";
 
 export function OverleafChangesPanel(props: {
   changes: TrackedChange[];
@@ -43,18 +43,28 @@ export function OverleafChangesPanel(props: {
       ? t`This account cannot accept or reject suggestions here`
       : undefined;
 
-  const run = async (action: () => Promise<void>) => {
-    try {
-      await action();
-    } catch {
-      // The hook surfaces the reason above the list.
-    }
-  };
+  /** An Accept and a Reject button for `changes`; failures are surfaced by the hook above the list. */
+  const actionButtons = (changes: TrackedChange[], working: boolean, disabled: boolean, labels: [string, string]) => (
+    ([[Check, labels[0], () => props.onAccept(changes.map((change) => change.id)), ""],
+      [X, labels[1], () => props.onReject(changes), "danger"]] as const).map(([Icon, label, action, className]) => (
+      <button
+        key={label}
+        type="button"
+        className={className || undefined}
+        disabled={!actionable || disabled}
+        title={disabledTitle}
+        onClick={() => void action().catch(() => undefined)}
+      >
+        {working ? <InfinityLoader size={12} /> : <Icon size={12} />}
+        {label}
+      </button>
+    ))
+  );
 
   const renderChange = (change: TrackedChange) => {
     const { prefix, quote, suffix } = trackedChangeContext(props.source, change);
     const working = props.busy === change.id;
-    const color = `hsl(${change.hue}, 70%, 50%)`;
+    const color = hueColor(change.hue);
     return (
       <article className="overleaf-change" key={change.id}>
         <button
@@ -85,25 +95,7 @@ export function OverleafChangesPanel(props: {
         </div>
 
         <div className="overleaf-change-actions">
-          <button
-            type="button"
-            disabled={!actionable || working}
-            title={disabledTitle}
-            onClick={() => void run(() => props.onAccept([change.id]))}
-          >
-            {working ? <InfinityLoader size={12} /> : <Check size={12} />}
-            {t`Accept`}
-          </button>
-          <button
-            type="button"
-            className="danger"
-            disabled={!actionable || working}
-            title={disabledTitle}
-            onClick={() => void run(() => props.onReject([change]))}
-          >
-            {working ? <InfinityLoader size={12} /> : <X size={12} />}
-            {t`Reject`}
-          </button>
+          {actionButtons([change], working, working, [t`Accept`, t`Reject`])}
         </div>
       </article>
     );
@@ -119,25 +111,7 @@ export function OverleafChangesPanel(props: {
 
       {sorted.length > 1 && (
         <div className="overleaf-change-bulk-actions">
-          <button
-            type="button"
-            disabled={!actionable || props.busy !== null}
-            title={disabledTitle}
-            onClick={() => void run(() => props.onAccept(sorted.map((change) => change.id)))}
-          >
-            {props.busy === "all" ? <InfinityLoader size={12} /> : <Check size={12} />}
-            {t({ message: `Accept all (${sorted.length})` })}
-          </button>
-          <button
-            type="button"
-            className="danger"
-            disabled={!actionable || props.busy !== null}
-            title={disabledTitle}
-            onClick={() => void run(() => props.onReject(sorted))}
-          >
-            {props.busy === "all" ? <InfinityLoader size={12} /> : <X size={12} />}
-            {t`Reject all`}
-          </button>
+          {actionButtons(sorted, props.busy === "all", props.busy !== null, [t({ message: `Accept all (${sorted.length})` }), t`Reject all`])}
         </div>
       )}
 

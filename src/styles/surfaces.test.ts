@@ -302,8 +302,7 @@ describe("shared surface contracts", () => {
     // colour, which is what made every panel's error look slightly different.
     const featureCss = [
       "src/overleaf/overleaf-connect.css",
-      "src/overleaf/overleaf-chat.css",
-      "src/overleaf/overleaf-changes.css",
+      "src/overleaf/overleaf-collab.css",
       "src/overleaf/overleaf-review.css",
       "src/overleaf/overleaf-history.css",
       "src/history/conflict-resolver.css",

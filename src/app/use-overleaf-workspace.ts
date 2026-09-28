@@ -31,7 +31,7 @@ import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments, type OverleafComments } from "../overleaf/use-overleaf-comments";
 import { useOverleafTrackChanges } from "../overleaf/use-overleaf-track-changes";
-import { type PresenceCursor } from "../overleaf/overleaf-cursors";
+import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorCollabSession } from "../collab/collab-session";
@@ -1270,11 +1270,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafComments = useOverleafComments({
     enabled: overleafLink !== null,
     projectRoot: project?.root ?? null,
-    docId: overleafRealtime.docId,
-    anchored: useMemo(
-      () => overleafRealtime.comments.map((range) => range.threadId),
-      [overleafRealtime.comments],
-    ),
     anchor: overleafRealtime.anchorComment,
   });
 

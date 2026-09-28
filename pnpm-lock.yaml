@@ -293,9 +293,6 @@ importers:
       decode-named-character-reference:
         specifier: ^1.3.0
         version: 1.3.0
-      diff:
-        specifier: ^9.0.0
-        version: 9.0.0
       exceljs:
         specifier: 4.4.0
         version: 4.4.0

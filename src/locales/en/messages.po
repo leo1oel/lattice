@@ -703,13 +703,11 @@ msgstr "Big triangle down"
 msgid "Big triangle up"
 msgstr "Big triangle up"
 
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
+#: src/history/file-diff-view.tsx
 msgid "binary"
 msgstr "binary"
 
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
+#: src/history/file-diff-view.tsx
 msgid "Binary file changed"
 msgstr "Binary file changed"
 
@@ -1372,7 +1370,7 @@ msgstr "Congruent"
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
 
-#. placeholder {0}: status.email ?? status.name ?? fallbackAccountName
+#. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "Connected as {0}"
@@ -1570,8 +1568,7 @@ msgstr "Create a research project"
 msgid "Create with the + menu"
 msgstr "Create with the + menu"
 
-#: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 msgid "created"
 msgstr "created"
 
@@ -1718,7 +1715,7 @@ msgstr "Delete this message? It's the only one in the thread, so this deletes th
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
-#: src/history/history-drawer.tsx
+#: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "deleted"
@@ -1760,7 +1757,7 @@ msgid "Diamond suit"
 msgstr "Diamond suit"
 
 #. placeholder {0}: props.change.path
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
 
@@ -1983,8 +1980,7 @@ msgstr "Edit the combined file if anything still needs fixing, then save it."
 msgid "Edit this message"
 msgstr "Edit this message"
 
-#: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "edited"
 msgstr "edited"
@@ -3062,7 +3058,7 @@ msgstr "Last checked"
 msgid "Last stop: your writing agent"
 msgstr "Last stop: your writing agent"
 
-#. placeholder {0}: relativeTime(link.lastSync)
+#. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
 msgid "Last synced {0}"
 msgstr "Last synced {0}"
@@ -3324,7 +3320,7 @@ msgstr "Loading PDF…"
 msgid "Loading settings…"
 msgstr "Loading settings…"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Loading the conversation…"
 msgstr "Loading the conversation…"
 
@@ -3448,11 +3444,11 @@ msgstr "Medium section heading."
 msgid "Mermaid"
 msgstr "Mermaid"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "Message"
 msgstr "Message"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Message your collaborators…"
 msgstr "Message your collaborators…"
 
@@ -3613,11 +3609,11 @@ msgstr "New file"
 msgid "New folder"
 msgstr "New folder"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "New messages · Jump to latest"
 msgstr "New messages · Jump to latest"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "New messages are available."
 msgstr "New messages are available."
 
@@ -3742,7 +3738,7 @@ msgstr "No matching publication was found in the sources checked."
 msgid "No matching snippets. Try fraction, implies, align*, or eqref"
 msgstr "No matching snippets. Try fraction, implies, align*, or eqref"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "No messages yet. Say something and everyone in the project sees it"
 
@@ -4125,7 +4121,7 @@ msgstr "Overleaf / arXiv source pack"
 msgid "Overleaf and history"
 msgstr "Overleaf and history"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf chat messages"
 
@@ -5014,8 +5010,8 @@ msgstr "Restore draft and retry"
 msgid "Restore file"
 msgstr "Restore file"
 
-#. placeholder {0}: activeChange.path
 #. placeholder {0}: change.path
+#. placeholder {0}: single.path
 #: src/history/history-drawer.tsx
 msgid "Restore only {0}"
 msgstr "Restore only {0}"
@@ -5415,7 +5411,7 @@ msgstr "Semantic Scholar returned an invalid response; subsequent queries skippe
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/components/ui/chat-panel.tsx
 msgid "Send message"
 msgstr "Send message"
 
@@ -6041,7 +6037,7 @@ msgstr "The safe export contains only validated operation metadata and known cou
 msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
 msgstr "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
 msgstr "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
 
@@ -6183,7 +6179,7 @@ msgstr "This match information describes the retrieved record; you have edited i
 msgid "This paper has no local reading or downloadable source."
 msgstr "This paper has no local reading or downloadable source."
 
-#: src/overleaf/overleaf-chat.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "this project"
 msgstr "this project"
 
@@ -6744,8 +6740,8 @@ msgid "Yesterday"
 msgstr "Yesterday"
 
 #: src/collab/collab-dialog.tsx
+#: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx
-#: src/overleaf/overleaf-chat.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "You"

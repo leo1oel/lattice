@@ -36,7 +36,7 @@ invent a pin.**
 The local-project upload contract was separately verified against official commit [`6323fddbd8e584b76cf42a65faa15600d5ff218f`](https://github.com/overleaf/overleaf/tree/6323fddbd8e584b76cf42a65faa15600d5ff218f) from 2026-06-17.
 The relevant evidence is [`UploadsRouter.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/UploadsRouter.mjs#L20-L28), [`ProjectUploadController.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/ProjectUploadController.mjs#L39-L77), and Overleaf's own [`use-project-uploader.tsx`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/frontend/js/features/project-list/hooks/use-project-uploader.tsx#L19-L95).
 
-One provenance gap has no candidate at all: `src/overleaf/ot-document.ts` says
+One provenance gap has no candidate at all: `OtDocument` in `src/overleaf/ot.ts` says
 its client state mirrors the ShareJS client Overleaf uses, but no repository,
 version or commit for that reference was recorded. Keep it **unknown** rather
 than picking a plausible ShareJS snapshot after the fact.
@@ -66,8 +66,7 @@ replace it.
 | --- | --- | --- |
 | `src-tauri/src/overleaf.rs` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
 | `src-tauri/src/overleaf_rt.rs` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
-| `src/overleaf/ot-document.ts`, `ot-ops.ts`, `ot-transform.ts` | Per-document client OT state, composition, transformation, version progression, desync detection | Lattice tests and this document; the ShareJS reference is unpinned |
-| `src/overleaf/ot-ranges.ts` | Moves comment quotes and tracked-change spans through the same ops that move the text, so Accept/Reject never act on a drifted range | Lattice behaviour |
+| `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes and tracked-change spans through the same ops that move the text, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` | React-side document ownership, debounce, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns `overleafSyncMode` and the workspace-level Overleaf state; consumed by `src/App.tsx`, which chooses between Overleaf OT, ordinary Overleaf sync and a Lattice Share, and excludes live-owned paths from ordinary sync | Lattice safety policy |
 | `scripts/verify-overleaf.mjs` | Explicit opt-in cloud smoke test against a user-selected project and document | Live compatibility check; never a default test |

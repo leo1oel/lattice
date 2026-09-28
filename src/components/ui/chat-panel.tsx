@@ -1,40 +1,60 @@
 /**
- * The Overleaf project chat.
- *
- * Collaborators who stayed in the browser talk here, so this has to feel like
- * the chat they are looking at: their messages on the left, yours on the
- * right, newest at the bottom, and a composer that sends on Enter. Everything
- * arrives on the realtime channel, so there is no refresh button to hunt for.
+ * The conversation surface both chats share: Overleaf's project chat and a
+ * Lattice Share room's own. Their messages on the left, yours on the right,
+ * newest at the bottom, and a composer that sends on Enter.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { SendHorizontal } from "lucide-react";
-import { InfinityLoader } from "../components/ui/activity-icons";
-import { Button } from "../components/ui/button";
-import { IconButton } from "../components/ui/icon-button";
-import { Textarea } from "../components/ui/textarea";
-import { resizeTextareaToContent } from "../components/ui/auto-resize-textarea";
-import type { OverleafMessage } from "../app-types";
-import "./overleaf-chat.css";
-import { InlineMessage } from "../components/ui/inline-message";
+import { InfinityLoader } from "./activity-icons";
+import { resizeTextareaToContent } from "./auto-resize-textarea";
+import { Button } from "./button";
+import { IconButton } from "./icon-button";
+import { Textarea } from "./textarea";
+import "./chat-panel.css";
+
+export type ChatPanelMessage = {
+  id: string;
+  /** Who a run of messages belongs to; consecutive ones with the same key share one header. */
+  authorKey: string;
+  authorName: string;
+  body: string;
+  /** Milliseconds since the epoch. */
+  at: number;
+  mine: boolean;
+};
 
 /** "14:32" for today, "12 Mar 14:32" for anything older. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatStamp(timestamp: number, locale?: string) {
   if (!timestamp) return "";
   const when = new Date(timestamp);
-  const now = new Date();
-  const sameDay = when.toDateString() === now.toDateString();
+  const sameDay = when.toDateString() === new Date().toDateString();
   return when.toLocaleString(locale, sameDay
     ? { hour: "2-digit", minute: "2-digit" }
     : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function OverleafChatPanel(props: {
-  projectName: string;
-  messages: OverleafMessage[];
-  loading: boolean;
-  error: string | null;
-  onSend: (content: string) => Promise<void>;
+/** While an input method is composing, Enter is choosing a candidate, not sending. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function isComposingEnter(event: React.KeyboardEvent) {
+  return event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process";
+}
+
+export function ChatPanel(props: {
+  /** Explanatory copy (and any error) above the list. */
+  header: ReactNode;
+  messages: ChatPanelMessage[];
+  /** Sizing differs by host: a flexible drawer column or a fixed-height card. */
+  listClassName: string;
+  listLabel: string;
+  loading?: boolean;
+  loadingText?: string;
+  /** Omitted when there is nothing to say, such as while an error explains the gap. */
+  emptyText?: string;
+  placeholder: string;
+  /** Resolve to clear the draft; reject to keep it, while the caller shows why. */
+  onSend: (body: string) => Promise<void> | void;
 }) {
   const { i18n, t } = useLingui();
   const [draft, setDraft] = useState("");
@@ -44,15 +64,11 @@ export function OverleafChatPanel(props: {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const nearBottomRef = useRef(true);
   const previousMessageCountRef = useRef(0);
-  const projectName = props.projectName || t`this project`;
 
   // Grow with the text instead of scrolling inside a fixed box, the way the
-  // agent composer does — a two-line box with its own scrollbar is a worse
-  // place to write than one that simply gets taller.
+  // agent composer does.
   useEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) return;
-    resizeTextareaToContent(composer);
+    if (composerRef.current) resizeTextareaToContent(composerRef.current);
   }, [draft]);
 
   // Anchor the initial history to the newest message. Realtime updates only
@@ -61,25 +77,20 @@ export function OverleafChatPanel(props: {
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
-
+    const count = props.messages.length;
     const previousCount = previousMessageCountRef.current;
-    const conversationReset = props.messages.length < previousCount;
-    const receivedMessages = props.messages.length > previousCount;
-    const loadedInitialHistory = previousCount === 0 && props.messages.length > 0;
-
-    if (conversationReset || props.messages.length === 0) {
+    if (count < previousCount || count === 0) {
       nearBottomRef.current = true;
       setHasMessagesBelow(false);
-      list.scrollTop = props.messages.length > 0 ? list.scrollHeight : 0;
-    } else if (nearBottomRef.current || loadedInitialHistory) {
+      list.scrollTop = count > 0 ? list.scrollHeight : 0;
+    } else if (nearBottomRef.current || previousCount === 0) {
       list.scrollTop = list.scrollHeight;
       nearBottomRef.current = true;
       setHasMessagesBelow(false);
-    } else if (receivedMessages) {
+    } else if (count > previousCount) {
       setHasMessagesBelow(true);
     }
-
-    previousMessageCountRef.current = props.messages.length;
+    previousMessageCountRef.current = count;
   }, [props.messages]);
 
   useEffect(() => {
@@ -94,7 +105,7 @@ export function OverleafChatPanel(props: {
       await props.onSend(content);
       setDraft("");
     } catch {
-      // The hook surfaces the reason; keep the text so nothing is lost.
+      // The caller surfaces the reason; keep the text so nothing is lost.
     }
     setSending(false);
     composerRef.current?.focus();
@@ -111,54 +122,40 @@ export function OverleafChatPanel(props: {
 
   return (
     <>
-      <p className="drawer-copy">
-        {t({
-          message: `The same conversation as the chat panel in ${projectName} on Overleaf. Messages appear on both sides as they are sent`,
-        })}
-      </p>
-
-      {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
-
+      {props.header}
       <div
-        className="overleaf-chat-list"
+        className={`chat-list ${props.listClassName}`}
         ref={listRef}
         role="region"
-        aria-label={t`Overleaf chat messages`}
+        aria-label={props.listLabel}
         tabIndex={0}
         onScroll={(event) => {
           const list = event.currentTarget;
-          const distanceFromBottom = list.scrollHeight - list.clientHeight - list.scrollTop;
-          const nearBottom = distanceFromBottom <= 32;
+          const nearBottom = list.scrollHeight - list.clientHeight - list.scrollTop <= 32;
           nearBottomRef.current = nearBottom;
           if (nearBottom) setHasMessagesBelow(false);
         }}
       >
         {props.loading && !props.messages.length && (
-          <p className="git-empty"><InfinityLoader size={13} /> {t`Loading the conversation…`}</p>
+          <p className="git-empty"><InfinityLoader size={13} /> {props.loadingText}</p>
         )}
-        {!props.loading && !props.messages.length && !props.error && (
-          <p className="git-empty">{t`No messages yet. Say something and everyone in the project sees it`}</p>
-        )}
+        {!props.loading && !props.messages.length && props.emptyText && <p className="git-empty">{props.emptyText}</p>}
         {props.messages.map((message, index) => {
           // One name above a run of messages reads as a conversation rather
           // than a log; repeat it only when the speaker changes.
           const previous = props.messages[index - 1];
           const grouped = previous
-            && previous.mine === message.mine
-            && previous.authorName === message.authorName
-            && message.timestamp - previous.timestamp < 5 * 60_000;
+            && previous.authorKey === message.authorKey
+            && message.at - previous.at < 5 * 60_000;
           return (
-            <article
-              className={`overleaf-chat-message${message.mine ? " mine" : ""}${grouped ? " grouped" : ""}`}
-              key={message.id}
-            >
+            <article className={`chat-message${message.mine ? " mine" : ""}${grouped ? " grouped" : ""}`} key={message.id}>
               {!grouped && (
-                <div className="overleaf-chat-meta">
+                <div className="chat-meta">
                   <span>{message.mine ? t`You` : message.authorName}</span>
-                  <time>{formatStamp(message.timestamp, i18n.locale)}</time>
+                  <time>{formatStamp(message.at, i18n.locale)}</time>
                 </div>
               )}
-              <p>{message.content}</p>
+              <p>{message.body}</p>
             </article>
           );
         })}
@@ -168,31 +165,22 @@ export function OverleafChatPanel(props: {
         {hasMessagesBelow ? t`New messages are available.` : ""}
       </span>
       {hasMessagesBelow && (
-        <Button
-          size="compact"
-          variant="secondary"
-          className="overleaf-chat-latest-button"
-          onClick={scrollToLatest}
-        >
+        <Button size="compact" variant="secondary" className="chat-latest-button" onClick={scrollToLatest}>
           {t`New messages · Jump to latest`}
         </Button>
       )}
 
-      <div className="overleaf-chat-composer">
+      <div className="chat-composer">
         <Textarea
           ref={composerRef}
           rows={1}
           value={draft}
-          placeholder={t`Message your collaborators…`}
+          placeholder={props.placeholder}
           aria-label={t`Message`}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            // While an input method is composing, Enter is choosing a
-            // candidate — sending then would cut a Chinese word in half and
-            // fire off whatever was on screen.
-            if (event.nativeEvent.isComposing || event.keyCode === 229 || event.key === "Process") {
-              return;
-            }
+            // Sending mid-composition would cut a Chinese word in half.
+            if (isComposingEnter(event)) return;
             // Enter sends, Shift+Enter breaks the line — what every chat does.
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();

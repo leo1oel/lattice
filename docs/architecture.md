@@ -65,12 +65,12 @@ Rust:
 `PresenceUpdated`, `PresenceLeft`, `ChangesAccepted`, `TrackChangesToggled`,
 `ThreadsChanged`, `ChatMessage`, `Disconnected`). Four
 different frontend hooks subscribe to it and filter by `type`
-(`src/overleaf/use-overleaf-realtime.ts:643`, `src/overleaf/use-overleaf-presence.ts:90`,
-`src/overleaf/use-overleaf-chat.ts:114`, `src/overleaf/use-overleaf-comments.ts:151`).
+(`src/overleaf/use-overleaf-realtime.ts:499`, `src/overleaf/use-overleaf-presence.ts:86`,
+`src/overleaf/use-overleaf-chat.ts:57`, `src/overleaf/use-overleaf-comments.ts:103`).
 Rust addresses each window's events with `emit_to`, but Tauri still delivers
 them to every untargeted listener, so subscribe only through
-`listenOverleafRealtime` (`src/overleaf/overleaf-realtime-listen.ts`), which
-scopes the listener to the current window — a bare `listen()` leaks one
+`onOverleafEvent` / `listenOverleafRealtime` (`src/overleaf/overleaf-realtime-listen.ts`),
+which scope the listener to the current window — a bare `listen()` leaks one
 window's Overleaf project into every other open window.
 
 A fourth event, `trackpad-magnify`, is emitted from the macOS window layer
@@ -313,72 +313,73 @@ than synced (`MAX_SYNC_FILE_BYTES`, `overleaf.rs:58`).
 
 ## 3. The collaboration model (Lattice Shares)
 
-Implemented by `src/collab/collab-project-v2.ts` (1,150 lines) on the client,
-`protocol/collab-v2.ts` (158 lines) as the shared contract, and
-`collab-server/` (a Cloudflare Worker, 1,494 lines across 3 source files).
+Implemented by `src/collab/collab-project-v2.ts` (1,084 lines — the controller;
+it delegates the workspace disk mirror to `collab-disk-mirror-v2.ts`, presence to
+`collab-presence-v2.ts` and catalog diffing to `collab-catalog-delta-v2.ts`) on the
+client, `protocol/collab-v2.ts` (160 lines) as the shared contract plus
+`protocol/encoding.ts` (base64url, SHA-256, canonical JSON — used by both sides),
+and `collab-server/` (a Cloudflare Worker, 1,635 lines across 7 source files
+besides the literature worker).
 
 ### 3.1 One Y.Doc per file
 
 The wire identity of a room is a 3-tuple plus a protocol tag:
 
 ```ts
-// protocol/collab-v2.ts:4
+// protocol/collab-v2.ts:6
 type TextFileRoomIdentityV2 = {
   protocol: 2; projectInstanceId: string; fileId: string; documentEpoch: number;
 };
-// protocol/collab-v2.ts:8 (inside textFileV2RoomName, declared at :6)
+// protocol/collab-v2.ts:10 (inside textFileV2RoomName, declared at :8)
 `v2~${base64UrlText(projectInstanceId)}~${base64UrlText(fileId)}~${documentEpoch}`
 ```
 
 `projectInstanceId` and `fileId` must match `/^[A-Za-z0-9_-]{16,128}$/`
-(`validRoomId`, `protocol/collab-v2.ts:155`); `documentEpoch` is a positive safe integer, and
-the parser rejects non-canonical encodings (`protocol/collab-v2.ts:11`).
+(`validRoomId`, `protocol/collab-v2.ts:157`); `documentEpoch` is a positive safe integer, and
+the parser rejects non-canonical encodings (`protocol/collab-v2.ts:13`).
 
 The **client-side** namespace type has a fourth field that is *not* part of the
 room name: `TextNamespaceV2 = { deployment, projectInstanceId, fileId,
-documentEpoch }` (`src/collab/collab-text-v2-store.ts:4`). `deployment` only scopes
-local IndexedDB storage (`src/collab/collab-text-v2-store.ts:25`).
+documentEpoch }` (`src/collab/collab-text-v2-store.ts:5`). `deployment` only scopes
+local IndexedDB storage (`src/collab/collab-text-v2-store.ts:26`).
 
 ### 3.2 The client pool
 
 `CollabTextProviderPoolV2` is created with capacity 8 by default
-(`src/collab/collab-project-v2.ts:215`; it is an option, `poolCapacity?`, and the
-constructor rejects < 1 at `src/collab/collab-text-v2.ts:108`).
+(`src/collab/collab-project-v2.ts:160`; it is an option, `poolCapacity?`, and the
+constructor rejects < 1 at `src/collab/collab-text-v2.ts:110`).
 
-Eviction (`src/collab/collab-text-v2.ts:117`) is `while (size > capacity)`, picking
-the oldest `lastAccessed` client that is **unpinned**, **not a draft**, and
-**clean**. Two details that matter and are easy to miss:
+Eviction (`src/collab/collab-text-v2.ts:120`) is `while (size > capacity)`, picking
+the oldest `lastAccessed` client that is **unpinned** and **clean**. Two details
+that matter and are easy to miss:
 
 - "clean" means an empty outbox **and** `durableSeen` — a server durable-ack was
-  observed (`src/collab/collab-text-v2.ts:69`).
+  observed (`src/collab/collab-text-v2.ts:70`).
 - If no candidate qualifies, the loop returns. **The cap is soft**; the pool can
   legitimately exceed 8.
 
-Eviction re-runs on `add`, `unpin`, `setDraft`, and on every client
+Eviction re-runs on `add`, on releasing a pin, and on every client
 durability-state change. It destroys clients without telling the controller;
-the controller resurrects them defensively at `src/collab/collab-project-v2.ts:534`
-and retries once at `:558`/`:569`.
+the controller resurrects them defensively at `src/collab/collab-project-v2.ts:454`
+and retries once at `:482`/`:497`.
 
-### 3.3 Pin names: there are four, not three
+### 3.3 Pins are independent leases
 
 ```ts
-// src/collab/collab-text-v2.ts:111-112
-pin(client, reason: "main" | "secondary" | "chat" | "comments")
-unpin(client, reason: "main" | "secondary" | "chat" | "comments")
+// src/collab/collab-text-v2.ts:113
+pin(client: CollabTextClientV2, label?: string): CollabTextPinV2   // { released; release() }
 ```
 
-There is no exported named type — the union is inline on the pool methods.
-Call sites: `"chat"` at `src/collab/collab-project-v2.ts:282`, `"comments"` at
-`:328`, and `"main" | "secondary"` via the `openPath` parameter at `:586-587`.
-The controller's own `activePin` field is typed `"main" | "secondary"` only
-(`src/collab/collab-project-v2.ts:141`).
-
-`CLAUDE.md` lists only three pin names. It is missing `comments`.
+Each pin is its own releasable lease; the label only names it. The controller
+pins `"chat"` and `"comments"` for the session (`src/collab/collab-project-v2.ts:263`,
+labels at `:114-115`), `"main" | "secondary"` via the `openPath` parameter when a
+file is activated (`:512`) or shown in the secondary pane, and one pin per
+sideloaded text binding (labelled with its binding id).
 
 ### 3.4 `openPath`, `sideload`, and `activePath`
 
 ```ts
-// src/collab/collab-project-v2.ts:524
+// src/collab/collab-project-v2.ts:441
 async openPath(
   path: string,
   pin: "main" | "secondary" = "main",
@@ -386,10 +387,10 @@ async openPath(
 ): Promise<Y.Text>
 ```
 
-The activation gate is at `src/collab/collab-project-v2.ts:583`:
+The activation gate is at `src/collab/collab-project-v2.ts:503`:
 
 ```ts
-if (!options.sideload && (options.activateIf?.() ?? true)) {
+if (!options.sideload && (options.activateIf?.() ?? true)) this.activate(opened, path, pin, file.fileId);
 ```
 
 **Nothing checks `pin === "main"`.** "Only the primary editor binding may
@@ -404,7 +405,7 @@ trusting it, and note that the same command also matches the unrelated
 | --- | --- |
 | **Non-sideload (activating)** — 2 | `src/App.tsx:2563` (the primary editor's file load, which additionally passes an `activateIf` guard) and `src/app/use-collab-v2-session.ts:601` (the host's share start) |
 | Sideloaded, app code — 7 | six in `src/App.tsx` (secondary pane, saves, rename/move mirroring, external-change reload) and one in `src/app/use-collab-v2-session.ts:469`. Line numbers are omitted here on purpose: `App.tsx` is being actively refactored and they move constantly. |
-| Sideloaded, internal to the controller — 4 | `src/collab/collab-project-v2.ts:275` (chat), `:324` (comments), `:483`, `:941` |
+| Sideloaded, internal to the controller — 4 | `src/collab/collab-project-v2.ts:258` (chat and comments, `openPinned`), `:603` (managed text bindings), `:676` (secondary pane), `:967` (`pullFile`: materialization and peer reconcile) |
 
 Both activating sites now live in different files: the `App.tsx` → `src/app/`
 hook extraction moved the share-start path into
@@ -412,8 +413,8 @@ hook extraction moved the share-start path into
 Every other caller — secondary pane, saves, observers, chat, comments — passes
 `{ sideload: true }`.
 
-Activation (`src/collab/collab-project-v2.ts:583-591`) pins the new client, unpins the
-previous one, sets `activeClient`/`activePin`/`activePath`, repoints
+Activation (`activate`, `src/collab/collab-project-v2.ts:508`) pins the new client, releases the
+previous pin, sets `activeClient`/`activePin`/`activePath`, repoints
 `this.ytext` at `doc.getText("content")`, destroys and rebuilds the
 `undoManager`, swaps `this.provider = { awareness }`, increments
 `awarenessVersion`, announces presence and re-emits `canWrite`.
@@ -425,7 +426,7 @@ and `awarenessVersion` is one of its dependencies. A foreign activation both
 moves `activePath` *and* bumps `awarenessVersion`, so the memo re-runs, sees a
 mismatch, and drops the binding. No error is thrown; typing simply stops
 syncing. Additionally, `setActivePath` throws unless the path already matches
-(`src/collab/collab-project-v2.ts:787`).
+(`src/collab/collab-project-v2.ts:708`).
 
 Two further facts worth knowing:
 
@@ -443,49 +444,49 @@ and then opened sideloaded and pinned:
 
 | Feature | Path | Constant | Y type |
 | --- | --- | --- | --- |
-| Project chat | `.research/collab-chat.json` | `src/collab/collab-session.ts:402` | `Y.Array` under key `"chat"` (`src/collab/collab-session.ts:393`) |
+| Project chat | `.research/collab-chat.json` | `src/collab/use-collab-chat.ts:24` | `Y.Array` under key `"chat"` (`src/collab/use-collab-chat.ts:37`) |
 | Editor comments | `.research/editor-comments.json` | `src/editor/comments/editor-comment-data.ts:1` | `Y.Map` under `"comments"` + `"comments-meta"` (`src/collab/collab-comments.ts:27-28`) |
 
-Creation and pinning: `src/collab/collab-project-v2.ts:272-282` (chat) and `:322-328`
-(comments). The data lives on those Y types *beside* the `"content"` text,
+Creation and pinning: both go through `openPinned`
+(`src/collab/collab-project-v2.ts:245`; `openChatDoc`/`openCommentsDoc` at `:234`/`:237`). The data lives on those Y types *beside* the `"content"` text,
 which is normally empty — with one exception: comments run a one-time legacy
 adoption that reads `doc.getText("content")` for pre-`Y.Map` documents
 (`src/collab/collab-comments.ts:96-103`), and the on-disk mirror is serialized back to
 JSON by `collabCommentsContent` (defined at `src/collab/collab-comments.ts:107`, called
-from `src/collab/collab-project-v2.ts:1025`).
+from `serializeCollabFileV2`, `src/collab/collab-disk-mirror-v2.ts:23`).
 
 ### 3.6 The server validates every fileId against the catalog
 
 Synthetic namespaces genuinely do not work. There are four independent checks:
 
 1. Ticket issuance requires a live, non-binary catalog file —
-   `collab-server/src/project-coordinator-v2.ts:376`.
+   `collab-server/src/project-coordinator-v2.ts:368`.
 2. Ticket consumption re-checks existence, `live` state, epoch match, grant not
-   revoked, project `live` — `project-coordinator-v2.ts:391-398`.
+   revoked, project `live` — `project-coordinator-v2.ts:377-390`.
 3. The Worker's `onBeforeConnect` parses the room name and requires the ticket
-   claims to equal the room identity — `collab-server/src/index.ts:49-57`
+   claims to equal the room identity — `collab-server/src/index.ts:95-104`
    (400 `invalid_room`, 401 `ticket_required`, 403 `invalid_ticket`).
 4. **Every mutating Yjs frame** is re-authorized: `authorizeTextMessage`
-   (`project-coordinator-v2.ts:403`) is called from
-   `collab-server/src/text-file-v2.ts:143`.
+   (`project-coordinator-v2.ts:393`) is called from
+   `collab-server/src/text-file-v2.ts:156`.
 
 ### 3.7 Read grants cannot write
 
 ```ts
-// collab-server/src/text-file-v2.ts:135
-if (state.permission === "read") return close(connection, 4403, "read_only_violation");
+// collab-server/src/text-file-v2.ts:137
+if (state.permission === "read") return connection.close(4403, "read_only_violation");
 ```
 
 Scope matters: this fires only for Yjs sync frames (`kind.outer === 0 &&
-kind.sync !== 0`, `text-file-v2.ts:134`). Read peers still send awareness and
+kind.sync !== 0`, `text-file-v2.ts:131`). Read peers still send awareness and
 SyncStep1 — so "cannot write", not "cannot send".
 
 On the client, `closeEventErrorV2` (`src/collab/collab-text-v2.ts:96`) maps
 `4401, 4403, 4410, 4411` and `1008` to a permanent error; `onDisconnect` then
 sets `stopped`, disposes the transport, and never reconnects
-(`src/collab/collab-text-v2.ts:84`); later `connect()` rejects immediately (`:47`).
+(`src/collab/collab-text-v2.ts:84`); later `connect()` rejects immediately (`:48`).
 Gate write paths in the UI — `canWrite` is exposed at
-`src/collab/collab-project-v2.ts:186` and `onPermanentError` at `:638`.
+`src/collab/collab-project-v2.ts:199` and `onPermanentError` at `:568`.
 
 Full server close-code table (`collab-server/src/text-file-v2.ts`):
 
@@ -506,32 +507,33 @@ unauthenticated upgrades with HTTP 401 before a socket exists.
 Cloudflare Worker + two SQLite-backed Durable Objects + one R2 bucket
 (`collab-server/wrangler.jsonc:2-19`, name `lattice-collab`).
 
-- **`ProjectCoordinatorV2`** (`collab-server/src/project-coordinator-v2.ts:85`,
-  939 lines) — one per project. Owns the file catalog and its revision/event
+- **`ProjectCoordinatorV2`** (`collab-server/src/project-coordinator-v2.ts:34`,
+  763 lines; its stored-state types and request validation live in
+  `coordinator-model.ts`, the binary GC sweep in `binary-gc.ts`) — one per project. Owns the file catalog and its revision/event
   log, project lifecycle (`importing | live | closing | closed`), the host
   secret and guest grants, one-time socket tickets (60 s TTL, 120/min), binary
   upload/download tickets with R2 references and a two-round GC
-  (`runBinaryGc`, `:525`), a presence table with a 45 s TTL, alarm-backed retry
-  of pending work (`alarm`, `:784`), and 30-day idle project expiry (`:593`).
-- **`TextFileV2`** (`collab-server/src/text-file-v2.ts:56`, 388 lines) — extends
+  (`runBinaryGc`, `:547`), a presence table with a 45 s TTL, alarm-backed retry
+  of pending work (`alarm`, `:679`), and 30-day idle project expiry (`:685`).
+- **`TextFileV2`** (`collab-server/src/text-file-v2.ts:56`, 390 lines) — extends
   `YServer` from `y-partyserver` with `hibernate: true`; one DO per
   `{project, file, epoch}` room. Owns the Y.Doc, chunked and hashed snapshot
-  manifests with previous-generation fallback (`onLoad` `:66`, `onSave` `:163`),
+  manifests with previous-generation fallback (`onLoad` `:66`, `onSave` `:169`),
   per-connection rate limits, per-frame authorization with a 60 s cache,
-  `durable-ack` broadcast (`:183`), and fencing on delete/close/expiry.
-- **Worker entry** (`collab-server/src/index.ts`, 167 lines) — routes
-  `/v2/projects/:projectInstanceId/...` to the coordinator DO (`:35,:44`),
-  except two byte-streaming sub-routes it handles itself: `binary/uploads|
-  downloads/:ticket` (`:40`) and `text/imports/:fileId` (`:42`, PUT ≤ 5 MiB,
+  `durable-ack` broadcast (`:190`), and fencing on delete/close/expiry.
+- **Worker entry** (`collab-server/src/index.ts`, 131 lines) — one route table
+  (`:33-37`) sends `/v2/projects/:projectInstanceId/...` to the coordinator DO,
+  except two byte-streaming sub-routes handled in `binary-transfer.ts`:
+  `binary/uploads|downloads/:ticket` and `text/imports/:fileId` (PUT ≤ 5 MiB,
   hash-verified). WebSockets go through partyserver at
-  `/parties/text-file-v2/<room>` (`:47`; party name at `protocol/collab-v2.ts:2`).
+  `/parties/text-file-v2/<room>` (party name at `protocol/collab-v2.ts:4`).
 
-Auth is `Authorization: Bearer <secret>`, checked in `authenticateCredential`
-(`project-coordinator-v2.ts:172`). `GrantPermission` is
-`"read" | "write" | "host"` (`protocol/collab-v2.ts:22`), but a *grant* can only
-ever be `read` or `write` (`project-coordinator-v2.ts:317`); `host` is
+Auth is `Authorization: Bearer <secret>`, checked in `authenticate`
+(`project-coordinator-v2.ts:112`). `GrantPermission` is
+`"read" | "write" | "host"` (`protocol/collab-v2.ts:24`), but a *grant* can only
+ever be `read` or `write` (`project-coordinator-v2.ts:214`); `host` is
 synthesised for the bootstrap-secret holder. Revocation bumps `authorityEpoch`
-and pushes `revokeGrant` to every text DO with alarm-backed retries (`:321`).
+and pushes `revokeGrant` to every text DO with alarm-backed retries (`:351`).
 
 Deploy with `pnpm collab:deploy`. `collab-server/` has its own `package.json`
 and its own vitest config using the Cloudflare Workers pool — its tests
@@ -546,8 +548,8 @@ There is no surviving v1 code path.
   `LatticeDoc` is created in tag `v1` and deleted in tag `v4`
   (`collab-server/wrangler.jsonc:20-37`). Cloudflare requires the ledger to
   stay; no source references it.
-- The code says so: `src/collab/collab-control-v2.ts:4` — "v2 is the only room type
-  now"; `src/collab/collab-feature-policy.ts:11` — "v1 rooms are retired".
+- No client code branches on a room version: `mayResumeCollabProject`
+  (`src/collab/collab-feature-policy.ts`) takes no version argument.
 - `mayResumeCollabProject(version: 1 | 2, …)` ignores its argument
   (`void version;`, `src/collab/collab-feature-policy.ts:52`).
 - Everything else hard-requires 2: `CONTROL_PROTOCOL_VERSION = 2`

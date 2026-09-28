@@ -22,7 +22,7 @@ import { visualPaperCitationSuggestion } from "./visual-paper-citation-suggestio
 import { isPaperCitationHref } from "../../open-knowledge-core/extensions/paper-citation";
 import { isAllowedLinkUri } from "../../open-knowledge-core/extensions/link-fidelity";
 import type { PaperSummary } from "../../app-types";
-import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-track-changes";
+import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { VisualLinkHover } from "./visual-link-hover";
@@ -85,7 +85,7 @@ import { Button } from "@ok-app/components/ui/button";
 import { detectClipboardPrefillUrl } from "@ok-app/editor/clipboard/lone-url";
 import { ImageSrcFidelity } from "../../open-knowledge-core/extensions/image-src-fidelity";
 import { ProjectImageHostProvider, useProjectImageSrc } from "./project-image-host";
-import { presenceCursorColor, type PresenceCursor } from "../../overleaf/overleaf-cursors";
+import { presenceCursorColor, type PresenceCursor } from "../../overleaf/overleaf-editor-extensions";
 import {
   editorCommentAuthorDisplayName,
   resolveCommentAnchor,

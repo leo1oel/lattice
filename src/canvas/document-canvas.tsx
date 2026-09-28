@@ -28,13 +28,11 @@ import { latex } from "codemirror-lang-latex";
 import {
   hueFromColorHex,
   overleafCursorsExtension,
+  overleafTrackChangesExtension,
   setOverleafCursorsEffect,
   type PresenceCursor,
-} from "../overleaf/overleaf-cursors";
-import {
-  overleafTrackChangesExtension,
   type TrackedChangeTooltipActions,
-} from "../overleaf/overleaf-track-changes";
+} from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";

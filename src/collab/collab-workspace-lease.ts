@@ -15,24 +15,28 @@ export function assertCollabWorkspaceLease(lease: CollabWorkspaceLease): void {
   }
 }
 
-/** Serializes collaboration mutations by project path while retaining rejected tails. */
+/** Run `work` once every earlier task with the same key has settled; a failure never blocks the next. */
+export function keyedQueue(): <T>(key: string, work: () => Promise<T>) => Promise<T> {
+  const tails = new Map<string, Promise<void>>();
+  return (key, work) => {
+    const result = (tails.get(key) ?? Promise.resolve()).catch(() => undefined).then(work);
+    const tail = result.then(() => undefined, () => undefined);
+    tails.set(key, tail);
+    void tail.finally(() => { if (tails.get(key) === tail) tails.delete(key); });
+    return result;
+  };
+}
+
+/** Serializes collaboration mutations by project path, checking the lease on both sides of each. */
 export class CollabDiskWriteQueue {
-  private readonly tails = new Map<string, Promise<void>>();
+  private readonly enqueue = keyedQueue();
 
   run<T>(lease: CollabWorkspaceLease, path: string, work: () => Promise<T>): Promise<T> {
-    const key = `${lease.projectRoot}\0${path}`;
-    const previous = this.tails.get(key) ?? Promise.resolve();
-    const result = previous.catch(() => undefined).then(async () => {
+    return this.enqueue(`${lease.projectRoot}\0${path}`, async () => {
       assertCollabWorkspaceLease(lease);
       const value = await work();
       assertCollabWorkspaceLease(lease);
       return value;
     });
-    const tail = result.then(() => undefined, () => undefined);
-    this.tails.set(key, tail);
-    void tail.finally(() => {
-      if (this.tails.get(key) === tail) this.tails.delete(key);
-    });
-    return result;
   }
 }

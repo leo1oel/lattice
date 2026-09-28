@@ -147,16 +147,17 @@ import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion
 import {
   mergeTextIntoYText,
   peerInitials,
-  saveCollabDisplayName,
   peerCursorLocationV2,
   waitForPeerCursorLocationV2,
   type CollabPeer,
   type EditorCollabSession,
 } from "./collab/collab-session";
+import { saveCollabDisplayName } from "./collab/collab-config";
 import { collabCredentialStore } from "./collab/collab-credentials";
 import { isCollabEnabled, loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
 import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
 import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
+import { parseCollabInvitationV2 } from "./collab/collab-invitation-v2";
 import {
   CollabProjectControllerV2,
   type CollabMaterializeCallbacksV2,
@@ -166,7 +167,6 @@ import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
 import { collabCommentsMap, readCollabComments, seedCollabCommentsFromContent, writeCollabComments } from "./collab/collab-comments";
 import {
   mayApplyProjectRefreshV2,
-  parsePreferredCollabInvitation,
   planRemoteCollabDeleteUiV2,
   requireRememberedV2Credential,
 } from "./collab/collab-app-v2";
@@ -5504,7 +5504,7 @@ function App() {
     const v2Raw = collabInvite.trim() || collabRoom.trim();
     let v2Invite;
     try {
-      v2Invite = parsePreferredCollabInvitation(v2Raw);
+      v2Invite = parseCollabInvitationV2(v2Raw);
     } catch (reason) {
       setError(toMessage(reason));
       return;

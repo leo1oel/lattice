@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CatalogV2 } from "../../protocol/collab-v2";
 import { MemoryCollabCredentialStore } from "./collab-credentials";
-import { createProjectV2, putTextFileV2, type ImportFileV2 } from "./collab-import-v2";
+import { createProjectV2, putTextFileV2, type ImportFileV2, type ImportV2Options } from "./collab-import-v2";
 
-const policy = { allowCreateV2: true, preferV2ForNewProjects: true, emergencyDisableWrites: false, emergencyDisableReads: false };
+const policy = { allowCreateV2: true, emergencyDisableWrites: false, emergencyDisableReads: false };
+const mainTexSource = { inventory: async () => [{ path: "main.tex", kind: "text" as const }], read: async () => new TextEncoder().encode("Hello") };
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -11,16 +12,62 @@ function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 }
 
+/** Import options with a fresh credential store; `fetch` and `source` are what each test is about. */
+function importOptions(overrides: Pick<ImportV2Options, "fetch" | "source"> & Partial<ImportV2Options>): ImportV2Options {
+  return { deployment: "https://collab.example", credentialStore: new MemoryCollabCredentialStore(), policy, onRecord: async () => {}, ...overrides };
+}
+
+/**
+ * An in-memory coordinator for a whole import: bootstrap seeds an importing
+ * catalog from the manifest, and each text import or binary commit makes its
+ * file live. Uploads take 5 ms so concurrent ones overlap and `maxUploads`
+ * measures the concurrency bound.
+ */
+function importServer() {
+  const state = { catalog: undefined as CatalogV2 | undefined, manifest: [] as Omit<ImportFileV2, "bytes" | "contentType">[], catalogRequests: 0, activeUploads: 0, maxUploads: 0 };
+  const ticketFiles = new Map<string, string>();
+  const upload = async () => {
+    state.activeUploads += 1; state.maxUploads = Math.max(state.maxUploads, state.activeUploads);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    state.activeUploads -= 1;
+  };
+  const goLive = (fileId: string, patch: object = {}) => {
+    const source = state.manifest.find((file) => file.fileId === fileId)!;
+    Object.assign(state.catalog!.files.find((entry) => entry.fileId === fileId)!, { state: "live", size: source.size, hash: source.hash, ...patch });
+    state.catalog!.catalogRevision += 1;
+  };
+  const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/catalog")) {
+      state.catalogRequests += 1;
+      return state.catalog ? json(state.catalog) : json({ error: "not_found" }, 404);
+    }
+    if (url.endsWith("/bootstrap")) {
+      const body = JSON.parse(String(init?.body)); state.manifest = body.importManifest;
+      state.catalog = { protocol: 2, projectInstanceId: body.projectInstanceId, lifecycle: "importing", catalogRevision: 0, snapshotGeneration: 0, workspaceLeaseGeneration: 0, authorityEpoch: 1, files: state.manifest.map((file) => ({ fileId: file.fileId, path: file.path, kind: file.kind, state: "initializing", documentEpoch: 1 })) };
+      return json(state.catalog, 201);
+    }
+    if (url.includes("/text/imports/")) { await upload(); goLive(decodeURIComponent(url.split("/").at(-1)!)); return json({ status: "created" }, 201); }
+    if (url.endsWith("/binary/upload-tickets")) {
+      const { fileId } = JSON.parse(String(init?.body)); ticketFiles.set(`ticket-${fileId}`, fileId);
+      return json({ ticket: `ticket-${fileId}` });
+    }
+    if (url.includes("/binary/uploads/")) { await upload(); return new Response(null, { status: 201 }); }
+    if (url.endsWith("/binary/commit")) { goLive(ticketFiles.get(JSON.parse(String(init?.body)).ticket)!, { contentRevision: 1 }); return json({ status: "complete" }); }
+    if (url.endsWith("/import-finalize")) { state.catalog!.lifecycle = "live"; state.catalog!.catalogRevision += 1; return json({ status: "complete" }); }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  return { state, fetch: fetcher as typeof fetcher & typeof fetch };
+}
+
 describe("createProjectV2", () => {
   it("does not read files or create credentials when sharing is disabled", async () => {
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
     const fetcher = vi.fn();
     const source = { inventory: vi.fn(), read: vi.fn() };
-    const credentialStore = new MemoryCollabCredentialStore();
-    const put = vi.spyOn(credentialStore, "put");
-    await expect(createProjectV2({
-      deployment: "https://collab.example", credentialStore, fetch: fetcher, source, policy, onRecord: vi.fn(),
-    })).rejects.toThrow("v2_creation_disabled");
+    const options = importOptions({ fetch: fetcher, source, onRecord: vi.fn() });
+    const put = vi.spyOn(options.credentialStore, "put");
+    await expect(createProjectV2(options)).rejects.toThrow("v2_creation_disabled");
     expect(source.inventory).not.toHaveBeenCalled();
     expect(put).not.toHaveBeenCalled();
     expect(fetcher).not.toHaveBeenCalled();
@@ -32,54 +79,24 @@ describe("createProjectV2", () => {
       return json({ error: "service_unavailable", message: "Service unavailable" }, failure as number);
     });
     const onRecord = vi.fn();
-    await expect(createProjectV2({
-      deployment: "https://collab.example",
-      credentialStore: new MemoryCollabCredentialStore(),
-      fetch: fetcher,
-      policy,
-      source: { inventory: async () => [], read: async () => new Uint8Array() },
-      onRecord,
-    })).rejects.toThrow(failure === "network" ? "Load failed" : "Service unavailable");
+    await expect(createProjectV2(importOptions({
+      fetch: fetcher, onRecord, source: { inventory: async () => [], read: async () => new Uint8Array() },
+    }))).rejects.toThrow(failure === "network" ? "Load failed" : "Service unavailable");
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(onRecord).not.toHaveBeenCalled();
   });
 
   it("reads and uploads text files concurrently without refetching the catalog after every file", async () => {
     const paths = ["data.lattice-sheet", ...Array.from({ length: 11 }, (_, index) => `chapter-${index}.md`)];
-    let activeReads = 0; let maxReads = 0; let activeUploads = 0; let maxUploads = 0; let catalogRequests = 0;
-    let catalog: CatalogV2 | undefined;
-    let manifest: Omit<ImportFileV2, "bytes" | "contentType">[] = [];
-    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (url.endsWith("/catalog")) {
-        catalogRequests += 1;
-        return catalog ? json(catalog) : json({ error: "not_found" }, 404);
-      }
-      if (url.endsWith("/bootstrap")) {
-        const body = JSON.parse(String(init?.body)); manifest = body.importManifest;
-        catalog = { protocol: 2, projectInstanceId: body.projectInstanceId, lifecycle: "importing", catalogRevision: 0, snapshotGeneration: 0, workspaceLeaseGeneration: 0, authorityEpoch: 1, files: manifest.map((file) => ({ fileId: file.fileId, path: file.path, kind: file.kind, state: "initializing", documentEpoch: 1 })) };
-        return json(catalog, 201);
-      }
-      if (url.includes("/text/imports/")) {
-        activeUploads += 1; maxUploads = Math.max(maxUploads, activeUploads);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        const fileId = decodeURIComponent(url.split("/").at(-1)!); const source = manifest.find((file) => file.fileId === fileId)!; const file = catalog!.files.find((entry) => entry.fileId === fileId)!;
-        Object.assign(file, { state: "live", size: source.size, hash: source.hash }); catalog!.catalogRevision += 1; activeUploads -= 1;
-        return json({ status: "created" }, 201);
-      }
-      if (url.endsWith("/import-finalize")) { catalog!.lifecycle = "live"; catalog!.catalogRevision += 1; return json({ status: "complete" }); }
-      throw new Error(`Unexpected request: ${url}`);
-    });
+    const server = importServer();
+    let activeReads = 0; let maxReads = 0;
     const preparationProgress: Array<[number, number]> = []; const progress: Array<[number, number]> = [];
 
-    await createProjectV2({
-      deployment: "https://collab.example",
+    await createProjectV2(importOptions({
       projectName: "Attention Paper",
       projectInstanceId: "project_parallel_import",
       idFactory: () => "operation_parallel_import",
-      credentialStore: new MemoryCollabCredentialStore(),
-      fetch: fetcher as typeof fetch,
-      policy,
+      fetch: server.fetch,
       source: {
         inventory: async () => paths.map((path) => ({ path, kind: "text" as const })),
         read: async (path) => {
@@ -90,71 +107,35 @@ describe("createProjectV2", () => {
       },
       onPrepareProgress: (completed, total) => preparationProgress.push([completed, total]),
       onProgress: (completed, total) => progress.push([completed, total]),
-      onRecord: async () => {},
-    });
+    }));
 
     expect(maxReads).toBe(8);
-    expect(JSON.parse(String(fetcher.mock.calls.find(([input]) => String(input).endsWith("/bootstrap"))?.[1]?.body)).projectName).toBe("Attention Paper");
-    expect(manifest.find((file) => file.path === "data.lattice-sheet")?.kind).toBe("spreadsheet");
-    expect(maxUploads).toBe(8);
-    expect(catalogRequests).toBe(3);
+    expect(JSON.parse(String(server.fetch.mock.calls.find(([input]) => String(input).endsWith("/bootstrap"))?.[1]?.body)).projectName).toBe("Attention Paper");
+    expect(server.state.manifest.find((file) => file.path === "data.lattice-sheet")?.kind).toBe("spreadsheet");
+    expect(server.state.maxUploads).toBe(8);
+    expect(server.state.catalogRequests).toBe(3);
     expect(preparationProgress.at(-1)).toEqual([paths.length, paths.length]);
     expect(progress.at(-1)).toEqual([paths.length, paths.length]);
   });
 
   it("uploads binary files with bounded concurrency and refetches the catalog once after the batch", async () => {
     const paths = Array.from({ length: 12 }, (_, index) => `figure-${index}.png`);
-    let activeUploads = 0; let maxUploads = 0; let catalogRequests = 0;
-    let catalog: CatalogV2 | undefined;
-    let manifest: Omit<ImportFileV2, "bytes" | "contentType">[] = [];
-    const ticketFiles = new Map<string, string>();
-    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (url.endsWith("/catalog")) {
-        catalogRequests += 1;
-        return catalog ? json(catalog) : json({ error: "not_found" }, 404);
-      }
-      if (url.endsWith("/bootstrap")) {
-        const body = JSON.parse(String(init?.body)); manifest = body.importManifest;
-        catalog = { protocol: 2, projectInstanceId: body.projectInstanceId, lifecycle: "importing", catalogRevision: 0, snapshotGeneration: 0, workspaceLeaseGeneration: 0, authorityEpoch: 1, files: manifest.map((file) => ({ fileId: file.fileId, path: file.path, kind: file.kind, state: "initializing", documentEpoch: 1 })) };
-        return json(catalog, 201);
-      }
-      if (url.endsWith("/binary/upload-tickets")) {
-        const body = JSON.parse(String(init?.body)); const ticket = `ticket-${body.fileId}`;
-        ticketFiles.set(ticket, body.fileId); return json({ ticket });
-      }
-      if (url.includes("/binary/uploads/")) {
-        activeUploads += 1; maxUploads = Math.max(maxUploads, activeUploads);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        activeUploads -= 1; return new Response(null, { status: 201 });
-      }
-      if (url.endsWith("/binary/commit")) {
-        const body = JSON.parse(String(init?.body)); const fileId = ticketFiles.get(body.ticket)!; const source = manifest.find((file) => file.fileId === fileId)!; const file = catalog!.files.find((entry) => entry.fileId === fileId)!;
-        Object.assign(file, { state: "live", size: source.size, hash: source.hash, contentRevision: 1 }); catalog!.catalogRevision += 1;
-        return json({ status: "complete" });
-      }
-      if (url.endsWith("/import-finalize")) { catalog!.lifecycle = "live"; catalog!.catalogRevision += 1; return json({ status: "complete" }); }
-      throw new Error(`Unexpected request: ${url}`);
-    });
+    const server = importServer();
     const progress: Array<[number, number]> = [];
 
-    await createProjectV2({
-      deployment: "https://collab.example",
+    await createProjectV2(importOptions({
       projectInstanceId: "project_parallel_binary_import",
       idFactory: () => "operation_parallel_binary_import",
-      credentialStore: new MemoryCollabCredentialStore(),
-      fetch: fetcher as typeof fetch,
-      policy,
+      fetch: server.fetch,
       source: {
         inventory: async () => paths.map((path) => ({ path, kind: "binary" as const })),
         read: async (path) => new TextEncoder().encode(path),
       },
       onProgress: (completed, total) => progress.push([completed, total]),
-      onRecord: async () => {},
-    });
+    }));
 
-    expect(maxUploads).toBe(8);
-    expect(catalogRequests).toBe(3);
+    expect(server.state.maxUploads).toBe(8);
+    expect(server.state.catalogRequests).toBe(3);
     expect(progress.at(-1)).toEqual([paths.length, paths.length]);
   });
 
@@ -163,20 +144,13 @@ describe("createProjectV2", () => {
       ? json({ error: "not_found" }, 404)
       : json({ error: "invalid_request", message: "Invalid import file kind" }, 400));
 
-    await expect(createProjectV2({
-      deployment: "https://collab.example",
+    await expect(createProjectV2(importOptions({
       projectName: "Attention Paper",
       projectInstanceId: "project_rejected_bootstrap",
       idFactory: () => "operation_rejected_bootstrap",
-      credentialStore: new MemoryCollabCredentialStore(),
       fetch: fetcher as typeof fetch,
-      policy,
-      source: {
-        inventory: async () => [{ path: "main.tex", kind: "text" }],
-        read: async () => new TextEncoder().encode("Hello"),
-      },
-      onRecord: async () => {},
-    })).rejects.toThrow("v2_bootstrap_failed: invalid_request: Invalid import file kind (400)");
+      source: mainTexSource,
+    }))).rejects.toThrow("v2_bootstrap_failed: invalid_request: Invalid import file kind (400)");
   });
 
   it("preserves the diagnostic operation across resume attempts while generating new request IDs", async () => {
@@ -188,21 +162,13 @@ describe("createProjectV2", () => {
         ? json({ error: "not_found" }, 404)
         : json({ error: "temporarily_unavailable" }, 503);
     });
-    const credentialStore = new MemoryCollabCredentialStore();
-    const options = {
-      deployment: "https://collab.example",
+    const options = importOptions({
       projectInstanceId: "project_resume_diagnostics",
       idFactory: () => "protocol_import_operation",
-      credentialStore,
       fetch: fetcher as typeof fetch,
-      policy,
-      source: {
-        inventory: async () => [{ path: "main.tex", kind: "text" as const }],
-        read: async () => new TextEncoder().encode("Hello"),
-      },
-      onRecord: async () => {},
-    };
-    let resume: NonNullable<Parameters<typeof createProjectV2>[0]["resume"]>;
+      source: mainTexSource,
+    });
+    let resume: NonNullable<ImportV2Options["resume"]>;
     try {
       await createProjectV2(options);
       throw new Error("Expected import to fail");

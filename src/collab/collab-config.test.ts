@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collabDeploymentOrigin, isLocalCollabHost } from "./collab-config";
+import { collabDeploymentOrigin, isLocalCollabHost, normalizeCollabHost } from "./collab-config";
 
 describe("collab deployment origins", () => {
   it("addresses a local sync host over plain HTTP, matching the ws:// the Yjs transport picks", () => {
@@ -19,5 +19,11 @@ describe("collab deployment origins", () => {
   it("honors an explicit scheme instead of overriding it", () => {
     expect(collabDeploymentOrigin("https://collab.example/")).toBe("https://collab.example");
     expect(collabDeploymentOrigin("http://localhost:8787/")).toBe("http://localhost:8787");
+  });
+
+  it("normalizes host urls to a host:port form", () => {
+    expect(normalizeCollabHost("https://example.partykit.dev/")).toBe("example.partykit.dev");
+    expect(normalizeCollabHost("ws://localhost:1999")).toBe("localhost:1999");
+    expect(normalizeCollabHost("  localhost:1999  ")).toBe("localhost:1999");
   });
 });
