@@ -13,7 +13,7 @@ import type { Completion, CompletionContext, CompletionResult } from "@codemirro
 import { pickedCompletion } from "@codemirror/autocomplete";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import type { EditorState } from "@codemirror/state";
+import { Text, type EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { i18n } from "../../i18n";
 import { INSERT_SNIPPETS } from "../insert/insert-snippets";
@@ -195,8 +195,9 @@ function environmentCompletion(entry: Entry, opening: boolean): Completion {
       const line = view.state.doc.lineAt(from);
       const indent = /^\s*/.exec(line.text)?.[0] ?? "";
       const name = `${entry.name}}`;
-      const before = view.state.sliceDoc(0, from) + name;
-      const close = beginEnvironmentClose(before, view.state.sliceDoc(end), indent);
+      const before = view.state.sliceDoc(line.from, from) + name;
+      const inserted = view.state.doc.replace(from, end, Text.of([name]));
+      const close = beginEnvironmentClose(before, inserted, indent);
       insertCompletion(view, completion, from, end, name + (close?.insert ?? ""), name.length + (close?.cursorOffset ?? 0));
     },
   };

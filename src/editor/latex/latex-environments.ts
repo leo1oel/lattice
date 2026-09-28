@@ -1,3 +1,5 @@
+import type { Text } from "@codemirror/state";
+
 const BEGIN_OR_END = /\\(begin|end)\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 
 type Span = { from: number; to: number };
@@ -80,25 +82,27 @@ export function renameEnvironmentAt(
 
 /**
  * The body line and `\\end{…}` to add after a just-completed `\\begin{…}` that
- * ends `textBeforeCursor` (the document up to the cursor), with
- * the caret on the body line; `indent` is the `\\begin` line's own indentation.
- * Nothing is added unless the document, ignoring `%` comments, has more
- * `\\begin{…}` than `\\end{…}` of that name.
+ * ends `textBeforeCursor`, with the caret on the body line; `indent` is the
+ * `\\begin` line's own indentation. Nothing is added unless `doc`, ignoring
+ * `%` comments, has more `\\begin{…}` than `\\end{…}` of that name.
  */
 export function beginEnvironmentClose(
   textBeforeCursor: string,
-  textAfterCursor: string,
+  doc: Text,
   indent = "",
 ): { insert: string; cursorOffset: number } | null {
   const name = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/.exec(textBeforeCursor)?.[1];
-  if (!name || !isUnbalanced(name, textBeforeCursor + textAfterCursor)) return null;
+  if (!name || !isUnbalanced(name, doc)) return null;
   return { insert: `\n${indent}  \n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length };
 }
 
-function isUnbalanced(name: string, text: string): boolean {
+function isUnbalanced(name: string, doc: Text): boolean {
   let open = 0;
-  for (const event of environmentEvents(text.replace(/(?<!\\)%.*$/gm, ""))) {
-    if (event.name === name) open += event.kind === "begin" ? 1 : -1;
+  for (const line of doc.iterLines()) {
+    if (!line.includes(name)) continue;
+    for (const event of environmentEvents(line.replace(/(?<!\\)%.*$/, ""))) {
+      if (event.name === name) open += event.kind === "begin" ? 1 : -1;
+    }
   }
   return open > 0;
 }
