@@ -434,12 +434,6 @@ importers:
       vfile:
         specifier: ^6.0.3
         version: 6.0.3
-      y-codemirror.next:
-        specifier: ^0.3.5
-        version: 0.3.5(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(yjs@13.6.32)
-      y-partyserver:
-        specifier: ^2.2.0
-        version: 2.2.0(@cloudflare/workers-types@4.20260702.1)(partyserver@0.5.8(@cloudflare/workers-types@4.20260702.1))(yjs@13.6.32)
       y-protocols:
         specifier: 1.0.7
         version: 1.0.7(yjs@13.6.32)
@@ -534,9 +528,6 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.5.4
         version: 0.5.4(eslint@10.7.0(jiti@2.7.0))
-      fake-indexeddb:
-        specifier: ^6.2.5
-        version: 6.2.5
       fast-check:
         specifier: ^4.9.0
         version: 4.9.0
@@ -707,9 +698,6 @@ packages:
 
   '@chevrotain/types@11.1.2':
     resolution: {integrity: sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw==}
-
-  '@cloudflare/workers-types@4.20260702.1':
-    resolution: {integrity: sha512-mOhf5TUEB1m2vPrxtqoIGfz0fUC9xyxRDx5gWHy5s+OCo6dcV+g7wI1R7gYCMFohhqF/2y2xeKVwMwCJjfn/WA==}
 
   '@codemirror/autocomplete@6.20.3':
     resolution: {integrity: sha512-tlosUqb+3BbxCxZdu4tKeRghPFC+QM7q4X5YhKV2eCmPG+1r2F3f4AaSz5sCrFqUtX4Jh20VFTKecl16MgiV9g==}
@@ -4349,10 +4337,6 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fake-indexeddb@6.2.5:
-    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
-    engines: {node: '>=18'}
-
   fast-check@4.9.0:
     resolution: {integrity: sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==}
     engines: {node: '>=12.17.0'}
@@ -4905,9 +4889,6 @@ packages:
   lodash.camelcase@4.3.0:
     resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
 
-  lodash.debounce@4.0.8:
-    resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
-
   lodash.defaults@4.2.0:
     resolution: {integrity: sha512-qjxPLHd3r5DnsdGacqOMU6pb/avJzdh9tFX2ymgoZE27BmjXrNy/y4LoaiTeAb+O3gL8AfpJGtqfX/ae2leYYQ==}
 
@@ -5247,11 +5228,6 @@ packages:
     engines: {node: ^18 || >=20}
     hasBin: true
 
-  nanoid@5.1.16:
-    resolution: {integrity: sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==}
-    engines: {node: ^18 || >=20}
-    hasBin: true
-
   native-promise-only@0.8.1:
     resolution: {integrity: sha512-zkVhZUA3y8mbz652WrL5x0fB0ehrBkulWT3TomAQ9iDtyXZvzKeEA6GPxAItBYeNYl5yngKRX612qHOhvMkDeg==}
 
@@ -5340,11 +5316,6 @@ packages:
 
   parse5@8.0.1:
     resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
-
-  partyserver@0.5.8:
-    resolution: {integrity: sha512-htgSwiBcBu9zIYLrsxBAOvdkjukHvncbTk0nDrJgfruvZ08rxtEN1Ab4T7j9osykP80Bq3zA2oWFd3ngc4Z9uw==}
-    peerDependencies:
-      '@cloudflare/workers-types': ^4.20260424.1
 
   path-data-parser@0.1.0:
     resolution: {integrity: sha512-NOnmBpt5Y2RWbuv0LMzsayp3lVylAHLPUTut412ZA3l+C4uw4ZVkQbjShYCQ8TCpUMdPapr4YjUqLYD6v68j+w==}
@@ -6230,20 +6201,6 @@ packages:
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
-  y-codemirror.next@0.3.5:
-    resolution: {integrity: sha512-VluNu3e5HfEXybnypnsGwKAj+fKLd4iAnR7JuX1Sfyydmn1jCBS5wwEL/uS04Ch2ib0DnMAOF6ZRR/8kK3wyGw==}
-    peerDependencies:
-      '@codemirror/state': ^6.0.0
-      '@codemirror/view': ^6.0.0
-      yjs: ^13.5.6
-
-  y-partyserver@2.2.0:
-    resolution: {integrity: sha512-AIsTEZ3jPicBe3VHO5c/VdSGSaFr0J9cAGj6+sgRL/RnXLTNSkP3oQXyXf1y8hQNeXv/j9zYDT5NnRv2k1eMGA==}
-    peerDependencies:
-      '@cloudflare/workers-types': ^4.20260424.1
-      partyserver: '>=0.2.0 <1.0.0'
-      yjs: ^13.6.14
-
   y-protocols@1.0.7:
     resolution: {integrity: sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
@@ -6490,8 +6447,6 @@ snapshots:
       css-tree: 3.2.1
 
   '@chevrotain/types@11.1.2': {}
-
-  '@cloudflare/workers-types@4.20260702.1': {}
 
   '@codemirror/autocomplete@6.20.3':
     dependencies:
@@ -10469,8 +10424,6 @@ snapshots:
 
   extend@3.0.2: {}
 
-  fake-indexeddb@6.2.5: {}
-
   fast-check@4.9.0:
     dependencies:
       pure-rand: 8.4.2
@@ -10966,8 +10919,6 @@ snapshots:
   lodash-es@4.18.1: {}
 
   lodash.camelcase@4.3.0: {}
-
-  lodash.debounce@4.0.8: {}
 
   lodash.defaults@4.2.0: {}
 
@@ -11575,8 +11526,6 @@ snapshots:
 
   nanoid@5.1.11: {}
 
-  nanoid@5.1.16: {}
-
   native-promise-only@0.8.1: {}
 
   natural-compare@1.4.0: {}
@@ -11714,11 +11663,6 @@ snapshots:
   parse5@8.0.1:
     dependencies:
       entities: 8.0.0
-
-  partyserver@0.5.8(@cloudflare/workers-types@4.20260702.1):
-    dependencies:
-      '@cloudflare/workers-types': 4.20260702.1
-      nanoid: 5.1.16
 
   path-data-parser@0.1.0: {}
 
@@ -12685,23 +12629,6 @@ snapshots:
   xml-name-validator@5.0.0: {}
 
   xmlchars@2.2.0: {}
-
-  y-codemirror.next@0.3.5(@codemirror/state@6.7.1)(@codemirror/view@6.43.8)(yjs@13.6.32):
-    dependencies:
-      '@codemirror/state': 6.7.1
-      '@codemirror/view': 6.43.8
-      lib0: 0.2.117
-      yjs: 13.6.32
-
-  y-partyserver@2.2.0(@cloudflare/workers-types@4.20260702.1)(partyserver@0.5.8(@cloudflare/workers-types@4.20260702.1))(yjs@13.6.32):
-    dependencies:
-      '@cloudflare/workers-types': 4.20260702.1
-      lib0: 0.2.117
-      lodash.debounce: 4.0.8
-      nanoid: 5.1.16
-      partyserver: 0.5.8(@cloudflare/workers-types@4.20260702.1)
-      y-protocols: 1.0.7(yjs@13.6.32)
-      yjs: 13.6.32
 
   y-protocols@1.0.7(yjs@13.6.32):
     dependencies:

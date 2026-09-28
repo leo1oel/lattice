@@ -1,7 +1,7 @@
 //! Which project each window shows, and the resources an open project owns.
 
 use crate::ipc::overleaf_realtime::OverleafRealtimeState;
-use crate::{fs_watch, latex, semantic_search, texlab, MAIN_WINDOW_LABEL};
+use crate::{fs_watch, latex, texlab, MAIN_WINDOW_LABEL};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -21,14 +21,6 @@ pub(crate) struct AppState {
     /// limit. Frontend instances also debounce, but Chromium reloads, multiple
     /// windows, and different projects still share the same account allowance.
     pub(crate) overleaf_sync_started: tokio::sync::Mutex<Option<tokio::time::Instant>>,
-    /// One-shot instruction left for a window that is being opened, taken by
-    /// that window once during startup.
-    ///
-    /// Joining a share has to hand the new window something the project on
-    /// disk cannot say: that it should connect to the room now. Routing it
-    /// through here rather than shared storage means it cannot be read twice,
-    /// cannot be picked up by the wrong window, and dies with the window.
-    pending_actions: Mutex<HashMap<String, String>>,
     /// One import per window. The request id prevents a late Cancel click from
     /// stopping the next import after the UI has already moved on.
     pub(crate) paper_imports: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
@@ -42,15 +34,12 @@ pub(crate) struct AppState {
 pub(crate) struct ProjectResources {
     pub(crate) active_build: latex::ActiveBuild,
     pub(crate) texlab: Arc<Mutex<texlab::TexlabPool>>,
-    /// Opt-in, on-device semantic index. The model never sees network I/O and
-    /// the worker is cancelled when this project no longer belongs to a window.
-    pub(crate) semantic_search: Arc<semantic_search::SemanticSearch>,
     /// Live connection to Overleaf's editing channel, when one is open.
     pub(crate) realtime: Arc<Mutex<OverleafRealtimeState>>,
     /// Serializes a whole ZIP sync against document join/leave and outgoing
     /// realtime mutations, closing the ownership-snapshot race.
     overleaf_sync_lease: Arc<tokio::sync::RwLock<()>>,
-    /// Serializes project-wide create/delete/rename/move catalog mutations.
+    /// Serializes project-wide create/delete/rename/move file-tree mutations.
     structural_mutation: Arc<tokio::sync::Mutex<()>>,
     /// Filesystem watcher feeding `project-fs-changed` events. Dropped with the
     /// project's resources when the last window showing it closes.
@@ -92,7 +81,6 @@ impl AppState {
             roots: Mutex::new(roots),
             projects: Mutex::default(),
             overleaf_sync_started: tokio::sync::Mutex::new(None),
-            pending_actions: Mutex::default(),
             paper_imports: Mutex::default(),
         }
     }
@@ -151,7 +139,6 @@ impl AppState {
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }
-            resources.semantic_search.cancel();
             resources.shutdown_realtime();
             false
         });
@@ -192,27 +179,12 @@ impl AppState {
         if let Ok(mut roots) = self.roots.lock() {
             roots.remove(label);
         }
-        // A window that closed before startup finished never took its
-        // instruction; leaving it would hand it to whoever reuses the label.
-        if let Ok(mut pending) = self.pending_actions.lock() {
-            pending.remove(label);
-        }
     }
 
     /// Release a window whose creation failed and drop what only it held.
     pub(crate) fn abandon_window(&self, label: &str) {
         self.release_window(label);
         self.retire_unused_projects();
-    }
-
-    pub(crate) fn set_pending_action(&self, label: &str, action: String) {
-        if let Ok(mut pending) = self.pending_actions.lock() {
-            pending.insert(label.to_string(), action);
-        }
-    }
-
-    pub(crate) fn take_pending_action(&self, label: &str) -> Option<String> {
-        self.pending_actions.lock().ok()?.remove(label)
     }
 
     /// The window currently showing `root`, if any.
@@ -235,7 +207,7 @@ impl AppState {
         // mutation to finish. The UI invalidates its old generation immediately,
         // while this lease ensures the backend cannot reinterpret a request for A
         // against B halfway through it. Root-scoped structural commands take the
-        // same locks in the same order: Overleaf lease, then catalog mutation.
+        // same locks in the same order: Overleaf lease, then file-tree mutation.
         let lease = self.structural_lease(&leaving, Lease::Exclusive).await;
         let leaving = &lease.project;
         if let Ok(mut pool) = leaving.texlab.lock() {
@@ -288,31 +260,24 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn each_window_keeps_its_own_project() {
+    fn each_window_keeps_its_own_project_and_build() {
         let state = AppState::from_environment();
         let (a, b) = (PathBuf::from("/project/a"), PathBuf::from("/project/b"));
         state.bind_window("main", a.clone()).unwrap();
         state.bind_window("project-1", b.clone()).unwrap();
 
-        assert_eq!(state.root_for("main").unwrap(), Some(a));
+        assert_eq!(state.root_for("main").unwrap(), Some(a.clone()));
         assert_eq!(state.root_for("project-1").unwrap(), Some(b.clone()));
         assert_eq!(state.root_for("project-2").unwrap(), None);
         // This is what makes "open in a new window" raise the existing window
         // instead of putting one project in two.
         assert_eq!(state.window_showing(&b).as_deref(), Some("project-1"));
         assert_eq!(state.window_showing(Path::new("/project/c")), None);
-    }
-
-    #[test]
-    fn one_project_resources_are_shared_and_two_projects_are_not() {
-        let state = AppState::from_environment();
-        let a = Path::new("/project/a");
-        let b = Path::new("/project/b");
 
         // A second window building project B must not be able to abort the
         // build project A already has running.
-        assert!(Arc::ptr_eq(&state.project(a).active_build, &state.project(a).active_build));
-        assert!(!Arc::ptr_eq(&state.project(a).active_build, &state.project(b).active_build));
+        assert!(Arc::ptr_eq(&state.project(&a).active_build, &state.project(&a).active_build));
+        assert!(!Arc::ptr_eq(&state.project(&a).active_build, &state.project(&b).active_build));
     }
 
     #[test]
@@ -365,22 +330,5 @@ mod tests {
         // Without this, latexmk keeps compiling into a project no window has
         // open, with nothing left holding a handle to stop it.
         assert!(stopped, "the build outlived the window that started it");
-    }
-
-    #[test]
-    fn a_window_instruction_is_handed_over_exactly_once() {
-        let state = AppState::from_environment();
-        state.set_pending_action("project-1", "join".to_string());
-        state.set_pending_action("project-2", "join".to_string());
-
-        assert_eq!(state.take_pending_action("project-1").as_deref(), Some("join"));
-        // A reload of that window must not rejoin the room a second time, and
-        // no other window may pick the instruction up.
-        assert_eq!(state.take_pending_action("project-1"), None);
-        assert_eq!(state.take_pending_action("project-3"), None);
-        // A closed window's untaken instruction would otherwise be handed to
-        // whichever window reuses the label.
-        state.release_window("project-2");
-        assert_eq!(state.take_pending_action("project-2"), None);
     }
 }

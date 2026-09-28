@@ -25,31 +25,32 @@ import { Textarea } from "./textarea";
 
 afterEach(cleanup);
 
-function renderRuntimeSelect(size?: "form") {
-  render(
-    <Select defaultValue="local">
-      <SelectTrigger aria-label="Runtime" size={size}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="local">Local</SelectItem>
-        <SelectItem value="remote">Remote</SelectItem>
-      </SelectContent>
-    </Select>,
-  );
-  return screen.getByRole("combobox", { name: "Runtime" });
-}
-
 describe("shared chrome primitives", () => {
-  it("applies semantic button variants and sizes", () => {
-    render(<Button variant="primary">Save</Button>);
-
+  it("applies semantic button, badge, and inline-message variants without feature-owned geometry", () => {
+    render(
+      <>
+        <Button variant="primary">Save</Button>
+        <Badge tone="success">Connected</Badge>
+        <InlineMessage level="warning">Needs attention</InlineMessage>
+      </>,
+    );
     const button = screen.getByRole("button", { name: "Save" });
     expect(button).toHaveAttribute("data-variant", "primary");
     expect(button).toHaveAttribute("data-size", "default");
     expect(button).toHaveClass("ui-button--primary", "ui-button--default");
     expect(buttonClassName({ variant: "ghost", size: "compact" }))
       .toContain("ui-button--ghost");
+
+    const badge = screen.getByText("Connected");
+    expect(badge).toHaveAttribute("data-tone", "success");
+    expect(badge).toHaveClass("ui-badge");
+    expect(badge.classList.length).toBeGreaterThan(1);
+
+    const message = screen.getByRole("status");
+    expect(message).toHaveClass("ui-inline-message", "warning");
+    expect(message.classList.length).toBeGreaterThan(2);
+    expect(message.querySelector("svg")?.getAttribute("class")).toBeTruthy();
+    expect(message.querySelector("span")?.getAttribute("class")).toBeTruthy();
   });
 
   it("gives primary buttons press feedback and keeps menu items concentric", () => {
@@ -61,28 +62,15 @@ describe("shared chrome primitives", () => {
     expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
     expect(menuViewportClassName).not.toContain("scrollbar-width:none");
-
-    expect(menuItemClassName).toContain("rounded-[var(--nested-radius,var(--radius-icon))]");
-    expect(menuItemClassName).toContain("duration-[var(--duration-quick)]");
-    expect(menuItemClassName).toContain("ease-out");
-    expect(menuItemClassName).toContain("[&_svg]:[stroke-width:1.5]");
-  });
-
-  it("renders a semantic badge without feature-owned geometry", () => {
-    render(<Badge tone="success">Connected</Badge>);
-
-    const badge = screen.getByText("Connected");
-    expect(badge).toHaveAttribute("data-tone", "success");
-    expect(badge).toHaveClass("ui-badge");
-    expect(badge.classList.length).toBeGreaterThan(1);
+    for (const token of [
+      "rounded-[var(--nested-radius,var(--radius-icon))]", "duration-[var(--duration-quick)]", "ease-out",
+      "[&_svg]:[stroke-width:1.5]",
+    ]) expect(menuItemClassName).toContain(token);
   });
 
   it("exposes switch state, reports the requested next value, and stays inert while disabled", () => {
     const onChange = vi.fn();
-    const { rerender } = render(
-      <Switch checked={false} label="Enable server" onChange={onChange} />,
-    );
-
+    const { rerender } = render(<Switch checked={false} label="Enable server" onChange={onChange} />);
     const control = screen.getByRole("switch", { name: "Enable server" });
     expect(control).toHaveAttribute("aria-checked", "false");
     const uncheckedClasses = control.className;
@@ -99,49 +87,56 @@ describe("shared chrome primitives", () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
-  it("keeps inline-message levels semantic while styling each owned element", () => {
-    render(<InlineMessage level="warning">Needs attention</InlineMessage>);
-
-    const message = screen.getByRole("status");
-    expect(message).toHaveClass("ui-inline-message", "warning");
-    expect(message.classList.length).toBeGreaterThan(2);
-    expect(message.querySelector("svg")?.getAttribute("class")).toBeTruthy();
-    expect(message.querySelector("span")?.getAttribute("class")).toBeTruthy();
-  });
-
-  it("keeps checked, mixed, and labelled checkbox states in one native control", () => {
+  it("keeps checkbox states in one native control and reports checkbox and segmented tab changes", () => {
     const onChange = vi.fn();
-    const { rerender } = render(
-      <CheckboxField checked={false} label="Match case" onChange={onChange} />,
+    const onTabChange = vi.fn();
+    const items = [{ value: "source", label: "Source" }, { value: "pdf", label: "PDF" }];
+    render(
+      <>
+        <CheckboxField checked={false} label="Match case" onChange={onChange} />
+        <Checkbox aria-label="Select all files" indeterminate />
+        <SegmentedControl value="source" onChange={onTabChange} ariaLabel="Document view" items={items} />
+      </>,
     );
-
     fireEvent.click(screen.getByRole("checkbox", { name: "Match case" }));
     expect(onChange).toHaveBeenCalled();
 
-    rerender(<Checkbox aria-label="Select all files" indeterminate />);
     const mixed = screen.getByRole("checkbox", { name: "Select all files" });
     expect(mixed).toHaveAttribute("aria-checked", "mixed");
     expect((mixed as HTMLInputElement).indeterminate).toBe(true);
+
+    // Compact tab switches use the shared segmented contract.
+    expect(screen.getByRole("tablist", { name: "Document view" }))
+      .toHaveClass("ui-segmented--compact");
+    fireEvent.click(screen.getByRole("tab", { name: "PDF" }));
+    expect(onTabChange).toHaveBeenCalledWith("pdf");
   });
 
-  it("exposes the shared form size on text controls and select triggers", () => {
+  it("exposes the shared form size on text controls and select triggers, and opens selects from the keyboard", async () => {
     render(
       <>
         <Input aria-label="Project name" controlSize="form" />
         <Textarea aria-label="System prompt" />
+        <Select defaultValue="local">
+          <SelectTrigger aria-label="Runtime" size="form">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="local">Local</SelectItem>
+            <SelectItem value="remote">Remote</SelectItem>
+          </SelectContent>
+        </Select>
       </>,
     );
-    const trigger = renderRuntimeSelect("form");
+    const trigger = screen.getByRole("combobox", { name: "Runtime" });
 
     expect(screen.getByRole("textbox", { name: "Project name" }))
       .toHaveAttribute("data-control-size", "form");
     expect(screen.getByRole("textbox", { name: "System prompt" }))
       .toHaveAttribute("data-slot", "textarea");
     expect(trigger).toHaveAttribute("data-control-size", "form");
-  });
 
-  it("opens selects from the keyboard and restores focus on Escape", async () => {
-    const trigger = renderRuntimeSelect();
+    // The keyboard opens the select, and Escape restores focus to its trigger.
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
 
@@ -155,49 +150,22 @@ describe("shared chrome primitives", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("uses the shared segmented contract for compact tab switches", () => {
-    const onChange = vi.fn();
+  it("gives switch fields and settings rows the same data-row density contract", () => {
     render(
-      <SegmentedControl
-        value="source"
-        onChange={onChange}
-        ariaLabel="Document view"
-        items={[
-          { value: "source", label: "Source" },
-          { value: "pdf", label: "PDF" },
-        ]}
-      />,
+      <>
+        <SwitchField checked label="Spellcheck prose" onChange={() => undefined} />
+        <SettingsGroup title="Display">
+          <SettingsRow htmlFor="interface-size" label="Interface size" description="Scales every panel">
+            <input id="interface-size" type="range" />
+          </SettingsRow>
+          <SettingsRow label="Version" description="You’re on the latest version" />
+        </SettingsGroup>
+      </>,
     );
-
-    expect(screen.getByRole("tablist", { name: "Document view" }))
-      .toHaveClass("ui-segmented--compact");
-    fireEvent.click(screen.getByRole("tab", { name: "PDF" }));
-    expect(onChange).toHaveBeenCalledWith("pdf");
-  });
-
-  it("keeps a persistent toggle in the data-row density contract", () => {
-    render(<SwitchField checked label="Spellcheck prose" onChange={() => undefined} />);
-
     expect(screen.getByText("Spellcheck prose").closest("[data-slot='switch-field']"))
       .toHaveClass("ui-row--data");
     expect(rowClassName("store", "project-row"))
       .toContain("ui-row--store");
-  });
-
-  it("gives settings rows the same row contract as a switch field", () => {
-    render(
-      <SettingsGroup title="Display">
-        <SettingsRow
-          htmlFor="interface-size"
-          label="Interface size"
-          description="Scales every panel"
-        >
-          <input id="interface-size" type="range" />
-        </SettingsRow>
-        <SettingsRow label="Version" description="You’re on the latest version" />
-      </SettingsGroup>,
-    );
-
     const row = screen.getByText("Interface size").closest("[data-slot='settings-row']");
     expect(row).toHaveClass("ui-settings-row", "ui-row--data");
     expect(screen.getByText("Interface size").tagName).toBe("LABEL");
@@ -212,11 +180,16 @@ describe("shared chrome primitives", () => {
 });
 
 describe("shared action and layout patterns", () => {
-  it("gives icon buttons one accessible label, size metadata, and a primary tone", () => {
+  it("labels icon, close, and panel-close buttons, and keeps destructive buttons real buttons with the trash animation", () => {
+    const onClick = vi.fn();
     render(
       <>
         <IconButton label="Help" size="compact"><CircleHelp /></IconButton>
         <IconButton label="Send message" tone="primary" tooltip={false}><CircleHelp /></IconButton>
+        <CloseButton label="Close settings" onClick={onClick} />
+        <PanelHeader title="Settings" icon={<Settings />} onClose={() => {}} />
+        <DestructiveButton aria-label="Delete file" iconSize={12}>Delete</DestructiveButton>
+        <DestructiveButton aria-label="Delete folder" disabled />
       </>,
     );
 
@@ -224,39 +197,22 @@ describe("shared action and layout patterns", () => {
     expect(help).toHaveAttribute("data-slot", "icon-button");
     expect(help).toHaveAttribute("data-size", "compact");
     expect(screen.getByRole("button", { name: "Send message" })).toHaveAttribute("data-tone", "primary");
-  });
-
-  it("renders the shared close action and forwards clicks", () => {
-    const onClick = vi.fn();
-    render(<CloseButton label="Close settings" onClick={onClick} />);
-
     fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
     expect(onClick).toHaveBeenCalledOnce();
-  });
-
-  it("derives a panel's accessible close label from a string title", () => {
-    render(<PanelHeader title="Settings" icon={<Settings />} onClose={() => {}} />);
-
+    // A panel derives its accessible close label from a string title.
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Settings" }))
       .not.toHaveAttribute("data-state");
-  });
-
-  it("keeps destructive buttons real buttons with the shared trash animation", () => {
-    const { rerender } = render(
-      <DestructiveButton aria-label="Delete file" iconSize={12}>Delete</DestructiveButton>,
-    );
 
     const button = screen.getByRole("button", { name: "Delete file" });
     expect(button).toHaveAttribute("type", "button");
     expect(button.querySelector(".destructive-button-icon svg")).toBeInTheDocument();
     expect(button).toHaveTextContent("Delete");
-    rerender(<DestructiveButton aria-label="Delete file" disabled />);
-    expect(screen.getByRole("button", { name: "Delete file" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete folder" })).toBeDisabled();
   });
 
-  it("renders a Settings heading and aligned action", () => {
-    render(
+  it("renders a Settings heading with its action, and an empty state without imposing a heading", () => {
+    const { unmount } = render(
       <SettingsSectionHeader
         title="Appearance"
         description="Preferences for this Mac"
@@ -266,9 +222,7 @@ describe("shared action and layout patterns", () => {
 
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
-  });
-
-  it("renders an empty state without imposing a heading when none is needed", () => {
+    unmount();
     render(<EmptyState description="No results" density="compact" />);
 
     expect(screen.getByText("No results")).toBeInTheDocument();

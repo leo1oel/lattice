@@ -166,18 +166,6 @@ describe("visual paper citation suggestion", () => {
     await expectMarkdownToContain(editor, "[Research paper 10](.research/papers/2401.00010/paper.md)");
   });
 
-  it("keeps a single keyboard selection and accepts the second paper with Tab", async () => {
-    const editor = renderEditor();
-    const options = within(await openMenu(editor, "@")).getAllByRole("option");
-    expect(options[0]).toHaveAttribute("aria-selected", "true");
-    expect(options[1]).toHaveAttribute("aria-selected", "false");
-    pressKey("ArrowDown");
-    await waitFor(() => expect(options[1]).toHaveAttribute("aria-selected", "true"));
-    expect(options[0]).toHaveAttribute("aria-selected", "false");
-    pressKey("Tab");
-    await expectMarkdownToContain(editor, "[An Image is Worth 16x16 Words](.research/papers/2010.11929/blog.md)");
-  });
-
   it("shows an empty state instead of stale options when nothing matches", async () => {
     const editor = renderEditor();
     await openMenu(editor, "@");
@@ -186,14 +174,23 @@ describe("visual paper citation suggestion", () => {
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
-  it("opens on @, filters papers, and inserts a link to the full text", async () => {
+  it("opens on @, keeps one keyboard selection, accepts with Tab, then filters to the full text", async () => {
     const editor = renderEditor();
     const menu = await openMenu(editor, "@");
     expect(menu).toHaveTextContent("Attention Is All You Need");
     expect(menu).toHaveTextContent("An Image is Worth 16x16 Words");
     expect(menu).not.toHaveTextContent("Cited Only Work");
+    const options = within(menu).getAllByRole("option");
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[1]).toHaveAttribute("aria-selected", "false");
+    pressKey("ArrowDown");
+    await waitFor(() => expect(options[1]).toHaveAttribute("aria-selected", "true"));
+    expect(options[0]).toHaveAttribute("aria-selected", "false");
+    pressKey("Tab");
+    await expectMarkdownToContain(editor, "[An Image is Worth 16x16 Words](.research/papers/2010.11929/blog.md)");
+    const filtered = await openMenu(editor, " @");
     editor.commands.insertContent("attention");
-    await waitFor(() => expect(menu).not.toHaveTextContent("An Image is Worth 16x16 Words"));
+    await waitFor(() => expect(filtered).not.toHaveTextContent("An Image is Worth 16x16 Words"));
     pressKey("Enter");
     await expectMarkdownToContain(editor, "[Attention Is All You Need](.research/papers/1706.03762/paper.md)");
   });

@@ -28,7 +28,7 @@ function Harness(props: { request: () => Promise<unknown> }) {
 const requestDeletion = () => confirmAction("Delete “notes.tex” from this project?");
 
 describe("ConfirmActionProvider", () => {
-  it("uses the styled in-app dialog and keeps destructive actions cancelled by default", async () => {
+  it("uses the styled in-app dialog, cancels destructive actions by default, and confirms only on Delete", async () => {
     render(<Harness request={requestDeletion} />);
     const trigger = screen.getByRole("button", { name: "Request" });
     trigger.focus();
@@ -45,11 +45,8 @@ describe("ConfirmActionProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByText("false")).toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
-  });
-
-  it("returns true only after the destructive button is explicitly pressed", async () => {
-    render(<Harness request={requestDeletion} />);
-    fireEvent.click(screen.getByRole("button", { name: "Request" }));
+    // True only after the destructive button is explicitly pressed.
+    fireEvent.click(trigger);
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.getByText("true")).toBeInTheDocument());

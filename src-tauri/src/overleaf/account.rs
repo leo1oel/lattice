@@ -338,50 +338,36 @@ mod tests {
     }
 
     #[test]
-    fn overleaf_session_status_defaults_when_absent() {
-        let status = session_status(&temp_dir("status")).unwrap();
-        assert!(!status.connected);
-        assert_eq!(status.host, DEFAULT_HOST);
-        assert!(status.email.is_none());
-    }
-
-    fn assert_private(config: &Path) {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = fs::metadata(session_path(config)).unwrap().permissions().mode();
-            assert_eq!(mode & 0o777, 0o600);
-        }
-    }
-
-    #[test]
-    fn session_file_is_private_and_round_trips_without_a_partial_file() {
-        let config = temp_dir("private-session");
-        write_session_file(&config, "https://www.overleaf.com");
-        assert_eq!(load_session(&config).unwrap().cookie, "overleaf_session2=fixture-cookie");
-        assert!(!config.join(format!(".{SESSION_FILE}.tmp")).exists());
-        assert_private(&config);
-        let _ = fs::remove_dir_all(config);
-    }
-
-    #[test]
-    fn overleaf_store_session_cookie_validates_and_persists() {
+    fn overleaf_store_session_cookie_validates_and_persists_privately() {
         let server = Mock::default().serve();
-        let config = temp_dir("store-session");
+        let config = TempDir::new("store-session");
+        // Nothing stored yet reads as disconnected from the default host.
+        let absent = session_status(&config).unwrap();
+        assert!(!absent.connected && absent.email.is_none());
+        assert_eq!(absent.host, DEFAULT_HOST);
+
         let cookie = "overleaf_session2=abc123; GCLB=balancer";
         let status = store_session_cookie(&config, &server.base, cookie).unwrap();
         assert!(status.connected);
         assert_eq!(status.email.as_deref(), Some("researcher@example.edu"));
         assert_eq!(status.name.as_deref(), Some("Robin Researcher"));
         assert_eq!(status.host, server.base);
-        assert_private(&config);
+        // The validation request carried the full cookie header.
+        assert_eq!(server.recorded()[0].cookie_header.as_deref(), Some(cookie));
 
+        // Stored verbatim, privately, and without a partial file left behind.
+        assert_eq!(load_session(&config).unwrap().cookie, cookie);
+        assert!(!config.join(format!(".{SESSION_FILE}.tmp")).exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(session_path(&config)).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
         // The stored session round-trips through session_status.
         let restored = session_status(&config).unwrap();
         assert!(restored.connected);
         assert_eq!(restored.email.as_deref(), Some("researcher@example.edu"));
-        // The validation request carried the full cookie header.
-        assert_eq!(server.recorded()[0].cookie_header.as_deref(), Some(cookie));
 
         disconnect(&config).unwrap();
         assert!(!session_status(&config).unwrap().connected);
@@ -391,8 +377,7 @@ mod tests {
     #[test]
     fn overleaf_list_projects_parses_and_sorts() {
         let server = Mock::default().serve();
-        let config = temp_dir("list");
-        write_session_file(&config, &server.base);
+        let config = signed_in(&server.base);
         let projects = list_projects(&config).unwrap();
         // Sorted by lastUpdated descending.
         let ids: Vec<&str> = projects.iter().map(|project| project.id.as_str()).collect();

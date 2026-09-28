@@ -13,21 +13,9 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/collab/collab-dialog.tsx
-msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
-msgstr " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
-
-#: src/collab/collab-dialog.tsx
-msgid " ends it for everyone"
-msgstr " ends it for everyone"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " et al."
-
-#: src/collab/collab-dialog.tsx
-msgid " if Build fails on a blank machine"
-msgstr " if Build fails on a blank machine"
 
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
@@ -64,16 +52,6 @@ msgstr "(no text)"
 msgid "(this comment's text was removed)"
 msgstr "(this comment's text was removed)"
 
-#: src/collab/collab-dialog.tsx
-msgid "(you)"
-msgstr "(you)"
-
-#. placeholder {0}: peer.name
-#. placeholder {1}: peer.path
-#: src/App.tsx
-msgid "{0} · {1} — click to follow"
-msgstr "{0} · {1} — click to follow"
-
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
@@ -87,9 +65,7 @@ msgid "{0} file"
 msgstr "{0} file"
 
 #. placeholder {0}: entry.files.length
-#. placeholder {0}: props.fileCount
 #. placeholder {0}: update.paths.length
-#: src/collab/collab-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "{0} files"
@@ -99,16 +75,6 @@ msgstr "{0} files"
 #: src/App.tsx
 msgid "{0} markers"
 msgstr "{0} markers"
-
-#. placeholder {0}: props.peerCount
-#: src/collab/collab-dialog.tsx
-msgid "{0} others"
-msgstr "{0} others"
-
-#. placeholder {0}: collabSession.room
-#: src/App.tsx
-msgid "{collabPeers} connected · {0}"
-msgstr "{collabPeers} connected · {0}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "{completed} of {progressTotal} references checked"
@@ -134,10 +100,6 @@ msgstr "{count} TODO"
 #: src/history/conflict-resolver.tsx
 msgid "{decided} of {total} decided"
 msgstr "{decided} of {total} decided"
-
-#: src/settings/settings-dialog.tsx
-msgid "{detail} Find in project will stay lexical"
-msgstr "{detail} Find in project will stay lexical"
 
 #: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
@@ -166,10 +128,6 @@ msgstr "{names} were deleted from the local project, but are still on Overleaf. 
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
-#: src/collab/collab-dialog.tsx
-msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
-msgstr "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
-
 #: src/project/paper-library.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — no local reading available"
@@ -194,10 +152,6 @@ msgstr "⌘⇧H · all .tex files"
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T to reopen"
 
-#: src/collab/collab-dialog.tsx
-msgid "1 file"
-msgstr "1 file"
-
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 line"
@@ -205,10 +159,6 @@ msgstr "1 line"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
-
-#: src/collab/collab-dialog.tsx
-msgid "1 other"
-msgstr "1 other"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
@@ -287,10 +237,6 @@ msgstr "Activity log"
 #: src/editor/insert/insert-snippets.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
-
-#: src/collab/collab-dialog.tsx
-msgid "Ada"
-msgstr "Ada"
 
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -556,10 +502,6 @@ msgstr "Asterisk operator"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
-
-#: src/collab/collab-dialog.tsx
-msgid "Attention paper"
-msgstr "Attention paper"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
@@ -840,7 +782,6 @@ msgstr "Callout"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
@@ -967,10 +908,6 @@ msgstr "Centered multi-line equations"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "Changes"
-
-#: src/collab/collab-dialog.tsx
-msgid "chat"
-msgstr "chat"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Chat"
@@ -1188,10 +1125,6 @@ msgstr "Close"
 msgid "Close {0}"
 msgstr "Close {0}"
 
-#: src/collab/collab-dialog.tsx
-msgid "Close for everyone"
-msgstr "Close for everyone"
-
 #: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "Close Git workspace"
@@ -1224,30 +1157,6 @@ msgstr "Code Block"
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "Code listing"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab display name"
-msgstr "Collab display name"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab invite"
-msgstr "Collab invite"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab room name"
-msgstr "Collab room name"
-
-#: src/collab/collab-status.ts
-msgid "Collaboration failed"
-msgstr "Collaboration failed"
-
-#: src/collab/collab-status.ts
-msgid "Collaboration is read-only"
-msgstr "Collaboration is read-only"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Collaboration, Overleaf, and history"
-msgstr "Collaboration, Overleaf, and history"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible content block (Notion-style toggle)."
@@ -1308,10 +1217,6 @@ msgstr "Compile engine"
 #: src/App.tsx
 msgid "Compile LaTeX"
 msgstr "Compile LaTeX"
-
-#: src/collab/collab-dialog.tsx
-msgid "Compile/PDF stays on each Mac. "
-msgstr "Compile/PDF stays on each Mac. "
 
 #: src/papers/bib-format.ts
 msgid "Complete the unfinished bibliography entry before adding another reference."
@@ -1374,19 +1279,10 @@ msgstr "Connecting to Overleaf's live channel…"
 msgid "Connecting to project…"
 msgstr "Connecting to project…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Connecting to the live session…"
-msgstr "Connecting to the live session…"
-
-#: src/collab/collab-dialog.tsx
-msgid "Connecting…"
-msgstr "Connecting…"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection"
 msgstr "Connection"
 
-#: src/collab/collab-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Connection failed"
 msgstr "Connection failed"
@@ -1434,10 +1330,6 @@ msgstr "Convert selection to footnote"
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
-#: src/collab/collab-dialog.tsx
-msgid "Copied"
-msgstr "Copied"
-
 #: src/telemetry/app-log.tsx
 msgid "Copy"
 msgstr "Copy"
@@ -1445,10 +1337,6 @@ msgstr "Copy"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
-
-#: src/collab/collab-dialog.tsx
-msgid "Copy invite"
-msgstr "Copy invite"
 
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
@@ -1559,10 +1447,6 @@ msgstr "created"
 #: src/project/project-dialogs.tsx
 msgid "Creates a {0} paper draft with bibliography and project brief"
 msgstr "Creates a {0} paper draft with bibliography and project brief"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Creating an invite…"
-msgstr "Creating an invite…"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Cross-reference label"
@@ -1919,8 +1803,8 @@ msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live"
-msgstr "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live"
+msgid "Edit cells and formulas directly"
+msgstr "Edit cells and formulas directly"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit HTML"
@@ -2049,11 +1933,6 @@ msgstr "Empty set (variant)"
 msgid "Enable version tracking"
 msgstr "Enable version tracking"
 
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "End “{0}” for everyone and remove it from this Mac"
-msgstr "End “{0}” for everyone and remove it from this Mac"
-
 #: src/settings/settings-dialog.tsx
 msgid "English"
 msgstr "English"
@@ -2070,10 +1949,6 @@ msgstr "Enter a replacement key"
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "Enter a zoom percentage or scroll to zoom"
-
-#: src/collab/collab-dialog.tsx
-msgid "Enter your name so others can see who is editing"
-msgstr "Enter your name so others can see who is editing"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
@@ -2258,7 +2133,6 @@ msgstr "Find in project"
 msgid "Finish"
 msgstr "Finish"
 
-#: src/app/use-collab-v2-session.ts
 #: src/build/tex-install-dialog.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
@@ -2360,10 +2234,6 @@ msgstr "Gather*"
 msgid "General"
 msgstr "General"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Generated directory"
-msgstr "Generated directory"
-
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "Get API key"
@@ -2383,10 +2253,6 @@ msgstr "Gimel"
 #: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git bridge"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Git internal data"
-msgstr "Git internal data"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Git status and commit"
@@ -2540,10 +2406,6 @@ msgstr "Horizontal pill strip + active panel below; click a pill to switch panel
 msgid "Horizontal rule that divides sections."
 msgstr "Horizontal rule that divides sections."
 
-#: src/collab/collab-dialog.tsx
-msgid "host"
-msgstr "host"
-
 #: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
 msgstr "HTML"
@@ -2589,10 +2451,6 @@ msgstr "Implies"
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 
-#: src/app/use-collab-v2-session.ts
-msgid "Import failed — retry Start sharing"
-msgstr "Import failed — retry Start sharing"
-
 #: src/App.tsx
 msgid "Import figures"
 msgstr "Import figures"
@@ -2622,10 +2480,6 @@ msgstr "Imported"
 msgid "Imported arXiv:{0}"
 msgstr "Imported arXiv:{0}"
 
-#: src/collab/collab-status.ts
-msgid "Importing all project files…"
-msgstr "Importing all project files…"
-
 #: src/App.tsx
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
@@ -2641,10 +2495,6 @@ msgstr "In progress"
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "In this file"
-
-#: src/collab/collab-dialog.tsx
-msgid "In this room"
-msgstr "In this room"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Include another TeX file"
@@ -2689,11 +2539,6 @@ msgstr "Indented blockquote for citations."
 #: src/papers/bibliography-audit.tsx
 msgid "Independent metadata unavailable"
 msgstr "Independent metadata unavailable"
-
-#. placeholder {0}: status.totalChunks
-#: src/settings/settings-dialog.tsx
-msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
-msgstr "Indexing {0} prose blocks. {semanticSearchPrivacy}"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Infinity"
@@ -2815,7 +2660,6 @@ msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/collab/collab-dialog.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
 
@@ -2893,10 +2737,6 @@ msgstr "Invalid response from source"
 msgid "Invalid saved bibliography audit report."
 msgstr "Invalid saved bibliography audit report."
 
-#: src/collab/collab-dialog.tsx
-msgid "Invite link"
-msgstr "Invite link"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Iota"
 msgstr "Iota"
@@ -2917,23 +2757,6 @@ msgstr "Its span was deleted from the document, so Overleaf can't say which file
 msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
 msgstr "Its text was deleted from the document — Overleaf can no longer say where it was"
 
-#: src/collab/collab-dialog.tsx
-msgid "Join"
-msgstr "Join"
-
-#: src/collab/collab-dialog.tsx
-#: src/project/project-dialogs.tsx
-msgid "Join share"
-msgstr "Join share"
-
-#: src/collab/collab-dialog.tsx
-msgid "joined"
-msgstr "joined"
-
-#: src/collab/collab-dialog.tsx
-msgid "Joined"
-msgstr "Joined"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "journal"
@@ -2945,10 +2768,6 @@ msgstr "Journal"
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
-
-#: src/collab/collab-dialog.tsx
-msgid "just you"
-msgstr "just you"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Kappa"
@@ -3109,10 +2928,6 @@ msgstr "Learn Lattice with the Understanding Attention sample project"
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
 
-#: src/collab/collab-dialog.tsx
-msgid "Leave share"
-msgstr "Leave share"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Left angle bracket"
 msgstr "Left angle bracket"
@@ -3215,31 +3030,6 @@ msgstr "Literal code / text block"
 msgid "Literature services"
 msgstr "Literature services"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live · {count} other"
-msgstr "Live · {count} other"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live · {count} others"
-msgstr "Live · {count} others"
-
-#: src/canvas/canvas-toolbar.tsx
-#: src/collab/collab-dialog.tsx
-msgid "Live collaboration"
-msgstr "Live collaboration"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live collaboration · just you"
-msgstr "Live collaboration · just you"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
-msgstr "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
-
-#: src/collab/collab-dialog.tsx
-msgid "Live collaboration view"
-msgstr "Live collaboration view"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is connected"
 msgstr "Live editing is connected"
@@ -3255,10 +3045,6 @@ msgstr "Live editing unavailable · syncing instead"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live editing unavailable ({detail}) · syncing instead"
 msgstr "Live editing unavailable ({detail}) · syncing instead"
-
-#: src/App.tsx
-msgid "Live sharing…"
-msgstr "Live sharing…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
@@ -3324,10 +3110,6 @@ msgstr "Local comments"
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
 msgstr "Local issues"
-
-#: src/settings/settings-dialog.tsx
-msgid "Local semantic search"
-msgstr "Local semantic search"
 
 #: src/telemetry/app-log.tsx
 msgid "Log level filter"
@@ -3862,14 +3644,6 @@ msgstr "Numbered list of items."
 msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
-#: src/settings/settings-dialog.tsx
-msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
-msgstr "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
-
-#: src/collab/collab-status.ts
-msgid "Offline"
-msgstr "Offline"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "Omega"
@@ -4063,10 +3837,6 @@ msgstr "OpenAlex search"
 msgid "Opening {0}…"
 msgstr "Opening {0}…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Opening the shared document…"
-msgstr "Opening the shared document…"
-
 #: src/settings/settings-dialog.tsx
 msgid "Opening…"
 msgstr "Opening…"
@@ -4228,10 +3998,6 @@ msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in proje
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 
-#: src/collab/collab-dialog.tsx
-msgid "Paste the full invite from Copy invite"
-msgstr "Paste the full invite from Copy invite"
-
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
 msgstr "Paste your API key"
@@ -4279,10 +4045,6 @@ msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
-
-#: src/App.tsx
-msgid "People in this session"
-msgstr "People in this session"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Percent"
@@ -4353,11 +4115,6 @@ msgstr "Precedes"
 msgid "Precedes or equal"
 msgstr "Precedes or equal"
 
-#. placeholder {0}: inventory.length
-#: src/app/use-collab-v2-session.ts
-msgid "Preparing {0} project files…"
-msgstr "Preparing {0} project files…"
-
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "Preparing board editor"
@@ -4377,10 +4134,6 @@ msgstr "Preparing Markdown editor"
 #: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing preview…"
 msgstr "Preparing preview…"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Preparing project files… {completed}/{total}"
-msgstr "Preparing project files… {completed}/{total}"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
@@ -4434,10 +4187,6 @@ msgstr "Previous search result"
 #: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "Prime"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Private app data"
-msgstr "Private app data"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
@@ -4582,17 +4331,6 @@ msgstr "Read-only copy of a MirrorSource block from another doc. Edit at the sou
 msgid "Reading the file…"
 msgstr "Reading the file…"
 
-#. placeholder {0}: status.indexedFiles
-#. placeholder {1}: status.indexedChunks
-#: src/settings/settings-dialog.tsx
-msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
-msgstr "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
-
-#. placeholder {0}: status.indexedChunks
-#: src/settings/settings-dialog.tsx
-msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
-msgstr "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
-
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "Ready to compile"
@@ -4653,11 +4391,6 @@ msgstr "Reject"
 msgid "Reject all"
 msgstr "Reject all"
 
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "Rejoin {0}"
-msgstr "Rejoin {0}"
-
 #: src/editor/insert/insert-palette.tsx
 msgid "Relations"
 msgstr "Relations"
@@ -4666,7 +4399,6 @@ msgstr "Relations"
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
 
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "Remove"
 msgstr "Remove"
@@ -4679,25 +4411,6 @@ msgstr "Remove “{title}” from the bibliography?"
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "Remove {0} files from the Overleaf project?"
-
-#. placeholder {0}: record.projectInstanceId
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0} from recent shares"
-msgstr "Remove {0} from recent shares"
-
-#. placeholder {0}: peer.name
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0} from this share"
-msgstr "Remove {0} from this share"
-
-#. placeholder {0}: peer.name
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0}?\n"
-"\n"
-"They will lose access immediately. Anyone who joined with the same invite will also lose access."
-msgstr "Remove {0}?\n"
-"\n"
-"They will lose access immediately. Anyone who joined with the same invite will also lose access."
 
 #: src/project/paper-library.tsx
 msgid "Remove {title}"
@@ -4754,20 +4467,10 @@ msgstr "Removed one file from Overleaf"
 msgid "Removes .aux, .log, and other build leftovers from this project"
 msgstr "Removes .aux, .log, and other build leftovers from this project"
 
-#: src/collab/collab-dialog.tsx
-msgid "Removing…"
-msgstr "Removing…"
-
-#: src/collab/collab-dialog.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 msgid "Rename"
 msgstr "Rename"
-
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "Rename {0}"
-msgstr "Rename {0}"
 
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
@@ -4911,10 +4614,6 @@ msgstr "Resize editor and Markdown preview"
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "Resize editor and PDF preview"
-
-#: src/canvas/document-canvas.tsx
-msgid "Resize PDF pane"
-msgstr "Resize PDF pane"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
@@ -5133,18 +4832,6 @@ msgstr "Right vertical bar"
 msgid "Roman math"
 msgstr "Roman math"
 
-#: src/collab/collab-dialog.tsx
-msgid "Room name"
-msgstr "Room name"
-
-#: src/collab/collab-dialog.tsx
-msgid "Rooms you host"
-msgstr "Rooms you host"
-
-#: src/collab/collab-dialog.tsx
-msgid "Rooms you joined"
-msgstr "Rooms you joined"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Root with index"
 msgstr "Root with index"
@@ -5170,11 +4857,6 @@ msgstr "Run without asking for approval"
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
 
-#: src/settings/settings-dialog.tsx
-msgid "Runs on-device; no text leaves this Mac"
-msgstr "Runs on-device; no text leaves this Mac"
-
-#: src/collab/collab-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -5256,10 +4938,6 @@ msgstr "Saving…"
 msgid "Scanning bibliography files…"
 msgstr "Scanning bibliography files…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Scanning project files…"
-msgstr "Scanning project files…"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Script l"
 msgstr "Script l"
@@ -5269,7 +4947,6 @@ msgid "Script letters"
 msgstr "Script letters"
 
 #: src/papers/literature-discovery-panel.tsx
-#: src/settings/settings-dialog.tsx
 msgid "Search"
 msgstr "Search"
 
@@ -5395,10 +5072,6 @@ msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/collab/collab-dialog.tsx
-msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
-msgstr "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
-
 #: src/settings/literature-settings.tsx
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "Sent to Crossref to use its polite pool. No API key is needed."
@@ -5431,18 +5104,6 @@ msgstr "Settings sections"
 #: src/build/tex-install-dialog.tsx
 msgid "Setup is complete"
 msgstr "Setup is complete"
-
-#: src/App.tsx
-msgid "Share invite with a collaborator"
-msgstr "Share invite with a collaborator"
-
-#: src/collab/collab-dialog.tsx
-msgid "Share mode"
-msgstr "Share mode"
-
-#: src/collab/collab-dialog.tsx
-msgid "Sharing"
-msgstr "Sharing"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Sharp"
@@ -5553,18 +5214,6 @@ msgstr "Small section heading."
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
 msgstr "Smile relation"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Some project items won't be included in this share:\n"
-"\n"
-"{details}\n"
-"\n"
-"Continue sharing the remaining regular files?"
-msgstr "Some project items won't be included in this share:\n"
-"\n"
-"{details}\n"
-"\n"
-"Continue sharing the remaining regular files?"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
@@ -5688,17 +5337,9 @@ msgstr "Stale result"
 msgid "Star operator"
 msgstr "Star operator"
 
-#: src/App.tsx
-msgid "Start / join live sharing"
-msgstr "Start / join live sharing"
-
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "Start browser access after login"
-
-#: src/collab/collab-dialog.tsx
-msgid "Start sharing"
-msgstr "Start sharing"
 
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
@@ -5721,18 +5362,10 @@ msgstr "Starting Open Slide"
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
 
-#: src/settings/settings-dialog.tsx
-msgid "Starting the index. {semanticSearchPrivacy}"
-msgstr "Starting the index. {semanticSearchPrivacy}"
-
 #. placeholder {0}: hunk.line
 #: src/history/conflict-resolver.tsx
 msgid "Starts at line {0}"
 msgstr "Starts at line {0}"
-
-#: src/collab/collab-dialog.tsx
-msgid "status"
-msgstr "status"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
@@ -5750,18 +5383,6 @@ msgstr "Stop"
 #: src/App.tsx
 msgid "Stop build"
 msgstr "Stop build"
-
-#: src/collab/collab-dialog.tsx
-msgid "Stop sharing"
-msgstr "Stop sharing"
-
-#: src/collab/collab-dialog.tsx
-msgid "Stop sharing for everyone?\n"
-"\n"
-"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
-msgstr "Stop sharing for everyone?\n"
-"\n"
-"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
 
 #: src/app/app-titlebar.tsx
 msgid "Stop the current LaTeX build"
@@ -5855,10 +5476,6 @@ msgstr "Swap editor panes"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Symbolic links are not followed"
-msgstr "Symbolic links are not followed"
-
 #: src/editor/insert/insert-palette.tsx
 msgid "Symbols"
 msgstr "Symbols"
@@ -5882,10 +5499,6 @@ msgstr "Sync only when you click the sync button"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
-
-#: src/collab/collab-status.ts
-msgid "Syncing changes…"
-msgstr "Syncing changes…"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -5943,10 +5556,6 @@ msgstr "Text in math"
 msgid "The bundled Agent service could not start"
 msgstr "The bundled Agent service could not start"
 
-#: src/collab/collab-control-v2.ts
-msgid "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
-msgstr "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
@@ -5959,14 +5568,6 @@ msgstr "The copy on Overleaf"
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
 
-#: src/app/use-collab-v2-session.ts
-msgid "The host ended this share. Your own project is open again."
-msgstr "The host ended this share. Your own project is open again."
-
-#: src/app/use-collab-v2-session.ts
-msgid "The host removed you from this share. Your own project is open again."
-msgstr "The host removed you from this share. Your own project is open again."
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "the linked Overleaf host"
@@ -5974,10 +5575,6 @@ msgstr "the linked Overleaf host"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "The linked Overleaf project changed. Try commenting again."
-
-#: src/settings/settings-dialog.tsx
-msgid "The local model is unavailable."
-msgstr "The local model is unavailable."
 
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
@@ -6177,14 +5774,6 @@ msgstr "This project uses {linkedHost}. Sign out above, then connect to that hos
 #: src/App.tsx
 msgid "This reference cannot be updated."
 msgstr "This reference cannot be updated."
-
-#: src/collab/collab-dialog.tsx
-msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
-msgstr "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
-
-#: src/collab/collab-status.ts
-msgid "This shared project is closed"
-msgstr "This shared project is closed"
 
 #: src/papers/bibliography-audit.tsx
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
@@ -6396,10 +5985,6 @@ msgstr "Update comment…"
 msgid "updated {0}"
 msgstr "updated {0}"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Updates are disabled in read-only projects. You can still check references."
-msgstr "Updates are disabled in read-only projects. You can still check references."
-
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
 msgstr "Updates every \\label and \\ref/\\cref occurrence across the project"
@@ -6432,10 +6017,6 @@ msgstr "Upload this project to Overleaf"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Uploading {0} to Overleaf… this can take a minute for large projects"
 msgstr "Uploading {0} to Overleaf… this can take a minute for large projects"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Uploading project files… {completed}/{total}"
-msgstr "Uploading project files… {completed}/{total}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Uploading…"
@@ -6719,24 +6300,15 @@ msgstr "Year unavailable"
 msgid "Yesterday"
 msgstr "Yesterday"
 
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "You"
 
-#: src/collab/collab-dialog.tsx
-msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing"
-msgstr "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"
 msgstr "You can close this once the transfer finishes"
-
-#: src/collab/collab-dialog.tsx
-msgid "You started this share. "
-msgstr "You started this share. "
 
 #: src/settings/settings-dialog.tsx
 msgid "You’ll be notified when a new version is ready"
@@ -6753,10 +6325,6 @@ msgstr "Your LaTeX and your PDF, side by side"
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "Your Lattice copy"
-
-#: src/collab/collab-dialog.tsx
-msgid "Your name"
-msgstr "Your name"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"

@@ -46,15 +46,12 @@ describe("Synara settings layout", () => {
     scrollWidth: 500,
   });
 
-  it("uses the latest scroll range for the first forwarded wheel", () => {
+  it("uses the latest scroll range for the first forwarded wheel, and scales line-mode wheels onto the viewport", () => {
     const settings = viewport();
     expect(scrollSynaraSettingsViewportBy(settings, 5_000)).toEqual({ left: 0, top: 4_343 });
     expect(settings.scrollTop).toBe(4_343);
-  });
-
-  it("scales line-mode wheels onto the host settings viewport", () => {
-    const settings = viewport();
-    expect(applySynaraSettingsWheel(settings, { deltaX: 0, deltaY: 3, deltaMode: 1 })).toEqual({ left: 0, top: 1_048 });
-    expect(settings.scrollTop).toBe(1_048);
+    const lineMode = viewport();
+    expect(applySynaraSettingsWheel(lineMode, { deltaX: 0, deltaY: 3, deltaMode: 1 })).toEqual({ left: 0, top: 1_048 });
+    expect(lineMode.scrollTop).toBe(1_048);
   });
 });

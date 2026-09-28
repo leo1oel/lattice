@@ -35,31 +35,26 @@ describe("Overleaf comments panel", () => {
     vi.mocked(confirm).mockReset();
   });
 
-  it("quotes the commented span and reveals it, opening its file, when clicked", () => {
+  it("quotes each commented span under its file's heading and reveals it, opening its file, when clicked", () => {
     const onReveal = vi.fn();
-    render(panel({
-      pathForDoc: (id) => (id === "doc-open" ? "chapters/intro.tex" : null),
-      onReveal,
-    }));
-    expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
-    expect(screen.getByText("In this file")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("state of the art"));
-    expect(onReveal).toHaveBeenCalledWith("chapters/intro.tex", 42);
-  });
-
-  it("groups a thread from another file under that file's own heading, with its quote", () => {
+    const paths: Record<string, string> = { "doc-open": "chapters/intro.tex", "doc-other": "chapters/methods.tex" };
     render(panel({
       threads: [thread({ id: "t1" }), thread({ id: "t2", messages: [message({ content: "Fix this too" })] })],
       anchors: anchorsByThreadId([
         anchor({ threadId: "t1", docId: "doc-open" }),
         anchor({ threadId: "t2", docId: "doc-other", position: 7, quote: "second file quote" }),
       ]),
-      pathForDoc: (id) => (id === "doc-other" ? "chapters/methods.tex" : null),
+      pathForDoc: (id) => paths[id] ?? null,
+      onReveal,
     }));
+    expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
     expect(screen.getByText("In this file")).toBeInTheDocument();
+    // A thread from another file is grouped under that file's own heading, with its quote.
     expect(screen.getByText("chapters/methods.tex")).toBeInTheDocument();
     expect(screen.getByText("second file quote")).toBeInTheDocument();
     expect(screen.getByText("Fix this too")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("state of the art"));
+    expect(onReveal).toHaveBeenCalledWith("chapters/intro.tex", 42);
   });
 
   it("reveals a resolved inline-reply target and opens its reply composer", () => {
@@ -94,7 +89,6 @@ describe("Overleaf comments panel", () => {
   it("resolves and deletes a thread anchored in another (unopened) file exactly like one in the open file", async () => {
     const onResolve = resolves();
     const onDelete = resolves();
-    vi.mocked(confirm).mockResolvedValue(true);
     render(panel({
       threads: [thread({ id: "t2" })],
       anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-other-file" })]),
@@ -104,19 +98,15 @@ describe("Overleaf comments panel", () => {
     }));
     fireEvent.click(screen.getByRole("button", { name: /Resolve/ }));
     await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t2", true));
-    fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
+    const remove = screen.getByRole("button", { name: /^Delete$/ });
+    // Cancelling the warning deletes nothing.
+    vi.mocked(confirm).mockResolvedValueOnce(false);
+    fireEvent.click(remove);
     await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Delete this discussion?"), expect.anything()));
-    await waitFor(() => expect(onDelete).toHaveBeenCalledWith("t2"));
-  });
-
-  it("does not delete a discussion when the warning is cancelled", async () => {
-    const onDelete = resolves();
-    vi.mocked(confirm).mockResolvedValue(false);
-    render(panel({ onDelete }));
-
-    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
-    await waitFor(() => expect(confirm).toHaveBeenCalled());
     expect(onDelete).not.toHaveBeenCalled();
+    vi.mocked(confirm).mockResolvedValueOnce(true);
+    fireEvent.click(remove);
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith("t2"));
   });
 
   it("hides resolved threads until asked to include them", () => {

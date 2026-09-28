@@ -1,8 +1,8 @@
 //! What a project folder contains: the file tree each view shows, content
-//! classification, the collaboration inventory, and reading text files.
+//! classification, and reading text files.
 
 use super::err;
-use super::paths::{extension, relative_to, safe_path};
+use super::paths::{extension, safe_path};
 use crate::models::FileNode;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -10,9 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 use std::time::SystemTime;
-use walkdir::WalkDir;
 
-/// Inventory classification reads at most this many bytes. Larger files are
+/// Content classification reads at most this many bytes. Larger files are
 /// visible but conservatively binary/unknown, avoiding unbounded scans.
 pub(super) const MAX_CLASSIFIED_TEXT_BYTES: u64 = 8 * 1024 * 1024;
 /// Standalone HTML often embeds Plotly or image data and legitimately exceeds
@@ -148,7 +147,7 @@ fn classify_with_limit(
     Ok(classify_file_bytes(&fs::read(path).map_err(err)?))
 }
 
-/// Content kind under the shared (collaboration) limit, never following links.
+/// Content kind under the general text limit, never following links.
 pub(super) fn classify_regular_file(path: &Path) -> Result<ContentKind, String> {
     let metadata = fs::symlink_metadata(path).map_err(err)?;
     classify_with_limit(path, &metadata, MAX_CLASSIFIED_TEXT_BYTES)
@@ -184,8 +183,7 @@ fn classify_tree_file(path: &Path, metadata: &fs::Metadata) -> Result<ContentKin
     Ok(kind)
 }
 
-/// Cached literature under `.research/papers/`. Shares send the bibliography
-/// instead; each collaborator downloads full text when they open a paper.
+/// Cached literature under `.research/papers/`.
 pub(super) fn is_paper_library_path(relative: &str) -> bool {
     relative == ".research/papers" || relative.starts_with(".research/papers/")
 }
@@ -350,76 +348,6 @@ pub(super) fn is_supported_asset(path: &Path) -> bool {
     )
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CollabInventoryFile {
-    pub path: String,
-    pub content_kind: String,
-    pub size: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CollabInventoryExclusion {
-    pub path_or_pattern: String,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct CollabProjectInventoryV2 {
-    pub files: Vec<CollabInventoryFile>,
-    pub excluded: Vec<CollabInventoryExclusion>,
-}
-
-pub fn collab_project_inventory_v2(root: &Path) -> Result<CollabProjectInventoryV2, String> {
-    let root = root.canonicalize().map_err(err)?;
-    let mut files = Vec::new();
-    let mut excluded = Vec::new();
-    let walker = WalkDir::new(&root).follow_links(false).into_iter().filter_entry(|entry| {
-        if entry.depth() == 0 {
-            return true;
-        }
-        let relative = entry.path().strip_prefix(&root).unwrap_or(entry.path());
-        exclusion_reason(relative, &entry.file_name().to_string_lossy(), entry.path()).is_none()
-    });
-    for entry in walker.filter_map(Result::ok).skip(1) {
-        let path = entry.path();
-        let normalized = relative_to(&root, path)?;
-        let metadata = fs::symlink_metadata(path).map_err(err)?;
-        if metadata.file_type().is_symlink() {
-            excluded.push(CollabInventoryExclusion {
-                path_or_pattern: normalized,
-                reason: "symlink-not-followed".into(),
-            });
-        } else if metadata.is_file() {
-            let kind = classify_regular_file(path)?;
-            files.push(CollabInventoryFile {
-                path: normalized,
-                content_kind: if kind == ContentKind::Text { "text" } else { "binary" }.into(),
-                size: metadata.len(),
-            });
-        }
-    }
-    for (pattern, reason) in [
-        (".git/**", "git-internals"),
-        (".research/**", "app-private-state"),
-        ("node_modules/**", "generated-directory"),
-        ("target/**", "generated-directory"),
-        ("dist/**", "generated-directory"),
-        ("build/**", "generated-directory"),
-    ] {
-        if root.join(pattern.trim_end_matches("/**")).exists() {
-            excluded.push(CollabInventoryExclusion {
-                path_or_pattern: pattern.into(),
-                reason: reason.into(),
-            });
-        }
-    }
-    files.sort_by(|a, b| a.path.cmp(&b.path));
-    excluded.sort_by(|a, b| a.path_or_pattern.cmp(&b.path_or_pattern));
-    Ok(CollabProjectInventoryV2 { files, excluded })
-}
-
 const NOT_EDITABLE: &str =
     "This is a binary or unsupported file and cannot be opened in the source editor.";
 
@@ -496,18 +424,14 @@ mod tests {
         }
 
         let files = scan_tree(root, TreeView::Inventory).unwrap();
-        let shared = collab_project_inventory_v2(root).unwrap().files;
-        // Both the tree and the collaboration inventory classify by content.
-        let kinds = |path: &str| {
-            let node = files.iter().find(|node| node.path == path).unwrap();
-            let file = shared.iter().find(|file| file.path == path).unwrap();
-            [node.content_kind.as_str(), file.content_kind.as_str()]
-        };
+        // The tree classifies by content, not by extension.
+        let kind =
+            |path: &str| files.iter().find(|node| node.path == path).unwrap().content_kind.as_str();
         for path in text.into_iter().chain(scripts) {
-            assert_eq!(kinds(path), ["text"; 2], "{path}");
+            assert_eq!(kind(path), "text", "{path}");
         }
         for path in ["nul.txt", "unknown.dat", "binary.tsx"] {
-            assert_eq!(kinds(path), ["binary"; 2], "{path}");
+            assert_eq!(kind(path), "binary", "{path}");
         }
         assert!(!paths(&files).contains(&"node_modules"));
         let project_tree = scan_tree(root, TreeView::Project).unwrap();
@@ -531,7 +455,6 @@ mod tests {
         {
             fixture.write(&format!("{directory}/settings.txt"), b"content");
         }
-        // Shares send the bibliography, never the cached paper library.
         fixture.write("references.bib", b"@article{x, title={X}}\n");
         fixture.write(".research/papers/2401.00001/paper_assets/figure.png", b"\x89PNG\r\n\x1a\n");
 
@@ -548,18 +471,18 @@ mod tests {
         for name in ["main.fls", "main.pdf", ".env.example", ".config"] {
             assert!(!paths(&normal).contains(&name), "{name}");
         }
-        let inventory = collab_project_inventory_v2(root).unwrap();
-        let shared = inventory.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>();
-        for (path, is_shared) in [
+        let inventory = scan_tree(root, TreeView::Inventory).unwrap();
+        let listed: Vec<&str> =
+            tree_files(&inventory).into_iter().map(|file| file.path.as_str()).collect();
+        for (path, expected) in [
             ("main.fls", false),
             ("journal.sty", true),
             ("refs.bst", true),
             ("references.bib", true),
         ] {
-            assert_eq!(shared.contains(&path), is_shared, "{path}");
+            assert_eq!(listed.contains(&path), expected, "{path}");
         }
-        assert!(!shared.iter().any(|path| path.starts_with(".research")));
-        assert!(inventory.excluded.iter().any(|item| item.path_or_pattern == ".research/**"));
+        assert!(!listed.iter().any(|path| path.starts_with(".research")));
     }
 
     #[test]

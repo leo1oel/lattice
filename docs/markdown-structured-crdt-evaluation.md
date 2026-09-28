@@ -3,7 +3,7 @@
 ## Decision
 
 The result is **NO-GO**.
-Production remains on canonical `Y.Text("content")`. The prototype (`src/editor/markdown/markdown-structured-crdt-prototype.ts` and its benchmark test) was never imported by the production editor and has since been deleted; it remains in git history before the editor simplification.
+Production stayed on canonical `Y.Text("content")`, which was later removed along with Lattice Shares. The prototype (`src/editor/markdown/markdown-structured-crdt-prototype.ts` and its benchmark test) was never imported by the production editor and has since been deleted; it remains in git history before the editor simplification.
 This decision follows correctness evidence rather than implementation complexity.
 
 ## Method

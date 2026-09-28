@@ -5,11 +5,11 @@
 //! refresh, instead of the frontend polling `refresh_project` + `git_status`.
 //! The frontend keeps a slow fallback poll as a safety net.
 //!
-//! `.research/` churn is filtered out except for cached paper prose used by
-//! local semantic search. App state writes (history, FTS indexes, caches) fire
-//! on every save and are invisible to the project tree anyway (`scan_files`
-//! excludes them). `.git/` events stay: they are how commits and stages reach
-//! the source-control badge without polling.
+//! `.research/` churn is filtered out: app state writes (history, FTS
+//! indexes, caches, the paper library) fire on every save and are invisible to
+//! the project tree anyway (`scan_tree` excludes them). `.git/` events stay:
+//! they are how commits and stages reach the source-control badge without
+//! polling.
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -53,13 +53,7 @@ fn relevant(event: &Event, root: &Path) -> bool {
             // as relevant rather than silently dropping a real change.
             Err(_) => return true,
         };
-        if !relative.starts_with(".research") {
-            return true;
-        }
-        relative.starts_with(Path::new(".research").join("papers"))
-            && relative.file_name().is_some_and(|name| {
-                name.eq_ignore_ascii_case("paper.md") || name.eq_ignore_ascii_case("blog.md")
-            })
+        !relative.starts_with(".research")
     })
 }
 
@@ -182,8 +176,7 @@ mod tests {
             (&["main.tex"][..], true),
             (&[".git/index"], true),
             (&[".research/history/x.json"], false),
-            (&[".research/papers/2401.00001/paper.md"], true),
-            (&[".research/papers/2401.00001/blog.md"], true),
+            (&[".research/papers/2401.00001/paper.md"], false),
             // Mixed bursts stay relevant if any path matters.
             (&[".research/cache/fts.sqlite", "notes.md"], true),
         ] {

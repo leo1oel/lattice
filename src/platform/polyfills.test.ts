@@ -76,11 +76,9 @@ describe("pre-React WebKit compatibility", () => {
   };
   const webKit = "Mozilla/5.0 AppleWebKit/619.3.11 Safari/619.3.11";
 
-  it("disables React's unsafe development performance track in WebKit", () => {
+  it("disables React's unsafe development performance track in WebKit only", () => {
     expect(consoleTimeStampType("http:", webKit)).toBe("undefined");
-  });
-
-  it("leaves production and non-WebKit performance instrumentation alone", () => {
+    // Production and non-WebKit performance instrumentation are left alone.
     expect(consoleTimeStampType("tauri:", webKit)).toBe("function");
     expect(consoleTimeStampType("http:", "Mozilla/5.0 Gecko/20100101 Firefox/142.0")).toBe("function");
   });

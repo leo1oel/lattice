@@ -16,15 +16,7 @@ describe("LaTeX environments", () => {
     expect(beginEnvironmentClose("\\begin{align*}", "")?.insert).toContain("\\end{align*}");
   });
 
-  it("renames the environment under the cursor", () => {
-    const source = "\\begin{align}x\\end{align}";
-    expect(renameEnvironmentAt(source, 2, "align*")).toEqual([
-      { ...span(source, "\\begin{align}"), insert: "\\begin{align*}" },
-      { ...span(source, "\\end{align}"), insert: "\\end{align*}" },
-    ]);
-  });
-
-  it("jumps between matching begin and end environments", () => {
+  it("jumps between matching begin and end environments and renames the one under the cursor", () => {
     const source = "\\begin{figure}\\begin{center}x\\end{center}\\end{figure}";
     const beginFigure = span(source, "\\begin{figure}");
     const endFigure = span(source, "\\end{figure}");
@@ -37,6 +29,10 @@ describe("LaTeX environments", () => {
     expect(matchingEnvironmentTarget(source, inside)).toEqual(beginCenter);
     expect(enclosingEnvironment(source, inside)?.name).toBe("center");
     expect(enclosingEnvironmentRange(source, inside)).toEqual({ from: beginCenter.from, to: endCenter.to });
+    expect(renameEnvironmentAt(source, beginFigure.from + 2, "figure*")).toEqual([
+      { ...beginFigure, insert: "\\begin{figure*}" },
+      { ...endFigure, insert: "\\end{figure*}" },
+    ]);
     expect(renameEnvironmentAt(source, inside, "quote")).toEqual([
       { ...beginCenter, insert: "\\begin{quote}" },
       { ...endCenter, insert: "\\end{quote}" },

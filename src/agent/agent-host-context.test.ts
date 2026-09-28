@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  buildAgentHostContext,
-  LATTICE_HOST_CONTEXT,
-  selectedMarkdownImageProjectPath,
-} from "./agent-host-context";
+import { buildAgentHostContext, LATTICE_HOST_CONTEXT, selectedMarkdownImageProjectPath } from "./agent-host-context";
 
 describe("selected Markdown image context", () => {
   // Markdown and HTML image blocks resolve relative to their document; prose,
@@ -63,32 +59,16 @@ describe("agent host context", () => {
         explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
       },
       activeSurface: "editor",
-      editor: {
-        path: "main.tex",
-        line: 42,
-        column: 7,
-        secondaryPath: "appendix.tex",
-        selection: "related work",
-      },
+      editor: { path: "main.tex", line: 42, column: 7, secondaryPath: "appendix.tex", selection: "related work" },
       pdf: { page: 3, pageCount: 8 },
     });
   });
 
   it("shares the live Open Slide page and inspector selection for the open deck", () => {
     const presentation = {
-      slideId: "research-update",
-      pageIndex: 2,
-      pageNumber: 3,
-      totalPages: 8,
-      slideTitle: "Research update",
-      view: "slides" as const,
-      pagePath: "slides/research-update/index.tsx",
-      pendingComments: [{
-        id: "c-1234abcd",
-        line: 44,
-        ts: "2026-09-03T00:00:00.000Z",
-        note: "Make this chart larger",
-      }],
+      slideId: "research-update", pageIndex: 2, pageNumber: 3, totalPages: 8, slideTitle: "Research update",
+      view: "slides" as const, pagePath: "slides/research-update/index.tsx",
+      pendingComments: [{ id: "c-1234abcd", line: 44, ts: "2026-09-03T00:00:00.000Z", note: "Make this chart larger" }],
       selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
       updatedAt: "2026-08-30T12:00:00.000Z",
     };
@@ -132,28 +112,23 @@ describe("agent host context", () => {
     });
   });
 
-  it("uses the actually focused split-view surface", () => {
-    expect(buildAgentHostContext({
+  it("uses the actually focused split-view surface and reports only the omitted selection length at 12k", () => {
+    const context = buildAgentHostContext({
       ...baseInput,
       editorPosition: { path: "main.tex", line: 12, column: 3 },
       pdfPage: 6,
       pdfPageCount: 9,
       activeSurface: "pdf",
-    })).toMatchObject({
-      activeSurface: "pdf",
-      editor: { path: "main.tex", line: 12, column: 3 },
-      pdf: { page: 6, pageCount: 9 },
-    });
-  });
-
-  it("reports only the omitted selection length while keeping model text at 12k", () => {
-    const context = buildAgentHostContext({
-      ...baseInput,
-      editorPosition: { path: "main.tex", line: 1, column: 0 },
       selection: "x".repeat(12_019),
       selectionSource: "editor",
       now: () => new Date("2026-08-14T10:00:00Z"),
     });
+    expect(context).toMatchObject({
+      activeSurface: "pdf",
+      editor: { path: "main.tex", line: 12, column: 3 },
+      pdf: { page: 6, pageCount: 9 },
+    });
+    // The model text keeps 12k characters; only the omitted length is reported.
     expect(context.editor?.selection).toHaveLength(12_000);
     expect(context.editor?.selectionOmittedChars).toBe(19);
     expect(context.capturedAt).toBe("2026-08-14T10:00:00.000Z");

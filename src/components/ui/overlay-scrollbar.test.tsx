@@ -25,19 +25,15 @@ function renderOverlay(scrollWidth = 400) {
     scrollWidth,
   });
   const view = render(<OverlayScrollbars getViewport={() => viewport} />);
-  const vertical = view.container.querySelector<HTMLElement>(
-    '.overlay-scrollbar[data-orientation="vertical"]',
-  )!;
-  const horizontal = view.container.querySelector<HTMLElement>(
-    '.overlay-scrollbar[data-orientation="horizontal"]',
-  )!;
-  sizedElement(vertical, { clientHeight: 200 });
-  sizedElement(horizontal, { clientWidth: 400 });
+  const bar = (orientation: string) =>
+    view.container.querySelector<HTMLElement>(`.overlay-scrollbar[data-orientation="${orientation}"]`)!;
+  const vertical = sizedElement(bar("vertical"), { clientHeight: 200 });
+  const horizontal = sizedElement(bar("horizontal"), { clientWidth: 400 });
   return { horizontal, vertical, viewport };
 }
 
 describe("OverlayScrollbars", () => {
-  it("marks only the axes that overflow", async () => {
+  it("marks only the axes that overflow, and reveals while the viewport scrolls then settles", async () => {
     const { horizontal, vertical, viewport } = renderOverlay();
 
     await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-end"));
@@ -49,17 +45,9 @@ describe("OverlayScrollbars", () => {
 
     viewport.scrollTop = 300;
     fireEvent.scroll(viewport);
-    await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-start"));
-    expect(vertical.firstElementChild).toHaveStyle({
-      transform: "translate3d(-2px, 72px, 0)",
-    });
-  });
-
-  it("reveals while the viewport scrolls and settles again", async () => {
-    const { vertical, viewport } = renderOverlay();
-
-    fireEvent.scroll(viewport);
     expect(vertical).toHaveAttribute("data-scrolling");
+    await waitFor(() => expect(vertical).toHaveAttribute("data-overflow-y-start"));
+    expect(vertical.firstElementChild).toHaveStyle({ transform: "translate3d(-2px, 72px, 0)" });
     await waitFor(() => expect(vertical).not.toHaveAttribute("data-scrolling"));
   });
 

@@ -493,14 +493,14 @@ mod tests {
     fn bibliography_sandbox_blocks_direct_and_indirect_bib_writes() {
         let root = TempDir::new("bib-sandbox");
         let path = |name: &str| root.join(name);
-        let (bibliography, uppercase, ordinary) =
-            (path("references.bib"), path("OTHER.BIB"), path("ordinary.txt"));
+        let (bibliography, uppercase, ordinary) = (
+            root.write("references.bib", "original"),
+            root.write("OTHER.BIB", "uppercase"),
+            root.write("ordinary.txt", "ordinary"),
+        );
         let (replacement, renamed, alias) =
             (path("replacement.tmp"), path("renamed.tmp"), path("alias.txt"));
         let (bib_alias, hardlink_alias) = (path("alias.bib"), path("hardlink.txt"));
-        fs::write(&bibliography, "original").expect("write bibliography");
-        fs::write(&uppercase, "uppercase").expect("write uppercase bibliography");
-        fs::write(&ordinary, "ordinary").expect("write ordinary file");
         std::os::unix::fs::symlink(&bibliography, &alias).expect("symlink to bibliography");
 
         let attempts: [(&str, &[&PathBuf]); 9] = [
@@ -538,18 +538,11 @@ mod tests {
     #[test]
     fn reads_the_bundled_runtime_manifest() {
         let root = TempDir::new("synara");
-        let path = root.join("manifest.json");
-        fs::write(&path, r#"{"synaraVersion":"0.6.3","synaraRevision":"abc123"}"#)
-            .expect("write manifest");
-        let manifest: BundledRuntimeManifest = read_json(&path).expect("read manifest");
+        let manifest = r#"{"synaraVersion":"0.6.3","synaraRevision":"abc123"}"#;
+        let manifest: BundledRuntimeManifest =
+            read_json(&root.write("manifest.json", manifest)).expect("read manifest");
         assert_eq!(manifest.synara_version.as_deref(), Some("0.6.3"));
         assert_eq!(manifest.synara_revision.as_deref(), Some("abc123"));
-    }
-
-    #[test]
-    fn health_check_rejects_an_unreachable_server() {
-        let client = Client::builder().timeout(Duration::from_millis(10)).build().expect("client");
-        assert!(!health_is_ready(&client, "http://127.0.0.1:1"));
     }
 
     #[test]
@@ -566,9 +559,7 @@ mod tests {
         let root = TempDir::new("synara");
         let previous = "DatabaseLifecycleLockedError: previous attempt\n";
         let logs = [("sidecar.log", previous), ("sidecar-error.log", "")].map(|(name, content)| {
-            let path = root.join(name);
-            fs::write(&path, content).expect("write previous log");
-            LogTail { offset: content.len() as u64, path }
+            LogTail { offset: content.len() as u64, path: root.write(name, content) }
         });
         fs::write(
             &logs[0].path,

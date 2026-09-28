@@ -344,17 +344,14 @@ mod tests {
     }
 
     #[test]
-    fn parses_only_exact_doi_updates_and_keeps_the_most_serious_notice() {
+    fn parses_exact_doi_updates_keeps_the_most_serious_notice_and_classifies_the_rest() {
         let health = parse_response(&fixture(), "10.1234/example").unwrap();
         assert_eq!(health.kind, "retracted");
         assert_eq!(health.update_type.as_deref(), Some("retraction"));
         assert_eq!(health.source.as_deref(), Some("retraction-watch"));
         assert_eq!(health.date.as_deref(), Some("2023-09-17"));
         assert_eq!(health.link.as_deref(), Some("https://retractionwatch.com/example"));
-    }
-
-    #[test]
-    fn classifies_crossref_update_vocabulary() {
+        // The rest of Crossref's update vocabulary.
         for (update_type, kind) in [
             ("expression_of_concern", "expressionOfConcern"),
             ("erratum", "corrected"),

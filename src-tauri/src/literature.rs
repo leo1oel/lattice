@@ -83,43 +83,27 @@ fn from_openalex(work: OpenAlexWork) -> LiteratureHit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     /// An alphaXiv row as `alphaxiv::search_works` maps it.
     fn alpha(arxiv_id: &str, title: &str) -> LiteratureHit {
-        LiteratureHit {
-            source: "alphaxiv".to_string(),
-            arxiv_id: Some(arxiv_id.to_string()),
-            title: title.to_string(),
-            year: None,
-            authors: Vec::new(),
-            cited_by_count: None,
-            votes: None,
-            snippet: None,
-            doi: None,
-            landing_url: None,
-        }
+        let hit = json!({"source": "alphaxiv", "arxivId": arxiv_id, "title": title, "authors": []});
+        serde_json::from_value(hit).unwrap()
     }
 
     fn open(arxiv: Option<&str>, title: &str) -> OpenAlexWork {
-        OpenAlexWork {
-            id: title.to_string(),
-            title: title.to_string(),
-            year: None,
-            cited_by_count: 3,
-            doi: None,
-            arxiv_id: arxiv.map(ToString::to_string),
-            landing_url: None,
-            authors: vec![],
-        }
+        let work = json!({"id": title, "title": title, "citedByCount": 3, "arxivId": arxiv, "authors": []});
+        serde_json::from_value(work).unwrap()
     }
 
     /// alphaXiv rows lead, and an OpenAlex row naming the same work by
-    /// versionless arXiv id is dropped.
+    /// versionless arXiv id is dropped. A malformed alphaXiv response still
+    /// leaves the OpenAlex results.
     #[test]
-    fn merges_alphaxiv_first_and_dedupes_by_arxiv_identity() {
+    fn merges_alphaxiv_first_dedupes_by_arxiv_identity_and_survives_malformed_alphaxiv() {
         for (alpha_hits, open_hits, expected) in [
             (
-                vec![alpha("2401.00001", "Alpha One")],
+                Ok(vec![alpha("2401.00001", "Alpha One")]),
                 vec![open(None, "No arXiv here"), open(Some("2402.00002"), "Open Two")],
                 vec![
                     ("alphaxiv", "Alpha One"),
@@ -128,25 +112,19 @@ mod tests {
                 ],
             ),
             (
-                vec![alpha("2401.00001v2", "Alpha One")],
+                Ok(vec![alpha("2401.00001v2", "Alpha One")]),
                 vec![open(Some("2401.00001"), "Same Paper From OpenAlex")],
                 vec![("alphaxiv", "Alpha One")],
             ),
+            (
+                Err("Could not parse alphaXiv response".to_string()),
+                vec![open(Some("2402.00002"), "Open Two")],
+                vec![("openalex", "Open Two")],
+            ),
         ] {
-            let hits = merge(alpha_hits, open_hits);
+            let hits = merge_available(alpha_hits, open_hits);
             let got: Vec<_> = hits.iter().map(|h| (h.source.as_str(), h.title.as_str())).collect();
             assert_eq!(got, expected);
         }
-    }
-
-    #[test]
-    fn keeps_openalex_results_when_alphaxiv_is_malformed() {
-        let hits = merge_available(
-            Err("Could not parse alphaXiv response".to_string()),
-            vec![open(Some("2402.00002"), "Open Two")],
-        );
-        assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].source, "openalex");
-        assert_eq!(hits[0].title, "Open Two");
     }
 }

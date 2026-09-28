@@ -47,9 +47,12 @@ describe("MarkdownWorkspaceIndex", () => {
     expect(index.searchPages("project 東京")[0]?.docName).toBe("mixed");
   });
 
-  test("applies live content changes and indexes new documents", async () => {
+  test("applies live changes and indexes new documents, but does not republish unchanged content", async () => {
     const index = await indexOf({ "source.md": "# Old" });
-
+    const listener = vi.fn();
+    index.subscribe(listener);
+    index.noteDocumentContent("source.md", "# Old");
+    expect(listener).not.toHaveBeenCalled();
     index.noteDocumentContent("source.md", "# New");
     index.noteDocumentContent("added.md", "# Added");
 
@@ -57,42 +60,22 @@ describe("MarkdownWorkspaceIndex", () => {
     expect(paths(index)).toEqual(["source.md", "added.md"]);
   });
 
-  test("does not republish when an editor reports unchanged content", async () => {
-    const index = await indexOf({ "notes.md": "# Notes" });
-    const listener = vi.fn();
-    index.subscribe(listener);
-
-    index.noteDocumentContent("notes.md", "# Notes");
-
-    expect(listener).not.toHaveBeenCalled();
-  });
-
   // The index is mutated in place and never changes identity, so a render that
   // wants fresh content cannot depend on the prop — it has to subscribe and read
   // the value it draws. That only works if every mutation notifies and the
   // reader is already current when the listener runs, which is what this pins.
-  test("publishes the new source to subscribers on both mutation paths", async () => {
+  test("publishes the new source to subscribers on both mutation paths until they unsubscribe", async () => {
     const index = new MarkdownWorkspaceIndex(async () => "# First");
     const seen: (string | undefined)[] = [];
-    index.subscribe(() => seen.push(index.contentFor("source")));
-
+    const unsubscribe = index.subscribe(() => seen.push(index.contentFor("source")));
     await index.update([file("source.md")]);
     index.noteDocumentContent("source.md", "# Second");
     index.noteDocumentContent("source.md", "# Third");
 
     expect(seen).toEqual(["# First", "# Second", "# Third"]);
-  });
-
-  test("stops notifying an unsubscribed listener", async () => {
-    const index = new MarkdownWorkspaceIndex(async () => "# Notes");
-    const listener = vi.fn();
-    const unsubscribe = index.subscribe(listener);
-
-    await index.update([file("notes.md")]);
     unsubscribe();
-    index.noteDocumentContent("notes.md", "# Renamed");
-
-    expect(listener).toHaveBeenCalledOnce();
+    index.noteDocumentContent("source.md", "# Renamed");
+    expect(seen).toHaveLength(3);
   });
 
   test("coalesces concurrent updates and leaves the newest snapshot indexed", async () => {

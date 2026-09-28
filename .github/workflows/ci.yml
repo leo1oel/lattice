@@ -30,13 +30,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm vitest run --shard=${{ matrix.shard }}/3
 
-  # The collaboration server is its own pnpm project with its own lockfile and
-  # is not part of the root install, so nothing above sees it. Its tests run on
+  # The literature Worker is its own pnpm project with its own lockfile and is
+  # not part of the root install, so nothing above sees it. Its tests run on
   # `@cloudflare/vitest-pool-workers`, which starts a local workerd and
-  # simulates the Durable Object and R2 bindings from `wrangler.jsonc` — no
-  # Cloudflare account, API token, or `wrangler login` is involved. Only
-  # `pnpm collab:deploy` needs credentials, and that is not run here.
-  collab-server:
+  # simulates the Durable Object and rate-limit bindings from `wrangler.jsonc` —
+  # no Cloudflare account, API token, or `wrangler login` is involved. Only a
+  # deploy needs credentials, and that is not run here.
+  literature-worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -47,10 +47,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: collab-server/pnpm-lock.yaml
-      - run: pnpm --dir collab-server install --frozen-lockfile
-      - run: pnpm --dir collab-server typecheck
-      - run: pnpm --dir collab-server test
+          cache-dependency-path: literature-worker/pnpm-lock.yaml
+      - run: pnpm --dir literature-worker install --frozen-lockfile
+      - run: pnpm --dir literature-worker typecheck
+      - run: pnpm --dir literature-worker test
 
   lint-and-build:
     runs-on: ubuntu-latest

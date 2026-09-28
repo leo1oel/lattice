@@ -51,19 +51,16 @@ export default defineConfig({
     },
   },
   test: {
-    // collab-server has its own vitest config using the Cloudflare Workers
+    // literature-worker has its own vitest config using the Cloudflare Workers
     // pool; its tests cannot run under this runner (`cloudflare:` imports).
     //
     // `.tmp/` is the scratch directory for throwaway builds and debug dumps. A
     // checkout staged in there brings its own test suite, and vitest's default
     // glob happily collected hundreds of foreign tests that fail under this
     // config — enough to make `pnpm check` unusable.
-    exclude: ["**/node_modules/**", "collab-server/**", ".tmp/**"],
+    exclude: ["**/node_modules/**", "literature-worker/**", ".tmp/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],
-    // Keep exercising the paused sharing implementation. Disabled-build tests
-    // explicitly unset this opt-in to cover the shipping default.
-    env: { VITE_LATTICE_COLLAB_V2: "true" },
     // Several suites mount the complete app or visual Markdown editor. Running
     // those memory-heavy files beside each other on a high-core machine starves
     // their async UI assertions and makes unrelated tests fail nondeterministically.

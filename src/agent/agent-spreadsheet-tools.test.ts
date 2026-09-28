@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import {
   executeAgentSpreadsheetToolRequest,
@@ -29,21 +28,19 @@ function seededDoc(values?: SpreadsheetCellValue[][]): Y.Doc {
   return doc;
 }
 
-function request(
-  action: AgentSpreadsheetToolRequest["action"],
-  args: Record<string, unknown>,
-): AgentSpreadsheetToolRequest {
+type Action = AgentSpreadsheetToolRequest["action"];
+
+function request(action: Action, args: Record<string, unknown>): AgentSpreadsheetToolRequest {
   return {
-    type: SYNARA_SPREADSHEET_TOOL_REQUEST,
-    version: 1,
-    id: crypto.randomUUID(),
-    action,
-    args,
+    type: SYNARA_SPREADSHEET_TOOL_REQUEST, version: 1, id: crypto.randomUUID(), action, args,
     expiresAt: Date.now() + 10_000,
   };
 }
 
-const readA1 = (path: string) => executeAgentSpreadsheetToolRequest(request("read", { path, range: "A1" }));
+const execute = (action: Action, args: Record<string, unknown>) =>
+  executeAgentSpreadsheetToolRequest(request(action, args));
+const readA1 = (path: string) => execute("read", { path, range: "A1" });
+const values = (doc: Y.Doc, range: string) => readSpreadsheet(doc, { range, include: ["values"] }).values;
 
 describe("agent spreadsheet host protocol", () => {
   it("strictly parses bounded, versioned request envelopes", () => {
@@ -52,73 +49,47 @@ describe("agent spreadsheet host protocol", () => {
     expect(parseAgentSpreadsheetToolRequest({ ...valid, version: 2 })).toBeNull();
     expect(parseAgentSpreadsheetToolRequest({ ...valid, unexpected: true })).toBeNull();
     expect(parseAgentSpreadsheetToolRequest({ ...valid, action: "command" })).toBeNull();
-    expect(parseAgentSpreadsheetToolRequest({
-      ...valid,
-      args: { value: "界".repeat(100_000) },
-    })).toBeNull();
+    expect(parseAgentSpreadsheetToolRequest({ ...valid, args: { value: "界".repeat(100_000) } })).toBeNull();
   });
 
-  it("applies one semantic batch, commits it, and publishes bounded Agent presence", async () => {
+  it("applies one semantic batch and commits it", async () => {
     const doc = seededDoc();
-    const awareness = new Awareness(doc);
-    awareness.setLocalState({ user: { id: "ada", name: "Ada", color: "#3366ff" } });
-    let finishCommit!: () => void;
-    const commit = vi.fn(() => new Promise<void>((resolve) => { finishCommit = resolve; }));
-    cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", {
-      doc,
-      canWrite: true,
-      awareness,
-      commit,
-    }));
-
-    const pending = executeAgentSpreadsheetToolRequest(request("batch_update", {
+    const commit = vi.fn(async () => undefined);
+    cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", { doc, canWrite: true, commit }));
+    await expect(execute("batch_update", {
       version: 1,
       path: "data.lattice-sheet",
       operations: [{ type: "set_values", range: "A1:B1", values: [[7, "result"]] }],
-    }));
-    await vi.waitFor(() => expect(awareness.getLocalState()?.spreadsheetAgentPresence).toMatchObject({
-      selections: ["A1:B1"],
-      agent: true,
-    }));
-    finishCommit();
-
-    await expect(pending).resolves.toMatchObject({
-      ok: true,
-      result: { appliedOperations: 1, affectedCells: 2, workbookRevision: 1 },
+    })).resolves.toMatchObject({
+      ok: true, result: { appliedOperations: 1, affectedCells: 2, workbookRevision: 1 },
     });
     expect(commit).toHaveBeenCalledOnce();
-    expect(awareness.getLocalState()?.spreadsheetAgentPresence).toBeNull();
-    expect(readSpreadsheet(doc, { range: "A1:B1", include: ["values"] }).values).toEqual([[7, "result"]]);
-    awareness.destroy();
+    expect(values(doc, "A1:B1")).toEqual([[7, "result"]]);
   });
 
   it("stores quoted plain numbers from the Agent as numeric cells", async () => {
     const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("data.lattice-sheet", { doc, canWrite: true }));
-
-    await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
+    await expect(execute("batch_update", {
       version: 1,
       path: "data.lattice-sheet",
       operations: [{ type: "set_values", range: "A1:B1", values: [["0.764", "780"]] }],
-    }))).resolves.toMatchObject({ ok: true });
-    expect(readSpreadsheet(doc, { range: "A1:B1", include: ["values"] }).values).toEqual([[0.764, 780]]);
+    })).resolves.toMatchObject({ ok: true });
+    expect(values(doc, "A1:B1")).toEqual([[0.764, 780]]);
   });
 
   it("rejects expired, invalid, and read-only updates without partial writes", async () => {
     const doc = seededDoc();
     cleanups.push(registerAgentSpreadsheetDocument("readonly.lattice-sheet", { doc, canWrite: false }));
-
-    await expect(executeAgentSpreadsheetToolRequest(request("batch_update", {
+    await expect(execute("batch_update", {
       path: "readonly.lattice-sheet",
       operations: [{ type: "set_values", range: "A1", values: [[1]] }],
-    }))).resolves.toMatchObject({ ok: false, error: { code: "spreadsheet_read_only" } });
-    expect(readSpreadsheet(doc, { range: "A1", include: ["values"] }).values).toEqual([[null]]);
-
+    })).resolves.toMatchObject({ ok: false, error: { code: "spreadsheet_read_only" } });
+    expect(values(doc, "A1")).toEqual([[null]]);
     const expired = request("read", { path: "readonly.lattice-sheet", range: "A1" });
     expired.expiresAt = Date.now() - 1;
     await expect(executeAgentSpreadsheetToolRequest(expired)).resolves.toMatchObject({
-      ok: false,
-      error: { code: "spreadsheet_tool_expired" },
+      ok: false, error: { code: "spreadsheet_tool_expired" },
     });
   });
 
@@ -128,7 +99,6 @@ describe("agent spreadsheet host protocol", () => {
     cleanups.push(registerAgentSpreadsheetDocumentResolver(async (path) => (
       path === "unopened.lattice-sheet" ? { doc, canWrite: true, dispose } : null
     )));
-
     await expect(readA1("unopened.lattice-sheet")).resolves.toMatchObject({ ok: true });
     expect(dispose).toHaveBeenCalledOnce();
   });
@@ -138,7 +108,6 @@ describe("agent spreadsheet host protocol", () => {
     cleanups.push(registerAgentSpreadsheetDocument(path, { doc: seededDoc([["unfocused"]]), canWrite: true }, false));
     const unregisterFocused = registerAgentSpreadsheetDocument(path, { doc: seededDoc([["focused"]]), canWrite: true }, true);
     cleanups.push(unregisterFocused);
-
     await expect(readA1(path)).resolves.toMatchObject({ ok: true, result: { values: [["focused"]] } });
     unregisterFocused();
     await expect(readA1(path)).resolves.toMatchObject({ ok: true, result: { values: [["unfocused"]] } });
@@ -158,26 +127,19 @@ describe("agent spreadsheet host protocol", () => {
 
   it("does not invite a duplicate structural update when persistence is unconfirmed", async () => {
     const doc = seededDoc();
-    const commit = vi.fn()
-      .mockRejectedValueOnce(new Error("disk unavailable"))
-      .mockResolvedValueOnce(undefined);
+    const commit = vi.fn().mockRejectedValueOnce(new Error("disk unavailable")).mockResolvedValueOnce(undefined);
     cleanups.push(registerAgentSpreadsheetDocument("retry.lattice-sheet", { doc, canWrite: true, commit }));
     const update = request("batch_update", {
-      path: "retry.lattice-sheet",
-      operations: [{ type: "insert_rows", before: 2, count: 1 }],
+      path: "retry.lattice-sheet", operations: [{ type: "insert_rows", before: 2, count: 1 }],
     });
-
     await expect(executeAgentSpreadsheetToolRequest(update)).resolves.toMatchObject({
       ok: true,
       result: {
-        appliedOperations: 1,
-        workbookRevision: 1,
-        persistenceConfirmed: false,
+        appliedOperations: 1, workbookRevision: 1, persistenceConfirmed: false,
         warning: expect.stringMatching(/spreadsheet_read/),
       },
     });
     expect(readSpreadsheet(doc, { range: "A1" }).sheet).toMatchObject({ rows: 101 });
-
     await expect(executeAgentSpreadsheetToolRequest(update)).resolves.toMatchObject({
       ok: true,
       result: { appliedOperations: 1, workbookRevision: 1, persistenceConfirmed: true },

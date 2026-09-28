@@ -64,21 +64,8 @@ export function presenceCursorColor(cursor: Pick<PresenceCursor, "color" | "hue"
   return cursor.color && /^#[0-9a-f]{6}$/i.test(cursor.color) ? cursor.color : hueColor(cursor.hue);
 }
 
-/** PresenceCursor speaks HSL hues; collab peers carry hex colors. */
-export function hueFromColorHex(hex: string): number {
-  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!match) return 210;
-  const value = parseInt(match[1]!, 16);
-  const [r, g, b] = [16, 8, 0].map((shift) => ((value >> shift) & 255) / 255) as [number, number, number];
-  const max = Math.max(r, g, b);
-  const delta = max - Math.min(r, g, b);
-  if (!delta) return 0;
-  const hue = 60 * (max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4);
-  return hue < 0 ? hue + 360 : hue;
-}
-
-const REMOTE_CARET_SELECTOR = ".cm-ySelectionCaret, .cm-overleaf-caret";
-const REMOTE_LABEL_SELECTOR = ".cm-ySelectionInfo, .cm-overleaf-caret-label";
+const REMOTE_CARET_SELECTOR = ".cm-overleaf-caret";
+const REMOTE_LABEL_SELECTOR = ".cm-overleaf-caret-label";
 
 /**
  * Which remote carets sit too close to the top edge for their name tag to fit

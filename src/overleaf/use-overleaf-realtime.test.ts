@@ -141,6 +141,9 @@ describe("guarded remote delivery", () => {
       : original(command, args));
     view.rerender({ activeFile: "b.tex" });
     await waitFor(() => expect(view.result.current.docId).toBe(DOC_B));
+    // A settled document is left straight away, with nothing sent first.
+    expect(leaves()).toContain(DOC_A);
+    expect(sends()).toHaveLength(0);
     expect(view.result.current.livePaths).toContain("a.tex");
     view.rerender({ activeFile: "a.tex" });
     await act(async () => {});
@@ -398,7 +401,7 @@ describe("switching files with work in flight", () => {
     expect(remoteTexts.at(-1)).toBe("notes online");
   });
 
-  it("keeps a document owing an answer past the drain timeout, and leaves only once Overleaf answers", async () => {
+  it("holds a document owing an answer past the drain timeout and across removal or rename, until answered", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { result, rerender } = await mountLive();
     expect(joins()).toEqual([{ docId: DOC_A, fromVersion: null }]);
@@ -416,20 +419,6 @@ describe("switching files with work in flight", () => {
     expect(leaves()).not.toContain(DOC_A);
     expect(result.current.livePaths).toContain("a.tex");
 
-    // A late answer proves the operation landed; only then is the room given up.
-    emit({ type: "docAck", docId: DOC_A, version: 10 });
-    await waitFor(() => expect(leaves()).toContain(DOC_A));
-    await waitFor(() => expect(result.current.livePaths).toEqual(["b.tex"]));
-  });
-
-  it("keeps the last path for a held document removed from the tree, but follows a rename", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { result, rerender } = await mountLive();
-
-    await typeAndSend(result, "alpha edited");
-    rerender({ activeFile: "b.tex" });
-    await waitFor(() => expect(result.current.livePaths).toEqual(["a.tex", "b.tex"]));
-
     // A collaborator deletes the path while its last edit is still awaiting
     // an answer. Losing the old lookup here would let REST own a.tex.
     emit({ type: "treeChanged", docs: [{ id: DOC_B, path: "b.tex" }], entities: [] });
@@ -439,6 +428,11 @@ describe("switching files with work in flight", () => {
     // replaces the remembered one.
     emit({ type: "treeChanged", docs: [{ id: DOC_A, path: "renamed.tex" }, { id: DOC_B, path: "b.tex" }], entities: [] });
     expect(result.current.livePaths).toEqual(["b.tex", "renamed.tex"]);
+
+    // A late answer proves the operation landed; only then is the room given up.
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(leaves()).toContain(DOC_A));
+    await waitFor(() => expect(result.current.livePaths).toEqual(["b.tex"]));
   });
 
   it("sends what the debounce was still holding, and checkpoints it only after its draining acknowledgement", async () => {
@@ -455,13 +449,6 @@ describe("switching files with work in flight", () => {
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await waitFor(() => expect(leaves()).toContain(DOC_A));
     expectLeft({ docId: DOC_A, checkpoint: { text: "alpha final", version: 11 } });
-  });
-
-  it("leaves a settled document straight away", async () => {
-    const { rerender } = await mountLive();
-    rerender({ activeFile: "b.tex" });
-    await waitFor(() => expect(leaves()).toContain(DOC_A));
-    expect(sends()).toHaveLength(0);
   });
 
   it("resumes from the held version on return, and keeps unreplayable local work paused past the drain timeout", async () => {
@@ -534,15 +521,12 @@ describe("an acknowledgement whose outcome is not known", () => {
 });
 
 describe("an error in one document", () => {
-  it("is ignored when it belongs to a document we are not holding", async () => {
+  it("is ignored for a document we are not holding, and otherwise stops that file without the connection", async () => {
     const { result } = await mountLive();
     emit({ type: "otError", docId: "some-other-doc", message: "nope" });
     expect(result.current.status).toBe("live");
     expect(result.current.liveFile).toBe(true);
-  });
 
-  it("stops that file without taking the connection with it", async () => {
-    const { result } = await mountLive();
     emit({ type: "otError", docId: DOC_A, message: "rejected" });
     await waitFor(() => expect(result.current.liveFile).toBe(false));
     // Chat, presence and the file tree ride this same connection, and one
@@ -596,18 +580,13 @@ describe("what typing goes out as", () => {
     expect(result.current.canWrite).toBe(canWrite);
     await typeAndSend(result, "alpha edited");
     await waitFor(() => expect(sends()).toHaveLength(sent));
+    // An unknown permission is never written into SyncState.
+    expect(invokeCalls("overleaf_set_permission")).not.toContainEqual(expect.objectContaining({ permission: "unknown" }));
   });
 });
 
 describe("durable sync permission", () => {
   const permissionWrites = () => invokeCalls("overleaf_set_permission");
-
-  it("never writes an unknown permission into SyncState", async () => {
-    backend.permission = "unknown";
-    mount();
-    await waitFor(() => expect(joins()).toHaveLength(1));
-    expect(permissionWrites()).not.toContainEqual(expect.objectContaining({ permission: "unknown" }));
-  });
 
   it("records a known realtime permission, but never project A's after switching to project B", async () => {
     backend.permission = "readOnly";

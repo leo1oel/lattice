@@ -20,20 +20,16 @@ const panel = (overrides: Partial<Parameters<typeof OverleafChangesPanel>[0]> = 
 describe("Overleaf changes panel", () => {
   beforeEach(cleanup);
 
-  it("quotes the suggestion in context and reveals it when clicked", () => {
+  it("quotes the suggestion in context, reveals it when clicked, and accepts and rejects it through its own row", async () => {
     const onReveal = vi.fn();
-    render(panel({ onReveal }));
+    const onAccept = resolves();
+    const onReject = resolves();
+    render(panel({ onReveal, onAccept, onReject }));
     expect(screen.getByText("quick")).toBeInTheDocument();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("suggests inserting")).toBeInTheDocument();
     fireEvent.click(screen.getByText("quick"));
     expect(onReveal).toHaveBeenCalledWith(4);
-  });
-
-  it("accepts and rejects one suggestion through its own row", async () => {
-    const onAccept = resolves();
-    const onReject = resolves();
-    render(panel({ onAccept, onReject }));
 
     fireEvent.click(screen.getByRole("button", { name: /Accept$/ }));
     await waitFor(() => expect(onAccept).toHaveBeenCalledWith(["c1"]));

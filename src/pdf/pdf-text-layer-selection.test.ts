@@ -73,6 +73,15 @@ function selectGlyph(span: HTMLElement) {
   selectRange(range);
 }
 
+/** Press on `span`, select all of its text, and release: a completed drag over one glyph. */
+function dragSelect(span: HTMLElement) {
+  pointerDown(span);
+  const range = document.createRange();
+  range.selectNodeContents(span);
+  selectRange(range);
+  pointerUp();
+}
+
 function sentinelLayer(...words: string[]) {
   const { layer, spans } = glyphLayer(...words);
   const end = document.createElement("div");
@@ -217,7 +226,7 @@ describe("PDF text-layer selection styles", () => {
 });
 
 describe("PDF Command-A", () => {
-  it("treats the editor and form fields as editable select-all targets", () => {
+  it("treats the editor and form fields as editable targets, and does not select PDF glyphs unless one is focused", () => {
     const editor = document.createElement("div");
     editor.className = "cm-editor";
     editor.innerHTML = `<div class="cm-content"></div>`;
@@ -226,12 +235,8 @@ describe("PDF Command-A", () => {
     expect(isEditableSelectAllTarget(editor.firstElementChild)).toBe(true);
     expect(isEditableSelectAllTarget(input)).toBe(true);
     expect(isEditableSelectAllTarget(document.body)).toBe(false);
-  });
-
-  it("does not let Command-A select PDF glyphs unless a field is focused", () => {
     expect(shouldPreventPdfSelectAll(document.body, document.body, 1)).toBe(true);
     expect(shouldPreventPdfSelectAll(document.body, document.body, 0)).toBe(false);
-    const input = document.createElement("input");
     expect(shouldPreventPdfSelectAll(input, input, 1)).toBe(false);
   });
 
@@ -267,24 +272,17 @@ describe("PDF Command-C", () => {
     });
   });
 
-  it("blurs the editor when a PDF drag starts so Command-C is not delivered to CodeMirror", async () => {
-    const { layer, spans } = glyphLayer("你好");
-    mockGlyphBox(spans[0]!, HELLO_BOX);
+  it("blurs the editor when a PDF drag starts, then synchronizes the completed drag for native macOS Command-C", async () => {
+    const { layer, spans } = glyphLayer("可复制标题");
+    mockGlyphBox(spans[0]!, WIDE_BOX);
     const editor = document.createElement("textarea");
     document.body.append(editor);
     editor.focus();
-    await withSelection(layer, () => {
+    await withSelection(layer, async () => {
+      // Blurred so Command-C is not delivered to CodeMirror.
       expect(document.activeElement).toBe(editor);
       pointerDown(spans[0]!);
       expect(document.activeElement).not.toBe(editor);
-    });
-  });
-
-  it("synchronizes a completed drag for the native macOS Command-C handler", async () => {
-    const { layer, spans } = glyphLayer("可复制标题");
-    mockGlyphBox(spans[0]!, WIDE_BOX);
-    await withSelection(layer, async () => {
-      pointerDown(spans[0]!);
       selectGlyph(spans[0]!);
       pointerUp();
 
@@ -373,11 +371,7 @@ describe("PDF empty-page clicks", () => {
     document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
     try {
       await withSelection(layer, () => {
-        pointerDown(spans[0]!);
-        const range = document.createRange();
-        range.selectNodeContents(spans[0]!);
-        selectRange(range);
-        pointerUp();
+        dragSelect(spans[0]!);
         expect(pdfSelectedOrCachedPlainText()).toBe("First phrase");
         expect(cleared).not.toHaveBeenCalled();
 
@@ -405,12 +399,7 @@ describe("PDF empty-page clicks", () => {
     const { layer, spans } = glyphLayer("Hello");
     mockGlyphBox(spans[0]!, HELLO_BOX);
     await withSelection(layer, () => {
-      pointerDown(spans[0]!);
-      const range = document.createRange();
-      range.selectNodeContents(spans[0]!);
-      selectRange(range);
-      pointerUp();
-
+      dragSelect(spans[0]!);
       let reportedSelection = "Hello";
       const reportSelection = () => {
         const selection = document.getSelection();

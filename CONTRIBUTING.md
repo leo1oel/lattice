@@ -48,8 +48,8 @@ opening a project with no root document" is a changelog entry; "fix bug" is not.
 
 ### Changes that need extra care
 
-Most of the codebase takes an ordinary pull request. Two areas do not, because
-in both the tests can keep passing while the thing they protect breaks:
+Most of the codebase takes an ordinary pull request. One area does not, because
+there the tests can keep passing while the thing they protect breaks:
 
 - **The Overleaf bridge** (`src-tauri/src/overleaf.rs` + `overleaf/`,
   `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/`, `src/overleaf/`). Lattice speaks Overleaf's
@@ -60,14 +60,8 @@ in both the tests can keep passing while the thing they protect breaks:
   a fixture that fails on the old behaviour and a rollback that does not discard
   local work. Read [`docs/overleaf-protocol.md`](docs/overleaf-protocol.md)
   first; it lists the specific "cleanups" that are not cleanups.
-- **Lattice Shares collaboration** (`src/collab/`, `collab-server/`,
-  `protocol/`). Every file is its own Y.Doc namespace and only the primary
-  editor binding may activate one — everything else (secondary pane, saves,
-  observers, chat, comments) must open it with `{ sideload: true }` or it
-  silently unbinds the primary editor. See "The collaboration model" in
-  [`docs/architecture.md`](docs/architecture.md).
 
-Neither area is closed to contributions. Both just want an issue before a large
+That area is not closed to contributions. It just wants an issue before a large
 change, so the compatibility question gets answered before the code exists.
 
 ## Set up the project locally
@@ -147,11 +141,10 @@ the correct bootstrap order.
 
 Licensed whiteboard builds also require `VITE_TLDRAW_LICENSE_KEY` in
 `.env.local`; see [`.env.example`](.env.example), which documents that and every
-other environment variable this repository reads — including the collaboration
-kill switches and the two credentials (`OPENALEX_API_KEY`,
-`LATTICE_FIRECRAWL_KEY`) that must be exported in your shell rather than put in
-`.env.local`, because Vite only loads `.env.local` for the frontend. If you add
-a new one, add it there in the same commit.
+other environment variable this repository reads — including the two credentials
+(`OPENALEX_API_KEY`, `LATTICE_FIRECRAWL_KEY`) that must be exported in your
+shell rather than put in `.env.local`, because Vite only loads `.env.local` for
+the frontend. If you add a new one, add it there in the same commit.
 
 ## Verify your change
 
@@ -173,14 +166,14 @@ changed since the last successful run:
 | `lint` | ESLint over `src/` |
 | `test` | the Vitest suite |
 | `build` | typecheck plus the production web bundle and its size budget |
-| `collab-server` | `typecheck` and `test` inside `collab-server/` |
+| `literature-worker` | `typecheck` and `test` inside `literature-worker/` |
 | `cargo-fmt` | `cargo fmt --check` |
 | `cargo-test` | the Rust tests |
 | `clippy` | Clippy with warnings denied |
 
-That covers `collab-server/` too, so there is nothing extra to run for a change
-in there. [`mise.toml`](mise.toml) is the definition; keep it and this table in
-step.
+That covers `literature-worker/` too, so there is nothing extra to run for a
+change in there. [`mise.toml`](mise.toml) is the definition; keep it and this
+table in step.
 
 The commands are the same ones CI runs, except its interaction benchmark
 (`pnpm perf:bench --check`, or `mise run perf-bench`; see
@@ -197,10 +190,9 @@ a stage passes locally and fails in CI, suspect the freshness cache first —
 
 | Path | What belongs there |
 | --- | --- |
-| `src/` | The desktop interface, editors, collaboration clients, and frontend tests |
+| `src/` | The desktop interface, editors, and frontend tests |
 | `src-tauri/src/` | Project operations, LaTeX builds, Git, papers, Overleaf, and agent supervision |
-| `protocol/` | Contracts shared by the app and collaboration server |
-| `collab-server/` | Lattice Shares server and its tests |
+| `literature-worker/` | The public literature proxy Worker and its tests |
 | `docs/` | Design decisions and subsystem documentation for contributors |
 
 `src/open-knowledge-app/` is vendored from an upstream project and can be
@@ -223,8 +215,8 @@ carry that inheritance, and each has rules:
 | Tree | What it is | Rule |
 | --- | --- | --- |
 | `src/open-knowledge-app/` | Vendored verbatim from upstream `packages/app/src` | Regenerate with `node scripts/vendor-open-knowledge.mjs`; `open-knowledge-app.lock.json` is the manifest. Do not hand-edit vendored files — local changes belong in the seam files, which carry a `Local seam — not upstream code` header. |
-| `src/open-knowledge-core/` | Vendored subset of upstream `packages/core/src` | Not auto-synced. Any intentional change must keep its `Local deviation from upstream` comment. |
-| `src/visual-*` | Lattice code adapted from upstream | Each file's adaptation header names the upstream file and commit. **Preserve those headers** — they are the per-file attribution GPLv3 §5 requires. |
+| `src/open-knowledge-core/` | Vendored subset of upstream `packages/core/src` | Not auto-synced. `open-knowledge-core.lock.json` records the upstream and reviewed Lattice blob for every file; after an intentional change, re-review and refresh it (`node scripts/lock-open-knowledge-core.mjs --check` verifies it). |
+| Adapted files in `src/editor/markdown/` | Lattice code adapted from upstream | Each file's adaptation header names the upstream file and commit. **Preserve those headers** — they are the per-file attribution GPLv3 §5 requires. |
 
 Both vendored trees also carry a copy of the GPL at
 `src/open-knowledge-{app,core}/LICENSE`. Do not remove them.

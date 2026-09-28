@@ -552,14 +552,9 @@ mod tests {
         assert!(misses(root, "unique_token_one"));
         assert!(has_hit(root, "untouched_token", "b.tex"));
 
-        let deleted = db(root)
-            .prepare("SELECT path FROM update_audit ORDER BY rowid")
-            .unwrap()
-            .query_map([], |row| row.get::<_, String>(0))
-            .unwrap()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-        assert_eq!(deleted, vec!["a.tex"]);
+        let audit = "SELECT group_concat(path) FROM update_audit";
+        let deleted: String = db(root).query_row(audit, [], |row| row.get(0)).unwrap();
+        assert_eq!(deleted, "a.tex");
 
         // Project transactions refresh the index before returning.
         let edit = vec![("b.tex".to_string(), "after_transaction_token\n".to_string())];

@@ -16,7 +16,7 @@
         "scripts/electron-regression-fixtures.tsx",
         "lingui.config.ts"
       ],
-      "project": ["src/**", "scripts/**", "protocol/**", "tools/**"]
+      "project": ["src/**", "scripts/**", "tools/**"]
     },
     "tools/open-slide-runtime": {
       "entry": ["*.mjs"],
@@ -25,11 +25,8 @@
       "ignoreDependencies": ["@fontsource-variable/inter"]
     }
   },
-  // collab-server/ is a separate workspace with its own package.json and is not
-  // in `project`, so knip cannot see it. The cost of skipping it: it is the only
-  // consumer of most of `protocol/**`, so anything exported there and used only
-  // by the worker looks unused here. Verify protocol/ hits by hand against
-  // collab-server/ before deleting them.
+  // literature-worker/ is a separate workspace with its own package.json and is
+  // not in `project`, so knip cannot see it.
   //
   // The two open-knowledge trees are vendored upstream code. Their export
   // surface is upstream's public API, not our dead code, so knip flags ~330
@@ -37,14 +34,14 @@
   // restores anything removed. The lever that actually works is the file list
   // in scripts/vendor-open-knowledge.mjs, not this config.
   "ignore": [
-    "collab-server/**",
+    "literature-worker/**",
     "src/open-knowledge-app/**",
     "src/open-knowledge-core/**"
   ],
   "ignoreDependencies": ["mdast-util-mdx-expression", "mdast-util-mdx-jsx"],
   // `pnpm check` shells out to mise, which is a system tool installed outside
   // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`
-  // is knip misreading `pnpm --dir collab-server typecheck` in ci.yml as a
+  // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
   // binary; it is a package script in that workspace.
   "ignoreBinaries": ["mise", "typecheck"],
   // Scoped to the findings that are actionable and currently near zero, so a
@@ -55,7 +52,6 @@
   // are not defects. Audit them deliberately with:
   //   pnpm knip --include exports,types,duplicates
   // Account for deliberate shadcn barrel re-exports in src/components/ui/
-  // and the protocol/collab-v2.ts wire contract consumed by collab-server/
   // before treating export-level findings as dead code.
   "exclude": ["exports", "types", "nsExports", "nsTypes"]
 }

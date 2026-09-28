@@ -94,19 +94,17 @@ describe("agent comments read protocol", () => {
     expect(parseAgentEditorCommentsToolRequest({ ...request(), args: { path: "a\\b", offset: -1 } })).toBeNull();
   });
 
-  it("rejects expired and cross-workspace reads before invoking the reader", async () => {
-    const read = vi.fn();
-    await expect(executeAgentEditorCommentsToolRequest({ ...request(), expiresAt: 0 }, () => "/p", read)).resolves.toMatchObject({ ok: false, error: { code: "editor_comments_tool_expired" } });
-    await expect(executeAgentEditorCommentsToolRequest(request(), () => "/other", read)).resolves.toMatchObject({ ok: false, error: { code: "editor_comments_workspace_mismatch" } });
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it("checks the active workspace again after the asynchronous read", async () => {
+  it("rejects expired and cross-workspace reads before invoking the reader, and rechecks after reading", async () => {
     let root = "/p";
     const read = vi.fn(async () => {
       root = "/other";
       return buildAgentCommentsSnapshot({ workspaceRoot: "/p", localComments: [], overleafThreads: [], overleafAnchors: [], docPaths: new Map(), overleaf: { status: "fresh" } });
     });
+    await expect(executeAgentEditorCommentsToolRequest({ ...request(), expiresAt: 0 }, () => "/p", read)).resolves.toMatchObject({ ok: false, error: { code: "editor_comments_tool_expired" } });
+    await expect(executeAgentEditorCommentsToolRequest(request(), () => "/other", read)).resolves.toMatchObject({ ok: false, error: { code: "editor_comments_workspace_mismatch" } });
+    expect(read).not.toHaveBeenCalled();
+    // The active workspace is checked again after the asynchronous read.
     await expect(executeAgentEditorCommentsToolRequest(request(), () => root, read)).resolves.toMatchObject({ ok: false, error: { code: "editor_comments_workspace_mismatch" } });
+    expect(read).toHaveBeenCalledOnce();
   });
 });

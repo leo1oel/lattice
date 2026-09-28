@@ -58,22 +58,15 @@ mod tests {
     }
 
     #[test]
-    fn saves_a_valid_workbook_and_adds_the_extension() {
+    fn saves_only_valid_workbooks_under_an_xlsx_name() {
         let directory = TempDir::new("xlsx-export");
         let bytes = test_workbook();
-
         let destination = save_xlsx(&directory.join("results"), &bytes).unwrap();
-
         assert_eq!(Path::new(&destination).extension().unwrap(), "xlsx");
         assert_eq!(fs::read(&destination).unwrap(), bytes);
-    }
 
-    #[test]
-    fn rejects_wrong_extensions_and_non_excel_archives() {
-        let directory = TempDir::new("xlsx-export-invalid");
-
-        assert!(save_xlsx(&directory.join("results.csv"), &test_workbook()).is_err());
-        assert!(save_xlsx(&directory.join("results.xlsx"), b"PK not a workbook").is_err());
-        assert!(!directory.join("results.xlsx").exists());
+        assert!(save_xlsx(&directory.join("other.csv"), &bytes).is_err());
+        assert!(save_xlsx(&directory.join("other.xlsx"), b"PK not a workbook").is_err());
+        assert!(!directory.join("other.xlsx").exists());
     }
 }

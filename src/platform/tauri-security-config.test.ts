@@ -39,6 +39,10 @@ const synaraRuntime = readFileSync("src-tauri/src/synara.rs", "utf8");
 const presentationRuntime = readFileSync("src-tauri/src/presentation.rs", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 
+function expectContains(source: string, ...needles: string[]): void {
+  for (const needle of needles) expect(source).toContain(needle);
+}
+
 describe("Tauri security boundary", () => {
   it("keeps an explicit production and development CSP", () => {
     const production = config.app.security.csp;
@@ -64,11 +68,11 @@ describe("Tauri security boundary", () => {
   it("retains only the resource sources required by WebView features", () => {
     const csp = config.app.security.csp!;
 
-    // Tauri IPC needs both protocol spellings. HTTP(S)/WS(S) are constrained
-    // to connect-src because collaboration supports a build-selected Worker or
-    // local/LAN Wrangler host, while PDF.js fetches authored remote PDF URLs.
+    // Tauri IPC needs both protocol spellings. HTTP(S) and WS are constrained
+    // to connect-src: PDF.js fetches authored remote PDF URLs, and the browser
+    // host bridge talks to its loopback WebSocket.
     expect(csp["connect-src"]).toEqual([
-      "'self'", "ipc:", "http://ipc.localhost", "http:", "https:", "ws:", "wss:", "blob:",
+      "'self'", "ipc:", "http://ipc.localhost", "http:", "https:", "ws:", "blob:",
     ]);
     // Synara selects an authenticated 127.0.0.1 port at runtime. The same
     // directive also preserves authored HTTP(S) Embed blocks; the Synara and
@@ -133,25 +137,17 @@ describe("Tauri security boundary", () => {
     ]);
   });
 
-  it("keeps browser bridge windows hidden during the handoff", () => {
+  it("keeps the fixed browser entry local, authenticated, and windowless at login, and bridge windows hidden", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.
-    expect(rustApp).toContain('!label.starts_with("browser-")');
-    expect(rustApp).toContain("label != browser_host::SERVICE_WINDOW_LABEL");
-    expect(browserHost).toContain("tauri::ActivationPolicy::Accessory");
-    expect(browserHost).toContain('.title("")');
-  });
-
-  it("keeps the fixed browser entry local, authenticated, and windowless at login", () => {
+    expectContains(rustApp, '!label.starts_with("browser-")', "label != browser_host::SERVICE_WINDOW_LABEL");
+    expectContains(browserHost, "tauri::ActivationPolicy::Accessory", '.title("")');
     expect(config.app.windows[0]?.visible).toBe(false);
-    expect(rustApp).toContain('.arg(BROWSER_HOST_ARG)');
-    expect(rustApp).toContain("browser_host_launch()");
-    expect(browserHost).toContain("tauri::window::WindowBuilder::new(app, SERVICE_WINDOW_LABEL)");
-    expect(browserHost).toContain("Ipv4Addr::LOCALHOST, PREFERRED_PORT");
+    expectContains(rustApp, ".arg(BROWSER_HOST_ARG)", "browser_host_launch()");
+    expectContains(browserHost, "tauri::window::WindowBuilder::new(app, SERVICE_WINDOW_LABEL)",
+      "Ipv4Addr::LOCALHOST, PREFERRED_PORT", "valid_loopback_host(&headers, state.port)",
+      "Some(session.browser_origin.as_str())", 'header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
     expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
-    expect(browserHost).toContain("valid_loopback_host(&headers, state.port)");
-    expect(browserHost).toContain("Some(session.browser_origin.as_str())");
-    expect(browserHost).toContain('header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
   });
 
   it("packages the sandboxed Chromium renderer without exposing workspace tokens in argv", () => {
@@ -162,41 +158,28 @@ describe("Tauri security boundary", () => {
       "node scripts/prepare-chromium-runtime.mjs --synara-node-runtime=standalone",
     );
     expect(config.build.beforeBuildCommand).toBe("pnpm prepare:build");
-    expect(buildPrepare).toContain("process.env.TAURI_ENV_DEBUG");
-    expect(buildPrepare).toContain('debug ? "prepare:runtime:dev" : "prepare:runtime"');
-    expect(buildPrepare).toContain('debug ? "prepare:chromium:debug" : "prepare:chromium"');
+    expectContains(buildPrepare, "process.env.TAURI_ENV_DEBUG", 'debug ? "prepare:runtime:dev" : "prepare:runtime"',
+      'debug ? "prepare:chromium:debug" : "prepare:chromium"');
     expect(config.bundle.resources).toContain("chromium-runtime/");
     expect(rustApp).toContain("chromium_packaged");
     expect(browserHost).toContain(".open_url(url)?");
-    expect(chromiumRuntime).toContain(".stdin(Stdio::piped())");
-    expect(chromiumRuntime).toContain("self.send(&ShellMessage::OpenUrl { url })");
-    expect(chromiumRuntime).toContain("let message = encode_message(message)?");
+    expectContains(chromiumRuntime, ".stdin(Stdio::piped())", "self.send(&ShellMessage::OpenUrl { url })",
+      "let message = encode_message(message)?");
     expect(chromiumRuntime).not.toContain(".arg(url)");
-    expect(chromiumShell).toContain("sandbox: true");
-    expect(chromiumShell).toContain("contextIsolation: true");
-    expect(chromiumShell).toContain("nodeIntegration: false");
-    expect(chromiumShell).toContain('from "./chromium-window-policy.mjs"');
-    expect(chromiumShell).toContain("if (presenterOptions) return presenterOptions");
-    expect(chromiumPrepare).toContain(
-      'join(appSource, "chromium-window-policy.mjs")',
-    );
+    expectContains(chromiumShell, "sandbox: true", "contextIsolation: true", "nodeIntegration: false",
+      'from "./chromium-window-policy.mjs"', "if (presenterOptions) return presenterOptions");
     // The packaged renderer already embeds a complete Node runtime. Synara and
     // Open Slide share it in release builds, while debug builds retain the
     // independently staged Node binary instead of selecting Electron.
-    expect(chromiumPrepare).toContain('ELECTRON_RUN_AS_NODE: "1"');
-    expect(synaraNodeStaging).toContain('nodeRuntime !== "electron"');
-    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin", "node")');
-    expect(synaraNodeStaging).toContain('rmSync(join(synaraRoot, "bin", "node.exe")');
+    expectContains(chromiumPrepare, 'join(appSource, "chromium-window-policy.mjs")', 'ELECTRON_RUN_AS_NODE: "1"');
+    expectContains(synaraNodeStaging, 'nodeRuntime !== "electron"', 'rmSync(join(synaraRoot, "bin", "node")',
+      'rmSync(join(synaraRoot, "bin", "node.exe")');
     for (const runtime of [synaraRuntime, presentationRuntime]) {
-      expect(runtime).toContain("tauri::is_dev()");
-      expect(runtime).toContain("NodeRuntime::resolve(");
+      expectContains(runtime, "tauri::is_dev()", "NodeRuntime::resolve(");
     }
     // Both sidecars resolve their Node through chromium.rs's NodeRuntime.
-    expect(chromiumRuntime).toContain("not(debug_assertions)");
-    expect(chromiumRuntime).toContain('.env("ELECTRON_RUN_AS_NODE", "1")');
-    expect(chromiumRuntime).toContain(
-      "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron",
-    );
+    expectContains(chromiumRuntime, "not(debug_assertions)", '.env("ELECTRON_RUN_AS_NODE", "1")',
+      "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron");
   });
 
   it("keeps Chromium titlebar whitespace draggable without consuming tab interactions", () => {

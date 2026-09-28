@@ -23,14 +23,12 @@ export const THEME_KEY = "lattice.theme.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
-const COLUMNS_PDF_RATIO_KEY = "lattice.columns-pdf-ratio.v1";
 const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
 const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
-export const LOCAL_SEMANTIC_SEARCH_KEY = "lattice.local-semantic-search.v1";
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
 const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
@@ -138,16 +136,6 @@ export function hasSeenTutorial(): boolean {
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
-/**
- * Semantic indexing is privacy-default, not merely local-default: it remains
- * off until the user explicitly opts in. The production provider is the Mac's
- * built-in sentence model and never sends source text to a network service.
- */
-export const loadLocalSemanticSearchEnabled = () =>
-  safely(() => localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY) === "1", false);
-export const persistLocalSemanticSearchEnabled = (enabled: boolean) =>
-  persistSetting(LOCAL_SEMANTIC_SEARCH_KEY, enabled ? "1" : "0");
-
 export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 
 export function systemTheme(): Theme {
@@ -175,8 +163,6 @@ export function loadBuildPreferences(): BuildPreferences {
 
 export const loadSplitRatio = () => readNumber(SPLIT_RATIO_KEY, 0.46, 0.2, 0.8);
 export const persistSplitRatio = (ratio: number) => persistSetting(SPLIT_RATIO_KEY, String(ratio));
-export const loadColumnsPdfRatio = () => readNumber(COLUMNS_PDF_RATIO_KEY, 0.38, 0.22, 0.55);
-export const persistColumnsPdfRatio = (ratio: number) => persistSetting(COLUMNS_PDF_RATIO_KEY, String(ratio));
 export const loadSidebarOpen = () => safely(() => localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0", true);
 export const persistSidebarOpen = (open: boolean) => persistSetting(SIDEBAR_OPEN_KEY, open ? "1" : "0");
 export const loadSidebarWidth = () => readNumber(SIDEBAR_WIDTH_KEY, 320, 180, 2400);
@@ -211,7 +197,7 @@ export type WorkspaceLayout = {
   tabRecency: string[];
 };
 
-const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "dual", "columns", "asset"];
+const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "dual", "asset"];
 const DOCUMENT_MODES = CANVAS_MODES.filter((mode): mode is DocumentViewMode => mode !== "asset");
 // Retired modes and what replaced them: the Markdown and paper previews merged
 // into the unified preview, and the three-column layout became two editor panes.

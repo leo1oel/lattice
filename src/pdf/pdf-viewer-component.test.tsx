@@ -221,18 +221,14 @@ describe("PDFSlick viewer integration", () => {
     localStorage.clear();
   });
 
-  it("does not reserve an outline track when an outline component renders nothing", () => {
+  it("reserves no outline track for an empty outline, and keeps the search input controlled as PDFs come and go", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const EmptyOutline = () => null;
     const view = renderPdf({ url: null, outline: <EmptyOutline /> });
 
     const findControls = view.container.querySelector(".pdf-find-controls");
     expect(findControls?.querySelector(".pdf-outline-trigger")).toBeNull();
     expect(findControls?.querySelector(".pdf-search")).toBeInTheDocument();
-  });
-
-  it("keeps the search input controlled as compiled PDFs appear and disappear", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const view = renderPdf({ url: null });
 
     view.rerender(preview({ url: "blob:lattice-compiled-pdf" }));
     view.rerender(preview({ url: null }));

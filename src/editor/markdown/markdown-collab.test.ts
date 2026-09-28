@@ -7,9 +7,10 @@ import {
 } from "./markdown-collab";
 
 describe("Markdown collaboration patches", () => {
-  it("produces a minimal replacement", () => {
+  it("produces a minimal replacement in UTF-16 offsets, around astral characters too", () => {
     expect(minimalMarkdownPatch("alpha beta omega", "alpha BETA omega"))
       .toEqual({ from: 6, to: 10, insert: "BETA" });
+    expect(minimalMarkdownPatch("😀 alpha omega", "😀 ALPHA omega")).toEqual({ from: 3, to: 8, insert: "ALPHA" });
   });
 
   it.each([
@@ -21,10 +22,6 @@ describe("Markdown collaboration patches", () => {
     ["same-boundary insertions", "ab", "aLocalb", "aRemoteb", null],
   ])("rebases (or refuses) %s", (_name, base, draft, canonical, expected) => {
     expect(rebaseMarkdownDraft(base, draft, canonical)).toBe(expected);
-  });
-
-  it("uses UTF-16 offsets for minimal patches around astral characters", () => {
-    expect(minimalMarkdownPatch("😀 alpha omega", "😀 ALPHA omega")).toEqual({ from: 3, to: 8, insert: "ALPHA" });
   });
 
   it("canonicalizes represented GFM table formatting without touching surrounding source", () => {

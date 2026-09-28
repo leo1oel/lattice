@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn preserves_cited_prose_pages_quote_anchors_and_figure_captions() {
+    fn overviews_keep_cited_prose_pages_and_captions_without_executing_mdx() {
         let source = r#"<PaperCite page={8} first="A &quot;quoted&quot; start" last="end &amp; more">**First claim**</PaperCite>.
 <PaperCite page={19} first='Second' last='end'/>
 <PaperCite page={34} first="Third" last="finish">Last claim</PaperCite>
@@ -366,10 +366,8 @@ mod tests {
         assert!(markdown.contains("Not a controlled baseline."));
         assert!(!markdown.contains("<PaperCite"));
         assert!(!markdown.contains("<ImageCaption"));
-    }
-
-    #[test]
-    fn does_not_execute_mdx_expressions_or_make_invalid_page_links() {
+        // MDX expressions are never executed, and invalid pages or sources
+        // make no links, but their prose survives.
         let source = r#"<PaperCite page={0}>Keep this prose</PaperCite><ImageCaption src="javascript:alert(1)">Keep caption</ImageCaption>"#;
         let markdown = overview_markdown(source, "2609.report").unwrap();
         assert_eq!(markdown, "Keep this proseKeep caption");
@@ -394,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_search_hits_and_drops_those_without_an_id_or_title() {
+    fn maps_search_hits_repairing_surrogates_and_dropping_untitled_ones() {
         let hits = parse_search_hits(
             br#"[{"paperId":"2401.12345","title":"  A Great Paper  ","publicationDate":"2024-06-26T06:08:44.000Z","votes":7,
                   "snippets":[{"snippet":null},{"snippet":"some\n  matching   text"}]},
@@ -414,10 +412,8 @@ mod tests {
         let slug = works.next().unwrap().unwrap();
         assert_eq!((slug.title.as_str(), slug.arxiv_id), ("Slug Paper", None));
         assert!(works.next().unwrap().is_none());
-    }
 
-    #[test]
-    fn repairs_alpha_xivs_unpaired_json_surrogates() {
+        // alphaXiv emits unpaired JSON surrogates; they are repaired, not fatal.
         let body = br#"[{"paperId":"2401.12345","title":"Action + \ud835...","snippets":[{"snippet":"valid pair: \ud835\udc68; literal: \\ud835"}]}]"#;
         let hits = parse_search_hits(body).unwrap();
         assert_eq!(hits.len(), 1);

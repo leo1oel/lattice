@@ -30,14 +30,11 @@ function stylesheets(): { name: string; source: string }[] {
 }
 
 describe("shared popup motion", () => {
-  it("is owned by every Radix popup wrapper", () => {
+  it("is owned by every Radix popup wrapper and loads one shared popup-motion stylesheet", () => {
     for (const source of [dropdown, context, select, popover]) {
       // One import and one use on each wrapper's content surface.
       expect(source.match(/popupMotionClassName/g)).toHaveLength(2)
     }
-  })
-
-  it("loads one shared popup-motion stylesheet", () => {
     expect(motionOwner).toContain('import "./popup-motion.css"')
     expect(motionOwner).toContain('const popupMotionClassName = "popup-motion"')
   })
@@ -62,14 +59,9 @@ describe("shared popup motion", () => {
     expect(copies).toEqual([])
   })
 
-  it("styles nothing but its own class", () => {
+  it("styles nothing but its own class, with a moderate-tier entrance and faster exit with subtle travel", () => {
     const { source } = stylesheets().find(({ name }) => name === "components/ui/popup-motion.css")!
-    const selectors = new Set(source.match(/\.[a-z][a-z0-9-]*/g))
-    expect([...selectors]).toEqual([".popup-motion"])
-  })
-
-  it("uses moderate-tier entrance and faster exit with subtle travel", () => {
-    const { source } = stylesheets().find(({ name }) => name === "components/ui/popup-motion.css")!
+    expect([...new Set(source.match(/\.[a-z][a-z0-9-]*/g))]).toEqual([".popup-motion"])
     expect(source).toMatch(/popup-motion-open var\(--duration-base\) var\(--ease-out\)/)
     expect(source).toMatch(/popup-motion-close var\(--duration-quick\) var\(--ease-out\)/)
     expect(source).toContain("translateY(-4px) scale(.97)")

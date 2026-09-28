@@ -108,7 +108,64 @@ Fraunces is licensed under the SIL Open Font License 1.1, Copyright 2020 The
 Fraunces Project Authors. The full license is at
 https://github.com/undercasetype/Fraunces/blob/master/OFL.txt.
 
-## Open Knowledge (`src/open-knowledge-app/`, `src/open-knowledge-core/`, `src/visual-*`)
+## Fluid Functionalism and Lina (`src/components/ui/`)
+
+Several UI primitives are adapted from [Fluid Functionalism](https://github.com/mickadesign/fluid-functionalism) (MIT, Copyright (c) 2026 Micka Touillaud): `scroll-area.tsx`, `scroll-area.css`, `radio-group.tsx`, `switch.tsx`, `use-fluid-hover.ts`, `fluid-hover-highlight.tsx`, and the spring presets in `motion-values.ts`.
+Fluid Functionalism's scrollbar is itself adapted from [Lina](https://github.com/SameerJS6/lina) (MIT, Copyright (c) 2025 Sameer Singh), so `scroll-area.tsx` and `scroll-area.css` carry both notices.
+Each file's header names what it was adapted from; preserve those headers.
+Both projects use the same MIT text:
+
+MIT License
+
+Copyright (c) 2026 Micka Touillaud
+
+Copyright (c) 2025 Sameer Singh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Open Slide `create-theme` skill (`src-tauri/src/embedded_skills/create-theme/SKILL.md`)
+
+The bundled agent skill for creating presentation themes is adapted from Open Slide's own `create-theme` skill (`packages/core/skills/create-theme/SKILL.md` in [open-slide/open-slide](https://github.com/open-slide/open-slide)).
+It keeps upstream's theme-specification layout (palette, typography, layout, fixed Title and Footer components, motion, aesthetic, example usage) and some of its example code, rewritten for Lattice projects.
+Open Slide is MIT licensed, Copyright (c) 2026 Yiwei Ho, under the same MIT text as the section above.
+The Open Slide runtime package itself is attributed in the generated Open Slide section below.
+
+## Ioskeley Mono (`src/assets/fonts/ioskeley-mono/`)
+
+The editor and code face is [Ioskeley Mono](https://github.com/ahatem/IoskeleyMono) v2.0.0, Copyright (c) 2025 Ahmed Hatem, a custom build of [Iosevka](https://github.com/be5invis/Iosevka), Copyright (c) 2015-2026 Renzhi Li.
+Both are licensed under the SIL Open Font License 1.1, and neither declares a Reserved Font Name.
+Lattice bundles a subset of the `.woff2` files (see the header of `ioskeley-mono.css`); under the OFL a subset is a Modified Version, which may be bundled with any software provided the copyright notice and license travel with it.
+The subset's metadata keeps only the Iosevka copyright line and no license text, so the license ships separately: `src/assets/fonts/ioskeley-mono/OFL.txt` in the source tree, and [`public/licenses/ioskeley-mono-OFL.txt`](public/licenses/ioskeley-mono-OFL.txt) (both copyright lines plus the OFL), which Vite copies into the shipped application.
+
+## Conference LaTeX templates (`src-tauri/templates/`)
+
+`iclr-2026/`, `icml-2026/` and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects.
+Each directory's `UPSTREAM.md` records the source URL, fetch date and SHA-256 of every copied file.
+None of the three packages ships a separate license file. What the files themselves carry:
+
+- `iclr2026_conference.bst` and `icml2026.bst` derive from the natbib `plainnat` family and state that they "can be redistributed and/or modified under the terms of the LaTeX Project Public License" (version 1 or later; https://www.latex-project.org/lppl/), with copyright notices for Patrick W Daly (1993-2007) and Hal Daumé III (2010) and modification credits for J. Fürnkranz and, in the ICML file, Iain Murray.
+- `iclr2026_conference.sty`, `icml2026.sty` and `neurips_2026.sty` carry author credits in their header comments (Hugo Larochelle and the NIPS style authors; the ICML program chairs listed in the file; Roman Garnett and the `nips15submit_e.sty` authors) but no license grant.
+
+All five files are shipped byte-for-byte, so every notice and credit in them reaches users intact. Do not edit or strip their header comments; the LPPL in particular requires a modified `.bst` to be renamed and its changes identified.
+The project keeps these templates bundled. The absence of a license grant on the three `.sty` files remains recorded in the [gaps](#known-attribution-gaps-todo) below.
+
+## Open Knowledge (`src/open-knowledge-app/`, `src/open-knowledge-core/`, `src/editor/markdown/`)
 
 [Inkeep Open Knowledge](https://github.com/inkeep/open-knowledge) is licensed
 **GPL-3.0-or-later**. Lattice vendors and adapts a substantial part of it and
@@ -126,8 +183,11 @@ hash for every vendored file, and `node scripts/vendor-open-knowledge.mjs
 will drift.
 
 At the time of writing that lock records commit
-`7120dc1f61f67468e3fda71d18390a0c6f1503e3`, vendored on 2026-08-07, covering
-153 files. The tree on disk holds more files than the manifest: the remainder
+`c234a9c6c85b9a911094f0840d77953db41545e6` (upstream v0.66.2), vendored on
+2026-09-27, covering 150 regenerated files plus 50 `localOverrides` — Lattice
+adaptations that are three-way merged against upstream and refreshed with
+`--lock-only` after review. The tree on disk holds more files than the
+manifest: the remainder
 are Lattice-owned seam files (facades, stubs, and shims), each carrying a
 `Local seam — not upstream code` header, plus this GPL copy at
 `src/open-knowledge-app/LICENSE`. Vendored files are copied verbatim apart from
@@ -137,14 +197,17 @@ script.
 ### `src/open-knowledge-core/` — vendored editor core
 
 `src/open-knowledge-core/` vendors the editor subset of `packages/core/src`, licensed GPL-3.0-or-later (see `src/open-knowledge-core/LICENSE`).
-This tree has **no lock file** and is not covered by `--check`; its upstream pin is recorded only in prose. The pin recorded when it was vendored is `9e8a00e24c6eaea110b546758664aad0e7ebab7e`, which has not been machine-verified — treat it as approximate until a lock is generated for this tree.
-Directories vendored verbatim: `markdown/` (including `lint/`, `rehype-plugins/`, `fixtures/`), `extensions/`, `registry/`, `constants/`, `comments/`, `utils/`, `types/`, plus `metrics/parse-health.ts`, `bridge/` (structural-freshness, pm-structural-equivalence, parse-equivalence, normalize, subsequence, tolerance-telemetry), `schemas/api/_shared.ts`, and `util/doc-name.ts`.
-Files removed because they reference subsystems outside the vendored subset: `types/principal.ts`, `types/timeline.ts`, `utils/uninstall-feedback-submit.ts` (and their tests), and three constants tests that import upstream build scripts.
-Local deviations, each marked with a "Local deviation from upstream" comment: `extensions/link-fidelity.ts` (adapts `addOptions` to @tiptap 3.29's `LinkOptions`), `utils/identity.test.ts` (runs under the node vitest environment), and the added `vendor-globals.d.ts` (`process` shim; this repo carries no `@types/node`).
+Unlike the app layer it is a hand-maintained, three-way-merged subset rather than regenerated output, so `vendor-open-knowledge.mjs` does not touch it.
 
-### `src/visual-*` — Lattice-owned adaptations
+**[`open-knowledge-core.lock.json`](open-knowledge-core.lock.json) is the authoritative manifest.**
+It pins the same upstream commit as the app lock, `c234a9c6c85b9a911094f0840d77953db41545e6` (v0.66.2), and records two Git blob IDs for every local file: the upstream blob and the reviewed Lattice blob.
+Equal IDs mean the file is unmodified upstream code, differing IDs mark an intentional Lattice override, and `"upstream": null` marks a Lattice-only file.
+`node scripts/lock-open-knowledge-core.mjs --check` verifies the tree against it; `--write --revision=<ref>` regenerates it after a reviewed merge.
+As with the app lock, do not keep a second file list here.
 
-The visual Markdown block controls, slash-command surface, wiki-link and paper-citation suggestion menus, and the source-dirty observer are Lattice code adapted from Open Knowledge rather than vendored verbatim. Each such file carries its own adaptation header naming the upstream file and the commit it was adapted from (currently `9e8a00e24c6eaea110b546758664aad0e7ebab7e`); those headers are the authoritative per-file record and **must be preserved**.
+### `src/editor/markdown/` — Lattice-owned adaptations
+
+The visual Markdown block controls, slash-command surface, wiki-link and paper-citation suggestion menus (and the suggestion popup they share), link hover, the Markdown schema, and the source-dirty observer are Lattice code in `src/editor/markdown/` adapted from Open Knowledge rather than vendored verbatim. (They lived in `src/visual-*` before the frontend was split into domain directories.) Each such file carries its own adaptation header naming the upstream file and the commit it was adapted from (`9e8a00e24c6eaea110b546758664aad0e7ebab7e`, an earlier upstream commit than the current vendor locks); those headers are the authoritative per-file record and **must be preserved**.
 
 These adapted portions are licensed under GPL-3.0-or-later.
 They were modified starting 2026-08-03 for Lattice's Markdown schema, design tokens, and canonical history integration.
@@ -162,10 +225,12 @@ there are **proprietary**, and this is called out by hand rather than left in
 the generated list because it is the one closure finding that is not a
 formality:
 
+The versions below are the ones in the last generated Synara sidecar section; that section is authoritative when the pin moves.
+
 | Package | `license` field | `LICENSE.md`, in full |
 | --- | --- | --- |
-| `@anthropic-ai/claude-agent-sdk@0.3.207` | `SEE LICENSE IN README.md` | "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance." |
-| `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.207` | `SEE LICENSE IN LICENSE.md` | same text |
+| `@anthropic-ai/claude-agent-sdk@0.3.259` | `SEE LICENSE IN README.md` | "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance." |
+| `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.259` | `SEE LICENSE IN LICENSE.md` | same text |
 
 Two observations, both checkable against the staged tree:
 
@@ -175,9 +240,9 @@ Two observations, both checkable against the staged tree:
   installation. Anthropic's CLI binary is *not* redistributed. `pnpm build`
   enforces this through `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` in
   `scripts/app-size-report.mjs`.
-- **The JavaScript SDK itself is still redistributed.** `sdk.mjs` (912 KiB),
-  `bridge.mjs` (1.2 MiB) and `browser-sdk.js` (1.2 MiB) are copied into the
-  application bundle under an all-rights-reserved notice. Anthropic's published
+- **The JavaScript SDK itself is still redistributed.** Its JavaScript entry
+  points (`sdk.mjs`, `bridge.mjs` and `browser-sdk.js`, each around a megabyte
+  when this was last measured) are copied into the application bundle under an all-rights-reserved notice. Anthropic's published
   terms are the ones linked above; nothing in this repository records a grant to
   redistribute those files inside a third-party application, and GPL-3.0 §6
   requires the corresponding source for everything conveyed in the binary.
@@ -196,7 +261,7 @@ Everything below is **shipped in the app or the repository but is not yet
 properly attributed above**. This list exists so the gap is visible rather than
 silent. Appearing here does not by itself mean an item is a problem — for most
 of them it only means nobody has checked; a few (tldraw, the conference
-templates, the Claude Agent SDK) are flagged because a real question was found.
+templates, the Claude Agent SDK, the Synara client's icons) are flagged because a real question was found.
 Remove an entry when it has been given a real section.
 
 Items that used to be on this list and are now covered by the generated section
@@ -205,12 +270,15 @@ Items that used to be on this list and are now covered by the generated section
 rather than kept as reassurance. What remains is what a machine reading the
 installed packages cannot answer.
 
-- **Conference LaTeX templates** (`src-tauri/templates/`) — the one item with no license text anywhere. `iclr-2026/`, `icml-2026/`, and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects. All three `UPSTREAM.md` files record the same finding: **"The package did not contain a separate license file."** The generator cannot help here: these are not packages in any dependency graph, and there is nothing on disk to read. Redistributing a conference style file with no license is an unresolved redistribution question, not a formality — under GPLv3 §5 the combined distribution has to be licensable, and an unlicensed file is not. Options are to obtain permission, to fetch the packages on demand instead of bundling them, or to ship only Lattice's own `main.tex` skeletons. (`tutorial/` is Lattice's own content and is not affected.)
+- **Conference LaTeX template style files** (`src-tauri/templates/*/*.sty`). Attribution is now recorded in the [section above](#conference-latex-templates-src-tauritemplates): the files ship unmodified with every in-file credit, and the two `.bst` files carry an LPPL grant. What stays open is that the three `.sty` files carry **no license grant at all**, so nothing on disk records permission to redistribute them. The project has chosen to keep them bundled; fetching them on demand or obtaining permission from the conference organisers would close this entry. (`tutorial/` is Lattice's own content and is not affected.)
+- **The Synara web client bundle.** `generate-notices` scans the Synara sidecar's `node_modules`, but the prebuilt web client under `synara-runtime/server/dist/client` bundles its own third-party code, and none of that is attributed here yet. Known items, from an audit of Lattice 0.1.341 and the pinned Synara source (`scripts/synara-runtime.json`):
+  - Synara's web app depends on `react-icons` (and `@tabler/icons-react`). At the pinned revision it imports eleven `react-icons` packs: `fa6`, `fi`, `go`, `hi2`, `io`, `lu`, `pi`, `ri`, `si`, `tb` and `vsc`. Two of them carry **CC-BY-4.0** icons, which require attribution: Font Awesome Free (`fa6`) and VS Code Codicons (`vsc`). The rest are under the MIT, ISC, Apache-2.0 or CC0 licenses of their icon sets and still need their notices reproduced; the Simple Icons brand logos (`si`) are CC0 but remain their owners' trademarks.
+  - The client ships raw SVGs from `apps/web/public/central-icons-fill/` and `central-icons-reversed/` ("Central icons", rendered by `apps/web/src/lib/central-icons.tsx`). The Synara repository records **no license or provenance** for them. If they are the commercial Central Icon System, redistributing the raw SVGs may not be permitted. This needs an answer from the Synara upstream.
+  - Every other package compiled into the client bundle (rather than installed in `node_modules`) is likewise unattributed until the generator, or Synara's own build, emits a notices file for it.
 - **The Claude Agent SDK's redistribution grant.** See the section above. Attribution is now complete — the terms are quoted in full — but whether Lattice may bundle proprietary, all-rights-reserved JavaScript inside a GPL-3.0 binary is a question only Anthropic can close.
 - **tldraw's GPL compatibility** (`tldraw@5.2.5`). See the tldraw section above. Attribution is resolved: the verbatim license is vendored at `public/licenses/tldraw-LICENSE.md` and reaches the shipped binary. What is not resolved is that the tldraw license imposes restrictions GPL-3.0 §7 does not permit, while itself forbidding relicensing that would negate them. Also unresolved: which grant the project's `VITE_TLDRAW_LICENSE_KEY` corresponds to.
 - **Packages that declare a license but ship no text.** The generated "Unresolved attribution" sections list these — one for npm and crates, one inside the sidecar section. At the last run there were 139 across the three closures (118 npm/crates, 18 sidecar, plus the three below), overwhelmingly crates whose published `.crate` archive omits the `LICENSE` file present in their Git repository. The SPDX identifier is known for all but three, so this is a completeness problem rather than a permission one, but MIT and BSD require the *copyright notice* specifically, and that notice is what is missing. Three packages declare nothing at all: `khroma@2.1.0` and `@univerjs/telemetry@0.25.1` ship an unreferenced license file (MIT and Apache-2.0 respectively, readable on disk but not declared), and **`buffers@0.1.1` has neither a `license` field nor any license file** — a transitive dependency with no discoverable terms at all.
 - **`harper-core`'s dictionary data** (`src-tauri/Cargo.toml`). The crate itself is now attributed (Apache-2.0, though it ships no license text — see above). Its bundled dictionary and corpus data (`dictionary.dict`, `annotations.json`, the irregular-verb and proper-noun tables) may carry separate terms from the code; that has not been checked, and the generator only reads a crate's own license files.
-- **Ioskeley Mono** (`src/assets/fonts/ioskeley-mono/`). SIL Open Font License 1.1, Copyright (c) 2025 Ahmed Hatem. The license text ships at `src/assets/fonts/ioskeley-mono/OFL.txt` but is not referenced from this file, and the OFL's notice requirements have not been checked against how the `.woff2` files are bundled. Not a dependency, so not covered by the generator.
 - **Phosphor Icons** (`src/animated-icons/bakai/*`). These components are hand-rebuilt from Phosphor glyphs (each file's header names the source glyph and weight, e.g. `Faders`, FILL weight). Phosphor Icons is MIT; the required copyright notice is not reproduced anywhere in this repository. Not a dependency, so not covered by the generator.
 - **The `@pierre/trees` patch** (`patches/@pierre__trees@1.0.0-beta.6.patch`). The package's own terms are now attributed (Apache-2.0). The patch is a modification, and Apache-2.0 §4(b) requires modified files to carry prominent notices of the change; whether the patch satisfies that has not been checked.
 - **Univer's commercial tier** (`@univerjs/*`). Every Univer package in the tree declares Apache-2.0 and is attributed in the generated section. Univer is also marketed with a commercial tier, so confirm that the Apache-2.0 packages Lattice actually depends on are the whole story and that no feature in use falls under separate terms.
@@ -295,7 +363,7 @@ Nothing on disk says what the terms are. Each needs to be looked up upstream.
 - `buffers@0.1.1` (npm)
 - `khroma@2.1.0` (npm) — ships `license`
 
-### Declared a license but shipped no license text (124)
+### Declared a license but shipped no license text (120)
 
 The SPDX identifier is known, but the package contains no `LICENSE`,
 `COPYING` or `NOTICE` file, so the copyright line those licenses require us
@@ -367,7 +435,6 @@ to reproduce is not available from the artifact we distribute.
 - `objc2-foundation@0.3.2` (crates) — declared `MIT`
 - `objc2-io-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-io-surface@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
-- `objc2-natural-language@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-osa-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-quartz-core@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-ui-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
@@ -405,7 +472,6 @@ to reproduce is not available from the artifact we distribute.
 - `wgpu-core-deps-windows-linux-android@26.0.0` (crates) — declared `MIT OR Apache-2.0`
 - `winapi-i686-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
 - `winapi-x86_64-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
-- `@cloudflare/workers-types@4.20260702.1` (npm) — declared `MIT OR Apache-2.0`
 - `@panzoom/panzoom@4.6.2` (npm) — declared `MIT`
 - `@pdfslick/core@4.0.2` (npm) — declared `MIT`
 - `@stylexjs/stylex@0.19.0` (npm) — declared `MIT`
@@ -419,26 +485,24 @@ to reproduce is not available from the artifact we distribute.
 - `native-promise-only@0.8.1` (npm) — declared `MIT`
 - `ot-json1@1.0.2` (npm) — declared `ISC`
 - `ot-text-unicode@4.0.0` (npm) — declared `ISC`
-- `partyserver@0.5.8` (npm) — declared `ISC`
 - `react-remove-scroll-bar@2.3.8` (npm) — declared `MIT`
 - `remark-math@6.0.0` (npm) — declared `MIT`
 - `saxes@5.0.1` (npm) — declared `ISC`
 - `unicount@1.1.0` (npm) — declared `ISC`
-- `y-partyserver@2.2.0` (npm) — declared `ISC`
 
 ## npm packages (web assets)
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**779 packages.**
+**773 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 621 |
-| `ISC` | 64 |
+| `MIT` | 618 |
+| `ISC` | 62 |
 | `Apache-2.0` | 33 |
 | `BSD-3-Clause` | 24 |
-| `MIT OR Apache-2.0` | 7 |
+| `MIT OR Apache-2.0` | 6 |
 | `SEE LICENSE IN LICENSE.md` | 5 |
 | `apache-2.0` | 4 |
 | `(no license field)` | 3 |
@@ -538,7 +602,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (78 distinct texts across 779 packages)
+### License texts (77 distinct texts across 773 packages)
 
 #### 1. MIT (+2 other declarations) — 279 package(s), from `LICENSE`
 
@@ -1147,11 +1211,11 @@ Apache License
    END OF TERMS AND CONDITIONS
 ```
 
-#### 8. MIT — 15 package(s), from `LICENSE`
+#### 8. MIT — 14 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.debounce@4.0.8`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isequalwith@4.4.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
+`lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isequalwith@4.4.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
 
 </details>
 
@@ -1881,48 +1945,7 @@ Apache License
    limitations under the License.
 ```
 
-#### 17. MIT — 5 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`nanoid@3.3.18`, `nanoid@5.1.11`, `nanoid@5.1.16`, `opentype.js@2.0.0`, `postcss@8.5.26`
-
-</details>
-
-Copyright notices (5):
-
-```text
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-Copyright (c) 2020 Frederik De Bleser
-Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
-Copyright 2017 Andrey Sitnik <andrey@sitnik.es>
-Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
-```
-
-```text
-The MIT License (MIT)
-
-Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-#### 18. BSD-3-Clause — 5 package(s), from `LICENSE`
+#### 17. BSD-3-Clause — 5 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -1972,7 +1995,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 19. apache-2.0 — 4 package(s), from `LICENSE.md`
+#### 18. apache-2.0 — 4 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2180,7 +2203,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 ```
 
-#### 20. ISC — 4 package(s), from `LICENSE`
+#### 19. ISC — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2215,7 +2238,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-#### 21. MIT — 4 package(s), from `LICENSE`
+#### 20. MIT — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2278,6 +2301,47 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
+```
+
+#### 21. MIT — 4 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`nanoid@3.3.18`, `nanoid@5.1.11`, `opentype.js@2.0.0`, `postcss@8.5.26`
+
+</details>
+
+Copyright notices (5):
+
+```text
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+Copyright (c) 2020 Frederik De Bleser
+Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
+Copyright 2017 Andrey Sitnik <andrey@sitnik.es>
+Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
+```
+
+```text
+The MIT License (MIT)
+
+Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 #### 22. MIT — 4 package(s), from `LICENSE`
@@ -7933,46 +7997,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 60. MIT — 1 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`y-codemirror.next@0.3.5`
-
-</details>
-
-Copyright notices (1):
-
-```text
-Copyright (c) 2024
-```
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2024
-  - Kevin Jahns <kevin.jahns@protonmail.com>.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-#### 61. MIT — 1 package(s), from `LICENSE.md`
+#### 60. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8002,7 +8027,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 62. ISC — 1 package(s), from `LICENSE`
+#### 61. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8041,7 +8066,7 @@ under a Creative Commons Attribution-ShareAlike 4.0 International License
 https://creativecommons.org/licenses/by-sa/4.0/
 ```
 
-#### 63. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 62. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8085,7 +8110,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 64. MIT — 1 package(s), from `LICENSE`
+#### 63. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8127,7 +8152,7 @@ Commits in this fork are (c) Ziggy Jonsson (ziggy.jonsson.nyc@gmail.com)
 and fall under same licence structure as the original repo (MIT)
 ```
 
-#### 65. ISC — 1 package(s), from `LICENSE`
+#### 64. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8180,7 +8205,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 66. BSD — 1 package(s), from `LICENSE`
+#### 65. BSD — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8224,7 +8249,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 67. MIT — 1 package(s), from `LICENSE`
+#### 66. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8264,7 +8289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 68. MIT — 1 package(s), from `license`
+#### 67. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8304,7 +8329,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 69. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 68. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8360,7 +8385,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 70. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 69. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8410,7 +8435,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 71. BSD-2-Clause — 1 package(s), from `LICENSE`
+#### 70. BSD-2-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8438,7 +8463,7 @@ THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRE
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 72. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 71. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8481,7 +8506,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 73. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 72. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8528,7 +8553,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 74. MIT — 1 package(s), from `LICENCE.md`
+#### 73. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8567,7 +8592,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 75. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 74. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8595,7 +8620,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 76. MIT — 1 package(s), from `LICENSE.txt`
+#### 75. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8634,7 +8659,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 77. ISC — 1 package(s), from `LICENSE`
+#### 76. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8696,7 +8721,7 @@ the licensed code:
   DEALINGS IN THE SOFTWARE.
 ```
 
-#### 78. AGPL-3.0-or-later — 1 package(s), from `LICENSE`
+#### 77. AGPL-3.0-or-later — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9381,7 +9406,7 @@ For more information on this, and how to apply and follow the GNU AGPL, see
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**946 packages.**
+**945 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -9389,7 +9414,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT` | 229 |
 | `Apache-2.0 OR MIT` | 64 |
 | `MIT/Apache-2.0` | 46 |
-| `Zlib OR Apache-2.0 OR MIT` | 21 |
+| `Zlib OR Apache-2.0 OR MIT` | 20 |
 | `Apache-2.0` | 19 |
 | `Unicode-3.0` | 18 |
 | `Unlicense OR MIT` | 11 |
@@ -9426,7 +9451,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT AND BSD-3-Clause` | 1 |
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 
-### License texts (96 distinct texts across 946 packages)
+### License texts (96 distinct texts across 945 packages)
 
 #### 1. MIT OR Apache-2.0 (+17 other declarations) — 461 package(s), from `LICENSE-MIT`
 

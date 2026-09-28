@@ -265,14 +265,11 @@ mod tests {
     use crate::project::history::history;
     use crate::project::manifest::set_compile_root;
     use crate::project::test_support::Fixture;
-    use crate::project::tree::{collab_project_inventory_v2, scan_tree, TreeView};
+    use crate::project::tree::{scan_tree, tree_files, TreeView};
 
     fn inventory_has(root: &Path, path: &str, content_kind: &str) -> bool {
-        collab_project_inventory_v2(root)
-            .unwrap()
-            .files
-            .iter()
-            .any(|file| file.path == path && file.content_kind == content_kind)
+        let nodes = scan_tree(root, TreeView::Inventory).unwrap();
+        tree_files(&nodes).iter().any(|file| file.path == path && file.content_kind == content_kind)
     }
 
     fn tree_kind(root: &Path, path: &str) -> Option<String> {
@@ -354,47 +351,36 @@ mod tests {
     }
 
     #[test]
-    fn project_entries_can_be_renamed_and_moved_and_manifest_paths_follow_them() {
+    fn renames_and_moves_carry_manifest_paths_and_clear_stale_build_outputs() {
         let fixture = Fixture::project("relocate-project-entries");
         let root = &fixture.root;
         let default_root = || read_manifest(root).unwrap().root_documents[0].path.clone();
-        assert_eq!(rename_entry(root, "main.tex", "paper").unwrap(), "paper.tex");
-        assert_eq!(default_root(), "paper.tex");
         create_entry(root, "sections/method", "file").unwrap();
-        assert_eq!(rename_entry(root, "sections", "chapters").unwrap(), "chapters");
-        assert!(fixture.path("chapters/method.tex").exists());
-        assert!(rename_entry(root, "paper.tex", "references.bib").is_err());
-
-        assert_eq!(move_entry(root, "paper.tex", "chapters").unwrap(), "chapters/paper.tex");
-        assert_eq!(default_root(), "chapters/paper.tex");
-        assert_eq!(move_entry(root, "chapters/paper.tex", "").unwrap(), "paper.tex");
-        create_entry(root, "chapters/nested", "folder").unwrap();
-        assert!(move_entry(root, "chapters", "chapters/nested").is_err());
-        assert!(move_entry(root, "paper.tex", ".research").is_err());
-    }
-
-    #[test]
-    fn moving_a_tex_file_removes_stale_build_outputs_from_both_locations() {
-        let fixture = Fixture::project("move-tex-build-outputs");
-        let root = &fixture.root;
-        create_entry(root, "sections", "folder").unwrap();
         // biber's leftovers are not single extensions, and `main.gz` shares the
         // stem without being an artifact: moving a source must not eat it.
         let stale = ["main.pdf", "main.aux", "main.bcf", "main.run.xml", "main.bbl-SAVE-ERROR"];
         for path in stale.iter().chain(&["main.gz", "sections/main.pdf"]) {
             fixture.write(path, b"stale");
         }
-
         assert_eq!(move_entry(root, "main.tex", "sections").unwrap(), "sections/main.tex");
+        assert_eq!(default_root(), "sections/main.tex");
         for path in stale.iter().chain(&["sections/main.pdf"]) {
             assert!(!fixture.path(path).exists(), "{path}");
         }
         assert!(fixture.path("main.gz").exists());
-
         fixture.write("sections/main.pdf", b"compiled nested PDF");
         fixture.write("main.pdf", b"stale root PDF");
         assert_eq!(move_entry(root, "sections/main.tex", "").unwrap(), "main.tex");
         assert!(!fixture.path("sections/main.pdf").exists());
         assert!(!fixture.path("main.pdf").exists());
+
+        assert_eq!(rename_entry(root, "main.tex", "paper").unwrap(), "paper.tex");
+        assert_eq!(default_root(), "paper.tex");
+        assert_eq!(rename_entry(root, "sections", "chapters").unwrap(), "chapters");
+        assert!(fixture.path("chapters/method.tex").exists());
+        assert!(rename_entry(root, "paper.tex", "references.bib").is_err());
+        create_entry(root, "chapters/nested", "folder").unwrap();
+        assert!(move_entry(root, "chapters", "chapters/nested").is_err());
+        assert!(move_entry(root, "paper.tex", ".research").is_err());
     }
 }

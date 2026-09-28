@@ -122,7 +122,7 @@ fn convert_figure(
 mod tests {
     use super::*;
     use crate::project::test_support::Fixture;
-    use crate::project::tree::{collab_project_inventory_v2, read_file, scan_tree, TreeView};
+    use crate::project::tree::{read_file, scan_tree, TreeView};
 
     #[test]
     fn project_figures_and_html_can_be_previewed_and_prepared_for_latex() {
@@ -154,7 +154,7 @@ mod tests {
             assert!(fixture.path(&converted).is_file());
         }
 
-        // Oversized HTML stays editable locally but binary for collaboration.
+        // Oversized HTML stays editable locally.
         let mut html = b"<!doctype html><html><body>".to_vec();
         html.resize(MAX_CLASSIFIED_TEXT_BYTES as usize + 1, b'x');
         html.extend_from_slice(b"</body></html>\n");
@@ -168,10 +168,5 @@ mod tests {
         let preview = read_asset(&fixture.root, "presentation.html").unwrap();
         assert_eq!(preview.mime_type, "text/html");
         assert_eq!(STANDARD.decode(preview.base64).unwrap(), html);
-
-        let collaboration = collab_project_inventory_v2(&fixture.root).unwrap();
-        let shared =
-            collaboration.files.iter().find(|file| file.path == "presentation.html").unwrap();
-        assert_eq!(shared.content_kind, "binary");
     }
 }

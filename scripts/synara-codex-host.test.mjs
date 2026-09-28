@@ -60,7 +60,7 @@ it.each([
   expect(result.args.at(-1)).toBe("app-server");
 });
 
-it("captures stderr and exit after stdout EOF without resurrecting a stopped session", () => {
+it("reports stderr to an active thread, then captures stderr and exit after stdout EOF without resurrecting it", () => {
   const { Manager, log } = load();
   const manager = new Manager();
   const context = { session: { threadId: "thread-test" }, stopping: false,
@@ -69,29 +69,20 @@ it("captures stderr and exit after stdout EOF without resurrecting a stopped ses
   manager.updateSession = vi.fn();
   manager.handleTransportFailure = () => { context.stopping = true; };
   manager.attachProcessListeners(context);
+  context.child.stderr.emit("data", Buffer.from("\nactual failure\n"));
+  expect(manager.emitErrorEvent).toHaveBeenCalledExactlyOnceWith(context, "process/stderr", "actual failure");
+  expect(log.warn).toHaveBeenCalledOnce();
   context.child.stdout.emit("end");
   context.child.stderr.emit("data", Buffer.from("sandbox-exec: sandbox_apply: Operation not permitted\n"));
   context.child.emit("exit", 71, null);
-  expect(log.warn).toHaveBeenCalledWith("codex app-server stderr", {
+  expect(log.warn).toHaveBeenLastCalledWith("codex app-server stderr", {
     threadId: "thread-test", message: "sandbox-exec: sandbox_apply: Operation not permitted",
   });
   expect(log.info).toHaveBeenCalledWith("codex app-server exit", {
     threadId: "thread-test", code: 71, signal: null, stopping: true,
   });
-  expect(manager.emitErrorEvent).not.toHaveBeenCalled();
+  expect(manager.emitErrorEvent).toHaveBeenCalledOnce();
   expect(manager.updateSession).not.toHaveBeenCalled();
-});
-
-it("still reports stderr to an active thread", () => {
-  const { Manager, log } = load();
-  const manager = new Manager();
-  manager.emitErrorEvent = vi.fn();
-  const context = { session: { threadId: "active" }, stopping: false,
-    child: Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter() }) };
-  manager.attachProcessListeners(context);
-  context.child.stderr.emit("data", Buffer.from("\nactual failure\n"));
-  expect(manager.emitErrorEvent).toHaveBeenCalledExactlyOnceWith(context, "process/stderr", "actual failure");
-  expect(log.warn).toHaveBeenCalledOnce();
 });
 
 it("rejects upstream drift and double patching", () => {

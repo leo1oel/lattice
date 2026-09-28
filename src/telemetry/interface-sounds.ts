@@ -8,7 +8,6 @@ import { play, setEnabled, setVolume, type SoundName } from "cuelume";
 const SOUND_BY_CUE = {
   "build-succeeded": "ready",
   "build-failed": "error",
-  "collaboration-ready": "arrival",
 } as const satisfies Record<string, SoundName>;
 
 export type InterfaceSoundCue = keyof typeof SOUND_BY_CUE;

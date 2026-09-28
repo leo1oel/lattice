@@ -1,4 +1,6 @@
 // Adapted from https://www.fluidfunctionalism.com/r/use-fluid-hover.json.
+// Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+// Full license text: THIRD_PARTY_NOTICES.md.
 // Lattice uses its existing Motion runtime and semantic surface tokens.
 
 import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";

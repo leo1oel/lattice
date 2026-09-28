@@ -67,157 +67,6 @@
   to { transform: translateX(100%); }
 }
 
-.collab-modal {
-  width: min(440px, calc(100vw - 40px));
-  /* Centered (see .modal-backdrop); max-height keeps a tall dialog on-screen. */
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-}
-/* One vertical rhythm for the drawer form: fields, rooms, actions. */
-.modal.collab-drawer-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--drawer-section-gap);
-}
-.collab-modal .ui-textarea { min-height: 72px; }
-.collab-mode-switch { width: 100%; margin: 0; }
-.collab-field { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.collab-mode-panel { display: flex; flex-direction: column; margin: 0; }
-.collab-recent { margin: 0; min-width: 0; }
-.collab-recent-title { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 650; }
-/* Lattice thumbs (4px, hover-reveal). Clamp the root width so sideways overflow
-   scrolls inside ScrollArea — without that, the drawer grows and shows a native bar.
-   The right and bottom padding are dedicated scrollbar tracks, keeping both thumbs
-   outside room cards and their actions instead of painting over them. */
-.collab-recent-scroll {
-  max-height: calc(168px + var(--space-5));
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding-right: var(--space-5);
-  padding-bottom: var(--space-5);
-}
-.collab-recent-scroll > .lattice-scrollbar[data-orientation="vertical"] { height: calc(100% - var(--space-5)); }
-.collab-recent-scroll > .lattice-scrollbar[data-orientation="horizontal"] { width: calc(100% - var(--space-5)); }
-.collab-recent-scroll-content {
-  width: max-content;
-  min-width: 100%;
-}
-.collab-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); width: max-content; min-width: 100%; }
-.collab-recent-row { display: flex; align-items: center; gap: var(--space-2); }
-.collab-recent-rename {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.collab-recent-rename .ui-input { flex: 1 1 auto; min-width: 0; }
-.collab-recent-item {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(120px, 1fr) auto;
-  align-items: center;
-  column-gap: var(--space-4);
-  row-gap: var(--gap-hairline);
-  padding: var(--space-2) var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-panel);
-  color: var(--text-primary);
-  font-size: var(--type-caption-size);
-  text-align: left;
-}
-.collab-recent-item:hover {
-  background: var(--control-active-soft);
-  border-color: var(--control-active-border);
-}
-.collab-recent-role { grid-row: 1 / span 2; display: inline-flex; color: var(--control-active); }
-.collab-recent-role[data-role="guest"] { color: var(--text-secondary); }
-.collab-recent-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-semibold); }
-.collab-recent-time { color: var(--text-secondary); font-size: var(--type-micro-size); white-space: nowrap; }
-.collab-recent-code { grid-column: 2 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-family: var(--editor-font); }
-.collab-recent-forget { flex: none; }
-.collab-status-line {
-  margin: 0;
-  min-height: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  font-weight: var(--weight-semibold);
-}
-.collab-status-line[data-status="synced"] { color: var(--status-success); }
-.collab-status-line[data-status="error"] { color: var(--status-danger); }
-.collab-live-card {
-  margin: 0;
-  padding: var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--control-active-soft) 45%, var(--surface-panel));
-  display: grid;
-  gap: var(--drawer-section-gap);
-}
-.collab-live-card > .collab-status-line { margin-top: 0; }
-.collab-invite-code {
-  display: block;
-  padding: var(--space-4) 9px;
-  border-radius: var(--radius-chrome);
-  background: var(--surface-panel-raised);
-  color: var(--text-primary);
-  font-family: var(--editor-font);
-  font-size: var(--type-caption-size);
-  overflow-wrap: anywhere;
-}
-.collab-copy-button {
-  height: var(--control-size-icon-large);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-chrome);
-  background: var(--surface-panel-raised);
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  font-size: var(--type-caption-size);
-  font-weight: var(--weight-semibold);
-}
-.collab-copy-button:hover { color: var(--control-active); border-color: var(--control-active-border); }
-/*
- * The unread badge is absolutely positioned for the toolbar button, which is
- * `position: relative`. A segmented tab is not, so inside the live card the
- * badge escaped to some ancestor and landed on top of the word "chat". Anchor
- * it to the tab and reserve the corner, so the centered label keeps clear of it.
- */
-.collab-live-tabs .ui-segmented-tab { position: relative; }
-.collab-live-tabs .ui-segmented-tab:has(.collab-peer-badge) {
-  padding-right: calc(var(--segmented-tab-padding-inline) + var(--space-6));
-}
-.collab-live-tabs .collab-peer-badge { top: 2px; right: 3px; }
-.collab-participants { display: grid; gap: var(--space-3); }
-.collab-participants-title { color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
-.collab-participants-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.collab-participant-row { min-height: var(--control-height-compact); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); }
-.collab-participant-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
-.collab-participant-path { min-width: 0; grid-column: 1; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-micro-size); text-overflow: ellipsis; white-space: nowrap; }
-.collab-participant-you { color: var(--text-tertiary); }
-.collab-participant-role {
-  margin-left: var(--space-2);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--control-active-border);
-  border-radius: var(--radius-sm);
-  color: var(--control-active);
-  font-size: var(--type-micro-size);
-  font-style: normal;
-  font-weight: var(--weight-semibold);
-}
-.collab-remove-peer { grid-column: 2; grid-row: 1 / span 2; color: var(--status-danger); }
-.collab-help { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.collab-field > .collab-name-help { margin: 0; }
-.collab-help code { font-family: var(--editor-font); color: var(--text-secondary); }
-.collab-drawer-content > .modal-actions { margin-top: 0; }
 .todo-drawer { width: min(460px, 100%); }
 .todo-hits { max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); }
 .todo-kind { color: var(--control-active); margin-right: var(--space-2); }
@@ -385,7 +234,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .dual-empty.focused { outline: 1px solid var(--control-active-border); outline-offset: -1px; }
 .dual-empty:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 .dual-empty p { margin: 0; max-width: 220px; line-height: 1.45; }
-.columns-canvas > .pdf-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .editor-tab.beside:not(.active) button[role="tab"] { color: var(--control-active); }
 .welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 /* Joyride puts pointer-events:auto inline on its SVG paths. WebKit can also
@@ -597,15 +445,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
   font-weight: 600;
 }
 .welcome-tex-setup:hover { text-decoration: underline; }
-.collab-inline-link {
-  display: inline;
-  padding: 0;
-  height: auto;
-  color: var(--control-active);
-  font-size: inherit;
-  font-weight: 600;
-}
-.collab-inline-link:hover { text-decoration: underline; }
 .busy-label { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }

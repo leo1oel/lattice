@@ -1,26 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import {
-  clamp,
-  loadColumnsPdfRatio,
-  loadSplitRatio,
-  persistColumnsPdfRatio,
-  persistSplitRatio,
-} from "../settings/app-settings";
+import { clamp, loadSplitRatio, persistSplitRatio } from "../settings/app-settings";
 import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
 import type { CanvasMode } from "../app-types";
 import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";
 
 /**
  * The canvas's pane proportions: the source/preview split (shared with the two
- * dual editors) and the columns-mode PDF column, each remembered across
- * sessions, plus the resizer gestures that change them.
+ * dual editors), remembered across sessions, plus the resizer gestures that
+ * change it.
  */
 export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: number) {
   const splitRef = useRef<HTMLDivElement | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const preferredSplitRatioRef = useRef(splitRatio);
   const handledDualRatioResetRef = useRef(dualRatioResetGeneration);
-  const [columnsPdfRatio, setColumnsPdfRatio] = useState(loadColumnsPdfRatio);
   const commitSplitRatio = useCallback((ratio: number) => {
     preferredSplitRatioRef.current = ratio;
     setSplitRatio(ratio);
@@ -58,29 +51,14 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
 
   const beginDualResize = (event: PointerEvent<HTMLDivElement>) => {
     let latest = splitRatio;
-    // Columns mode resizes only across the two editor panes (everything left of the PDF).
-    const [share, minimumRatio, minimumWidth] = mode === "columns" ? [1 - columnsPdfRatio, 0.25, 160] : [1, 0.2, 220];
     trackResizeDrag(event, (moveEvent, grip) => {
       const bounds = splitRef.current?.getBoundingClientRect();
       if (!bounds?.width) return;
-      const editorsWidth = bounds.width * share;
-      latest = clamp((moveEvent.clientX - bounds.left) / Math.max(editorsWidth, 1), minimumRatio, 1 - minimumRatio);
-      const edge = clamp(latest * editorsWidth, minimumWidth, Math.max(minimumWidth, editorsWidth - minimumWidth));
+      latest = clamp((moveEvent.clientX - bounds.left) / bounds.width, 0.2, 0.8);
+      const edge = clamp(latest * bounds.width, 220, Math.max(220, bounds.width - 220));
       setSplitResizerResistance(grip, moveEvent.clientX - bounds.left - edge);
       setSplitRatio(latest);
     }, () => commitSplitRatio(latest));
-  };
-  const beginColumnsPdfResize = (event: PointerEvent<HTMLDivElement>) => {
-    let latest = columnsPdfRatio;
-    trackResizeDrag(event, (moveEvent, grip) => {
-      const bounds = splitRef.current?.getBoundingClientRect();
-      if (!bounds?.width) return;
-      const fromRight = (bounds.right - moveEvent.clientX) / bounds.width;
-      latest = clamp(fromRight, 0.22, 0.55);
-      const edge = clamp(latest * bounds.width, SPLIT_PDF_MIN_WIDTH, Math.max(SPLIT_PDF_MIN_WIDTH, bounds.width - 320));
-      setSplitResizerResistance(grip, edge - fromRight * bounds.width);
-      setColumnsPdfRatio(latest);
-    }, () => persistColumnsPdfRatio(latest));
   };
   const beginSplitResize = (event: PointerEvent<HTMLDivElement>) => {
     let latest = splitRatio;
@@ -104,5 +82,5 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
   };
   const nudgeSplit = (delta: number) => commitSplitRatio(constrainSplitRatio(splitRatio + delta));
 
-  return { splitRef, splitRatio, columnsPdfRatio, beginDualResize, beginColumnsPdfResize, beginSplitResize, nudgeSplit };
+  return { splitRef, splitRatio, beginDualResize, beginSplitResize, nudgeSplit };
 }

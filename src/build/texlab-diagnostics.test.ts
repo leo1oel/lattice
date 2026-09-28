@@ -45,22 +45,16 @@ describe("editorTexlabDiagnosticsForFile", () => {
     ]);
   });
 
-  it("maps TexLab diagnostics onto the active file with texlab source", () => {
+  it("maps TexLab diagnostics onto the active file with texlab source, using column ranges when provided", () => {
     const doc = EditorState.create({ doc: "one\ntwo\nthree\nfour\n" }).doc;
     const diagnostics = editorTexlabDiagnosticsForFile([
       { file: "main.tex", line: 2, level: "error", message: "Undefined control sequence." },
       { file: "other.tex", line: 1, level: "warning", message: "Ignored." },
+      { file: "main.tex", line: 3, column: 2, endLine: 3, endColumn: 5, level: "warning", message: "Span" },
     ], "main.tex", doc);
     expect(diagnostics).toEqual([
       { from: doc.line(2).from, to: doc.line(2).to, severity: "error", message: "Undefined control sequence.", source: "texlab" },
+      { from: doc.line(3).from + 1, to: doc.line(3).from + 4, severity: "warning", message: "Span", source: "texlab" },
     ]);
-  });
-
-  it("uses column ranges when TexLab provides them", () => {
-    const doc = EditorState.create({ doc: "abcdef\n" }).doc;
-    const [diagnostic] = editorTexlabDiagnosticsForFile([
-      { file: "main.tex", line: 1, column: 2, endLine: 1, endColumn: 5, level: "warning", message: "Span" },
-    ], "main.tex", doc);
-    expect([diagnostic?.from, diagnostic?.to]).toEqual([doc.line(1).from + 1, doc.line(1).from + 4]);
   });
 });

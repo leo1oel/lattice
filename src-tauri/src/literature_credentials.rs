@@ -336,11 +336,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unit_tests_use_an_in_memory_credential_entry() {
-        assert!(entry().unwrap().get_credential().is::<keyring::mock::MockCredential>());
-    }
-
-    #[test]
     #[cfg(target_os = "macos")]
     #[ignore = "writes and removes an isolated temporary system-keychain item"]
     fn system_keychain_roundtrip_isolated() {
@@ -367,8 +362,9 @@ mod tests {
 
     #[test]
     fn persistence_removal_and_failed_write_preserve_other_credentials() {
-        let entry =
-            keyring::Entry::new_with_credential(Box::new(keyring::mock::MockCredential::default()));
+        // Unit tests must never reach the developer's real keychain.
+        let entry = entry().unwrap();
+        let mock = entry.get_credential().downcast_ref::<keyring::mock::MockCredential>().unwrap();
         let mut cache = None;
         update_cached_vault(&mut cache, &entry, |vault| {
             vault.openalex = Some("first".into());
@@ -377,11 +373,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(read_vault(&entry).unwrap().openalex.as_deref(), Some("first"));
-        entry
-            .get_credential()
-            .downcast_ref::<keyring::mock::MockCredential>()
-            .unwrap()
-            .set_error(keyring::Error::NoEntry);
+        mock.set_error(keyring::Error::NoEntry);
         assert!(update_cached_vault(&mut cache, &entry, |vault| {
             vault.openalex = Some("failed-replacement".into());
         })
@@ -411,14 +403,22 @@ mod tests {
         assert!(normalized_email("person@localhost".into()).is_err());
     }
 
+    /// Saved keys win, and the status the frontend sees never carries them.
     #[test]
-    fn saved_status_does_not_serialize_secrets() {
+    fn saved_keys_have_priority_and_are_never_serialized() {
         let vault = CredentialVault {
             openalex: Some("not-for-the-frontend".into()),
             semanticscholar: Some("also-secret".into()),
             firecrawl: Some("firecrawl-secret".into()),
             crossref_email: Some("person@example.org".into()),
         };
+        let firecrawl = LiteratureProvider::Firecrawl;
+        assert_eq!(effective(&vault, firecrawl).as_deref(), Some("firecrawl-secret"));
+        assert_eq!(source(&vault, firecrawl), CredentialSource::Saved);
+        assert!(matches!(
+            source(&CredentialVault::default(), firecrawl),
+            CredentialSource::Environment | CredentialSource::Shared | CredentialSource::Missing
+        ));
         let json = serde_json::to_string(&status(&vault)).unwrap();
         assert!(json.contains("saved"));
         for secret in ["not-for-the-frontend", "also-secret", "firecrawl-secret"] {
@@ -426,71 +426,34 @@ mod tests {
         }
     }
 
-    #[test]
-    fn saved_firecrawl_key_has_priority_and_missing_status_is_explicit() {
-        let saved = CredentialVault {
-            firecrawl: Some("personal-key".into()),
-            ..CredentialVault::default()
-        };
-        assert_eq!(
-            effective(&saved, LiteratureProvider::Firecrawl).as_deref(),
-            Some("personal-key")
-        );
-        assert_eq!(source(&saved, LiteratureProvider::Firecrawl), CredentialSource::Saved);
-        assert!(matches!(
-            source(&CredentialVault::default(), LiteratureProvider::Firecrawl),
-            CredentialSource::Environment | CredentialSource::Shared | CredentialSource::Missing
-        ));
-    }
-
-    /// Test `provider`'s key against a loopback server that expects
-    /// `header: value` and replies with `status`.
-    fn test_against(
-        provider: LiteratureProvider, key: &str, path: &str, header: &'static str, value: String,
-        status: u16,
-    ) -> LiteratureCredentialTest {
-        let (base, responder) = crate::literature_service::serve_once(move |request| {
-            assert_eq!(request.method(), &tiny_http::Method::Get);
-            assert!(request
-                .headers()
-                .iter()
-                .any(|found| found.field.equiv(header) && found.value.as_str() == value));
-            request.respond(tiny_http::Response::empty(status)).unwrap();
-        });
-        let result =
-            test_provider_at(provider, Some(key.into()), &format!("{base}{path}")).unwrap();
-        responder.join().unwrap();
-        result
-    }
-
     /// A key is sent the way its provider expects, the response is
     /// classified, and the result never echoes the key.
     #[test]
     fn tests_a_draft_key_against_its_provider() {
-        for (provider, key, path, header, value, status, expected) in [
+        use CredentialTestState as State;
+        for (provider, header, value, status, expected) in [
             (
                 LiteratureProvider::SemanticScholar,
-                "draft-secret",
-                "/paper",
                 "x-api-key",
                 "draft-secret",
                 429,
-                CredentialTestState::RateLimited,
+                State::RateLimited,
             ),
-            (
-                LiteratureProvider::Firecrawl,
-                "firecrawl-draft",
-                "/v2/team/credit-usage",
-                "authorization",
-                "Bearer firecrawl-draft",
-                200,
-                CredentialTestState::Ok,
-            ),
+            (LiteratureProvider::Firecrawl, "authorization", "Bearer draft-secret", 200, State::Ok),
         ] {
-            let result = test_against(provider, key, path, header, value.into(), status);
-            assert_eq!(result.status, expected);
+            let (base, responder) = crate::literature_service::serve_once(move |request| {
+                assert_eq!(request.method(), &tiny_http::Method::Get);
+                assert!(request
+                    .headers()
+                    .iter()
+                    .any(|found| found.field.equiv(header) && found.value.as_str() == value));
+                request.respond(tiny_http::Response::empty(status)).unwrap();
+            });
+            let result = test_provider_at(provider, Some("draft-secret".into()), &base).unwrap();
+            responder.join().unwrap();
+            assert_eq!(result.status, expected, "{header}");
             assert!(result.authenticated);
-            assert!(!serde_json::to_string(&result).unwrap().contains(key));
+            assert!(!serde_json::to_string(&result).unwrap().contains("draft-secret"));
         }
     }
 }

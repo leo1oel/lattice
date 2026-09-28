@@ -2,13 +2,13 @@
 
 Lattice — a local-first LaTeX writing app for macOS. Tauri 2 (Rust) shell +
 React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
-(Synara) and CRDT collaboration (Yjs + Cloudflare Workers).
+(Synara) and Overleaf sync.
 
 ## Commands
 
 ```bash
 pnpm tauri dev                  # run the desktop app (needs the pinned Synara checkout, see below)
-pnpm check                      # THE gate: i18n + lint + vitest + web build + collab-server + rustfmt + cargo test + clippy
+pnpm check                      # THE gate: i18n + lint + vitest + web build + literature-worker + rustfmt + cargo test + clippy
 pnpm vitest run <file>          # one test file
 node scripts/bump-version.mjs patch   # release: rewrites the version in package.json,
                                       # tauri.conf.json, Cargo.toml and Cargo.lock, then PRINTS
@@ -30,8 +30,8 @@ its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default,
 with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md and
 `scripts/setup-dev.sh`.
 
-`pnpm check` is `mise run check`: eight stages (`i18n-check`, `lint`, `test`,
-`build`, `collab-server`, `cargo-fmt`, `cargo-test`, `clippy`) in parallel,
+`pnpm check` is `mise run check`: nine stages (`i18n-check`, `lint`, `test`,
+`build`, `literature-worker`, `cargo-fmt`, `cargo-test`, `clippy`, `notices`) in parallel,
 skipping any whose declared `sources` have not changed. Needs
 [mise](https://mise.jdx.dev). It runs the *same commands* as
 `.github/workflows/ci.yml` (except CI's interaction benchmark,
@@ -45,37 +45,17 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 ## Layout
 
 - `src/` — frontend, one directory per domain. Only 12 files sit at the root: `main.tsx`, `App.tsx`/`App.css`/`App.test.tsx`, `index.css`, `app-types.ts` (the shared domain model, 40 importers), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
-- `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-collab-v2-session.ts`, `use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
+- `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
 - `src/canvas/` — the editing surface shell (`document-canvas.tsx`, editor tabs, toolbar, outline, `canvas-lazy-modules.ts`).
 - `src/editor/` — editor infrastructure shared by more than one editor kind (CodeMirror host, language resolution, spellcheck), with `editor/latex/`, `editor/markdown/`, `editor/spreadsheet/`, `editor/board/`, `editor/insert/`, `editor/comments/` beneath it.
 - `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/onboarding/`, `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe, test setup, repo-level guard tests).
 - `src/components/ui/` — the one UI-primitive home: shadcn-style controls plus the app-level shared presentation (`motion.tsx`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx`, `collab-colors.ts`).
 - `src/overleaf/` — Overleaf sync: the OT engine (`ot.ts`), the realtime/chat/comments/track-changes hooks (`use-overleaf-*`), and their panels and stylesheets.
-- `src/collab/` — Lattice Shares (Yjs collaboration v2): the controller, text/binary clients, session and credential plumbing, chat and dialog UI.
-- Filenames keep their domain prefix after a move (`collab/collab-session.ts`, not `collab/session.ts`) so the split stays a reviewable pure-rename diff.
+- Filenames keep their domain prefix after a move (`overleaf/overleaf-presence.tsx`, not `overleaf/presence.tsx`) so the split stays a reviewable pure-rename diff.
 - `src/open-knowledge-app/` — **vendored** from an upstream repo by `scripts/vendor-open-knowledge.mjs` (see its MANIFEST). Local patches are accepted practice but re-vendoring can overwrite them; prefer changes outside when possible. `src/open-knowledge-core/` is related but NOT auto-synced.
 - `src-tauri/src/` — Rust: project validation/transactions (`project.rs`), LaTeX build (`latex.rs`), Overleaf sync (`overleaf*.rs`), papers/OpenAlex, TexLab, FTS, the Synara supervisor (`synara.rs`).
-- `collab-server/` — Cloudflare Worker (Durable Objects) for Lattice Shares; own package.json; deploy with `pnpm collab:deploy`.
-- `protocol/` — types shared between frontend and collab-server.
+- `literature-worker/` — Cloudflare Worker for the public literature proxy; own package.json; see `docs/public-literature-service.md`.
 - `src-tauri/synara-runtime/` — staged agent runtime (gitignored); produced by `scripts/prepare-synara-sidecar.mjs` from the pinned source in `scripts/synara-runtime.json`.
-
-## Collaboration v2 model
-
-Every file is its own Y.Doc namespace `{projectInstanceId, fileId, documentEpoch}`.
-The controller (`src/collab/collab-project-v2.ts`) owns a client pool (capacity 8, LRU
-eviction of unpinned clean clients; pin names in `src/collab/collab-text-v2.ts`:
-`main`, `secondary`, `chat`, `comments`).
-
-- Only the primary editor binding may *activate* a doc (`openPath(path, "main")`).
-  Everything else — secondary pane, saves, observers, chat, comments — must pass
-  `{ sideload: true }` or it steals `activePath` and silently unbinds the
-  primary editor's yCollab.
-- Project-wide chat and editor comments ride dedicated catalog files
-  (`.research/collab-chat.json`, `.research/editor-comments.json`) — data lives
-  on Y types beside the empty `"content"` text. The server validates every
-  fileId against the catalog; synthetic namespaces do not work.
-- Read-grant peers cannot write any doc (server closes 4403 and permanently
-  stops that client) — gate write paths in the UI.
 
 ## Bundle-size and startup constraints (deliberate, please preserve)
 
@@ -105,9 +85,7 @@ eviction of unpinned clean clients; pin names in `src/collab/collab-text-v2.ts`:
 
 ## Testing notes
 
-- Vitest + jsdom + fake-indexeddb; collab tests stub `fetch` against a mock
-  coordinator (see `setupCreateTest` in `src/collab/collab-project-v2.test.ts` — reuse
-  it for controller tests).
+- Vitest + jsdom.
 - `App.test.tsx` renders the real App with mocked `invoke`; startup ordering
   matters (the backend's `initial_project` must beat the recent-project
   auto-reopen — see `initialProjectProbe` in App.tsx).
@@ -117,7 +95,7 @@ eviction of unpinned clean clients; pin names in `src/collab/collab-text-v2.ts`:
 ## Conventions
 
 - Comments explain constraints the code can't show; match the existing
-  comment-heavy style of tricky modules (collab, App.tsx effects).
+  comment-heavy style of tricky modules (Overleaf sync, App.tsx effects).
 - Follow existing patterns for Tauri `listen()` cleanup (disposed-flag +
   unlisten race) and generation guards on async loads.
 - Before publishing a Synara pin change, follow `docs/synara-runtime.md` and run `node scripts/check-synara-upgrade.mjs <previous-lattice-ref>` with the pre-upgrade Lattice ref.

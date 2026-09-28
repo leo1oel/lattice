@@ -29,9 +29,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   border-bottom: 1px solid var(--border-subtle);
   flex: none;
 }
-.collab-drawer,
 .overleaf-picker-drawer { display: flex; flex-direction: column; overflow: hidden; }
-.resizable-drawer > .collab-drawer-content,
 .resizable-drawer > .overleaf-picker-drawer-content {
   width: 100%;
   max-height: none;
@@ -411,74 +409,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .source-editor .cm-content ::selection {
   background: var(--editor-selection-surface-active);
 }
-/* Live collab: thin peer caret + always-visible name label. */
-.source-editor .cm-ySelectionCaret {
-  position: relative;
-  border-left: 1px solid currentColor !important;
-  border-right: 0 !important;
-  margin-left: -1px;
-  margin-right: 0;
-  box-sizing: border-box;
-  pointer-events: none;
-}
-.source-editor .cm-ySelectionCaretDot {
-  width: 0.22em !important;
-  height: 0.22em !important;
-  top: -0.12em !important;
-  left: -0.12em !important;
-  /* y-codemirror.next animates the dot; a caret that lags its own position
-     reads as lag in the connection. */
-  transition: none !important;
-}
-.source-editor .cm-ySelectionCaret > .cm-ySelectionInfo {
-  opacity: 1 !important;
-  /* Two reasons a name used to hang at positions its owner had already left.
-     The upstream theme fades this label over .3s (it is normally shown only on
-     hover) and we force it visible without cancelling the fade. And
-     y-codemirror.next recycles one caret element per peer and relocates it (its
-     widget compares only colour and refuses updateDOM) — moving an absolutely
-     positioned child of an inline box leaves WebKit repainting the old rect
-     late. Cancel the fade, and give the label its own compositing layer so a
-     move repaints cleanly. Measured: neither changes line height. */
-  transition: none !important;
-  will-change: transform;
-  transform: translateZ(0);
-  top: -1.35em;
-  left: -1px;
-  padding: 1px 5px;
-  border-radius: 4px 4px 4px 0;
-  font: 600 var(--type-micro-size)/1.2 var(--ui-font);
-  color: #fff;
-  z-index: 6;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.source-editor .cm-ySelectionCaret.cm-caret-label-below > .cm-ySelectionInfo {
-  top: calc(100% + 2px);
-  border-radius: 0 4px 4px 4px;
-}
-.source-editor .cm-ySelection {
-  border-radius: 2px;
-}
-
-/* Who else is here, beside the live-collaboration control in the toolbar. */
-.collab-peer-avatar {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--surface-panel);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font: 500 var(--type-micro-size)/1 var(--ui-font);
-  letter-spacing: 0;
-  cursor: pointer;
-}
-.collab-peer-avatar.more { background: var(--border-subtle); color: var(--text-secondary); cursor: default; font-size: var(--type-nano-size); }
-
-.collab-toolbar-button { position: relative; }
-.collab-toolbar-button.active { color: var(--control-active); }
 .collab-peer-badge {
   position: absolute;
   top: 1px;
@@ -492,11 +422,4 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-style: normal;
   font-size: var(--type-nano-size);
   line-height: 12px;
-}
-.collab-live-badge {
-  display: grid;
-  place-items: center;
-  background: var(--status-success);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
 }

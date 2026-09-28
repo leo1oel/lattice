@@ -27,15 +27,6 @@ function setup(path = "main.tex", editable = true) {
 }
 
 describe("CodeMirror paper drop", () => {
-  it("reads the current library only when a drop occurs, never during extension setup", () => {
-    const { drop, getLibrary } = setup();
-    expect(getLibrary).not.toHaveBeenCalled();
-    getLibrary.mockReturnValue({ projectRoot: "/switched-project", papers: [] });
-    drop();
-    expect(getLibrary).toHaveBeenCalledOnce();
-    expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
-  });
-
   it("merges at the pointer and undoes as one edit without deleting the selection", () => {
     const { drop } = setup();
     view.dispatch({ selection: { anchor: 0, head: 3 } });
@@ -55,7 +46,7 @@ describe("CodeMirror paper drop", () => {
       ? "See \\citep{older, attention2017, later}."
       : "See~\\citep{attention2017} \\citep{older,later}.");
   });
-  it("does not write a read-only editor or accept another project's drag", () => {
+  it("does not write a read-only editor, another project's drag, or a drop after the library switched", () => {
     let result = setup("main.tex", false);
     result.drop();
     expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
@@ -63,6 +54,14 @@ describe("CodeMirror paper drop", () => {
     result = setup();
     beginPaperDrag(result.data, "/other", paper);
     result.drop();
+    expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
+    // The current library is read only when a drop occurs, never during extension setup.
+    view.destroy();
+    result = setup();
+    expect(result.getLibrary).not.toHaveBeenCalled();
+    result.getLibrary.mockReturnValue({ projectRoot: "/switched-project", papers: [] });
+    result.drop();
+    expect(result.getLibrary).toHaveBeenCalledOnce();
     expect(view.state.doc.toString()).toBe("See \\citep{older,later}.");
   });
   it("inserts source Markdown compatible with visual paper nodes", () => {

@@ -13,21 +13,9 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/collab/collab-dialog.tsx
-msgid " (or switching projects) only disconnects you — the room keeps running and you can rejoin it from Your shared rooms. "
-msgstr "（或切换项目）只会断开你的连接——房间会继续运行，你可以从“你共享的房间”重新加入。"
-
-#: src/collab/collab-dialog.tsx
-msgid " ends it for everyone"
-msgstr " 会为所有人结束共享"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " 等"
-
-#: src/collab/collab-dialog.tsx
-msgid " if Build fails on a blank machine"
-msgstr " 如果在新 Mac 上构建失败，请安装"
 
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
@@ -64,16 +52,6 @@ msgstr "（无文本）"
 msgid "(this comment's text was removed)"
 msgstr "（此评论对应的文本已被删除）"
 
-#: src/collab/collab-dialog.tsx
-msgid "(you)"
-msgstr "（你）"
-
-#. placeholder {0}: peer.name
-#. placeholder {1}: peer.path
-#: src/App.tsx
-msgid "{0} · {1} — click to follow"
-msgstr "{0} · {1} — 点击跟随"
-
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
@@ -87,9 +65,7 @@ msgid "{0} file"
 msgstr "{0} 个文件"
 
 #. placeholder {0}: entry.files.length
-#. placeholder {0}: props.fileCount
 #. placeholder {0}: update.paths.length
-#: src/collab/collab-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "{0} files"
@@ -99,16 +75,6 @@ msgstr "{0} 个文件"
 #: src/App.tsx
 msgid "{0} markers"
 msgstr "{0} 个标记"
-
-#. placeholder {0}: props.peerCount
-#: src/collab/collab-dialog.tsx
-msgid "{0} others"
-msgstr "其他 {0} 人"
-
-#. placeholder {0}: collabSession.room
-#: src/App.tsx
-msgid "{collabPeers} connected · {0}"
-msgstr "{collabPeers} 人已连接 · {0}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "{completed} of {progressTotal} references checked"
@@ -134,10 +100,6 @@ msgstr "{count} 项待办"
 #: src/history/conflict-resolver.tsx
 msgid "{decided} of {total} decided"
 msgstr "已决定 {decided}/{total} 处"
-
-#: src/settings/settings-dialog.tsx
-msgid "{detail} Find in project will stay lexical"
-msgstr "{detail}“在项目中查找”将继续使用关键词匹配"
 
 #: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
@@ -166,10 +128,6 @@ msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使
 msgid "{notice}. Open notice"
 msgstr "{notice}。打开通知"
 
-#: src/collab/collab-dialog.tsx
-msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
-msgstr "{roleLabel} · 所有项目文件 · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
-
 #: src/project/paper-library.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — 暂无本地可读内容"
@@ -194,10 +152,6 @@ msgstr "⌘⇧H · 所有 .tex 文件"
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T 重新打开"
 
-#: src/collab/collab-dialog.tsx
-msgid "1 file"
-msgstr "1 个文件"
-
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 行"
@@ -205,10 +159,6 @@ msgstr "1 行"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "共 {total} 篇论文，显示 1 篇"
-
-#: src/collab/collab-dialog.tsx
-msgid "1 other"
-msgstr "另外 1 人"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
@@ -287,10 +237,6 @@ msgstr "活动日志"
 #: src/editor/insert/insert-snippets.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
-
-#: src/collab/collab-dialog.tsx
-msgid "Ada"
-msgstr "Ada"
 
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-dialog.tsx
@@ -556,10 +502,6 @@ msgstr "星号运算符"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need、diffusion…"
-
-#: src/collab/collab-dialog.tsx
-msgid "Attention paper"
-msgstr "注意力论文"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
@@ -840,7 +782,6 @@ msgstr "提示框"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
@@ -967,10 +908,6 @@ msgstr "居中的多行公式"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "更改"
-
-#: src/collab/collab-dialog.tsx
-msgid "chat"
-msgstr "聊天"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Chat"
@@ -1188,10 +1125,6 @@ msgstr "关闭"
 msgid "Close {0}"
 msgstr "关闭 {0}"
 
-#: src/collab/collab-dialog.tsx
-msgid "Close for everyone"
-msgstr "为所有人关闭"
-
 #: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "关闭 Git 工作区"
@@ -1224,30 +1157,6 @@ msgstr "代码块"
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "代码清单"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab display name"
-msgstr "协作显示名称"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab invite"
-msgstr "协作邀请"
-
-#: src/collab/collab-dialog.tsx
-msgid "Collab room name"
-msgstr "协作房间名称"
-
-#: src/collab/collab-status.ts
-msgid "Collaboration failed"
-msgstr "协作失败"
-
-#: src/collab/collab-status.ts
-msgid "Collaboration is read-only"
-msgstr "协作为只读"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Collaboration, Overleaf, and history"
-msgstr "协作、Overleaf 与版本历史"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible content block (Notion-style toggle)."
@@ -1308,10 +1217,6 @@ msgstr "编译引擎"
 #: src/App.tsx
 msgid "Compile LaTeX"
 msgstr "编译 LaTeX"
-
-#: src/collab/collab-dialog.tsx
-msgid "Compile/PDF stays on each Mac. "
-msgstr "编译/PDF 处理在每台 Mac 上独立进行。"
 
 #: src/papers/bib-format.ts
 msgid "Complete the unfinished bibliography entry before adding another reference."
@@ -1374,19 +1279,10 @@ msgstr "正在连接 Overleaf 实时通道…"
 msgid "Connecting to project…"
 msgstr "正在连接项目…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Connecting to the live session…"
-msgstr "正在连接实时协作会话…"
-
-#: src/collab/collab-dialog.tsx
-msgid "Connecting…"
-msgstr "正在连接…"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection"
 msgstr "连接"
 
-#: src/collab/collab-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Connection failed"
 msgstr "连接失败"
@@ -1434,10 +1330,6 @@ msgstr "将所选文字转换为脚注"
 msgid "Convert selection to inline math"
 msgstr "将所选文字转换为行内公式"
 
-#: src/collab/collab-dialog.tsx
-msgid "Copied"
-msgstr "已复制"
-
 #: src/telemetry/app-log.tsx
 msgid "Copy"
 msgstr "复制"
@@ -1445,10 +1337,6 @@ msgstr "复制"
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
-
-#: src/collab/collab-dialog.tsx
-msgid "Copy invite"
-msgstr "复制邀请"
 
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
@@ -1559,10 +1447,6 @@ msgstr "已创建"
 #: src/project/project-dialogs.tsx
 msgid "Creates a {0} paper draft with bibliography and project brief"
 msgstr "创建一份采用 {0} 样式的论文草稿，并包含参考文献和项目简介"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Creating an invite…"
-msgstr "正在创建邀请…"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Cross-reference label"
@@ -1919,8 +1803,8 @@ msgid "Edit bibliography entry"
 msgstr "编辑参考文献条目"
 
 #: src/onboarding/onboarding-tour.tsx
-msgid "Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live"
-msgstr "直接编辑单元格和公式。在共享项目中，合作者的选区和指针会实时显示"
+msgid "Edit cells and formulas directly"
+msgstr "直接编辑单元格和公式"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit HTML"
@@ -2049,11 +1933,6 @@ msgstr "空集（变体）"
 msgid "Enable version tracking"
 msgstr "启用版本追踪"
 
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "End “{0}” for everyone and remove it from this Mac"
-msgstr "为所有人结束“{0}”并将其从这台 Mac 移除"
-
 #: src/settings/settings-dialog.tsx
 msgid "English"
 msgstr "英文"
@@ -2070,10 +1949,6 @@ msgstr "输入新密钥以替换"
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
 msgstr "输入缩放百分比或滚动缩放"
-
-#: src/collab/collab-dialog.tsx
-msgid "Enter your name so others can see who is editing"
-msgstr "输入你的姓名，让其他人知道谁正在编辑"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
@@ -2258,7 +2133,6 @@ msgstr "在项目中查找"
 msgid "Finish"
 msgstr "完成"
 
-#: src/app/use-collab-v2-session.ts
 #: src/build/tex-install-dialog.tsx
 msgid "Finishing setup…"
 msgstr "正在完成设置…"
@@ -2360,10 +2234,6 @@ msgstr "居中公式组*"
 msgid "General"
 msgstr "通用"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Generated directory"
-msgstr "自动生成的目录"
-
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "申请密钥"
@@ -2383,10 +2253,6 @@ msgstr "吉梅尔"
 #: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git 桥接"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Git internal data"
-msgstr "Git 内部数据"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Git status and commit"
@@ -2540,10 +2406,6 @@ msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切
 msgid "Horizontal rule that divides sections."
 msgstr "用于分隔章节的水平线。"
 
-#: src/collab/collab-dialog.tsx
-msgid "host"
-msgstr "主持人"
-
 #: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
 msgstr "HTML"
@@ -2589,10 +2451,6 @@ msgstr "蕴含"
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "已取消导入。《{0}》仍保留在参考文献中，可使用 {citationCommand} 引用；已停止获取全文。"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Import failed — retry Start sharing"
-msgstr "导入失败——请重新点击“开始共享”"
-
 #: src/App.tsx
 msgid "Import figures"
 msgstr "导入图片"
@@ -2622,10 +2480,6 @@ msgstr "已导入"
 msgid "Imported arXiv:{0}"
 msgstr "已导入 arXiv:{0}"
 
-#: src/collab/collab-status.ts
-msgid "Importing all project files…"
-msgstr "正在导入项目全部文件…"
-
 #: src/App.tsx
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
@@ -2641,10 +2495,6 @@ msgstr "进行中"
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "当前文件"
-
-#: src/collab/collab-dialog.tsx
-msgid "In this room"
-msgstr "此房间中的成员"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Include another TeX file"
@@ -2689,11 +2539,6 @@ msgstr "用于引用内容的缩进块。"
 #: src/papers/bibliography-audit.tsx
 msgid "Independent metadata unavailable"
 msgstr "独立元数据不可用"
-
-#. placeholder {0}: status.totalChunks
-#: src/settings/settings-dialog.tsx
-msgid "Indexing {0} prose blocks. {semanticSearchPrivacy}"
-msgstr "正在索引 {0} 个正文块。{semanticSearchPrivacy}"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Infinity"
@@ -2815,7 +2660,6 @@ msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 以进行编译"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/collab/collab-dialog.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX 工具"
 
@@ -2893,10 +2737,6 @@ msgstr "来源返回了无效响应"
 msgid "Invalid saved bibliography audit report."
 msgstr "已保存的参考文献审查报告格式无效。"
 
-#: src/collab/collab-dialog.tsx
-msgid "Invite link"
-msgstr "邀请链接"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Iota"
 msgstr "约塔"
@@ -2917,23 +2757,6 @@ msgstr "此评论对应的文本已从文档中删除，因此 Overleaf 无法�
 msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
 msgstr "此评论对应的文本已从文档中删除，Overleaf 已无法确定其原始位置"
 
-#: src/collab/collab-dialog.tsx
-msgid "Join"
-msgstr "加入"
-
-#: src/collab/collab-dialog.tsx
-#: src/project/project-dialogs.tsx
-msgid "Join share"
-msgstr "加入共享"
-
-#: src/collab/collab-dialog.tsx
-msgid "joined"
-msgstr "已加入"
-
-#: src/collab/collab-dialog.tsx
-msgid "Joined"
-msgstr "已加入"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "期刊"
@@ -2945,10 +2768,6 @@ msgstr "期刊"
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "跳转到 PDF"
-
-#: src/collab/collab-dialog.tsx
-msgid "just you"
-msgstr "只有你"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Kappa"
@@ -3109,10 +2928,6 @@ msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
 
-#: src/collab/collab-dialog.tsx
-msgid "Leave share"
-msgstr "离开共享"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Left angle bracket"
 msgstr "左尖括号"
@@ -3215,31 +3030,6 @@ msgstr "原样代码 / 文本块"
 msgid "Literature services"
 msgstr "文献服务"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live · {count} other"
-msgstr "实时 · 另有 {count} 人"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live · {count} others"
-msgstr "实时 · 另有 {count} 人"
-
-#: src/canvas/canvas-toolbar.tsx
-#: src/collab/collab-dialog.tsx
-msgid "Live collaboration"
-msgstr "实时协作"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live collaboration · just you"
-msgstr "实时协作 · 仅你一人"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
-msgstr "“实时协作”用于共享项目，让合作者共同编辑和评论。Overleaf 按钮用于打开或同步 Overleaf 项目。“Git”和“历史”用于提交和查看版本"
-
-#: src/collab/collab-dialog.tsx
-msgid "Live collaboration view"
-msgstr "实时协作视图"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is connected"
 msgstr "实时编辑已连接"
@@ -3255,10 +3045,6 @@ msgstr "实时编辑不可用 · 改为同步"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live editing unavailable ({detail}) · syncing instead"
 msgstr "实时编辑不可用（{detail}）· 将改用同步"
-
-#: src/App.tsx
-msgid "Live sharing…"
-msgstr "实时共享…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
@@ -3324,10 +3110,6 @@ msgstr "本地评论"
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
 msgstr "本地检查发现的问题"
-
-#: src/settings/settings-dialog.tsx
-msgid "Local semantic search"
-msgstr "本地语义搜索"
 
 #: src/telemetry/app-log.tsx
 msgid "Log level filter"
@@ -3862,14 +3644,6 @@ msgstr "有序编号项目列表。"
 msgid "Numbered single-line equation"
 msgstr "编号的单行公式"
 
-#: src/settings/settings-dialog.tsx
-msgid "Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded"
-msgstr "默认关闭。使用 Apple 内置的设备端模型，不下载、不上传"
-
-#: src/collab/collab-status.ts
-msgid "Offline"
-msgstr "离线"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
 msgstr "欧米伽"
@@ -4063,10 +3837,6 @@ msgstr "OpenAlex 搜索"
 msgid "Opening {0}…"
 msgstr "正在打开{0}…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Opening the shared document…"
-msgstr "正在打开共享文档…"
-
 #: src/settings/settings-dialog.tsx
 msgid "Opening…"
 msgstr "正在打开…"
@@ -4228,10 +3998,6 @@ msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项�
 msgid "Paste clipboard image as figure"
 msgstr "将剪贴板图像粘贴为插图"
 
-#: src/collab/collab-dialog.tsx
-msgid "Paste the full invite from Copy invite"
-msgstr "粘贴通过“复制邀请”获得的完整邀请"
-
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
 msgstr "粘贴你的 API 密钥"
@@ -4279,10 +4045,6 @@ msgstr "PDF 预览超时。请再次点击“构建”，或在“预览”中�
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
-
-#: src/App.tsx
-msgid "People in this session"
-msgstr "此会话中的成员"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Percent"
@@ -4353,11 +4115,6 @@ msgstr "先于"
 msgid "Precedes or equal"
 msgstr "先于或等于"
 
-#. placeholder {0}: inventory.length
-#: src/app/use-collab-v2-session.ts
-msgid "Preparing {0} project files…"
-msgstr "正在准备 {0} 个项目文件…"
-
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "正在准备白板编辑器"
@@ -4377,10 +4134,6 @@ msgstr "正在准备 Markdown 编辑器"
 #: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing preview…"
 msgstr "正在准备预览…"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Preparing project files… {completed}/{total}"
-msgstr "正在准备项目文件… {completed}/{total}"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing spreadsheet editor"
@@ -4434,10 +4187,6 @@ msgstr "上一个搜索结果"
 #: src/editor/insert/insert-snippets.ts
 msgid "Prime"
 msgstr "撇号"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Private app data"
-msgstr "应用私有数据"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Product"
@@ -4582,17 +4331,6 @@ msgstr "来自其他文档中“镜像源”内容块的只读副本；在源处
 msgid "Reading the file…"
 msgstr "正在读取文件…"
 
-#. placeholder {0}: status.indexedFiles
-#. placeholder {1}: status.indexedChunks
-#: src/settings/settings-dialog.tsx
-msgid "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
-msgstr "已为 {0} 个文件建立索引（{1} 个内容块）。{semanticSearchPrivacy}"
-
-#. placeholder {0}: status.indexedChunks
-#: src/settings/settings-dialog.tsx
-msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
-msgstr "已为 1 个文件建立索引（{0} 个内容块）。{semanticSearchPrivacy}"
-
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "可以编译"
@@ -4653,11 +4391,6 @@ msgstr "拒绝"
 msgid "Reject all"
 msgstr "全部拒绝"
 
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "Rejoin {0}"
-msgstr "重新加入 {0}"
-
 #: src/editor/insert/insert-palette.tsx
 msgid "Relations"
 msgstr "关系符"
@@ -4666,7 +4399,6 @@ msgstr "关系符"
 msgid "Relative project links are unavailable in this preview"
 msgstr "此预览中无法使用项目相对链接"
 
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "Remove"
 msgstr "移除"
@@ -4679,23 +4411,6 @@ msgstr "要从参考文献中移除“{title}”吗？"
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "从 Overleaf 项目中删除 {0} 个文件？"
-
-#. placeholder {0}: record.projectInstanceId
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0} from recent shares"
-msgstr "从最近共享中移除 {0}"
-
-#. placeholder {0}: peer.name
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0} from this share"
-msgstr "从此共享中移除 {0}"
-
-#. placeholder {0}: peer.name
-#: src/collab/collab-dialog.tsx
-msgid "Remove {0}?\n"
-"\n"
-"They will lose access immediately. Anyone who joined with the same invite will also lose access."
-msgstr "移除 {0}？\\n\\n他们将立即失去访问权限。使用同一邀请加入的任何人也会失去访问权限。"
 
 #: src/project/paper-library.tsx
 msgid "Remove {title}"
@@ -4752,20 +4467,10 @@ msgstr "已从 Overleaf 删除 1 个文件"
 msgid "Removes .aux, .log, and other build leftovers from this project"
 msgstr "移除此项目中的 .aux、.log 和其他构建残留文件"
 
-#: src/collab/collab-dialog.tsx
-msgid "Removing…"
-msgstr "正在移除…"
-
-#: src/collab/collab-dialog.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 msgid "Rename"
 msgstr "重命名"
-
-#. placeholder {0}: record.title
-#: src/collab/collab-dialog.tsx
-msgid "Rename {0}"
-msgstr "重命名 {0}"
 
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
@@ -4909,10 +4614,6 @@ msgstr "调整编辑器与 Markdown 预览大小"
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "调整编辑器与 PDF 预览大小"
-
-#: src/canvas/document-canvas.tsx
-msgid "Resize PDF pane"
-msgstr "调整 PDF 窗格大小"
 
 #: src/app/app-workspace-sidebar.tsx
 msgid "Resize workspace sidebar"
@@ -5131,18 +4832,6 @@ msgstr "右竖线"
 msgid "Roman math"
 msgstr "数学正体"
 
-#: src/collab/collab-dialog.tsx
-msgid "Room name"
-msgstr "房间名称"
-
-#: src/collab/collab-dialog.tsx
-msgid "Rooms you host"
-msgstr "你主持的房间"
-
-#: src/collab/collab-dialog.tsx
-msgid "Rooms you joined"
-msgstr "你加入的房间"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Root with index"
 msgstr "带次数的根号"
@@ -5168,11 +4857,6 @@ msgstr "无需请求批准即可运行"
 msgid "Run-in paragraph heading"
 msgstr "行内段落标题"
 
-#: src/settings/settings-dialog.tsx
-msgid "Runs on-device; no text leaves this Mac"
-msgstr "在本机运行，文本不外传"
-
-#: src/collab/collab-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -5254,10 +4938,6 @@ msgstr "正在保存…"
 msgid "Scanning bibliography files…"
 msgstr "正在扫描参考文献文件…"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Scanning project files…"
-msgstr "正在扫描项目文件…"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Script l"
 msgstr "手写体 l"
@@ -5267,7 +4947,6 @@ msgid "Script letters"
 msgstr "手写体字母"
 
 #: src/papers/literature-discovery-panel.tsx
-#: src/settings/settings-dialog.tsx
 msgid "Search"
 msgstr "搜索"
 
@@ -5393,10 +5072,6 @@ msgstr "Semantic Scholar 暂时不可用；已跳过后续查询"
 msgid "Send message"
 msgstr "发送消息"
 
-#: src/collab/collab-dialog.tsx
-msgid "Send the invite above. They open Live collaboration → Join → paste → Join share. Lattice opens a new folder under Documents/Lattice Shares for them"
-msgstr "发送上方邀请。对方依次打开“实时协作”→“加入”→粘贴→“加入共享”。Lattice 会在其 Documents/Lattice Shares 下打开一个新文件夹"
-
 #: src/settings/literature-settings.tsx
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
@@ -5429,18 +5104,6 @@ msgstr "设置分区"
 #: src/build/tex-install-dialog.tsx
 msgid "Setup is complete"
 msgstr "设置已完成"
-
-#: src/App.tsx
-msgid "Share invite with a collaborator"
-msgstr "与协作者分享邀请"
-
-#: src/collab/collab-dialog.tsx
-msgid "Share mode"
-msgstr "共享模式"
-
-#: src/collab/collab-dialog.tsx
-msgid "Sharing"
-msgstr "正在共享"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Sharp"
@@ -5551,18 +5214,6 @@ msgstr "用于小节的小标题。"
 #: src/editor/insert/insert-snippets.ts
 msgid "Smile relation"
 msgstr "上弧关系"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Some project items won't be included in this share:\n"
-"\n"
-"{details}\n"
-"\n"
-"Continue sharing the remaining regular files?"
-msgstr "以下项目内容不会包含在此次共享中：\n"
-"\n"
-"{details}\n"
-"\n"
-"要继续共享其余普通文件吗？"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
@@ -5686,17 +5337,9 @@ msgstr "结果已过期"
 msgid "Star operator"
 msgstr "星形运算符"
 
-#: src/App.tsx
-msgid "Start / join live sharing"
-msgstr "开始或加入实时共享"
-
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "登录后启动浏览器访问服务"
-
-#: src/collab/collab-dialog.tsx
-msgid "Start sharing"
-msgstr "开始共享"
 
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
@@ -5719,18 +5362,10 @@ msgstr "正在启动 Open Slide"
 msgid "Starting Open Slide…"
 msgstr "正在启动 Open Slide…"
 
-#: src/settings/settings-dialog.tsx
-msgid "Starting the index. {semanticSearchPrivacy}"
-msgstr "正在启动索引。{semanticSearchPrivacy}"
-
 #. placeholder {0}: hunk.line
 #: src/history/conflict-resolver.tsx
 msgid "Starts at line {0}"
 msgstr "从第 {0} 行开始"
-
-#: src/collab/collab-dialog.tsx
-msgid "status"
-msgstr "状态"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
@@ -5748,16 +5383,6 @@ msgstr "停止"
 #: src/App.tsx
 msgid "Stop build"
 msgstr "停止构建"
-
-#: src/collab/collab-dialog.tsx
-msgid "Stop sharing"
-msgstr "停止共享"
-
-#: src/collab/collab-dialog.tsx
-msgid "Stop sharing for everyone?\n"
-"\n"
-"Collaborators will be disconnected and returned to their previous projects. This cannot be undone — reopening the room means sending a new invite."
-msgstr "停止所有人的共享？\\n\\n协作者将断开连接并返回之前的项目。此操作无法撤销——重新打开房间需要发送新邀请。"
 
 #: src/app/app-titlebar.tsx
 msgid "Stop the current LaTeX build"
@@ -5851,10 +5476,6 @@ msgstr "交换编辑器窗格"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/app/use-collab-v2-session.ts
-msgid "Symbolic links are not followed"
-msgstr "不跟随符号链接"
-
 #: src/editor/insert/insert-palette.tsx
 msgid "Symbols"
 msgstr "符号"
@@ -5878,10 +5499,6 @@ msgstr "仅在点击同步按钮时同步"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "与 Overleaf 同步"
-
-#: src/collab/collab-status.ts
-msgid "Syncing changes…"
-msgstr "正在同步更改…"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -5939,10 +5556,6 @@ msgstr "公式中的文字"
 msgid "The bundled Agent service could not start"
 msgstr "内置智能助手服务无法启动"
 
-#: src/collab/collab-control-v2.ts
-msgid "The collaboration service has reached its daily request limit. Try again after 00:00 UTC or ask the service owner to upgrade the Workers plan."
-msgstr "共享服务今日请求额度已用完。请在 UTC 00:00（北京时间 08:00）额度重置后重试，或联系服务管理员升级 Workers 套餐。"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "添加评论的文件已不再与 Overleaf 实时打开。请重试。"
@@ -5955,14 +5568,6 @@ msgstr "Overleaf 上的副本"
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
 
-#: src/app/use-collab-v2-session.ts
-msgid "The host ended this share. Your own project is open again."
-msgstr "主机已结束此次共享，已重新打开你自己的项目。"
-
-#: src/app/use-collab-v2-session.ts
-msgid "The host removed you from this share. Your own project is open again."
-msgstr "主机已将你移出此次共享，已重新打开你自己的项目。"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "已关联的 Overleaf 服务器"
@@ -5970,10 +5575,6 @@ msgstr "已关联的 Overleaf 服务器"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "关联的 Overleaf 项目已更改。请重新添加评论。"
-
-#: src/settings/settings-dialog.tsx
-msgid "The local model is unavailable."
-msgstr "本地模型不可用。"
 
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
@@ -6173,14 +5774,6 @@ msgstr "此项目使用 {linkedHost}。请在上方退出登录，然后连接�
 #: src/App.tsx
 msgid "This reference cannot be updated."
 msgstr "无法更新此引用。"
-
-#: src/collab/collab-dialog.tsx
-msgid "This session uses a local sync host, so only people on your network can join. Use a build configured with a public sync host to collaborate remotely"
-msgstr "此会话使用本地同步主机，因此只有你网络中的用户可以加入。若要远程协作，请使用配置了公共同步主机的构建版本"
-
-#: src/collab/collab-status.ts
-msgid "This shared project is closed"
-msgstr "此共享项目已关闭"
 
 #: src/papers/bibliography-audit.tsx
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
@@ -6392,10 +5985,6 @@ msgstr "更新评论…"
 msgid "updated {0}"
 msgstr "更新于 {0}"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Updates are disabled in read-only projects. You can still check references."
-msgstr "只读项目不能应用更新，但仍可检查引用。"
-
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
 msgstr "更新整个项目中的每个 \\label 和 \\ref/\\cref"
@@ -6428,10 +6017,6 @@ msgstr "将此项目上传到 Overleaf"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Uploading {0} to Overleaf… this can take a minute for large projects"
 msgstr "正在将 {0} 上传到 Overleaf…大型项目可能需要一分钟"
-
-#: src/app/use-collab-v2-session.ts
-msgid "Uploading project files… {completed}/{total}"
-msgstr "正在上传项目文件… {completed}/{total}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Uploading…"
@@ -6715,24 +6300,15 @@ msgstr "暂无年份信息"
 msgid "Yesterday"
 msgstr "昨天"
 
-#: src/collab/collab-dialog.tsx
 #: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "你"
 
-#: src/collab/collab-dialog.tsx
-msgid "You are in a shared workspace. Leave share returns you to your previous project; the host keeps sharing"
-msgstr "你正在共享工作区中。“离开共享”会返回之前的项目；主持人会继续共享"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"
 msgstr "传输完成后即可关闭此面板"
-
-#: src/collab/collab-dialog.tsx
-msgid "You started this share. "
-msgstr "你发起了此共享。"
 
 #: src/settings/settings-dialog.tsx
 msgid "You’ll be notified when a new version is ready"
@@ -6749,10 +6325,6 @@ msgstr "LaTeX 和 PDF 并排显示"
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "你的 Lattice 副本"
-
-#: src/collab/collab-dialog.tsx
-msgid "Your name"
-msgstr "你的姓名"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"

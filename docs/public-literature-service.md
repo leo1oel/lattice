@@ -1,6 +1,6 @@
 # Public literature service
 
-The `lattice-literature` Cloudflare Worker is independent of `lattice-collab`.
+The `lattice-literature` Cloudflare Worker lives in `literature-worker/`.
 Its public endpoint is `https://lattice-literature.paperlattice.workers.dev/v1/query`.
 Desktop builds use this endpoint for OpenAlex and Crossref fallback requests.
 Semantic Scholar is personal-key-only and is never proxied by this service.
@@ -22,11 +22,11 @@ Only provision credentials the providers have issued for this application; the p
 Obtain provider approval for the application's shared use and quota rather than assuming multiple keys increase an account's aggregate permitted throughput.
 Rotate any credential exposed in chat, screenshots, or terminal history.
 
-Alternatively, from `collab-server`, these commands prompt for values without putting them in command arguments:
+Alternatively, from `literature-worker`, these commands prompt for values without putting them in command arguments:
 
 ```sh
-pnpm exec wrangler secret put OPENALEX_API_KEYS --config wrangler.literature.jsonc
-pnpm exec wrangler secret put CROSSREF_EMAIL --config wrangler.literature.jsonc
+pnpm exec wrangler secret put OPENALEX_API_KEYS
+pnpm exec wrangler secret put CROSSREF_EMAIL
 ```
 
 ## Requests and limits
@@ -50,18 +50,18 @@ The default safeguards are:
 - Requests are capped at 16 KiB, and result limits are capped at 100.
 
 Daily counters survive Worker restarts; the response cache is in memory and can be lost when the object is evicted or redeployed.
-The two `*_DAILY_QUOTA` variables in `wrangler.literature.jsonc` are application safety budgets, not promises about the providers' own quotas.
+The two `*_DAILY_QUOTA` variables in `wrangler.jsonc` are application safety budgets, not promises about the providers' own quotas.
 Anonymous IP limits do not authenticate desktop installations or prevent all abuse; the global budgets bound upstream consumption if third parties call the endpoint.
 Native and CLI fallback paths may still use other providers after a public lookup fails, so this is not a claim that the entire citation workflow is retry-free.
 
 ## Deploy and verify
 
-From `collab-server`:
+From `literature-worker`:
 
 ```sh
 pnpm typecheck
 pnpm test
-pnpm exec wrangler deploy --config wrangler.literature.jsonc
+pnpm run deploy
 curl https://lattice-literature.paperlattice.workers.dev/health
 ```
 

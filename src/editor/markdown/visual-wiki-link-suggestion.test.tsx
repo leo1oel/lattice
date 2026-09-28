@@ -40,8 +40,8 @@ function renderEditor(text = "", onOpenProjectPath = vi.fn()) {
 const markdown = (editor: Editor) => getMarkdownManager().serialize(editor.getJSON());
 
 describe("visual wiki-link suggestion", () => {
-  it("opens on [[, filters pages, and inserts the selected page", async () => {
-    const { editor } = renderEditor();
+  it("opens on [[, filters pages, inserts the selected page, and unmounts an open menu cleanly", async () => {
+    const { editor, unmount } = renderEditor();
     editor.chain().focus().insertContent("[[").run();
     const menu = await screen.findByRole("listbox", { name: "Wiki link suggestions" });
     expect(menu).toHaveTextContent("Target title");
@@ -50,6 +50,10 @@ describe("visual wiki-link suggestion", () => {
     expect(menu).not.toHaveTextContent("Other page");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
     await waitFor(() => expect(markdown(editor)).toContain("[[TargetDoc]]"));
+    // Unmounting with the suggestion open must not raise a React removeChild error.
+    editor.commands.insertContent(" [[");
+    await screen.findByRole("listbox", { name: "Wiki link suggestions" });
+    expect(() => unmount()).not.toThrow();
   });
 
   it("lists and inserts a page heading after #", async () => {
@@ -70,13 +74,6 @@ describe("visual wiki-link suggestion", () => {
     fireEvent.mouseDown(create);
     await waitFor(() => expect(markdown(editor)).toContain("[[NewPage]]"));
     expect(editor.view.dom.querySelector("[data-wiki-link]")).toHaveAttribute("data-resolved", "false");
-  });
-
-  it("unmounts an open suggestion without a React removeChild error", async () => {
-    const { editor, unmount } = renderEditor();
-    editor.chain().focus().insertContent("[[").run();
-    await screen.findByRole("listbox", { name: "Wiki link suggestions" });
-    expect(() => unmount()).not.toThrow();
   });
 
   it.each([

@@ -28,6 +28,8 @@ describe("app-notify", () => {
     // Filled in by `notify`, not by the caller — an error with no copyable text
     // is half a report, and 170 call sites will not each remember to pass one.
     expect(getAppToastOptions(id)?.copyText).toBe("Could not sync\n403 Forbidden");
+    // Copy just repeats the toast here, so the log holds no second copy of it.
+    expect(formatAppLogs()).not.toContain("full text");
 
     const plain = notifySuccess("Overleaf", "Synced");
     expect(getAppToastOptions(plain)?.copyText).toBeUndefined();
@@ -47,11 +49,17 @@ describe("app-notify", () => {
     expect(log).toContain("Overleaf: pulled 2, pushed 0.");
   });
 
-  it("names the action in a failure and keeps the reason as detail", () => {
-    logAction("Build", "Build").fail(new Error("Undefined control sequence"));
+  it.each([
+    ["an Error", new Error("Undefined control sequence"), undefined, 1],
+    ["a reason that is not an Error", "Undefined control sequence", undefined, 1],
+    // A failure an inline error surface already shows must not toast a duplicate.
+    ["toast: false", "Undefined control sequence", { toast: false }, 0],
+  ] as const)("names the action in a failure and keeps the reason as detail (%s)", (_, reason, options, toasts) => {
+    logAction("Build", "Build").fail(reason, options);
 
     expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
     expect(formatAppLogs()).toContain("Undefined control sequence");
+    expect(getVisibleAppToastIds()).toHaveLength(toasts);
   });
 
   it("emits one complete outcome with duration, initial context and accumulated counts", async () => {
@@ -90,14 +98,6 @@ describe("app-notify", () => {
     expect(getVisibleAppToastIds()).toHaveLength(1);
   });
 
-  it("can log a failed action without duplicating an inline error surface", () => {
-    logAction("Build", "Build").fail("Undefined control sequence", { toast: false });
-
-    expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
-    expect(formatAppLogs()).toContain("Undefined control sequence");
-    expect(getVisibleAppToastIds()).toHaveLength(0);
-  });
-
   it("logs whatever the Copy button offers, not just the line on screen", () => {
     const fullLog = "! Undefined control sequence.\nl.42 \\badmacro\n(plus 300 more lines)";
     notifyError("Build", "Build failed", { detail: "chapters/intro.tex:42", copyText: fullLog });
@@ -109,16 +109,6 @@ describe("app-notify", () => {
     }
     // Log-only: the extra text is for reading back, not a second interruption.
     expect(getVisibleAppToastIds()).toHaveLength(1);
-  });
-
-  it("does not log a second copy when Copy just repeats the toast", () => {
-    notifyError("Papers", "Import failed", { detail: "network unreachable" });
-    expect(formatAppLogs()).not.toContain("full text");
-  });
-
-  it("survives a reason that is not an Error", () => {
-    logAction("Papers", "Import").fail("plain string reason");
-    expect(formatAppLogs()).toContain("plain string reason");
   });
 
   it("keeps every occurrence on disk even when repeats fold into one toast", async () => {

@@ -27,7 +27,7 @@ A local-first LaTeX workspace for macOS.
 - LaTeX completion, diagnostics, and SyncTeX navigation between source and PDF.
 - Literature search, arXiv imports, and citation insertion.
 - Markdown notes, whiteboards, diagrams, and spreadsheets.
-- Shared cursors, comments, chat, and Git history.
+- Comments, Git history, and Overleaf sync with shared cursors and chat.
 - An AI agent that can read your papers, help with build errors, and make edits for you to review.
 
 ## Get started
@@ -44,15 +44,22 @@ Official builds are signed and notarized by Apple.
 Your project is a folder of ordinary files on your Mac, so you can use another editor or Git without exporting anything.
 Keep `.research/` alongside your files to preserve imported papers and agent sessions.
 
-Lattice Shares sends shared document text, file names and paths, assets, chat, comments, and presence through `lattice-collab.paperlattice.workers.dev`.
-This maintainer-run service has no uptime or privacy guarantee; unshared projects don't use it.
-You can [host your own server](collab-server/README.md) and choose it in **Live collaboration → Advanced (sync host)**.
-
 ## Contributing
 
 Lattice uses Tauri 2, Rust, React, and TypeScript.
 See [CONTRIBUTING.md](CONTRIBUTING.md) to build the app and run tests, or browse the [architecture docs](docs/README.md).
 Bug reports and pull requests are welcome; please open an [issue](https://github.com/leo1oel/lattice/issues) before a large refactor.
+
+## Acknowledgements
+
+Lattice is built on the work of many open-source projects. The major ones:
+
+- [Open Knowledge](https://github.com/inkeep/open-knowledge) by Inkeep, the foundation of Lattice's visual Markdown editor.
+- [Synara](https://github.com/Emanuele-web04/synara) by T3 Tools Inc. and Emanuele Di Pietro, the agent runtime behind Lattice's AI assistant.
+- [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
+- [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
+- [PDF.js](https://github.com/mozilla/pdf.js), the PDF viewer.
+- [Tauri](https://github.com/tauri-apps/tauri), the desktop shell.
 
 ## License
 

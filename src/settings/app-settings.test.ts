@@ -4,19 +4,16 @@ import {
   APPEARANCE_KEY,
   FILE_VIEW_STATES_KEY,
   RECENT_PROJECTS_KEY,
-  LOCAL_SEMANTIC_SEARCH_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
   forgetRecentProject,
   hasSeenTutorial,
   loadAppearance,
   loadFileViewStates,
-  loadLocalSemanticSearchEnabled,
   loadRecentProjects,
   loadWorkspaceLayout,
   markTutorialSeen,
   persistFileViewStates,
-  persistLocalSemanticSearchEnabled,
   persistWorkspaceLayout,
   rememberRecentProject,
   resolveAppLocale,
@@ -223,19 +220,6 @@ describe("tutorial persistence", () => {
     localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([{ name: "Understanding Attention", path }]));
     expect(hasSeenTutorial()).toBe(true);
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
-  });
-});
-
-describe("local semantic search opt-in", () => {
-  it("is disabled until the user explicitly enables it", () => {
-    expect(loadLocalSemanticSearchEnabled()).toBe(false);
-    expect(localStorage.getItem(LOCAL_SEMANTIC_SEARCH_KEY)).toBeNull();
-
-    persistLocalSemanticSearchEnabled(true);
-    expect(loadLocalSemanticSearchEnabled()).toBe(true);
-
-    persistLocalSemanticSearchEnabled(false);
-    expect(loadLocalSemanticSearchEnabled()).toBe(false);
   });
 });
 

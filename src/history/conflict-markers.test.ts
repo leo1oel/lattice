@@ -17,7 +17,7 @@ const CONFLICTED = [
 ].join("\n");
 
 describe("conflict markers", () => {
-  it("splits a file into text and conflict blocks", () => {
+  it("splits a file into text and conflict blocks, and reports whether it still needs a decision", () => {
     const blocks = parseConflictBlocks(CONFLICTED);
     expect(blocks.map((block) => block.kind)).toEqual(["text", "conflict", "text"]);
     const hunks = conflictHunks(CONFLICTED);
@@ -25,9 +25,6 @@ describe("conflict markers", () => {
     expect(hunks[0].ours).toBe("my sentence");
     expect(hunks[0].theirs).toBe("their sentence");
     expect(hunks[0].line).toBe(2);
-  });
-
-  it("reports whether a file still needs a decision", () => {
     expect(hasConflictMarkers(CONFLICTED)).toBe(true);
     expect(hasConflictMarkers("plain text\n")).toBe(false);
   });

@@ -62,7 +62,7 @@ describe("OverleafHistoryPanel", () => {
     expect(screen.getByText("Submitted draft")).toBeInTheDocument();
   });
 
-  it("expands an entry and lists only the files overleaf_history_files marks as changed", async () => {
+  it("lists only the files marked as changed, and toggles a text diff through the shared Pierre renderer", async () => {
     mockHistory([
       { pathname: "main.tex", operation: "edited" },
       // No `operation`: unchanged across the range, must not show as a change.
@@ -74,11 +74,7 @@ describe("OverleafHistoryPanel", () => {
     expect(within(files).getByText("main.tex")).toBeInTheDocument();
     expect(within(files).getByText("old.tex")).toBeInTheDocument();
     expect(within(files).queryByText("refs.bib")).not.toBeInTheDocument();
-  });
 
-  it("renders a text diff through the shared Pierre renderer and closes it when the row is clicked again", async () => {
-    mockHistory([{ pathname: "main.tex", operation: "edited" }]);
-    const { files } = await openEntry();
     const row = within(files).getByRole("button", { name: /main\.tex/ });
     fireEvent.click(row);
 
@@ -97,10 +93,13 @@ describe("OverleafHistoryPanel", () => {
     expect(await screen.findByText("Binary file changed")).toBeInTheDocument();
   });
 
-  it("restores the whole project only after confirmation", async () => {
+  it("restores the whole project only after confirmation, and a changed or deleted file at its own version", async () => {
     const onRestored = vi.fn();
-    mockHistory([], { overleaf_history_revert: undefined });
-    const { body } = await openEntry({ onRestored });
+    mockHistory([
+      { pathname: "main.tex", operation: "edited" },
+      { pathname: "old.tex", operation: "removed", deletedAtV: 4 },
+    ], { overleaf_history_revert: undefined, overleaf_history_restore_file: undefined });
+    const { body, files } = await openEntry({ onRestored });
     const restore = within(body).getByRole("button", { name: /Restore whole project to this version/ });
 
     vi.mocked(confirm).mockResolvedValueOnce(false);
@@ -113,14 +112,6 @@ describe("OverleafHistoryPanel", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { projectRoot: "/tmp/project", version: 11 }));
     expect(vi.mocked(confirm).mock.calls.at(-1)?.[0]).toMatch(/deleted/);
     await waitFor(() => expect(onRestored).toHaveBeenCalledTimes(1));
-  });
-
-  it("restores a single changed file and a deleted file using its own version", async () => {
-    mockHistory([
-      { pathname: "main.tex", operation: "edited" },
-      { pathname: "old.tex", operation: "removed", deletedAtV: 4 },
-    ], { overleaf_history_revert: undefined, overleaf_history_restore_file: undefined });
-    const { files } = await openEntry();
 
     fireEvent.click(within(files).getByRole("button", { name: /Restore this file/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_history_revert", { projectRoot: "/tmp/project", version: 11, path: "main.tex" }));

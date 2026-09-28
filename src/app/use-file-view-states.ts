@@ -54,12 +54,6 @@ export function useFileViewStates(
   const allow = useCallback((path: string) => {
     removedRef.current = removedRef.current.filter((removed) => removed !== path && !path.startsWith(`${removed}/`));
   }, []);
-  /** Drop one path's state, e.g. after a collaborator deleted the file. */
-  const drop = useCallback((path: string) => {
-    invalidate();
-    statesRef.current.delete(path);
-    schedule();
-  }, [invalidate, schedule]);
   /** Drop deleted paths (and everything `wasDeleted` matches) and keep them out. */
   const forget = useCallback((paths: string[], wasDeleted: (path: string) => boolean) => {
     invalidate();
@@ -87,5 +81,5 @@ export function useFileViewStates(
     removedRef.current = [];
   }, [flush, invalidate]);
 
-  return { statesRef, get, remember, allow, drop, forget, remap, loadForProject };
+  return { statesRef, get, remember, allow, forget, remap, loadForProject };
 }

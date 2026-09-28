@@ -43,7 +43,7 @@ Editing long Markdown:
 | `HeadingAnchors` rebuilt a whole-document DecorationSet on every view update, including caret-only moves | `open-knowledge-app/editor/extensions/heading-anchors.ts` |
 | Every keystroke rebuilt `liveSourceMap` and re-ran four whole-project parses (macros, graphics roots, katex macros, appendix) even for `.md` buffers | `App.tsx` around `liveSourceMap` |
 | React Compiler silently bailed out of `App`, `DocumentCanvas`, `VisualMarkdownEditor`, `EditorTabs`, `ContinuousPdfPage` (try/finally, `x++` in lambdas, inline `import()`), so none of the hot tree was auto-memoized | `scripts/react-compiler-report.mjs` finds these |
-| Secondary CodeMirror reconfigured all extensions every keystroke in dual/split/columns mode | `document-canvas.tsx` `secondaryEditorExtensions` |
+| Secondary CodeMirror reconfigured all extensions every keystroke in dual/split mode | `document-canvas.tsx` `secondaryEditorExtensions` |
 | Comment decorations serialized the whole doc before checking whether any comments exist | `editor-comments.ts` |
 | Harper linted the whole document on the main thread every 350 ms of typing | `latex-editor.ts`, `harper-spellcheck.ts` |
 | Single-slot mdast cache thrashed by the publication probe: 3 full parses where 1 suffices | `visual-markdown-editor.tsx` |
@@ -54,7 +54,6 @@ Slow file switching:
 | --- | --- |
 | 2-second poll re-read the full bytes of every project file (`scan_files` → `classify_regular_file`) and spawned ~6 git subprocesses per tick | `project.rs`, `git.rs` |
 | Every save parsed up to 100 history records (each embedding full before/after contents) to find the newest; dirty switches await the save | `project.rs` `latest_history_record` |
-| Collab opens awaited ticket + WebSocket + sync before showing content even when a server-acked local snapshot existed | `collab-project-v2.ts` `openPath` |
 | Cursor/scroll restore was gated behind an unrelated `stat` round trip; save and read ran serially | `App.tsx` `loadFile` |
 | `read_file` read every file twice (classification pass + content pass) | `project.rs` |
 
@@ -407,9 +406,8 @@ library — see Future directions).
 - Editable-doc `content-visibility` experiment behind a dev flag, with
   selection/scroll behavior measured on WKWebView before any default flip.
 - `App.tsx` state extraction — in progress rather than unscheduled. The file is
-  ~9.8k lines with roughly 151 `useState`, and `src/app/use-collab-v2-session.ts`
-  and `src/app/use-overleaf-workspace.ts` have already lifted ~1,800 lines of
-  collab and Overleaf state out of it. Still open: `DocumentCanvas` memoization
+  ~9.8k lines with roughly 151 `useState`, and `src/app/use-overleaf-workspace.ts`
+  has already lifted the Overleaf state out of it. Still open: `DocumentCanvas` memoization
   — 126 props and 26 inline lambdas at the call site in `App.tsx`, up from 109
   props when this was first measured.
 - Split-mode publication: replace whole-document `setContent` with
@@ -417,7 +415,7 @@ library — see Future directions).
   worst multiplier.
 - Long term: Obsidian-style single-editor live preview instead of two
   simultaneously mounted editors.
-- CodeMirror remount-on-switch (`key={collabEditorKey}`) if switching still
+- CodeMirror remount-on-switch (`key={editorKey}`) if switching still
   feels slow after the IPC fixes.
 
 Two items that used to sit in this list have **shipped** and are described under

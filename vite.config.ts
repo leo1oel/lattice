@@ -227,16 +227,14 @@ export default defineConfig(() => ({
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       //
-      // `collab-server/.wrangler` is the local sync server's Durable Object
-      // state. Every keystroke a peer syncs rewrites those SQLite WAL files, so
-      // watching them made Vite full-reload the app mid-session: an in-flight
-      // rejoin or share lost its JavaScript before it could finish, and the
-      // room appeared to need a second click to actually go live.
+      // `literature-worker/.wrangler` is a local `wrangler dev` Worker's Durable
+      // Object state. Its SQLite WAL files are rewritten on every request, and
+      // watching them made Vite full-reload the app mid-session.
       //
       // Matched as regexes rather than globs: a glob is evaluated per path, so
       // events for a directory tree the dev server recreates (wrangler restart)
       // slipped through before the pattern applied to its descendants.
-      ignored: [/[\\/]src-tauri[\\/]/, /[\\/]collab-server[\\/]\.wrangler[\\/]/],
+      ignored: [/[\\/]src-tauri[\\/]/, /[\\/]literature-worker[\\/]\.wrangler[\\/]/],
     },
   },
 }));

@@ -22,7 +22,6 @@ export type AppOnboardingTourProps = {
   changePaperView: (view: "blog" | "fulltext") => void;
   openProjectFile: OpenProjectFile;
   setCanvasMode: Dispatch<SetStateAction<CanvasMode>>;
-  setCollabOpen: Dispatch<SetStateAction<boolean>>;
   setGitOpen: Dispatch<SetStateAction<boolean>>;
   setOverleafPickerOpen: Dispatch<SetStateAction<boolean>>;
   setSidebarMode: Dispatch<SetStateAction<"agent" | "project" | "papers">>;
@@ -65,7 +64,6 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
   });
   const endTutorial = () => {
     markTutorialSeen();
-    props.setCollabOpen(false);
     props.setOverleafPickerOpen(false);
     props.setGitOpen(false);
     props.setTutorialActive(false);

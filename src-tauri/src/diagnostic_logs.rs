@@ -132,13 +132,12 @@ mod tests {
     #[test]
     fn tail_is_bounded_and_starts_on_a_multibyte_boundary() {
         let root = TempDir::new("diagnostic");
-        let path = root.join("log");
         let mut data = "€".as_bytes().to_vec();
         data.extend(std::iter::repeat_n(b'x', MAX_LOG_BYTES as usize - 1));
-        std::fs::write(&path, data).unwrap();
+        let path = root.write("log", data);
         let (content, truncated) = read_allowed_tail(&root, &path).unwrap();
         assert!(truncated);
-        assert!(!content.starts_with('\u{fffd}'));
+        // No partial "€" (or replacement character) survives the cut.
         assert!(content.bytes().all(|byte| byte == b'x'));
         assert!(content.len() <= MAX_LOG_BYTES as usize);
     }
@@ -166,20 +165,8 @@ mod tests {
           SYNARA_AUTH_TOKEN=sidecar-secret SYNARA_SHUTDOWN_TOKEN='shutdown-secret'\n\
           https://alice:url-secret@example.test/x?api_key=query-secret&mode=keep /Users/alice/paper.tex";
         let output = redact(input, Some(Path::new("/Users/alice")));
-        for secret in [
-            "bearer-secret",
-            "env-secret",
-            "json-secret",
-            "url-secret",
-            "query-secret",
-            "header-secret",
-            "inspect-secret",
-            "camel-secret",
-            "sidecar-secret",
-            "shutdown-secret",
-        ] {
-            assert!(!output.contains(secret), "leaked {secret}");
-        }
+        // Every secret value above, and nothing else, contains "secret".
+        assert!(!output.contains("secret"), "leaked a secret: {output}");
         for public in ["PUBLIC_TOKEN=keep", "keep-json", "mode=keep"] {
             assert!(output.contains(public), "masked unrelated value {public}");
         }

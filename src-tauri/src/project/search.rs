@@ -346,16 +346,11 @@ mod tests {
         let root = &fixture.root;
         fixture.write("sections/method.tex", "A distinctive latent alignment objective.\n");
 
-        let content_results = search_files(root, "latent alignment").unwrap();
-        assert_eq!(content_results[0].path, "sections/method.tex");
-        assert!(content_results[0].snippet.contains("distinctive latent"));
-        for query in ["method.tex", "method tex"] {
-            assert_eq!(
-                search_files(root, query).unwrap()[0].path,
-                "sections/method.tex",
-                "{query}"
-            );
+        for query in ["latent alignment", "method.tex", "method tex"] {
+            let hit = &search_files(root, query).unwrap()[0];
+            assert_eq!(hit.path, "sections/method.tex", "{query}");
         }
+        assert!(search_files(root, "latent alignment").unwrap()[0].snippet.contains("distinctive"));
 
         // The linear fallback also skips hidden paths and HTML outside the body.
         fixture.write(

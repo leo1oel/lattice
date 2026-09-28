@@ -189,8 +189,8 @@ fn cors(mut response: Response<Body>) -> Response<Body> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::routing::get;
-    use tokio::sync::oneshot;
+    use futures_util::{stream, StreamExt};
+    use std::time::Duration;
 
     // The singleton server belongs to its Tokio runtime. Keep these requests
     // in one runtime, as in the application, instead of retaining a dead server
@@ -199,11 +199,9 @@ mod tests {
     async fn streaming_proxy_contract() {
         streams_first_chunk_before_upstream_finishes().await;
         forwards_range_and_preserves_206_or_200().await;
-        preserves_416_and_upstream_error_statuses().await;
-        rejects_an_invalid_capability().await;
-        rejects_declared_oversized_responses().await;
-        rejects_undeclared_oversized_streams().await;
         ignores_range_when_the_origin_does().await;
+        rejects_undeclared_oversized_streams().await;
+        preserves_upstream_statuses_and_rejects_what_it_must().await;
         assert!(preview_url("file:///tmp/paper.pdf").await.is_err());
         assert!(preview_url("https://user:password@example.com/paper.pdf").await.is_err());
     }
@@ -214,7 +212,7 @@ mod tests {
         let source = std::env::var("LATTICE_PDF_PREVIEW_SOURCE").unwrap();
         let path = std::env::var("LATTICE_PDF_PREVIEW_URL_FILE").unwrap();
         std::fs::write(path, preview_url(&source).await.unwrap()).unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+        tokio::time::sleep(Duration::from_secs(120)).await;
     }
 
     /// An upstream server answering `/paper.pdf` with `route`.
@@ -232,51 +230,30 @@ mod tests {
     }
 
     async fn streams_first_chunk_before_upstream_finishes() {
-        let (release_tx, release_rx) = oneshot::channel::<()>();
-        let release = Arc::new(tokio::sync::Mutex::new(Some(release_rx)));
+        let release = Arc::new(tokio::sync::Notify::new());
+        let gate = release.clone();
         let url = origin(get(move || {
-            let release = release.clone();
-            async move {
-                let stream = futures_util::stream::unfold(0, move |step| {
-                    let release = release.clone();
-                    async move {
-                        match step {
-                            0 => Some((Ok::<_, io::Error>("first"), 1)),
-                            1 => {
-                                release.lock().await.take().unwrap().await.ok();
-                                Some((Ok("second"), 2))
-                            }
-                            _ => None,
-                        }
-                    }
-                });
-                Body::from_stream(stream)
-            }
+            let gate = gate.clone();
+            let second = async move {
+                gate.notified().await;
+                Ok("second")
+            };
+            let chunks = stream::iter([Ok::<_, io::Error>("first")]).chain(stream::once(second));
+            async move { Body::from_stream(chunks) }
         }))
         .await;
 
-        let response = tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            reqwest::get(preview_url(&url).await.unwrap()),
-        )
-        .await
-        .expect("Response headers must not wait for the complete PDF")
-        .unwrap();
+        let within = Duration::from_secs(3);
+        let response = tokio::time::timeout(within, fetch(&url))
+            .await
+            .expect("Response headers must not wait for the complete PDF");
         let mut stream = response.bytes_stream();
-        let first = tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            futures_util::TryStreamExt::try_next(&mut stream),
-        )
-        .await
-        .expect("The proxy must forward bytes before the origin finishes")
-        .unwrap()
-        .unwrap();
-        assert_eq!(&first[..], b"first");
-        release_tx.send(()).unwrap();
-        assert_eq!(
-            futures_util::TryStreamExt::try_next(&mut stream).await.unwrap().unwrap(),
-            "second"
-        );
+        let first = tokio::time::timeout(within, stream.try_next())
+            .await
+            .expect("The proxy must forward bytes before the origin finishes");
+        assert_eq!(first.unwrap().unwrap(), "first");
+        release.notify_one();
+        assert_eq!(stream.try_next().await.unwrap().unwrap(), "second");
     }
 
     async fn forwards_range_and_preserves_206_or_200() {
@@ -326,9 +303,8 @@ mod tests {
 
     async fn rejects_undeclared_oversized_streams() {
         let url = origin(get(|| async {
-            Body::from_stream(futures_util::stream::iter(
-                (0..101).map(|_| Ok::<_, io::Error>(vec![0_u8; 1024 * 1024])),
-            ))
+            let megabytes = (0..101).map(|_| Ok::<_, io::Error>(vec![0_u8; 1024 * 1024]));
+            Body::from_stream(stream::iter(megabytes))
         }))
         .await;
         let mut response = fetch(&url).await;
@@ -343,40 +319,52 @@ mod tests {
         assert!(bytes <= MAX_PDF_BYTES);
     }
 
-    async fn preserves_416_and_upstream_error_statuses() {
-        let range_url = origin(get(|| async {
-            Response::builder()
-                .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                .header(CONTENT_RANGE, "bytes */4")
-                .body(Body::empty())
-                .unwrap()
-        }))
-        .await;
-        assert_eq!(fetch(&range_url).await.status(), StatusCode::RANGE_NOT_SATISFIABLE);
-
-        let error_url = origin(get(|| async {
-            response(StatusCode::SERVICE_UNAVAILABLE, Body::from("later"))
-        }))
-        .await;
-        assert_eq!(fetch(&error_url).await.status(), StatusCode::SERVICE_UNAVAILABLE);
-    }
-
-    async fn rejects_an_invalid_capability() {
-        let url = origin(get(|| async { Body::from("pdf") })).await;
-        let proxy = preview_url(&url).await.unwrap().replace("token=", "token=wrong");
-        assert_eq!(reqwest::get(proxy).await.unwrap().status(), StatusCode::UNAUTHORIZED);
-    }
-
-    async fn rejects_declared_oversized_responses() {
-        let url = origin(get(|| async {
-            Response::builder()
-                .header(CONTENT_LENGTH, MAX_PDF_BYTES + 1)
-                .body(Body::from_stream(futures_util::stream::pending::<
-                    Result<&'static str, io::Error>,
-                >()))
-                .unwrap()
-        }))
-        .await;
-        assert_eq!(fetch(&url).await.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    /// A 416 and an upstream error reach the viewer as they are; a declared
+    /// oversized body and a forged capability are refused by the proxy.
+    async fn preserves_upstream_statuses_and_rejects_what_it_must() {
+        for (label, route, forged, status) in [
+            (
+                "416",
+                get(|| async {
+                    Response::builder()
+                        .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                        .header(CONTENT_RANGE, "bytes */4")
+                        .body(Body::empty())
+                        .unwrap()
+                }),
+                false,
+                StatusCode::RANGE_NOT_SATISFIABLE,
+            ),
+            (
+                "upstream error",
+                get(|| async { response(StatusCode::SERVICE_UNAVAILABLE, Body::from("later")) }),
+                false,
+                StatusCode::SERVICE_UNAVAILABLE,
+            ),
+            (
+                "declared oversized",
+                get(|| async {
+                    let never = stream::pending::<Result<&'static str, io::Error>>();
+                    Response::builder()
+                        .header(CONTENT_LENGTH, MAX_PDF_BYTES + 1)
+                        .body(Body::from_stream(never))
+                        .unwrap()
+                }),
+                false,
+                StatusCode::PAYLOAD_TOO_LARGE,
+            ),
+            (
+                "forged capability",
+                get(|| async { Body::from("pdf") }),
+                true,
+                StatusCode::UNAUTHORIZED,
+            ),
+        ] {
+            let mut proxy = preview_url(&origin(route).await).await.unwrap();
+            if forged {
+                proxy = proxy.replace("token=", "token=wrong");
+            }
+            assert_eq!(reqwest::get(proxy).await.unwrap().status(), status, "{label}");
+        }
     }
 }

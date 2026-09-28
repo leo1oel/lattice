@@ -337,8 +337,8 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("section rail and paper contents", () => {
-    it("builds an interactive section rail from rendered Markdown headings", () => {
-      renderEditor("# Example paper\n\n## Introduction\nOpening context.\n\n### Setup\nExperimental details.\n\n## Results\nThe result.");
+    it("builds an interactive section rail from rendered Markdown headings, including an authored Contents, but not for a single section", async () => {
+      const { rerender } = renderEditor("# Example paper\n\n## Introduction\nOpening context.\n\n### Setup\nExperimental details.\n\n## Results\nThe result.");
       const navigation = screen.getByRole("navigation", { name: "Document sections" });
       expect(within(navigation).queryByRole("button", { name: "Example paper" })).toBeNull();
       const introduction = within(navigation).getByRole("button", { name: "Introduction" });
@@ -360,6 +360,12 @@ describe("VisualMarkdownEditor", () => {
       const scrollIntoView = vi.spyOn(document.getElementById("results")!, "scrollIntoView");
       fireEvent.click(results);
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+      // An author-written Contents section stays visible in ordinary Markdown.
+      rerender({ text: CONTENTS_MARKDOWN });
+      expect(await screen.findByRole("button", { name: "Contents" })).toBeInTheDocument();
+      expect(document.querySelector(".visual-generated-paper-contents")).toBeNull();
+      rerender({ text: "# Example\n\n## Only section\n\nBody." });
+      await waitFor(() => expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull());
     });
 
     it("keeps duplicate heading IDs aligned with the editor", () => {
@@ -371,11 +377,6 @@ describe("VisualMarkdownEditor", () => {
         ],
       });
       expect(items.map(({ id, level }) => ({ id, level }))).toEqual([{ id: "repeat", level: 2 }, { id: "repeat-1", level: 3 }]);
-    });
-
-    it("does not show a rail when a document has only one navigable section", () => {
-      renderEditor("# Example\n\n## Only section\n\nBody.");
-      expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull();
     });
 
     it("hides a generated paper Contents block without breaking block controls", async () => {
@@ -415,12 +416,6 @@ describe("VisualMarkdownEditor", () => {
       });
       expect(screen.getByRole("document", { name: "Visual Markdown editor" })).toHaveAttribute("data-virtualized", "true");
       expect(document.querySelectorAll(".visual-generated-paper-contents")).toHaveLength(2);
-    });
-
-    it("keeps an author-written Contents section visible in ordinary Markdown", () => {
-      renderEditor(CONTENTS_MARKDOWN);
-      expect(document.querySelector(".visual-generated-paper-contents")).toBeNull();
-      expect(screen.getByRole("button", { name: "Contents" })).toBeInTheDocument();
     });
   });
 
@@ -519,19 +514,16 @@ describe("VisualMarkdownEditor", () => {
 
     it("draws Overleaf cursors and publishes the visual caret in Markdown coordinates", async () => {
       const onCaretChange = vi.fn();
-      const onSourceCaretChange = vi.fn();
       const { editor } = renderEditor({
         text: "# Hello",
         activePath: "presence-heading.md",
         presenceCursors: [{ ...ada(0, 4), color: "#0E7490" }],
         onCaretChange,
-        onSourceCaretChange,
       });
       await waitFor(() => expect(document.querySelector(".visual-overleaf-caret-label")).toHaveTextContent("Ada"));
       expect(document.querySelector(".visual-overleaf-caret-label")).toHaveStyle({ backgroundColor: "#0E7490" });
       act(() => { editor.commands.setTextSelection(3); });
       await waitFor(() => expect(onCaretChange).toHaveBeenLastCalledWith(0, 4));
-      expect(onSourceCaretChange).toHaveBeenLastCalledWith(4);
     });
 
     it("draws and updates an Overleaf cursor inside an editable code block", async () => {
@@ -574,11 +566,12 @@ describe("VisualMarkdownEditor", () => {
     });
 
     it.each([
-      { row: 0, column: 1, label: "opening fence" },
-      { row: 2, column: 1, label: "closing fence" },
-    ])("does not misplace a source-only cursor from a code block $label", async ({ row, column }) => {
-      renderEditor({ text: "```js\nconst value = 1\n```", activePath: "presence-code-fence.md", presenceCursors: [ada(row, column)] });
-      await waitForElement(".ok-codeblock");
+      ["a code block opening fence", "```js\nconst value = 1\n```", 0, 1, ".ok-codeblock"],
+      ["a code block closing fence", "```js\nconst value = 1\n```", 2, 1, ".ok-codeblock"],
+      ["an image atom, rather than drawing it at the document start", "![Alt](image.png)", 0, 10, ".visual-markdown-editor"],
+    ])("does not misplace an unmappable source-only cursor from %s", async (_label, text, row, column, readySelector) => {
+      renderEditor({ text, activePath: "presence-source-only.md", presenceCursors: [ada(row, column)] });
+      await waitForElement(readySelector);
       expect(document.querySelector(".visual-overleaf-caret")).toBeNull();
     });
 
@@ -610,12 +603,6 @@ describe("VisualMarkdownEditor", () => {
       expect(element.previousSibling).toHaveTextContent("#");
     });
 
-    it("does not draw an unmappable source-only cursor at the document start", async () => {
-      renderEditor({ text: "![Alt](image.png)", activePath: "presence-atom.md", presenceCursors: [ada(0, 10)] });
-      await waitFor(() => expect(document.querySelector(".visual-markdown-editor")).toBeInTheDocument());
-      expect(document.querySelector(".visual-overleaf-caret")).toBeNull();
-    });
-
     it("rebuilds a remote cursor after canonical Markdown is replaced", async () => {
       const { rerender } = renderEditor({ text: "First", activePath: "presence-reconcile.md", presenceCursors: [ada(0, 4)] });
       await waitFor(() => expect(document.querySelector(".visual-overleaf-caret")?.previousSibling).toHaveTextContent("Firs"));
@@ -632,18 +619,14 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(document.querySelector(".visual-overleaf-caret")).toBeNull());
     });
 
-    it("draws an Overleaf cursor inside the matching visual table cell", async () => {
-      renderEditor({ text: SIMPLE_TABLE, activePath: "table-presence.md", presenceCursors: [ada(2, 3)] });
+    it("draws an Overleaf cursor inside the matching table cell without blocking local caret placement there", async () => {
+      const { editor, onChange } = renderEditor({ text: SIMPLE_TABLE, activePath: "table-presence.md", presenceCursors: [ada(2, 3)] });
       const element = await caret();
-      expect(element.closest("td")).toHaveTextContent("A");
+      const cell = element.closest<HTMLTableCellElement>("td")!;
+      expect(cell).toHaveTextContent("A");
       expect(element).not.toHaveAttribute("contenteditable");
       expect(element).not.toHaveClass("ProseMirror-widget");
       expect(element).toHaveAttribute("aria-hidden", "true");
-    });
-
-    it("places the local caret without blocking text selection in a cell occupied by an Overleaf cursor", async () => {
-      const { editor, onChange } = renderEditor({ text: SIMPLE_TABLE, activePath: "table-presence-click.md", presenceCursors: [ada(2, 3)] });
-      const cell = (await caret()).closest<HTMLTableCellElement>("td")!;
       const textPosition = nodePos(editor, "A");
       expect(textPosition).toBeGreaterThan(0);
       editor.commands.setTextSelection(1);
@@ -695,12 +678,13 @@ describe("VisualMarkdownEditor", () => {
         editable,
         editorComments: [comment({
           replies: [{ id: "r1", authorId: "grace", authorName: "Grace", body: "Because it is the example.", createdAt: "2026-01-02T00:00:00.000Z" }],
-        })],
+        }), comment({ id: "c2", from: 4, to: 9, quote: "quick", prefix: "The ", suffix: " brown", resolved: true })],
         onEditorCommentClick,
       });
       const mark = await waitForElement("[data-visual-comment-id='c1']");
-      // The highlight covers the quoted prose, not the whole paragraph.
+      // The highlight covers the quoted prose, not the whole paragraph; a resolved comment stays unpainted.
       expect(mark.textContent).toBe("brown fox");
+      expect(document.querySelector("[data-visual-comment-id='c2']")).toBeNull();
       fireEvent.mouseOver(mark);
       const tooltip = await screen.findByRole("tooltip");
       expect(mark).toBeInTheDocument();
@@ -729,12 +713,6 @@ describe("VisualMarkdownEditor", () => {
       expect(screen.queryByRole("tooltip")).toBeNull();
     });
 
-    it("leaves a resolved comment unpainted", async () => {
-      renderEditor({ text: "The quick brown fox jumps.", activePath: "commented.md", editorComments: [comment({ resolved: true })] });
-      await screen.findByRole("textbox", { name: "Markdown document editor" });
-      expect(document.querySelector("[data-visual-comment-id]")).toBeNull();
-    });
-
     it("highlights an Overleaf suggestion and exposes accept and reject actions", async () => {
       const change = suggestion("suggestion-1");
       const actions = trackActions();
@@ -754,9 +732,9 @@ describe("VisualMarkdownEditor", () => {
       expect(actions.onReject).toHaveBeenCalledWith(change);
     });
 
-    it("keeps suggestion actions open while the pointer crosses the popover gap", async () => {
-      renderEditor({ activePath: "suggestion-hover-gap.md", overleafChanges: [suggestion("suggestion-hover-gap")], overleafTrackChangeActions: trackActions() });
-      const mark = await waitForElement("[data-visual-change-id='suggestion-hover-gap']");
+    it("keeps suggestion actions open across the popover gap and while keyboard-open, restoring trigger focus", async () => {
+      renderEditor({ activePath: "suggestion-hover.md", overleafChanges: [suggestion("suggestion-hover")], overleafTrackChangeActions: trackActions() });
+      const mark = await waitForElement("[data-visual-change-id='suggestion-hover']");
       setRect(mark, { left: 100, right: 150, top: 100, bottom: 120 } as DOMRect);
       fireEvent.mouseOver(mark);
       const popover = await screen.findByRole("dialog", { name: "Suggested change" });
@@ -766,11 +744,7 @@ describe("VisualMarkdownEditor", () => {
       expect(popover).toBeInTheDocument();
       fireEvent.pointerMove(window, { clientX: 1000, clientY: 1000 });
       await waitFor(() => expect(popover).not.toBeInTheDocument());
-    });
-
-    it("keeps keyboard-open suggestion actions stable and restores trigger focus", async () => {
-      renderEditor({ activePath: "suggestion-keyboard.md", overleafChanges: [suggestion("suggestion-keyboard")], overleafTrackChangeActions: trackActions() });
-      const mark = await waitForElement("[data-visual-change-id='suggestion-keyboard']");
+      // Opened from the keyboard, the same pointer departure must not close it.
       mark.focus();
       fireEvent.keyDown(mark, { key: "Enter" });
       const accept = await screen.findByRole("button", { name: "Accept" });
@@ -889,9 +863,9 @@ describe("VisualMarkdownEditor", () => {
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
     });
 
-    it("keeps absolute same-paper arXiv links local and falls subfigures back to their figure", async () => {
+    it("keeps same-paper arXiv links local, falling subfigures back to their figure, and opens arXiv for omitted fragments", async () => {
       const { surface } = renderEditor({
-        text: '<a id="S7.F10"></a>\n\n![Figure](paper_assets/figure.png)\n\nSee Figure [10(a)](https://arxiv.org/html/2407.06438v3#S7.F10.sf1).\n',
+        text: '<a id="S7.F10"></a>\n\n![Figure](paper_assets/figure.png)\n\nSee Figure [10(a)](https://arxiv.org/html/2407.06438v3#S7.F10.sf1) and Table [8](#A0.T8).\n',
         activePath: ".research/papers/2407.06438/paper.md",
       });
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
@@ -899,12 +873,9 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.click(screen.getByRole("link", { name: "10(a)" }));
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
       expect(opener.openUrl).not.toHaveBeenCalled();
-    });
-
-    it("opens arXiv at a paper fragment the converter omitted instead of doing nothing", async () => {
-      renderEditor({ text: "See Table [8](#A0.T8).", activePath: ".research/papers/2606.11033/paper.md" });
-      fireEvent.click(await screen.findByRole("link", { name: "8" }));
-      expect(opener.openUrl).toHaveBeenCalledWith("https://arxiv.org/html/2606.11033#A0.T8");
+      // A fragment the converter omitted opens arXiv instead of doing nothing.
+      fireEvent.click(screen.getByRole("link", { name: "8" }));
+      expect(opener.openUrl).toHaveBeenCalledWith("https://arxiv.org/html/2407.06438#A0.T8");
     });
 
     it.each([
@@ -926,34 +897,31 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("publication and file switching", () => {
-    const insertThreeWords = (editor: Editor) => act(() => {
-      editor.commands.insertContentAt(6, " a");
-      editor.commands.insertContentAt(8, " b");
-      editor.commands.insertContentAt(10, " c");
-    });
-
     it.each([
       ["in Paper reading mode", PAPER, 1_500],
       ["outside reading mode", {}, 1_000],
-    ])("coalesces rapid edits into one deferred publication %s", async (_label, props, timeout) => {
-      const { editor, onChange } = renderEditor(props);
-      insertThreeWords(editor);
+    ])("coalesces rapid edits into one deferred publication %s, and flushes a pending edit on unmount", async (_label, props, timeout) => {
+      const { editor, onChange, unmount } = renderEditor(props);
+      act(() => {
+        editor.commands.insertContentAt(6, " a");
+        editor.commands.insertContentAt(8, " b");
+        editor.commands.insertContentAt(10, " c");
+      });
       await Promise.resolve();
       expect(onChange).not.toHaveBeenCalled();
       await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1), { timeout });
       expect(onChange).toHaveBeenCalledWith("Hello a b c", "Hello");
-    });
-
-    it("flushes a pending paper edit before a mode or tab unmount", () => {
-      const { editor, onChange, unmount } = renderEditor(PAPER);
-      act(() => editor.commands.insertContentAt(6, " final"));
+      // A mode or tab unmount publishes the still-pending edit immediately.
+      act(() => editor.commands.insertContentAt(12, " final"));
       unmount();
-      expect(onChange).toHaveBeenCalledWith("Hello final", "Hello");
+      expect(onChange).toHaveBeenLastCalledWith("Hello a b c final", "Hello a b c");
     });
 
-    it("reuses the TipTap instance when switching Markdown files", async () => {
-      const { surface, editor, rerender } = renderEditor({ text: "Alpha document", activePath: "a.md" });
-      expect(surface).toHaveTextContent("Alpha document");
+    it("reuses the TipTap instance when switching files and does not let Undo restore the previous file", async () => {
+      const onUndo = vi.fn(() => true);
+      const { surface, editor, rerender } = renderEditor({ text: "Alpha document", activePath: "a.md", onUndo });
+      act(() => editor.commands.insertContentAt(15, " edited"));
+      expect(surface).toHaveTextContent("Alpha document edited");
       rerender({ text: "Beta document", activePath: "b.md" });
       const next = getSurface();
       expect(next.editor).toBe(editor);
@@ -962,26 +930,38 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(next).toHaveTextContent("Beta document"));
       expect(next).not.toHaveTextContent("Alpha document");
       expect(next).toHaveAttribute("contenteditable", "true");
+      // History is delegated to the host. After a path swap, Mod-z must not
+      // walk TipTap's previous-file stack back to Alpha.
+      act(() => { next.editor.commands.keyboardShortcut("Mod-z"); });
+      expect(onUndo).toHaveBeenCalledOnce();
+      expect(next).toHaveTextContent("Beta document");
+      expect(next).not.toHaveTextContent("Alpha");
     });
 
-    it("lets the file-transition owner flush an edit before changing paths", () => {
+    /** Mounts "Alpha" at a.md; `latestFlush()` reads the ownership hand-off the editor last registered. */
+    function renderWithFlush(onChange?: ChangeMock) {
       const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
-      const { editor, onChange, unmount } = renderEditor({ text: "Alpha", activePath: "a.md", onFlushPendingChange });
-      act(() => editor.commands.insertContentAt(6, " edit"));
-      const flush = onFlushPendingChange.mock.lastCall?.[0];
+      const view = renderEditor({ text: "Alpha", activePath: "a.md", onFlushPendingChange }, onChange);
+      return { view, onFlushPendingChange, latestFlush: () => onFlushPendingChange.mock.lastCall?.[0] };
+    }
+
+    it("lets the file-transition owner flush an edit before changing paths", () => {
+      const { view, onFlushPendingChange, latestFlush } = renderWithFlush();
+      act(() => view.editor.commands.insertContentAt(6, " edit"));
+      const flush = latestFlush();
       expect(flush).toBeTypeOf("function");
       let accepted = false;
       act(() => { accepted = flush?.() ?? false; });
       expect(accepted).toBe(true);
-      expect(onChange).toHaveBeenCalledWith("Alpha edit", "Alpha");
-      unmount();
+      expect(view.onChange).toHaveBeenCalledWith("Alpha edit", "Alpha");
+      view.unmount();
       expect(onFlushPendingChange).toHaveBeenLastCalledWith(null);
     });
 
     it("does not hand document ownership away during an IME composition", async () => {
-      const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
-      const { surface } = renderEditor({ text: "Alpha", activePath: "a.md", onFlushPendingChange });
-      const flush = onFlushPendingChange.mock.lastCall?.[0];
+      const { view, latestFlush } = renderWithFlush();
+      const { surface } = view;
+      const flush = latestFlush();
       fireEvent.compositionStart(surface);
       expect(flush?.()).toBe(false);
       fireEvent.compositionEnd(surface);
@@ -993,16 +973,13 @@ describe("VisualMarkdownEditor", () => {
     });
 
     it("allows ownership changes after a rejected draft has been preserved", () => {
-      const onFlushPendingChange = vi.fn<(flush: (() => boolean) | null) => void>();
-      const { editor } = renderEditor({ text: "Alpha", activePath: "a.md", onFlushPendingChange }, vi.fn(() => false));
-      act(() => editor.commands.insertContentAt(6, " edit"));
-      const flush = onFlushPendingChange.mock.lastCall?.[0];
-      let first = true;
-      let second = true;
-      act(() => { first = flush?.() ?? true; });
-      act(() => { second = flush?.() ?? true; });
-      expect(first).toBe(false);
-      expect(second).toBe(true);
+      const { view, latestFlush } = renderWithFlush(vi.fn(() => false));
+      act(() => view.editor.commands.insertContentAt(6, " edit"));
+      const flush = latestFlush();
+      const results: boolean[] = [];
+      act(() => { results.push(flush?.() ?? true); });
+      act(() => { results.push(flush?.() ?? true); });
+      expect(results).toEqual([false, true]);
     });
 
     it("publishes a pending edit for the previous file when the path switches", async () => {
@@ -1021,23 +998,6 @@ describe("VisualMarkdownEditor", () => {
       act(() => { view.rerender(<Harness path="b.md" text="Beta" />); });
       expect(publishes).toEqual([{ path: "a.md", next: "Alpha edit", expected: "Alpha" }]);
       await waitFor(() => expect(getSurface()).toHaveTextContent("Beta"));
-    });
-
-    it("does not let Undo restore the previous file after a path switch", async () => {
-      const onUndo = vi.fn(() => true);
-      const { surface, editor, rerender } = renderEditor({ text: "Alpha", activePath: "a.md", onUndo });
-      act(() => editor.commands.insertContentAt(6, " edited"));
-      expect(surface).toHaveTextContent("Alpha edited");
-      rerender({ text: "Beta", activePath: "b.md" });
-      const next = getSurface();
-      expect(next.editor).toBe(editor);
-      await waitFor(() => expect(next).toHaveTextContent("Beta"));
-      // History is delegated to the host. After a path swap, Mod-z must not
-      // walk TipTap's previous-file stack back to Alpha.
-      act(() => { next.editor.commands.keyboardShortcut("Mod-z"); });
-      expect(onUndo).toHaveBeenCalledOnce();
-      expect(next).toHaveTextContent("Beta");
-      expect(next).not.toHaveTextContent("Alpha");
     });
 
     it("swaps files that share identical body text", async () => {
@@ -1072,19 +1032,6 @@ describe("VisualMarkdownEditor", () => {
       expect(consoleError.mock.calls.some((call) => String(call[0]).includes("flushSync was called from inside a lifecycle method"))).toBe(false);
     });
 
-    it("delegates history to the canonical document", async () => {
-      const onUndo = vi.fn(() => true);
-      const onRedo = vi.fn(() => true);
-      const { onChange, rerender } = renderEditor({ text: "Initial", onUndo, onRedo });
-      rerender({ text: "External" });
-      await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("External"));
-      getSurface().editor.commands.keyboardShortcut("Mod-z");
-      getSurface().editor.commands.keyboardShortcut("Mod-Shift-z");
-      expect(onUndo).toHaveBeenCalledOnce();
-      expect(onRedo).toHaveBeenCalledOnce();
-      expect(onChange).not.toHaveBeenCalled();
-    });
-
     it("uses the last accepted Markdown for rapid consecutive visual edits", async () => {
       const { editor, onChange } = renderEditor("Start");
       editor.commands.setContent("First", { contentType: "markdown" });
@@ -1095,17 +1042,27 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("canonical updates and rejected drafts", () => {
-    it("reports Markdown when the rendered paragraph is directly edited", async () => {
-      const { onChange } = renderEditor();
+    /** The rejected-draft notice offers the complete draft behind an explicit Copy draft action. */
+    async function expectDraftNotice(draft: string) {
+      await waitFor(() => expect(notifications.error).toHaveBeenCalled());
+      const options = notifications.error.mock.calls.at(-1)![2];
+      // The ordinary Copy action remains an error-report action. The rejected
+      // document has an explicit label so nobody mistakes one payload for the other.
+      expect(options.copyText).toBeUndefined();
+      expect(options.primaryAction.label).toBe("Copy draft");
+      await options.primaryAction.onClick();
+      expect(clipboard.writeText).toHaveBeenCalledWith(draft);
+      return options;
+    }
+
+    it.each([
+      ["Hello", "Changed"],
+      ["Hello\r\n", "Changed\r\n"],
+    ])("reports Markdown when the rendered paragraph is directly edited, keeping CRLF and a final newline: %j", async (text, expected) => {
+      const { onChange } = renderEditor(text);
       expect(screen.queryByRole("button", { name: "Edit Markdown source" })).not.toBeInTheDocument();
       await replaceEditorText("Changed");
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Changed", "Hello"));
-    });
-
-    it("preserves CRLF and a final newline while editing visually", async () => {
-      const { onChange } = renderEditor("Hello\r\n");
-      await replaceEditorText("Changed");
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Changed\r\n", "Hello\r\n"));
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(expected, text));
     });
 
     it("keeps a BOM and final-newline envelope pristine and writes one exact CAS update on edit", async () => {
@@ -1126,13 +1083,19 @@ describe("VisualMarkdownEditor", () => {
       expect(surface).not.toHaveTextContent("**");
     });
 
-    it("does not report an external text update", async () => {
-      const { onChange, rerender } = renderEditor();
+    it("does not report an external text update and delegates history to the canonical document", async () => {
+      const onUndo = vi.fn(() => true);
+      const onRedo = vi.fn(() => true);
+      const { onChange, rerender } = renderEditor({ onUndo, onRedo });
       rerender({ text: "External" });
       const surface = getSurface();
       await waitFor(() => expect(surface).toHaveTextContent("External"));
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
       expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
+      surface.editor.commands.keyboardShortcut("Mod-z");
+      surface.editor.commands.keyboardShortcut("Mod-Shift-z");
+      expect(onUndo).toHaveBeenCalledOnce();
+      expect(onRedo).toHaveBeenCalledOnce();
       expect(onChange).not.toHaveBeenCalled();
     });
 
@@ -1162,15 +1125,8 @@ describe("VisualMarkdownEditor", () => {
       const { rerender } = renderEditor("Canonical", vi.fn(() => false));
       await replaceEditorText("Conflicting");
       rerender({ text: "Shared canonical" });
-      await waitFor(() => expect(notifications.error).toHaveBeenCalled());
       await waitFor(() => expect(screen.getByRole("textbox")).toHaveTextContent("Shared canonical"));
-      const options = notifications.error.mock.calls.at(-1)![2];
-      // The ordinary Copy action remains an error-report action. The rejected
-      // document has an explicit label so nobody mistakes one payload for the other.
-      expect(options.copyText).toBeUndefined();
-      expect(options.primaryAction.label).toBe("Copy draft");
-      await options.primaryAction.onClick();
-      expect(clipboard.writeText).toHaveBeenCalledWith("Conflicting");
+      const options = await expectDraftNotice("Conflicting");
       expect(options.secondaryAction.label).toBe("Restore draft and retry");
     });
 
@@ -1183,14 +1139,9 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.compositionEnd(surface);
       // The failure is reported through the app's notifications rather than as a
       // bar inside the document, and it carries both ways out of it.
-      await waitFor(() => expect(notifications.error).toHaveBeenCalled());
       await waitFor(() => expect(surface).toHaveTextContent("Remote canonical"));
-      const options = notifications.error.mock.calls.at(-1)![2];
-      expect(options.copyText).toBeUndefined();
+      const options = await expectDraftNotice("完整的本地草稿");
       expect(options.timeoutMs).toBe(0);
-      expect(options.primaryAction.label).toBe("Copy draft");
-      await options.primaryAction.onClick();
-      expect(clipboard.writeText).toHaveBeenCalledWith("完整的本地草稿");
       act(() => { void options.secondaryAction.onClick(); });
       expect(surface).toHaveTextContent("完整的本地草稿");
     });
@@ -1285,42 +1236,11 @@ describe("VisualMarkdownEditor", () => {
       codeSnippets.forEach((snippet, index) => expect(codeNodes[index]).toContain(snippet));
       expect(Array.from(document.querySelectorAll(".ok-codeblock-pre"), (node) => node.textContent))
         .toEqual(expect.arrayContaining(codeSnippets.map((snippet) => expect.stringContaining(snippet))));
+      // Every fenced code body, both components, and the sized figure survive verbatim.
       const output = lastChange(onChange);
-      for (const expected of [
-        [
-          "```python title=\"Scaled dot-product attention in NumPy\"",
-          "import numpy as np",
-          "",
-          "def softmax(values: np.ndarray, axis: int = -1) -> np.ndarray:",
-          "    shifted = values - values.max(axis=axis, keepdims=True)",
-          "    exponentials = np.exp(shifted)",
-          "    return exponentials / exponentials.sum(axis=axis, keepdims=True)",
-        ],
-        [
-          "    key_dimension = keys.shape[-1]",
-          "    scores = queries @ keys.swapaxes(-1, -2) / np.sqrt(key_dimension)",
-          "    if mask is not None:",
-          "        scores = np.where(mask, scores, -np.inf)",
-          "    weights = softmax(scores, axis=-1)",
-        ],
-        [
-          "```mermaid title=\"From queries and keys to contextual representations\"",
-          "flowchart LR",
-          "  Q[Queries] --> S[Scaled scores]",
-          "  K[Keys] --> S",
-          "  S --> W[Softmax weights]",
-          "  W --> C[Context]",
-          "  V[Values] --> C",
-          "```",
-        ],
-        ["```html preview h=360px title=\"Embedded attention demo\""],
-        ["render(1);"],
-        ["<Callout type=\"important\" title=\"Attention maps need validation\""],
-        ["Compare them with ablations or attribution methods"],
-        ["<Accordion title=\"Why scale attention scores?\""],
-        ["Scaling keeps the softmax distribution and its gradients well behaved."],
-        ["width={223}"],
-      ]) expect(output).toContain(expected.join("\n"));
+      const kept = tutorialMarkdown.match(/^(```\S[^\n]*\n[\s\S]*?\n```|<(Callout|Accordion) [\s\S]*?<\/\2>|<img [^\n]*)$/gm)!;
+      expect(kept).toHaveLength(6);
+      for (const block of kept) expect(output).toContain(block);
     });
 
     it("keeps accordion block content visible when remounting from Preview to Split", async () => {
@@ -1340,16 +1260,12 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(expandedAccordion);
     });
 
-    it("mounts Open Knowledge-style add and drag controls for document blocks", async () => {
+    it("mounts Open Knowledge-style block controls with the drop indicator outside the clipped viewport", async () => {
       renderEditor("First\n\nSecond");
       const controls = await waitForElement(".ok-block-controls");
       expect(document.querySelector(".ok-add-block-btn")).toHaveAttribute("aria-label", "Add block below");
       expect(document.querySelector(".ok-drag-grip")).toHaveAttribute("aria-label", "Select block");
       expect(controls).toHaveAttribute("draggable", "true");
-    });
-
-    it("mounts the fixed block drop indicator outside the clipped editor viewport", async () => {
-      renderEditor("First\n\nSecond");
       fireEvent.pointerDown(await waitForElement(".visual-drag-grip"), { button: 0, pointerId: 1 });
       await waitFor(() => expect(document.querySelector(".visual-block-drop-line")?.parentElement).toBe(document.body));
     });
@@ -1488,28 +1404,26 @@ describe("VisualMarkdownEditor", () => {
       expect(screen.getByRole("button", { name: "Add block below" })).toBeVisible();
     });
 
-    it("deletes a selected block as one unit", async () => {
-      const { editor, onChange } = renderEditor("First\n\nSecond");
-      selectNode(editor, 0);
-      expect(editor.state.selection).toBeInstanceOf(NodeSelection);
-      expect(editor.commands.keyboardShortcut("Delete")).toBe(true);
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Second", "First\n\nSecond"));
-    });
-
-    it("moves the current top-level block through the editor transaction", async () => {
-      const { editor, onChange } = renderEditor("First\n\nSecond");
-      editor.commands.setTextSelection(8);
-      expect(moveBlockUp(editor.state, editor.view.dispatch)).toBe(true);
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Second\n\nFirst", "First\n\nSecond"));
-    });
-
-    it("reorders top-level blocks with the WebKit-safe pointer drag transaction", async () => {
-      const { editor, onChange } = renderEditor("First\n\nSecond\n\nThird");
-      const positions = new Map<string, number>();
-      editor.state.doc.forEach((node, position) => positions.set(node.textContent, position));
-      expect(moveTopLevelBlock(editor.state, editor.view.dispatch, positions.get("First")!, positions.get("Second")!, true)).toBe(true);
-      expect(editor.state.selection).toBeInstanceOf(NodeSelection);
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Second\n\nFirst\n\nThird", "First\n\nSecond\n\nThird"));
+    it.each<[string, string, (editor: Editor) => void, string]>([
+      ["deletes a selected block as one unit", "First\n\nSecond", (editor) => {
+        selectNode(editor, 0);
+        expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+        expect(editor.commands.keyboardShortcut("Delete")).toBe(true);
+      }, "Second"],
+      ["moves the current top-level block through the editor transaction", "First\n\nSecond", (editor) => {
+        editor.commands.setTextSelection(8);
+        expect(moveBlockUp(editor.state, editor.view.dispatch)).toBe(true);
+      }, "Second\n\nFirst"],
+      ["reorders top-level blocks with the WebKit-safe pointer drag transaction", "First\n\nSecond\n\nThird", (editor) => {
+        const positions = new Map<string, number>();
+        editor.state.doc.forEach((node, position) => positions.set(node.textContent, position));
+        expect(moveTopLevelBlock(editor.state, editor.view.dispatch, positions.get("First")!, positions.get("Second")!, true)).toBe(true);
+        expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+      }, "Second\n\nFirst\n\nThird"],
+    ])("%s", async (_name, source, perform, expected) => {
+      const { editor, onChange } = renderEditor(source);
+      perform(editor);
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(expected, source));
     });
 
     it("keeps an atomic block selected after moving it", async () => {
@@ -1528,7 +1442,6 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("code blocks", () => {
-    const codeElement = () => waitForElement(".ok-codeblock-pre code");
     const selectCodeEnd = (editor: Editor) => selectText(editor, editor.state.doc.firstChild!.nodeSize - 1);
     const hasNoSpanNewlines = (code: HTMLElement) =>
       Array.from(code.querySelectorAll("span")).every((span) => !span.textContent?.includes("\n"));
@@ -1543,14 +1456,7 @@ describe("VisualMarkdownEditor", () => {
       expect(editorMarkdown(editor)).toMatch(/^```js\n\n```/);
     });
 
-    it("keeps authored and canonical empty fences empty", () => {
-      const { editor } = renderEditor("```js\n\n```");
-      act(() => addBlockBelow(editor, 0, editor.state.doc.firstChild!));
-      expect(editor.state.doc.firstChild?.textContent).toBe("");
-      expect(editorMarkdown(editor)).toContain("```js\n\n```");
-    });
-
-    it("inserts a newline when Enter is pressed inside a code block", async () => {
+    it("inserts newlines on Enter inside a code block, advancing beyond Tiptap's triple-Enter exit", async () => {
       const { surface, editor, onChange } = renderEditor("```js\nconst value = 1\n```");
       const code = await waitFor(() => {
         const element = document.querySelector<HTMLElement>(".ok-codeblock-pre code");
@@ -1568,10 +1474,7 @@ describe("VisualMarkdownEditor", () => {
       expect(editor.state.doc.firstChild?.textContent).toBe("const\nnext value = 1");
       expect(editor.state.selection.from).toBe(11);
       expect(editorMarkdown(editor)).toContain("const\nnext value = 1");
-    });
-
-    it("keeps advancing the code-block cursor beyond Tiptap's triple-Enter exit", () => {
-      const { surface, editor } = renderEditor("```js\nconst value = 1\n```");
+      // Repeated Enter at the end keeps advancing beyond Tiptap's triple-Enter exit.
       expect(editor.extensionManager.extensions
         .filter((extension) => extension.name === "codeBlock")
         .map((extension) => extension.options.exitOnTripleEnter)).toEqual([false]);
@@ -1580,44 +1483,42 @@ describe("VisualMarkdownEditor", () => {
       for (let index = 0; index < 4; index += 1) fireEvent.keyDown(surface, { key: "Enter", code: "Enter" });
       expect(editor.state.doc.childCount).toBe(1);
       expect(editor.state.doc.firstChild?.type.name).toBe("codeBlock");
-      expect(editor.state.doc.firstChild?.textContent).toBe("const value = 1\n\n\n\n");
+      expect(editor.state.doc.firstChild?.textContent).toBe("const\nnext value = 1\n\n\n\n");
       expect(editor.state.selection.$from.parent.type.name).toBe("codeBlock");
       expect(editor.state.selection.from).toBe(codeSize + 3);
     });
 
-    it("renders a trailing newline and accepts text on the new code line", async () => {
-      const { surface, editor, onChange } = renderEditor("```js\nsfjaksdf\n```");
-      const code = await codeElement();
-      const codeSize = editor.state.doc.firstChild!.nodeSize;
-      selectCodeEnd(editor);
-      fireEvent.keyDown(surface, { key: "Enter", code: "Enter" });
-      expect(code).toHaveStyle({ whiteSpace: "break-spaces" });
-      expect(code.textContent).toBe("sfjaksdf\n");
-      expect(editor.state.doc.firstChild?.textContent).toBe("sfjaksdf\n");
-      const { from, to } = editor.state.selection;
-      expect(from).toBe(codeSize);
-      editor.view.dispatch(editor.state.tr.insertText("next", from, to));
-      expect(code.textContent).toBe("sfjaksdf\nnext");
-      expect(editor.state.doc.firstChild?.textContent).toBe("sfjaksdf\nnext");
-      await waitFor(() => expect(lastChange(onChange)).toContain("sfjaksdf\nnext"));
-    });
-
-    it("keeps highlighted line endings outside inline spans so WebKit can advance the caret", async () => {
-      const { surface, editor } = renderEditor("```js\n// first line\n// second line\n```");
+    it("renders a trailing newline, accepts text on the new line, and keeps line endings outside spans", async () => {
+      // Highlighted line endings stay outside inline spans so WebKit can advance the caret.
+      const { surface, editor, onChange } = renderEditor("```js\n// first line\n// second line\n```");
       const code = await waitFor(() => {
         const element = document.querySelector<HTMLElement>(".ok-codeblock-pre code .hljs-comment");
         expect(element).not.toBeNull();
         return element!.closest<HTMLElement>("code")!;
       });
       expect(hasNoSpanNewlines(code)).toBe(true);
+      const codeSize = editor.state.doc.firstChild!.nodeSize;
       selectCodeEnd(editor);
       fireEvent.keyDown(surface, { key: "Enter", code: "Enter" });
+      expect(code).toHaveStyle({ whiteSpace: "break-spaces" });
+      expect(code.textContent).toBe("// first line\n// second line\n");
+      expect(editor.state.doc.firstChild?.textContent).toBe("// first line\n// second line\n");
       const { from, to } = editor.state.selection;
+      expect(from).toBe(codeSize);
       editor.view.dispatch(editor.state.tr.insertText("// third line", from, to));
+      expect(code.textContent).toBe("// first line\n// second line\n// third line");
+      await waitFor(() => expect(lastChange(onChange)).toContain("// second line\n// third line"));
       fireEvent.keyDown(surface, { key: "Enter", code: "Enter" });
       expect(editor.state.selection.$from.parent.type.name).toBe("codeBlock");
       expect(editor.state.doc.firstChild?.textContent).toBe("// first line\n// second line\n// third line\n");
       expect(hasNoSpanNewlines(code)).toBe(true);
+    });
+
+    it("keeps authored and canonical empty fences empty", () => {
+      const { editor } = renderEditor("```js\n\n```");
+      act(() => addBlockBelow(editor, 0, editor.state.doc.firstChild!));
+      expect(editor.state.doc.firstChild?.textContent).toBe("");
+      expect(editorMarkdown(editor)).toContain("```js\n\n```");
     });
 
     it("does not move deleted code into a neighboring empty fence", () => {
@@ -1689,12 +1590,13 @@ describe("VisualMarkdownEditor", () => {
       ["Bold", "**Hello**", "strong"],
       ["Italic", "*Hello*", "em"],
       ["Highlight", "==Hello==", 'mark[data-color="#FFD875"]'],
+      ["Convert selection to inline math", "$Hello$", ".math-inline-trigger[data-formula='Hello']"],
     ])("serializes %s formatting from the toolbar", async (name, expected, selector) => {
       const { surface, editor, onChange } = renderEditor();
       focusText(editor, 1, 6);
       fireEvent.mouseDown(await screen.findByRole("button", { name }));
       await waitFor(() => expect(onChange).toHaveBeenCalledWith(expected, "Hello"));
-      expect(surface.querySelector(selector)).not.toBeNull();
+      await waitFor(() => expect(surface.querySelector(selector)).not.toBeNull());
     });
 
     it("shows an accessible contextual toolbar for a text selection", async () => {
@@ -1771,27 +1673,6 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(onChange).toHaveBeenCalled());
     });
 
-    it("converts selected text to inline math from the contextual toolbar", async () => {
-      const { editor, onChange } = renderEditor("Energy is E=mc^2.");
-      focusText(editor, 11, 17);
-      fireEvent.mouseDown(await screen.findByRole("button", { name: "Convert selection to inline math" }));
-      expect(editor.state.doc.nodeAt(typePos(editor, "mathInline"))?.attrs.formula).toBe("E=mc^2");
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("Energy is $E=mc^2$.", "Energy is E=mc^2."));
-    });
-
-    it("offers View in source and keeps the footnote icon legible", async () => {
-      const onViewInSource = vi.fn();
-      const { editor } = renderEditor({ onViewInSource });
-      focusText(editor, 1, 6);
-      const viewSource = await screen.findByRole("button", { name: "View in source Markdown" });
-      const footnote = await screen.findByTestId("footnote-bubble-button");
-      expect(viewSource.querySelector("svg")).toHaveClass("size-4");
-      expect(footnote.querySelector("svg")).toHaveClass("size-4");
-      fireEvent.click(viewSource);
-      expect(onViewInSource).toHaveBeenCalledOnce();
-      expect(onViewInSource.mock.calls[0]?.[0]).toBe(0);
-    });
-
     it.each([false, true])("maps View in source to the selected text when reading optimization is %s", async (optimizeForReading) => {
       const markdown = "# Heading\n\nFirst paragraph.\n\nTarget paragraph.";
       const onViewInSource = vi.fn();
@@ -1804,7 +1685,11 @@ describe("VisualMarkdownEditor", () => {
         expect(targetBlock).toHaveAttribute("data-source-offset", String(markdown.indexOf("Target paragraph.")));
         expect(targetBlock).toHaveAttribute("data-source-end-offset", String(markdown.length));
       });
-      fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
+      const viewSource = await screen.findByRole("button", { name: "View in source Markdown" });
+      // Both the View in source and footnote icons stay at the legible size.
+      expect(viewSource.querySelector("svg")).toHaveClass("size-4");
+      expect((await screen.findByTestId("footnote-bubble-button")).querySelector("svg")).toHaveClass("size-4");
+      fireEvent.click(viewSource);
       expect(onViewInSource).toHaveBeenCalledOnce();
       expect(onViewInSource.mock.calls[0]?.[0]).toBe(markdown.indexOf("paragraph.", markdown.indexOf("Target paragraph.")));
     });
@@ -1822,14 +1707,17 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(onChange).toHaveBeenCalled(), { timeout: 2_500 });
     });
 
-    it("offers the complete set of Markdown-native insertions from the add menu", async () => {
-      const menu = await openSlashMenu(renderEditor("").editor);
+    it("offers the complete set of Markdown-native insertions and unmounts the open menu cleanly", async () => {
+      const { editor, unmount } = renderEditor("");
+      const menu = await openSlashMenu(editor);
       expect(menu.parentElement?.querySelector(".lattice-scrollbar")).toBeInTheDocument();
       for (const name of [
         /Heading 1/, /Heading 2/, /Heading 3/, /Heading 4/, /Heading 5/, /Heading 6/, /Task List/, /Code Block/,
         /^Table/, /^Footnote/, /Inline Math/, /^Link/, /^Mermaid/, /^Image/,
       ]) expect(within(menu).getByRole("option", { name })).toBeInTheDocument();
       for (const name of [/^Tag/, /^Video/, /^Audio/]) expect(within(menu).queryByRole("option", { name })).not.toBeInTheDocument();
+      // Unmounting with the menu open must not raise a React removeChild error.
+      expect(() => unmount()).not.toThrow();
     });
 
     it("localizes add-menu options and descriptions in Chinese", async () => {
@@ -1857,7 +1745,7 @@ describe("VisualMarkdownEditor", () => {
       expect(getEmbedStarterItems().length).toBeGreaterThan(0);
     });
 
-    it("shares preview selection between hover and arrow navigation", async () => {
+    it("shares preview selection between hover and arrow navigation, and keeps combobox relationships valid with no match", async () => {
       const { surface, editor } = renderEditor("");
       const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
       const menu = await openSlashMenu(editor);
@@ -1871,27 +1759,25 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(option(/Heading 3/)).toHaveAttribute("aria-selected", "true"));
       expect(preview()).toHaveTextContent("Small section heading.");
       expect(scrollIntoView).not.toHaveBeenCalled();
-    });
-
-    it("keeps slash combobox relationships valid when no blocks match", async () => {
-      const { surface, editor } = renderEditor("");
-      editor.chain().focus().insertContent("/no-such-block").run();
+      editor.chain().focus().insertContent("no-such-block").run();
       expect(await screen.findByRole("status")).toHaveTextContent("No results");
       expect(screen.queryByRole("listbox", { name: "Slash commands" })).not.toBeInTheDocument();
       expect(surface).not.toHaveAttribute("aria-controls");
       expect(surface).not.toHaveAttribute("aria-activedescendant");
     });
 
-    it("unmounts an open slash menu without a React removeChild error", async () => {
-      const { editor, unmount } = renderEditor("");
-      await openSlashMenu(editor);
-      expect(() => unmount()).not.toThrow();
-    });
-
-    it("inserts a canonical MDX callout", async () => {
+    it.each([
+      ["a canonical MDX callout", "callout", /^Callout/, EMPTY_CALLOUT],
+      // Upstream no longer prompts for a URL: Image is inserted canonically and
+      // its node UI owns subsequent source editing.
+      ["an empty image without prompting, dropping the slash query", "image", /Image/, '<img src="" />'],
+    ])("inserts %s", async (_label, query, option, expected) => {
+      const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
       const { editor, onChange } = renderEditor("");
-      fireEvent.mouseDown(within(await openSlashMenu(editor, "callout")).getByRole("option", { name: /^Callout/ }));
-      await waitFor(() => expect(lastChange(onChange)).toBe(EMPTY_CALLOUT));
+      fireEvent.mouseDown(within(await openSlashMenu(editor, query)).getByRole("option", { name: option }));
+      await waitFor(() => expect(editorMarkdown(editor)).not.toContain(`/${query}`));
+      await waitFor(() => expect(lastChange(onChange)).toBe(expected), { timeout: 2_500 });
+      expect(prompt).not.toHaveBeenCalled();
     });
 
     it("inserts Tabs as two nested, visually selectable MDX Tab components", async () => {
@@ -1910,17 +1796,6 @@ describe("VisualMarkdownEditor", () => {
       // in the `.tabs-strip` row.
       fireEvent.click(screen.getByRole("button", { name: "Add tab" }));
       await waitFor(() => expect(within(tablist).getAllByRole("tab")).toHaveLength(3));
-    });
-
-    it("keeps the slash query when an image prompt is cancelled", async () => {
-      const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
-      const { editor, onChange } = renderEditor("");
-      fireEvent.mouseDown(within(await openSlashMenu(editor, "image")).getByRole("option", { name: /Image/ }));
-      // Upstream no longer prompts for a URL: Image is inserted canonically and
-      // its node UI owns subsequent source editing.
-      expect(prompt).not.toHaveBeenCalled();
-      await waitFor(() => expect(editorMarkdown(editor)).not.toContain("/image"));
-      await waitFor(() => expect(lastChange(onChange)).toBe('<img src="" />'), { timeout: 2_500 });
     });
 
     it("imports an image through the host project workflow", async () => {
@@ -2035,9 +1910,9 @@ describe("VisualMarkdownEditor", () => {
       expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
     });
 
-    it("keeps the caret in place while typing inside a Callout property field", async () => {
-      renderEditor(TITLED_CALLOUT);
-      const { input } = await openComponentProperties("Callout");
+    it("keeps the caret in place while typing a Callout property, then returns to the body when properties close", async () => {
+      const { editor } = renderEditor(TITLED_CALLOUT);
+      const { component, input } = await openComponentProperties("Callout");
       const field = input as HTMLInputElement;
       // Type mid-value the way the browser does: the native value and caret
       // change first, then React sees the input event. The field is rendered
@@ -2052,6 +1927,11 @@ describe("VisualMarkdownEditor", () => {
       await act(async () => {});
       expect(field).toHaveValue("InXitial");
       expect(field.selectionStart).toBe(3);
+      // Closing properties returns to the Callout body instead of highlighting the whole block.
+      fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+      await waitFor(() => expect(screen.queryByRole("textbox", { name: /title/i })).not.toBeInTheDocument());
+      await waitFor(() => expect(editor.state.selection).not.toBeInstanceOf(NodeSelection));
+      expect(component.querySelector(".callout")).not.toBeNull();
     });
 
     it.each([
@@ -2067,15 +1947,6 @@ describe("VisualMarkdownEditor", () => {
       expect(screen.getByRole("textbox", { name: /title/i })).toHaveValue("中文标题");
       expect(component.querySelector(".callout")).not.toBeNull();
       if (enterWhileComposing) fireEvent.compositionEnd(input);
-    });
-
-    it("returns to the Callout body instead of highlighting the whole block after properties close", async () => {
-      const { editor } = renderEditor(TITLED_CALLOUT);
-      const { component, input } = await openComponentProperties("Callout");
-      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
-      await waitFor(() => expect(screen.queryByRole("textbox", { name: /title/i })).not.toBeInTheDocument());
-      await waitFor(() => expect(editor.state.selection).not.toBeInstanceOf(NodeSelection));
-      expect(component.querySelector(".callout")).not.toBeNull();
     });
 
     it("rests after a final image without selecting it when properties close", async () => {
@@ -2130,21 +2001,16 @@ describe("VisualMarkdownEditor", () => {
       });
     });
 
-    it("does not load unsafe component URLs", async () => {
-      renderEditor('<Embed src="javascript:alert(1)" />');
+    it("does not let embed or media components load local files or script schemes", async () => {
+      // Upstream SAFE_URL_SCHEMES allowlists http/https/mailto/tel/ftp/sms;
+      // file: and javascript: are rewritten to an inert "#".
+      renderEditor('<Embed src="javascript:alert(1)" />\n\n<Pdf src="file:///etc/passwd" />\n\n<img src="javascript:alert(1)" />');
       // Upstream sanitizeComponentProps rewrites unsafe schemes to "#" before
       // render; Embed then refuses to mount an iframe and shows its
       // scheme-hint placeholder instead.
-      const component = await waitForElement('[data-component-name="Embed"]');
-      await waitFor(() => expect(component.querySelector(".ok-embed--placeholder")).not.toBeNull());
-      expect(component.querySelector("iframe")).toBeNull();
-      expect(document.body.innerHTML).not.toContain("javascript:alert(1)");
-    });
-
-    it("does not let media components load local files or script schemes", async () => {
-      // Upstream SAFE_URL_SCHEMES allowlists http/https/mailto/tel/ftp/sms;
-      // file: and javascript: are rewritten to an inert "#".
-      renderEditor('<Pdf src="file:///etc/passwd" />\n\n<img src="javascript:alert(1)" />');
+      const embed = await waitForElement('[data-component-name="Embed"]');
+      await waitFor(() => expect(embed.querySelector(".ok-embed--placeholder")).not.toBeNull());
+      expect(embed.querySelector("iframe")).toBeNull();
       const pdf = await waitForElement('[data-component-name="Pdf"]');
       const image = await waitForElement('[data-component-name="img"]');
       expect(pdf.querySelector('[src*="file:"]')).toBeNull();
@@ -2153,11 +2019,15 @@ describe("VisualMarkdownEditor", () => {
       expect(document.body.innerHTML).not.toContain("javascript:alert(1)");
     });
 
-    it("renders a read-only MirrorSource from another indexed document and refreshes it", async () => {
+    it.each([["before", true], ["after", false]])("renders a read-only MirrorSource indexed %s the mirror mounts and refreshes it", async (_when, indexedFirst) => {
       const workspaceIndex = new MarkdownWorkspaceIndex(async () => "");
       const publishSource = (body: string) => act(() => workspaceIndex.noteDocumentContent("source.md", `<MirrorSource id="shared">\n\n${body}\n\n</MirrorSource>`));
-      publishSource("**First version**");
+      if (indexedFirst) publishSource("**First version**");
       renderEditor({ text: '<Mirror src="source" anchor="shared" />', workspaceIndex });
+      if (!indexedFirst) {
+        await waitForElement(".ok-mirror-state");
+        publishSource("**First version**");
+      }
       const mirror = await waitForElement(".ok-mirror-resolved");
       expect(mirror).toHaveTextContent("First version");
       expect(mirror.querySelector("strong")).not.toBeNull();
@@ -2171,41 +2041,23 @@ describe("VisualMarkdownEditor", () => {
       }
     });
 
-    it("picks up a mirror source that is indexed after the mirror mounts", async () => {
-      const workspaceIndex = new MarkdownWorkspaceIndex(async () => "");
-      renderEditor({ text: '<Mirror src="late" anchor="shared" />', workspaceIndex });
-      await waitForElement(".ok-mirror-state");
-      act(() => workspaceIndex.noteDocumentContent("late.md", "<MirrorSource id=\"shared\">\n\nArrived late\n\n</MirrorSource>"));
-      await waitFor(() => expect(document.querySelector(".ok-mirror-resolved")).toHaveTextContent("Arrived late"));
-    });
-
-    it("edits a source-preserved Markdown block in place through the nested source editor", async () => {
-      const { onChange } = renderEditor("Before\n\n<Unknown>\n\nExact source\n\n</Unknown>");
+    it("edits a source-preserved block through the nested source editor and reconciles remote edits into it", async () => {
+      const { onChange, rerender } = renderEditor("Before\n\n<Unknown>\n\nExact source\n\n</Unknown>");
       // Upstream wildcard path: unregistered JSX auto-converts into a
       // rawMdxFallback rendered as an embedded CodeMirror source editor.
       const wrapper = await waitForElement(".raw-mdx-fallback-wrapper");
       expect(wrapper).toHaveAttribute("role", "group");
       expect(wrapper).toHaveAccessibleName("Unknown component: Unknown");
-      const cmView = CMEditorView.findFromDOM(await waitForElement(".raw-mdx-fallback-wrapper .cm-content"))!;
-      expect(cmView.state.doc.toString()).toBe("<Unknown>\n\nExact source\n\n</Unknown>");
-      // The auto-convert itself serializes byte-identically — no writeback.
-      expect(onChange).not.toHaveBeenCalled();
-      cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: "<Unknown>\n\nUpdated source\n\n</Unknown>" } });
-      await waitFor(() => expect(lastChange(onChange)).toBe("Before\n\n<Unknown>\n\nUpdated source\n\n</Unknown>"));
-    });
-
-    it("reconciles a remote edit into the nested source editor without writing back", async () => {
-      const { onChange, rerender } = renderEditor("Before\n\n<Unknown>\n\nOriginal\n\n</Unknown>");
+      const cmView = () => CMEditorView.findFromDOM(document.querySelector<HTMLElement>(".raw-mdx-fallback-wrapper .cm-content")!)!;
       await waitForElement(".raw-mdx-fallback-wrapper .cm-content");
+      expect(cmView().state.doc.toString()).toBe("<Unknown>\n\nExact source\n\n</Unknown>");
       rerender({ text: "Before\n\n<Unknown>\n\nRemote\n\n</Unknown>" });
       // Remote canonical replace reconciles into the nested CodeMirror…
-      await waitFor(() => {
-        const cmContent = document.querySelector<HTMLElement>(".raw-mdx-fallback-wrapper .cm-content");
-        expect(cmContent).not.toBeNull();
-        expect(CMEditorView.findFromDOM(cmContent!)!.state.doc.toString()).toContain("Remote");
-      });
-      // …and never triggers an onChange writeback.
+      await waitFor(() => expect(cmView().state.doc.toString()).toContain("Remote"));
+      // …and, like the byte-identical auto-convert itself, never writes back.
       expect(onChange).not.toHaveBeenCalled();
+      cmView().dispatch({ changes: { from: 0, to: cmView().state.doc.length, insert: "<Unknown>\n\nUpdated source\n\n</Unknown>" } });
+      await waitFor(() => expect(lastChange(onChange)).toBe("Before\n\n<Unknown>\n\nUpdated source\n\n</Unknown>"));
     });
 
     it("isolates unsupported blocks while keeping the surrounding document editable", async () => {
@@ -2220,28 +2072,18 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("footnotes, links, and tags", () => {
-    it("renders Markdown footnote references and definitions as directly editable nodes", async () => {
-      const { editor, onChange } = renderEditor("Evidence[^source].\n\n[^source]: Supporting **result**.");
+    it("renders multiline Markdown footnote definitions as directly editable nodes", async () => {
+      // GFM footnote continuation paragraphs are indented by four spaces.
+      const { surface, editor, onChange } = renderEditor("Evidence[^source].\n\n[^source]: Supporting **result**.\n\n    Second **paragraph**.");
       expect(await screen.findByText("[source]")).toHaveClass("footnote-ref-link");
       // Upstream DOM: auto-numbered aside with the scroll anchor and backref arrow.
-      const footnote = document.querySelector<HTMLElement>("aside.footnote-def#fn-source");
-      expect(footnote).not.toBeNull();
-      expect(footnote!.querySelector("strong")).toHaveTextContent("result");
-      expect(footnote!.querySelector('a.footnote-backref[href="#fnref-source"]')).not.toBeNull();
-      // The definition body is part of the ProseMirror surface: editing it writes back.
-      editor.chain().focus().setTextSelection(nodePos(editor, "Supporting ")).insertContent("Extra ").run();
-      await waitFor(() => expect(lastChange(onChange)).toContain("[^source]: Extra Supporting **result**."));
-    });
-
-    it("keeps indented paragraphs inside a multiline footnote definition", async () => {
-      // GFM footnote continuation paragraphs are indented by four spaces.
-      const { surface, editor, onChange } = renderEditor("Evidence[^source].\n\n[^source]: First paragraph.\n\n    Second **paragraph**.");
       const footnote = await waitForElement("aside.footnote-def#fn-source");
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
-      expect(within(footnote).getByText("First paragraph.")).toBeInTheDocument();
-      expect(footnote.querySelector("strong")).toHaveTextContent("paragraph");
-      editor.chain().focus().setTextSelection(nodePos(editor, "First paragraph.")).insertContent("Edited ").run();
-      await waitFor(() => expect(lastChange(onChange)).toContain("[^source]: Edited First paragraph.\n\n    Second **paragraph**."));
+      expect([...footnote.querySelectorAll("strong")].map((strong) => strong.textContent)).toEqual(["result", "paragraph"]);
+      expect(footnote.querySelector('a.footnote-backref[href="#fnref-source"]')).not.toBeNull();
+      // The definition body is part of the ProseMirror surface: editing it writes back.
+      editor.chain().focus().setTextSelection(nodePos(editor, "Supporting ")).insertContent("Extra ").run();
+      await waitFor(() => expect(lastChange(onChange)).toContain("[^source]: Extra Supporting **result**.\n\n    Second **paragraph**."));
     });
 
     it("keeps path suggestions closed while a link field is empty", () => {
@@ -2333,30 +2175,26 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Split cell" }));
     }
 
-    it("keeps normal editing chrome without a scroll-triggered renderer", () => {
-      const { surface, editor } = renderEditor("| Column |\n| --- |\n| Value |");
+    it.each([
+      ["normal editing chrome without a scroll-triggered renderer", {}, ["frozenTableHeaders", "tableInsertControls"], ["chunkWrapperDecoration"]],
+      ["paper reading with lightweight table cell handles", PAPER, ["chunkWrapperDecoration"], ["frozenTableHeaders", "tableInsertControls"]],
+    ])("keeps %s editable", async (_label, props, present, absent) => {
+      const { surface, editor } = renderEditor({ text: "| Column |\n| --- |\n| Value |", ...props });
       const extensionNames = editor.extensionManager.extensions.map((extension) => extension.name);
-      expect(extensionNames).not.toContain("chunkWrapperDecoration");
-      expect(extensionNames).toContain("frozenTableHeaders");
-      expect(extensionNames).toContain("tableInsertControls");
-      expect(editor.extensionManager.extensions.find((extension) => extension.name === "frozenTableHeaders")?.options)
-        .toMatchObject({ topOffset: 0, occludeTop: false });
-      expect(surface).toHaveAttribute("contenteditable", "true");
-    });
-
-    it("keeps paper reading editable with lightweight table cell handles", async () => {
-      const { surface, editor } = renderEditor({ text: "| Column |\n| --- |\n| Value |", ...PAPER });
-      const extensionNames = editor.extensionManager.extensions.map((extension) => extension.name);
-      expect(extensionNames).toContain("chunkWrapperDecoration");
-      expect(extensionNames).not.toContain("frozenTableHeaders");
-      expect(extensionNames).not.toContain("tableInsertControls");
+      for (const name of present) expect(extensionNames).toContain(name);
+      for (const name of absent) expect(extensionNames).not.toContain(name);
+      if (present.includes("frozenTableHeaders")) {
+        expect(editor.extensionManager.extensions.find((extension) => extension.name === "frozenTableHeaders")?.options)
+          .toMatchObject({ topOffset: 0, occludeTop: false });
+      }
       expect(surface).toHaveAttribute("contenteditable", "true");
       act(() => { editor.chain().focus().setTextSelection(nodePos(editor, "Value")).run(); });
       expect(await screen.findAllByTestId("table-cell-handle")).toHaveLength(2);
     });
 
-    it("renders and edits GFM tables as visual table cells", async () => {
-      const { surface, editor, onChange } = renderEditor("| Left | Right |\n| :--- | ---: |\n| A | B |");
+    it("renders and edits GFM tables as visual table cells without rewriting surrounding authored source", async () => {
+      const { surface, editor, onChange } = renderEditor("Authored  prose\n\n| Left | Right |\n| :--- | ---: |\n| A | B |");
+      await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
       expect(surface.querySelector("table")).not.toBeNull();
       expect(surface.querySelectorAll("th")).toHaveLength(2);
       expect(surface.querySelectorAll("td")).toHaveLength(2);
@@ -2365,13 +2203,6 @@ describe("VisualMarkdownEditor", () => {
       editor.commands.insertContentAt(nodePos(editor, "A"), "Updated ");
       await waitFor(() => expect(onChange).toHaveBeenCalled());
       expect(lastChange(onChange)).toContain("Updated");
-    });
-
-    it("edits a supported GFM table without rewriting surrounding authored source", async () => {
-      const { surface, editor, onChange } = renderEditor("Authored  prose\n\n| Left | Right |\n| :--- | ---: |\n| A | B |");
-      await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
-      editor.commands.insertContentAt(nodePos(editor, "A"), "Updated ");
-      await waitFor(() => expect(onChange).toHaveBeenCalled());
       expect(lastChange(onChange).startsWith("Authored  prose\n\n")).toBe(true);
     });
 
@@ -2473,8 +2304,8 @@ describe("VisualMarkdownEditor", () => {
       expect(editorMarkdown(editor)).toContain('<!-- lattice-table-layout:v1 {"spans":[[0,2,1,2]]} -->');
     });
 
-    it("merges matching selected cells without duplicating their content", async () => {
-      const { surface, editor, merge } = await mergeCells("| Group | Group | Metric |\n| --- | --- | --- |\n| A | B | 1 |", 0, 1);
+    it("merges matching selected cells without duplicating content or losing column alignment", async () => {
+      const { surface, editor, merge } = await mergeCells("| Group | Group | Metric |\n| :--- | ---: | :---: |\n| A | B | 1 |", 0, 1);
       expect(merge.closest("[data-testid='table-span-controls']")).toHaveClass("visual-table-span-controls");
       expect(merge.querySelector("svg")).toBeInTheDocument();
       fireEvent.click(merge);
@@ -2491,13 +2322,8 @@ describe("VisualMarkdownEditor", () => {
       const serialized = editorMarkdown(editor);
       expect(serialized).toContain('<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->');
       expect(serialized).toContain("| Group | Group | Metric |");
+      expect(serialized).toContain("| :--- | ---: | :---: |");
       expect(parseVisualMarkdown(serialized, "notes.md").content?.[0]?.content?.[0]?.content?.[0]?.attrs?.colspan).toBe(2);
-    });
-
-    it("preserves each logical column alignment when matching cells are merged", async () => {
-      const { editor, merge } = await mergeCells("| Group | Group | Metric |\n| :--- | ---: | :---: |\n| A | B | 1 |", 0, 1);
-      fireEvent.click(merge);
-      expect(editorMarkdown(editor)).toContain("| :--- | ---: | :---: |");
     });
 
     it("merges five selected cells and preserves every distinct value", async () => {
@@ -2665,17 +2491,13 @@ describe("VisualMarkdownEditor", () => {
       expect(editor.state.selection).toBeInstanceOf(NodeSelection);
     });
 
-    it("keeps Markdown with an unmappable block structure source-only", async () => {
-      const { surface } = renderEditor(UNMAPPABLE_MARKDOWN);
+    it("keeps unmappable Markdown source-only and never splices best-effort ranges into it", async () => {
+      const { surface, editor } = renderEditor(UNMAPPABLE_MARKDOWN);
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
       const status = screen.getByRole("status");
       expect(status).toHaveTextContent("unsupported or lossy syntax");
       expect(status).toHaveClass("visual-markdown-eligibility", "warning");
       expect(status).not.toHaveClass("error");
-    });
-
-    it("never splices repeated best-effort ranges into an ambiguously mapped document", () => {
-      const { editor } = renderEditor(UNMAPPABLE_MARKDOWN);
       expect(exactVisualSourceRanges(UNMAPPABLE_MARKDOWN, editor.state.doc.childCount)).toBeNull();
       const canonical = "<!-- c -->\n\n[^n]: First paragraph.\n\nNot a continuation.\n";
       expect(restoreUnchangedBlocks(canonical, UNMAPPABLE_MARKDOWN, editor.state.doc)).toBe(canonical);
@@ -2691,20 +2513,16 @@ describe("VisualMarkdownEditor", () => {
       expect(restoreUnchangedBlocks(changed, original, changedDoc, new Set(unchanged))).toBe(changed);
     });
 
-    it("reports a lossy paper to its parent without inserting a warning into the article", async () => {
+    it("reports a lossy paper to its parent without an in-article warning, then clears it once lossless", async () => {
       const onEligibilityChange = vi.fn();
-      const { surface } = renderEditor({ text: UNMAPPABLE_MARKDOWN, ...PAPER, onEligibilityChange });
+      const { surface, rerender } = renderEditor({ text: UNMAPPABLE_MARKDOWN, ...PAPER, onEligibilityChange });
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
       expect(onEligibilityChange).toHaveBeenLastCalledWith(expect.stringContaining("unsupported or lossy syntax"));
       expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
       fireEvent.keyDown(surface, { key: "f", altKey: true, metaKey: true });
       expect(screen.getByRole("button", { name: "Replace current match" })).toBeDisabled();
       expect(screen.getByRole("button", { name: "Replace all matches" })).toBeDisabled();
-    });
-
-    it("clears a stale eligibility warning after the same paper path becomes lossless", async () => {
-      const { surface, rerender } = renderEditor({ text: UNMAPPABLE_MARKDOWN, ...PAPER });
-      await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "false"));
+      // The same paper path becoming lossless clears the stale warning.
       rerender({ text: "A lossless paper body." });
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
       expect(screen.queryByText("unsupported or lossy syntax", { exact: false })).not.toBeInTheDocument();
@@ -2725,6 +2543,10 @@ describe("VisualMarkdownEditor", () => {
       ["a stray asterisk in prose", "The authors (1* and 2*) contributed equally.\n"],
       ["emphasis nested in a bold caption", "**Table 1: A *single* Flamingo model.**\n"],
       ["an indented paragraph after a footnote", "[^n]: First paragraph.\n\n  Not a continuation."],
+      ["converter-normalized paper math", "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- •\n  Accuracy is $88.55\\%$ and the state is $\\mathbf{x}_{p}$.\n"],
+      // AI assistants emit `\[ … \]` / `\( … \)`; the chat renderer accepts
+      // them, so the document surface must too.
+      ["LaTeX-delimited math", "Before text.\n\n\\[\n\\mathcal{L}_{\\mathrm{tea}}\n=\n\\sum_{k\\in T} w_k\n\\]\n\nAfter \\(f_S^{\\ell}\\) math.\n"],
     ])("keeps converter Markdown editable and byte-identical: %s", async (_label, markdown) => {
       const { surface, onChange } = renderEditor(markdown);
       await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
@@ -2794,47 +2616,40 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("math", () => {
-    it("collapses a typed $formula$ literal into an inline math atom", async () => {
+    it("collapses typed $formula$ and [label](url) literals into an inline math atom and a link", async () => {
       // Input rules fire only from handleTextInput, so type character by
       // character the way the DOM input path does (upstream test technique).
-      const { editor, onChange } = renderEditor("Start here: ");
+      const { surface, editor, onChange } = renderEditor("Start here: ");
       editor.chain().focus("end").run();
       typeText(editor, "$x+y$");
       // The rule collapses the completed literal a microtask after the closing $.
       await waitFor(() => expect(editor.state.doc.nodeAt(typePos(editor, "mathInline"))?.attrs.formula).toBe("x+y"));
       await waitFor(() => expect(lastChange(onChange)).toContain("$x+y$"));
-    });
-
-    it("collapses a typed [label](url) literal into a link", async () => {
-      const { surface, editor, onChange } = renderEditor("See ");
       editor.chain().focus("end").run();
-      typeText(editor, "[docs](https://example.com)");
+      typeText(editor, " see [docs](https://example.com)");
       await waitFor(() => expect(surface.querySelector('a[href="https://example.com"]')).toHaveTextContent("docs"));
       await waitFor(() => expect(lastChange(onChange)).toContain("[docs](https://example.com)"));
     });
 
-    it("renders inline math without disabling visual editing", async () => {
-      const { surface } = renderEditor("The result is $x^2$.");
+    it("renders inline math without disabling visual editing and visibly selects the atom", async () => {
+      const { surface, editor } = renderEditor("The result is $x^2$.");
       expect(surface).toHaveAttribute("contenteditable", "true");
       // MathInlineView renders KaTeX inside the click-to-edit trigger span.
-      await waitForElement(".math-inline-trigger .katex");
+      const trigger = (await waitForElement(".math-inline-trigger .katex")).closest(".math-inline-trigger")!;
+      selectNode(editor, typePos(editor, "mathInline"));
+      expect(trigger.closest(".ProseMirror-selectednode")).not.toBeNull();
     });
 
-    it("renders unsupported LaTeX 2.09 font declarations through compatibility macros", async () => {
-      renderEditor("Inline $\\sc t$ and ${\\sl slanted}$.\n\n$$\n{\\sc Display}\n$$");
-      await waitFor(() => expect(document.querySelectorAll(".katex")).toHaveLength(3));
+    it("renders complete-editor math before any viewport intersection, with LaTeX 2.09 font compatibility macros", async () => {
+      stubPassiveIntersectionObserver();
+      const { surface } = renderEditor("Inline $\\sc t$ and ${\\sl slanted}$.\n\n$$\n{\\sc Display}\n$$");
+      expect(surface).toHaveAttribute("contenteditable", "true");
+      await waitFor(() => expect(surface.querySelectorAll(".katex")).toHaveLength(3));
+      expect(surface.querySelector(".math-placeholder")).toBeNull();
       expect(document.querySelector('[style*="color:#cc0000"]')).toBeNull();
       expect(document.querySelector(".math-inline-trigger .mathrm")).toHaveTextContent("t");
       expect(document.querySelector(".math-inline-trigger .mathit")).toHaveTextContent("slanted");
       expect(document.querySelector(".math-display .mathrm")).toHaveTextContent("Display");
-    });
-
-    it("renders complete-editor math before any viewport intersection", async () => {
-      stubPassiveIntersectionObserver();
-      const { surface } = renderEditor("Before $x^2$.\n\n$$\n\\sum_i x_i\n$$\n");
-      expect(surface).toHaveAttribute("contenteditable", "true");
-      await waitFor(() => expect(surface.querySelectorAll(".katex")).toHaveLength(2));
-      expect(surface.querySelector(".math-placeholder")).toBeNull();
     });
 
     it("opens inline math properties only when the atom itself is selected", async () => {
@@ -2855,13 +2670,6 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.click(trigger);
       expect(trigger).toHaveAttribute("data-state", "open");
       expect(screen.getByText("Inline Math Properties")).toBeInTheDocument();
-    });
-
-    it("exposes and visibly selects atomic visual content", async () => {
-      const { editor } = renderEditor("Before $x$ after");
-      const trigger = await waitForElement(".math-inline-trigger");
-      selectNode(editor, typePos(editor, "mathInline"));
-      expect(trigger.closest(".ProseMirror-selectednode")).not.toBeNull();
     });
 
     it.each([
@@ -2946,17 +2754,6 @@ describe("VisualMarkdownEditor", () => {
       expect(document.querySelector(".math-inline-trigger")).toBeNull();
     });
 
-    it.each([
-      ["converter-normalized paper Markdown", "## Contents\n\n- Intro\n\n<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$\n\n- •\n  Accuracy is $88.55\\%$ and the state is $\\mathbf{x}_{p}$.\n"],
-      // AI assistants emit `\[ … \]` / `\( … \)`; the chat renderer accepts
-      // them, so the document surface must too.
-      ["LaTeX-delimited math", "Before text.\n\n\\[\n\\mathcal{L}_{\\mathrm{tea}}\n=\n\\sum_{k\\in T} w_k\n\\]\n\nAfter \\(f_S^{\\ell}\\) math.\n"],
-    ])("opens %s directly in visual mode", async (_label, source) => {
-      const { surface } = renderEditor(source);
-      await waitFor(() => expect(surface).toHaveAttribute("contenteditable", "true"));
-      expect(screen.queryByText(/Visual editing is unavailable/)).toBeNull();
-    });
-
     it("parses LaTeX display and inline delimiters into math nodes with their exact source", () => {
       // The `=` line is load-bearing: without the display-delimiter swap it
       // turns the formula head into a setext heading.
@@ -3011,9 +2808,8 @@ describe("VisualMarkdownEditor", () => {
   });
 
   describe("previews and images", () => {
-    it("renders Mermaid as a normal code block with a preview toggle", async () => {
-      const { surface } = renderEditor("```mermaid\ngraph TD; A-->B\n```");
-      expect(surface).toBeInTheDocument();
+    it("renders Mermaid as a normal code block with a preview toggle and plain HTML as a default preview", async () => {
+      renderEditor("```mermaid\ngraph TD; A-->B\n```\n\n```html\n<p>Visual by default</p>\n```");
       const block = await waitForElement('.ok-codeblock[data-language="mermaid"]');
       expect(block).toHaveAttribute("data-code-visible", "false");
       expect(screen.getByRole("button", { name: "Code block language: Mermaid. Click to change." })).toBeInTheDocument();
@@ -3029,10 +2825,6 @@ describe("VisualMarkdownEditor", () => {
       expect(previewWrapper.querySelector(".ok-resize-handle--b")).toBeNull();
       expect(block).toHaveAttribute("data-code-visible", "false");
       expect(block).toHaveTextContent("graph TD; A-->B");
-    });
-
-    it("opens a plain HTML fence as a visual preview by default", async () => {
-      renderEditor("```html\n<p>Visual by default</p>\n```");
       expect(await screen.findByTitle("HTML preview")).toBeInTheDocument();
       expect(document.querySelector('.ok-codeblock[data-language="html"]')).toHaveAttribute("data-code-visible", "false");
       expect(screen.getByRole("button", { name: "Hide HTML preview" })).toBeInTheDocument();
@@ -3056,23 +2848,17 @@ describe("VisualMarkdownEditor", () => {
       await waitFor(() => expect(onChange).toHaveBeenCalledWith("```mermaid\ngraph LR; B-->C\n```", "```mermaid\ngraph TD; A-->B\n```"));
     });
 
-    it("keeps an existing HTML preview mounted when an adjacent basic block is inserted", async () => {
-      render(<ControlledEditor initial={"Before\n\n```html preview\n<p>Persistent preview</p>\n```"} />);
-      const { editor } = getSurface();
-      const preview = await screen.findByTitle("HTML preview");
-      const previewBlock = preview.closest(".ok-codeblock");
-      const heading = editor.schema.nodes.heading.create({ level: 2 }, editor.schema.text("Inserted basic block"));
-      act(() => { editor.view.dispatch(editor.state.tr.insert(editor.state.doc.firstChild!.nodeSize, heading)); });
-      await waitFor(() => expect(getSurface()).toHaveTextContent("Inserted basic block"));
-      expect(screen.getByTitle("HTML preview")).toBe(preview);
-      expect(preview.closest(".ok-codeblock")).toBe(previewBlock);
-    });
-
-    it("keeps existing Mermaid and HTML previews mounted after a controlled Markdown echo", async () => {
+    it("keeps existing Mermaid and HTML previews mounted across adjacent inserts and controlled Markdown echoes", async () => {
       render(<ControlledEditor initial={["Before", "```mermaid\ngraph TD; A-->B\n```", "```html preview\n<p>Persistent HTML</p>\n```", "Tail"].join("\n\n")} />);
       const { editor } = getSurface();
       const mermaid = await screen.findByRole("group", { name: "Mermaid preview" });
       const html = await screen.findByTitle("HTML preview");
+      const htmlBlock = html.closest(".ok-codeblock");
+      const heading = editor.schema.nodes.heading.create({ level: 2 }, editor.schema.text("Inserted basic block"));
+      act(() => { editor.view.dispatch(editor.state.tr.insert(editor.state.doc.firstChild!.nodeSize, heading)); });
+      await waitFor(() => expect(getSurface()).toHaveTextContent("Inserted basic block"));
+      expect(screen.getByTitle("HTML preview")).toBe(html);
+      expect(html.closest(".ok-codeblock")).toBe(htmlBlock);
       const tailPosition = nodePos(editor, (node) => node.type.name === "paragraph" && node.textContent === "Tail");
       expect(tailPosition).toBeGreaterThanOrEqual(0);
       act(() => addBlockBelow(editor, tailPosition, editor.state.doc.nodeAt(tailPosition)!));
@@ -3230,6 +3016,11 @@ describe("VisualMarkdownEditor", () => {
   describe("find and replace", () => {
     it("opens local find, highlights and navigates matches, then clears on Escape", async () => {
       const { surface } = renderEditor("Alpha beta alpha.");
+      // The project search shortcut passes through untouched.
+      const projectFind = new KeyboardEvent("keydown", { key: "f", metaKey: true, shiftKey: true, bubbles: true, cancelable: true });
+      surface.dispatchEvent(projectFind);
+      expect(projectFind.defaultPrevented).toBe(false);
+      expect(screen.queryByRole("search", { name: "Find in document" })).toBeNull();
       fireEvent.keyDown(surface, { key: "f", metaKey: true });
       const find = screen.getByRole("searchbox", { name: "Find" });
       fireEvent.change(find, { target: { value: "alpha" } });
@@ -3251,14 +3042,6 @@ describe("VisualMarkdownEditor", () => {
       fireEvent.change(screen.getByRole("textbox", { name: "Replace with" }), { target: { value: "three" } });
       fireEvent.click(screen.getByRole("button", { name: "Replace all matches" }));
       await waitFor(() => expect(editorMarkdown(editor)).toContain("three two three"));
-    });
-
-    it("does not consume project search shortcuts", () => {
-      const { surface } = renderEditor();
-      const projectFind = new KeyboardEvent("keydown", { key: "f", metaKey: true, shiftKey: true, bubbles: true, cancelable: true });
-      surface.dispatchEvent(projectFind);
-      expect(projectFind.defaultPrevented).toBe(false);
-      expect(screen.queryByRole("search", { name: "Find in document" })).toBeNull();
     });
   });
 });
