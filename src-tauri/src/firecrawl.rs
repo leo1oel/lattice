@@ -142,7 +142,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn missing_sources_are_not_reported_as_sign_in_failures() {
+    fn scraped_pages_keep_rendered_content_and_reject_missing_sources_and_block_pages() {
         for status in [404, 410, 403] {
             let data =
                 serde_json::from_value(serde_json::json!({"metadata":{"statusCode":status}}))
@@ -152,10 +152,7 @@ mod tests {
             assert_eq!(error.contains("sign-in"), status == 403);
             assert_eq!(error.contains("missing or no longer available"), status != 403);
         }
-    }
-
-    #[test]
-    fn rendered_html_and_title_survive_response_parsing_but_block_pages_do_not() {
+        // Rendered HTML and the title survive parsing; block pages do not.
         let body = "A rendered research article with substantive contents. ".repeat(10);
         let json = serde_json::json!({"markdown":body,"rawHtml":"<h1>Rendered article</h1>","metadata":{"title":["Rendered article"],"statusCode":200}});
         let page = scraped_page(serde_json::from_value(json.clone()).unwrap()).unwrap();

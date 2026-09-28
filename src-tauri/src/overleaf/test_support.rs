@@ -6,10 +6,11 @@ use super::files::{disk_path, sha256_hex, write_base_copy};
 use super::link::{load_state, save_state, SyncState};
 use super::sync::{sync, OverleafSyncResult};
 use crate::overleaf_rt::tests::serve_http;
+pub(super) use crate::test_support::TempDir;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 pub(super) const CSRF: &str = "csrf-fixture-token";
@@ -210,14 +211,9 @@ pub(super) fn build_malicious_zip() -> Vec<u8> {
     bytes
 }
 
-pub(super) fn temp_dir(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir()
-        .join(format!("overleaf-rs-test-{label}-{}", uuid::Uuid::new_v4().simple()));
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
-pub(super) fn write_session_file(config_dir: &Path, host: &str) {
+/// A config dir holding a session signed in to `host`.
+pub(super) fn signed_in(host: &str) -> TempDir {
+    let config = TempDir::new("overleaf-config");
     let session = SessionFile {
         host: host.to_string(),
         cookie: "overleaf_session2=fixture-cookie".to_string(),
@@ -225,7 +221,8 @@ pub(super) fn write_session_file(config_dir: &Path, host: &str) {
         name: Some("Robin Researcher".to_string()),
         user_id: Some("user-1".to_string()),
     };
-    save_session(config_dir, &session).unwrap();
+    save_session(&config, &session).unwrap();
+    config
 }
 
 /// A linked local project: files on disk plus a state file whose hashes (and
@@ -252,18 +249,29 @@ pub(super) fn seed_linked_project(root: &Path, host: &str, local_files: Files, b
     save_state(root, &state).unwrap();
 }
 
+/// A project linked to overleaf.com, for tests that never reach the network.
+pub(super) fn linked_root(local: Files, base: Files) -> TempDir {
+    let root = TempDir::new("overleaf-project");
+    seed_linked_project(&root, "https://www.overleaf.com", local, base);
+    root
+}
+
+/// Link `root` to `server`, returning a config dir signed in to it.
+pub(super) fn link_to(server: &MockServer, root: &Path, local: Files, base: Files) -> TempDir {
+    seed_linked_project(root, &server.base, local, base);
+    signed_in(&server.base)
+}
+
 /// `(config dir, project root)`: a session and a project linked to `server`.
-pub(super) fn linked(server: &MockServer, local: Files, base: Files) -> (PathBuf, PathBuf) {
-    let (config, root) = (temp_dir("config"), temp_dir("project"));
-    write_session_file(&config, &server.base);
-    seed_linked_project(&root, &server.base, local, base);
-    (config, root)
+pub(super) fn linked(server: &MockServer, local: Files, base: Files) -> (TempDir, TempDir) {
+    let root = TempDir::new("overleaf-project");
+    (link_to(server, &root, local, base), root)
 }
 
 /// Serve `mock`, link a project to it, and sync once.
 pub(super) fn run_sync(
     mock: Mock, local: Files, base: Files,
-) -> (MockServer, PathBuf, OverleafSyncResult) {
+) -> (MockServer, TempDir, OverleafSyncResult) {
     let server = mock.serve();
     let (config, root) = linked(&server, local, base);
     let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();

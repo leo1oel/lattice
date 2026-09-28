@@ -74,43 +74,28 @@ fn unknown_permission_fails_closed_for_direct_edits() {
 
 // -- frame codec ------------------------------------------------------------
 
+/// Each row is pinned in both directions: the exact wire bytes we encode, and
+/// every field read back. Payloadless frames drop the payload separator.
 #[test]
-fn encode_frame_drops_the_payload_separator_and_marks_acks() {
-    let payload = r#"{"name":"joinDoc","args":["doc-1",{"encodeRanges":true}]}"#;
-    // Payloadless frames are pinned by the round trip in the parser test.
-    for (kind, id, endpoint, data, expected) in [
-        (FRAME_EVENT, "", "", payload, format!("5:::{payload}")),
-        (FRAME_EVENT, "7+", "", payload, format!("5:7+::{payload}")),
-        (FRAME_EVENT, "12+", "/chat", payload, format!("5:12+:/chat:{payload}")),
-    ] {
-        assert_eq!(encode_frame(kind, id, endpoint, data), expected);
-    }
-}
-
-#[test]
-fn parse_frame_reads_every_field_and_keeps_colons_in_the_payload() {
+fn frames_round_trip_every_field_and_keep_colons_in_the_payload() {
+    let join = r#"{"name":"joinDoc","args":["doc-1",{"encodeRanges":true}]}"#;
     let update = r#"{"name":"otUpdateApplied","args":[{"doc":"a:b","op":[{"p":0,"i":"12:34"}]}]}"#;
-    let wrapped = format!("5:::{update}");
-    for (raw, kind, id, data) in [
-        (r#"5:3+::{"name":"joinProject"}"#, FRAME_EVENT, "3+", r#"{"name":"joinProject"}"#),
-        (wrapped.as_str(), FRAME_EVENT, "", update),
+    for (raw, kind, id, endpoint, data) in [
+        (format!("5:::{join}"), FRAME_EVENT, "", "", join),
+        (format!("5:7+::{join}"), FRAME_EVENT, "7+", "", join),
+        (format!("5:12+:/chat:{join}"), FRAME_EVENT, "12+", "/chat", join),
+        (format!("5:::{update}"), FRAME_EVENT, "", "", update),
         // A URL-shaped payload is the classic colon trap.
-        ("3:1::https://example.com:8080/x", 3, "1", "https://example.com:8080/x"),
+        ("3:1::https://example.com:8080/x".into(), 3, "1", "", "https://example.com:8080/x"),
+        ("2::".into(), FRAME_HEARTBEAT, "", "", ""),
+        ("1::".into(), FRAME_CONNECT, "", "", ""),
+        ("0::".into(), FRAME_DISCONNECT, "", "", ""),
+        ("8::".into(), FRAME_NOOP, "", "", ""),
     ] {
-        let frame = parse_frame(raw).expect("parses");
-        assert_eq!((frame.kind, frame.id.as_str(), frame.endpoint.as_str()), (kind, id, ""));
-        assert_eq!(frame.data, data);
-    }
-    // Payloadless frames round-trip exactly.
-    for (raw, kind) in [
-        ("2::", FRAME_HEARTBEAT),
-        ("1::", FRAME_CONNECT),
-        ("0::", FRAME_DISCONNECT),
-        ("8::", FRAME_NOOP),
-    ] {
-        let frame = parse_frame(raw).expect("parses");
-        assert_eq!((frame.kind, frame.data.as_str()), (kind, ""));
-        assert_eq!(encode_frame(frame.kind, &frame.id, &frame.endpoint, &frame.data), raw);
+        assert_eq!(encode_frame(kind, id, endpoint, data), raw);
+        let frame = parse_frame(&raw).expect("parses");
+        let fields = (frame.kind, frame.id.as_str(), frame.endpoint.as_str(), frame.data.as_str());
+        assert_eq!(fields, (kind, id, endpoint, data), "{raw}");
     }
 }
 
@@ -200,20 +185,11 @@ fn cookies_from_the_handshake_join_the_ones_we_had() {
 
 // -- payload shapes ---------------------------------------------------------
 
-#[test]
-fn emitted_payloads_have_a_stable_shape() {
-    // Ops leave out their empty halves.
-    assert_eq!(serde_json::to_string(&insert(5, "hello")).unwrap(), r#"{"p":5,"i":"hello"}"#);
-    assert_eq!(serde_json::to_string(&delete(0, "x")).unwrap(), r#"{"p":0,"d":"x"}"#);
-    // An untracked update carries no `meta`: Overleaf fills it in, and
-    // rejects the update if we do. (The mock round trip pins its bytes.)
-    let update = Update { doc: "doc-1", op: vec![insert(5, "hello")], v: 42, meta: None };
-    assert!(!encode_event("applyOtUpdate", ("doc-1", update)).unwrap().contains("meta"));
-}
-
 /// Pins the JSON the app will actually see, fields included: an enum's
 /// `rename_all` covers only the variant names, so the payload fields need
-/// `rename_all_fields` too or the app receives snake_case keys.
+/// `rename_all_fields` too or the app receives snake_case keys. Ops leave out
+/// their empty halves; the untracked update we emit (no `meta`) is pinned by
+/// the mock round trip's wire bytes.
 #[test]
 fn realtime_events_serialize_with_a_type_tag() {
     let doc = DocEntry { id: "doc-1".into(), path: "sections/intro.tex".into() };
@@ -230,10 +206,10 @@ fn realtime_events_serialize_with_a_type_tag() {
             RealtimeEvent::DocUpdate {
                 doc_id: "doc-1".into(),
                 version: 43,
-                ops: vec![insert(9, "!")],
+                ops: vec![insert(9, "!"), delete(0, "x")],
                 source: Some("pub-2".into()),
             },
-            r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"}],"source":"pub-2"}"#,
+            r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"},{"p":0,"d":"x"}],"source":"pub-2"}"#,
         ),
         (
             RealtimeEvent::Connected { public_id: "pub-1".into() },
@@ -826,27 +802,19 @@ fn talks_the_whole_protocol_to_a_mock_server() {
 }
 
 #[test]
-fn connect_reports_a_dead_session_instead_of_hanging() {
-    let host = serve_http(|request| {
+fn connect_rejects_bad_configuration_and_reports_a_dead_session_instead_of_hanging() {
+    let login_page = serve_http(|request| {
         let login = Response::from_string("<!DOCTYPE html><html>login</html>");
         let _ = request.respond(with_header(login, "Content-Type: text/html"));
     });
-    let error = rt::block_on(RealtimeClient::connect(
-        mock_config(&host, "overleaf_session2=stale"),
-        |_| {},
-    ))
-    .expect_err("a stale cookie must not connect");
-    assert_eq!(error, SESSION_EXPIRED);
-}
-
-#[test]
-fn connect_validates_its_configuration() {
     for (host, cookie, error) in [
         ("overleaf.com", "c=1", "http://"),
         ("https://www.overleaf.com", "  ", "Not connected to Overleaf"),
+        (login_page.as_str(), "overleaf_session2=stale", SESSION_EXPIRED),
     ] {
         let outcome = rt::block_on(RealtimeClient::connect(mock_config(host, cookie), |_| {}));
-        assert!(outcome.unwrap_err().contains(error));
+        let message = outcome.expect_err(host);
+        assert!(message.contains(error), "{host}: {message}");
     }
 }
 

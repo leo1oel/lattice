@@ -384,8 +384,7 @@ mod tests {
 
     #[test]
     fn project_requests_reject_a_session_from_another_overleaf_host() {
-        let (config, root) = (temp_dir("host-mismatch-config"), temp_dir("host-mismatch-project"));
-        write_session_file(&config, "https://overleaf-b.example");
+        let (config, root) = (signed_in("https://overleaf-b.example"), TempDir::new("mismatch"));
         let files: Files = &[("main.tex", b"linked project")];
         seed_linked_project(&root, "https://overleaf-a.example", files, files);
 
@@ -393,7 +392,5 @@ mod tests {
             .expect_err("a foreign session must be rejected");
         assert!(error.contains("https://overleaf-a.example"));
         assert!(error.contains("Sign out and connect"));
-        let _ = std::fs::remove_dir_all(config);
-        let _ = std::fs::remove_dir_all(root);
     }
 }

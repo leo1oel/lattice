@@ -99,11 +99,8 @@ Words outside text (captions, etc.): 24
 Number of headers: 6
 "#;
         let count = parse_texcount_output(sample).unwrap();
-        assert_eq!(count.text, 412);
-        assert_eq!(count.headers, 18);
-        assert_eq!(count.captions, 24);
-        assert_eq!(count.total, 454);
-        assert_eq!(count.source, "texcount");
+        let summary = (count.text, count.headers, count.captions, count.total);
+        assert_eq!((summary, count.source.as_str()), ((412, 18, 24, 454), "texcount"));
     }
 
     #[test]

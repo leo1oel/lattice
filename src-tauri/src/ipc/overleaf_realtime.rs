@@ -428,28 +428,20 @@ mod tests {
     }
 
     #[test]
-    fn a_late_connect_and_stale_cleanup_cannot_replace_the_new_project() {
+    fn stale_connects_cleanups_and_root_changes_cannot_act_for_the_current_project() {
         let mut state = OverleafRealtimeState::default();
-        let root_a = PathBuf::from("/project/a");
-        let root_b = PathBuf::from("/project/b");
+        let (root_a, root_b) = (PathBuf::from("/project/a"), PathBuf::from("/project/b"));
         let (generation_a, _) = state.begin(root_a.clone());
         let (generation_b, _) = state.begin(root_b.clone());
 
+        // A late connect or stale cleanup for the old project changes nothing.
         assert!(!state.owns(generation_a, &root_a));
-        assert!(state.owns(generation_b, &root_b));
         assert!(state.cancel(Some(&root_a)).is_none());
         assert!(state.owns(generation_b, &root_b));
-    }
 
-    #[test]
-    fn changing_the_app_root_invalidates_events_from_the_old_generation() {
-        let mut state = OverleafRealtimeState::default();
-        let root = PathBuf::from("/project/a");
-        let (generation, _) = state.begin(root.clone());
-
+        // Changing the app root invalidates events from the old generation.
         state.cancel(None);
-
-        assert!(!state.owns(generation, &root));
+        assert!(!state.owns(generation_b, &root_b));
         assert!(state.root.is_none());
     }
 }

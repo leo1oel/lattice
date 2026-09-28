@@ -100,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn public_semantic_scholar_requests_are_rejected() {
+    fn public_semantic_scholar_requests_are_rejected_but_personal_and_local_ones_stay_direct() {
         let error = request(
             &Client::new(),
             "https://api.semanticscholar.org/graph/v1/paper/batch?fields=title&api_key=private&mailto=private",
@@ -110,10 +110,7 @@ mod tests {
         .err()
         .unwrap();
         assert!(error.contains("personal API key"));
-    }
-
-    #[test]
-    fn personal_access_and_local_test_servers_stay_direct() {
+        // Personal access and local test servers stay direct.
         for (url, public) in [
             ("https://api.openalex.org/works?search=paper", false),
             ("http://127.0.0.1:12345/works", true),

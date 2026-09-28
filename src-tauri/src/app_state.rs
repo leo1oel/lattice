@@ -288,31 +288,24 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn each_window_keeps_its_own_project() {
+    fn each_window_keeps_its_own_project_and_build() {
         let state = AppState::from_environment();
         let (a, b) = (PathBuf::from("/project/a"), PathBuf::from("/project/b"));
         state.bind_window("main", a.clone()).unwrap();
         state.bind_window("project-1", b.clone()).unwrap();
 
-        assert_eq!(state.root_for("main").unwrap(), Some(a));
+        assert_eq!(state.root_for("main").unwrap(), Some(a.clone()));
         assert_eq!(state.root_for("project-1").unwrap(), Some(b.clone()));
         assert_eq!(state.root_for("project-2").unwrap(), None);
         // This is what makes "open in a new window" raise the existing window
         // instead of putting one project in two.
         assert_eq!(state.window_showing(&b).as_deref(), Some("project-1"));
         assert_eq!(state.window_showing(Path::new("/project/c")), None);
-    }
-
-    #[test]
-    fn one_project_resources_are_shared_and_two_projects_are_not() {
-        let state = AppState::from_environment();
-        let a = Path::new("/project/a");
-        let b = Path::new("/project/b");
 
         // A second window building project B must not be able to abort the
         // build project A already has running.
-        assert!(Arc::ptr_eq(&state.project(a).active_build, &state.project(a).active_build));
-        assert!(!Arc::ptr_eq(&state.project(a).active_build, &state.project(b).active_build));
+        assert!(Arc::ptr_eq(&state.project(&a).active_build, &state.project(&a).active_build));
+        assert!(!Arc::ptr_eq(&state.project(&a).active_build, &state.project(&b).active_build));
     }
 
     #[test]

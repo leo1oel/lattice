@@ -651,8 +651,8 @@ mod tests {
     use crate::project::entries::{create_entry, delete_entry};
     use crate::project::test_support::Fixture;
 
-    fn edit(path: &str, content: &str) -> Vec<(String, String)> {
-        vec![(path.to_string(), content.to_string())]
+    fn edits(files: &[(&str, &str)]) -> Vec<(String, String)> {
+        files.iter().map(|(path, content)| (path.to_string(), content.to_string())).collect()
     }
 
     fn editor_save(
@@ -668,12 +668,12 @@ mod tests {
     }
 
     #[test]
-    fn transactions_revert_refuse_newer_changes_and_delete_without_touching_files() {
-        let fixture = Fixture::empty("transaction");
+    fn transactions_revert_edits_creations_and_deletions_but_never_newer_changes() {
+        let fixture = Fixture::project("transaction");
         let root = &fixture.root;
         fixture.write("main.tex", "before");
         let transaction =
-            apply_transaction(root, "edit", edit("main.tex", "after")).unwrap().unwrap();
+            apply_transaction(root, "edit", edits(&[("main.tex", "after")])).unwrap().unwrap();
         assert_eq!(fixture.read("main.tex"), "after");
         let restore = revert(root, &transaction.id, None).unwrap();
         assert_eq!(fixture.read("main.tex"), "before");
@@ -695,12 +695,8 @@ mod tests {
         }
         assert_eq!(fixture.read("main.tex"), "newer");
         assert!(history(root).unwrap().is_empty());
-    }
 
-    #[test]
-    fn created_and_deleted_files_are_reverted() {
-        let fixture = Fixture::project("created-deleted-revert");
-        let root = &fixture.root;
+        // Creating and deleting files revert as well.
         create_entry(root, "created.tex", "file").unwrap();
         fixture.write("removed.tex", "remove me");
         delete_entry(root, "removed.tex").unwrap();
@@ -779,9 +775,8 @@ mod tests {
         outside.write("second.tex", "second before");
         std::os::unix::fs::symlink(outside.path("second.tex"), fixture.path("second.tex")).unwrap();
 
-        let mut edits = edit("first.tex", "first after");
-        edits.extend(edit("second.tex", "second after"));
-        assert!(apply_transaction(&fixture.root, "Edit two files", edits).is_err());
+        let two = edits(&[("first.tex", "first after"), ("second.tex", "second after")]);
+        assert!(apply_transaction(&fixture.root, "Edit two files", two).is_err());
         assert_eq!(fixture.read("first.tex"), "first before");
         assert_eq!(outside.read("second.tex"), "second before");
         assert!(history(&fixture.root).unwrap().is_empty());
@@ -842,50 +837,38 @@ mod tests {
     }
 
     #[test]
-    fn history_entries_load_with_snapshots_and_restore_single_files() {
-        let fixture = Fixture::project("history-entry");
-        let root = &fixture.root;
-        let before = fixture.read("main.tex");
-        let mut edits = edit("main.tex", "% main-new\n");
-        edits.extend(edit("references.bib", "% bib-new\n"));
-        apply_transaction(root, "Edit both", edits).unwrap();
-        let items = history(root).unwrap();
-        assert_eq!(items.len(), 1);
-        let entry = get_history_entry(root, &items[0].id).unwrap();
-        assert_eq!(entry.label, "Edit both");
-        assert_eq!(entry.changes[0].before.as_deref(), Some(before.as_str()));
-        assert_eq!(entry.changes[0].after.as_deref(), Some("% main-new\n"));
-        assert!(get_history_entry(root, "../escape").is_err());
-
-        revert(root, &items[0].id, Some("main.tex")).unwrap();
-        assert_eq!(fixture.read("main.tex"), before);
-        assert_eq!(fixture.read("references.bib"), "% bib-new\n");
-        assert!(transaction_path(root, &items[0].id).unwrap().exists());
-    }
-
-    #[test]
-    fn rapid_edits_coalesce_into_one_history_entry() {
+    fn rapid_edits_coalesce_and_multi_file_entries_restore_single_files() {
         let fixture = Fixture::project("history-coalesce");
         let root = &fixture.root;
         let original = fixture.read("main.tex");
-        apply_transaction(root, "Edit main.tex", edit("main.tex", "% one\n")).unwrap();
-        apply_transaction(root, "Edit main.tex", edit("main.tex", "% two\n")).unwrap();
+        apply_transaction(root, "Edit main.tex", edits(&[("main.tex", "% one\n")])).unwrap();
+        apply_transaction(root, "Edit main.tex", edits(&[("main.tex", "% two\n")])).unwrap();
         let items = history(root).unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].label, "Edit main.tex");
         let entry = get_history_entry(root, &items[0].id).unwrap();
         assert_eq!(entry.changes[0].after.as_deref(), Some("% two\n"));
         assert_eq!(entry.changes[0].before.as_deref(), Some(original.as_str()));
+        assert!(get_history_entry(root, "../escape").is_err());
 
         // Returning to the original content removes the coalesced entry, and
         // saving unchanged content then records nothing.
         for _ in 0..2 {
             let transaction =
-                apply_transaction(root, "Edit main.tex", edit("main.tex", &original)).unwrap();
+                apply_transaction(root, "Edit main.tex", edits(&[("main.tex", &original)]))
+                    .unwrap();
             assert!(transaction.is_none());
             assert_eq!(fixture.read("main.tex"), original);
             assert!(history(root).unwrap().is_empty());
         }
+
+        // One file of a multi-file entry restores on its own.
+        let both = edits(&[("main.tex", "% main-new\n"), ("references.bib", "% bib-new\n")]);
+        let entry = apply_transaction(root, "Edit both", both).unwrap().unwrap();
+        revert(root, &entry.id, Some("main.tex")).unwrap();
+        assert_eq!(fixture.read("main.tex"), original);
+        assert_eq!(fixture.read("references.bib"), "% bib-new\n");
+        assert!(transaction_path(root, &entry.id).unwrap().exists());
     }
 
     #[test]
@@ -893,10 +876,9 @@ mod tests {
         let fixture = Fixture::project("history-memo");
         let root = &fixture.root;
         // Distinct labels so the two records do not coalesce.
-        apply_transaction(root, "Edit main.tex", edit("main.tex", "% a\n")).unwrap();
-        let newest = apply_transaction(root, "Update refs.bib", edit("refs.bib", "@misc{x}\n"))
-            .unwrap()
-            .unwrap();
+        apply_transaction(root, "Edit main.tex", edits(&[("main.tex", "% a\n")])).unwrap();
+        let refs = edits(&[("refs.bib", "@misc{x}\n")]);
+        let newest = apply_transaction(root, "Update refs.bib", refs).unwrap().unwrap();
         assert_eq!(latest_history_record(root).unwrap().unwrap().id, newest.id);
         // A memo hit must agree with a cold directory scan.
         forget_latest_history(root);

@@ -280,6 +280,9 @@ mod tests {
     use crate::project::manifest::read_manifest;
     use crate::project::test_support::Fixture;
 
+    const VENUE_STYLES: [&str; 4] =
+        ["neurips.sty", "neurips_2026.sty", "icml2026.sty", "iclr2026_conference.sty"];
+
     fn read(root: &Path, relative: &str) -> String {
         fs::read_to_string(root.join(relative)).unwrap()
     }
@@ -350,8 +353,7 @@ mod tests {
             .map(|(body, _)| body.trim().to_string())
             .unwrap_or_default();
         assert!(!body.is_empty(), "placeholder must typeset at least one page: {placeholder:?}");
-        for style in ["neurips.sty", "neurips_2026.sty", "icml2026.sty", "iclr2026_conference.sty"]
-        {
+        for style in VENUE_STYLES {
             assert!(!root.join(style).exists(), "{style}");
         }
     }
@@ -361,24 +363,6 @@ mod tests {
         assert_eq!(latex_title("R&D_100%"), "R\\&D\\_100\\%");
         assert_eq!(latex_title("科研"), "Untitled research");
         let parent = Fixture::empty("venue-templates");
-        let neurips = create(&parent.root, "Elegant paper").unwrap();
-        let source = read(&neurips, "main.tex");
-        for expected in [
-            "\\documentclass{article}",
-            "\\usepackage[preprint]{neurips_2026}",
-            "\\bibliographystyle{plainnat}",
-        ] {
-            assert!(source.contains(expected), "{expected}");
-        }
-        assert!(!source.contains("Formatting Instructions For NeurIPS 2026"));
-        for absent in
-            ["neurips.sty", "arxiv.sty", ".research/omp-sessions", ".research/omp-session-map"]
-        {
-            assert!(!neurips.join(absent).exists(), "{absent}");
-        }
-        assert!(!read(&neurips, ".gitignore").contains("omp-"));
-        assert!(!read(&neurips, ".research/.gitignore").contains("omp-"));
-
         for (venue, name, usepackage) in [
             (Venue::Neurips, "neurips-paper", "\\usepackage[preprint]{neurips_2026}"),
             (Venue::Icml, "icml-paper", "\\usepackage[preprint]{icml2026}"),
@@ -391,11 +375,25 @@ mod tests {
                 assert_eq!(read(&root, file), *contents, "{file}");
             }
             let own = |file: &str| venue.template().iter().any(|(template, _)| *template == file);
-            for style in
-                ["neurips.sty", "neurips_2026.sty", "icml2026.sty", "iclr2026_conference.sty"]
-            {
+            for style in VENUE_STYLES {
                 assert_eq!(root.join(style).exists(), own(style), "{name}: {style}");
             }
+        }
+
+        // The default is NeurIPS, without the template's instructions or any
+        // legacy agent state.
+        let neurips = create(&parent.root, "Elegant paper").unwrap();
+        assert_eq!(read_manifest(&neurips).unwrap().venue, Venue::Neurips.as_str());
+        let source = read(&neurips, "main.tex");
+        for expected in ["\\documentclass{article}", "\\bibliographystyle{plainnat}"] {
+            assert!(source.contains(expected), "{expected}");
+        }
+        assert!(!source.contains("Formatting Instructions For NeurIPS 2026"));
+        for absent in ["arxiv.sty", ".research/omp-sessions", ".research/omp-session-map"] {
+            assert!(!neurips.join(absent).exists(), "{absent}");
+        }
+        for ignore in [".gitignore", ".research/.gitignore"] {
+            assert!(!read(&neurips, ignore).contains("omp-"), "{ignore}");
         }
     }
 }

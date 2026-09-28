@@ -312,7 +312,7 @@ mod tests {
         type Listed = (&'static str, &'static str, bool, bool);
         type Case = (&'static str, &'static [(&'static str, &'static str)], &'static [Listed]);
         const FRONTMATTER_ONLY: &str = "---\ntitle: Empty\nsections: 0\n---\n\n";
-        let cases: [Case; 10] = [
+        let cases: [Case; 9] = [
             // Frontmatter alone is not a full text.
             (
                 "@article{empty, title={Empty}, eprint={2501.00001}}\n\
@@ -373,7 +373,8 @@ mod tests {
             ),
             // Papers is the project's literature, not everything the agent
             // read into `.research/papers/`: uncited caches stay hidden, with
-            // or without metadata, until citing one brings its text in.
+            // or without metadata, until citing one brings its text in (as
+            // the cases above do).
             (
                 "",
                 &[
@@ -382,11 +383,6 @@ mod tests {
                     (".research/papers/1706.03762/metadata.json", LEGACY_METADATA),
                 ],
                 &[],
-            ),
-            (
-                "@misc{skimmed2024,\n  title = {Something I skimmed},\n  eprint = {2401.00001}\n}\n",
-                &[(".research/papers/2401.00001/paper.md", "Title: Something I skimmed\n")],
-                &[("skimmed2024", "2401.00001", true, false)],
             ),
         ];
         for (bibliography, files, expected) in cases {
@@ -410,43 +406,26 @@ mod tests {
         }
     }
 
+    /// Webpage captures key their bundle by URL digest; the readers accept
+    /// that key, and the bibliography join finds the bundle through the URL
+    /// its metadata remembers — so an arXiv bundle that merely shares a title
+    /// cannot replace an identified OpenReview capture.
     #[test]
-    fn lists_cited_works_even_when_only_the_bibliography_knows_them() {
-        // Two citations; only the first was ever fetched.
-        let project = TestProject::new(
-            "@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Ashish Vaswani and Noam Shazeer},\n  eprint = {1706.03762}\n}\n\
-             @article{kingma2015adam,\n  title = {Adam: A Method for Stochastic Optimization},\n  author = {Diederik P. Kingma and Jimmy Ba},\n  eprint = {1412.6980}\n}\n",
-        );
-        project.write(ATTENTION_PAPER, "Title: Attention Is All You Need\n");
-        project.write(".research/papers/1706.03762/metadata.json", LEGACY_METADATA);
-        project.write(".research/papers/1706.03762/blog.md", "# Overview\n");
-
-        let papers = list_papers(&project.root).unwrap();
-        assert_eq!(papers.len(), 2, "got: {papers:?}");
-        let adam = find(&papers, "kingma2015adam");
-        assert!(!adam.has_full_text);
-        assert!(!adam.has_blog);
-        assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
-        assert_eq!(adam.authors, "Diederik P. Kingma and Jimmy Ba");
-        // Its arXiv id came off the bibliography, so the text can be fetched later.
-        assert_eq!(adam.arxiv_id, "1412.6980");
-        let attention = find(&papers, "vaswani2017attention");
-        assert!(attention.has_full_text);
-        assert!(attention.has_blog);
-        assert_eq!(attention.arxiv_id, "1706.03762");
-    }
-
-    #[test]
-    fn a_title_match_cannot_replace_an_identified_openreview_capture() {
+    fn webpage_captures_join_the_bibliography_by_url_not_title() {
         let title = "A Single Transformer for Scalable Vision-Language Modeling";
-        let openreview = "https://openreview.net/forum?id=nuzFG0Rbhy";
+        let (openreview, blog) =
+            ("https://openreview.net/forum?id=nuzFG0Rbhy", "https://example.com/a-blog-post");
+        let (openreview_id, blog_id) = (web_reference_id(openreview), web_reference_id(blog));
+        assert!(validate_paper_key(&blog_id).is_ok(), "got: {blog_id}");
+        assert!(validate_paper_key("web-not-a-digest").is_err());
+
         let project = TestProject::new(&format!(
-            "@article{{chen2024single,\n  title = {{{title}}},\n  url = {{{openreview}}}\n}}\n"
+            "@article{{chen2024single,\n  title = {{{title}}},\n  url = {{{openreview}}}\n}}\n\
+             @misc{{blog2024,\n  title = {{A Blog Post}},\n  url = {{{blog}}},\n  year = {{2024}}\n}}\n"
         ));
-        let web_id = web_reference_id(openreview);
         let web_markdown = format!("# {title}\n\nOpenReview page.");
         let web = PaperMetadata::new(
-            &web_id,
+            &openreview_id,
             "",
             title.into(),
             FIRECRAWL_CONVERTER,
@@ -467,45 +446,33 @@ mod tests {
             &arxiv_markdown,
         );
         project.write_bundle(&arxiv_markdown, &arxiv);
-
-        let papers = list_papers(&project.root).unwrap();
-        assert_eq!(papers.len(), 1);
-        assert_eq!(papers[0].arxiv_id, web_id);
-        assert!(papers[0].has_full_text);
-    }
-
-    /// A webpage capture keys its bundle by URL digest; the readers accept
-    /// that key, and the bibliography join finds the bundle through the URL
-    /// its metadata remembers.
-    #[test]
-    fn webpage_captures_join_the_bibliography_by_url() {
-        let url = "https://example.com/a-blog-post";
-        let id = web_reference_id(url);
-        assert!(validate_paper_key(&id).is_ok(), "got: {id}");
-        assert!(validate_paper_key("web-not-a-digest").is_err());
-
-        let project = TestProject::new(&format!(
-            "@misc{{blog2024,\n  title = {{A Blog Post}},\n  url = {{{url}}},\n  year = {{2024}}\n}}\n"
-        ));
         let markdown =
             "---\ntitle: \"A Blog Post\"\nsource: \"web\"\n---\n\nThe captured content.\n";
-        let title = "A Blog Post".to_string();
-        project.write_bundle(
+        let blog_title = "A Blog Post".to_string();
+        let capture = PaperMetadata::new(
+            &blog_id,
+            &blog_id,
+            blog_title,
+            FIRECRAWL_CONVERTER,
+            "web",
+            blog,
             markdown,
-            &PaperMetadata::new(&id, &id, title, FIRECRAWL_CONVERTER, "web", url, markdown),
         );
+        project.write_bundle(markdown, &capture);
 
         let papers = list_papers(&project.root).unwrap();
+        assert_eq!(papers.len(), 2, "got: {papers:?}");
+        let chen = find(&papers, "chen2024single");
+        assert_eq!((chen.arxiv_id.as_str(), chen.has_full_text), (openreview_id.as_str(), true));
         let entry = find(&papers, "blog2024");
-        assert_eq!(entry.arxiv_id, id, "joined to its capture: {entry:?}");
-        assert!(entry.has_full_text);
-        assert!(!entry.has_blog);
-        assert_eq!(entry.url.as_deref(), Some(url));
-        assert!(read_paper(&project.root, &id).unwrap().contains("captured content"));
+        assert_eq!(entry.arxiv_id, blog_id, "joined to its capture: {entry:?}");
+        assert_eq!((entry.has_full_text, entry.has_blog), (true, false));
+        assert_eq!(entry.url.as_deref(), Some(blog));
+        assert!(read_paper(&project.root, &blog_id).unwrap().contains("captured content"));
         // The reused-capture check accepts the bundle without refetching.
-        let reused = crate::papers::fetch_web_reference(&project.root, url).unwrap();
+        let reused = crate::papers::fetch_web_reference(&project.root, blog).unwrap();
         assert!(reused.reused);
-        assert_eq!(reused.arxiv_id, id);
+        assert_eq!(reused.arxiv_id, blog_id);
     }
 
     #[cfg(unix)]
@@ -518,33 +485,18 @@ mod tests {
         assert!(cached_bundles(&project.root).unwrap().is_empty());
     }
 
-    /// The agent's library listing mirrors `list_papers` but attaches paths it
-    /// can read directly, and marks cited-but-undownloaded works by their
-    /// absence.
+    /// Both listings show every cited work, fetched or not. The agent's
+    /// attaches paths it can read directly and marks cited-but-undownloaded
+    /// works by their absence; title, authors, arXiv id, normalized DOI and
+    /// cached health come off the bibliography and its caches.
     #[test]
-    fn lists_the_library_for_the_agent_with_readable_paths() {
+    fn lists_cited_works_for_the_app_and_agent_even_when_never_fetched() {
         let project = TestProject::new(&format!(
-            "{ATTENTION_BIB}@misc{{onlycited2024,\n  title = {{Cited But Never Downloaded}},\n  eprint = {{2401.99999}}\n}}\n"
+            "{ATTENTION_BIB}@article{{kingma2015adam,\n  title = {{Adam: A Method for Stochastic Optimization}},\n  author = {{Diederik P. Kingma and Jimmy Ba}},\n  eprint = {{1412.6980}},\n  doi = {{https://doi.org/10.1234/EXAMPLE}}\n}}\n"
         ));
         project.write(ATTENTION_PAPER, "Title: Attention Is All You Need\n");
+        project.write(".research/papers/1706.03762/metadata.json", LEGACY_METADATA);
         project.write(".research/papers/1706.03762/blog.md", "An overview with a body.\n");
-
-        let library = list_library(&project.root).unwrap();
-        assert_eq!(library.len(), 2, "got: {library:?}");
-        let cached = library.iter().find(|paper| paper.arxiv_id == "1706.03762").unwrap();
-        assert_eq!(cached.citation_key.as_deref(), Some("vaswani2017attention"));
-        assert_eq!(cached.full_text_path.as_deref(), Some(ATTENTION_PAPER));
-        assert_eq!(cached.overview_path.as_deref(), Some(".research/papers/1706.03762/blog.md"));
-        let uncached = library.iter().find(|paper| paper.arxiv_id == "2401.99999").unwrap();
-        assert!(uncached.full_text_path.is_none(), "got: {uncached:?}");
-        assert!(uncached.overview_path.is_none(), "got: {uncached:?}");
-    }
-
-    #[test]
-    fn preserves_normalized_doi_and_cached_health_in_papers_and_agent_library() {
-        let project = TestProject::new(
-            "@article{historical, title={Historical result}, doi={https://doi.org/10.1234/EXAMPLE}}\n",
-        );
         project.write(
             ".research/cache/citation-health-v1.json",
             r#"{
@@ -566,12 +518,31 @@ mod tests {
         );
 
         let papers = list_papers(&project.root).unwrap();
-        assert_eq!(papers[0].doi.as_deref(), Some("10.1234/example"));
-        let kind = papers[0].citation_health.as_ref().map(|health| health.kind.as_str());
+        assert_eq!(papers.len(), 2, "got: {papers:?}");
+        let attention = find(&papers, "vaswani2017attention");
+        let listed = (attention.arxiv_id.as_str(), attention.has_full_text, attention.has_blog);
+        assert_eq!(listed, ("1706.03762", true, true));
+        let adam = find(&papers, "kingma2015adam");
+        assert_eq!((adam.has_full_text, adam.has_blog), (false, false));
+        assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
+        assert_eq!(adam.authors, "Diederik P. Kingma and Jimmy Ba");
+        // Its arXiv id came off the bibliography, so the text can be fetched later.
+        assert_eq!(adam.arxiv_id, "1412.6980");
+        assert_eq!(adam.doi.as_deref(), Some("10.1234/example"));
+        let kind = adam.citation_health.as_ref().map(|health| health.kind.as_str());
         assert_eq!(kind, Some("expressionOfConcern"));
+
         let library = list_library(&project.root).unwrap();
-        assert_eq!(library[0].doi.as_deref(), Some("10.1234/example"));
-        let link = library[0].citation_health.as_ref().and_then(|health| health.link.as_deref());
+        assert_eq!(library.len(), 2, "got: {library:?}");
+        let cached = library.iter().find(|paper| paper.arxiv_id == "1706.03762").unwrap();
+        assert_eq!(cached.citation_key.as_deref(), Some("vaswani2017attention"));
+        assert_eq!(cached.full_text_path.as_deref(), Some(ATTENTION_PAPER));
+        assert_eq!(cached.overview_path.as_deref(), Some(".research/papers/1706.03762/blog.md"));
+        let uncached = library.iter().find(|paper| paper.arxiv_id == "1412.6980").unwrap();
+        let paths = (uncached.full_text_path.as_deref(), uncached.overview_path.as_deref());
+        assert_eq!(paths, (None, None), "got: {uncached:?}");
+        assert_eq!(uncached.doi.as_deref(), Some("10.1234/example"));
+        let link = uncached.citation_health.as_ref().and_then(|health| health.link.as_deref());
         assert_eq!(link, Some("https://doi.org/10.5555/notice"));
     }
 

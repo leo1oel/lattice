@@ -331,7 +331,7 @@ pub(super) fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::overleaf::link::{load_state, save_state};
+    use crate::overleaf::link::load_state;
     use crate::overleaf::sync::plan_sync;
     use crate::overleaf::test_support::*;
 
@@ -376,24 +376,17 @@ mod tests {
 
     #[test]
     fn realtime_checkpoint_keeps_agent_disk_edits_and_preserves_real_conflicts() {
-        let root = temp_dir("realtime-checkpoint");
         let base = b"Old ending.\n";
         let human = b"We hope people understand.\n";
         let agent = b"We hope our work helps people understand.\n";
-        seed_linked_project(
-            &root,
-            "https://www.overleaf.com",
-            &[("main.tex", agent)],
-            &[("main.tex", base)],
-        );
+        let root = linked_root(&[("main.tex", agent)], &[("main.tex", base)]);
         let local = BTreeMap::from([("main.tex".to_string(), agent.to_vec())]);
         let remote = BTreeMap::from([("main.tex".to_string(), human.to_vec())]);
         let plan = |state: &SyncState, remote: &BTreeMap<String, Vec<u8>>| {
             plan_sync(&root, state, remote, &local, &BTreeSet::new(), "test").unwrap()
         };
-        let mut before = load_state(&root).unwrap();
-        before.remote_version = Some(91);
-        save_state(&root, &before).unwrap();
+        edit_state(&root, |state| state.remote_version = Some(91));
+        let before = load_state(&root).unwrap();
         assert_eq!(plan(&before, &remote).conflict.len(), 1);
 
         checkpoint_realtime_text(&root, "main.tex", std::str::from_utf8(human).unwrap()).unwrap();
@@ -411,19 +404,12 @@ mod tests {
         let peer =
             BTreeMap::from([("main.tex".to_string(), b"A peer replaced the ending.\n".to_vec())]);
         assert_eq!(plan(&after, &peer).conflict.len(), 1);
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn local_open_check_detects_offline_changes_but_ignores_live_documents() {
-        let root = temp_dir("local-open-check");
         let base = b"shared body".as_slice();
-        seed_linked_project(
-            &root,
-            "https://www.overleaf.com",
-            &[("main.tex", base)],
-            &[("main.tex", base)],
-        );
+        let root = linked_root(&[("main.tex", base)], &[("main.tex", base)]);
         let state = load_state(&root).unwrap();
         let changed = |live: &[&str]| {
             let live = live.iter().map(|path| path.to_string()).collect();
@@ -441,6 +427,5 @@ mod tests {
         fs::remove_file(root.join("new.tex")).unwrap();
         fs::remove_file(root.join("main.tex")).unwrap();
         assert!(changed(&[]));
-        let _ = fs::remove_dir_all(root);
     }
 }

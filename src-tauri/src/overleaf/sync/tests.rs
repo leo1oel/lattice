@@ -16,44 +16,128 @@ fn text(root: &Path, rel: &str) -> String {
     String::from_utf8(read_local(root, rel).unwrap()).unwrap()
 }
 
-// ---- classification ---------------------------------------------------------
+// ---- classification and preview (dry run) ----------------------------------
 
 #[test]
-fn overleaf_sync_pulls_remote_changes_and_new_files() {
-    let (base, same) = (b"old body".as_slice(), b"untouched".as_slice());
+fn overleaf_preview_reports_exactly_what_sync_then_does() {
+    // Incoming: fig2.pdf is new on Overleaf and incoming.tex changed there.
+    // Outgoing: new-chapter.tex is new here and outgoing.tex changed here.
+    // Merge: a collaborator edits the top of main.tex, you edit the bottom.
+    // Conflict: both sides rewrote the same line of notes.tex, so no merge
+    // can decide for us; a figure cannot be merged line by line at all.
+    // Live: live.tex differs on both sides too, which would normally push or
+    // merge, but the realtime channel is already reconciling it operation by
+    // operation, and a REST upload would reach collaborators as an external
+    // overwrite.
+    let sections =
+        |one: &str, two: &str| format!("\\section{{One}}\n{one}\n\n\\section{{Two}}\n{two}\n");
+    let (base_main, remote_main) =
+        (sections("alpha", "beta"), sections("ALPHA from Overleaf", "beta"));
+    let local_main = sections("alpha", "BETA edited locally");
+    let merged = sections("ALPHA from Overleaf", "BETA edited locally");
     let remote: Files = &[
+        ("figures/fig.pdf", b"%PDF-1.5\0remote"),
         ("figures/fig2.pdf", b"%PDF new figure"),
-        ("main.tex", b"new remote body"),
-        ("notes.tex", same),
+        ("incoming.tex", b"new remote body"),
+        ("live.tex", b"remote body"),
+        ("main.tex", remote_main.as_bytes()),
+        ("notes.tex", b"remote edit"),
+        ("outgoing.tex", b"old body"),
     ];
-    let local: Files = &[("main.tex", base), ("notes.tex", same)];
-    let (server, root, result) = run_sync(Mock::project(remote), local, local);
-    assert_eq!(result.pulled, vec!["figures/fig2.pdf", "main.tex"]);
-    assert!(result.pushed.is_empty() && result.conflicts.is_empty());
-    for (rel, data) in remote {
+    let local: Files = &[
+        ("figures/fig.pdf", b"%PDF-1.5\0local"),
+        ("incoming.tex", b"old body"),
+        ("live.tex", b"local body"),
+        ("main.tex", local_main.as_bytes()),
+        ("nested/new-chapter.tex", b"\\section{New}"),
+        ("notes.tex", b"local edit"),
+        ("outgoing.tex", b"locally edited body"),
+    ];
+    let base: Files = &[
+        ("figures/fig.pdf", b"%PDF-1.5\0base"),
+        ("incoming.tex", b"old body"),
+        ("live.tex", b"shared body"),
+        ("main.tex", base_main.as_bytes()),
+        ("notes.tex", b"base body"),
+        ("outgoing.tex", b"old body"),
+    ];
+    let server = Mock::project(remote).serve();
+    let (config, root) = linked(&server, local, base);
+    let state_before = fs::read(state_path(&root)).unwrap();
+    let live: BTreeSet<String> = ["live.tex".to_string()].into();
+
+    let preview = preview(&config, &root, &live).unwrap();
+
+    // Conflicts sort first: they are the rows that need a decision. Figures
+    // cannot be shown as text, so the UI gets a marker, not bytes.
+    let rows: Vec<_> = (preview.changes.iter())
+        .map(|c| (c.kind.as_str(), c.path.as_str(), c.before.as_deref(), c.binary))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("conflict", "figures/fig.pdf", None, true),
+            ("conflict", "notes.tex", Some("local edit"), false),
+            ("incoming", "figures/fig2.pdf", None, false),
+            ("incoming", "incoming.tex", Some("old body"), false),
+            ("merge", "main.tex", Some(local_main.as_str()), false),
+            ("outgoing", "nested/new-chapter.tex", None, false),
+            // "Before" is what Overleaf last saw, which is the recorded base copy.
+            ("outgoing", "outgoing.tex", Some("old body"), false),
+        ]
+    );
+    assert!(preview.changes[0].after.is_none());
+    for expected in [CONFLICT_MARKER, "local edit", "remote edit"] {
+        assert!(preview.changes[1].after.as_ref().unwrap().contains(expected), "{expected}");
+    }
+    assert_eq!(preview.changes[4].after.as_deref(), Some(merged.as_str()));
+    // A dry run leaves the project exactly as it found it, and never speaks
+    // to Overleaf beyond reading.
+    for (rel, data) in local {
         assert_eq!(read_local(&root, rel).as_deref(), Some(*data), "{rel}");
     }
-    assert_eq!(state_files(&root)["main.tex"], sha256_hex(b"new remote body"));
-    assert!(server.uploads().is_empty());
-}
+    assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
+    assert_eq!(read_base_copy(&root, "incoming.tex").unwrap(), "old body");
+    assert!(server.recorded().iter().all(|r| r.method == "GET" || r.method == "HEAD"));
 
-#[test]
-fn overleaf_sync_pushes_local_edits_and_new_nested_files_from_the_project_root() {
-    let base = b"shared body".as_slice();
-    let local: Files =
-        &[("main.tex", b"locally edited body"), ("nested/new-chapter.tex", b"\\section{New}")];
-    let (server, root, result) =
-        run_sync(Mock::project(&[("main.tex", base)]), local, &[("main.tex", base)]);
-    assert_eq!(result.pushed, vec!["main.tex", "nested/new-chapter.tex"]);
-    assert!(result.pulled.is_empty());
+    // What was previewed is exactly what the sync then writes.
+    let result = sync(&config, &root, &live, None).unwrap();
+    for change in preview.changes.iter().filter(|change| !change.binary) {
+        assert_eq!(Some(text(&root, &change.path)), change.after, "{}", change.path);
+    }
+    assert_eq!(result.pulled, vec!["figures/fig2.pdf", "incoming.tex"]);
+    assert_eq!(state_files(&root)["incoming.tex"], sha256_hex(b"new remote body"));
+    assert_eq!(result.merged, vec!["main.tex"]);
+    let [figure, conflict] = &result.conflicts[..] else {
+        panic!("expected two conflicts, got {:?}", result.conflicts);
+    };
+    assert_eq!(conflict.path, "notes.tex");
+    assert!(conflict.local_copy.starts_with("notes (local conflict "));
+    assert!(conflict.local_copy.ends_with(").tex"));
+    // The untouched local version survives beside the marked file.
+    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), b"local edit");
+    // The figure: Overleaf's version takes the path, ours sits beside it.
+    assert_eq!(read_local(&root, "figures/fig.pdf").unwrap(), b"%PDF-1.5\0remote");
+    assert_eq!(read_local(&root, &figure.local_copy).unwrap(), b"%PDF-1.5\0local");
+    // A figure has no spots to work through, so the app must not tell anyone
+    // to resolve them or open a marker resolver on it.
+    assert!(!figure.markers);
+    // The live document is untouched on disk, since the editor buffer owns it
+    // while the channel is up, and its recorded base survives, so a later
+    // sync can still merge it.
+    assert_eq!(text(&root, "live.tex"), "local body");
+    assert_eq!(state_files(&root)["live.tex"], sha256_hex(b"shared body"));
 
+    // Overleaf only had their half of main.tex, so the combined file goes
+    // back up; conflicted files are never uploaded in the same round.
+    assert_eq!(result.pushed, vec!["main.tex", "nested/new-chapter.tex", "outgoing.tex"]);
     // Uploading through the real root id requires no temporary folder, and
     // the relative path is project-relative and contains no traversal.
     assert!(server.recorded().iter().all(|r| r.url != "/project/proj-1/folder"));
     assert!(server.with_method("DELETE").is_empty());
     let uploads = server.uploads();
-    assert_eq!(uploads.len(), 2);
-    for (upload, (rel, data)) in uploads.iter().zip(local) {
+    assert_eq!(uploads.len(), 3);
+    for (upload, rel) in uploads.iter().zip(&result.pushed) {
         assert!(upload.url.starts_with("/project/proj-1/upload"));
         // Root-level and nested files alike use the root id learned from
         // joinProject. Sending a temporary folder plus `../` is rejected by
@@ -61,94 +145,32 @@ fn overleaf_sync_pushes_local_edits_and_new_nested_files_from_the_project_root()
         assert!(upload.url.contains("folder_id=root-folder-1"));
         assert!(upload.url.contains(&format!("_csrf={CSRF}")));
         assert_eq!(upload.csrf_header.as_deref(), Some(CSRF));
-        let body = upload.body_text();
+        let (body, data) = (upload.body_text(), text(&root, rel));
         let file_name = rel.rsplit('/').next().unwrap();
         for expected in [
             format!("name=\"qqfile\"; filename=\"{file_name}\""),
-            String::from_utf8_lossy(data).into_owned(),
+            data.clone(),
             "name=\"relativePath\"".to_string(),
             format!("\r\n\r\n{rel}\r\n"),
         ] {
             assert!(body.contains(&expected), "{expected}");
         }
         assert!(!body.contains(&format!("../{rel}")));
-        assert_eq!(state_files(&root)[*rel], sha256_hex(data));
+        // Both sides now agree, and that agreement is the next merge base.
+        assert_eq!(state_files(&root)[rel], sha256_hex(data.as_bytes()));
     }
+    assert_eq!(read_base_copy(&root, "main.tex").unwrap(), merged);
 }
-
-#[test]
-fn overleaf_sync_leaves_live_documents_to_the_realtime_channel() {
-    // Both sides differ, which would normally push or merge. The realtime
-    // channel is already reconciling this file operation by operation, and a
-    // REST upload would reach collaborators as an external overwrite.
-    let base = b"shared body".as_slice();
-    let server =
-        Mock::project(&[("main.tex", b"remote body"), ("notes.tex", b"remote notes")]).serve();
-    let (config, root) = linked(
-        &server,
-        &[("main.tex", b"local body"), ("notes.tex", base)],
-        &[("main.tex", base), ("notes.tex", base)],
-    );
-    let live: BTreeSet<String> = ["main.tex".to_string()].into();
-    let result = sync(&config, &root, &live, None).unwrap();
-
-    assert!(result.pushed.is_empty() && result.merged.is_empty() && result.conflicts.is_empty());
-    assert!(server.uploads().is_empty());
-    // Untouched on disk: the editor buffer owns it while the channel is up.
-    assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
-    // Its recorded base survives, so a later sync can still merge it.
-    assert_eq!(state_files(&root)["main.tex"], sha256_hex(base));
-    // Everything else syncs as usual.
-    assert_eq!(result.pulled, vec!["notes.tex"]);
-}
-
-#[test]
-fn overleaf_sync_conflict_keeps_the_local_copy_beside_the_marked_or_remote_file() {
-    // Both sides rewrote the same line, so no merge can decide for us; a
-    // figure cannot be merged line by line at all, so it keeps both.
-    let remote: Files = &[("figures/fig.pdf", b"%PDF remote"), ("main.tex", b"remote edit")];
-    let local: Files = &[("figures/fig.pdf", b"%PDF local"), ("main.tex", b"local edit")];
-    let base: Files = &[("figures/fig.pdf", b"%PDF base"), ("main.tex", b"base body")];
-    let (server, root, result) = run_sync(Mock::project(remote), local, base);
-    let [figure, conflict] = &result.conflicts[..] else {
-        panic!("expected two conflicts, got {:?}", result.conflicts);
-    };
-    assert_eq!(conflict.path, "main.tex");
-    assert!(conflict.local_copy.starts_with("main (local conflict "));
-    assert!(conflict.local_copy.ends_with(").tex"));
-    // The file shows both versions where they disagree…
-    let merged = text(&root, "main.tex");
-    for expected in [CONFLICT_MARKER, "local edit", "remote edit"] {
-        assert!(merged.contains(expected), "{expected}");
-    }
-    // …and the untouched local version survives beside it.
-    assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), b"local edit");
-    // The figure: Overleaf's version takes the path, ours sits beside it.
-    assert_eq!(read_local(&root, "figures/fig.pdf").unwrap(), b"%PDF remote");
-    assert_eq!(read_local(&root, &figure.local_copy).unwrap(), b"%PDF local");
-    // A figure has no spots to work through, so the app must not tell anyone
-    // to resolve them or open a marker resolver on it.
-    assert!(!figure.markers);
-    // Conflicted files are never uploaded in the same round.
-    assert!(server.uploads().is_empty());
-    assert!(result.pushed.is_empty() && result.merged.is_empty());
-}
-
-const SECTIONS_BASE: &str = "\\section{One}\nalpha\n\n\\section{Two}\nbeta\n";
-const SECTIONS_REMOTE: &str = "\\section{One}\nALPHA from Overleaf\n\n\\section{Two}\nbeta\n";
-const SECTIONS_LOCAL: &str = "\\section{One}\nalpha\n\n\\section{Two}\nBETA edited locally\n";
 
 #[test]
 fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     // Overleaf emptied references.bib while Papers had appended entries
     // locally. The merge leaves diff3 markers (with the base section the
     // resolver must drop) and records Overleaf's side as the new base.
-    let root = temp_dir("resolved-bib-conflict");
     let base = b"@misc{a,\n  title = {A},\n}\n".as_slice();
     let ours = b"@misc{a,\n  title = {A},\n}\n\n@misc{b,\n  title = {B},\n}\n".as_slice();
     let theirs = b"".as_slice();
-    let host = "https://www.overleaf.com";
-    seed_linked_project(&root, host, &[("references.bib", ours)], &[("references.bib", base)]);
+    let root = linked_root(&[("references.bib", ours)], &[("references.bib", base)]);
     let state = load_state(&root).unwrap();
     let remote = BTreeMap::from([("references.bib".to_string(), theirs.to_vec())]);
     let plan = |state: &SyncState, local: &[u8]| {
@@ -170,34 +192,6 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     let kept_overleaf = plan(&after, theirs);
     assert!(kept_overleaf.push.is_empty());
     assert!(kept_overleaf.pull.is_empty() && kept_overleaf.conflict.is_empty());
-    fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn overleaf_sync_merges_edits_to_different_parts_of_one_file() {
-    // A collaborator edits the top, you edit the bottom: no sidecar file.
-    let (server, root, result) = run_sync(
-        Mock::project(&[("main.tex", SECTIONS_REMOTE.as_bytes())]),
-        &[("main.tex", SECTIONS_LOCAL.as_bytes())],
-        &[("main.tex", SECTIONS_BASE.as_bytes())],
-    );
-
-    assert!(result.conflicts.is_empty());
-    assert_eq!(result.merged, vec!["main.tex"]);
-    let merged = text(&root, "main.tex");
-    assert!(merged.contains("ALPHA from Overleaf") && merged.contains("BETA edited locally"));
-    assert!(!merged.contains(CONFLICT_MARKER));
-
-    // Overleaf only had their half, so the combined file goes back up.
-    assert_eq!(result.pushed, vec!["main.tex"]);
-    let uploads = server.uploads();
-    assert_eq!(uploads.len(), 1);
-    let body = uploads[0].body_text();
-    assert!(body.contains("ALPHA from Overleaf") && body.contains("BETA edited locally"));
-
-    // Both sides now agree, and that agreement is the next merge base.
-    assert_eq!(state_files(&root)["main.tex"], sha256_hex(merged.as_bytes()));
-    assert_eq!(read_base_copy(&root, "main.tex").unwrap(), merged);
 }
 
 #[test]
@@ -223,61 +217,35 @@ fn overleaf_sync_uploads_only_while_overleaf_holds_still() {
 }
 
 #[test]
-fn overleaf_sync_keeps_a_version_when_the_history_recheck_fails() {
-    // This mock answers 404 for /updates while the project download
-    // succeeds, matching an intermittent best-effort history failure during
-    // an otherwise successful sync.
-    let base: Files = &[("main.tex", b"shared body")];
-    let server = Mock::project(base).serve();
-    let (config, root) = linked(&server, base, base);
-    edit_state(&root, |state| state.remote_version = Some(42));
-
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert!(result.pulled.is_empty() && result.pushed.is_empty());
-    assert_eq!(remote_version(&root), Some(42));
-
-    // A successful probe made immediately before the sync is stronger
-    // evidence than the older saved value and becomes the new baseline.
-    sync(&config, &root, NO_LIVE, Some(43)).unwrap();
-    assert_eq!(remote_version(&root), Some(43));
-}
-
-#[test]
-fn overleaf_sync_records_the_downloaded_snapshot_not_a_later_remote_version() {
-    // The zip contains version 11. A collaborator reaches version 12 while
-    // this pull-only sync is finishing. Recording 12 would make the next
-    // probe say the stale local copy is current.
-    let (base, remote) = (b"old body".as_slice(), b"version eleven".as_slice());
-    let server = Mock { versions: vec![11, 12], ..Mock::project(&[("main.tex", remote)]) }.serve();
-    let (config, root) = linked(&server, &[("main.tex", base)], &[("main.tex", base)]);
-
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-
-    assert_eq!(result.pulled, vec!["main.tex"]);
-    assert_eq!(read_local(&root, "main.tex").unwrap(), remote);
-    assert_eq!(remote_version(&root), Some(11));
-    let next = probe(&config, &root, None).unwrap();
-    assert!(next.changed);
-    assert_eq!(next.remote_version, Some(12));
-}
-
-#[test]
-fn overleaf_sync_leaves_an_uploaded_version_unverified() {
-    // The first two reads prove the remote stayed at 11 until upload. The
-    // server does not tell us which history version belongs to that upload,
-    // so a later 12 must be verified rather than silently claimed.
-    let base = b"base body".as_slice();
-    let server =
-        Mock { versions: vec![11, 11, 12], ..Mock::project(&[("main.tex", base)]) }.serve();
-    let (config, root) = linked(&server, &[("main.tex", b"locally edited")], &[("main.tex", base)]);
-
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-
-    assert_eq!(result.pushed, vec!["main.tex"]);
-    assert_eq!(remote_version(&root), None);
-    let next = probe(&config, &root, None).unwrap();
-    assert!(next.changed);
-    assert_eq!(next.remote_version, Some(12));
+fn overleaf_sync_records_only_a_remote_version_that_precedes_its_snapshot() {
+    // - "recheck fails": /updates answers 404 while the download succeeds, an
+    //   intermittent best-effort history failure; the saved 42 survives, but a
+    //   successful probe made immediately before the sync is stronger evidence
+    //   and becomes the new baseline.
+    // - "pull": the zip contains version 11 and a collaborator reaches 12
+    //   while the sync is finishing. Recording 12 would make the next probe
+    //   say the stale local copy is current.
+    // - "push": the first two reads prove the remote stayed at 11 until
+    //   upload, but the server does not say which version belongs to that
+    //   upload, so a later 12 must be verified rather than silently claimed.
+    let (base, edited) = (b"base body".as_slice(), b"edited".as_slice());
+    for (label, versions, remote, local, observed, recorded, moved, next) in [
+        ("recheck fails", vec![], base, base, None, Some(42), (0, 0), None),
+        ("recheck fails after a probe", vec![], base, base, Some(43), Some(43), (0, 0), None),
+        ("pull", vec![11, 12], edited, base, None, Some(11), (1, 0), Some(12)),
+        ("push", vec![11, 11, 12], base, edited, None, None, (0, 1), Some(12)),
+    ] {
+        let server = Mock { versions, ..Mock::project(&[("main.tex", remote)]) }.serve();
+        let (config, root) = linked(&server, &[("main.tex", local)], &[("main.tex", base)]);
+        edit_state(&root, |state| state.remote_version = Some(42));
+        let result = sync(&config, &root, NO_LIVE, observed).unwrap();
+        assert_eq!((result.pulled.len(), result.pushed.len()), moved, "{label}");
+        assert_eq!(remote_version(&root), recorded, "{label}");
+        if let Some(next) = next {
+            let probed = probe(&config, &root, None).unwrap();
+            assert_eq!((probed.changed, probed.remote_version), (true, Some(next)), "{label}");
+        }
+    }
 }
 
 #[test]
@@ -303,30 +271,54 @@ fn overleaf_sync_does_not_commit_local_state_after_a_partial_upload_failure() {
 }
 
 #[test]
-fn overleaf_sync_never_uploads_unresolved_conflict_markers() {
+fn overleaf_sync_never_uploads_excluded_files_or_unresolved_conflict_markers() {
     // A file still carrying markers must not be published to collaborators.
-    let base = "alpha\n";
-    let local = format!("{CONFLICT_MARKER} ours\nmine\n=======\ntheirs\n>>>>>>> theirs\n");
+    let marked = format!("{CONFLICT_MARKER} ours\nmine\n=======\ntheirs\n>>>>>>> theirs\n");
+    let base: Files = &[("main.tex", b"body"), ("notes.tex", b"alpha\n")];
     let (server, root, result) = run_sync(
-        Mock::project(&[("main.tex", base.as_bytes())]),
-        &[("main.tex", local.as_bytes())],
-        &[("main.tex", base.as_bytes())],
+        Mock::project(base),
+        &[
+            ("main.tex", b"body"),
+            ("notes.tex", marked.as_bytes()),
+            ("main.log", b"latexmk noise"),
+            (".DS_Store", b"finder noise"),
+            ("main.pdf", b"%PDF compiled output"),
+            ("main.synctex.gz", b"synctex"),
+            ("tmp/pdfs/full-appendix/render-1.png", b"temporary preview"),
+        ],
+        base,
     );
-    assert!(result.pushed.is_empty());
+    assert!(result.pushed.is_empty() && result.pulled.is_empty());
     assert!(server.uploads().is_empty());
-    // Left out of state, so it uploads as soon as the markers are gone.
-    assert!(!state_files(&root).contains_key("main.tex"));
-    assert_eq!(read_local(&root, "main.tex").unwrap(), local.as_bytes());
+    // Excluded files never enter state, and the marked file is left out so
+    // it uploads as soon as the markers are gone.
+    assert_eq!(state_files(&root).keys().collect::<Vec<_>>(), vec!["main.tex"]);
+    // Both stay untouched on disk.
+    assert_eq!(read_local(&root, "notes.tex").unwrap(), marked.as_bytes());
+    for rel in ["main.log", "main.pdf", "tmp/pdfs/full-appendix/render-1.png"] {
+        assert!(read_local(&root, rel).is_some(), "{rel}");
+    }
 }
 
 #[test]
-fn overleaf_sync_resolves_deletions_made_on_one_side() {
+fn overleaf_sync_resolves_deletions_made_on_one_side_and_cleans_up_transient_files() {
     // old.tex: deleted on Overleaf, untouched here, so it goes here too.
     // edited.tex: deleted on Overleaf after an edit here, so it goes back up.
     // dropped.tex: deleted here, untouched on Overleaf. We never delete
     // remote files, but it is not downloaded again either: dropping it from
     // state is what stops it resurrecting.
-    let remote: Files = &[("dropped.tex", b"still on overleaf"), ("main.tex", b"body")];
+    // Legacy transient files left on Overleaf are requested for silent
+    // cleanup instead: never offered as a deletion, pulled or kept in state.
+    let (save_error, page) =
+        ("lambda_gpu_proposal.bbl-SAVE-ERROR", "tmp/pdfs/full-appendix/page-01.png");
+    let (failed, preview) = (b"failed bibliography output".as_slice(), b"preview".as_slice());
+    let remote: Files = &[
+        ("dropped.tex", b"still on overleaf"),
+        ("main.tex", b"body"),
+        (save_error, failed),
+        (page, preview),
+        ("tmp/pdfs/gallery-page-10.png", preview),
+    ];
     let local: Files = &[
         ("edited.tex", b"edited after remote delete"),
         ("main.tex", b"body"),
@@ -337,67 +329,27 @@ fn overleaf_sync_resolves_deletions_made_on_one_side() {
         ("edited.tex", b"original"),
         ("main.tex", b"body"),
         ("old.tex", b"stale"),
+        (save_error, failed),
+        (page, preview),
     ];
     let (server, root, result) = run_sync(Mock::project(remote), local, base);
     assert_eq!(result.deleted_local, vec!["old.tex"]);
     assert_eq!(result.pushed, vec!["edited.tex"]);
+    assert!(result.pulled.is_empty());
     assert_eq!(result.skipped_remote_deletes, vec!["dropped.tex"]);
+    assert_eq!(result.automatic_remote_deletes, vec![save_error, "tmp/pdfs"]);
     let files = state_files(&root);
-    for gone in ["old.tex", "dropped.tex"] {
+    for gone in ["old.tex", "dropped.tex", save_error, page] {
         assert!(read_local(&root, gone).is_none(), "{gone}");
         assert!(!files.contains_key(gone), "{gone}");
     }
+    assert!(!files.keys().any(|path| path.starts_with("tmp/pdfs/")));
     assert_eq!(read_local(&root, "edited.tex").unwrap(), b"edited after remote delete");
     assert!(files.contains_key("edited.tex"));
     let uploads = server.uploads();
     assert_eq!(uploads.len(), 1);
     assert!(uploads[0].body_text().contains("edited after remote delete"));
     assert!(server.with_method("DELETE").is_empty());
-}
-
-#[test]
-fn overleaf_sync_never_uploads_excluded_files() {
-    let base = b"body".as_slice();
-    let (server, root, result) = run_sync(
-        Mock::project(&[("main.tex", base)]),
-        &[
-            ("main.tex", base),
-            ("main.log", b"latexmk noise"),
-            (".DS_Store", b"finder noise"),
-            ("main.pdf", b"%PDF compiled output"),
-            ("main.synctex.gz", b"synctex"),
-            ("tmp/pdfs/full-appendix/render-1.png", b"temporary preview"),
-        ],
-        &[("main.tex", base)],
-    );
-    assert!(result.pushed.is_empty() && result.pulled.is_empty());
-    assert!(server.uploads().is_empty());
-    assert_eq!(state_files(&root).keys().collect::<Vec<_>>(), vec!["main.tex"]);
-    // Excluded files stay untouched on disk.
-    for rel in ["main.log", "main.pdf", "tmp/pdfs/full-appendix/render-1.png"] {
-        assert!(read_local(&root, rel).is_some(), "{rel}");
-    }
-}
-
-#[test]
-fn overleaf_sync_requests_silent_cleanup_for_legacy_transient_files() {
-    let (save_error, page) =
-        ("lambda_gpu_proposal.bbl-SAVE-ERROR", "tmp/pdfs/full-appendix/page-01.png");
-    let (body, preview) = (b"body".as_slice(), b"temporary preview".as_slice());
-    let remote: Files = &[
-        (save_error, b"failed bibliography output"),
-        ("main.tex", body),
-        (page, preview),
-        ("tmp/pdfs/gallery-page-10.png", preview),
-    ];
-    let (_, root, result) = run_sync(Mock::project(remote), &[("main.tex", body)], &remote[..3]);
-
-    assert_eq!(result.automatic_remote_deletes, vec![save_error, "tmp/pdfs"]);
-    assert!(result.skipped_remote_deletes.is_empty());
-    assert!(result.pulled.is_empty() && result.pushed.is_empty());
-    assert!(read_local(&root, save_error).is_none());
-    assert!(read_local(&root, page).is_none());
-    assert!(!state_files(&root).keys().any(|path| path.starts_with("tmp/pdfs/")));
 }
 
 // ---- permissions ----------------------------------------------------------------
@@ -424,6 +376,11 @@ fn overleaf_sync_never_uploads_without_a_writable_role() {
         assert!(result.read_only && result.pushed.is_empty(), "{permission:?}");
         assert!(server.uploads().is_empty());
         assert_eq!(result.pulled, vec!["notes.tex"]);
+        // The pulled snapshot is the new merge base straight away, so edits
+        // made once write access returns merge against it, not against the
+        // stale pre-permission base.
+        assert_eq!(read_base_copy(&root, "notes.tex").as_deref(), Some("new remote notes"));
+        assert_eq!(state_files(&root)["notes.tex"], sha256_hex(b"new remote notes"));
         // The local edit is still here, and still counts as unsent.
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
         assert!(!state_files(&root).contains_key("main.tex"));
@@ -438,42 +395,8 @@ fn overleaf_sync_never_uploads_without_a_writable_role() {
 }
 
 #[test]
-fn read_only_pull_refreshes_the_base_before_write_access_returns() {
-    let original = b"alpha\nshared middle\nbeta\n".as_slice();
-    let first_remote = b"alpha from Overleaf\nshared middle\nbeta\n".as_slice();
-    let first_server = Mock::project(&[("main.tex", first_remote)]).serve();
-    let (config, root) =
-        linked(&first_server, &[("main.tex", original)], &[("main.tex", original)]);
-    edit_state(&root, |state| state.permission = None);
-
-    assert!(sync(&config, &root, NO_LIVE, None).unwrap().read_only);
-    assert_eq!(read_base_copy(&root, "main.tex").as_deref().map(str::as_bytes), Some(first_remote));
-
-    // Once write access returns, edits to different lines must merge against
-    // the pulled snapshot, not the stale pre-permission base.
-    fs::write(disk_path(&root, "main.tex"), b"alpha from Overleaf\nshared middle\nbeta locally\n")
-        .unwrap();
-    let second_server =
-        Mock::project(&[("main.tex", b"alpha revised remotely\nshared middle\nbeta\n")]).serve();
-    // The second mock server represents the same Overleaf deployment at a new
-    // test address, so move the synthetic session with the link.
-    edit_state(&root, |state| {
-        state.host = second_server.base.clone();
-        state.permission = Some("readAndWrite".to_string());
-    });
-    write_session_file(&config, &second_server.base);
-
-    let merged = sync(&config, &root, NO_LIVE, None).unwrap();
-
-    assert_eq!(merged.merged, vec!["main.tex"]);
-    assert!(merged.conflicts.is_empty());
-    assert_eq!(text(&root, "main.tex"), "alpha revised remotely\nshared middle\nbeta locally\n");
-    assert_eq!(second_server.uploads().len(), 1);
-}
-
-#[test]
 fn base_copy_finalization_uses_the_hash_agreement_and_retains_held_ancestors() {
-    let root = temp_dir("base-finalization");
+    let root = TempDir::new("base-finalization");
     let conflicted = format!("{CONFLICT_MARKER} local\n=======\nremote\n>>>>>>> remote\n");
     let hashes = |entries: &[(&str, &str)]| -> BTreeMap<String, String> {
         entries.iter().map(|(rel, text)| (rel.to_string(), sha256_hex(text.as_bytes()))).collect()
@@ -500,109 +423,16 @@ fn base_copy_finalization_uses_the_hash_agreement_and_retains_held_ancestors() {
     }
 }
 
-// ---- preview (dry run) ------------------------------------------------------------
-
-#[test]
-fn overleaf_preview_reports_incoming_and_outgoing_without_touching_anything() {
-    let base = b"old body".as_slice();
-    let server = Mock::project(&[("main.tex", b"new remote body"), ("notes.tex", base)]).serve();
-    let (config, root) = linked(
-        &server,
-        &[("main.tex", base), ("notes.tex", b"locally edited body")],
-        &[("main.tex", base), ("notes.tex", base)],
-    );
-    let state_before = fs::read(state_path(&root)).unwrap();
-
-    let preview = preview(&config, &root, NO_LIVE).unwrap();
-
-    let rows: Vec<_> = (preview.changes.iter())
-        .map(|c| {
-            (c.path.as_str(), c.kind.as_str(), c.before.as_deref(), c.after.as_deref(), c.binary)
-        })
-        .collect();
-    assert_eq!(
-        rows,
-        [
-            ("main.tex", "incoming", Some("old body"), Some("new remote body"), false),
-            // "Before" is what Overleaf last saw, which is the recorded base copy.
-            ("notes.tex", "outgoing", Some("old body"), Some("locally edited body"), false),
-        ]
-    );
-    // A dry run leaves the project exactly as it found it…
-    assert_eq!(read_local(&root, "main.tex").unwrap(), base);
-    assert_eq!(read_local(&root, "notes.tex").unwrap(), b"locally edited body");
-    assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
-    assert_eq!(read_base_copy(&root, "main.tex").unwrap(), "old body");
-    // …and never speaks to Overleaf beyond reading.
-    assert!(server.uploads().is_empty());
-    assert!(server.recorded().iter().all(|r| r.method == "GET" || r.method == "HEAD"));
-}
-
-#[test]
-fn overleaf_preview_reports_merge_and_conflict_and_marks_binary_files() {
-    let pdf = |side: &str| format!("%PDF-1.5\0{side}").into_bytes();
-    let (remote_pdf, local_pdf, base_pdf) = (pdf("remote"), pdf("local"), pdf("base"));
-    let server = Mock::project(&[
-        ("figures/fig.pdf", &remote_pdf),
-        ("main.tex", SECTIONS_REMOTE.as_bytes()),
-        ("notes.tex", b"remote edit"),
-    ])
-    .serve();
-    let (config, root) = linked(
-        &server,
-        &[
-            ("figures/fig.pdf", &local_pdf),
-            ("main.tex", SECTIONS_LOCAL.as_bytes()),
-            ("notes.tex", b"local edit"),
-        ],
-        &[
-            ("figures/fig.pdf", &base_pdf),
-            ("main.tex", SECTIONS_BASE.as_bytes()),
-            ("notes.tex", b"base body"),
-        ],
-    );
-    let preview = preview(&config, &root, NO_LIVE).unwrap();
-
-    // Conflicts sort first: they are the rows that need a decision.
-    let rows: Vec<(&str, &str)> =
-        preview.changes.iter().map(|c| (c.kind.as_str(), c.path.as_str())).collect();
-    let expected =
-        [("conflict", "figures/fig.pdf"), ("conflict", "notes.tex"), ("merge", "main.tex")];
-    assert_eq!(rows, expected);
-
-    // Figures cannot be shown as text, so the UI gets a marker, not bytes.
-    let [figure, conflict, merge] = &preview.changes[..] else { unreachable!() };
-    assert!(figure.binary && figure.before.is_none() && figure.after.is_none());
-
-    assert_eq!(merge.before.as_deref(), Some(SECTIONS_LOCAL));
-    let merged = merge.after.clone().unwrap();
-    assert!(merged.contains("ALPHA from Overleaf") && merged.contains("BETA edited locally"));
-    assert!(!merged.contains(CONFLICT_MARKER));
-
-    assert_eq!(conflict.before.as_deref(), Some("local edit"));
-    let marked = conflict.after.clone().unwrap();
-    for expected in [CONFLICT_MARKER, "local edit", "remote edit"] {
-        assert!(marked.contains(expected), "{expected}");
-    }
-
-    // Still a dry run: nothing merged onto disk, no sidecar, no upload.
-    assert_eq!(read_local(&root, "main.tex").unwrap(), SECTIONS_LOCAL.as_bytes());
-    assert_eq!(read_local(&root, "notes.tex").unwrap(), b"local edit");
-    assert!(server.uploads().is_empty());
-}
-
 // ---- relocations -------------------------------------------------------------------
 
 #[test]
 fn moving_a_linked_file_is_not_a_remote_deletion() {
-    let parent = temp_dir("move-linked");
+    let parent = TempDir::new("move-linked");
     let root = crate::project::create_blank(&parent, "paper").unwrap();
     fs::remove_file(root.join("references.bib")).unwrap();
     // The download reflects the remote tree after the move endpoint.
     let server = Mock::project(&[("chapters/main.tex", b"body")]).serve();
-    let config = temp_dir("move-config");
-    write_session_file(&config, &server.base);
-    seed_linked_project(&root, &server.base, &[("main.tex", b"body")], &[("main.tex", b"body")]);
+    let config = link_to(&server, &root, &[("main.tex", b"body")], &[("main.tex", b"body")]);
     fs::create_dir_all(root.join("chapters")).unwrap();
     crate::project::move_entry(&root, "main.tex", "chapters").unwrap();
 
@@ -638,14 +468,12 @@ fn assert_posts(server: &MockServer, expected: &[(&str, Value)]) {
 
 #[test]
 fn relocation_keeps_folder_descendants_and_their_merge_ancestors() {
-    let parent = temp_dir("move-folder");
+    let parent = TempDir::new("move-folder");
     let root = crate::project::create_blank(&parent, "paper").unwrap();
     let base = b"original heading\n\noriginal ending\n".as_slice();
     let local = b"local heading\n\noriginal ending\n".as_slice();
     let remote = b"original heading\n\nremote ending\n".as_slice();
     let server = Mock::project(&[]).serve();
-    let config = temp_dir("move-folder-config");
-    write_session_file(&config, &server.base);
     let files = |main: &'static [u8]| -> [(&'static str, &'static [u8]); 3] {
         [
             ("chapter/main.tex", main),
@@ -653,7 +481,7 @@ fn relocation_keeps_folder_descendants_and_their_merge_ancestors() {
             ("chapter-extra.tex", b"unrelated"),
         ]
     };
-    seed_linked_project(&root, &server.base, &files(local), &files(base));
+    let config = link_to(&server, &root, &files(local), &files(base));
     crate::project::rename_entry(&root, "chapter", "renamed").unwrap();
     fs::create_dir_all(root.join("archive")).unwrap();
     crate::project::move_entry(&root, "renamed", "archive").unwrap();
@@ -747,7 +575,7 @@ fn relocation_moves_binary_files_to_root_and_leaves_new_files_for_upload() {
 
 #[test]
 fn relocation_record_failure_rolls_back_the_local_move_and_manifest() {
-    let parent = temp_dir("move-record-failure");
+    let parent = TempDir::new("move-record-failure");
     let root = crate::project::create_blank(&parent, "paper").unwrap();
     let manifest = fs::read(root.join(".research/project.json")).unwrap();
     fs::write(state_path(&root), "invalid sync state").unwrap();

@@ -369,13 +369,11 @@ mod tests {
 
     #[test]
     fn derives_display_domain() {
-        assert_eq!(
-            display_domain(&Url::parse("https://www.xn--bcher-kva.example/a").unwrap()).unwrap(),
-            "xn--bcher-kva.example"
-        );
-        assert_eq!(
-            display_domain(&Url::parse("https://www.localhost/").unwrap()).unwrap(),
-            "www.localhost"
-        );
+        for (url, domain) in [
+            ("https://www.xn--bcher-kva.example/a", "xn--bcher-kva.example"),
+            ("https://www.localhost/", "www.localhost"),
+        ] {
+            assert_eq!(display_domain(&Url::parse(url).unwrap()).unwrap(), domain, "{url}");
+        }
     }
 }

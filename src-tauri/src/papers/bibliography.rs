@@ -477,7 +477,7 @@ mod tests {
         assert!(result.removed);
         assert_eq!(result.removed_citations, 2);
         assert_eq!(result.changed_files, ["main.tex", "references.bib"]);
-        let main = fs::read_to_string(&main).unwrap();
+        let edited = fs::read_to_string(&main).unwrap();
         for kept in [
             "% Example only: \\cite{target}",
             "\\verb|\\cite{target}|",
@@ -485,29 +485,20 @@ mod tests {
             "\\citep[see][p. 2]{first, last}",
             "Solo remains grammatical.",
         ] {
-            assert!(main.contains(kept), "{kept}");
+            assert!(edited.contains(kept), "{kept}");
         }
         assert!(!project.bibliography().contains("target"));
         assert!(cache.is_file());
         let history = project::history(&project.root).unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].files, vec!["main.tex", "references.bib"]);
-    }
 
-    #[cfg(unix)]
-    #[test]
-    fn remove_can_leave_citations_unresolved_when_requested() {
-        let _lock = tool_lock();
-        let project = TestProject::new("@article{keep, title={Keep the citation command}}\n");
-        let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_bibcite(&project.parent));
-        let main = project.write("main.tex", "See \\cite{keep}.\n");
-
-        let result = remove(&project, "keep", Keep);
-        assert!(result.removed);
-        assert_eq!(result.removed_citations, 0);
-        assert_eq!(result.changed_files, ["references.bib"]);
-        assert_eq!(fs::read_to_string(main).unwrap(), "See \\cite{keep}.\n");
-        assert!(!project.bibliography().contains("keep"));
+        let kept = remove(&project, "first", Keep);
+        assert!(kept.removed);
+        assert_eq!(kept.removed_citations, 0);
+        assert_eq!(kept.changed_files, ["references.bib"]);
+        assert_eq!(fs::read_to_string(&main).unwrap(), edited);
+        assert!(!project.bibliography().contains("first"));
     }
 
     #[test]

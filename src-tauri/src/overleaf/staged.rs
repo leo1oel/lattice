@@ -504,31 +504,31 @@ mod tests {
         OverleafAcceptedAction { action_id: action.action_id.clone(), base64 }
     }
 
-    fn as_offered(action: &OverleafPreparedAction) -> OverleafAcceptedAction {
-        accept(action, None)
-    }
-
     fn action<'a>(prepared: &'a OverleafPreparedSync, path: &str) -> &'a OverleafPreparedAction {
         prepared.actions.iter().find(|action| action.path == path).unwrap()
     }
 
     #[test]
-    fn staged_prepare_is_side_effect_free_and_commit_uses_reconciled_bytes() {
+    fn staged_prepare_is_side_effect_free_and_commit_applies_only_accepted_actions() {
         let (base, remote, canonical) = (
             b"base body".as_slice(),
             b"remote body".as_slice(),
             b"remote body\npeer note".as_slice(),
         );
+        // gone.tex is missing from Overleaf, so it is offered as a delete; not
+        // accepting it defers the delete and must preserve its baseline.
+        let files: Files = &[("gone.tex", b"keep me"), ("main.tex", base)];
         let server = Mock::project(&[("main.tex", remote)]).serve();
-        let (config, root) = linked(&server, &[("main.tex", base)], &[("main.tex", base)]);
+        let (config, root) = linked(&server, files, files);
         let state_before = fs::read(state_path(&root)).unwrap();
         let base_before = read_base_copy(&root, "main.tex").unwrap();
 
-        let prepared = prepare(&config, &root, &[("main.tex", base)]);
+        let prepared = prepare(&config, &root, files);
 
         assert_eq!(read_local(&root, "main.tex").unwrap(), base);
         assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), base_before);
+        assert_eq!(action(&prepared, "gone.tex").kind, "delete");
         let incoming = action(&prepared, "main.tex");
         assert!(!incoming.outgoing);
 
@@ -536,26 +536,14 @@ mod tests {
         let result = commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted).unwrap();
 
         assert_eq!(result.pulled, vec!["main.tex"]);
+        assert!(result.deleted_local.is_empty());
         assert!(server.uploads()[0].body_text().contains("peer note"));
         assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(canonical)));
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), "remote body\npeer note");
+        assert_eq!(state_files(&root).get("gone.tex"), Some(&sha256_hex(b"keep me")));
+        assert_eq!(read_base_copy(&root, "gone.tex").unwrap(), "keep me");
         // Staged sync never treats disk as authoritative or rewrites it itself.
         assert_eq!(read_local(&root, "main.tex").unwrap(), base);
-    }
-
-    #[test]
-    fn staged_deferred_delete_preserves_the_baseline() {
-        let base = b"keep me".as_slice();
-        let server = Mock::project(&[]).serve();
-        let (config, root) = linked(&server, &[("main.tex", base)], &[("main.tex", base)]);
-        let prepared = prepare(&config, &root, &[("main.tex", base)]);
-        assert_eq!(prepared.actions[0].kind, "delete");
-
-        let result = commit_prepared_sync(&config, &root, &prepared.plan_id, &[]).unwrap();
-
-        assert!(result.deleted_local.is_empty());
-        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
-        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), "keep me");
     }
 
     #[test]
@@ -569,7 +557,7 @@ mod tests {
         assert!(commit("missing-plan", &[]).contains("Unknown or expired"));
 
         let prepared = prepare(&config, &root, &[("main.tex", base)]);
-        let accepted = as_offered(&prepared.actions[0]);
+        let accepted = accept(&prepared.actions[0], None);
         assert!(commit(&prepared.plan_id, &[accepted.clone(), accepted]).contains("Duplicate"));
         assert!(commit(&prepared.plan_id, &[]).contains("Unknown or expired"));
 
@@ -579,55 +567,47 @@ mod tests {
     }
 
     #[test]
-    fn staged_commit_stands_down_when_remote_history_moves() {
-        let (base, local) = (b"base".as_slice(), b"local edit".as_slice());
-        let server =
-            Mock { versions: vec![11, 12], ..Mock::project(&[("main.tex", base)]) }.serve();
-        let (config, root) = linked(&server, &[("main.tex", local)], &[("main.tex", base)]);
-        let prepared = prepare(&config, &root, &[("main.tex", local)]);
-        let outgoing = prepared.actions.iter().find(|action| action.outgoing).unwrap();
+    fn staged_commit_uploads_nothing_while_overleaf_moves_or_a_conflict_copy_is_missing() {
+        // Remote history moved after prepare: stand down, as `sync` does. A
+        // conflict: its local copy must be accepted before the main replacement.
+        let (base, local) = (b"base body".as_slice(), b"local edit".as_slice());
+        let moved = Mock { versions: vec![11, 12], ..Mock::project(&[("main.tex", base)]) };
+        let conflict = Mock::project(&[("main.tex", b"remote edit")]);
+        for (label, mock, error) in
+            [("history moved", moved, None), ("conflict", conflict, Some("Conflict copy must"))]
+        {
+            let server = mock.serve();
+            let (config, root) = linked(&server, &[("main.tex", local)], &[("main.tex", base)]);
+            let prepared = prepare(&config, &root, &[("main.tex", local)]);
 
-        let accepted = [accept(outgoing, Some(local))];
-        let result = commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted).unwrap();
+            let accepted = [accept(action(&prepared, "main.tex"), None)];
+            let result = commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted);
 
-        assert!(result.pushed.is_empty());
-        assert!(server.uploads().is_empty());
-        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
-    }
-
-    #[test]
-    fn staged_conflict_requires_the_local_copy_before_the_main_replacement() {
-        let base = b"base body".as_slice();
-        let local = b"local edit".as_slice();
-        let server = Mock::project(&[("main.tex", b"remote edit")]).serve();
-        let (config, root) = linked(&server, &[("main.tex", local)], &[("main.tex", base)]);
-        let prepared = prepare(&config, &root, &[("main.tex", local)]);
-
-        let accepted = [as_offered(action(&prepared, "main.tex"))];
-        let error = commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted).unwrap_err();
-
-        assert!(error.contains("Conflict copy must be accepted"));
-        assert!(server.uploads().is_empty());
-        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)));
+            match error {
+                Some(error) => assert!(result.unwrap_err().contains(error), "{label}"),
+                None => assert!(result.unwrap().pushed.is_empty(), "{label}"),
+            }
+            assert!(server.uploads().is_empty(), "{label}");
+            assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(base)), "{label}");
+        }
     }
 
     #[test]
     fn staged_partial_upload_failure_does_not_advance_state() {
-        let (base_a, base_b) = (b"base a".as_slice(), b"base b".as_slice());
         let local: Files = &[("a.tex", b"local a"), ("b.tex", b"local b")];
-        let base: Files = &[("a.tex", base_a), ("b.tex", base_b)];
+        let base: Files = &[("a.tex", b"base a"), ("b.tex", b"base b")];
         let server =
             Mock { versions: vec![11], fail_upload_at: Some(2), ..Mock::project(base) }.serve();
         let (config, root) = linked(&server, local, base);
         let prepared = prepare(&config, &root, local);
-        let accepted: Vec<_> = prepared.actions.iter().map(as_offered).collect();
+        let accepted: Vec<_> = prepared.actions.iter().map(|action| accept(action, None)).collect();
 
         assert!(commit_prepared_sync(&config, &root, &prepared.plan_id, &accepted).is_err());
         assert_eq!(server.uploads().len(), 2);
         let state = state_files(&root);
-        assert_eq!(state.get("a.tex"), Some(&sha256_hex(base_a)));
-        assert_eq!(state.get("b.tex"), Some(&sha256_hex(base_b)));
-        assert_eq!(read_base_copy(&root, "a.tex").unwrap(), "base a");
-        assert_eq!(read_base_copy(&root, "b.tex").unwrap(), "base b");
+        for (rel, original) in base {
+            assert_eq!(state.get(*rel), Some(&sha256_hex(original)), "{rel}");
+            assert_eq!(read_base_copy(&root, rel).as_deref().map(str::as_bytes), Some(*original));
+        }
     }
 }

@@ -453,6 +453,14 @@ mod tests {
         format!(r#"{{"type":"{kind}"}}"#)
     }
 
+    /// Closes `id`'s socket, which must start a grace timer; returns its epoch.
+    fn detach_with_grace(sessions: &Sessions, role: BridgeRole, id: &str) -> u64 {
+        match detach_peer(sessions, &query(role), id) {
+            Some(Detached::Grace(epoch)) => epoch,
+            _ => panic!("closing {id} must start a grace timer"),
+        }
+    }
+
     fn drain(receivers: &mut [&mut UnboundedReceiver<Message>]) {
         for receiver in receivers {
             while receiver.try_recv().is_ok() {}
@@ -509,11 +517,7 @@ mod tests {
         let sessions = sessions(true);
         let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
         let (_, _desktop) = connect(&sessions, BridgeRole::Desktop, "desktop");
-        let Some(Detached::Grace(epoch)) =
-            detach_peer(&sessions, &query(BridgeRole::Desktop), "desktop")
-        else {
-            panic!("a closed desktop starts a grace timer");
-        };
+        let epoch = detach_with_grace(&sessions, BridgeRole::Desktop, "desktop");
         let (_, mut reconnected) = connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
         drain(&mut [&mut host, &mut reconnected]);
 
@@ -534,11 +538,7 @@ mod tests {
         assert_eq!(next(&mut desktop), control("desktop-suspended"));
         assert!(!relays(&sessions, BridgeRole::Desktop, "desktop"));
 
-        let Some(Detached::Grace(epoch)) =
-            detach_peer(&sessions, &query(BridgeRole::Browser), "browser")
-        else {
-            panic!("a closed browser starts a grace timer");
-        };
+        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "browser");
         let (_, mut reconnected) = connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
         assert_eq!(
             with_session(&sessions, |session| session.visible_epoch),
@@ -600,14 +600,11 @@ mod tests {
     fn fixed_entry_resumes_a_live_token_and_replaces_a_stale_one() {
         let sessions = sessions(true);
         let sessions = sessions.lock().unwrap();
-
-        let resumed = reusable_entry_config(&sessions, 18452, Some(TOKEN)).unwrap();
-        let replaced = reusable_entry_config(&sessions, 18452, Some("expired")).unwrap();
-
-        assert_eq!(resumed.token, TOKEN);
-        assert_eq!(replaced.token, TOKEN);
-        assert_eq!(replaced.bridge_port, 18452);
-        assert_eq!(replaced.label, "browser-test");
+        for token in [TOKEN, "expired"] {
+            let entry = reusable_entry_config(&sessions, 18452, Some(token)).unwrap();
+            let config = (entry.token.as_str(), entry.bridge_port, entry.label.as_str());
+            assert_eq!(config, (TOKEN, 18452, "browser-test"), "{token}");
+        }
     }
 
     #[test]

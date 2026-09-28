@@ -465,8 +465,11 @@ mod tests {
         project.join("cache/index.sqlite3")
     }
 
-    fn build(project: &Path, provider: &FakeProvider) -> Result<BuildOutput, BuildFailure> {
-        build_index(project, &cache_path(project), &AtomicBool::new(false), provider, |_, _| {})
+    fn build(
+        project: &Path, provider: &FakeProvider, cancelled: bool,
+    ) -> Result<BuildOutput, BuildFailure> {
+        let cancel = AtomicBool::new(cancelled);
+        build_index(project, &cache_path(project), &cancel, provider, |_, _| {})
     }
 
     pub(super) fn column<T: rusqlite::types::FromSql>(
@@ -527,7 +530,7 @@ mod tests {
                 "main.tex",
                 format!("\\section{{One}}\n\n{paragraph}\n\n\\section{{Two}}\n\nBeta paragraph.\n"),
             );
-            let output = build(&project, &provider).unwrap();
+            let output = build(&project, &provider, false).unwrap();
             expected_calls += new_embeddings;
             assert_eq!(provider.calls(), expected_calls, "{paragraph}");
             assert_eq!(output.cached_chunks, cached_chunks, "{paragraph}");
@@ -541,7 +544,7 @@ mod tests {
         project.write("notes.md", "# Topic\n\nOne reusable paragraph.\n");
         let calls = Arc::new(AtomicUsize::new(0));
         for version in ["model-a", "model-a", "model-b"] {
-            build(&project, &FakeProvider { version, calls: Arc::clone(&calls) }).unwrap();
+            build(&project, &FakeProvider { version, calls: Arc::clone(&calls) }, false).unwrap();
         }
         // Two stable blocks × two distinct model versions. The second model-a
         // build is fully cached; model-b must not reuse model-a vectors.
@@ -553,7 +556,7 @@ mod tests {
         let project = TempDir::new("privacy");
         let secret = "Confidential theorem about private patient outcomes";
         project.write("private/manuscript.md", format!("# Study\n\n{secret}\n"));
-        build(&project, &FakeProvider::new("privacy-test")).unwrap();
+        build(&project, &FakeProvider::new("privacy-test"), false).unwrap();
         let cache = cache_path(&project);
         let columns: Vec<String> = column(
             &rusqlite::Connection::open(&cache).unwrap(),
@@ -581,17 +584,12 @@ mod tests {
         let project = TempDir::new("cancelled");
         project.write("paper.md", "# Secret\n\nNever process this.\n");
         let provider = FakeProvider::new("cancel-test");
-        let result = build_index(
-            &project,
-            &cache_path(&project),
-            &AtomicBool::new(true),
-            &provider,
-            |_, _| {},
-        );
-        assert_eq!(result.unwrap_err(), BuildFailure::Cancelled);
+        assert_eq!(build(&project, &provider, true).unwrap_err(), BuildFailure::Cancelled);
         assert_eq!(provider.calls(), 0);
     }
 
+    /// Covers index snapshots too: one taken before cancellation cannot
+    /// publish candidates afterwards.
     #[test]
     fn cancellation_and_generation_checks_prevent_stale_publication() {
         let search = SemanticSearch::default();
@@ -603,31 +601,20 @@ mod tests {
         assert_eq!(search.status().generation, second_generation);
         assert_eq!(search.status().state, "indexing");
 
-        search.cancel();
-        assert_eq!(search.status().state, "disabled");
-        assert!(search.status().generation > second_generation);
-    }
-
-    #[test]
-    fn cancelled_index_snapshots_cannot_publish_candidates() {
-        let search = SemanticSearch::default();
         let index = Arc::new(SemanticIndex {
             model_version: "test-v1".to_string(),
             dimension: 4,
             indexed_files: 1,
             chunks: Vec::new(),
         });
-        {
-            let mut state = search.lock();
-            state.generation = 7;
-            state.status.generation = 7;
-            state.index = Some(Arc::clone(&index));
-        }
+        search.lock().index = Some(Arc::clone(&index));
+        let snapshot = search.status();
+        assert!(search.status_for_snapshot(snapshot.clone(), Some(&index)).1);
 
-        let stale_status = search.status();
-        assert!(search.status_for_snapshot(stale_status.clone(), Some(&index)).1);
         search.cancel();
-        let response = fallback_response(&search, stale_status, Some(&index));
+        assert_eq!(search.status().state, "disabled");
+        assert!(search.status().generation > second_generation);
+        let response = fallback_response(&search, snapshot, Some(&index));
         assert_eq!(response.status.state, "disabled");
         assert_eq!(response.status.generation, search.status().generation);
     }
