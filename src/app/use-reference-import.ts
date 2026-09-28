@@ -40,16 +40,12 @@ type BibEntryDialog = {
  * entry dialog for adding, reviewing or editing a BibTeX entry by hand.
  */
 export function useReferenceImport({
-  project, projectRootRef, refreshProject, refreshHistory, publishToShare, shared, editor, onCite, onExternalEdits,
+  project, projectRootRef, refreshProject, refreshHistory, editor, onCite, onExternalEdits,
 }: {
   project: ProjectSnapshot | null;
   projectRootRef: { readonly current: string | null };
   refreshProject: RefreshProject;
   refreshHistory: () => Promise<void>;
-  /** Mirror a rewritten bibliography into a live share; resolves false when none is live. */
-  publishToShare: (path: string, content: string) => Promise<boolean>;
-  /** Whether a share is live; imports then publish the bibliography to it. */
-  shared: boolean;
   editor: {
     activeFile: string;
     source: string;
@@ -126,15 +122,6 @@ export function useReferenceImport({
       // like any other disk edit instead of waiting for an unrelated save.
       if (!result.alreadyImported && result.citationKey) onExternalEdits.current([snapshot.manifest.primaryBibliography]);
       await refreshHistory();
-      if (shared && !result.alreadyImported) {
-        // Bibliography is the shared paper catalog. Full-text bundles stay
-        // local — collaborators fetch them when they open a paper.
-        const bibliography = snapshot.manifest.primaryBibliography;
-        // Optional sidecar / bib may be missing.
-        await invoke<string>("read_project_file", { path: bibliography })
-          .then((content) => publishToShare(bibliography, content))
-          .catch(() => undefined);
-      }
       // The citation lands even when the download does not (papers.rs commits
       // the bibliography before fetching), so a fetch failure is a notice on a
       // success, not an error. The converter's stderr ends with its one
@@ -173,11 +160,7 @@ export function useReferenceImport({
       setImporting(false);
       setStage(null);
     }
-    // `shared` alone is not enough to keep the publish above alive: it can
-    // flip a commit before `publishToShare` does, and this memo would then pin
-    // the closure that answers `false` for the rest of the share. An imported
-    // reference would reach disk here and never reach the people sharing it.
-  }, [projectRootRef, publishToShare, refreshHistory, refreshProject, shared, showBibEntry, t, onExternalEdits]);
+  }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits]);
 
   const cancelImport = useCallback(() => {
     const requestId = requestIdRef.current;
@@ -251,10 +234,8 @@ export function useReferenceImport({
         });
       }
       onExternalEdits.current([bibliography]);
-      // Re-sync the editor buffer and collab peers with what's now on disk.
-      const next = await invoke<string>("read_project_file", { path: bibliography });
-      await publishToShare(bibliography, next);
-      if (bibliography === activeFile) commit(next);
+      // Re-sync the editor buffer with what's now on disk.
+      if (bibliography === activeFile) commit(await invoke<string>("read_project_file", { path: bibliography }));
       await refreshProject();
       setBibEntry({ open: false });
       if (insertCite) onCite(draft.key);
@@ -264,7 +245,7 @@ export function useReferenceImport({
       setBibEntry({ busy: false });
     }
   }, [
-    activeFile, bibEntry, commit, dirty, importReference, onCite, project, projectRootRef, publishToShare,
+    activeFile, bibEntry, commit, dirty, importReference, onCite, project, projectRootRef,
     refreshProject, save, setBibEntry, source, onExternalEdits,
   ]);
 

@@ -2,10 +2,7 @@ import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { toMessage } from "../app-utils";
-import type { CollabProjectControllerV2 } from "../collab/collab-project-v2";
 import { clearTimer, disposeWhenSettled, restartTimer, type TimerRef } from "./effect-helpers";
-import { setError } from "./notify";
 import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
 const TRAFFIC_LIGHT_OPTICAL_Y_OFFSET_CSS_PX = 0.25;
@@ -54,36 +51,6 @@ export function useWindowMinimumSize({ interfaceScale, minimumSidebarWidth, side
       // Browser previews and older desktop capabilities may not expose this.
     });
   }, [interfaceScale, minimumSidebarWidth, sidebarOpen, canvasMode, projectRoot]);
-}
-
-/** Leave collaboration presence (bounded) before the window closes. */
-export function useLeavePresenceOnClose(controllerRef: RefObject<CollabProjectControllerV2 | null>) {
-  useEffect(() => {
-    const appWindow = getCurrentWindowSafely();
-    if (typeof appWindow?.onCloseRequested !== "function" || typeof appWindow.destroy !== "function") return;
-    let active = true;
-    let closing = false;
-    const stop = disposeWhenSettled(appWindow.onCloseRequested((event) => {
-      if (closing) return;
-      closing = true;
-      event.preventDefault();
-      const leave = controllerRef.current?.leavePresence() ?? Promise.resolve();
-      const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 500));
-      void Promise.race([leave.catch(() => undefined), deadline]).finally(() => {
-        if (!active) return;
-        // Having prevented the close, this is the only thing that still closes
-        // the window: a swallowed rejection would leave the traffic light dead.
-        void appWindow.destroy().catch((reason) => {
-          closing = false;
-          setError(`Lattice could not close its window: ${toMessage(reason)}`);
-        });
-      });
-    }));
-    return () => {
-      active = false;
-      stop();
-    };
-  }, [controllerRef]);
 }
 
 export function useFullscreen(): boolean {

@@ -13,7 +13,6 @@ mod chromium;
 mod citation_audit;
 mod citation_batch;
 mod citation_health;
-mod collab_credentials;
 mod command_diagnostics;
 mod commands;
 mod diagnostic_logs;
@@ -42,7 +41,6 @@ mod presentation;
 mod process_inspector;
 mod project;
 mod project_fs;
-mod semantic_search;
 mod synara;
 #[cfg(test)]
 mod test_support;
@@ -292,17 +290,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ipc::workspace::create_project,
             ipc::workspace::open_tutorial_project,
-            ipc::workspace::create_collab_join_workspace,
             ipc::workspace::initial_project,
             ipc::workspace::open_project,
             ipc::workspace::import_project_zip,
             ipc::workspace::export_project_zip,
             ipc::workspace::refresh_project,
-            ipc::workspace::collab_project_inventory_v2,
             ipc::workspace::update_project_manifest,
             ipc::workspace::set_project_spelling_words,
             ipc::workspace::watch_project,
-            ipc::windows::take_pending_window_action,
             ipc::windows::open_paper_lookup,
             ipc::windows::open_project_window,
             ipc::windows::return_to_desktop,
@@ -320,7 +315,6 @@ pub fn run() {
             ipc::files::stat_project_file,
             ipc::files::read_project_file,
             ipc::files::write_project_file,
-            ipc::files::merge_project_text,
             ipc::files::create_project_entry,
             ipc::files::create_open_slide_deck,
             ipc::files::delete_project_entry,
@@ -348,10 +342,6 @@ pub fn run() {
             ipc::search::list_unused_symbols,
             ipc::search::list_todos,
             ipc::search::count_project_words,
-            ipc::search::semantic_search_start_index,
-            ipc::search::semantic_search_status,
-            ipc::search::semantic_search_cancel,
-            ipc::search::semantic_search_project,
             ipc::bibliography::list_citation_keys,
             ipc::bibliography::list_citations,
             ipc::bibliography::read_bib_entry,
@@ -419,7 +409,6 @@ pub fn run() {
             ipc::overleaf::overleaf_history_updates,
             ipc::overleaf::overleaf_history_diff,
             ipc::overleaf::overleaf_history_files,
-            ipc::overleaf::overleaf_history_labels,
             ipc::overleaf::overleaf_history_revert,
             ipc::overleaf::overleaf_history_restore_file,
             ipc::overleaf::overleaf_history_add_label,
@@ -438,8 +427,6 @@ pub fn run() {
             ipc::overleaf::overleaf_set_paused,
             ipc::overleaf::overleaf_probe,
             ipc::overleaf::overleaf_sync,
-            ipc::overleaf::overleaf_prepare_sync,
-            ipc::overleaf::overleaf_commit_prepared_sync,
             ipc::overleaf_realtime::overleaf_rt_connect,
             ipc::overleaf_realtime::overleaf_rt_disconnect,
             ipc::overleaf_realtime::overleaf_rt_join_doc,
@@ -450,9 +437,6 @@ pub fn run() {
             ipc::overleaf_realtime::overleaf_rt_send_comment,
             ipc::overleaf_realtime::overleaf_reject_changes,
             link_preview::link_preview,
-            collab_credentials::put_collab_credential,
-            collab_credentials::get_collab_credential,
-            collab_credentials::delete_collab_credential,
             literature_credentials::get_literature_credentials,
             literature_credentials::set_literature_credential,
             literature_credentials::set_literature_contact,

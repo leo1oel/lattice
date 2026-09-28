@@ -38,7 +38,7 @@ describe("onboarding tour", () => {
 
   it.each([
     ["spreadsheet", { id: "spreadsheet", spotlightTarget: '[data-tour="spreadsheet-workspace"]' },
-      ["co-authors’ selections and pointers"], []],
+      ["Edit cells and formulas directly"], ["co-authors"]],
     // Spreadsheet ribbon features stay separate from Agent capabilities.
     ["spreadsheetTools", { id: "spreadsheet-tools", target: '[data-u-comp="ribbon-toolbar"]' },
       ["Formulas in the toolbar", "export the spreadsheet as an .xlsx file"], ["Agent"]],
@@ -47,9 +47,9 @@ describe("onboarding tour", () => {
     ["presentation", { id: "presentation", spotlightTarget: '[data-tour="open-slide-workspace"]', title: "Edit an Open Slide presentation" },
       ["thumbnail rail", "Inspect or Design", "Present to show it", "React and TSX"], []],
     ["agent", { id: "agent" }, ["Open Slide presentations", "build slides"], []],
-    // Collaboration, Overleaf sync, and the paper PDF actions are explained at their controls.
+    // Overleaf sync and the paper PDF actions are explained at their controls.
     ["workspaceActions", { id: "workspace-actions", target: '[data-tour="workspace-actions"]' },
-      ["Live collaboration", "Overleaf opens or syncs"], []],
+      ["Overleaf opens or syncs"], ["Live collaboration"]],
     ["paperActions", { id: "paper-actions", target: '[data-tour="paper-actions"]' },
       ["original PDF in Lattice", "external-link button"], []],
   ] as const)("describes the %s step", (name, shape, included, excluded) => {

@@ -31,17 +31,13 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
         .expect("an unused window label always exists")
 }
 
-/// Show `root` in a new desktop window. The window is bound (and handed its
-/// instruction) before it is built: it asks for both during startup, and both
-/// must already resolve.
+/// Show `root` in a new desktop window. The window is bound before it is
+/// built: it asks for its project during startup, which must already resolve.
 fn open_desktop_window(
-    app: &AppHandle, state: &AppState, root: PathBuf, pending: Option<String>,
+    app: &AppHandle, state: &AppState, root: PathBuf,
 ) -> Result<(String, WebviewWindow), String> {
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
     state.bind_window(&label, root)?;
-    if let Some(pending) = pending {
-        state.set_pending_action(&label, pending);
-    }
     match crate::workspace_window(app, &label, false) {
         Ok(window) => Ok((label, window)),
         Err(error) => {
@@ -49,12 +45,6 @@ fn open_desktop_window(
             Err(format!("Could not open a new Lattice window: {error}"))
         }
     }
-}
-
-/// Take the one-shot instruction left for this window, if any.
-#[tauri::command]
-pub fn take_pending_window_action(state: State<'_, AppState>, window: Window) -> Option<String> {
-    state.take_pending_action(window.label())
 }
 
 #[tauri::command]
@@ -90,7 +80,7 @@ pub async fn open_paper_lookup(
 #[tauri::command]
 pub async fn open_project_window(
     app: AppHandle, window: Window, state: State<'_, AppState>,
-    browser: State<'_, browser_host::BrowserHost>, path: String, pending: Option<String>,
+    browser: State<'_, browser_host::BrowserHost>, path: String,
 ) -> Result<OpenedProjectWindow, String> {
     // Opened here, before any window exists, so a project that cannot be read
     // reports the failure into the window the writer is looking at rather than
@@ -106,9 +96,6 @@ pub async fn open_project_window(
         } else if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.unminimize();
             let _ = existing.set_focus();
-            // The window is already up, so it will not run startup again. The
-            // caller is told nothing was opened and acts on the instruction
-            // itself rather than having it silently dropped here.
             return Ok(OpenedProjectWindow { label, focused_existing: true });
         }
         // The binding outlived its window. Drop it and open a fresh one.
@@ -116,9 +103,9 @@ pub async fn open_project_window(
     }
 
     let label = if window.label().starts_with("browser-") {
-        browser.open_project(&app, &state, root, pending)?
+        browser.open_project(&app, &state, root)?
     } else {
-        let (label, created) = open_desktop_window(&app, &state, root, pending)
+        let (label, created) = open_desktop_window(&app, &state, root)
             .map_err(|error| format!("Could not open a new window: {error}"))?;
         let _ = created.set_focus();
         label
@@ -147,7 +134,7 @@ pub fn return_to_desktop(
     let root = current_root(&state, &window)?;
     app.set_activation_policy(tauri::ActivationPolicy::Regular)
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
-    let (label, desktop) = open_desktop_window(&app, &state, root, None)?;
+    let (label, desktop) = open_desktop_window(&app, &state, root)?;
     if let Err(reason) =
         browser.return_to_desktop(&app, window.label(), DesktopReturnTarget::Native)
     {

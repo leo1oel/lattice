@@ -384,7 +384,7 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
     receiver.await.map_err(|_| "The screen color sampler ended without a result.".to_string())
 }
 
-/// Strip Gatekeeper quarantine from our bundle (and an adjacent collab folder when present).
+/// Strip Gatekeeper quarantine from our bundle (and an enclosing Lattice folder when present).
 pub fn clear_launch_quarantine() {
     let Ok(exe) = std::env::current_exe() else {
         return;
@@ -465,18 +465,36 @@ mod tests {
     #[test]
     fn the_red_traffic_light_can_still_close_the_window() {
         // A JS listener on tauri://close-requested makes the core prevent the
-        // native close, so the frontend's destroy() is the only thing left that
-        // can shut the window down. Without the ACL grant that call is denied
-        // and the red button does nothing at all — no error, no close.
-        let native_window = include_str!("../../src/app/use-native-window.ts");
-        assert!(native_window.contains("onCloseRequested"));
-        assert!(native_window.contains("appWindow.destroy()"));
+        // native close, leaving the frontend's destroy() as the only thing that
+        // can shut the window down, and the red button silently dead whenever
+        // that call fails. No window registers one, so the close stays native.
+        let frontend = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src");
+        let listeners: Vec<_> = walkdir::WalkDir::new(&frontend)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                let name = entry.file_name().to_string_lossy();
+                (name.ends_with(".ts") || name.ends_with(".tsx")) && !name.contains(".test.")
+            })
+            .filter(|entry| {
+                std::fs::read_to_string(entry.path()).is_ok_and(|source| {
+                    source.contains("onCloseRequested") || source.contains("close-requested")
+                })
+            })
+            .map(|entry| entry.path().display().to_string())
+            .collect();
+        assert!(listeners.is_empty(), "close-requested listeners: {listeners:?}");
+
+        // The hidden browser-host window still destroys itself once its
+        // browser tab disconnects, which needs the ACL grant.
+        let bridge = include_str!("../../src/platform/browser-host-bridge.ts");
+        assert!(bridge.contains("getCurrentWindow().destroy()"));
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
         let permissions = capability["permissions"].as_array().expect("capability permissions");
         assert!(
             permissions.iter().any(|permission| permission == "core:window:allow-destroy"),
-            "the window close handler needs core:window:allow-destroy"
+            "the browser host bridge needs core:window:allow-destroy"
         );
     }
 }

@@ -222,7 +222,7 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
+export type DocumentViewMode = "source" | "split" | "pdf" | "dual";
 export type CanvasMode = DocumentViewMode | "asset";
 export type EditorPaneId = "primary" | "secondary";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
@@ -383,34 +383,6 @@ export type OverleafSyncResult = {
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
   readOnly?: boolean;
-};
-
-export type OverleafAuthoritativeEntry = {
-  path: string;
-  kind: "text" | "binary" | "board" | "spreadsheet";
-  base64: string;
-};
-
-export type OverleafPreparedAction = {
-  actionId: string;
-  path: string;
-  kind: "create" | "write" | "delete";
-  beforeBase64: string | null;
-  afterBase64: string | null;
-  binary: boolean;
-  outgoing: boolean;
-};
-
-export type OverleafPreparedSync = {
-  planId: string;
-  actions: OverleafPreparedAction[];
-  result: OverleafSyncResult;
-  remoteVersion: number | null;
-};
-
-export type OverleafAcceptedAction = {
-  actionId: string;
-  base64?: string;
 };
 
 // ---- Git version timeline ------------------------------------------------

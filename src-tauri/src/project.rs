@@ -1,13 +1,12 @@
 //! Everything Lattice does to a project folder on disk.
 //!
-//! - [`create`] — new projects from venue templates, the tutorial, and blank
-//!   share workspaces.
+//! - [`create`] — new projects from venue templates and the tutorial.
 //! - [`manifest`] — opening a folder, `.research/project.json`, root documents,
 //!   compile roots, and the editor-comments sidecar.
 //! - [`paths`] — the path guards every file operation goes through, and the
 //!   table of text source kinds.
-//! - [`tree`] — file-tree views, content classification, the collaboration
-//!   inventory, and reading text files.
+//! - [`tree`] — file-tree views, content classification, and reading text
+//!   files.
 //! - [`bibliography`] — BibTeX parsing, entry editing, and SyncTeX hops
 //!   between `.bib` and `.bbl`; [`citation_lookup`] resolves new citations.
 //! - [`symbols`] and [`references`] — `\label`/`\cite` find, rename, and
@@ -48,12 +47,11 @@ pub(crate) use bibliography::{
     parse_bibliography, parse_bibliography_fields_raw, parse_bibliography_fields_syntax,
 };
 pub use citation_lookup::resolve_citation_query;
-pub use create::{create_blank, create_tutorial, create_with_venue, Venue};
+pub use create::{create_tutorial, create_with_venue, Venue};
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
 pub use history::{
     apply_citation_transaction, apply_citation_transaction_checked, apply_editor_transaction,
-    delete_history, get_history_entry, history, merge_text_snapshots, revert, EditorWriteResult,
-    TextMergeResult,
+    delete_history, get_history_entry, history, revert, EditorWriteResult,
 };
 pub use imports::{
     import_assets, import_files, import_files_with_copy, import_image_bytes, import_sources,
@@ -74,14 +72,12 @@ pub(crate) use search::{
 pub use search::{list_todos, preview_replace_in_project, replace_in_project, search_files};
 pub(crate) use symbols::remove_citation_usages;
 pub use symbols::{find_citation_usages, unused_symbols, Symbol};
-pub use tree::{
-    collab_project_inventory_v2, read_file, stat_file, CollabProjectInventoryV2, ProjectFileStat,
-};
 pub(crate) use tree::{project_tree_path_visible, scan_tree, tree_files, TreeView};
+pub use tree::{read_file, stat_file, ProjectFileStat};
 // Fixtures for other modules' tests.
 #[cfg(test)]
 pub use {
-    create::{create, default_manifest},
+    create::{create, create_blank, default_manifest},
     history::apply_transaction,
     manifest::write_manifest,
 };

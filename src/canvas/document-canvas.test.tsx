@@ -124,14 +124,14 @@ function baseProps(): CanvasProps {
     citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
     localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
     buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
-    overleafPresenceCursors: [], overleafChanges: [], collabPeers: [],
+    overleafPresenceCursors: [], overleafChanges: [],
     requests: pending(), commentFocusRequest: null, figurePointerPosition: null, fileDropTargetPane: null,
-    activeOutlineId: null, activeEditorCommentId: null, pdfSyncTarget: null, projectWordCount: null, collabSession: null,
+    activeOutlineId: null, activeEditorCommentId: null, pdfSyncTarget: null, projectWordCount: null,
     nativeFigureDropActive: false, outlineOpen: false, insertOpen: false, tableGeneratorOpen: false,
-    canForwardSync: false, locatingPdf: false, interactivePreviewsEnabled: false, collabReady: false,
+    canForwardSync: false, locatingPdf: false, interactivePreviewsEnabled: false,
     editorKeymap: "default", editorSpellcheck: false, editorEditable: true, secondaryEditorEditable: true,
     overleafTrackChangeActions: { authorName: () => "Unknown", canAct: () => false, onAccept: vi.fn(), onReject: vi.fn() },
-    commentAuthorName: "Ada", commentAuthorId: "ada", todoCount: 0, collabEditorKey: "local",
+    commentAuthorName: "Ada", commentAuthorId: "ada", todoCount: 0, editorKey: "local",
   };
 }
 
@@ -325,9 +325,8 @@ describe("DocumentCanvas / mode", () => {
     // so it names whatever the open document actually previews.
     { mode: "split", editors: 1, pdf: false, separators: ["Resize editor and Markdown preview"], activeFile: "notes.md" },
     { mode: "split", editors: 1, pdf: false, separators: ["Resize editor and asset preview"], activeFile: "notes.md", activeAsset: imageAsset },
-    // Two editors and no project preview, until columns adds it with its own resizer.
+    // Two editors and no project preview.
     { mode: "dual", editors: 2, pdf: false, separators: ["Resize dual source panes"] },
-    { mode: "columns", editors: 2, pdf: true, separators: ["Resize dual source panes", "Resize PDF pane"] },
   ] as const)("lays out $mode mode with $editors editors, PDF: $pdf, separators: $separators", async ({ mode, editors, pdf, separators, ...document }) => {
     const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "\\section{Appendix}\n", ...document });
 
@@ -335,7 +334,6 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(Boolean(screen.queryByTestId("pdf-preview"))).toBe(pdf));
     expect(screen.queryAllByRole("separator").map((separator) => separator.getAttribute("aria-label"))).toEqual(separators);
     expect(Boolean(container.querySelector(".split-canvas"))).toBe(separators.length > 0);
-    expect(Boolean(container.querySelector(".columns-canvas"))).toBe(mode === "columns");
   });
 
   it("embeds standalone data HTML frames inside the sandboxed HTML preview", async () => {
@@ -478,7 +476,7 @@ describe("DocumentCanvas / split ratio", () => {
     const { container } = renderCanvas({ mode, secondaryFile: "appendix.tex", secondarySource: "Appendix" });
     const split = container.querySelector<HTMLElement>(".split-canvas")!;
     vi.spyOn(split, "getBoundingClientRect").mockReturnValue(bounds as DOMRect);
-    const property = label === "Resize PDF pane" ? "--split-pdf-offset" : "--split-resizer-offset";
+    const property = "--split-resizer-offset";
     const offset = () => Number.parseFloat(split.style.getPropertyValue(property));
     return { split, property, offset, grip: screen.getByRole("separator", { name: label }) };
   }
@@ -486,8 +484,6 @@ describe("DocumentCanvas / split ratio", () => {
   it.each([
     { mode: "split", label: "Resize editor and PDF preview", inside: 700, saved: 1099 / 1599, key: SPLIT_RATIO_KEY },
     { mode: "dual", label: "Resize dual source panes", inside: 700, saved: 0.8, key: SPLIT_RATIO_KEY },
-    { mode: "columns", label: "Resize dual source panes", inside: 600, saved: 0.75, key: SPLIT_RATIO_KEY },
-    { mode: "columns", label: "Resize PDF pane", inside: 1100, saved: 0.22, key: "lattice.columns-pdf-ratio.v1" },
   ] as const)("adds boundary-only resistance to $mode / $label without saving the offset", ({ mode, label, inside, saved, key }) => {
     const { property, offset, grip } = renderGrip(mode, label, { left: 100, right: 1700, width: 1600 });
     fireEvent.pointerDown(grip, { clientX: inside });
@@ -549,7 +545,6 @@ describe("DocumentCanvas / split ratio", () => {
 
   it.each([
     { mode: "dual", label: "Resize dual source panes", width: 800, x: 200, direction: -1 },
-    { mode: "columns", label: "Resize PDF pane", width: 1200, x: 760, direction: 1 },
   ] as const)("respects pixel minimums before ratio limits in $mode", ({ mode, label, width, x, direction }) => {
     const { split, property, offset, grip } = renderGrip(mode, label, { left: 0, right: width, width });
     fireEvent.pointerDown(grip, { clientX: width / 2 });

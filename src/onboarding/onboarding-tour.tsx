@@ -3,7 +3,6 @@ import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ACTIONS, EVENTS, Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from "react-joyride";
 import { TUTORIAL_STEPS } from "./onboarding-steps";
-import { isCollabEnabled } from "../collab/collab-feature-policy";
 
 const ACTION_BUTTONS: Step["buttons"] = ["back", "skip"];
 const READING_BUTTONS: Step["buttons"] = ["back", "skip", "primary"];
@@ -343,7 +342,6 @@ export function OnboardingTour(props: {
         },
         ...extra,
       });
-    const collab = isCollabEnabled();
     return [
       step("welcome", "body", "center",
         t`Welcome to Lattice`,
@@ -381,16 +379,14 @@ export function OnboardingTour(props: {
         t`Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable`),
       canvas("spreadsheet", '[data-tour="spreadsheet-workspace"]',
         t`Analyze results in a live spreadsheet`,
-        t`Edit cells and formulas directly. In shared projects, co-authors’ selections and pointers appear live`),
+        t`Edit cells and formulas directly`),
       step("spreadsheet-tools", '[data-u-comp="ribbon-toolbar"]', "bottom-start",
         t`Formulas and Excel export`,
         t`Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file`,
         { spotlightPadding: 5 }),
       step("workspace-actions", '[data-tour="workspace-actions"]', "bottom-end",
-        collab ? t`Collaboration, Overleaf, and history` : t`Overleaf and history`,
-        collab
-          ? t`Live collaboration shares the project with co-authors for real-time editing and comments. Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`
-          : t`Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`),
+        t`Overleaf and history`,
+        t`Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions`),
       action("open-papers", '[data-tour="papers-tab"]', "bottom",
         t`Manage cited papers`,
         t`Open Papers to see the sources cited by this manuscript`,

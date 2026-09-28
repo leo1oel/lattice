@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import * as Y from "yjs";
-import { Awareness } from "y-protocols/awareness";
+import type * as Y from "yjs";
 import type { LatticeSpreadsheetFile, SpreadsheetCellData, SpreadsheetWorkbookData } from "./spreadsheet-types";
 
 type CellValues = Record<string, Record<string, SpreadsheetCellData | null>>;
@@ -21,6 +20,8 @@ const univerMock = vi.hoisted(() => ({
   theme: { current: { white: "#fff", black: "#000", gray: {} }, setTheme: vi.fn(), setDarkMode: vi.fn() },
 }));
 const tauriMock = vi.hoisted(() => ({ invoke: vi.fn(), save: vi.fn() }));
+/** Each mounted editor's workbook document, by path, as the Agent tools see it. */
+const sheetDocs = vi.hoisted(() => new Map<string, Y.Doc>());
 
 type MockRange = ReturnType<typeof mockRange>;
 type MockWorkbook = ReturnType<typeof makeWorkbook>;
@@ -35,7 +36,6 @@ function mockRange(notation: string) {
     getA1Notation: () => notation,
     activate: vi.fn(),
     activateAsCurrentCell: vi.fn(),
-    attachPopup: vi.fn((_options: unknown) => ({ dispose: vi.fn() })),
   };
 }
 
@@ -54,9 +54,6 @@ function makeSheet(snapshot: SpreadsheetWorkbookData, sheetId: string) {
       getScrollLeftTopFromSnapshot: () => ({ scrollTop: sheet().scrollTop, scrollLeft: sheet().scrollLeft }),
     }),
     getZoom: () => sheet().zoomRatio,
-    getMaxRows: () => sheet().rowCount,
-    getMaxColumns: () => sheet().columnCount,
-    highlightRanges: vi.fn(() => ({ dispose: vi.fn() })),
     setDefaultStyle: vi.fn((style: Record<string, unknown>) => { sheet().defaultStyle = clone(style); }),
   };
 }
@@ -66,14 +63,11 @@ function makeWorkbook(data: SpreadsheetWorkbookData) {
   const sheets = new Map(snapshot.sheetOrder.map((sheetId) => [sheetId, makeSheet(snapshot, sheetId)]));
   const sheet = sheets.get(snapshot.sheetOrder[0])!;
   let activeSheet = sheet;
-  const permission = { setEditable: vi.fn(async () => undefined), setReadOnly: vi.fn(async () => undefined) };
   const workbook = {
     data: snapshot,
-    permission,
     sheet,
     getId: () => snapshot.id,
     save: vi.fn(() => clone(snapshot)),
-    getWorkbookPermission: () => permission,
     getActiveSheet: () => activeSheet,
     getSheets: () => [...sheets.values()],
     getSheetBySheetId: (id: string) => sheets.get(id) ?? null,
@@ -164,13 +158,23 @@ vi.mock("@univerjs/preset-sheets-core", () => ({
 }));
 vi.mock("@univerjs/preset-sheets-core/locales/en-US", () => ({ default: {} }));
 vi.mock("@univerjs/preset-sheets-core/locales/zh-CN", () => ({ default: {} }));
+vi.mock("../../agent/agent-spreadsheet-tools", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../agent/agent-spreadsheet-tools")>();
+  return {
+    ...actual,
+    registerAgentSpreadsheetDocument: (...args: Parameters<typeof actual.registerAgentSpreadsheetDocument>) => {
+      sheetDocs.set(args[0], args[1].doc);
+      return actual.registerAgentSpreadsheetDocument(...args);
+    },
+  };
+});
 
-import { SpreadsheetEditor, type SpreadsheetCollabBinding, type SpreadsheetEditorProps } from "./spreadsheet-editor";
+import { SpreadsheetEditor, type SpreadsheetEditorProps } from "./spreadsheet-editor";
 import { ConfirmActionProvider } from "../../components/ui/confirm-action-dialog";
 import { activateAppLocale } from "../../i18n";
 import { executeAgentSpreadsheetToolRequest, SYNARA_SPREADSHEET_TOOL_REQUEST } from "../../agent/agent-spreadsheet-tools";
 import { applySpreadsheetBatch, readSpreadsheet } from "./spreadsheet-operations";
-import { createDefaultSpreadsheet, seedSpreadsheetDoc, serializeSpreadsheetFile } from "./spreadsheet-yjs";
+import { createDefaultSpreadsheet, serializeSpreadsheetFile } from "./spreadsheet-yjs";
 
 afterEach(() => {
   // Unmount leftover editors before resetting Univer mocks. A thrown assertion
@@ -184,6 +188,7 @@ afterEach(() => {
   univerMock.theme.setDarkMode.mockClear();
   tauriMock.invoke.mockReset();
   tauriMock.save.mockReset();
+  sheetDocs.clear();
   for (const token of ["--editor-bg", "--text-primary", "--border-subtle", "--border-strong"]) document.documentElement.style.removeProperty(token);
   delete document.documentElement.dataset.theme;
 });
@@ -199,10 +204,10 @@ function renderSheet(
   return { view, onChange, workbook: univerMock.workbooks[0] };
 }
 
-function renderShared(collab: Partial<SpreadsheetCollabBinding> = {}) {
-  const doc = collab.doc ?? new Y.Doc();
-  seedSpreadsheetDoc(doc);
-  return { doc, ...renderSheet({ path: "shared.lattice-sheet", source: "", collab: { doc, awareness: null, user: null, canWrite: true, ...collab } }) };
+/** A default workbook, with the document foreign (Agent) edits reach it through. */
+function renderSeeded() {
+  const rendered = renderSheet({ path: "seeded.lattice-sheet", source: "" });
+  return { doc: sheetDocs.get("seeded.lattice-sheet")!, ...rendered };
 }
 
 function emitMutation(workbook: MockWorkbook, cellValue?: CellValues) {
@@ -227,7 +232,7 @@ async function savedWorkbook(onChange: Mock<(next: string) => void>): Promise<Sp
 
 const firstSheet = (workbook: SpreadsheetWorkbookData) => workbook.sheets[workbook.sheetOrder[0]];
 
-describe("SpreadsheetEditor collaboration bridge", () => {
+describe("SpreadsheetEditor", () => {
   it("contains a malformed native file instead of crashing the workspace", () => {
     const { view } = renderSheet({ source: "{}" });
     expect(view.getByRole("alert")).toHaveTextContent("Couldn’t open this spreadsheet");
@@ -320,7 +325,7 @@ describe("SpreadsheetEditor collaboration bridge", () => {
   });
 
   it("writes sparse cell mutations without saving the whole Univer workbook", async () => {
-    const { doc, workbook } = renderShared();
+    const { doc, workbook } = renderSeeded();
     workbook.save.mockClear();
     workbook.data.sheets[workbook.sheet.getSheetId()].cellData[0] = { 0: { v: "fast", t: 1 } };
 
@@ -499,8 +504,8 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(firstSheet(await savedWorkbook(onChange)).cellData[0][0].v).toBe("Agent");
   });
 
-  it("rebases a queued local command over a remote update without losing either cell", async () => {
-    const { doc, workbook } = renderShared();
+  it("rebases a queued local command over a foreign update without losing either cell", async () => {
+    const { doc, workbook } = renderSeeded();
     const sheet = firstSheet(workbook.data);
     sheet.cellData[0] = { 0: { v: "local", t: 1 } };
 
@@ -513,15 +518,13 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(workbook.data.sheets[sheet.id].cellData[0]).toMatchObject({ 0: { v: "local" }, 1: { v: "remote" } });
   });
 
-  it("patches remote cells without echo and preserves view state across remote structure changes", async () => {
-    const doc = new Y.Doc();
+  it("patches foreign cells without echo and preserves view state across foreign structure changes", async () => {
+    const { doc, workbook: initial } = renderSeeded();
     const localOrigins: unknown[] = [];
     doc.on("afterTransaction", (transaction) => {
       if (transaction.origin === "spreadsheet-local") localOrigins.push(transaction.origin);
     });
-    const { workbook: initial } = renderShared({ doc, canWrite: false });
     Object.assign(firstSheet(initial.data), { scrollTop: 240, scrollLeft: 80, zoomRatio: 1.4 });
-    await waitFor(() => expect(initial.permission.setReadOnly).toHaveBeenCalled());
     const applyRemote = (operation: Parameters<typeof applySpreadsheetBatch>[1]["operations"][number]) =>
       settled(() => applySpreadsheetBatch(doc, { operations: [operation] }));
 
@@ -538,36 +541,5 @@ describe("SpreadsheetEditor collaboration bridge", () => {
     expect(firstSheet(replacement.data)).toMatchObject({ name: "Remote", scrollTop: 240, scrollLeft: 80, zoomRatio: 1.4 });
     expect(replacement.setActiveSheet).toHaveBeenCalled();
     expect(localOrigins).toEqual([]);
-  });
-
-  it("anchors a remote pointer inside its actual zero-based cell", async () => {
-    const doc = new Y.Doc();
-    const awareness = new Awareness(doc);
-    const { workbook } = renderShared({ doc, awareness, user: { id: "local", name: "Ada", color: "#123456" } });
-    const markerRange = mockRange("C4");
-    const getRange = vi.spyOn(workbook.sheet, "getRange").mockReturnValue(markerRange);
-
-    act(() => {
-      awareness.states.set(999, {
-        user: { id: "remote", name: "Bo", color: "#654321" },
-        spreadsheetPresence: {
-          path: "shared.lattice-sheet",
-          sheetId: workbook.sheet.getSheetId(),
-          selections: [],
-          pointer: { row: 3, column: 2, xRatio: 0.5, yRatio: 0.5 },
-        },
-      });
-      awareness.emit("change", [{ added: [999], updated: [], removed: [] }, "remote"]);
-    });
-
-    await waitFor(() => expect(markerRange.attachPopup).toHaveBeenCalledOnce());
-    expect(getRange).toHaveBeenCalledWith(3, 2);
-    const options = markerRange.attachPopup.mock.calls[0]![0] as {
-      componentKey: ComponentType<{ popup: { extraProps?: { color?: string; name?: string } } }>;
-      extraProps: { color: string; name: string };
-    };
-    const Popup = options.componentKey;
-    expect(render(<Popup popup={{ extraProps: options.extraProps }} />).container.firstChild).toHaveStyle({ transform: "translateY(100%)" });
-    awareness.destroy();
   });
 });

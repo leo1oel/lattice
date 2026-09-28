@@ -24,15 +24,10 @@ import { SearchPickerDialog } from "./components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
 import { paperImportStageLabel } from "./papers/paper-import-progress";
-import {
-  assertCollabWorkspaceLease,
-  CollabDiskWriteQueue,
-  type CollabWorkspaceLease,
-} from "./collab/collab-workspace-lease";
-import { loadEditorCommentAuthorId } from "./editor/comments/editor-comment-data";
+import { loadAuthorDisplayName, loadEditorCommentAuthorId } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
-import { configureInterfaceSounds, playInterfaceSound } from "./telemetry/interface-sounds";
+import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { useWorkspaceSidebar } from "./app/use-workspace-sidebar";
 import { useFileViewStates } from "./app/use-file-view-states";
 import { useProjectSearch } from "./app/use-project-search";
@@ -44,7 +39,6 @@ import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useTexSetup } from "./app/use-tex-setup";
 import { paperDocumentPath, useDocumentBuffers } from "./app/use-document-buffers";
-import { useLocalSemanticSearch } from "./app/use-local-semantic-search";
 import { useSynaraHost } from "./app/use-synara-host";
 import { useAgentContext } from "./app/use-agent-context";
 import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
@@ -52,25 +46,13 @@ import { loadBibliographyIndex, useProjectLibrary } from "./app/use-project-libr
 import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
 import {
   useFullscreen,
-  useLeavePresenceOnClose,
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
 import { afterNextPaintOpportunity, disposeWhenSettled, useLatest } from "./app/effect-helpers";
-import { useCollabChat } from "./collab/use-collab-chat";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
-import {
-  bytesToBase64,
-  SHARE_SOURCE,
-  useCollabV2Session,
-} from "./app/use-collab-v2-session";
-import {
-  syncSharedProjectWithOverleaf,
-  writeOpenSlideMutation,
-  type EditorWriteResult,
-  type SharedWorkspaceDisk,
-} from "./app/shared-document-sync";
-import { AppCollabDialog, AppOverleafCollabDrawer } from "./app/app-collab-surfaces";
+import { writeOpenSlideMutation, type EditorWriteResult } from "./app/open-slide-writes";
+import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppOnboardingTour } from "./app/app-onboarding-tour";
@@ -84,7 +66,6 @@ import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
 } from "./editor/presentation/open-slide-bridge";
-import { AvatarGroup } from "./components/ui/avatar-group";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
@@ -114,36 +95,8 @@ import {
   registerAgentSpreadsheetDocumentResolver,
   waitForAgentSpreadsheetDocument,
 } from "./agent/agent-spreadsheet-tools";
-import { isSpreadsheetPath } from "./editor/spreadsheet/spreadsheet-types";
 import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
-import {
-  clearPreCollabProjectRoot,
-  rememberPreCollabProjectRoot,
-} from "./collab/collab-return";
 import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion";
-import {
-  mergeTextIntoYText,
-  peerInitials,
-  peerCursorLocationV2,
-  waitForPeerCursorLocationV2,
-  type CollabPeer,
-  type EditorCollabSession,
-} from "./collab/collab-session";
-import { saveCollabDisplayName } from "./collab/collab-config";
-import { collabCredentialStore } from "./collab/collab-credentials";
-import { isCollabEnabled, loadCollabFeaturePolicy } from "./collab/collab-feature-policy";
-import { CollabControlErrorV2, CollabControlV2Client } from "./collab/collab-control-v2";
-import { acceptCollabInvitationV2 } from "./collab/collab-join-v2";
-import { parseCollabInvitationV2 } from "./collab/collab-invitation-v2";
-import { CollabProjectControllerV2 } from "./collab/collab-project-v2";
-import { isClientDestroyedErrorV2 } from "./collab/collab-text-v2";
-import { planRemoteCollabDeleteUiV2, requireRememberedV2Credential } from "./collab/collab-app-v2";
-import {
-  forgetCollabProjectV2,
-  loadCollabProjectsV2,
-  rememberCollabProjectV2,
-  type CollabProjectRecordV2,
-} from "./collab/collab-rooms";
 import {
   EMPTY_DIAGNOSTICS,
   flattenProjectPaths,
@@ -183,7 +136,6 @@ import type {
   DocumentViewMode,
   SettingsTab,
   InsertSymbolCommand,
-  OverleafSyncResult,
   ViewRestoreRequest,
 } from "./app-types";
 import {
@@ -279,15 +231,6 @@ const EMPTY_SPELLING_WORDS: string[] = [];
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
 
-/// A one-shot instruction handed to a window as it opens, for the things the
-/// project on disk cannot say. Kept narrow on purpose: the window that runs it
-/// has to be able to do so from its own startup state alone.
-type PendingWindowAction = {
-  kind: "join-collab-v2";
-  host: string;
-  projectInstanceId: string;
-};
-
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
@@ -296,7 +239,7 @@ function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
 }
 
-const isTwoPane = (mode: CanvasMode) => mode === "dual" || mode === "columns";
+const isTwoPane = (mode: CanvasMode) => mode === "dual";
 /** A canvas-mode updater that brings an editor on screen, widening a preview-only or asset surface to split. */
 const showEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
 
@@ -322,12 +265,6 @@ async function readPaperDocuments(arxivId: string) {
 /** Keep full text when it is showing and exists; otherwise prefer the overview. */
 function preferredPaperView(current: "blog" | "fulltext", markdown: string, blog: string | null) {
   return current === "fulltext" && markdown ? "fulltext" : blog ? "blog" : "fulltext";
-}
-
-/** How a live share stores a newly created text-like file. */
-function sharedTextKind(path: string): "board" | "spreadsheet" | "text" {
-  if (path.toLocaleLowerCase().endsWith(".tldr")) return "board";
-  return isSpreadsheetPath(path) ? "spreadsheet" : "text";
 }
 
 function recordNavigationTiming(
@@ -562,7 +499,7 @@ function App() {
   const navLock = useRef(false);
   const {
     statesRef: viewStateRef, get: getFileViewState, remember: rememberFileViewState, allow: allowViewState,
-    drop: dropViewState, forget: forgetViewStates, remap: remapViewStates, loadForProject: loadViewStatesForProject,
+    forget: forgetViewStates, remap: remapViewStates, loadForProject: loadViewStatesForProject,
   } = useFileViewStates(project?.root ?? null, projectRef, projectBeforeTransitionRef);
   const [canvasRequests, setCanvasRequests] = useState<CanvasRequests>({
     navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null,
@@ -585,8 +522,6 @@ function App() {
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
   const projectSearch = useProjectSearch();
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
-  const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
-  const { requestReindex: requestSemanticReindex } = semanticSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const activePaperSource = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
@@ -638,6 +573,7 @@ function App() {
   const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
   const [todosOpen, setTodosOpen] = useState(false);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
+  const authorName = useMemo(() => loadAuthorDisplayName(), []);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [insertOpen, setInsertOpen] = useState(false);
   const dualPreview = isTwoPane(canvasMode) && dualPanePreview?.projectRoot === project?.root ? dualPanePreview : null;
@@ -664,14 +600,6 @@ function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- capability loss invalidates this transient UI state
     if (!canInsert && insertOpen) setInsertOpen(false);
   }, [canInsert, insertOpen]);
-  const [collabSession, setCollabSession] = useState<EditorCollabSession | null>(null);
-  const [collabCanWrite, setCollabCanWrite] = useState(true);
-  const [activeCollabVersion, setActiveCollabVersion] = useState<2 | null>(null);
-  // True only after the shared doc has been seeded (host) / materialized (guest).
-  // The editor must not bind yCollab before this: binding early makes the guest
-  // create a competing main.tex Y.Text that loses the map key to the host's copy,
-  // orphaning the editor on the "Waiting for shared project files" placeholder.
-  const [collabReady, setCollabReady] = useState(false);
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const saveActivityRef = useRef({ pending: 0, generation: 0 });
@@ -681,20 +609,13 @@ function App() {
     for (const path of paths) savedPathsRef.current.add(path);
     setSaveGeneration((generation) => generation + 1);
   }, []);
-  const collabSessionRef = useRef<EditorCollabSession | null>(null);
-  const collabV2ControllerRef = useRef<CollabProjectControllerV2 | null>(null);
-  const collabWorkspaceLeaseRef = useRef<CollabWorkspaceLease | null>(null);
-  const collabDiskWriteQueueRef = useRef(new CollabDiskWriteQueue());
-  const collabPathMutationGenerationRef = useRef(new Map<string, number>());
-  const collabPathMutationGeneration = useCallback((path: string) => collabPathMutationGenerationRef.current.get(path) ?? 0, []);
-  const collabDetachRef = useRef<(() => void) | null>(null);
   const projectRootRef = useRef<string | null>(null);
   const agentProjectDocumentCreatorRef = useRef<((
     request: AgentProjectDocumentToolRequest,
   ) => Promise<string>) | null>(null);
   const enterProjectRef = useRef<((
     snapshot: ProjectSnapshot,
-    options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
+    options?: { deferInitialBuild?: boolean },
   ) => Promise<void>) | null>(null);
   const compileRef = useRef<(
     force?: boolean,
@@ -719,7 +640,7 @@ function App() {
     projectRoot: string;
     primaryPath: string;
     secondaryPath: string;
-    mode: "dual" | "columns";
+    mode: "dual";
   } | null>(null);
   useLayoutEffect(() => {
     if (
@@ -750,35 +671,8 @@ function App() {
       documentModeRef.current = canvasMode;
     }
   }, [activeAsset, activeFile, activePaper, canvasMode]);
-  collabSessionRef.current = collabSession;
-  useEffect(() => {
-    setCollabCanWrite(collabSession?.canWrite !== false);
-    return collabSession?.subscribeCanWrite?.(setCollabCanWrite);
-  }, [collabSession]);
   projectRootRef.current = project?.root ?? null;
   useEffect(() => registerAgentSpreadsheetDocumentResolver(async (path) => {
-    const controller = collabV2ControllerRef.current;
-    if (activeCollabVersion === 2) {
-      // A live shared project is catalog-authoritative. Falling through to the
-      // local filesystem for an unshared or differently-typed path would let
-      // the Agent create edits that collaborators can never receive.
-      if (!controller) return null;
-      if (!controller.hasSpreadsheetPath(path)) return null;
-      await controller.openPath(path, "secondary", { sideload: true });
-      const binding = controller.spreadsheetDocumentForPath(path);
-      if (!binding) return null;
-      return {
-        doc: binding.doc,
-        canWrite: binding.canWrite && collabCanWrite,
-        awareness: binding.awareness,
-        path,
-        commit: async () => {
-          await controller.settled();
-          await controller.flush();
-        },
-      };
-    }
-
     const projectRoot = projectRootRef.current;
     if (!projectRoot) return null;
     const content = await invoke<string>("read_project_file", { path, projectRoot });
@@ -795,7 +689,7 @@ function App() {
       },
       dispose: () => doc.destroy(),
     };
-  }), [activeCollabVersion, collabCanWrite, recordSavedPaths]);
+  }), [recordSavedPaths]);
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
     updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
@@ -1098,15 +992,6 @@ function App() {
       expectedProjectRoot?: string;
       projectGeneration?: number;
       /**
-       * The v2 controller this load is binding, for a caller that owns the
-       * session but has not published it yet. Joining cannot publish first —
-       * DocumentCanvas would render against activePath="" and crash in
-       * setActivePath — so without this the guest's own load could not tell
-       * that the controller in the ref is the live session, took the plain
-       * read-from-disk path, and left the share connected but never activated.
-       */
-      collabController?: CollabProjectControllerV2;
-      /**
        * A prerequisite (the previous file's save) the load may overlap with
        * its own disk read but must confirm before committing state. Resolving
        * false — or rejecting — aborts the switch, preserving the old
@@ -1156,54 +1041,6 @@ function App() {
       }
     };
     try {
-      const v2 = collabV2ControllerRef.current;
-      if (v2?.hasTextPath(path) && (options?.collabController === v2 || activeCollabVersion === 2 || collabSessionRef.current === v2)) {
-        // The gate must settle before openPath: activation mutates the
-        // controller's activePath, which must not happen for an aborted switch.
-        if (options?.gate && !(await options.gate)) return false;
-        if (!isLatestLoad() || options?.canCommit?.() === false) return false;
-        // cachedFirst: with a server-acked local snapshot the switch shows
-        // content immediately and syncs in the background; a cache miss still
-        // waits (bounded) so a fresh doc never flashes empty.
-        const ytext = await v2.openPath(path, "main", {
-          activateIf: () => isLatestLoad() && (options?.canCommit?.() ?? true),
-          cachedFirst: true,
-          timeoutMs: 8_000,
-        });
-        if (!isLatestLoad() || options?.canCommit?.() === false) return false;
-        const content = ytext.toString();
-        showLoadedDocument(content);
-        setCollabSession(v2);
-        setCollabReady(true);
-        collabDetachRef.current?.();
-        const writeRemote = (remote: string) => {
-          const lease = collabWorkspaceLeaseRef.current;
-          if (!lease?.isCurrent()) return;
-          const generation = collabPathMutationGeneration(path);
-          void collabDiskWriteQueueRef.current.run(lease, path, () => generation === collabPathMutationGeneration(path)
-            ? invoke("write_project_file", { path, content: remote, projectRoot: lease.projectRoot })
-            : Promise.resolve())
-            .then(() => { if (lease.isCurrent() && generation === collabPathMutationGeneration(path)) setSavedSource(remote); })
-            .catch((reason) => { if (lease.isCurrent()) setError(toMessage(reason)); });
-        };
-        if (path.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(path)) {
-          // The v2 controller owns structured-document materialization for
-          // both local and remote edits; a second observer duplicates writes.
-          collabDetachRef.current = null;
-        } else {
-          const onText = (_event: unknown, transaction: { local: boolean }) => {
-            if (transaction.local) return;
-            writeRemote(ytext.toString());
-          };
-          ytext.observe(onText);
-          collabDetachRef.current = () => ytext.unobserve(onText);
-        }
-        // Purely bookkeeping for the external-change detector; nothing below
-        // depends on it, so don't hold the switch on a stat round trip
-        // (mayApply already discards stale completions).
-        void markDiskMtime(path, isLatestLoad);
-        return isLatestLoad();
-      }
       const [content, gateOk] = await Promise.all([
         invoke<string>("read_project_file", { path, projectRoot }),
         options?.gate ?? Promise.resolve(true),
@@ -1225,130 +1062,13 @@ function App() {
       void markDiskMtime(path, isLatestLoad);
       return true;
     } catch (reason) {
-      // A document torn down while this load was still awaiting it — closing
-      // the file, switching away, ending the share — is how a client's life
-      // normally ends, so it is not something to put on screen.
-      if (isLatestLoad() && !isClientDestroyedErrorV2(reason)) setError(toMessage(reason));
+      if (isLatestLoad()) setError(toMessage(reason));
       return false;
     }
   }, [
-    activeCollabVersion, activeFileRef, addOpenTab, closePaper, collabPathMutationGeneration, markDiskMtime,
-    projectOperationGenerationRef, projectRef, requestEditorLine, setSavedSource, showActiveAsset,
-    showPrimaryText, viewStateRef, setViewRestore,
+    activeFileRef, addOpenTab, closePaper, markDiskMtime, projectOperationGenerationRef, projectRef,
+    requestEditorLine, showActiveAsset, showPrimaryText, viewStateRef, setViewRestore,
   ]);
-
-  useLeavePresenceOnClose(collabV2ControllerRef);
-
-  const handleRemoteCollabDeleteV2 = useCallback(async (
-    path: string,
-    lease: CollabWorkspaceLease,
-    deleteFromDisk: () => Promise<void>,
-  ) => {
-    if (!lease.isCurrent()) return;
-    collabPathMutationGenerationRef.current.set(path, collabPathMutationGeneration(path) + 1);
-    const controller = collabV2ControllerRef.current;
-    const deletedActive = activeFileRef.current === path;
-    dropViewState(path);
-    const remaining = forgetOpenPaths((candidate) => candidate === path);
-    if (secondaryFileRef.current === path) {
-      showSecondaryText(null);
-      setFocusedPane("primary");
-    }
-    if (deletedActive) {
-      // Fence the stale buffer before any refresh await. Otherwise autosave can
-      // recreate a path the shared catalog has authoritatively deleted.
-      collabDetachRef.current?.();
-      collabDetachRef.current = null;
-      showPrimaryText("", "");
-    }
-
-    await deleteFromDisk();
-    const projectGeneration = projectOperationGenerationRef.current;
-    const snapshot = await refreshProject({ expectedRoot: lease.projectRoot, generation: projectGeneration });
-    if (!lease.isCurrent() || collabV2ControllerRef.current !== controller || !deletedActive) return;
-    const { replacement } = planRemoteCollabDeleteUiV2({
-      path,
-      activeFile: path,
-      secondaryFile: null,
-      openTabs: remaining.tabs,
-      tabRecency: remaining.recency,
-      liveTextPaths: controller?.catalogTextPaths() ?? [],
-      preferredPaths: [
-        ...snapshot.manifest.rootDocuments.filter((document) => document.isDefault).map((document) => document.path),
-        ...snapshot.manifest.rootDocuments.map((document) => document.path),
-      ],
-    });
-    if (replacement) {
-      await loadFile(replacement, {
-        restoreView: false,
-        expectedProjectRoot: lease.projectRoot,
-        projectGeneration: projectOperationGenerationRef.current,
-      });
-    } else {
-      setNotice("The open file was deleted by a collaborator; this share has no other text file to open.");
-    }
-  }, [
-    activeFileRef, collabPathMutationGeneration, dropViewState, loadFile, projectOperationGenerationRef,
-    refreshProject, secondaryFileRef, showSecondaryText, forgetOpenPaths, showPrimaryText,
-  ]);
-
-  /**
-   * Disk callbacks for a v2 workspace: initial materialization plus peer tree
-   * reconciliation (create/rename/delete pulled from the catalog event stream).
-   * Rename covers arbitrary path changes by composing move + rename.
-   */
-  const v2WorkspaceCallbacks = useCallback((lease: CollabWorkspaceLease): SharedWorkspaceDisk => ({
-    writeText: (path, content, projectRoot) => {
-      const generation = collabPathMutationGeneration(path);
-      return collabDiskWriteQueueRef.current.run(lease, path, async () => {
-        if (generation !== collabPathMutationGeneration(path)) return;
-        await invoke("write_project_file", { path, content, projectRoot });
-        if (isWholeFileEditorPath(path) && !overleafSyncingRef.current) {
-          recordSavedPaths([path]);
-        }
-      });
-    },
-    writeBytes: (path, bytes, projectRoot) => {
-      const generation = collabPathMutationGeneration(path);
-      return collabDiskWriteQueueRef.current.run(lease, path, () => generation === collabPathMutationGeneration(path) ? invoke("write_project_bytes", { path, base64Data: bytesToBase64(bytes), projectRoot }) : Promise.resolve());
-    },
-    delete: (path, projectRoot) => handleRemoteCollabDeleteV2(path, lease, () => (
-      collabDiskWriteQueueRef.current.run(lease, path, () => invoke("delete_project_entry", { path, projectRoot }))
-    )),
-    rename: (oldPath, newPath, projectRoot) => collabDiskWriteQueueRef.current.run(lease, oldPath, async () => {
-      const directoryOf = (path: string) => path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-      const nameOf = (path: string) => path.split("/").pop() ?? path;
-      let current = oldPath;
-      if (directoryOf(oldPath) !== directoryOf(newPath)) {
-        current = await invoke<string>("move_project_entry", { path: current, targetDirectory: directoryOf(newPath), projectRoot });
-      }
-      if (nameOf(current) !== nameOf(newPath)) {
-        current = await invoke<string>("rename_project_entry", { path: current, newName: nameOf(newPath), projectRoot });
-      }
-      return current;
-    }),
-  }), [collabPathMutationGeneration, handleRemoteCollabDeleteV2, recordSavedPaths]);
-
-  // ---- Lattice Share (Yjs v2) ----------------------------------------------
-  // Room state and the whole start / join / leave / close lifecycle live in
-  // `src/app/use-collab-v2-session.ts`. The call sits here, below `loadFile`
-  // and `v2WorkspaceCallbacks`, because both of those bind the editor and its
-  // buffers to shared documents and therefore have to stay in App.
-  const collab = useCollabV2Session({
-    project, projectRef, projectRootRef, projectOperationGenerationRef, activeFile, recentProjects,
-    editorCommentAuthorId, activeCollabVersion, setActiveCollabVersion, collabSession, setCollabSession,
-    collabSessionRef, setCollabReady, collabV2ControllerRef, collabWorkspaceLeaseRef, collabDiskWriteQueueRef,
-    collabPathMutationGeneration, collabDetachRef, enterProjectRef, setBusyLabel, startProjectTransition,
-    cancelProjectTransition, refreshProject, loadFile, v2WorkspaceCallbacks,
-  });
-  const {
-    setCollabOpen, collabRoom, setCollabRoom, collabInvite, collabName, setCollabProjectName,
-    refreshRecentRooms, collabStatus, setCollabStatus, collabPeerList, setCollabPeerList, collabPeers,
-    collabFileCount, setCollabFileCount, setCollabRole, collabRoleRef, collabWorkspaceGenerationRef,
-    preCollabProjectRootRef, clearCollabLocalState, bindJoinedDocument, handleV2PermanentError,
-    settleCollabBeforeProjectSwitch, mapV2Status, handleV2Catalog, publishTextToCollabV2,
-    shareCreatedFileWithCollabV2, openCollabDialog,
-  } = collab;
 
   const externalEditConflictMessage = useCallback(
     (path: string) => t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }),
@@ -1358,7 +1078,6 @@ function App() {
   const saveContents = useCallback(async (): Promise<boolean> => {
     if (!project) return true;
     try {
-      const workspaceLease = collabSession ? collabWorkspaceLeaseRef.current : null;
       const primaryPath = activeFileRef.current;
       const primarySource = sourceRef.current;
       const primarySavedSource = savedSourceRef.current;
@@ -1370,53 +1089,24 @@ function App() {
         ["blog", paperBlogRef.current, savedPaperBlogRef.current],
       ] as const;
       const writtenPaths: string[] = [];
-      /** Writes an editor buffer, through the share's disk queue when one is live. */
-      const writeEditorText = (path: string, content: string, baseContent: string, mutationGeneration: number) => {
-        const write = () => invoke<EditorWriteResult>("write_project_file", {
-          path,
-          content,
-          baseContent,
-          projectRoot: workspaceLease?.projectRoot ?? project.root,
-        });
-        return workspaceLease
-          ? collabDiskWriteQueueRef.current.run<EditorWriteResult | undefined>(workspaceLease, path, () => (
-            mutationGeneration === collabPathMutationGeneration(path) ? write() : Promise.resolve(undefined)
-          ))
-          : write();
-      };
+      const writeEditorText = (path: string, content: string, baseContent: string) => (
+        invoke<EditorWriteResult>("write_project_file", { path, content, baseContent, projectRoot: project.root })
+      );
       const formatForSave = (path: string, content: string) => (
         /\.bib$/i.test(path) ? formatBibDocument(content) : content
       );
-      const mergeIntoActiveYText = (path: string, content: string) => {
-        if (activeCollabVersion === 2 && collabSessionRef.current?.activePath === path) {
-          mergeTextIntoYText(collabSessionRef.current.ytext, content);
-        }
-      };
       if (!activePaper && !activeAsset && primaryPath && primarySource !== primarySavedSource) {
-        const mutationGeneration = collabPathMutationGeneration(primaryPath);
         const content = formatForSave(primaryPath, primarySource);
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
         // edit, not be replaced by the formatted snapshot when the write returns.
-        if (content !== primarySource) {
-          mergeIntoActiveYText(primaryPath, content);
-          setPrimarySource(content);
-        }
-        const writeResult = await writeEditorText(primaryPath, content, primarySavedSource, mutationGeneration);
-        if (mutationGeneration !== collabPathMutationGeneration(primaryPath)) return true;
+        if (content !== primarySource) setPrimarySource(content);
+        const writeResult = await writeEditorText(primaryPath, content, primarySavedSource);
         const writtenSource = writeResult?.content ?? content;
         if (writtenSource !== content && activeFileRef.current === primaryPath && sourceRef.current === content) {
-          mergeIntoActiveYText(primaryPath, writtenSource);
           setPrimarySource(writtenSource);
         }
         if (writeResult?.hadConflicts) setWarning(externalEditConflictMessage(primaryPath));
-        // Do NOT push the active buffer into Yjs here. It is already synced
-        // character-by-character by yCollab. Re-publishing it as a full
-        // delete+insert of the whole Y.Text on every autosave collapses remote
-        // carets and bounces recompiles between peers (the "cursors freeze /
-        // PDF re-renders forever" bug). Only formatting and a backend three-way
-        // merge are applied above because those edits never reached Yjs.
         setPrimarySaved(writtenSource);
-        if (activeCollabVersion === 2) await collabV2ControllerRef.current?.settled();
         // Force the detector to inspect the next filesystem version. An Agent
         // may finish another atomic write after the backend response but before
         // a post-save stat; recording that newer mtime without reading it would
@@ -1426,27 +1116,11 @@ function App() {
       }
       if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource
         && secondaryFileRef.current === secondaryPath && secondarySourceRef.current === currentSecondarySource) {
-        const mutationGeneration = collabPathMutationGeneration(secondaryPath);
         const content = formatForSave(secondaryPath, currentSecondarySource);
         if (content !== currentSecondarySource) setSecondarySourceLive(content);
-        // A visible secondary text editor has its own yCollab binding. Its
-        // Y.Text is already current, so saving mirrors that buffer to disk
-        // without replacing a concurrently edited shared span.
-        const secondaryBinding = activeCollabVersion === 2
-          ? await collabV2ControllerRef.current?.openSecondaryPath(secondaryPath)
-          : null;
-        if (content !== currentSecondarySource && secondaryBinding && secondarySourceRef.current === content) {
-          mergeTextIntoYText(secondaryBinding.ytext, content);
-        }
-        const writeResult = await writeEditorText(secondaryPath, content, currentSecondarySavedSource, mutationGeneration);
-        if (mutationGeneration !== collabPathMutationGeneration(secondaryPath)) return true;
+        const writeResult = await writeEditorText(secondaryPath, content, currentSecondarySavedSource);
         const writtenSource = writeResult?.content ?? content;
         const secondaryUnchanged = secondaryFileRef.current === secondaryPath && secondarySourceRef.current === content;
-        if (activeCollabVersion === 2 && secondaryUnchanged) {
-          if (secondaryBinding) mergeTextIntoYText(secondaryBinding.ytext, writtenSource);
-          else await publishTextToCollabV2(secondaryPath, writtenSource, mutationGeneration);
-          await collabV2ControllerRef.current?.settled();
-        }
         if (writtenSource !== content && secondaryUnchanged) setSecondarySourceLive(writtenSource);
         if (writeResult?.hadConflicts) setWarning(externalEditConflictMessage(secondaryPath));
         // The project-transition late-edit check runs in the same async turn
@@ -1458,9 +1132,7 @@ function App() {
       for (const [view, content, savedContent] of activePaper ? paperBuffers : []) {
         if (content === null || content === savedContent) continue;
         const path = paperDocumentPath(activePaper!.arxivId, view);
-        if (!(await publishTextToCollabV2(path, content))) {
-          await invoke("write_project_file", { path, content, projectRoot: project.root });
-        }
+        await invoke("write_project_file", { path, content, projectRoot: project.root });
         markPaperSaved(view, content);
         writtenPaths.push(path);
       }
@@ -1474,7 +1146,6 @@ function App() {
         writtenPaths.some((path) => path.endsWith(".tex")),
         writtenPaths.some((path) => /\.bib$/i.test(path)),
       );
-      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) requestSemanticReindex();
       return true;
     } catch (reason) {
       // Autosave runs constantly, so this path gets a plain notification rather
@@ -1484,9 +1155,8 @@ function App() {
       return false;
     }
   }, [
-    activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, collabPathMutationGeneration,
-    collabSession, externalEditConflictMessage, markPaperSaved, paperBlogRef, paperMarkdownRef, project,
-    publishTextToCollabV2, recordSavedPaths, refreshAfterSave, requestSemanticReindex, savedPaperBlogRef,
+    activeAsset, activeFile, activeFileRef, activePaper, externalEditConflictMessage, markPaperSaved,
+    paperBlogRef, paperMarkdownRef, project, recordSavedPaths, refreshAfterSave, savedPaperBlogRef,
     savedPaperMarkdownRef, savedSourceRef, secondaryFileRef, secondarySavedRef, secondarySourceRef,
     setPrimarySaved, setPrimarySource, setSecondarySaved, setSecondarySourceLive, sourceRef,
   ]);
@@ -1506,18 +1176,9 @@ function App() {
     content: string,
     pane: EditorPaneId,
   ) => {
-    if (activeCollabVersion === 2) {
-      const controller = collabV2ControllerRef.current;
-      if (pane === "primary" && controller?.activePath === path) {
-        mergeTextIntoYText(controller.ytext, content);
-      } else if (pane === "secondary") {
-        const binding = await controller?.openSecondaryPath(path);
-        if (binding) mergeTextIntoYText(binding.ytext, content);
-      }
-    }
     if (pane === "primary" && activeFileRef.current === path) commitPrimaryText(content);
     if (pane === "secondary" && secondaryFileRef.current === path) commitSecondaryText(content);
-  }, [activeCollabVersion, activeFileRef, commitPrimaryText, commitSecondaryText, secondaryFileRef]);
+  }, [activeFileRef, commitPrimaryText, commitSecondaryText, secondaryFileRef]);
 
   useLayoutEffect(() => {
     hasLateProjectTransitionEditRef.current = () => {
@@ -1676,8 +1337,7 @@ function App() {
       const projectRoot = project?.root;
       const ownsProject = captureProjectScope();
       const isLatestSecondaryLoad = () => requestGeneration === secondaryFileLoadGenerationRef.current && ownsProject();
-      const collab = activeCollabVersion === 2;
-      if (!collab && path === secondaryFile) {
+      if (path === secondaryFile) {
         setFocusedPane("secondary");
         if (line) {
           requestEditorLine(path, line);
@@ -1685,11 +1345,9 @@ function App() {
         }
         return;
       }
-      if (!collab && secondaryFile && secondarySource !== secondarySavedSource) {
+      if (secondaryFile && secondarySource !== secondarySavedSource) {
         try {
-          if (!(await publishTextToCollabV2(secondaryFile, secondarySource))) {
-            await invoke("write_project_file", { path: secondaryFile, content: secondarySource, projectRoot: project?.root });
-          }
+          await invoke("write_project_file", { path: secondaryFile, content: secondarySource, projectRoot: project?.root });
           setSecondarySavedSource(secondarySource);
         } catch (reason) {
           setError(toMessage(reason));
@@ -1697,20 +1355,7 @@ function App() {
         }
       }
       try {
-        let content: string;
-        if (collab) {
-          if (secondaryFile && secondarySource !== secondarySavedSource && !(await save())) return;
-          if (!isLatestSecondaryLoad()) return;
-          const controller = collabV2ControllerRef.current;
-          if (!controller?.hasTextPath(path)) throw new Error(`${path} is not a v2 text file`);
-          // sideload: the yCollab binding belongs to the primary pane. Letting
-          // this open activate would repoint activePath at the secondary file,
-          // unbind the primary editor, and silently stop syncing its keystrokes
-          // (the debounced publishTextToCollabV2 pass covers this pane instead).
-          content = (await controller.openPath(path, "secondary", { sideload: true })).toString();
-        } else {
-          content = await invoke<string>("read_project_file", { path, projectRoot });
-        }
+        const content = await invoke<string>("read_project_file", { path, projectRoot });
         if (!isLatestSecondaryLoad()) return;
         showSecondaryText(path, content);
         addOpenTab(path);
@@ -1841,13 +1486,10 @@ function App() {
     } else {
       pushNavigation(navigationPath, 1);
     }
-  // `publishTextToCollabV2` is listed although `activeCollabVersion` already
-  // tracks its identity today: that is two lists agreeing by coincidence, not a
-  // guarantee, so it is listed to keep it true.
   }, [
-    acceptExternalText, activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, addOpenTab,
+    acceptExternalText, activeAsset, activeFile, activeFileRef, activePaper, addOpenTab,
     cancelPreviewPrewarm, canvasMode, flushAndCheckPrimaryDirty, focusedPane, loadFile, markDiskMtime,
-    paperBuffersDirty, project?.root, publishTextToCollabV2, pushNavigation, requestEditorLine, save,
+    paperBuffersDirty, project?.root, pushNavigation, requestEditorLine, save,
     savedSourceRef, secondaryFile, secondarySavedSource, secondarySource, setSecondarySavedSource,
     showSecondaryText, sourceRef, viewStateRef, captureProjectScope,
   ]);
@@ -1860,37 +1502,6 @@ function App() {
     }
     void openProjectFile(path, line);
   }, [openProjectFile]);
-
-  /** Jump to where a collaborator is working, following them into their file. */
-  const followCollabPeer = useCallback(async (peer: CollabPeer) => {
-    const v2 = collabV2ControllerRef.current;
-    const location = v2 ? peerCursorLocationV2(v2, peer.clientId) : null;
-    // Their caret is the precise answer; the file they announced is the fallback
-    // for a peer who has not placed a cursor yet (or is in another file on v2).
-    const path = location?.path ?? peer.path;
-    if (!path) {
-      setNotice(`${peer.name} is not in a file right now`);
-      return;
-    }
-    try {
-      if (location) {
-        requestEditorLine(path, location.line);
-        pushNavigation(path, location.line);
-        return;
-      }
-      // Cross-file peers only have a coordinator path until we join that
-      // file's awareness room. Open it first, then resolve the real awareness
-      // client by stable instance id and complete the jump in this same click.
-      await openProjectFile(path, undefined, "primary");
-      if (collabV2ControllerRef.current !== v2 || v2?.activePath !== path || !peer.instanceId) return;
-      const openedLocation = await waitForPeerCursorLocationV2(v2, peer.instanceId);
-      if (!openedLocation || collabV2ControllerRef.current !== v2) return;
-      requestEditorLine(path, openedLocation.line);
-      pushNavigation(path, openedLocation.line);
-    } catch {
-      setNotice(`Could not open ${path}`);
-    }
-  }, [openProjectFile, pushNavigation, requestEditorLine]);
 
   const navigateHistory = useCallback(async (direction: -1 | 1) => {
     const nextIndex = navIndex + direction;
@@ -1944,66 +1555,6 @@ function App() {
   }, [project, runBuild]);
   compileRef.current = compile;
 
-  // The same conversation, for a share that never goes near Overleaf. In a v2
-  // share every file is its own doc, so chat rides a dedicated project-wide
-  // document (COLLAB_CHAT_PATH) instead of whichever file happens to be
-  // active — otherwise peers reading different files each saw a different
-  // conversation, and switching files swapped the visible history.
-  //
-  // This sits above the Overleaf bridge on purpose: before the extraction these
-  // hooks ran between the two halves of the Overleaf code, and keeping them
-  // ahead of it preserves the original effect and teardown order.
-  const [collabChatDoc, setCollabChatDoc] = useState<import("yjs").Doc | null>(null);
-  useEffect(() => {
-    const v2 = collabV2ControllerRef.current;
-    if (activeCollabVersion !== 2 || !collabSession || !v2) {
-      setCollabChatDoc(null);
-      return;
-    }
-    const unsubscribe = v2.subscribeChatDoc(setCollabChatDoc);
-    // collabFileCount re-runs this, so a read-only guest binds the chat file
-    // once a writer creates it mid-share, and epoch bumps rebind.
-    void v2.openChatDoc().catch(() => undefined);
-    return () => {
-      unsubscribe();
-      setCollabChatDoc(null);
-    };
-  }, [activeCollabVersion, collabFileCount, collabSession]);
-  const collabChat = useCollabChat({
-    doc: activeCollabVersion === 2 ? collabChatDoc : (collabSession?.doc ?? null),
-    // The identity editor comments already sign with, rather than inventing a
-    // second one for the same person.
-    selfId: editorCommentAuthorId,
-    displayName: collabName,
-  });
-
-  const runSharedOverleafSync = useCallback(async (
-    observedRemoteVersion?: number | null,
-    livePaths: readonly string[] = [],
-    diagnosticOperationId: string = crypto.randomUUID(),
-  ): Promise<OverleafSyncResult> => {
-    const controller = collabV2ControllerRef.current;
-    const lease = collabWorkspaceLeaseRef.current;
-    const projectRoot = projectRef.current?.root;
-    if (
-      activeCollabVersion !== 2
-      || !controller
-      || !lease?.isCurrent()
-      || !projectRoot
-      || collabSessionRef.current !== controller
-    ) {
-      throw new Error("The shared project changed before Overleaf sync could start.");
-    }
-    if (!collabCanWrite || controller.canWrite === false) {
-      throw new Error("This shared project is read-only.");
-    }
-    return syncSharedProjectWithOverleaf(
-      { controller, lease, projectRoot, disk: v2WorkspaceCallbacks(lease) },
-      commitOpenText,
-      { observedRemoteVersion, livePaths, operationId: diagnosticOperationId },
-    );
-  }, [activeCollabVersion, collabCanWrite, commitOpenText, projectRef, v2WorkspaceCallbacks]);
-
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
   // (presence, chat, comment threads, tracked changes) live in
@@ -2029,7 +1580,7 @@ function App() {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, setSource, setSavedSource, setViewRestore, viewStateRef, editorPosition,
     editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
-    collabSession, collabName, runSharedOverleafSync, save, compile, loadFile, refreshProject, openProjectFile,
+    authorName, save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   });
   const {
@@ -2054,22 +1605,7 @@ function App() {
   ): Promise<OpenSlideSyncOperation[]> => {
     const projectRoot = projectRef.current?.root;
     if (!projectRoot) throw new Error("The project closed before the Open Slide edit could be saved.");
-    if (collabSessionRef.current?.canWrite === false || !collabCanWrite) {
-      throw new Error("This shared project is read-only.");
-    }
-    const controller = activeCollabVersion === 2 ? collabV2ControllerRef.current : null;
-    const lease = controller ? collabWorkspaceLeaseRef.current : null;
-    if (controller && !lease?.isCurrent()) {
-      throw new Error("The shared project changed before the Open Slide edit could be saved.");
-    }
-    const written = await writeOpenSlideMutation(
-      mutation,
-      projectRoot,
-      controller && lease
-        ? { controller, lease, projectRoot, disk: v2WorkspaceCallbacks(lease), queue: collabDiskWriteQueueRef.current }
-        : null,
-      () => projectRef.current?.root === projectRoot,
-    );
+    const written = await writeOpenSlideMutation(mutation, projectRoot, () => projectRef.current?.root === projectRoot);
     if (written.text !== undefined) commitOpenText(mutation.path, written.text);
     if (written.hadConflicts) {
       setWarning(`Open Slide and another editor changed the same lines in ${mutation.path}; Lattice kept both with conflict markers.`);
@@ -2092,10 +1628,7 @@ function App() {
           kind: mutation.kind,
           ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
         }];
-  }, [
-    activeCollabVersion, activeFileRef, collabCanWrite, collabDiskWriteQueueRef, commitOpenText, loadFile,
-    projectRef, recordSavedPaths, refreshHistory, refreshProject, v2WorkspaceCallbacks, showPrimaryText,
-  ]);
+  }, [activeFileRef, commitOpenText, loadFile, projectRef, recordSavedPaths, refreshHistory, refreshProject, showPrimaryText]);
 
   const openSources = useCallback(() => new Map([
     [activeFileRef.current, sourceRef.current],
@@ -2103,8 +1636,7 @@ function App() {
   ]), [activeFileRef, secondaryFileRef, secondarySourceRef, sourceRef]);
   const editorComments = useEditorComments({
     project, projectRootRef, overleaf,
-    shared: { controllerRef: collabV2ControllerRef, active: activeCollabVersion === 2, bound: Boolean(collabSession), fileCount: collabFileCount },
-    author: { id: editorCommentAuthorId, name: collabName },
+    author: { id: editorCommentAuthorId, name: authorName },
     openSources,
     agentOptionsRef: agentCommentsOptionsRef,
   });
@@ -2221,8 +1753,7 @@ function App() {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
 
-  const repairWritable = collabCanWrite && collabSession?.canWrite !== false
-    && (!overleafLink || overleafRealtime.canWrite);
+  const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({
     projectRoot: project?.root,
     rootDocument: build?.rootDocument,
@@ -2290,12 +1821,9 @@ function App() {
   const enterProject = useCallback(
     async (
       snapshot: ProjectSnapshot,
-      options?: { skipCollabLifecycle?: boolean; deferInitialBuild?: boolean },
+      options?: { deferInitialBuild?: boolean },
     ) => {
       void loadDocumentCanvas();
-      if (!options?.skipCollabLifecycle) {
-        await settleCollabBeforeProjectSwitch(snapshot.root);
-      }
       beginProjectTransition(true);
       const projectGeneration = projectOperationGenerationRef.current;
       const primaryRestoreGeneration = fileLoadGenerationRef.current + 1;
@@ -2337,13 +1865,9 @@ function App() {
       setCanvasMode("split");
       htmlViewModesRef.current.clear();
       documentModeRef.current = "split";
-      // Shared workspaces are empty scaffolds until synchronization, so they
-      // must wait for their post-sync build instead of showing a cached PDF.
-      resetForProject(snapshot.root, !options?.skipCollabLifecycle);
-      // A guest joining a share enters an empty scaffold workspace *before* the
-      // shared sources have synced. Building it now compiles the placeholder and
-      // pops a spurious "compilation failed". The join flow defers the build and
-      // triggers one once the real project has materialized (see onSynced).
+      resetForProject(snapshot.root);
+      // The startup reopen defers this build and starts its own once the
+      // project is fully entered (see the recent-project auto-reopen below).
       if (!options?.deferInitialBuild) {
         void runBuild(false, { immediatePreview: true });
       }
@@ -2411,7 +1935,7 @@ function App() {
       loadHistory, loadTodos, loadViewStatesForProject, loadWordCount, projectBeforeTransitionRef,
       projectOperationGenerationRef, projectRef, refreshUnusedSymbols, rememberProject, resetAgentSelection,
       resetEditorComments, resetForProject, runBuild, setActivePaper, setDiskTodos, setPaperBuffers,
-      setPaperView, setProject, setReferences, settleCollabBeforeProjectSwitch, showActiveAsset,
+      setPaperView, setProject, setReferences, showActiveAsset,
       showSecondaryAsset, showSecondaryText, showPrimaryText,
     ],
   );
@@ -2493,206 +2017,6 @@ function App() {
     }
   }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
 
-  /**
-   * Connect the workspace this window just entered at `root` to a v2 share:
-   * start its controller, materialize the shared files onto disk and bind the
-   * editor. `track` receives the controller as soon as it exists, so a failure
-   * part-way can tear it down with discardSharedController.
-   */
-  const connectSharedWorkspace = useCallback(async (root: string, share: {
-    deployment: string;
-    projectInstanceId: string;
-    credentialRef: string;
-    store: ReturnType<typeof collabCredentialStore>;
-    permission: CollabProjectRecordV2["permission"];
-    track: (controller: CollabProjectControllerV2) => void;
-  }) => {
-    const role = share.permission === "host" ? "host" : "guest";
-    const generation = collabWorkspaceGenerationRef.current + 1;
-    collabWorkspaceGenerationRef.current = generation;
-    const lease: CollabWorkspaceLease = {
-      projectRoot: root,
-      generation,
-      isCurrent: () => collabWorkspaceGenerationRef.current === generation && projectRootRef.current === root,
-    };
-    collabWorkspaceLeaseRef.current = lease;
-    collabRoleRef.current = role;
-    const controller = await CollabProjectControllerV2.start({
-      deployment: share.deployment, projectInstanceId: share.projectInstanceId, credentialRef: share.credentialRef,
-      credentialStore: share.store, permission: share.permission, onStatus: mapV2Status, onCatalog: handleV2Catalog,
-      displayName: collabName, participantId: editorCommentAuthorId, onPeers: setCollabPeerList,
-      onPermanentError: handleV2PermanentError,
-    });
-    share.track(controller);
-    collabV2ControllerRef.current = controller;
-    collabSessionRef.current = controller;
-    const materialized = await controller.materializeProject(lease, v2WorkspaceCallbacks(lease));
-    assertCollabWorkspaceLease(lease);
-    await refreshProject();
-    collabRoleRef.current = role;
-    setCollabRole(role);
-    setActiveCollabVersion(2);
-    setCollabRoom(controller.room);
-    setCollabFileCount(controller.fileCount());
-    // loadFile awaits openPath before publishing the session/ready state.
-    // Publishing first lets DocumentCanvas render against activePath="" and
-    // used to crash the entire joining app in setActivePath().
-    await bindJoinedDocument(controller, materialized.openPath);
-    return controller;
-  }, [
-    bindJoinedDocument, collabName, collabRoleRef, collabWorkspaceGenerationRef, editorCommentAuthorId,
-    handleV2Catalog, handleV2PermanentError, mapV2Status, refreshProject, setCollabFileCount, setCollabPeerList,
-    setCollabRole, setCollabRoom, v2WorkspaceCallbacks,
-  ]);
-  const discardSharedController = useCallback(async (controller: CollabProjectControllerV2 | null) => {
-    if (!controller) return;
-    if (collabV2ControllerRef.current === controller) await clearCollabLocalState().catch(() => undefined);
-    else controller.destroy();
-  }, [clearCollabLocalState]);
-  /** Any unsaved edit in this window, which must be saved before a share replaces it. */
-  const unsavedEdits = Boolean(project) && (source !== savedSource || (Boolean(secondaryFile) && secondarySource !== secondarySavedSource));
-
-  const joinCollabShare = useCallback(() => {
-    if (!isCollabEnabled()) return;
-    const v2Raw = collabInvite.trim() || collabRoom.trim();
-    let v2Invite;
-    try {
-      v2Invite = parseCollabInvitationV2(v2Raw);
-    } catch (reason) {
-      setError(toMessage(reason));
-      return;
-    }
-    if (v2Invite) {
-      if (loadCollabFeaturePolicy().emergencyDisableReads) {
-        setError("Collaboration reads are temporarily disabled.");
-        return;
-      }
-      void (async () => {
-        setBusyLabel("Opening a v2 shared workspace…");
-        let controller: CollabProjectControllerV2 | null = null;
-        const priorRoot = project?.root ?? null;
-        let openedJoinWorkspace = false;
-        try {
-          saveCollabDisplayName(collabName.trim());
-          if (unsavedEdits && !(await save())) return;
-          if (!await startProjectTransition()) return;
-          preCollabProjectRootRef.current = priorRoot;
-          rememberPreCollabProjectRoot(priorRoot);
-          const shortRoom = v2Invite.projectInstanceId.slice(-12);
-          const store = collabCredentialStore();
-          let record = await acceptCollabInvitationV2(v2Raw, store, { projectRoot: null, title: `Shared project ${shortRoom.slice(-6)}` });
-          if (!record?.credentialRef) throw new Error("Could not store the v2 collaboration credential");
-          const credentialRef = record.credentialRef;
-          const catalog = await new CollabControlV2Client(v2Invite.deployment, v2Invite.projectInstanceId, v2Invite.guestSecret).catalog();
-          const roomName = catalog.name ?? v2Invite.projectName ?? record.title;
-          const workspace = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: shortRoom.slice(-6), projectName: roomName });
-          // Joining is an in-place project transition. Bind the backend window
-          // before exposing the new root to editor and collaboration effects.
-          const snapshot = await invoke<ProjectSnapshot>("open_project", { path: workspace.root });
-          openedJoinWorkspace = true;
-          record = { ...record, projectRoot: snapshot.root, title: roomName, lastUsed: Date.now() };
-          rememberCollabProjectV2(record);
-          await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
-          setCollabProjectName(record.title);
-          const joined = await connectSharedWorkspace(snapshot.root, {
-            deployment: v2Invite.deployment, projectInstanceId: v2Invite.projectInstanceId, credentialRef, store,
-            permission: v2Invite.permission, track: (started) => { controller = started; },
-          });
-          setCollabStatus("synced");
-          setNotice(`Joined v2 shared workspace · ${joined.fileCount()} files`);
-          playInterfaceSound("collaboration-ready");
-        } catch (reason) {
-          setCollabReady(false);
-          await discardSharedController(controller);
-          let restoreError: unknown;
-          if (openedJoinWorkspace && priorRoot) {
-            try {
-              const previous = await invoke<ProjectSnapshot>("open_project", { path: priorRoot });
-              await enterProject(previous, { skipCollabLifecycle: true });
-            } catch (restoreReason) {
-              restoreError = restoreReason;
-            }
-          }
-          preCollabProjectRootRef.current = null;
-          clearPreCollabProjectRoot();
-          cancelProjectTransition();
-          setCollabStatus("error");
-          setError(toMessage(restoreError === undefined ? reason : restoreError));
-        } finally {
-          setBusyLabel(null);
-        }
-      })();
-      return;
-    }
-    setError("That invite is not a v2 collaboration invite — ask the host for a fresh one from Copy invite.");
-  }, [
-    cancelProjectTransition, collabInvite, collabName, collabRoom, connectSharedWorkspace, discardSharedController,
-    enterProject, preCollabProjectRootRef, project, save, setCollabProjectName, setCollabStatus,
-    startProjectTransition, unsavedEdits,
-  ]);
-
-  /// Startup reads this rather than depending on `rejoinCollabProjectV2`,
-  /// whose identity churns; the boot effect must run exactly once.
-  const pendingJoinRef = useRef<((record: CollabProjectRecordV2) => void) | null>(null);
-
-  const rejoinCollabProjectV2 = useCallback((record: CollabProjectRecordV2) => {
-    if (!isCollabEnabled()) return;
-    void (async () => {
-      setBusyLabel("Rejoining v2 collaboration…");
-      let controller: CollabProjectControllerV2 | null = null;
-      try {
-        const store = collabCredentialStore();
-        const credentialRef = await requireRememberedV2Credential(record, store);
-        if (unsavedEdits && !(await save())) return;
-        let root = record.projectRoot;
-        if (root && root !== project?.root) {
-          if (!await startProjectTransition()) return;
-          await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }), { skipCollabLifecycle: true, deferInitialBuild: true });
-        } else if (!root) {
-          if (!await startProjectTransition()) return;
-          const snapshot = await invoke<ProjectSnapshot>("create_collab_join_workspace", { room: record.projectInstanceId.slice(-6), projectName: record.title });
-          root = snapshot.root;
-          await enterProject(snapshot, { skipCollabLifecycle: true, deferInitialBuild: true });
-        }
-        if (!root) throw new Error("The remembered collaboration has no workspace");
-        setCollabProjectName(record.title);
-        await connectSharedWorkspace(root, {
-          deployment: record.host, projectInstanceId: record.projectInstanceId, credentialRef, store,
-          permission: record.permission, track: (started) => { controller = started; },
-        });
-        rememberCollabProjectV2({ ...record, projectRoot: root, lastUsed: Date.now() });
-        refreshRecentRooms();
-        setCollabStatus("synced");
-        playInterfaceSound("collaboration-ready");
-      } catch (reason) {
-        await discardSharedController(controller);
-        cancelProjectTransition();
-        // Closing a room revokes every grant with it, so a guest's credential
-        // stops authenticating the moment the host ends the share (or removes
-        // them). Either way this entry can now only be clicked and fail, so
-        // retire it instead of leaving a dead room in the list.
-        const gone = reason instanceof CollabControlErrorV2 && (reason.status === 401 || reason.status === 404);
-        if (gone && record.permission !== "host") {
-          forgetCollabProjectV2(record.host, record.projectInstanceId);
-          refreshRecentRooms();
-          setCollabStatus("disconnected");
-          setNotice(`“${record.title}” is no longer available — the host ended it. Removed from your list.`, SHARE_SOURCE);
-          return;
-        }
-        setError(toMessage(reason));
-        setCollabStatus("error");
-      } finally {
-        setBusyLabel(null);
-      }
-    })();
-  }, [
-    cancelProjectTransition, connectSharedWorkspace, discardSharedController, enterProject, project?.root,
-    refreshRecentRooms, save, setCollabProjectName, setCollabStatus, startProjectTransition, unsavedEdits,
-  ]);
-
-  useEffect(() => {
-    pendingJoinRef.current = rejoinCollabProjectV2;
-  }, [rejoinCollabProjectV2]);
 
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
@@ -2847,20 +2171,6 @@ function App() {
         initialProjectProbe.resolve(snapshot ? "project" : "empty");
         if (!active || !snapshot) return;
         await enterProjectRef.current?.(snapshot);
-        if (!active) return;
-        // Taken after the project is in, because acting on it needs the
-        // window to already be showing the project it refers to. The backend
-        // hands it over once, so a reload of this window will not rejoin.
-        const raw = await invoke<string | null>("take_pending_window_action");
-        if (!active || !raw) return;
-        const action = JSON.parse(raw) as PendingWindowAction;
-        if (isCollabEnabled() && action.kind === "join-collab-v2") {
-          const record = loadCollabProjectsV2().find(
-            (item) => item.host === action.host
-              && item.projectInstanceId === action.projectInstanceId,
-          );
-          if (record) pendingJoinRef.current?.(record);
-        }
       })
       .catch((reason) => {
         initialProjectProbe.resolve("failed");
@@ -2908,7 +2218,7 @@ function App() {
     source,
   ]);
 
-  // Every secondary text buffer needs an idle save, even without collaboration.
+  // Every secondary text buffer needs an idle save.
   useEffect(() => {
     if (!project || !secondaryFile) return;
     if (secondarySource === secondarySavedSource) return;
@@ -2962,8 +2272,7 @@ function App() {
   }, [activePaper, chooseExisting, compile, flushDeferredWholeFileSync, save]);
 
   const referenceImport = useReferenceImport({
-    project, projectRootRef, refreshProject, refreshHistory, publishToShare: publishTextToCollabV2,
-    shared: Boolean(collabSession), onExternalEdits: externalOverleafEditsRef,
+    project, projectRootRef, refreshProject, refreshHistory, onExternalEdits: externalOverleafEditsRef,
     editor: {
       activeFile,
       source,
@@ -3276,10 +2585,7 @@ function App() {
       if (path === secondaryFileRef.current) {
         return sourceContent(path, secondarySourceRef.current, secondarySavedRef.current);
       }
-      const controller = collabV2ControllerRef.current;
-      const content = activeCollabVersion === 2 && controller?.hasTextPath(path)
-        ? (await controller.openPath(path, "secondary", { sideload: true })).toString()
-        : await invoke<string>("read_project_file", { path, projectRoot });
+      const content = await invoke<string>("read_project_file", { path, projectRoot });
       return isCurrentDrop() ? sourceContent(path, content) : null;
     };
 
@@ -3415,7 +2721,7 @@ function App() {
       if (isCurrentDrop()) setError(toMessage(reason));
     }
   }, [
-    activeAssetRef, activeCollabVersion, activeFileRef, activePaper, addOpenTab, canvasMode, clearSecondaryPane,
+    activeAssetRef, activeFileRef, activePaper, addOpenTab, canvasMode, clearSecondaryPane,
     closePaper, dualPanePreview, loadFile, openPaper, openProjectAsset, openProjectFile, openTabs, paperBlogRef,
     paperMarkdownRef, papers, paperSide, paperView, projectAssetPaths, projectRef, save, savedPaperBlogRef,
     savedPaperMarkdownRef, savedSourceRef, secondaryAssetRef, secondaryFileRef, secondarySavedRef,
@@ -3643,16 +2949,13 @@ function App() {
       && activeFileRef.current === primaryPath
       && fileLoadGenerationRef.current === primaryLoadGeneration
     );
-    const controller = collabV2ControllerRef.current;
-    const content = activeCollabVersion === 2 && controller?.hasTextPath(candidate)
-      ? (await controller.openPath(candidate, "secondary", { sideload: true })).toString()
-      : await invoke<string>("read_project_file", { path: candidate, projectRoot });
+    const content = await invoke<string>("read_project_file", { path: candidate, projectRoot });
     if (!isLatestRequest()) return null;
     showSecondaryText(candidate, content);
     addOpenTab(candidate);
     return candidate;
   }, [
-    activeCollabVersion, activeFileRef, addOpenTab, openTabs, projectAssetPaths, projectRef, secondaryFile,
+    activeFileRef, addOpenTab, openTabs, projectAssetPaths, projectRef, secondaryFile,
     showSecondaryText, captureProjectScope,
   ]);
 
@@ -3770,7 +3073,7 @@ function App() {
       // PDF can stand alone without a source tab. Returning to any source-backed
       // view restores the active document to the strip before rendering it.
       if (nextMode !== "pdf" && activeFile) addOpenTab(activeFile);
-      if (nextMode === "dual" || nextMode === "columns") {
+      if (nextMode === "dual") {
         try {
           const openedSecondary = secondaryAsset ? secondaryAsset.path : await ensureSecondaryFile();
           if (!isCurrentViewRequest()) return;
@@ -3816,10 +3119,6 @@ function App() {
       if (!isLatestSwap()) return;
       const nextPrimary = secondaryFile;
       const nextSecondary = activeFile;
-      // The primary pane must go through loadFile: in a v2 share it is the
-      // pane bound to the controller's active doc, and a bare state swap left
-      // activePath pointing at the old file — the editor unbound from yCollab
-      // and keystrokes stopped syncing until the next real file switch.
       if (!(await loadFile(nextPrimary, {
         loadGeneration,
         canCommit: () => (
@@ -3859,9 +3158,6 @@ function App() {
       await refreshProject();
       await refreshHistory();
       if (kind !== "folder") {
-        // Mid-share creates must join the v2 catalog before loadFile, so the
-        // editor binds the shared doc instead of a local-only file.
-        await shareCreatedFileWithCollabV2(createdPath, sharedTextKind(createdPath));
         // A local-only file has no Overleaf document id and therefore cannot
         // join realtime editing. Upload it before opening the editor so the
         // first keystroke does not have to wait for a later full-sync timer.
@@ -3877,7 +3173,7 @@ function App() {
     }
   }, [
     allowViewState, openProjectFile, overleafLink, overleafSyncMode, overleafSyncRef, project?.root, refreshHistory,
-    refreshProject, shareCreatedFileWithCollabV2,
+    refreshProject,
   ]);
   useLayoutEffect(() => {
     const createAgentProjectDocument = async (request: AgentProjectDocumentToolRequest) => {
@@ -3885,12 +3181,6 @@ function App() {
         throw Object.assign(new Error("Open a Lattice project before creating a document."), {
           code: "project_document_project_unavailable",
         });
-      }
-      if (collabSession?.canWrite === false || !collabCanWrite) {
-        throw Object.assign(
-          new Error("This shared project is read-only, so it cannot create documents."),
-          { code: "project_document_read_only" },
-        );
       }
       const createdPath = await createProjectEntry(request.args.path, "file");
       const remainingMs = request.expiresAt - Date.now();
@@ -3904,7 +3194,7 @@ function App() {
         agentProjectDocumentCreatorRef.current = null;
       }
     };
-  }, [collabCanWrite, collabSession?.canWrite, createProjectEntry, project?.root]);
+  }, [createProjectEntry, project?.root]);
 
   const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures"): Promise<string[]> => {
     if (!paths.length || assetImporting) return [];
@@ -3919,8 +3209,6 @@ function App() {
       for (const importedPath of imported) allowViewState(importedPath);
       await refreshProject();
       trace.ok(`Imported ${imported.length} figure${imported.length === 1 ? "" : "s"} into ${targetDirectory || "the project root"}.`);
-      // A share failure raises its own notification and must survive this one.
-      for (const path of imported) await shareCreatedFileWithCollabV2(path, "binary");
       return imported;
     } catch (reason) {
       trace.fail(reason);
@@ -3929,27 +3217,22 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [allowViewState, assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2, t]);
+  }, [allowViewState, assetImporting, project?.root, refreshProject, t]);
 
   /**
    * Run an import into the project tree and settle what it added: re-admit
-   * the paths to view-state memory, refresh the tree and history, and
-   * register each file with a live share.
+   * the paths to view-state memory, then refresh the tree and history.
    */
-  const importIntoProject = useCallback(async (
-    run: () => Promise<Array<{ path: string; kind: "text" | "board" | "spreadsheet" | "binary" }>>,
-  ): Promise<string[]> => {
+  const importIntoProject = useCallback(async (run: () => Promise<string[]>): Promise<string[]> => {
     if (assetImporting) return [];
     setAssetImporting(true);
     try {
       const imported = await run();
-      for (const file of imported) allowViewState(file.path);
+      for (const path of imported) allowViewState(path);
       await reconcileProjectTree();
       await refreshHistory();
       setError(null);
-      // After setError(null): a share failure must remain visible.
-      for (const file of imported) await shareCreatedFileWithCollabV2(file.path, file.kind);
-      return imported.map((file) => file.path);
+      return imported;
     } catch (reason) {
       setError(toMessage(reason));
       return [];
@@ -3957,18 +3240,18 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [allowViewState, assetImporting, reconcileProjectTree, refreshHistory, shareCreatedFileWithCollabV2]);
+  }, [allowViewState, assetImporting, reconcileProjectTree, refreshHistory]);
 
   const importProjectSources = useCallback(async (paths: string[], targetDirectory = "") => (
-    paths.length ? importIntoProject(async () => (
-      await invoke<string[]>("import_project_sources", { paths, targetDirectory, projectRoot: project?.root })
-    ).map((path) => ({ path, kind: sharedTextKind(path) }))) : []
+    paths.length ? importIntoProject(() => (
+      invoke<string[]>("import_project_sources", { paths, targetDirectory, projectRoot: project?.root })
+    )) : []
   ), [importIntoProject, project?.root]);
 
   /**
    * Finder-style tree drops: any mix of files and folders, routed by the
    * backend on content (UTF-8 text through the transaction log, the rest
-   * copied). Returned file kinds drive collab share registration per file.
+   * copied).
    */
   const importProjectFiles = useCallback(async (
     paths: string[],
@@ -3979,10 +3262,11 @@ function App() {
     const uploads = browserFiles.length
       ? await Promise.all(browserFiles.map(async (file) => ({ name: file.name, base64: await fileToBase64(file) })))
       : undefined;
-    return invoke<{ path: string; kind: "text" | "board" | "spreadsheet" | "binary" }[]>("import_project_files", {
+    const imported = await invoke<{ path: string }[]>("import_project_files", {
       paths, targetDirectory, projectRoot: project?.root,
       ...(copyExisting ? { copyExisting: true } : {}), ...(uploads ? { uploads } : {}),
     });
+    return imported.map((file) => file.path);
   }) : []), [importIntoProject, project?.root]);
 
   useEffect(() => {
@@ -4163,15 +3447,7 @@ function App() {
       destructive: true,
     })) return;
     try {
-      for (const path of paths) {
-        const v2 = collabV2ControllerRef.current;
-        if (activeCollabVersion === 2 && v2) {
-          await v2.delete(path, {
-            rename: async () => { throw new Error("Unexpected rename during delete"); },
-            delete: (localPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, localPath, () => invoke("delete_project_entry", { path: localPath, projectRoot })),
-          });
-        } else await invoke("delete_project_entry", { path, projectRoot: project?.root });
-      }
+      for (const path of paths) await invoke("delete_project_entry", { path, projectRoot: project?.root });
 
       // A successful disk deletion authoritatively retires every UI reference
       // to that path, including files removed through a deleted directory.
@@ -4182,8 +3458,6 @@ function App() {
       const { tabs: remainingTabs } = forgetOpenPaths(wasDeleted);
       if (deletedActiveFile) {
         fileLoadGenerationRef.current += 1;
-        collabDetachRef.current?.();
-        collabDetachRef.current = null;
         setPrimaryOpening(null);
         showPrimaryText("", "");
       }
@@ -4242,7 +3516,7 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeAsset, activeCollabVersion, activeFile, activePaper, canvasMode, clearSecondaryPane, dualPanePreview,
+    activeAsset, activeFile, activePaper, canvasMode, clearSecondaryPane, dualPanePreview,
     forgetViewStates, loadFile, overleafLink, project, projectOperationGenerationRef, refreshHistory,
     refreshProject, secondaryAsset, secondaryFile, settleRemoteDeletes, showActiveAsset, t, forgetOpenPaths,
     showPrimaryText,
@@ -4280,14 +3554,7 @@ function App() {
 
   const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
     try {
-      const requestedPath = `${path.includes("/") ? `${path.slice(0, path.lastIndexOf("/") + 1)}` : ""}${name}`;
-      const v2 = collabV2ControllerRef.current;
-      const renamedPath = activeCollabVersion === 2 && v2
-        ? await v2.rename(path, requestedPath, {
-          rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("rename_project_entry", { path: oldPath, newName: name, projectRoot })),
-          delete: async () => { throw new Error("Unexpected delete during rename"); },
-        })
-        : await invoke<string>("rename_project_entry", { path, newName: name, projectRoot: project?.root });
+      const renamedPath = await invoke<string>("rename_project_entry", { path, newName: name, projectRoot: project?.root });
       const changes = [{ previousPath: path, nextPath: renamedPath }];
       applyProjectEntryPathChanges(changes);
       if (activeFileRef.current) void markDiskMtime(activeFileRef.current);
@@ -4298,10 +3565,7 @@ function App() {
       await reconcileProjectTree().catch(() => undefined);
       throw reason;
     }
-  }), [
-    activeCollabVersion, activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
-    reconcileProjectTree, withTreeMutation,
-  ]);
+  }), [activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root, reconcileProjectTree, withTreeMutation]);
 
   const moveProjectEntries = useCallback(async (
     paths: string[],
@@ -4339,17 +3603,11 @@ function App() {
         applyProjectEntryPathChanges(plannedChanges);
         optimisticChangesApplied = true;
         for (const planned of plannedChanges) {
-          const v2 = collabV2ControllerRef.current;
-          const movedPath = activeCollabVersion === 2 && v2
-            ? await v2.rename(planned.previousPath, planned.nextPath, {
-              rename: (oldPath, _newPath, projectRoot) => collabDiskWriteQueueRef.current.run(collabWorkspaceLeaseRef.current!, oldPath, () => invoke<string>("move_project_entry", { path: oldPath, targetDirectory: normalizedTarget, projectRoot })),
-              delete: async () => { throw new Error("Unexpected delete during move"); },
-            })
-            : await invoke<string>("move_project_entry", {
-              path: planned.previousPath,
-              targetDirectory: normalizedTarget,
-              projectRoot: project?.root,
-            });
+          const movedPath = await invoke<string>("move_project_entry", {
+            path: planned.previousPath,
+            targetDirectory: normalizedTarget,
+            projectRoot: project?.root,
+          });
           const completed = { previousPath: planned.previousPath, nextPath: movedPath };
           completedChanges.push(completed);
           if (planned.nextPath !== movedPath) {
@@ -4359,11 +3617,9 @@ function App() {
             }]);
           }
           if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
-            const content = activeCollabVersion === 2 && v2?.hasTextPath(movedPath)
-              ? (await v2.openPath(movedPath, "secondary", { sideload: true })).toString()
-              : planned.previousPath === originalPrimaryPath ? sourceRef.current
-                : planned.previousPath === originalSecondaryPath ? secondarySourceRef.current
-                  : await invoke<string>("read_project_file", { path: movedPath, projectRoot: project?.root });
+            const content = planned.previousPath === originalPrimaryPath ? sourceRef.current
+              : planned.previousPath === originalSecondaryPath ? secondarySourceRef.current
+                : await invoke<string>("read_project_file", { path: movedPath, projectRoot: project?.root });
             const rewritten = rewriteMovedDocumentAssetPaths(
               content,
               planned.previousPath,
@@ -4373,9 +3629,7 @@ function App() {
             if (rewritten !== content) {
               if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
               if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
-              if (!(await publishTextToCollabV2(movedPath, rewritten))) {
-                await invoke("write_project_file", { path: movedPath, content: rewritten, projectRoot: project?.root });
-              }
+              await invoke("write_project_file", { path: movedPath, content: rewritten, projectRoot: project?.root });
               if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) setPrimarySaved(rewritten);
               if (planned.previousPath === originalSecondaryPath && secondarySourceRef.current === rewritten) {
                 setSecondarySaved(rewritten);
@@ -4401,8 +3655,8 @@ function App() {
       }
     });
   }, [
-    activeCollabVersion, activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
-    projectAssetPaths, publishTextToCollabV2, reconcileProjectTree, save, secondaryFileRef, secondarySourceRef,
+    activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
+    projectAssetPaths, reconcileProjectTree, save, secondaryFileRef, secondarySourceRef,
     setPrimarySource, setSecondarySourceLive, sourceRef, t, withTreeMutation, setPrimarySaved,
     setSecondarySaved,
   ]);
@@ -4460,7 +3714,7 @@ function App() {
     () => openProjectFile(occurrence.path, occurrence.line),
   ), [openProjectFile]);
 
-  /** Save pasted image bytes into the project (and a live share); resolves the new path. */
+  /** Save pasted image bytes into the project; resolves the new path. */
   const importImageBytes = useCallback(async (
     readPng: () => Promise<{ base64: string; type: string }>,
     targetDirectory: string,
@@ -4473,14 +3727,12 @@ function App() {
       });
       await refreshProject();
       setError(null);
-      // After setError(null): a share failure must remain visible.
-      await shareCreatedFileWithCollabV2(path, "binary");
       return path;
     } catch (reason) {
       setError(toMessage(reason) || emptyMessage);
       return null;
     }
-  }, [project?.root, refreshProject, shareCreatedFileWithCollabV2]);
+  }, [project?.root, refreshProject]);
   const importClipboardImageFile = useCallback((file: File) => importImageBytes(
     async () => ({ base64: await fileToBase64(file), type: file.type || "image/png" }),
     "figures",
@@ -4591,7 +3843,7 @@ function App() {
         return;
       }
 
-      // The user or a collaborator can keep editing while the confirmation is
+      // The user can keep editing while the confirmation is
       // open. Rust returns the exact input/output pair for every file so the UI
       // can refuse to merge a stale whole-file result into a newer buffer.
       let conflictPath: string | null = null;
@@ -4601,15 +3853,6 @@ function App() {
           || (secondaryFileRef.current === change.path && diverged(secondarySourceRef.current))) {
           conflictPath = change.path;
           break;
-        }
-        const controller = collabV2ControllerRef.current;
-        if (activeCollabVersion === 2 && controller?.hasTextPath(change.path)) {
-          const ytext = await controller.openPath(change.path, "secondary", { sideload: true });
-          if (!operationIsCurrent()) return;
-          if (diverged(ytext.toString())) {
-            conflictPath = change.path;
-            break;
-          }
         }
       }
       if (conflictPath) {
@@ -4632,11 +3875,10 @@ function App() {
       const returnedChanges = new Map((result.changes ?? []).map((change) => [change.path, change.after]));
       for (const path of changedFiles) {
         const content = returnedChanges.get(path) ?? await invoke<string>("read_project_file", { path, projectRoot });
-        const published = collabSession ? await publishTextToCollabV2(path, content) : false;
-        if (!published && path === activeFile) {
+        if (path === activeFile) {
           commitPrimaryText(content);
           await markDiskMtime(path);
-        } else if (!published && path === secondaryFile) {
+        } else if (path === secondaryFile) {
           commitSecondaryText(content);
         }
       }
@@ -4651,8 +3893,8 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeCollabVersion, activeFile, activeFileRef, activePaper, closePaper, collabSession, commitPrimaryText,
-    commitSecondaryText, markDiskMtime, project, publishTextToCollabV2, refreshHistory, refreshProject, save,
+    activeFile, activeFileRef, activePaper, closePaper, commitPrimaryText,
+    commitSecondaryText, markDiskMtime, project, refreshHistory, refreshProject, save,
     secondaryFile, secondaryFileRef, secondarySourceRef, sourceRef, t, captureProjectScope,
   ]);
 
@@ -4719,9 +3961,8 @@ function App() {
           }
           await invoke("open_in_browser");
           setSettingsOpen(false);
-          // The existing close-request path leaves collaboration presence
-          // before destruction. The backend activates the browser only once
-          // that cleanup completes, so the two surfaces never edit together.
+          // The backend activates the browser only once this window is gone,
+          // so the two surfaces never edit together.
           await getCurrentWindow().close();
         })}
         onReturnToDesktop={() => handOffWorkspace(t`Save the current workspace before opening it in the desktop app.`, async () => {
@@ -4730,9 +3971,6 @@ function App() {
         })}
         appearance={appearance}
         setAppearance={setAppearance}
-        localSemanticSearchEnabled={semanticSearch.enabled}
-        localSemanticSearchStatus={semanticSearch.status}
-        onLocalSemanticSearchEnabledChange={semanticSearch.changeEnabled}
         theme={theme}
         themePreference={themePreference}
         setThemePreference={setThemePreference}
@@ -5125,16 +4363,6 @@ function App() {
       when: canvasMode === "dual" && Boolean(secondaryFile), run: () => void swapEditorPanes(),
     },
     { id: "insert", label: t`Insert snippet`, detail: "⌘⇧I", group: t`Edit`, key: "i", shift: true, when: canInsert, run: () => setInsertOpen(true) },
-    {
-      id: "collab",
-      label: collabSession ? t`Live sharing…` : t`Start / join live sharing`,
-      detail: collabSession
-        ? t({ message: `${collabPeers} connected · ${collabSession.room}` })
-        : t`Share invite with a collaborator`,
-      group: t`Edit`,
-      when: isCollabEnabled(),
-      run: () => openCollabDialog(),
-    },
     { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
     { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
     { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
@@ -5208,19 +4436,10 @@ function App() {
           onCreate={createProject}
           onOpen={chooseExisting}
           onImportZip={() => void importOverleafZip()}
-          onJoinCollab={() => openCollabDialog("join")}
           onOpenTutorial={() => void openTutorialProject()}
           onSettings={() => openSettings("appearance")}
           onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
-        />
-        <AppCollabDialog
-          collab={collab}
-          session={collabSession}
-          onJoin={joinCollabShare}
-          onRejoin={rejoinCollabProjectV2}
-          onInstallTex={texSetup.openWizard}
-          joinOnly
         />
         {settingsDialog}
         {overleafPicker}
@@ -5231,7 +4450,7 @@ function App() {
   }
 
   const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
-    !compileRepair.busy && (collabSession?.canWrite !== false && collabCanWrite)
+    !compileRepair.busy
     && (
       ignoreOverleaf
       || overleafLink === null
@@ -5325,32 +4544,6 @@ function App() {
           onInsert={() => setInsertOpen(true)}
           // The tour points these controls out rather than opening them, so
           // their panels stay shut while it runs.
-          onCollab={outsideTour(() => openCollabDialog("start"))}
-          collabLive={collabStatus === "synced" || collabStatus === "connecting"}
-          collabPeers={collabPeers}
-          collabPresence={collabPeerList.length > 0 ? (
-            <AvatarGroup className="collab-peer-avatars" ariaLabel={t`People in this session`}>
-              {collabPeerList.slice(0, 5).map((peer) => (
-                <button
-                  key={peer.clientId}
-                  type="button"
-                  className="collab-peer-avatar"
-                  style={{ background: peer.color }}
-                  title={peer.path
-                    ? t({ message: `${peer.name} · ${peer.path} — click to follow` })
-                    : peer.name}
-                  onClick={() => void followCollabPeer(peer)}
-                >
-                  {peerInitials(peer.name)}
-                </button>
-              ))}
-              {collabPeerList.length > 5 && (
-                <span className="collab-peer-avatar more" title={collabPeerList.slice(5).map((peer) => peer.name).join(", ")}>
-                  +{collabPeerList.length - 5}
-                </span>
-              )}
-            </AvatarGroup>
-          ) : null}
           onHistory={() => setHistoryOpen(true)}
           onGit={outsideTour(() => {
             synara.requestRuntime();
@@ -5672,7 +4865,7 @@ function App() {
               onReject: (change) => void overleafTrackChanges.reject([change]),
             }}
             activeEditorCommentId={editorComments.activeId}
-            commentAuthorName={collabName.trim() || "Anonymous"}
+            commentAuthorName={authorName.trim() || "Anonymous"}
             commentAuthorId={editorCommentAuthorId}
             onCreateEditorComment={editorComments.create}
             onOpenEditorComments={editorComments.openPanel}
@@ -5695,24 +4888,13 @@ function App() {
             }}
             onOpenMarkdownPath={openMarkdownProjectPath}
             interactivePreviewsEnabled={postStartupInteraction}
-            collabSession={
-              activePaper && !isTwoPane(canvasMode)
-                ? null
-                : collabSession
-            }
-            collabReady={collabReady}
             // Papers live under .research/, which Overleaf deliberately
-            // excludes from sync. Collaboration grants still apply to them.
+            // excludes from sync.
             editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
             secondaryEditorEditable={secondaryFile
               ? editorEditableForPath(secondaryFile)
               : false}
-            collabEditorKey={activePaper
-              ? `paper:${activePaperPath}`
-              : collabSession
-                ? `collab:${collabSession.room}:${activeFile}:${collabReady ? "live" : "wait"}`
-                : `local:${activeFile}`}
-            collabPeers={collabPeerList}
+            editorKey={activePaper ? `paper:${activePaperPath}` : `local:${activeFile}`}
           />
           </Suspense>
           </div>
@@ -5721,15 +4903,6 @@ function App() {
       </main>
 
       <EditorDropPreviewPortal preview={projectFileDropPreview} />
-
-      <AppCollabDialog
-        collab={collab}
-        session={collabSession}
-        onJoin={joinCollabShare}
-        onRejoin={rejoinCollabProjectV2}
-        onInstallTex={texSetup.openWizard}
-        chat={{ chat: collabChat, selfId: editorCommentAuthorId, canWrite: collabCanWrite }}
-      />
 
       <TexSetupDialogs setup={texSetup} />
 
@@ -5830,16 +5003,14 @@ function App() {
           key={project.root}
           open={bibliographyAuditOpen}
           projectRoot={project.root}
-          canApply={collabCanWrite}
           onClose={() => setBibliographyAuditOpen(false)}
           onPrepare={save}
           onApplied={() => refreshAfterSave(project.root, false, true)}
           onApply={async (entry, result) => {
             const root = project.root;
-            const writable = () => collabCanWrite && collabSessionRef.current?.canWrite !== false;
-            if (!writable() || !result.after) throw new Error(t`This reference cannot be updated.`);
+            if (!result.after) throw new Error(t`This reference cannot be updated.`);
             if (!await save()) throw new Error(t`Save pending edits before updating references.`);
-            if (projectRootRef.current !== root || !writable()) throw new Error(t`The project or its permissions changed. Check references again.`);
+            if (projectRootRef.current !== root) throw new Error(t`The project or its permissions changed. Check references again.`);
             await invoke("bibliography_audit_apply", { projectRoot: root, path: entry.path, key: entry.key, before: result.before, after: result.after });
             // The update was written straight to disk, not through a save, so
             // nothing would otherwise schedule its Overleaf upload. Left
@@ -5851,7 +5022,6 @@ function App() {
             const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
             if (projectRootRef.current !== root) return;
             commitCleanOpenText(entry.path, content);
-            await publishTextToCollabV2(entry.path, content);
             // The drawer refreshes derived citation/history data once per
             // apply action (including bulk), outside the durable-write path.
           }}
@@ -5859,7 +5029,6 @@ function App() {
       </Suspense>}
       <AppProjectSearchDialogs
         search={projectSearch}
-        semanticSearch={semanticSearch}
         captureProjectScope={projectState.captureProjectScope}
         projectRef={projectRef}
         dirty={source !== savedSource}
@@ -5913,7 +5082,6 @@ function App() {
         changePaperView={changePaperView}
         openProjectFile={openProjectFile}
         setCanvasMode={setCanvasMode}
-        setCollabOpen={setCollabOpen}
         setGitOpen={setGitOpen}
         setOverleafPickerOpen={setOverleafPickerOpen}
         setSidebarMode={setSidebarMode}

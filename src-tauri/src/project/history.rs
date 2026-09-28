@@ -176,17 +176,14 @@ pub struct EditorWriteResult {
     pub had_conflicts: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TextMergeResult {
-    pub content: String,
-    pub had_conflicts: bool,
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TextMergeResult {
+    content: String,
+    had_conflicts: bool,
 }
 
-/// Merge one Open Slide or other external edit against the exact content it
-/// observed, without touching disk. Shared projects use this before updating
-/// Y.Text so the collaboration document remains the authoritative first write.
-pub fn merge_text_snapshots(base: &str, edited: &str, current: &str) -> TextMergeResult {
+/// Merge one edit against the exact content it observed, without touching disk.
+fn merge_text_snapshots(base: &str, edited: &str, current: &str) -> TextMergeResult {
     if edited == base || edited == current {
         return TextMergeResult { content: current.to_string(), had_conflicts: false };
     }

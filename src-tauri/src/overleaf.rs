@@ -32,16 +32,14 @@
 //! Layout: `account` is the signed-in session, `link` the persisted link
 //! between a folder and a project (and how one is made), `files` the local
 //! side of sync and its merge bases, `sync` the ZIP-based sync, preview and
-//! probe, `staged` the Catalog-authoritative sync for Shared projects,
-//! `review` chat, comments, history and tracked changes, and `api` the HTTP
-//! plumbing all of them share.
+//! probe, `review` chat, comments, history and tracked changes, and `api` the
+//! HTTP plumbing all of them share.
 
 mod account;
 mod api;
 mod files;
 mod link;
 mod review;
-mod staged;
 mod sync;
 #[cfg(test)]
 mod test_support;
@@ -59,13 +57,9 @@ pub use link::{
 pub use review::{
     accept_changes, change_authors, chat_messages, comment_anchors, delete_entity, delete_message,
     delete_thread, edit_message, history_add_label, history_delete_label, history_diff,
-    history_files, history_labels, history_restore_file, history_revert, history_updates,
-    reply_to_thread, resolve_thread, send_chat_message, threads, OverleafCommentAnchor,
-    OverleafLabel, OverleafMessage, OverleafThread,
-};
-pub use staged::{
-    commit_prepared_sync, prepare_sync, OverleafAcceptedAction, OverleafAuthoritativeEntry,
-    OverleafPreparedSync,
+    history_files, history_restore_file, history_revert, history_updates, reply_to_thread,
+    resolve_thread, send_chat_message, threads, OverleafCommentAnchor, OverleafMessage,
+    OverleafThread,
 };
 pub use sync::{
     preview, probe, sync, sync_relocations, OverleafPreview, OverleafProbe, OverleafSyncResult,

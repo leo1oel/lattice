@@ -19,9 +19,8 @@ describe("interface sounds", () => {
   it("maps app outcomes to restrained semantic cues", () => {
     playInterfaceSound("build-succeeded");
     playInterfaceSound("build-failed");
-    playInterfaceSound("collaboration-ready");
 
-    expect(cuelume.play.mock.calls).toEqual([["ready"], ["error"], ["arrival"]]);
+    expect(cuelume.play.mock.calls).toEqual([["ready"], ["error"]]);
   });
 
   it("never lets unavailable audio break the completed operation", () => {

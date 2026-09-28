@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { activateAppLocale } from "../i18n";
-import { DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS } from "./project-semantic-search";
 
 type FindProps = ComponentProps<typeof ProjectFindDialog>;
 
@@ -79,18 +78,6 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByText("Paper")).toBeInTheDocument();
     fireEvent.click(screen.getByText("sections/method.tex:2"));
     expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
-  });
-
-  it("reports on-device readiness and labels semantic-only results", () => {
-    const { search } = renderFind({
-      semanticEnabled: true,
-      semanticStatus: { ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, state: "ready", indexedFiles: 3, totalChunks: 8 },
-      hits: [fileHit("sections/security.tex", 4, { semantic: true })],
-    });
-
-    search("authentication retries");
-    expect(screen.getByRole("status")).toHaveTextContent("On-device semantic index ready · 3 files");
-    expect(screen.getByText("Semantic match")).toBeInTheDocument();
   });
 
   it("shows a useful zero-result state and clears back to the search field", () => {

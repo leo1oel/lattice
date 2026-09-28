@@ -17,7 +17,6 @@ import { useOverleafTrackChanges } from "../overleaf/use-overleaf-track-changes"
 import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
-import type { EditorCollabSession } from "../collab/collab-session";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import type {
   AssetPreview, BuildResult, EditorPosition, FileViewState, OverleafLink, OverleafProbe, OverleafStatus,
@@ -133,12 +132,8 @@ export type OverleafWorkspaceDeps = {
   wholeFileEditingPaths: readonly string[];
   /** Mounted whole-file documents that have an uncommitted control edit. */
   wholeFileDraftPaths: readonly string[];
-  collabSession: EditorCollabSession | null;
-  collabName: string;
-  /** Runs prepare → canonical Catalog/Yjs apply → exact-byte commit for an active Share. */
-  runSharedOverleafSync: (
-    observedRemoteVersion?: number | null, livePaths?: readonly string[], diagnosticOperationId?: string,
-  ) => Promise<OverleafSyncResult>;
+  /** Who version snapshots are attributed to, when a name is known. */
+  authorName: string;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
   loadFile: (path: string, options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean }) => Promise<boolean>;
@@ -194,8 +189,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, viewStateRef, editorPosition, editorPositionRef, build,
-    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, collabSession, collabName,
-    runSharedOverleafSync, save, compile, loadFile, refreshProject, openProjectFile,
+    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, authorName, save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   } = deps;
   const { t } = useLingui();
@@ -391,18 +385,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stillCurrent()) return;
       const livePaths = currentOverleafLivePaths(options?.auto ? options.includeWholeFilePaths : wholeFileEditingPathsRef.current);
       const externalBatch = new Map(externalChangesRef.current);
-      const sharedSync = collabSession !== null;
-      const result = sharedSync
-        ? await runSharedOverleafSync(options?.observedRemoteVersion, livePaths, trace.id)
-        : await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
-            projectRoot: syncRoot,
-            live: livePaths,
-            observedRemoteVersion: options?.observedRemoteVersion ?? null,
-          }, { operationId: trace.id });
+      const result = await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
+        projectRoot: syncRoot,
+        live: livePaths,
+        observedRemoteVersion: options?.observedRemoteVersion ?? null,
+      }, { operationId: trace.id });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
       trace.enrich({
-        automatic: options?.auto === true, shared: sharedSync, pulled: result.pulled.length, pushed: result.pushed.length,
+        automatic: options?.auto === true, pulled: result.pulled.length, pushed: result.pushed.length,
         merged: result.merged.length, conflicts: result.conflicts.length, deleted_local: result.deletedLocal.length,
         read_only: result.readOnly === true,
       });
@@ -519,7 +510,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // the filesystem watcher and reloaded unrelated previews.
       if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
         void invoke<string | null>("git_auto_commit", {
-          message: "Overleaf sync", author: collabName.trim() || null, projectRoot: syncRoot,
+          message: "Overleaf sync", author: authorName.trim() || null, projectRoot: syncRoot,
         }).catch(() => {});
       }
       refreshOverleafLink();
@@ -540,9 +531,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       release();
     }
   }, [
-    activeFileRef, collabName, collabSession, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
+    activeFileRef, authorName, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
     overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
-    runSharedOverleafSync, save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
+    save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
   overleafSyncRef.current = runOverleafSync;
@@ -672,11 +663,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [autoSync, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
 
-  // Editing through Overleaf's own channel. Documents stay off during a Lattice
-  // share, whose Yjs session already owns the editor.
+  // Editing through Overleaf's own channel.
   const overleafRealtime = useOverleafRealtime({
     enabled: overleafLink !== null,
-    documents: overleafSyncMode === "live" && !collabSession,
+    documents: overleafSyncMode === "live",
     projectRoot: project?.root ?? null,
     // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
@@ -694,7 +684,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // The poll loop and the sync read these mid-flight. "Channel live" means
   // carrying documents: in manual mode it stays up for chat alone.
   overleafEntitiesRef.current = overleafRealtime.entities;
-  overleafChannelLiveRef.current = overleafRealtime.status === "live" && overleafSyncMode === "live" && !collabSession;
+  overleafChannelLiveRef.current = overleafRealtime.status === "live" && overleafSyncMode === "live";
   overleafLivePathsRef.current = overleafRealtime.livePaths;
 
   /**
@@ -919,8 +909,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const now = Date.now();
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
-    void invoke<string | null>("git_auto_commit", { message: "Auto-saved version", author: collabName.trim() || null }).catch(() => {});
-  }, [build, collabName, overleafLink]);
+    void invoke<string | null>("git_auto_commit", { message: "Auto-saved version", author: authorName.trim() || null }).catch(() => {});
+  }, [authorName, build, overleafLink]);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,

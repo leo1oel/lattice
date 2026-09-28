@@ -1,15 +1,12 @@
 //! Creating, opening and configuring projects.
 
-use super::{current_root, in_project, run_blocking, run_quietly};
+use super::{current_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
 use crate::models::{ProjectManifest, ProjectSnapshot};
 use crate::{fs_watch, project};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
 use tauri::{AppHandle, Manager, State, Window};
-
-/// How many joined-share workspaces to retain under Documents/Lattice Shares.
-const MAX_SHARE_WORKSPACES: usize = 8;
 
 /// `name` under the user's Documents folder, created on demand; `what` names it
 /// in the error when it cannot be.
@@ -52,73 +49,6 @@ pub async fn open_tutorial_project(
     .await?;
     state.set_root(window.label(), root).await?;
     Ok(snapshot)
-}
-
-/// Fresh blank folder under Documents/Lattice Shares for joining a share.
-/// Does not modify whatever project the guest had open before.
-#[tauri::command]
-pub async fn create_collab_join_workspace(
-    app: AppHandle, room: String, project_name: Option<String>,
-) -> Result<ProjectSnapshot, String> {
-    let room = room.trim();
-    if room.is_empty() {
-        return Err("A share room is required.".to_string());
-    }
-    let safe_room: String = room
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
-        .collect();
-    let safe_title: String = project_name
-        .unwrap_or_else(|| "Shared project".to_string())
-        .trim()
-        .chars()
-        .filter(|ch| ch.is_alphanumeric() || *ch == ' ' || *ch == '-' || *ch == '_')
-        .take(48)
-        .collect::<String>()
-        .trim_matches([' ', '-', '_'])
-        .to_string();
-    let safe_title = if safe_title.is_empty() { "Shared project".to_string() } else { safe_title };
-    let parent = documents_folder(&app, "Lattice Shares", "Lattice Shares folder")?;
-    run_blocking("Shared workspace creation", move || {
-        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-        let root =
-            project::create_blank(&parent, &format!("{safe_title} — Shared {safe_room}-{stamp}"))?;
-        // Each join materializes a full local copy here; it's only a convenience
-        // backup, so keep the most-recent handful and delete older ones.
-        prune_old_share_workspaces(&parent, &root, MAX_SHARE_WORKSPACES);
-        project::open(&root)
-    })
-    .await
-}
-
-/// Keep the `keep` most-recently-modified joined-share folders under `parent`
-/// (always keeping `current`), deleting older ones. Best-effort: any failure to
-/// enumerate or remove a stale copy is ignored so it never blocks joining.
-fn prune_old_share_workspaces(parent: &Path, current: &Path, keep: usize) {
-    let Ok(entries) = std::fs::read_dir(parent) else {
-        return;
-    };
-    let mut workspaces = entries
-        .flatten()
-        .filter(|entry| {
-            let (path, name) = (entry.path(), entry.file_name());
-            let name = name.to_string_lossy();
-            path.is_dir()
-                && (name.starts_with("share-") || name.contains(" — Shared "))
-                && project::read_manifest(&path).is_ok_and(|manifest| manifest.venue == "shared")
-        })
-        .map(|entry| {
-            let modified = entry.metadata().and_then(|meta| meta.modified());
-            (modified.unwrap_or(std::time::UNIX_EPOCH), entry.path())
-        })
-        .collect::<Vec<_>>();
-    // Newest first, so everything past `keep` is the oldest.
-    workspaces.sort_by_key(|workspace| std::cmp::Reverse(workspace.0));
-    for (_, path) in workspaces.into_iter().skip(keep) {
-        if path != current {
-            let _ = std::fs::remove_dir_all(&path);
-        }
-    }
 }
 
 #[tauri::command]
@@ -179,19 +109,6 @@ pub async fn refresh_project(
 }
 
 #[tauri::command]
-pub async fn collab_project_inventory_v2(
-    state: State<'_, AppState>, window: Window,
-) -> Result<project::CollabProjectInventoryV2, String> {
-    in_project(
-        &state,
-        &window,
-        "Collaboration project inventory",
-        project::collab_project_inventory_v2,
-    )
-    .await
-}
-
-#[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn update_project_manifest(
     state: State<'_, AppState>, window: Window, engine: Option<String>, trusted: Option<bool>,
@@ -227,25 +144,4 @@ pub fn watch_project(
         *watcher = Some(fs_watch::spawn(app, root)?);
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::prune_old_share_workspaces;
-    use crate::project;
-    use crate::project::test_support::Fixture;
-
-    #[test]
-    fn share_workspace_pruning_requires_an_owned_shared_project_manifest() {
-        let shares = Fixture::empty("share-prune");
-        let current = project::create_blank(&shares.root, "Current — Shared abc123").unwrap();
-        let old = project::create_blank(&shares.root, "Old — Shared def456").unwrap();
-        shares.write("Notes — Shared Archive/notes.md", "# Notes\n");
-
-        prune_old_share_workspaces(&shares.root, &current, 0);
-
-        assert!(current.exists());
-        assert!(!old.exists());
-        assert!(shares.path("Notes — Shared Archive").exists());
-    }
 }

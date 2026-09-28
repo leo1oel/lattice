@@ -5,7 +5,6 @@ import { Tip } from "../components/icon-tip";
 import { type CanvasMode, type DocumentViewMode } from "../app-types";
 import { useLatest } from "../app/effect-helpers";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
-import { isCollabEnabled } from "../collab/collab-feature-policy";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
 import {
@@ -31,11 +30,6 @@ type CanvasToolbarProps = {
   canInsert: boolean;
   dirty: boolean;
   onInsert: () => void;
-  onCollab: () => void;
-  collabLive: boolean;
-  collabPeers: number;
-  /** Collaboration presence avatars, rendered beside the live control. */
-  collabPresence?: ReactNode;
   onHistory: () => void;
   onPaperLookup?: () => void;
   onGit: () => void;
@@ -77,7 +71,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   // always meant source + rendered preview, so marking a dual editor as Split
   // left no visible way to bring the compiled PDF back beside the source.
   const switcherMode = props.selectedDocumentViewMode
-    ?? (props.mode === "dual" || props.mode === "columns" ? "source" : props.mode);
+    ?? (props.mode === "dual" ? "source" : props.mode);
   const showOverleafOnline = Boolean(props.overleafLinked)
     && Boolean(props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live");
   const [editTitle, splitTitle, previewTitle] = props.markdown
@@ -146,25 +140,6 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </ToolbarButton>
             )}
-            {isCollabEnabled() && <Tip label={props.collabLive
-              ? (props.collabPeers > 0
-                ? props.collabPeers === 1
-                  ? t({ message: `Live · ${{ count: props.collabPeers }} other` })
-                  : t({ message: `Live · ${{ count: props.collabPeers }} others` })
-                : t`Live collaboration · just you`)
-              : t`Live collaboration`}
-            >
-              <button
-                type="button"
-                data-tour="collaboration"
-                className={props.collabLive ? "active collab-toolbar-button" : "collab-toolbar-button"}
-                onClick={props.onCollab}
-              >
-                <AnimatedProductIcon source="provided" kind="radio" size={14} />
-                {props.collabLive ? <em className="collab-peer-badge collab-live-badge">{props.collabPeers}</em> : null}
-              </button>
-            </Tip>}
-            {isCollabEnabled() && props.collabPresence}
           </>
         )}
         {(props.onOverleafSync || props.onOverleafOpen) && (
@@ -255,7 +230,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
 });
 
 const FORWARDED_HANDLERS = {
-  setMode: true, onSplit: true, onCloseSplit: true, onPaperView: true, onInsert: true, onCollab: true,
+  setMode: true, onSplit: true, onCloseSplit: true, onPaperView: true, onInsert: true,
   onHistory: true, onGit: true, onComments: true, onOverleafSync: true, onOverleafOpenCurrent: true,
   onOverleafOpen: true, onOverleafChat: true,
 } as const satisfies Partial<Record<keyof CanvasToolbarProps, true>>;

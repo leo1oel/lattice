@@ -265,14 +265,11 @@ mod tests {
     use crate::project::history::history;
     use crate::project::manifest::set_compile_root;
     use crate::project::test_support::Fixture;
-    use crate::project::tree::{collab_project_inventory_v2, scan_tree, TreeView};
+    use crate::project::tree::{scan_tree, tree_files, TreeView};
 
     fn inventory_has(root: &Path, path: &str, content_kind: &str) -> bool {
-        collab_project_inventory_v2(root)
-            .unwrap()
-            .files
-            .iter()
-            .any(|file| file.path == path && file.content_kind == content_kind)
+        let nodes = scan_tree(root, TreeView::Inventory).unwrap();
+        tree_files(&nodes).iter().any(|file| file.path == path && file.content_kind == content_kind)
     }
 
     fn tree_kind(root: &Path, path: &str) -> Option<String> {

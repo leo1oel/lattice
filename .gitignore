@@ -47,8 +47,8 @@ skills-lock.json
 _to_delete/
 .arxiv2md_cache/
 
-# Local `wrangler dev` Durable Object / R2 state for the collab server
-collab-server/.wrangler/
+# Local `wrangler dev` Durable Object state for the literature Worker
+literature-worker/.wrangler/
 
 # TypeScript incremental build caches
 *.tsbuildinfo

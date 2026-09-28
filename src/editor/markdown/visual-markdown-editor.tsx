@@ -200,7 +200,6 @@ type VisualMarkdownEditorProps = {
   assetRevision?: number;
   presenceCursors?: PresenceCursor[];
   onCaretChange?: (row: number, column: number) => void;
-  onSourceCaretChange?: (sourceOffset: number) => void;
   onSelectionMarkdown?: (value: string) => void;
   overleafChanges?: TrackedChange[];
   /** Comments anchored in this file, painted as highlights over the prose. */
@@ -436,13 +435,12 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
 
   const reportVisualCaret = useCallback((currentEditor: Editor, expectedMarkdown: string) => {
     clearTimer(caretReportTimer);
-    const { onCaretChange, onSourceCaretChange } = latest.current;
+    const { onCaretChange } = latest.current;
     if (!onCaretChange) return;
     const mapped = sourceOffsetForProseMirrorPosition(currentEditor, currentEditor.state.selection.head, expectedMarkdown);
     if (mapped?.markdown !== expectedMarkdown) return;
     const caret = rowColumnForSourceOffset(expectedMarkdown, Math.min(mapped.offset, expectedMarkdown.length));
     onCaretChange(caret.row, caret.column);
-    onSourceCaretChange?.(mapped.offset);
   }, []);
   // Selection updates arrive per keystroke, and recovering a caret's source
   // offset costs a serialization pass. Coalesce to one report per interaction

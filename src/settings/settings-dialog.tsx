@@ -35,7 +35,6 @@ import { SelectRow, SliderRow } from "./settings-controls";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { AppLogsSettings } from "../telemetry/app-log";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
-import type { LocalSemanticSearchStatus } from "../project/project-semantic-search";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
@@ -56,9 +55,6 @@ type SettingsDialogProps = DoctorSettingsProps & {
   onOverleafSyncModeChange: (mode: OverleafSyncMode) => void;
   appearance: AppearanceSettings;
   setAppearance: (appearance: AppearanceSettings) => void;
-  localSemanticSearchEnabled: boolean;
-  localSemanticSearchStatus: LocalSemanticSearchStatus;
-  onLocalSemanticSearchEnabledChange: (enabled: boolean) => void;
   theme: Theme;
   themePreference: ThemePreference;
   setThemePreference: (preference: ThemePreference) => void;
@@ -342,33 +338,6 @@ function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { b
   );
 }
 
-function useSemanticSearchDetail(enabled: boolean, status: LocalSemanticSearchStatus): string {
-  const { t } = useLingui();
-  // The row description has to hold one line at the settings content width, so
-  // the full pitch (Apple's model, nothing downloaded) rides the off state —
-  // where the switch is still being weighed — and every state that also reports
-  // index progress carries the short form of the same promise.
-  const semanticSearchPrivacy = t`Runs on-device; no text leaves this Mac`;
-  if (!enabled) {
-    return t`Off by default. Apple’s built-in on-device model; nothing downloaded or uploaded`;
-  }
-  if (status.state === "indexing") {
-    return status.totalChunks
-      ? t`Indexing ${status.totalChunks} prose blocks. ${semanticSearchPrivacy}`
-      : t`Starting the index. ${semanticSearchPrivacy}`;
-  }
-  if (status.state === "ready") {
-    return status.indexedFiles === 1
-      ? t`Ready for 1 file (${status.indexedChunks} blocks). ${semanticSearchPrivacy}`
-      : t`Ready for ${status.indexedFiles} files (${status.indexedChunks} blocks). ${semanticSearchPrivacy}`;
-  }
-  if (status.state === "unavailable" || status.state === "error") {
-    const detail = status.detail ?? t`The local model is unavailable.`;
-    return t`${detail} Find in project will stay lexical`;
-  }
-  return semanticSearchPrivacy;
-}
-
 function useUpdateStatus(updater: UpdaterApi): { title: string; detail: string } {
   const { t } = useLingui();
   const phaseTitles: Partial<Record<UpdaterApi["phase"], string>> = {
@@ -401,7 +370,6 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
   const { t } = useLingui();
   const updater = useUpdater();
   const updateStatus = useUpdateStatus(updater);
-  const semanticSearchDetail = useSemanticSearchDetail(props.localSemanticSearchEnabled, props.localSemanticSearchStatus);
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
   const updateBusy = ["checking", "downloading", "installing"].includes(updater.phase);
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
@@ -433,14 +401,6 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           max={MAX_OPEN_TABS}
           value={props.appearance.maxOpenTabs}
           onChange={(maxOpenTabs) => patchAppearance(props, { maxOpenTabs })}
-        />
-      </SettingsGroup>
-      <SettingsGroup title={t`Search`}>
-        <SwitchField
-          label={t`Local semantic search`}
-          description={semanticSearchDetail}
-          checked={props.localSemanticSearchEnabled}
-          onChange={props.onLocalSemanticSearchEnabledChange}
         />
       </SettingsGroup>
       <SettingsGroup title={t`Spelling`}>

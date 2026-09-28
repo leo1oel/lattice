@@ -27,7 +27,7 @@ export function collectAssetPaths(nodes: FileNode[]): Set<string> {
     || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink"));
 }
 
-const isTwoPaneMode = (mode: CanvasMode | undefined) => mode === "dual" || mode === "columns";
+const isTwoPaneMode = (mode: CanvasMode | undefined) => mode === "dual";
 
 /** The canvas mode a restored active tab opens in. */
 function restoredCanvasMode(
@@ -63,9 +63,8 @@ export function planWorkspaceRestore(
   const sourcePaths = new Set(flattenProjectPaths(snapshot.files).filter((path) => (
     !isPaperTabKey(path) && !assetPaths.has(path) && isProjectSourceFilePath(path)
   )));
-  // Root documents are authoritative even while a collaboration snapshot
-  // is still materializing its file tree (or a lightweight test fixture
-  // omits the duplicate tree node).
+  // Root documents are authoritative even when the file tree omits them (a
+  // lightweight test fixture skips the duplicate tree node).
   const rootDocuments = snapshot.manifest.rootDocuments;
   for (const document of rootDocuments) {
     if (isProjectSourceFilePath(document.path)) sourcePaths.add(document.path);

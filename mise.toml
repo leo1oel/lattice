@@ -58,7 +58,6 @@ sources = [
   "scripts/**",
   # src/styles/surfaces.test.ts reads the dev playground's stylesheet off disk.
   "tools/**",
-  "protocol/**",
   # Compatibility tests execute the shipping script and check its HTML order.
   "public/polyfills.js",
   "index.html",
@@ -74,7 +73,6 @@ run = "pnpm build"
 sources = [
   "src/**",
   "!src/locales/**/*.js",
-  "protocol/**",
   "index.html",
   # `tools/` is not a build input, but tsc typechecks it (tsconfig.json
   # `include`), and this stage runs tsc before vite.
@@ -93,36 +91,28 @@ sources = [
 ]
 outputs = ["dist"]
 
-# The Lattice Shares Worker is a separate pnpm project with its own lockfile, so
-# the root install never sees it and none of the stages above cover it. Unlike
-# every other stage these two commands are not root package.json scripts —
-# `collab:dev`/`collab:deploy`/`collab:login` exist, but typecheck and test do
-# not — so they are spelled out here rather than wrapped.
+# The public literature Worker is a separate pnpm project with its own
+# lockfile, so the root install never sees it and none of the stages above
+# cover it. Its typecheck and test are not root package.json scripts, so they
+# are spelled out here rather than wrapped.
 #
 # The tests run on @cloudflare/vitest-pool-workers, which starts a local workerd
-# and simulates the Durable Object and R2 bindings declared in wrangler.jsonc.
-# No Cloudflare account or `wrangler login` is needed; only `pnpm collab:deploy`
-# talks to Cloudflare.
-[tasks.collab-server]
-description = "Typecheck and test the collaboration Worker (its own pnpm project)"
+# and simulates the bindings declared in wrangler.jsonc. No Cloudflare account
+# or `wrangler login` is needed; only a deploy talks to Cloudflare.
+[tasks.literature-worker]
+description = "Typecheck and test the literature Worker (its own pnpm project)"
 run = [
-  "pnpm --dir collab-server typecheck",
-  "pnpm --dir collab-server test",
+  "pnpm --dir literature-worker typecheck",
+  "pnpm --dir literature-worker test",
 ]
-# `protocol/` is an input because the Worker imports it across the directory
-# boundary (`../../protocol/collab-v2`), so a protocol edit alone must re-run
-# this stage.
 sources = [
-  "collab-server/src/**",
-  "collab-server/test/**",
-  "protocol/**",
-  "collab-server/tsconfig.json",
-  "collab-server/vitest.config.ts",
-  "collab-server/vitest.literature.config.ts",
-  "collab-server/wrangler.jsonc",
-  "collab-server/wrangler.literature.jsonc",
-  "collab-server/package.json",
-  "collab-server/pnpm-lock.yaml",
+  "literature-worker/src/**",
+  "literature-worker/test/**",
+  "literature-worker/tsconfig.json",
+  "literature-worker/vitest.config.ts",
+  "literature-worker/wrangler.jsonc",
+  "literature-worker/package.json",
+  "literature-worker/pnpm-lock.yaml",
 ]
 
 [tasks.cargo-fmt]
@@ -203,7 +193,7 @@ depends = [
   "lint",
   "test",
   "build",
-  "collab-server",
+  "literature-worker",
   "cargo-fmt",
   "cargo-test",
   "clippy",

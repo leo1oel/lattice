@@ -2,19 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react";
 import { Tldraw, type Editor, type TLPageId } from "tldraw";
 import "tldraw/tldraw.css";
-import type * as Y from "yjs";
-import type { Awareness } from "y-protocols/awareness";
 import { createTldrawAgentCanvasAdapter } from "../../agent/agent-canvas-tldraw-adapter";
 import { registerAgentCanvasAdapter } from "../../agent/agent-canvas-tools";
 import type { BoardFileViewState } from "../../app-types";
-import {
-  attachBoardBridge,
-  attachBoardPresence,
-  createBoardStore,
-  mergeExternalBoardSource,
-  serializeBoard,
-  type BoardPresenceUser,
-} from "./board-yjs-bridge";
+import { createBoardStore, mergeExternalBoardSource, serializeBoard } from "./board-store";
 
 // Hobby-license keys are client-side by design (tldraw docs); embedded via
 // Vite env so the production build is licensed.
@@ -22,26 +13,17 @@ const LICENSE_KEY = import.meta.env.VITE_TLDRAW_LICENSE_KEY as string | undefine
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 
-export type BoardCollabBinding = {
-  doc: Y.Doc;
-  awareness: Awareness | null;
-  user: BoardPresenceUser | null;
-  canWrite: boolean;
-};
-
 export type BoardEditorProps = {
   /** Workspace-relative path used to route Agent shape tools to this board. */
   path: string;
-  /** Initial .tldr JSON for local mode. The board owns its state after mount. */
+  /** Initial .tldr JSON. The board owns its state after mount; later changes merge in. */
   source: string;
   onChange: (next: string) => void;
-  /** v2 collab: bridge the store into the file's Y.Doc instead of onChange. */
-  collab?: BoardCollabBinding | null;
   /** Publish a pending debounced serialization before switching or closing panes. */
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   /** Only the focused board owns the global Agent canvas tool adapter. */
   active?: boolean;
-  /** Per-user camera state. It never enters the .tldr store or collaboration doc. */
+  /** Per-user camera state. It never enters the .tldr file. */
   initialViewState?: BoardFileViewState;
   onViewState?: (state: BoardFileViewState) => void;
 };
@@ -57,7 +39,6 @@ export function BoardEditor({
   path,
   source,
   onChange,
-  collab,
   onFlushPendingChange,
   active = true,
   initialViewState,
@@ -70,14 +51,11 @@ export function BoardEditor({
   const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
   const disposeViewStateRef = useRef<(() => void) | null>(null);
   const flushPendingChangeRef = useRef<() => void>(() => {});
-  const canWriteRef = useRef(collab?.canWrite !== false);
+  // Cleared on unmount, so an Agent tool call racing the teardown cannot write.
+  const canWriteRef = useRef(true);
   useLayoutEffect(() => {
     callbacksRef.current = { onChange, onViewState };
   }, [onChange, onViewState]);
-  useLayoutEffect(() => {
-    canWriteRef.current = collab?.canWrite !== false;
-    editorRef.current?.updateInstanceState({ isReadonly: !canWriteRef.current });
-  }, [collab?.canWrite]);
   useLayoutEffect(() => {
     editorRef.current?.user.updateUserPreferences({ locale: tldrawLocale });
   }, [tldrawLocale]);
@@ -102,38 +80,14 @@ export function BoardEditor({
     unregisterAgentAdapterRef.current = registerAgentAdapter(editorRef.current, path, active, () => canWriteRef.current);
   }, [active, path]);
   // The store is created once per mount (the canvas keys this component by
-  // file path). Collab mode starts empty: attachBoardBridge seeds records
-  // from the doc's imported content and pulls the doc-authoritative state.
-  const [store] = useState(() => createBoardStore(collab ? "" : source));
+  // file path).
+  const [store] = useState(() => createBoardStore(source));
   // Own output tracking so incoming source updates that just echo our own
   // serialization are not merged back.
-  const lastSerializedRef = useRef(collab ? null : source);
+  const lastSerializedRef = useRef(source);
 
-  // Collab mode: two-way Yjs bridge (+ cursor presence when available).
-  const collabDoc = collab?.doc ?? null;
-  const collabAwareness = collab?.awareness ?? null;
-  const collabUser = collab?.user ?? null;
+  // Debounce-serialize edits out; merge external source changes in.
   useEffect(() => {
-    if (!collabDoc) return;
-    const disposeBridge = attachBoardBridge(store, collabDoc, { canWrite: () => canWriteRef.current });
-    const disposePresence = collabAwareness && collabUser
-      ? attachBoardPresence(store, collabAwareness, collabUser)
-      : undefined;
-    return () => {
-      disposePresence?.();
-      disposeBridge();
-    };
-    // canWrite flips flow through canWriteRef (kept current by the layout
-    // effect above) so a permission change must not tear down and re-seed the
-    // whole bridge mid-session.
-  }, [store, collabDoc, collabAwareness, collabUser]);
-
-  // Local mode: debounce-serialize edits out; merge external source changes in.
-  useEffect(() => {
-    if (collabDoc) {
-      flushPendingChangeRef.current = () => {};
-      return;
-    }
     let timer: number | null = null;
     const flush = () => {
       if (timer != null) window.clearTimeout(timer);
@@ -154,12 +108,12 @@ export function BoardEditor({
       if (timer != null) flush();
       flushPendingChangeRef.current = () => {};
     };
-  }, [store, collabDoc]);
+  }, [store]);
 
   useEffect(() => {
-    if (collabDoc || source === lastSerializedRef.current) return;
+    if (source === lastSerializedRef.current) return;
     if (mergeExternalBoardSource(store, source)) lastSerializedRef.current = source;
-  }, [store, collabDoc, source]);
+  }, [store, source]);
 
   return (
     <div className="board-editor-root" data-tour="board-workspace">
@@ -172,7 +126,6 @@ export function BoardEditor({
           // Menus read the editor preference as well as the provider locale.
           // Keep both aligned with Lattice instead of the browser language.
           editor.user.updateUserPreferences({ locale: tldrawLocale });
-          editor.updateInstanceState({ isReadonly: !canWriteRef.current });
           const restoredPage = initialViewState
             ? editor.getPage(initialViewState.pageId as TLPageId)
             : undefined;

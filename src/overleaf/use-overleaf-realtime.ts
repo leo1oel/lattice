@@ -43,10 +43,9 @@ export function useOverleafRealtime(options: {
   /** Connect whenever the project is linked: chat and presence ride here too. */
   enabled: boolean;
   /**
-   * Whether to edit the open file through the channel. Off in manual sync mode
-   * and during a Lattice share — two live channels writing one buffer would
-   * fight over every keystroke — while the connection itself stays up so the
-   * rest of the bridge keeps working.
+   * Whether to edit the open file through the channel. Off in manual sync mode,
+   * while the connection itself stays up so the rest of the bridge keeps
+   * working.
    */
   documents: boolean;
   projectRoot: string | null;

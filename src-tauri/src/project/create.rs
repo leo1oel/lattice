@@ -1,5 +1,4 @@
-//! New projects: conference templates, the disposable tutorial, and blank
-//! workspaces for joining a live share.
+//! New projects: conference templates and the disposable tutorial.
 
 use super::err;
 use super::manifest::write_manifest;
@@ -142,27 +141,15 @@ pub fn create_with_venue(parent: &Path, name: &str, venue: Venue) -> Result<Path
     Ok(root)
 }
 
-/// Empty workspace for joining a live share — no conference template files.
-/// Guests keep their own projects untouched; shared files materialize here.
+/// A project holding only a one-page `main.tex` and an empty bibliography, so
+/// a test has no venue template files to account for.
+#[cfg(test)]
 pub fn create_blank(parent: &Path, name: &str) -> Result<PathBuf, String> {
     let (root, name) = prepare_project_skeleton(parent, name)?;
-    let mut manifest = default_manifest_with_venue(name, Venue::Neurips);
-    manifest.venue = "shared".to_string();
-    write_manifest(&root, &manifest)?;
-    fs::write(
-        root.join(".research/brief.md"),
-        format!("# {name}\n\nLive collaboration workspace. Your other local projects were not modified.\n"),
-    )
-    .map_err(err)?;
-    // The body must not be empty: pdflatex writes no PDF for a document with
-    // no pages, latexmk records that failure in main.fdb_latexmk, and since
-    // the placeholder never changes every later build replays it as up to
-    // date — a build the guest cannot escape while the real files arrive.
-    fs::write(
-        root.join("main.tex"),
-        "% Waiting for shared project files…\n\\documentclass{article}\n\\begin{document}\nWaiting for the shared project files to arrive…\n\\end{document}\n",
-    )
-    .map_err(err)?;
+    write_manifest(&root, &default_manifest(name))?;
+    fs::write(root.join(".research/brief.md"), default_brief(name)).map_err(err)?;
+    let main = "\\documentclass{article}\n\\begin{document}\nBlank.\n\\end{document}\n";
+    fs::write(root.join("main.tex"), main).map_err(err)?;
     fs::write(root.join("references.bib"), "").map_err(err)?;
     Ok(root)
 }
@@ -338,24 +325,6 @@ mod tests {
         fs::write(root.join("keep.txt"), "keep\n").unwrap();
         assert!(create_tutorial(&parent.root).is_err());
         assert_eq!(read(&root, "keep.txt"), "keep\n");
-    }
-
-    #[test]
-    fn blank_collab_workspace_has_no_venue_template() {
-        let parent = Fixture::empty("collab-blank");
-        let root = create_blank(&parent.root, "share-LT-ABC123").unwrap();
-        assert_eq!(read_manifest(&root).unwrap().venue, "shared");
-        // The placeholder has to typeset to something (see `create_blank`).
-        let placeholder = read(&root, "main.tex");
-        let body = placeholder
-            .split_once("\\begin{document}")
-            .and_then(|(_, rest)| rest.split_once("\\end{document}"))
-            .map(|(body, _)| body.trim().to_string())
-            .unwrap_or_default();
-        assert!(!body.is_empty(), "placeholder must typeset at least one page: {placeholder:?}");
-        for style in VENUE_STYLES {
-            assert!(!root.join(style).exists(), "{style}");
-        }
     }
 
     #[test]
