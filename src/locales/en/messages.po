@@ -2361,7 +2361,6 @@ msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remain
 msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 
 #: src/canvas/paper-reader.tsx
-#: src/pdf/use-pdf-document.ts
 msgid "Could not load PDF"
 msgstr "Could not load PDF"
 
@@ -7000,6 +6999,10 @@ msgstr "Pause syncing with Overleaf?\n"
 msgid "PDF"
 msgstr "PDF"
 
+#: src/pdf/use-pdf-document.ts
+msgid "PDF could not be loaded"
+msgstr "PDF could not be loaded"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF document"
@@ -10032,6 +10035,10 @@ msgstr "Try a shorter phrase or different terms"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "Try again"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Try building the project again."
+msgstr "Try building the project again."
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Try typing / in the visual editor"

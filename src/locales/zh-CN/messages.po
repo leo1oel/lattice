@@ -2361,7 +2361,6 @@ msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remain
 msgstr "无法将此文件交回常规 Overleaf 同步（{detail}）。此文件的同步仍处于暂停状态。"
 
 #: src/canvas/paper-reader.tsx
-#: src/pdf/use-pdf-document.ts
 msgid "Could not load PDF"
 msgstr "无法加载 PDF"
 
@@ -7000,6 +6999,10 @@ msgstr "要暂停与 Overleaf 的同步吗？\n"
 msgid "PDF"
 msgstr "PDF"
 
+#: src/pdf/use-pdf-document.ts
+msgid "PDF could not be loaded"
+msgstr "PDF 无法加载"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF document"
 msgstr "PDF 文档"
@@ -10032,6 +10035,10 @@ msgstr "试试更短的短语或换个关键词"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "重试"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Try building the project again."
+msgstr "请尝试重新构建项目。"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Try typing / in the visual editor"

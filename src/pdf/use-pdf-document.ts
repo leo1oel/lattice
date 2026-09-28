@@ -7,6 +7,7 @@ import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfP
 import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, clamp, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { addAppLog } from "../telemetry/app-log-store";
 import type { ActiveViewerRef, PdfViewerCallbacks, PdfLocationHistory, PdfViewState } from "./use-pdf-view";
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
@@ -61,6 +62,8 @@ export function usePdfDocument({
   const [stableLoadKey, setStableLoadKey] = useState("");
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState("");
+  // PDF.js exceptions are English library text: shown as secondary detail only.
+  const [pdfErrorDetail, setPdfErrorDetail] = useState("");
   const [loadFeedback, setLoadFeedback] = useState<PdfLoadFeedback | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageRenderGeneration, setPageRenderGeneration] = useState(0);
@@ -126,8 +129,12 @@ export function usePdfDocument({
     const fail = (reason: unknown) => {
       if (timeout !== null) window.clearTimeout(timeout);
       clearLoadFeedback();
+      const title = t`PDF could not be loaded`;
+      const detail = reason ? toMessage(reason) : "";
+      addAppLog({ level: "warning", source: "PDF", title, detail: detail || undefined });
       if (!recordRef.current) {
-        setPdfError(toMessage(reason));
+        setPdfError(title);
+        setPdfErrorDetail(detail);
         setNumPages(null);
         callbacks.current.onNumPages?.(null);
       }
@@ -188,6 +195,7 @@ export function usePdfDocument({
       setScale(toAppScale(slick.viewer.currentScale));
       setLoadedKey(key);
       setPdfError("");
+      setPdfErrorDetail("");
       callbacks.current.onNumPages?.(pages);
       activate();
       if (previous && previous !== record) void destroyViewerRecord(previous);
@@ -255,7 +263,10 @@ export function usePdfDocument({
       cancelled = true;
       unsubscribeReady();
       clearLoadFeedback();
-      if (!recordRef.current) setPdfError(timeoutMessage);
+      if (!recordRef.current) {
+        setPdfError(timeoutMessage);
+        setPdfErrorDetail("");
+      }
       setLoadedKey(key);
       if (loadSettled) disposeRecord();
     }, PDF_LOAD_TIMEOUT_MS);
@@ -271,7 +282,7 @@ export function usePdfDocument({
         loadSettled = true;
         if (cancelled) disposeRecord();
         else if (slick.document) promote();
-        else fail(loadFailure ?? t`Could not load PDF`);
+        else fail(loadFailure);
       })
       .catch((reason) => {
         loadSettled = true;
@@ -299,5 +310,5 @@ export function usePdfDocument({
     if (active) void destroyViewerRecord(active);
   }, [flush, recordRef]);
 
-  return { stableLoadKey, loadedKey, pdfError, loadFeedback, numPages, pageRenderGeneration, textLayerGeneration };
+  return { stableLoadKey, loadedKey, pdfError, pdfErrorDetail, loadFeedback, numPages, pageRenderGeneration, textLayerGeneration };
 }
