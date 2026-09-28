@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -5027,13 +5027,12 @@ function App() {
   const graphicsRoots = useMemo(() => parseGraphicsPaths(liveMacroSources), [liveMacroSources]);
   const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
   // TODOs come from .md buffers too (todo_source_path on the Rust side), so
-  // this cannot ride the .tex-only scalars above. Deferring the source keeps
-  // the merge off the paint-critical path: the badge/panel may lag a
-  // keystroke under load, which is fine for a count.
-  const deferredTodoSource = useDeferredValue(source);
+  // this cannot ride the .tex-only scalars above. The rescan only visits
+  // candidate lines, so it runs in the keystroke's own render: deferring it
+  // with useDeferredValue re-rendered all of App a second time per keystroke.
   const todoHits = useMemo(
-    () => mergeTodosWithBuffer(diskTodos, activeFile, deferredTodoSource),
-    [activeFile, diskTodos, deferredTodoSource],
+    () => mergeTodosWithBuffer(diskTodos, activeFile, source),
+    [activeFile, diskTodos, source],
   );
 
   // Where \appendix sits, as two scalars rather than the marker object. The

@@ -67,7 +67,36 @@ function sourceNodeRanges(text: string): (VisualSourceRange | null)[] {
   });
 }
 
-const renderedRootCount = (source: string) => parseVisualMarkdown(source).content?.length ?? 0;
+// How many ProseMirror roots a block's source renders depends only on that
+// source, so it is memoized per block. Checking a document's ranges parses
+// every block on its own (about a thousand parses for a 400 KB file), and the
+// caret report and each publication used to repeat all of them after every
+// keystroke; now only the blocks an edit changed are parsed again.
+const ROOT_COUNT_CACHE_ENTRIES = 20_000;
+const ROOT_COUNT_CACHE_CHARACTERS = 8_000_000;
+const rootCounts = new Map<string, number>();
+let rootCountCharacters = 0;
+
+function renderedRootCount(source: string): number {
+  const cached = rootCounts.get(source);
+  if (cached !== undefined) {
+    rootCounts.delete(source);
+    rootCounts.set(source, cached);
+    return cached;
+  }
+  const count = parseVisualMarkdown(source).content?.length ?? 0;
+  // A slice keeps its whole document alive in both V8 and JavaScriptCore, and
+  // every keystroke publishes a new document; a JSON round trip stores a
+  // detached copy of just the block.
+  rootCounts.set(JSON.parse(JSON.stringify(source)) as string, count);
+  rootCountCharacters += source.length;
+  while (rootCounts.size > ROOT_COUNT_CACHE_ENTRIES || rootCountCharacters > ROOT_COUNT_CACHE_CHARACTERS) {
+    const oldest = rootCounts.keys().next().value!;
+    rootCounts.delete(oldest);
+    rootCountCharacters -= oldest.length;
+  }
+  return count;
+}
 
 /** Best-effort, monotonic source range per rendered top-level block (for navigation). */
 export function visualSourceRanges(text: string, blockCount: number): VisualSourceRange[] {
@@ -96,18 +125,38 @@ export function visualSourceRanges(text: string, blockCount: number): VisualSour
  * reports failure instead and its callers fall back.
  */
 export function exactVisualSourceRanges(text: string, blockCount: number): VisualSourceRange[] | null {
+  const ranges = exactSourceRanges(text);
+  return ranges?.length === blockCount ? ranges : null;
+}
+
+// The same text is checked repeatedly: the caret report runs against the last
+// published Markdown after every pause in typing, and each publication checks
+// both the previous and the new text. Same slot count as the mdast memo.
+const exactRangesCache: { text: string; ranges: readonly VisualSourceRange[] | null }[] = [];
+
+function exactSourceRanges(text: string): VisualSourceRange[] | null {
+  const hit = exactRangesCache.findIndex((entry) => entry.text === text);
+  if (hit !== -1) {
+    const [entry] = exactRangesCache.splice(hit, 1);
+    exactRangesCache.unshift(entry!);
+    return entry!.ranges as VisualSourceRange[] | null;
+  }
   const ranges = sourceNodeRanges(text);
-  if (ranges.length !== blockCount) return null;
+  let exact: VisualSourceRange[] | null = ranges as VisualSourceRange[];
   let previousEnd = 0;
   for (const range of ranges) {
-    if (!range || range.from < previousEnd || range.to < range.from) return null;
     // Equal total counts do not prove ordinal ownership: an ignored YAML,
     // definition, or footnote node (zero PM roots) can cancel a mixed
     // paragraph that expands into two roots.
-    if (renderedRootCount(text.slice(range.from, range.to)) !== 1) return null;
+    if (!range || range.from < previousEnd || range.to < range.from || renderedRootCount(text.slice(range.from, range.to)) !== 1) {
+      exact = null;
+      break;
+    }
     previousEnd = range.to;
   }
-  return ranges as VisualSourceRange[];
+  exactRangesCache.unshift({ text, ranges: exact });
+  exactRangesCache.length = Math.min(exactRangesCache.length, MDAST_CACHE_SLOTS);
+  return exact;
 }
 
 export function sourceOffsetForRowColumn(text: string, row: number, column: number): number {

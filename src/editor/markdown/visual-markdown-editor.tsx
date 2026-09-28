@@ -434,11 +434,19 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
   const caretReportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commentTooltipId = useId();
 
-  const reportVisualCaret = useCallback((currentEditor: Editor, expectedMarkdown: string) => {
+  const reportVisualCaret = useCallback((currentEditor: Editor, expectedMarkdown: string, unpublished = false) => {
     clearTimer(caretReportTimer);
     const { onCaretChange, onSourceCaretChange } = latest.current;
     if (!onCaretChange) return;
-    const mapped = sourceOffsetForProseMirrorPosition(currentEditor, currentEditor.state.selection.head, expectedMarkdown);
+    const head = currentEditor.state.selection.head;
+    // With edits still waiting for publication the document no longer
+    // serializes to the published Markdown, so the whole-document fallback
+    // would serialize a large file after every keystroke only to discard the
+    // result below. The caret's own block maps if it is unchanged; otherwise
+    // the publication reports the caret when it lands.
+    const mapped = unpublished && expectedMarkdown.length >= LARGE_MARKDOWN_PREVIEW_THRESHOLD
+      ? blockSourceOffsetForPosition(currentEditor, head, expectedMarkdown)
+      : sourceOffsetForProseMirrorPosition(currentEditor, head, expectedMarkdown);
     if (mapped?.markdown !== expectedMarkdown) return;
     const caret = rowColumnForSourceOffset(expectedMarkdown, Math.min(mapped.offset, expectedMarkdown.length));
     onCaretChange(caret.row, caret.column);
@@ -452,7 +460,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     clearTimer(caretReportTimer);
     caretReportTimer.current = setTimeout(() => {
       caretReportTimer.current = null;
-      if (!currentEditor.isDestroyed) reportVisualCaret(currentEditor, acceptedMarkdown.current);
+      if (!currentEditor.isDestroyed) reportVisualCaret(currentEditor, acceptedMarkdown.current, pendingLocalUpdate.current !== null);
     }, 120);
   }, [reportVisualCaret]);
   useEffect(() => () => clearTimer(caretReportTimer), []);
@@ -493,7 +501,12 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     if (!explicitReplacement && !(eligibility.current?.text === acceptedMarkdown.current && eligibility.current.exact)) return true;
     const expected = acceptedMarkdown.current;
     const next = serializeMarkdown(updatedEditor, expected, changedBlocks, activePathRef.current);
-    if (next === expected) return true;
+    if (next === expected) {
+      // Edits that cancel out publish nothing, so report the caret the
+      // pending-publication path above may have left unreported.
+      reportVisualCaret(updatedEditor, expected);
+      return true;
+    }
     // A deferred split publication happens after the short lock requested by
     // the original + transaction. Re-lock immediately before the source echo
     // so its CodeMirror update cannot move the preview several frames later.
