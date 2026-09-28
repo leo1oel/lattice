@@ -70,6 +70,14 @@ function watchContent(viewport: HTMLElement, scheduleMeasure: () => void) {
   return () => resizeObserver?.disconnect();
 }
 
+// Revealing the bars is a DOM write for the same reason: as React state, every
+// scroll event queued an update, and whether the bar hid between two wheel
+// notches (another two commits) depended on how the notches fell against the
+// idle timeout.
+function showScrolling(tracks: (HTMLElement | null)[], scrolling: boolean) {
+  for (const track of tracks) track?.toggleAttribute("data-scrolling", scrolling);
+}
+
 /**
  * Draws the Lattice hover-reveal scrollbars over a scroller that owns its own
  * native viewport, on both axes. Unlike `ExternalScrollbar` this reveals on the
@@ -88,6 +96,10 @@ export function OverlayScrollbars({ getViewport }: { getViewport: () => HTMLElem
   const [vertical, setVertical] = useState(NO_OVERFLOW);
   const [horizontal, setHorizontal] = useState(NO_OVERFLOW);
 
+  const setScrolling = useCallback((scrolling: boolean) => {
+    showScrolling([verticalRef.current, horizontalRef.current], scrolling);
+  }, []);
+
   const measure = useCallback((viewport: HTMLElement | null) => {
     if (!viewport) {
       setVertical(NO_OVERFLOW);
@@ -102,7 +114,7 @@ export function OverlayScrollbars({ getViewport }: { getViewport: () => HTMLElem
     setHorizontal((current) => updateFlags(current, x));
   }, []);
 
-  const { viewportRef, scrolling, drag } = useScrollbarViewport(getViewport, measure, SCROLL_IDLE_MS, watchContent);
+  const { viewportRef, drag } = useScrollbarViewport(getViewport, measure, SCROLL_IDLE_MS, watchContent, setScrolling);
 
   // A track with no overflow is `display: none`, so it measures as zero length
   // and the thumb it would need cannot be sized until it is laid out again.
@@ -136,7 +148,6 @@ export function OverlayScrollbars({ getViewport }: { getViewport: () => HTMLElem
   const shared = {
     "aria-hidden": true,
     className: "lattice-scrollbar overlay-scrollbar",
-    "data-scrolling": scrolling ? "" : undefined,
     onPointerCancel: drag.end,
     onPointerMove: drag.move,
     onPointerUp: drag.end,

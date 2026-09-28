@@ -182,7 +182,13 @@ export class BenchDriver {
       }
     }
     await this.click(treeItem(path));
-    await this.waitForActiveFile(path);
+    // A click that lands within a few hundred milliseconds of the previous
+    // call collapsing a folder can be swallowed by the tree (the driver clicks
+    // faster than a person). Setup is unmeasured, so click once more.
+    await this.waitForActiveFile(path, 2_000).catch(async () => {
+      await this.click(treeItem(path));
+      await this.waitForActiveFile(path);
+    });
     for (const folder of expandedHere) await this.click(treeItem(folder));
   }
 
@@ -193,11 +199,11 @@ export class BenchDriver {
     await this.waitForActiveFile(path);
   }
 
-  async waitForActiveFile(path) {
+  async waitForActiveFile(path, timeout) {
     const name = path.split("/").pop();
     await this.waitFor(
       `[...document.querySelectorAll('[role="tab"][aria-selected="true"]')].some((tab) => tab.textContent.trim() === ${JSON.stringify(name)})`,
-      { what: `active tab ${name}` },
+      { timeout, what: `active tab ${name}` },
     );
   }
 

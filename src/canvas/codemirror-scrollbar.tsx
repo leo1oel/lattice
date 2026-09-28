@@ -13,11 +13,15 @@ const scrollerBeside = (bar: HTMLElement) => bar.parentElement?.querySelector<HT
 
 /** Lattice's overlay scrollbar for a CodeMirror view: a thumb that tracks the scroller and can be dragged. */
 export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
+  const barRef = useRef<HTMLDivElement | null>(null);
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const scrollingActiveRef = useRef(false);
   const dragRef = useRef<{ pointerY: number; scrollTop: number } | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
-  const [scrolling, setScrolling] = useState(false);
+  // Written to the DOM rather than kept in state, like the thumb: as state,
+  // whether the bar hid between two wheel notches (two commits) depended on
+  // how the notches fell against the idle timeout.
+  const setScrolling = (scrolling: boolean) => barRef.current?.toggleAttribute("data-scrolling", scrolling);
 
   useEffect(() => {
     const scroller = view?.scrollDOM;
@@ -82,9 +86,9 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
 
   return (
     <div
+      ref={barRef}
       className="cm-overlay-scrollbar"
       data-overflow={hasOverflow || undefined}
-      data-scrolling={scrolling || undefined}
       aria-hidden="true"
       onPointerDown={(event) => {
         const scroller = scrollerBeside(event.currentTarget);

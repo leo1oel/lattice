@@ -213,10 +213,14 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 
 `scripts/perf-bench/budgets.json` holds a ceiling per scenario and count. A
 ceiling sits 20% (at least 5) above the measurement that set it. Commits,
-renders, hooks and mutations repeat exactly from run to run. Recalculations and
-layouts move a few percent with frame alignment and differ between the laptop
-that set a ceiling and the CI runner. A regression worth catching multiplies a
-count.
+renders and hooks repeat exactly from run to run. Recalculations and layouts
+move a few percent with frame alignment and differ between the laptop that set
+a ceiling and the CI runner, and so do mutations in the scroll scenarios: a
+Lattice scrollbar fades out 180 ms after the last scroll event, and how many of
+40 notches that falls between depends on the machine (each fade is about six
+recalculations, which is why `pdf-scroll`'s recalculation ceiling was set from
+a slower machine's 131). The reveal is written to the DOM, not React state, so
+it adds no commits. A regression worth catching multiplies a count.
 
 - `pnpm perf:bench --ratchet` lowers every ceiling the counts now beat, and
   never raises one. Run it after a speedup lands and commit the new
