@@ -1,5 +1,8 @@
 // Adapted from Fluid Functionalism's Base UI ScrollArea, whose scrollbar
 // implementation is adapted from Lina by SameerJS6 (https://lina.sameer.sh).
+// Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+// Lina (https://github.com/SameerJS6/lina): MIT License, Copyright (c) 2025 Sameer Singh.
+// Full license text: THIRD_PARTY_NOTICES.md.
 
 import {
   forwardRef,

@@ -54,6 +54,17 @@ Lattice uses Tauri 2, Rust, React, and TypeScript.
 See [CONTRIBUTING.md](CONTRIBUTING.md) to build the app and run tests, or browse the [architecture docs](docs/README.md).
 Bug reports and pull requests are welcome; please open an [issue](https://github.com/leo1oel/lattice/issues) before a large refactor.
 
+## Acknowledgements
+
+Lattice is built on the work of many open-source projects. The major ones:
+
+- [Open Knowledge](https://github.com/inkeep/open-knowledge) by Inkeep, the foundation of Lattice's visual Markdown editor.
+- [Synara](https://github.com/Emanuele-web04/synara) by T3 Tools Inc. and Emanuele Di Pietro, the agent runtime behind Lattice's AI assistant.
+- [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
+- [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
+- [PDF.js](https://github.com/mozilla/pdf.js), the PDF viewer.
+- [Tauri](https://github.com/tauri-apps/tauri), the desktop shell.
+
 ## License
 
 Lattice is [GPL-3.0-or-later](LICENSE), with code from [Inkeep Open Knowledge](https://github.com/inkeep/open-knowledge) and the MIT-licensed [Synara](https://github.com/Emanuele-web04/synara) agent runtime by T3 Tools Inc. and Emanuele Di Pietro.

@@ -108,7 +108,64 @@ Fraunces is licensed under the SIL Open Font License 1.1, Copyright 2020 The
 Fraunces Project Authors. The full license is at
 https://github.com/undercasetype/Fraunces/blob/master/OFL.txt.
 
-## Open Knowledge (`src/open-knowledge-app/`, `src/open-knowledge-core/`, `src/visual-*`)
+## Fluid Functionalism and Lina (`src/components/ui/`)
+
+Several UI primitives are adapted from [Fluid Functionalism](https://github.com/mickadesign/fluid-functionalism) (MIT, Copyright (c) 2026 Micka Touillaud): `scroll-area.tsx`, `scroll-area.css`, `radio-group.tsx`, `switch.tsx`, `use-fluid-hover.ts`, `fluid-hover-highlight.tsx`, and the spring presets in `motion-values.ts`.
+Fluid Functionalism's scrollbar is itself adapted from [Lina](https://github.com/SameerJS6/lina) (MIT, Copyright (c) 2025 Sameer Singh), so `scroll-area.tsx` and `scroll-area.css` carry both notices.
+Each file's header names what it was adapted from; preserve those headers.
+Both projects use the same MIT text:
+
+MIT License
+
+Copyright (c) 2026 Micka Touillaud
+
+Copyright (c) 2025 Sameer Singh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Open Slide `create-theme` skill (`src-tauri/src/embedded_skills/create-theme/SKILL.md`)
+
+The bundled agent skill for creating presentation themes is adapted from Open Slide's own `create-theme` skill (`packages/core/skills/create-theme/SKILL.md` in [open-slide/open-slide](https://github.com/open-slide/open-slide)).
+It keeps upstream's theme-specification layout (palette, typography, layout, fixed Title and Footer components, motion, aesthetic, example usage) and some of its example code, rewritten for Lattice projects.
+Open Slide is MIT licensed, Copyright (c) 2026 Yiwei Ho, under the same MIT text as the section above.
+The Open Slide runtime package itself is attributed in the generated Open Slide section below.
+
+## Ioskeley Mono (`src/assets/fonts/ioskeley-mono/`)
+
+The editor and code face is [Ioskeley Mono](https://github.com/ahatem/IoskeleyMono) v2.0.0, Copyright (c) 2025 Ahmed Hatem, a custom build of [Iosevka](https://github.com/be5invis/Iosevka), Copyright (c) 2015-2026 Renzhi Li.
+Both are licensed under the SIL Open Font License 1.1, and neither declares a Reserved Font Name.
+Lattice bundles a subset of the `.woff2` files (see the header of `ioskeley-mono.css`); under the OFL a subset is a Modified Version, which may be bundled with any software provided the copyright notice and license travel with it.
+The subset's metadata keeps only the Iosevka copyright line and no license text, so the license ships separately: `src/assets/fonts/ioskeley-mono/OFL.txt` in the source tree, and [`public/licenses/ioskeley-mono-OFL.txt`](public/licenses/ioskeley-mono-OFL.txt) (both copyright lines plus the OFL), which Vite copies into the shipped application.
+
+## Conference LaTeX templates (`src-tauri/templates/`)
+
+`iclr-2026/`, `icml-2026/` and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects.
+Each directory's `UPSTREAM.md` records the source URL, fetch date and SHA-256 of every copied file.
+None of the three packages ships a separate license file. What the files themselves carry:
+
+- `iclr2026_conference.bst` and `icml2026.bst` derive from the natbib `plainnat` family and state that they "can be redistributed and/or modified under the terms of the LaTeX Project Public License" (version 1 or later; https://www.latex-project.org/lppl/), with copyright notices for Patrick W Daly (1993-2007) and Hal Daumé III (2010) and modification credits for J. Fürnkranz and, in the ICML file, Iain Murray.
+- `iclr2026_conference.sty`, `icml2026.sty` and `neurips_2026.sty` carry author credits in their header comments (Hugo Larochelle and the NIPS style authors; the ICML program chairs listed in the file; Roman Garnett and the `nips15submit_e.sty` authors) but no license grant.
+
+All five files are shipped byte-for-byte, so every notice and credit in them reaches users intact. Do not edit or strip their header comments; the LPPL in particular requires a modified `.bst` to be renamed and its changes identified.
+The project keeps these templates bundled. The absence of a license grant on the three `.sty` files remains recorded in the [gaps](#known-attribution-gaps-todo) below.
+
+## Open Knowledge (`src/open-knowledge-app/`, `src/open-knowledge-core/`, `src/editor/markdown/`)
 
 [Inkeep Open Knowledge](https://github.com/inkeep/open-knowledge) is licensed
 **GPL-3.0-or-later**. Lattice vendors and adapts a substantial part of it and
@@ -126,8 +183,10 @@ hash for every vendored file, and `node scripts/vendor-open-knowledge.mjs
 will drift.
 
 At the time of writing that lock records commit
-`7120dc1f61f67468e3fda71d18390a0c6f1503e3`, vendored on 2026-08-07, covering
-153 files. The tree on disk holds more files than the manifest: the remainder
+`c234a9c6c85b9a911094f0840d77953db41545e6` (upstream v0.66.2), vendored on
+2026-09-27, covering 150 regenerated files plus 50 `localOverrides` — Lattice
+adaptations that are three-way merged against upstream and refreshed with
+`--lock-only` after review. The tree on disk holds more files than the manifest: the remainder
 are Lattice-owned seam files (facades, stubs, and shims), each carrying a
 `Local seam — not upstream code` header, plus this GPL copy at
 `src/open-knowledge-app/LICENSE`. Vendored files are copied verbatim apart from
@@ -137,14 +196,17 @@ script.
 ### `src/open-knowledge-core/` — vendored editor core
 
 `src/open-knowledge-core/` vendors the editor subset of `packages/core/src`, licensed GPL-3.0-or-later (see `src/open-knowledge-core/LICENSE`).
-This tree has **no lock file** and is not covered by `--check`; its upstream pin is recorded only in prose. The pin recorded when it was vendored is `9e8a00e24c6eaea110b546758664aad0e7ebab7e`, which has not been machine-verified — treat it as approximate until a lock is generated for this tree.
-Directories vendored verbatim: `markdown/` (including `lint/`, `rehype-plugins/`, `fixtures/`), `extensions/`, `registry/`, `constants/`, `comments/`, `utils/`, `types/`, plus `metrics/parse-health.ts`, `bridge/` (structural-freshness, pm-structural-equivalence, parse-equivalence, normalize, subsequence, tolerance-telemetry), `schemas/api/_shared.ts`, and `util/doc-name.ts`.
-Files removed because they reference subsystems outside the vendored subset: `types/principal.ts`, `types/timeline.ts`, `utils/uninstall-feedback-submit.ts` (and their tests), and three constants tests that import upstream build scripts.
-Local deviations, each marked with a "Local deviation from upstream" comment: `extensions/link-fidelity.ts` (adapts `addOptions` to @tiptap 3.29's `LinkOptions`), `utils/identity.test.ts` (runs under the node vitest environment), and the added `vendor-globals.d.ts` (`process` shim; this repo carries no `@types/node`).
+Unlike the app layer it is a hand-maintained, three-way-merged subset rather than regenerated output, so `vendor-open-knowledge.mjs` does not touch it.
 
-### `src/visual-*` — Lattice-owned adaptations
+**[`open-knowledge-core.lock.json`](open-knowledge-core.lock.json) is the authoritative manifest.**
+It pins the same upstream commit as the app lock, `c234a9c6c85b9a911094f0840d77953db41545e6` (v0.66.2), and records two Git blob IDs for every local file: the upstream blob and the reviewed Lattice blob.
+Equal IDs mean the file is unmodified upstream code, differing IDs mark an intentional Lattice override, and `"upstream": null` marks a Lattice-only file.
+`node scripts/lock-open-knowledge-core.mjs --check` verifies the tree against it; `--write --revision=<ref>` regenerates it after a reviewed merge.
+As with the app lock, do not keep a second file list here.
 
-The visual Markdown block controls, slash-command surface, wiki-link and paper-citation suggestion menus, and the source-dirty observer are Lattice code adapted from Open Knowledge rather than vendored verbatim. Each such file carries its own adaptation header naming the upstream file and the commit it was adapted from (currently `9e8a00e24c6eaea110b546758664aad0e7ebab7e`); those headers are the authoritative per-file record and **must be preserved**.
+### `src/editor/markdown/` — Lattice-owned adaptations
+
+The visual Markdown block controls, slash-command surface, wiki-link and paper-citation suggestion menus (and the suggestion popup they share), link hover, the Markdown schema, and the source-dirty observer are Lattice code in `src/editor/markdown/` adapted from Open Knowledge rather than vendored verbatim. (They lived in `src/visual-*` before the frontend was split into domain directories.) Each such file carries its own adaptation header naming the upstream file and the commit it was adapted from (`9e8a00e24c6eaea110b546758664aad0e7ebab7e`, an earlier upstream commit than the current vendor locks); those headers are the authoritative per-file record and **must be preserved**.
 
 These adapted portions are licensed under GPL-3.0-or-later.
 They were modified starting 2026-08-03 for Lattice's Markdown schema, design tokens, and canonical history integration.
@@ -162,22 +224,24 @@ there are **proprietary**, and this is called out by hand rather than left in
 the generated list because it is the one closure finding that is not a
 formality:
 
+The versions below are the ones in the last generated Synara sidecar section; that section is authoritative when the pin moves.
+
 | Package | `license` field | `LICENSE.md`, in full |
 | --- | --- | --- |
-| `@anthropic-ai/claude-agent-sdk@0.3.207` | `SEE LICENSE IN README.md` | "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance." |
-| `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.207` | `SEE LICENSE IN LICENSE.md` | same text |
+| `@anthropic-ai/claude-agent-sdk@0.3.259` | `SEE LICENSE IN README.md` | "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance." |
+| `@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.259` | `SEE LICENSE IN LICENSE.md` | same text |
 
 Two observations, both checkable against the staged tree:
 
 - **What ships is the SDK, not the CLI.** The platform package's `claude`
-  executable is a 27-byte shim — `#!/bin/sh` / `exec claude "$@"` — written by
+  executable is a tiny shim — `#!/bin/sh` / `exec claude "$@"` — written by
   the prepare script so that sessions run the user's own Claude Code
   installation. Anthropic's CLI binary is *not* redistributed. `pnpm build`
   enforces this through `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` in
   `scripts/app-size-report.mjs`.
-- **The JavaScript SDK itself is still redistributed.** `sdk.mjs` (912 KiB),
-  `bridge.mjs` (1.2 MiB) and `browser-sdk.js` (1.2 MiB) are copied into the
-  application bundle under an all-rights-reserved notice. Anthropic's published
+- **The JavaScript SDK itself is still redistributed.** Its JavaScript entry
+  points (`sdk.mjs`, `bridge.mjs` and `browser-sdk.js`, each around a megabyte
+  when this was last measured) are copied into the application bundle under an all-rights-reserved notice. Anthropic's published
   terms are the ones linked above; nothing in this repository records a grant to
   redistribute those files inside a third-party application, and GPL-3.0 §6
   requires the corresponding source for everything conveyed in the binary.
@@ -196,7 +260,7 @@ Everything below is **shipped in the app or the repository but is not yet
 properly attributed above**. This list exists so the gap is visible rather than
 silent. Appearing here does not by itself mean an item is a problem — for most
 of them it only means nobody has checked; a few (tldraw, the conference
-templates, the Claude Agent SDK) are flagged because a real question was found.
+templates, the Claude Agent SDK, the Synara client's icons) are flagged because a real question was found.
 Remove an entry when it has been given a real section.
 
 Items that used to be on this list and are now covered by the generated section
@@ -205,12 +269,15 @@ Items that used to be on this list and are now covered by the generated section
 rather than kept as reassurance. What remains is what a machine reading the
 installed packages cannot answer.
 
-- **Conference LaTeX templates** (`src-tauri/templates/`) — the one item with no license text anywhere. `iclr-2026/`, `icml-2026/`, and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects. All three `UPSTREAM.md` files record the same finding: **"The package did not contain a separate license file."** The generator cannot help here: these are not packages in any dependency graph, and there is nothing on disk to read. Redistributing a conference style file with no license is an unresolved redistribution question, not a formality — under GPLv3 §5 the combined distribution has to be licensable, and an unlicensed file is not. Options are to obtain permission, to fetch the packages on demand instead of bundling them, or to ship only Lattice's own `main.tex` skeletons. (`tutorial/` is Lattice's own content and is not affected.)
+- **Conference LaTeX template style files** (`src-tauri/templates/*/*.sty`). Attribution is now recorded in the [section above](#conference-latex-templates-src-tauritemplates): the files ship unmodified with every in-file credit, and the two `.bst` files carry an LPPL grant. What stays open is that the three `.sty` files carry **no license grant at all**, so nothing on disk records permission to redistribute them. The project has chosen to keep them bundled; fetching them on demand or obtaining permission from the conference organisers would close this entry. (`tutorial/` is Lattice's own content and is not affected.)
+- **The Synara web client bundle.** `generate-notices` scans the Synara sidecar's `node_modules`, but the prebuilt web client under `synara-runtime/server/dist/client` bundles its own third-party code, and none of that is attributed here yet. Known items, from an audit of Lattice 0.1.341 and the pinned Synara source (`scripts/synara-runtime.json`):
+  - Synara's web app depends on `react-icons` (and `@tabler/icons-react`). The icon sets it imports include Font Awesome Free (`react-icons/fa6`) and VS Code Codicons (`react-icons/vsc`), whose icons are **CC-BY-4.0**, which requires attribution. The exact set of bundled icon packs, and a notice for each, still has to be taken from the client build.
+  - The client ships raw SVGs from `apps/web/public/central-icons-fill/` and `central-icons-reversed/` ("Central icons", rendered by `apps/web/src/lib/central-icons.tsx`). The Synara repository records **no license or provenance** for them. If they are the commercial Central Icon System, redistributing the raw SVGs may not be permitted. This needs an answer from the Synara upstream.
+  - Every other package compiled into the client bundle (rather than installed in `node_modules`) is likewise unattributed until the generator, or Synara's own build, emits a notices file for it.
 - **The Claude Agent SDK's redistribution grant.** See the section above. Attribution is now complete — the terms are quoted in full — but whether Lattice may bundle proprietary, all-rights-reserved JavaScript inside a GPL-3.0 binary is a question only Anthropic can close.
 - **tldraw's GPL compatibility** (`tldraw@5.2.5`). See the tldraw section above. Attribution is resolved: the verbatim license is vendored at `public/licenses/tldraw-LICENSE.md` and reaches the shipped binary. What is not resolved is that the tldraw license imposes restrictions GPL-3.0 §7 does not permit, while itself forbidding relicensing that would negate them. Also unresolved: which grant the project's `VITE_TLDRAW_LICENSE_KEY` corresponds to.
 - **Packages that declare a license but ship no text.** The generated "Unresolved attribution" sections list these — one for npm and crates, one inside the sidecar section. At the last run there were 139 across the three closures (118 npm/crates, 18 sidecar, plus the three below), overwhelmingly crates whose published `.crate` archive omits the `LICENSE` file present in their Git repository. The SPDX identifier is known for all but three, so this is a completeness problem rather than a permission one, but MIT and BSD require the *copyright notice* specifically, and that notice is what is missing. Three packages declare nothing at all: `khroma@2.1.0` and `@univerjs/telemetry@0.25.1` ship an unreferenced license file (MIT and Apache-2.0 respectively, readable on disk but not declared), and **`buffers@0.1.1` has neither a `license` field nor any license file** — a transitive dependency with no discoverable terms at all.
 - **`harper-core`'s dictionary data** (`src-tauri/Cargo.toml`). The crate itself is now attributed (Apache-2.0, though it ships no license text — see above). Its bundled dictionary and corpus data (`dictionary.dict`, `annotations.json`, the irregular-verb and proper-noun tables) may carry separate terms from the code; that has not been checked, and the generator only reads a crate's own license files.
-- **Ioskeley Mono** (`src/assets/fonts/ioskeley-mono/`). SIL Open Font License 1.1, Copyright (c) 2025 Ahmed Hatem. The license text ships at `src/assets/fonts/ioskeley-mono/OFL.txt` but is not referenced from this file, and the OFL's notice requirements have not been checked against how the `.woff2` files are bundled. Not a dependency, so not covered by the generator.
 - **Phosphor Icons** (`src/animated-icons/bakai/*`). These components are hand-rebuilt from Phosphor glyphs (each file's header names the source glyph and weight, e.g. `Faders`, FILL weight). Phosphor Icons is MIT; the required copyright notice is not reproduced anywhere in this repository. Not a dependency, so not covered by the generator.
 - **The `@pierre/trees` patch** (`patches/@pierre__trees@1.0.0-beta.6.patch`). The package's own terms are now attributed (Apache-2.0). The patch is a modification, and Apache-2.0 §4(b) requires modified files to carry prominent notices of the change; whether the patch satisfies that has not been checked.
 - **Univer's commercial tier** (`@univerjs/*`). Every Univer package in the tree declares Apache-2.0 and is attributed in the generated section. Univer is also marketed with a commercial tier, so confirm that the Apache-2.0 packages Lattice actually depends on are the whole story and that no feature in use falls under separate terms.

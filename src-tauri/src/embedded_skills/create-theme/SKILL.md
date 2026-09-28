@@ -5,6 +5,8 @@ short-description: Create a reusable visual theme for Lattice presentations.
 description: Creates or extracts reusable Open Slide themes under themes/. Use when the user asks to create a presentation theme, reuse a visual style, derive a theme from an existing deck or reference image, or invokes /create-theme.
 ---
 
+<!-- Adapted from Open Slide's create-theme skill (https://github.com/open-slide/open-slide, packages/core/skills/create-theme/SKILL.md). MIT License, Copyright (c) 2026 Yiwei Ho. Full license text: Lattice's THIRD_PARTY_NOTICES.md. -->
+
 # Create a Lattice presentation theme
 
 Create a paired theme bundle in the current Lattice project.

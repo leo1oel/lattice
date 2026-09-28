@@ -7,6 +7,8 @@ import { FluidHoverHighlight } from "./fluid-hover-highlight";
 
 // Adapted from Fluid Functionalism's radio group, at its rounded shape and
 // default (36px) size step.
+// Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
+// Full license text: THIRD_PARTY_NOTICES.md.
 
 const fontWeights = {
   normal: "'wght' 400, 'opsz' 14",
