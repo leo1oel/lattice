@@ -120,12 +120,12 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/app/` | 48 | 9 | 7,789 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, collab session, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, sidebar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. |
 | `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
-| `src/platform/` | 10 | 5 | 1,934 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
+| `src/platform/` | 10 | 5 | 1,978 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
 | `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (element, listener and idle-callback helpers for hand-built editor chrome). |
 | `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). Exercised by the playground in `tools/icon-lab/`. |
 | `src/editor/comments/` | 4 | 1 | 898 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel. |
 | `src/editor/board/` | 3 | 1 | 1,176 | The tldraw whiteboard and its Y.Doc bridge. Loaded only via `loadBoardEditorModule()`. |
-| `src/editor/presentation/` | 6 | 3 | 644 | The embedded Open Slide workspace and its loopback bridge. |
+| `src/editor/presentation/` | 6 | 3 | 964 | The embedded Open Slide workspace and its loopback bridge. |
 | `src/onboarding/` | 3 | 1 | 628 | The first-run tour and its step definitions. |
 | `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
 | `src/hooks/` | 2 | 0 | 44 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`. |
