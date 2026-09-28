@@ -186,7 +186,8 @@ At the time of writing that lock records commit
 `c234a9c6c85b9a911094f0840d77953db41545e6` (upstream v0.66.2), vendored on
 2026-09-27, covering 150 regenerated files plus 50 `localOverrides` — Lattice
 adaptations that are three-way merged against upstream and refreshed with
-`--lock-only` after review. The tree on disk holds more files than the manifest: the remainder
+`--lock-only` after review. The tree on disk holds more files than the
+manifest: the remainder
 are Lattice-owned seam files (facades, stubs, and shims), each carrying a
 `Local seam — not upstream code` header, plus this GPL copy at
 `src/open-knowledge-app/LICENSE`. Vendored files are copied verbatim apart from
@@ -234,7 +235,7 @@ The versions below are the ones in the last generated Synara sidecar section; th
 Two observations, both checkable against the staged tree:
 
 - **What ships is the SDK, not the CLI.** The platform package's `claude`
-  executable is a tiny shim — `#!/bin/sh` / `exec claude "$@"` — written by
+  executable is a 27-byte shim — `#!/bin/sh` / `exec claude "$@"` — written by
   the prepare script so that sessions run the user's own Claude Code
   installation. Anthropic's CLI binary is *not* redistributed. `pnpm build`
   enforces this through `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` in
