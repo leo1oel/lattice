@@ -200,7 +200,7 @@ sources = [
 # `check`: it drives a local Chrome for a few minutes, and its counts are
 # meant to be read on an otherwise idle machine.
 [tasks.perf-bench]
-description = "Interaction benchmark: fail when a count exceeds its ceiling in scripts/perf-bench/budgets.json"
+description = "Interaction benchmark: fail when a gated count exceeds its ceiling in scripts/perf-bench/budgets.json"
 run = "pnpm perf:bench --check"
 
 [tasks.check]
