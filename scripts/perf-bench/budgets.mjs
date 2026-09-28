@@ -40,6 +40,17 @@ export const gatedCounts = (scenario) => {
 };
 
 /**
+ * The run with the fewest gated counts: noise only ever adds work. Report-only
+ * counts vary the most, so they must not decide which run the gate checks; the
+ * kept run's report-only counts are still the ones reported.
+ */
+export function bestOf(scenario, runs) {
+  const gated = gatedCounts(scenario);
+  const total = (run) => gated.reduce((sum, key) => sum + run[key], 0);
+  return runs.reduce((best, run) => (total(run) < total(best) ? run : best));
+}
+
+/**
  * Ceilings sit this far above the measurement that set them. The gated counts
  * repeat from run to run or move by a handful (a commit or two when an async
  * load lands before or after a step), and the CI runner is not the laptop that

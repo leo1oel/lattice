@@ -36,7 +36,7 @@ import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { applyBudgets, COUNTS } from "./perf-bench/budgets.mjs";
+import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 
@@ -209,13 +209,6 @@ async function measure(page, driver, scenario, profileTo) {
   };
 }
 
-/** The run with the fewest total counts: noise only ever adds work. */
-function bestOf(runs) {
-  return runs.reduce((best, run) => (
-    COUNTS.reduce((sum, key) => sum + run[key], 0) < COUNTS.reduce((sum, key) => sum + best[key], 0) ? run : best
-  ));
-}
-
 function formatTable(results) {
   const rows = [["scenario", "unit", ...COUNTS.map((key) => `${key}/unit`), "long tasks", "task ms"]];
   for (const { scenario, result } of results) {
@@ -281,7 +274,7 @@ async function main() {
           if (!options.keepOpen) await page.close();
         }
       }
-      const result = bestOf(runs);
+      const result = bestOf(scenario.name, runs);
       results.push({ scenario, result, runs });
       console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key]}`).join(", ")} (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)`);
     }

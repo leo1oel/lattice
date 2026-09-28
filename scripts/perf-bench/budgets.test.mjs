@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyBudgets, ceilingFor, COUNTS, gatedCounts } from "./budgets.mjs";
+import { applyBudgets, bestOf, ceilingFor, COUNTS, gatedCounts } from "./budgets.mjs";
 
 const counts = (value) => Object.fromEntries(COUNTS.map((key) => [key, value]));
 const ceilings = (value, scenario = "typing") => Object.fromEntries(gatedCounts(scenario).map((key) => [key, value]));
@@ -64,6 +64,17 @@ describe("perf bench budgets", () => {
     }
     const over = applyBudgets(budgets, [{ name: "pdf-scroll", result: { ...counts(1), hooks: 11 } }], "check");
     expect(over.failures).toEqual([{ scenario: "pdf-scroll", key: "hooks", value: 11, ceiling: 10 }]);
+  });
+
+  it("keeps the run with the fewest gated counts, whatever its report-only counts", () => {
+    const noisy = { ...counts(1), commits: 12, recalcs: 120 };
+    const quiet = { ...counts(1), commits: 9, recalcs: 200 };
+    expect(bestOf("pdf-scroll", [noisy, quiet])).toBe(quiet);
+    expect(bestOf("pdf-scroll", [quiet, noisy])).toBe(quiet);
+    const scrollNoise = { ...counts(1), mutations: 500 };
+    const fewerHooks = { ...counts(1), hooks: 0, mutations: 900 };
+    expect(bestOf("pdf-scroll", [scrollNoise, fewerHooks])).toBe(fewerHooks);
+    expect(bestOf("typing", [scrollNoise, fewerHooks])).toBe(scrollNoise);
   });
 
   it("drops ceilings left on counts that are now report-only", () => {
