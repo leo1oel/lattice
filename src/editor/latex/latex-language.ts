@@ -242,7 +242,7 @@ const MAX_FOLD_SCAN_LINES = 20_000;
 const MAX_GROUP_SCAN_LINES = 1_000;
 
 /** `text` without its `%` comment (an escaped `\%` is text). */
-function uncommented(text: string): string {
+export function uncommented(text: string): string {
   for (let index = text.indexOf("%"); index >= 0; index = text.indexOf("%", index + 1)) {
     let backslashes = 0;
     while (index - backslashes - 1 >= 0 && text[index - backslashes - 1] === "\\") backslashes++;
@@ -334,7 +334,7 @@ function groupFold(state: EditorState, line: Line, text: string) {
       const character = nextText[index];
       if (character === "\\") index++;
       else if (character === "{") depth++;
-      else if (character === "}" && --depth < open.length) {
+      else if (character === "}" && --depth === 0) {
         // The first brace still open on the starting line closes here.
         return { from: line.from + open[0] + 1, to: next.from + index };
       }

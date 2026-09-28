@@ -1,4 +1,5 @@
 import type { Text } from "@codemirror/state";
+import { uncommented } from "./latex-language";
 
 const BEGIN_OR_END = /\\(begin|end)\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 
@@ -100,7 +101,7 @@ function isUnbalanced(name: string, doc: Text): boolean {
   let open = 0;
   for (const line of doc.iterLines()) {
     if (!line.includes(name)) continue;
-    for (const event of environmentEvents(line.replace(/(?<!\\)%.*$/, ""))) {
+    for (const event of environmentEvents(uncommented(line))) {
       if (event.name === name) open += event.kind === "begin" ? 1 : -1;
     }
   }

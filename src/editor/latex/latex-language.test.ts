@@ -131,6 +131,10 @@ describe("LaTeX folding", () => {
     expect(foldLines("text\n% only\ntext", 2)).toBeNull();
   });
 
+  it("folds the outermost of two brace groups left open on a line to its own close", () => {
+    expect(foldLines("\\newcommand{\\foo}{\\textbf{\n x\n}\ny}\nafter", 1)).toEqual([1, 4]);
+  });
+
   it("does not fold an environment that never closes", () => {
     expect(foldLines("\\begin{figure}\ntext", 1)).toBeNull();
   });
