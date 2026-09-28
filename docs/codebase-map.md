@@ -297,7 +297,8 @@ file in the app" (`src/canvas/canvas-lazy-modules.ts:4-7`).
 
 ### The lint debt is concentrated
 
-`pnpm lint` runs `eslint src --max-warnings 128`. The cap is a ratchet: lower
+`pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
+in `package.json`. The cap is a ratchet: lower
 it when you remove warnings, never raise it.
 
 The warnings are almost entirely `react-hooks/*` diagnostics that

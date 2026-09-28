@@ -38,8 +38,8 @@ skipping any whose declared `sources` have not changed. Needs
 nothing skipped, on Node 22, Rust on macOS and everything else on Ubuntu, while
 mise pins Node 26.5.0 / pnpm 10.13.1 and caches stage freshness. A green local
 check with a red CI is usually the freshness cache — `mise run --force check`.
-Lint enforces `--max-warnings 111` as a debt cap: lower it when you remove
-warnings; never raise it.
+Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
+`package.json`: lower it when you remove warnings; never raise it.
 
 ## Layout
 
