@@ -2019,12 +2019,15 @@ describe("VisualMarkdownEditor", () => {
       expect(document.body.innerHTML).not.toContain("javascript:alert(1)");
     });
 
-    it("renders a read-only MirrorSource indexed after the mirror mounts and refreshes it", async () => {
+    it.each([["before", true], ["after", false]])("renders a read-only MirrorSource indexed %s the mirror mounts and refreshes it", async (_when, indexedFirst) => {
       const workspaceIndex = new MarkdownWorkspaceIndex(async () => "");
       const publishSource = (body: string) => act(() => workspaceIndex.noteDocumentContent("source.md", `<MirrorSource id="shared">\n\n${body}\n\n</MirrorSource>`));
+      if (indexedFirst) publishSource("**First version**");
       renderEditor({ text: '<Mirror src="source" anchor="shared" />', workspaceIndex });
-      await waitForElement(".ok-mirror-state");
-      publishSource("**First version**");
+      if (!indexedFirst) {
+        await waitForElement(".ok-mirror-state");
+        publishSource("**First version**");
+      }
       const mirror = await waitForElement(".ok-mirror-resolved");
       expect(mirror).toHaveTextContent("First version");
       expect(mirror.querySelector("strong")).not.toBeNull();

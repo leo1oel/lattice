@@ -376,11 +376,6 @@ fn overleaf_sync_never_uploads_without_a_writable_role() {
         assert!(result.read_only && result.pushed.is_empty(), "{permission:?}");
         assert!(server.uploads().is_empty());
         assert_eq!(result.pulled, vec!["notes.tex"]);
-        // The pulled snapshot is the new merge base straight away, so edits
-        // made once write access returns merge against it, not against the
-        // stale pre-permission base.
-        assert_eq!(read_base_copy(&root, "notes.tex").as_deref(), Some("new remote notes"));
-        assert_eq!(state_files(&root)["notes.tex"], sha256_hex(b"new remote notes"));
         // The local edit is still here, and still counts as unsent.
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
         assert!(!state_files(&root).contains_key("main.tex"));
@@ -392,6 +387,40 @@ fn overleaf_sync_never_uploads_without_a_writable_role() {
             assert_eq!(sync(&config, &root, NO_LIVE, None).unwrap().read_only, read_only);
         }
     }
+}
+
+#[test]
+fn read_only_pull_refreshes_the_base_before_write_access_returns() {
+    let original = b"alpha\nshared middle\nbeta\n".as_slice();
+    let first_remote = b"alpha from Overleaf\nshared middle\nbeta\n".as_slice();
+    let first_server = Mock::project(&[("main.tex", first_remote)]).serve();
+    let (config, root) =
+        linked(&first_server, &[("main.tex", original)], &[("main.tex", original)]);
+    edit_state(&root, |state| state.permission = None);
+
+    assert!(sync(&config, &root, NO_LIVE, None).unwrap().read_only);
+    assert_eq!(read_base_copy(&root, "main.tex").as_deref().map(str::as_bytes), Some(first_remote));
+
+    // Once write access returns, edits to different lines must merge against
+    // the pulled snapshot, not the stale pre-permission base.
+    fs::write(disk_path(&root, "main.tex"), b"alpha from Overleaf\nshared middle\nbeta locally\n")
+        .unwrap();
+    let second_server =
+        Mock::project(&[("main.tex", b"alpha revised remotely\nshared middle\nbeta\n")]).serve();
+    // The second mock server represents the same Overleaf deployment at a new
+    // test address, so move the synthetic session with the link.
+    edit_state(&root, |state| {
+        state.host = second_server.base.clone();
+        state.permission = Some("readAndWrite".to_string());
+    });
+    let config = signed_in(&second_server.base);
+
+    let merged = sync(&config, &root, NO_LIVE, None).unwrap();
+
+    assert_eq!(merged.merged, vec!["main.tex"]);
+    assert!(merged.conflicts.is_empty());
+    assert_eq!(text(&root, "main.tex"), "alpha revised remotely\nshared middle\nbeta locally\n");
+    assert_eq!(second_server.uploads().len(), 1);
 }
 
 #[test]

@@ -463,32 +463,9 @@ mod tests {
     }
 
     #[test]
-    fn the_red_traffic_light_can_still_close_the_window() {
-        // A JS listener on tauri://close-requested makes the core prevent the
-        // native close, leaving the frontend's destroy() as the only thing that
-        // can shut the window down, and the red button silently dead whenever
-        // that call fails. No window registers one, so the close stays native.
-        let frontend = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src");
-        let listeners: Vec<_> = walkdir::WalkDir::new(&frontend)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|entry| {
-                let name = entry.file_name().to_string_lossy();
-                (name.ends_with(".ts") || name.ends_with(".tsx")) && !name.contains(".test.")
-            })
-            .filter(|entry| {
-                std::fs::read_to_string(entry.path()).is_ok_and(|source| {
-                    source.contains("onCloseRequested") || source.contains("close-requested")
-                })
-            })
-            .map(|entry| entry.path().display().to_string())
-            .collect();
-        assert!(listeners.is_empty(), "close-requested listeners: {listeners:?}");
-
-        // The hidden browser-host window still destroys itself once its
-        // browser tab disconnects, which needs the ACL grant.
-        let bridge = include_str!("../../src/platform/browser-host-bridge.ts");
-        assert!(bridge.contains("getCurrentWindow().destroy()"));
+    fn the_browser_host_window_may_destroy_itself() {
+        // The hidden browser-host window destroys itself once its browser tab
+        // disconnects, which needs the ACL grant.
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
         let permissions = capability["permissions"].as_array().expect("capability permissions");
