@@ -422,6 +422,7 @@ function App() {
   } = projectState;
   const library = useProjectLibrary(projectState);
   const {
+    claimBibliographyRefresh, applyBibliographyIndex,
     papers, citationKeys, setCitationKeys, citations, setCitations, references, setReferences,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
@@ -555,7 +556,7 @@ function App() {
       setError(toMessage(reason));
       return false;
     }
-  }, []);
+  }, [projectRef, setProject]);
   const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
   const navLock = useRef(false);
@@ -569,6 +570,7 @@ function App() {
   const projectSearch = useProjectSearch();
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const semanticSearch = useLocalSemanticSearch(project?.root, projectRef);
+  const { requestReindex: requestSemanticReindex } = semanticSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const [wrapEnvRequest, setWrapEnvRequest] = useState<{ name: string; id: string } | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
@@ -584,14 +586,14 @@ function App() {
       paperMarkdownRef.current = value;
       setPaperMarkdown(value);
     }
-  }, [paperView]);
+  }, [paperBlogRef, paperMarkdownRef, paperView, setPaperBlog, setPaperMarkdown]);
   const changePaperView = useCallback((view: "blog" | "fulltext") => {
     if (view === paperView) return;
     // Blog and full text are distinct editable documents. Publish the old
     // NodeView while its path still owns the callback, then change identity.
     if (visualMarkdownFlushRef.current?.() === false) return;
     setPaperView(view);
-  }, [paperView]);
+  }, [paperView, setPaperView]);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
   const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
   const [projectFileDropPreview, setProjectFileDropPreview] = useState<EditorDropPreview | null>(null);
@@ -848,6 +850,10 @@ function App() {
       onMinimumSidebarWidth: sidebar.setMinimumSidebarWidth,
     },
   });
+  const {
+    origin: synaraOrigin, sourceControlFrameRef: synaraSourceControlFrameRef, postMessage: postSynaraMessage,
+    requestRuntime: requestSynaraRuntime,
+  } = synara;
   const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
   const autoBuildModeRef = useRef(buildPreferences.autoBuildMode);
   useEffect(() => {
@@ -877,7 +883,7 @@ function App() {
   });
   const { build, setBuild, building, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
-  const { resetQueue: resetBuildQueue, cycleDiagnostic } = buildPipeline;
+  const { resetQueue: resetBuildQueue, cycleDiagnostic, setDiagnosticsExpanded } = buildPipeline;
   const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
     resetAgentCheckpoints();
     resetBuildQueue(cancelQueuedBuild);
@@ -951,11 +957,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   useEffect(() => {
-    if (!synara.origin || !gitOpen) return;
+    if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
       if (
-        event.source !== synara.sourceControlFrameRef.current?.contentWindow ||
-        event.origin !== synara.origin ||
+        event.source !== synaraSourceControlFrameRef.current?.contentWindow ||
+        event.origin !== synaraOrigin ||
         event.data?.type !== "lattice:close-source-control"
       ) {
         return;
@@ -964,9 +970,10 @@ function App() {
     };
     window.addEventListener("message", closeSourceControl);
     return () => window.removeEventListener("message", closeSourceControl);
-  }, [gitOpen, synara.origin]);
+  }, [gitOpen, synaraOrigin, synaraSourceControlFrameRef]);
 
   const projectGit = useProjectTreeWatch(projectState, sidebarMode === "project");
+  const { setGitStatus } = projectGit;
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (project?.root && activeFile) persistLastFile(project.root, activeFile);
@@ -1070,7 +1077,7 @@ function App() {
       return paperBuffersDirty();
     }
     return false;
-  }, []);
+  }, [paperBuffersDirty, savedSourceRef, sourceRef]);
 
   const markDiskMtime = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
     try {
@@ -1222,7 +1229,11 @@ function App() {
       if (isLatestLoad() && !isClientDestroyedErrorV2(reason)) setError(toMessage(reason));
       return false;
     }
-  }, [activeCollabVersion, collabPathMutationGeneration, markDiskMtime]);
+  }, [
+    activeCollabVersion, activeFileRef, addOpenTab, closePaper, collabPathMutationGeneration, markDiskMtime,
+    projectOperationGenerationRef, projectRef, requestEditorLine, setSavedSource, showActiveAsset,
+    showPrimaryText, viewStateRef,
+  ]);
 
   useLeavePresenceOnClose(collabV2ControllerRef);
 
@@ -1295,7 +1306,8 @@ function App() {
       setNotice("The open file was deleted by a collaborator; this share has no other text file to open.");
     }
   }, [
-    collabPathMutationGeneration, dropViewState, loadFile, refreshProject,
+    activeFileRef, collabPathMutationGeneration, dropViewState, loadFile, projectOperationGenerationRef,
+    refreshProject, secondaryFileRef, setActiveFile, setSavedSource, setSource, showSecondaryText,
   ]);
 
   /**
@@ -1480,7 +1492,7 @@ function App() {
         writtenPaths.some((path) => path.endsWith(".tex")),
         writtenPaths.some((path) => /\.bib$/i.test(path)),
       );
-      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) semanticSearch.requestReindex();
+      if (writtenPaths.some((path) => /\.(?:md|mdx|tex)$/i.test(path))) requestSemanticReindex();
       return true;
     } catch (reason) {
       // Autosave runs constantly, so this path gets a plain notification rather
@@ -1490,10 +1502,11 @@ function App() {
       return false;
     }
   }, [
-    activeFile, activeAsset, activePaper, activeCollabVersion, collabPathMutationGeneration, collabSession,
-    externalEditConflictMessage, markPaperSaved, project, publishTextToCollabV2, recordSavedPaths,
-    refreshAfterSave, semanticSearch.requestReindex, setPrimarySaved, setPrimarySource, setSecondarySaved,
-    setSecondarySourceLive,
+    activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, collabPathMutationGeneration,
+    collabSession, externalEditConflictMessage, markPaperSaved, paperBlogRef, paperMarkdownRef, project,
+    publishTextToCollabV2, recordSavedPaths, refreshAfterSave, requestSemanticReindex, savedPaperBlogRef,
+    savedPaperMarkdownRef, savedSourceRef, secondaryFileRef, secondarySavedRef, secondarySourceRef,
+    setPrimarySaved, setPrimarySource, setSecondarySaved, setSecondarySourceLive, sourceRef,
   ]);
   // Keep activity tracking outside the save body: React Compiler cannot lower
   // try/finally, while Promise.finally still covers every early return/error.
@@ -1527,7 +1540,7 @@ function App() {
       if (secondaryFileRef.current !== path) return;
       commitSecondaryText(content);
     }
-  }, [activeCollabVersion]);
+  }, [activeCollabVersion, activeFileRef, commitPrimaryText, commitSecondaryText, secondaryFileRef]);
 
   useLayoutEffect(() => {
     hasLateProjectTransitionEditRef.current = () => {
@@ -1537,7 +1550,10 @@ function App() {
         : !activeAsset && sourceRef.current !== savedSourceRef.current;
       return primaryDirty || secondarySourceRef.current !== secondarySavedRef.current;
     };
-  }, [activeAsset, activePaper]);
+  }, [
+    activeAsset, activePaper, paperBuffersDirty, savedSourceRef, secondarySavedRef, secondarySourceRef,
+    sourceRef,
+  ]);
 
   useEffect(() => {
     if (!browserHosted) return;
@@ -1616,7 +1632,10 @@ function App() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [acceptExternalText, activeAsset, activeFile, activePaper, buildPreferences.autoBuildMode, project, secondaryFile]);
+  }, [
+    acceptExternalText, activeAsset, activeFile, activePaper, buildPreferences.autoBuildMode, project,
+    savedSourceRef, secondaryFile, secondarySavedRef, secondarySourceRef, sourceRef,
+  ]);
 
   const pushNavigation = useCallback((path: string, line: number) => {
     if (navLock.current || !path) return;
@@ -1876,32 +1895,15 @@ function App() {
     } else {
       pushNavigation(navigationPath, 1);
     }
+  // `publishTextToCollabV2` is listed although `activeCollabVersion` already
+  // tracks its identity today: that is two lists agreeing by coincidence, not a
+  // guarantee, so it is listed to keep it true.
   }, [
-    acceptExternalText,
-    activeAsset,
-    activeCollabVersion,
-    activeFile,
-    activePaper,
-    activePaperDirty,
-    canvasMode,
-    cancelPreviewPrewarm,
-    collabSession,
-    flushAndCheckPrimaryDirty,
-    focusedPane,
-    loadFile,
-    markDiskMtime,
-    project?.root,
-    // Harmless here today only because `activeCollabVersion` is listed above and
-    // is the sole value this callback's identity tracks — but that is a coincidence
-    // of two lists agreeing, not a guarantee. Listed so it stays true.
-    publishTextToCollabV2,
-    pushNavigation,
-    save,
-    savedSource,
-    secondaryFile,
-    secondarySavedSource,
-    secondarySource,
-    source,
+    acceptExternalText, activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, addOpenTab,
+    cancelPreviewPrewarm, canvasMode, flushAndCheckPrimaryDirty, focusedPane, loadFile, markDiskMtime,
+    paperBuffersDirty, project?.root, projectOperationGenerationRef, projectRef, publishTextToCollabV2,
+    pushNavigation, requestEditorLine, save, savedSourceRef, secondaryFile, secondarySavedSource,
+    secondarySource, setSecondarySavedSource, showSecondaryText, sourceRef, viewStateRef,
   ]);
   useEffect(() => {
     openProjectFileRef.current = openProjectFile;
@@ -1944,7 +1946,7 @@ function App() {
     } catch {
       setNotice(`Could not open ${path}`);
     }
-  }, [openProjectFile, pushNavigation]);
+  }, [openProjectFile, pushNavigation, requestEditorLine]);
 
   const navigateHistory = useCallback(async (direction: -1 | 1) => {
     const nextIndex = navIndex + direction;
@@ -2071,7 +2073,7 @@ function App() {
       commitOpenText,
       { observedRemoteVersion, livePaths, operationId: diagnosticOperationId },
     );
-  }, [activeCollabVersion, collabCanWrite, commitOpenText, v2WorkspaceCallbacks]);
+  }, [activeCollabVersion, collabCanWrite, commitOpenText, projectRef, v2WorkspaceCallbacks]);
 
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
@@ -2185,8 +2187,9 @@ function App() {
           ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
         }];
   }, [
-    activeCollabVersion, collabCanWrite, collabDiskWriteQueueRef, loadFile, recordSavedPaths, refreshHistory,
-    refreshProject, v2WorkspaceCallbacks,
+    activeCollabVersion, activeFileRef, collabCanWrite, collabDiskWriteQueueRef, commitOpenText, loadFile,
+    projectRef, recordSavedPaths, refreshHistory, refreshProject, savedSourceRef, setActiveFile,
+    setSavedSource, setSource, sourceRef, v2WorkspaceCallbacks,
   ]);
 
   const openSources = useCallback(() => new Map([
@@ -2266,8 +2269,8 @@ function App() {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     }
   }, [
-    forwardSyncPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, secondaryFile, secondarySavedSource,
-    secondarySource, source,
+    forwardSyncPosition, locatingPdf, pdfUrl, projectOperationGenerationRef, projectRef, runBuild, save,
+    savedSource, secondaryFile, secondarySavedSource, secondarySource, source,
   ]);
 
   const navigateOutline = useCallback(async (path: string, line: number) => {
@@ -2299,7 +2302,7 @@ function App() {
     } catch {
       // The source jump is still useful when this PDF has no SyncTeX map.
     }
-  }, [openProjectFile]);
+  }, [activeFileRef, openProjectFile, projectOperationGenerationRef, projectRef]);
 
   const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
     if (!project) return;
@@ -2314,12 +2317,12 @@ function App() {
     }
     try {
       await openProjectFile(path, diagnostic.line ?? undefined);
-      buildPipeline.setDiagnosticsExpanded(true);
+      setDiagnosticsExpanded(true);
       setError(null);
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [activeFile, openProjectFile, project]);
+  }, [activeFile, openProjectFile, project, setDiagnosticsExpanded]);
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
@@ -2381,7 +2384,10 @@ function App() {
     } finally {
       automaticBuildPending.current = false;
     }
-  }, [runBuild, save]);
+  }, [
+    projectOperationGenerationRef, runBuild, save, savedSourceRef, secondarySavedRef, secondarySourceRef,
+    sourceRef,
+  ]);
   const saveRef = useRef(save);
   saveRef.current = save;
   const saveAndCompileAutomaticallyRef = useRef(saveAndCompileAutomatically);
@@ -2452,14 +2458,14 @@ function App() {
       if (!options?.deferInitialBuild) {
         void runBuild(false, { immediatePreview: true });
       }
-      const isLatestBibliography = library.claimBibliographyRefresh();
+      const isLatestBibliography = claimBibliographyRefresh();
       const bibliographyIndex = await loadBibliographyIndex();
       const [nextPapers, , , nextReferences] = bibliographyIndex;
       if (!ownsProjectRestore()) return;
       // Opening a file cancels workspace restoration, not the project's paper
       // scan. Apply metadata before the editor-generation guards below, but do
       // not overwrite a newer bibliography refresh triggered by a save.
-      if (isLatestBibliography()) library.applyBibliographyIndex(bibliographyIndex);
+      if (isLatestBibliography()) applyBibliographyIndex(bibliographyIndex);
       else setReferences(nextReferences ?? []);
       const plan = planWorkspaceRestore(snapshot, nextPapers, loadWorkspaceLayout(snapshot.root), loadLastFile(snapshot.root));
       const { primaryFile, secondaryFile, activeTab, mode } = plan;
@@ -2512,8 +2518,13 @@ function App() {
       if (shellRef.current) shellRef.current.style.opacity = "1";
     },
     [
-      beginProjectTransition, loadViewStatesForProject, loadFile, refreshUnusedSymbols, rememberProject,
-      resetAgentSelection, resetForProject, runBuild, settleCollabBeforeProjectSwitch,
+      activeFileRef, applyBibliographyIndex, beginProjectTransition, claimBibliographyRefresh,
+      loadEditorComments, loadFile, loadHistory, loadTodos, loadViewStatesForProject, loadWordCount,
+      projectBeforeTransitionRef, projectOperationGenerationRef, projectRef, refreshUnusedSymbols,
+      rememberProject, resetAgentSelection, resetEditorComments, resetForProject, runBuild, savedSourceRef,
+      setActiveFile, setActivePaper, setDiskTodos, setPaperBuffers, setPaperView, setProject, setReferences,
+      setSavedSource, setSource, settleCollabBeforeProjectSwitch, showActiveAsset, showSecondaryAsset,
+      showSecondaryText, sourceRef,
     ],
   );
   enterProjectRef.current = enterProject;
@@ -2851,7 +2862,7 @@ function App() {
     } finally {
       setBusyLabel(null);
     }
-  }, [cancelProjectTransition, enterProject, save, setSidebarOpen, startProjectTransition]);
+  }, [cancelProjectTransition, enterProject, save, setSidebarMode, setSidebarOpen, startProjectTransition]);
   useEffect(() => {
     if (didRouteStartupRef.current) return;
     didRouteStartupRef.current = true;
@@ -3046,7 +3057,10 @@ function App() {
       // and includes dirty secondary and paper buffers.
       void save();
     }
-  }, [activePaper, buildPreferences.autoBuildMode, save, saveAndCompileAutomatically]);
+  }, [
+    activePaper, buildPreferences.autoBuildMode, save, saveAndCompileAutomatically, savedSourceRef,
+    secondarySavedRef, secondarySourceRef, sourceRef,
+  ]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -3081,6 +3095,7 @@ function App() {
     },
     onCite: (key) => insertCitation(key, "cite"),
   });
+  const { clearStage: clearImportStage } = referenceImport;
 
   const openPaper = useCallback(async (
     paper: PaperSummary,
@@ -3173,8 +3188,10 @@ function App() {
       }
     }
   }, [
-    activeAsset, activeFile, activePaper, activePaperDirty, cancelPreviewPrewarm, flushAndCheckPrimaryDirty,
-    save, secondaryFile, secondarySavedSource, secondarySource, t,
+    activeAsset, activeFile, activePaper, addOpenTab, cancelPreviewPrewarm, flushAndCheckPrimaryDirty,
+    paperBuffersDirty, projectOperationGenerationRef, projectRef, save, savedSourceRef, secondaryFile,
+    secondarySavedSource, secondarySource, setActivePaper, setPaperBuffers, setPaperSide, setPaperView,
+    showActiveAsset, sourceRef, t,
   ]);
 
   /** Opening the tour's sample paper moves the tour on to the reading step it offers. */
@@ -3238,9 +3255,9 @@ function App() {
       if (paperLoadGenerationRef.current === loadGeneration) {
         paperLoadGenerationRef.current = null;
       }
-      referenceImport.clearStage();
+      clearImportStage();
     }
-  }, [advanceTutorialPastPaper, openPaper, refreshProject]);
+  }, [advanceTutorialPastPaper, clearImportStage, openPaper, refreshProject]);
 
   const readDraggedPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
@@ -3280,7 +3297,10 @@ function App() {
       if (isLatestLoad()) setError(toMessage(reason));
       return false;
     }
-  }, [activeAsset, activePaper, flushAndCheckPrimaryDirty, save]);
+  }, [
+    activeAsset, activePaper, addOpenTab, closePaper, flushAndCheckPrimaryDirty, projectOperationGenerationRef,
+    projectRef, save, showActiveAsset,
+  ]);
 
   type DropPaperContent = {
     kind: "paper";
@@ -3558,8 +3578,13 @@ function App() {
       if (isCurrentDrop()) setError(toMessage(reason));
     }
   }, [
-    activeCollabVersion, canvasMode, dualPanePreview, loadFile, openPaper, openProjectAsset, openProjectFile,
-    openTabs, activePaper, paperSide, paperView, papers, projectAssetPaths, save, t,
+    activeAssetRef, activeCollabVersion, activeFileRef, activePaper, addOpenTab, canvasMode,
+    clearSecondaryPane, closePaper, dualPanePreview, loadFile, openPaper, openProjectAsset, openProjectFile,
+    openTabs, paperBlogRef, paperMarkdownRef, papers, paperSide, paperView, projectAssetPaths,
+    projectOperationGenerationRef, projectRef, save, savedPaperBlogRef, savedPaperMarkdownRef, savedSourceRef,
+    secondaryAssetRef, secondaryFileRef, secondarySavedRef, secondarySourceRef, setActivePaper,
+    setPaperBuffers, setPaperSide, setPaperView, showActiveAsset, showSecondaryAsset, showSecondaryText,
+    sourceRef, t,
   ]);
   const closeSplitView = useCallback(() => {
     if (!isTwoPane(canvasMode)) return;
@@ -3690,9 +3715,10 @@ function App() {
     if (path !== activeFile) return;
     if (fileFallback) await openProjectFile(fileFallback);
   }, [
-    activeAsset, activeFile, activePaper, canvasMode, dropProjectPath, dualPanePreview,
-    flushAndCheckPrimaryDirty, loadFile, openProjectFile, projectAssetPaths, save, secondaryAsset,
-    secondaryFile,
+    activeAsset, activeFile, activePaper, canvasMode, closePaper, dropProjectPath, dualPanePreview,
+    flushAndCheckPrimaryDirty, loadFile, openProjectFile, paperBuffersDirty, projectAssetPaths, projectRef,
+    save, savedSourceRef, secondaryAsset, secondaryFile, secondarySavedRef, secondarySourceRef,
+    showActiveAsset, showSecondaryAsset, showSecondaryText, sourceRef,
   ]);
 
   useEffect(() => {
@@ -3729,7 +3755,7 @@ function App() {
         setWorkspacePersistenceReadyRoot(pending.root);
       }
     })();
-  }, [changePaperView, openPaper, openProjectAsset, papers, project?.root]);
+  }, [changePaperView, openPaper, openProjectAsset, papers, project?.root, projectRef]);
 
   const referenceImages = useReferenceImages(project?.root, references);
 
@@ -3767,7 +3793,7 @@ function App() {
     }
     if (isProjectAssetFilePath(resolvedPath)) openProjectAssetFromClick(resolvedPath);
     else openProjectFileFromClick(resolvedPath);
-  }, [changePaperView, openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers]);
+  }, [changePaperView, openPaper, openProjectAssetFromClick, openProjectFileFromClick, papers, projectRef]);
   useEffect(() => {
     openMarkdownProjectPathRef.current = openMarkdownProjectPath;
   }, [openMarkdownProjectPath]);
@@ -3836,7 +3862,10 @@ function App() {
     showSecondaryText(candidate, content);
     addOpenTab(candidate);
     return candidate;
-  }, [activeCollabVersion, openTabs, projectAssetPaths, secondaryFile]);
+  }, [
+    activeCollabVersion, activeFileRef, addOpenTab, openTabs, projectAssetPaths, projectOperationGenerationRef,
+    projectRef, secondaryFile, showSecondaryText,
+  ]);
 
   const openDocumentMode = useCallback((mode: DocumentViewMode) => {
     const viewGeneration = documentViewGenerationRef.current + 1;
@@ -3982,8 +4011,9 @@ function App() {
       setCanvasMode(nextMode);
     })();
   }, [
-    activeAsset, activeFile, activePaper, activePaperDirty, canvasMode, dropProjectPath, ensureSecondaryFile,
-    focusedPane, save, secondaryAsset, secondaryFile,
+    activeAsset, activeAssetRef, activeFile, activeFileRef, activePaper, activePaperDirty, addOpenTab,
+    canvasMode, closePaper, dropProjectPath, ensureSecondaryFile, focusedPane, projectRef, save,
+    secondaryAsset, secondaryAssetRef, secondaryFile, secondaryFileRef, showActiveAsset,
   ]);
 
   const splitDocumentView = useCallback(() => {
@@ -4050,8 +4080,9 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeFile, flushAndCheckPrimaryDirty, loadFile, save, secondaryFile, secondarySavedSource,
-    secondarySource,
+    activeFile, flushAndCheckPrimaryDirty, loadFile, projectOperationGenerationRef, projectRef, save,
+    savedSourceRef, secondaryFile, secondarySavedSource, secondarySource, secondarySourceRef,
+    showSecondaryText, sourceRef,
   ]);
 
   const createProjectEntry = useCallback(async (
@@ -4148,7 +4179,7 @@ function App() {
       setAssetImporting(false);
       setAssetDropTarget(null);
     }
-  }, [allowViewState, assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2]);
+  }, [allowViewState, assetImporting, project?.root, refreshProject, shareCreatedFileWithCollabV2, t]);
 
   /**
    * Run an import into the project tree and settle what it added: re-admit
@@ -4281,7 +4312,7 @@ function App() {
             // Checked ahead of the source/mixed branches: any file the agent
             // can read (figures and text sources alike) becomes an attachment.
             void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", { paths: event.payload.paths })
-              .then((files) => synara.postMessage(buildAgentComposerFilesMessage(files)))
+              .then((files) => postSynaraMessage(buildAgentComposerFilesMessage(files)))
               .catch((error) => setError(toMessage(error)));
           } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
             void importProjectSources(event.payload.paths).then(async (paths) => {
@@ -4320,7 +4351,10 @@ function App() {
       active = false;
       dispose();
     };
-  }, [importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset, synara.postMessage, project]);
+  }, [
+    activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset,
+    postSynaraMessage, project, secondaryFileRef,
+  ]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
     try {
@@ -4524,9 +4558,10 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeAsset, activeCollabVersion, activeFile, activePaper, canvasMode, dualPanePreview,
-    forgetViewStates, loadFile, overleafLink, project, refreshHistory, refreshProject, secondaryAsset,
-    secondaryFile, settleRemoteDeletes, t,
+    activeAsset, activeCollabVersion, activeFile, activeFileRef, activePaper, canvasMode, clearSecondaryPane,
+    dualPanePreview, forgetViewStates, loadFile, overleafLink, project, projectOperationGenerationRef,
+    refreshHistory, refreshProject, savedSourceRef, secondaryAsset, secondaryFile, setActiveFile,
+    setSavedSource, setSource, settleRemoteDeletes, showActiveAsset, sourceRef, t,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
@@ -4535,7 +4570,7 @@ function App() {
 
     remapViewStates(changes, remapPath);
     setProject((current) => current ? applyProjectPathChanges(current, changes) : current);
-    projectGit.setGitStatus((current) => ({
+    setGitStatus((current) => ({
       ...current,
       files: current.files.map((file) => ({ ...file, path: remapPath(file.path) })),
     }));
@@ -4557,7 +4592,7 @@ function App() {
     } : current);
 
     tabRecency.current = tabRecency.current.map(remapPath);
-  }, [remapOpenPaths, remapViewStates]);
+  }, [remapOpenPaths, remapViewStates, setBuild, setGitStatus, setProject]);
 
   const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
     try {
@@ -4579,7 +4614,10 @@ function App() {
       await reconcileProjectTree().catch(() => undefined);
       throw reason;
     }
-  }), [activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, reconcileProjectTree, withTreeMutation]);
+  }), [
+    activeCollabVersion, activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
+    reconcileProjectTree, withTreeMutation,
+  ]);
 
   const moveProjectEntries = useCallback(async (
     paths: string[],
@@ -4692,8 +4730,10 @@ function App() {
       }
     });
   }, [
-    activeCollabVersion, applyProjectEntryPathChanges, markDiskMtime, project?.root, projectAssetPaths,
-    publishTextToCollabV2, reconcileProjectTree, save, setPrimarySource, setSecondarySourceLive, t,
+    activeCollabVersion, activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
+    projectAssetPaths, publishTextToCollabV2, reconcileProjectTree, save, savedSourceRef, secondaryFileRef,
+    secondarySavedRef, secondarySourceRef, setPrimarySource, setSavedSource, setSecondarySavedSource,
+    setSecondarySourceLive, sourceRef, t, withTreeMutation,
   ]);
 
   /** List every occurrence of a label or citation key in the references panel. */
@@ -4735,7 +4775,10 @@ function App() {
     } catch (reason) {
       setRenameError(toMessage(reason));
     }
-  }, [activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences]);
+  }, [
+    activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, setCitationKeys, setCitations,
+    setReferences, showSymbolReferences,
+  ]);
 
   const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
     try {
@@ -4987,15 +5030,17 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeFile, activePaper, activeCollabVersion, collabSession, markDiskMtime, project, publishTextToCollabV2,
-    refreshHistory, refreshProject, save, secondaryFile, t,
+    activeCollabVersion, activeFile, activeFileRef, activePaper, closePaper, collabSession, commitPrimaryText,
+    commitSecondaryText, markDiskMtime, project, projectOperationGenerationRef, projectRef,
+    publishTextToCollabV2, refreshHistory, refreshProject, save, secondaryFile, secondaryFileRef,
+    secondarySourceRef, sourceRef, t,
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
-    if (isSynaraSettingsTab(tab)) synara.requestRuntime();
+    if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
     setSettingsTab(tab);
     setSettingsOpen(true);
-  }, []);
+  }, [requestSynaraRuntime]);
 
 
   /** Move this workspace to another surface (browser or desktop app): claim the switch, roll it back on failure. */
