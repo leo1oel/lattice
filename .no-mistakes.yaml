@@ -1,0 +1,40 @@
+# no-mistakes pipeline config. See
+# https://github.com/kunchenguid/no-mistakes (docs/.../reference/repo-config.md).
+#
+# `commands` and `test.instructions` are read only from the default branch, so
+# edits here take effect for pipeline runs once they land on main.
+#
+# The test step must never launch the Lattice desktop app: a desktop build runs
+# with the user's real home directory and files. Validation stays on the
+# frontend's own suites and the Vite frontend against a mocked backend.
+
+commands:
+  # Run worktrees start with tracked files only, so node_modules is absent.
+  prepare: "pnpm install --frozen-lockfile"
+  # Typecheck (tsc over src/ and tools/, noEmit) plus the Vitest suite. cargo
+  # test is left to `pnpm check` and CI: it needs the runtime resource stubs
+  # and a cold Tauri compile per run worktree, which is not targeted validation.
+  test: "pnpm exec tsc && pnpm test"
+  lint: "pnpm lint"
+
+test:
+  instructions: |
+    Never launch the Lattice desktop app. That means never running
+    `pnpm tauri dev`, `pnpm tauri build`, `cargo run`, any bundled Lattice.app,
+    or the Rust host binary (`research-writer`, including
+    `research-writer --browser-host`), and never driving a real-app session
+    (including Playwright WebKit or CDP attached to a running Lattice host).
+    A desktop build reaches the user's real home directory and files.
+
+    Verify changes only with:
+    - the configured test and lint commands;
+    - targeted unit and integration tests (`pnpm vitest run <file>`), which run
+      under jsdom with a mocked Tauri `invoke`;
+    - browser-only checks of the Vite frontend (`pnpm dev`) against a mocked
+      backend that the check itself supplies (for example `mockIPC` from
+      `@tauri-apps/api/mocks`), with no Tauri host process behind it. Never
+      connect the page to a real host through the browser-host bridge
+      (`src/platform/browser-runtime.ts`).
+
+    If a change can only be verified in the real desktop app, say so in the
+    test report instead of launching it.
