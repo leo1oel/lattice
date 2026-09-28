@@ -125,19 +125,26 @@ describe("browser bridge serialization", () => {
   const bytes = Uint8Array.from({ length: 70_000 }, (_, index) => index % 251);
   const payload = new Uint8Array([0, 1, 2, 253, 254, 255]);
   it.each([
-    ["round-trips binary command bodies across more than one base64 chunk", bytes, bytes.buffer],
+    [
+      "round-trips binary command bodies across more than one base64 chunk",
+      bytes,
+      (decoded: ArrayBuffer) => new Uint8Array(decoded),
+      bytes,
+    ],
     [
       "preserves binary values nested in ordinary invoke arguments",
       { path: "figures/result.png", payload: payload.buffer },
-      { path: "figures/result.png", payload: payload.buffer },
+      (decoded: { path: string; payload: ArrayBuffer }) => ({ ...decoded, payload: new Uint8Array(decoded.payload) }),
+      { path: "figures/result.png", payload },
     ],
     [
       "uses Tauri's custom IPC serializer when a value supplies one",
       { __TAURI_TO_IPC_KEY__: () => ({ Logical: { width: 1200, height: 680 } }) },
+      (decoded: unknown) => decoded,
       { Logical: { width: 1200, height: 680 } },
     ],
-  ])("%s", (_, value, expected) => {
-    expect(decodeBridgeValue(encodeBridgeValue(value))).toEqual(expected);
+  ] as [string, unknown, (decoded: never) => unknown, unknown][])("%s", (_, value, view, expected) => {
+    expect(view(decodeBridgeValue(encodeBridgeValue(value)) as never)).toStrictEqual(expected);
   });
 });
 
