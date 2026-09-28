@@ -320,6 +320,7 @@ export function OnboardingTour(props: {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", scheduleUpdate);
       observer.disconnect();
+      setBlogSpotlight(null);
     };
   }, [props.stepIndex]);
 

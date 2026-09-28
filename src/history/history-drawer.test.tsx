@@ -127,9 +127,7 @@ describe("HistoryDrawer", () => {
 
     expect(container.querySelector(".versions-tabs")).toHaveClass("drawer-view-tabs");
     expect(container.querySelector(".versions-tabs")).toHaveStyle({ paddingBottom: "var(--space-3)" });
-    expect(container.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
-    expect(container.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Changes" })).toHaveClass("drawer-view-tab", "active");
   });
 

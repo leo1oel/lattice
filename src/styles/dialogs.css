@@ -648,7 +648,6 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .settings-nav button.active { background: var(--control-active-soft); color: var(--control-active); font-weight: 600; }
 .settings-content { min-width: 0; background: var(--surface-panel-raised); }
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
-.synara-settings-embed[data-active="false"] { overflow: hidden; visibility: hidden; pointer-events: none; }
 .synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--duration-quick) var(--ease-default); }
 .synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; }
 .synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }

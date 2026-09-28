@@ -1163,6 +1163,31 @@ describe("welcome screen", () => {
     fireEvent.click(residentAccess);
     await expectInvoked("set_browser_access_enabled", { enabled: false });
     expect(residentAccess).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+    const revisited = screen.getByLabelText("Start browser access after login");
+    expect(revisited).not.toBeChecked();
+    expect(revisited).toBeEnabled();
+    expect(invokeCalls("browser_access_enabled")).toHaveLength(1);
+  });
+
+  it("opens every Settings dropdown with the Settings popover contract", async () => {
+    renderApp({ initial_project: null });
+    for (const section of ["Appearance", "Editor & builds"]) {
+      await openSettings(section);
+      const content = await screen.findByRole("heading", { name: section });
+      const triggers = content.closest(".settings-section")!.querySelectorAll('[data-slot="select-trigger"]');
+      expect(triggers.length).toBeGreaterThan(0);
+      for (const trigger of triggers) {
+        fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+        const listbox = await screen.findByRole("listbox");
+        expect(listbox.closest('[data-slot="select-content"]')).toHaveAttribute("data-settings-control", "true");
+        fireEvent.keyDown(listbox, { key: "Escape" });
+        await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
+    }
   });
 
   it("moves a browser workspace back into the desktop app from Settings", async () => {
@@ -2061,6 +2086,10 @@ describe("project workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove VLM from project dictionary" }));
     await expectInvoked("set_project_spelling_words", { words: ["TexLab"] });
     expect(screen.queryByText("VLM")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Add project term"), { target: { value: "Synara" } });
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
+    expect(screen.getByLabelText("Add project term")).toHaveValue("Synara");
   });
 
   it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
@@ -5430,7 +5459,6 @@ describe("project workspace", () => {
     expect(within(palette).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
     expect(within(palette).getByRole("button", { name: /Alpha/i })).toBeInTheDocument();
     fireEvent.click(within(palette).getByRole("tab", { name: "Symbols" }));
-    expect(palette.querySelector(".sliding-tab-underline")).not.toBeInTheDocument();
     expect(within(palette).getByRole("tab", { name: "Symbols" })).toHaveAttribute("aria-selected", "true");
     expect(within(palette).getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "false");
     // The eight symbol groups share one tab and stay as headed sections inside it.

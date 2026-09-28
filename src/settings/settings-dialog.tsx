@@ -101,6 +101,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const settingsNavItems = settingsNavGroups
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
+  const browser = useBrowserWorkspace(props);
+  const [projectWordDraft, setProjectWordDraft] = useState("");
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
   const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot && synaraSettingsSection
@@ -133,8 +135,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   }, [props.tab, synaraSettingsUrl]);
 
   const panes: Partial<Record<SettingsTab, ReactNode>> = {
-    appearance: <AppearanceSettingsPane {...props} />,
-    editor: <EditorSettingsPane {...props} />,
+    appearance: <AppearanceSettingsPane {...props} browser={browser} />,
+    editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
     overleaf: (
@@ -210,8 +212,7 @@ function patchAppearance(props: SettingsDialogProps, patch: Partial<AppearanceSe
   props.setAppearance({ ...props.appearance, ...patch });
 }
 
-function AppearanceSettingsPane(props: SettingsDialogProps) {
-  const { t } = useLingui();
+function useBrowserWorkspace(props: SettingsDialogProps) {
   const [browserOpening, setBrowserOpening] = useState(false);
   const [browserOpenError, setBrowserOpenError] = useState("");
   const [browserAccessEnabled, setBrowserAccessEnabled] = useState(false);
@@ -248,6 +249,30 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
       setBrowserOpening(false);
     });
   };
+  return {
+    browserOpening,
+    browserOpenError,
+    browserAccessEnabled,
+    browserAccessLoading,
+    browserOutsideChromium,
+    updateBrowserAccess,
+    moveWorkspace,
+  };
+}
+
+type BrowserWorkspace = ReturnType<typeof useBrowserWorkspace>;
+
+function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { browser: BrowserWorkspace }) {
+  const { t } = useLingui();
+  const {
+    browserOpening,
+    browserOpenError,
+    browserAccessEnabled,
+    browserAccessLoading,
+    browserOutsideChromium,
+    updateBrowserAccess,
+    moveWorkspace,
+  } = browser;
   const moveLabel = browserOutsideChromium ? t`Open desktop app` : t`Open in browser`;
 
   return (
@@ -369,12 +394,14 @@ function useUpdateStatus(updater: UpdaterApi): { title: string; detail: string }
   };
 }
 
-function EditorSettingsPane(props: SettingsDialogProps) {
+function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }: SettingsDialogProps & {
+  projectWordDraft: string;
+  setProjectWordDraft: (draft: string) => void;
+}) {
   const { t } = useLingui();
   const updater = useUpdater();
   const updateStatus = useUpdateStatus(updater);
   const semanticSearchDetail = useSemanticSearchDetail(props.localSemanticSearchEnabled, props.localSemanticSearchStatus);
-  const [projectWordDraft, setProjectWordDraft] = useState("");
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
   const updateBusy = ["checking", "downloading", "installing"].includes(updater.phase);
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
