@@ -233,7 +233,10 @@ it adds no commits. A regression worth catching multiplies a count.
 
 The techniques came from Anthropic's write-up on making claude.ai faster. Each
 fix below was found by the benchmark or a trace and checked by it afterwards.
-Counts are per interaction on the production build, best of two runs.
+Counts are per interaction on the production build, best of two runs. The
+code-block row predates pacing `code-highlight`'s keystrokes past the
+publication idle, so that scenario now publishes on every key and counts more
+than the row shows.
 
 | Interaction | commits | renders | hooks | recalcs | layouts | mutations |
 | --- | --- | --- | --- | --- | --- | --- |
